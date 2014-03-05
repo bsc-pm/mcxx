@@ -741,7 +741,7 @@ namespace TL
                         if (nontemporal_it != _environment._nontemporal_expr_map.end() &&
                                 mask.is_null()) // So far, only supported without masks
                         {
-                            //DEBUG_CODE()
+                            DEBUG_CODE()
                             {
                                 fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -763,7 +763,7 @@ namespace TL
                         }
                         else
                         {
-                            //DEBUG_CODE()
+                            DEBUG_CODE()
                             {
                                 fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -788,7 +788,7 @@ namespace TL
                        if (_environment._prefer_gather_scatter ||
                                 (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Store or Scatter
                         {
-                            //DEBUG_CODE()
+                            DEBUG_CODE()
                             {
                                 fprintf(stderr, "VECTORIZER: Unaligned store (Scatter used) '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -819,7 +819,7 @@ namespace TL
                         }
                         else
                         {
-                            //DEBUG_CODE()
+                            DEBUG_CODE()
                             {
                                 fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -1035,7 +1035,7 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._vector_length))
                 {
-                    //DEBUG_CODE()
+                    DEBUG_CODE()
                     {
                         fprintf(stderr, "VECTORIZER: Aligned load   '%s'\n",
                             n.prettyprint().c_str());
@@ -1060,7 +1060,7 @@ namespace TL
                     if(_environment._prefer_gather_scatter ||
                             (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                     {
-                        //DEBUG_CODE()
+                        DEBUG_CODE()
                         {
                             fprintf(stderr, "VECTORIZER: Unaligned load (gather used) '%s'\n",
                                     n.prettyprint().c_str());
@@ -1090,7 +1090,7 @@ namespace TL
                     }
                     else
                     {
-                        //DEBUG_CODE()
+                        DEBUG_CODE()
                         {
                             fprintf(stderr, "VECTORIZER: Unaligned load '%s'\n",
                                     n.prettyprint().c_str());

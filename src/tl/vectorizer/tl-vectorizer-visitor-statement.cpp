@@ -194,7 +194,12 @@ namespace TL
 
                 walk(n.get_then());
 
-                printf("IF HEURISTIC: %d, THRESHOLD: %d\n", mask_check_cost_if, MASK_CHECK_THRESHOLD);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Masking 'if' cost heuristic: %d, threshold: %d\n", 
+                            mask_check_cost_if, MASK_CHECK_THRESHOLD);
+                }
+
                 // Add mask check if necessary
                 if(mask_check_cost_if > MASK_CHECK_THRESHOLD)
                 {
@@ -237,7 +242,12 @@ namespace TL
 
                     walk(n.get_else());
 
-                    printf("ELSE HEURISTIC: %d, THRESHOLD: %d\n", mask_check_cost_else, MASK_CHECK_THRESHOLD);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Masking 'else' cost: %d, threshold: %d\n", 
+                                mask_check_cost_else, MASK_CHECK_THRESHOLD);
+                    }
+
                     // Add mask check if necessary
                     if(mask_check_cost_else > MASK_CHECK_THRESHOLD)
                     {
