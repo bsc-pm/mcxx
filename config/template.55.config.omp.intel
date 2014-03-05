@@ -4,7 +4,8 @@ language = C
 preprocessor_name = @ICC@
 compiler_name = @ICC@
 linker_name = @ICC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99 --variable=intel_compiler_profile:1  
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99 --variable=intel_compiler_profile:1
+{mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
@@ -26,7 +27,8 @@ language = C++
 preprocessor_name = @ICPC@
 compiler_name = @ICPC@
 linker_name = @ICPC@
-options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --variable=intel_compiler_profile:1   
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types --variable=intel_compiler_profile:1
+{mmic} options = --variable=prefer_mask_gather_scatter:1 #Ticket 1981
 {mmic} preprocessor_options = -mmic
 {mmic} compiler_options = -mmic
 {mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
