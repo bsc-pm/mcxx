@@ -13649,10 +13649,12 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
                     adjusted_type_info = get_pointer_type(adjusted_type_info);
                 }
 
-                adjusted_type_info = get_unqualified_type(adjusted_type_info);
+                parameter_info[parameter_position].type_info = get_unqualified_type (adjusted_type_info);
+                parameter_info[parameter_position].nonadjusted_type_info = declarator_type;
 
-                parameter_info[parameter_position].type_info = adjusted_type_info;
-                parameter_info[parameter_position].nonadjusted_type_info = entry->type_information;
+                // Fix the type of the parameter
+                if (!equivalent_types(entry->type_information, adjusted_type_info))
+                    entry->type_information = adjusted_type_info;
 
                 i++;
             }
