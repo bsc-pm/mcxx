@@ -373,32 +373,69 @@ namespace Analysis {
     ObjectList<Node*> PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
                                                           const Nodecl::NodeclBase& case_val )
     {
-        // Build case nodes
-        ObjectList<Node*> case_stmts = walk( case_stmt );
+        Node* case_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), case_stmt, __SwitchCase );
         
-        // Set the edge between the Case and the Switch condition
-        if( !case_stmts.empty( ) )
+        // If this is the first case of a switch statement, we need to set the 'condition' of the switch,
+        // which is not the condition itself, but the entry node of the context generated inside the switch
+        if( _utils->_last_nodes.size( ) == 1 && _utils->_last_nodes[0]->is_entry_node( ) && 
+            _utils->_last_nodes[0]->get_outer_node( )->is_context_node( ) )
         {
-            Edge* e;
-            if( case_stmts[0]->is_break_node( ) )
-                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, _utils->_switch_nodes.top( )->_exit, __Case );
-            else
-                e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_stmts[0], __Case );
-
-            std::string label;
-            if( !case_val.is_null( ) )
-                label = case_val.prettyprint( );
-            else
-                label = "default";
-            e->set_label( label );
-
-            if( case_stmts.back( )->get_type( ) != __Break )
-                _utils->_last_nodes = ObjectList<Node*>( 1, case_stmts.back( ) );
+            ERROR_CONDITION( _utils->_switch_nodes.top( )->_condition != NULL, 
+                             "When visiting the first case of a Switch statement, "
+                             "the PCFG node containing the condition of the Switch should be NULL, "
+                             "because it shall be set to the Entry node of the Context node created inside the Switch.\n", 0 );
+            _utils->_switch_nodes.top( )->set_condition( _utils->_last_nodes[0] );
         }
+        
+        _pcfg->connect_nodes( _utils->_last_nodes, case_node );
+        Edge* e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_node, __Case );
+        std::string label;
+        if( !case_val.is_null( ) )
+            label = case_val.prettyprint( );
         else
-        {}   // The case is empty. Nothing to do
-
-        return case_stmts;
+            label = "default";
+        e->add_label( label );
+        
+        Node* entry_node = case_node->get_graph_entry_node( );
+        Node* exit_node = case_node->get_graph_exit_node( );
+        
+        // Build case nodes
+        // Traverse the statements of the current case|default
+        _utils->_last_nodes = ObjectList<Node*>( 1, entry_node );
+        _utils->_break_nodes.push( exit_node );
+        ObjectList<Node*> case_stmts = walk( case_stmt );
+        _utils->_break_nodes.pop( );
+        
+        exit_node->set_id( ++( _utils->_nid ) );
+        
+        // Set Case node as _last_nodes when it does not end with a break statement
+        if( case_stmts.empty( ) )
+        {   // Case without statements => Connect Case entry and exit nodes
+            // 1.- case XX:
+            // 2.- case YY: break;
+            _pcfg->connect_nodes( entry_node, exit_node );
+            _utils->_last_nodes = ObjectList<Node*>( 1, case_node );
+        }
+        else 
+        {
+            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+            if( (case_stmts.size( ) == 1) && 
+                 ( ( !case_stmts[0]->is_context_node( ) && !case_stmts[0]->is_break_node( ) ) || 
+                   ( case_stmts[0]->is_context_node( ) && !case_stmts[0]->get_graph_exit_node( )->get_parents( ).empty( ) ) ) )
+            {   // Case not ending with a break statement
+                // 1.- case XX : ... ; break;
+                // 2.- case YY: ...;
+                _utils->_last_nodes = ObjectList<Node*>( 1, case_node );
+            }
+            else
+            {   // Case ending with a break statement
+                // 1.- case XX : { ... ; break; }
+                _pcfg->connect_nodes( exit_node, _utils->_switch_nodes.top( )->_exit );
+            }
+        }
+            
+        _utils->_outer_nodes.pop( );
+        return ObjectList<Node*>(1, case_node);
     }
     
     template <typename T>
@@ -798,7 +835,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::BreakStatement& n )
     {
-        // The only case when '_utils->_last_nodes' can be empy is when a Case Statement has no statements
+        // The only case when '_utils->_last_nodes' can be empty is when a Case Statement has no statements
         Node* break_node;
         if( _utils->_last_nodes.empty( ) )
             break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, __Break );
@@ -1008,7 +1045,8 @@ namespace Analysis {
         // Create the condition node
         _utils->_last_nodes.clear();
         Node* condition_node = walk( n.get_condition( ) )[0];
-
+        do_graph_node->set_condition_node( condition_node );
+        
         // Create the do statements nodes
         _utils->_last_nodes = ObjectList<Node*>( 1, do_graph_node->get_graph_entry_node( ) );
         _utils->_continue_nodes.push( condition_node );
@@ -1201,6 +1239,8 @@ namespace Analysis {
             cond->set_outer_node( for_graph_node );
             _pcfg->connect_nodes( entry_node, cond );
             _utils->_last_nodes = ObjectList<Node*>( 1, cond );
+            
+            for_graph_node->set_condition_node( cond );
         }
         else
         {
@@ -1287,7 +1327,7 @@ namespace Analysis {
         _utils->_nested_loop_nodes.pop( );
         _utils->_outer_nodes.pop( );
         _utils->_last_nodes = ObjectList<Node*>( 1, for_graph_node );
-
+        
         return ObjectList<Node*>( 1, for_graph_node );
     }
 
@@ -1422,6 +1462,7 @@ namespace Analysis {
         Node* cond_node = walk( n.get_condition( ) )[0];
         _pcfg->connect_nodes( if_else_graph_node->get_graph_entry_node( ), cond_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
+        if_else_graph_node->set_condition_node( cond_node );
 
         // Compose the then node
         ObjectList<Node*> then_node_l = walk( n.get_then( ) );
@@ -2804,11 +2845,16 @@ namespace Analysis {
         // Build condition node
         ObjectList<Node*> cond_last_nodes = _utils->_last_nodes;
         ObjectList<Node*> cond_node_l = walk( n.get_switch( ) );
-        _pcfg->connect_nodes( entry_node, cond_node_l[0] );
+        Node* cond = cond_node_l[0];
+        _pcfg->connect_nodes( entry_node, cond );
+        switch_node->set_condition_node( cond );
         
         // Compose the statements nodes
-        _utils->_last_nodes = ObjectList<Node*>( 1, cond_node_l[0] );
-        _utils->_switch_nodes.push( new PCFGSwitch( cond_node_l[0], exit_node ) );
+        _utils->_last_nodes = ObjectList<Node*>( 1, cond );
+        _utils->_switch_nodes.push( new PCFGSwitch( NULL, exit_node ) ); // We set the condition as NULL because 
+                                                                         // the node used as condition is the entry node 
+                                                                         // of the context node generated immediately inside the switch statement
+                                                                         // This will be set when visiting the first case of the switch
         _utils->_break_nodes.push( exit_node );
         walk( n.get_statement( ) );
         _utils->_break_nodes.pop( );
@@ -2816,7 +2862,7 @@ namespace Analysis {
 
         // Correct wrong edges from the switch condition to its children
         // This edges must go from the inner context entry to the children
-        ObjectList<Node*> cond_children = cond_node_l[0]->get_children( );
+        ObjectList<Node*> cond_children = cond->get_children( );
         Node* switch_ctx = NULL;
         for( ObjectList<Node*>::iterator it = cond_children.begin( ); it != cond_children.end( ); ++it )
             if( ( *it )->is_context_node( ) )
@@ -2825,13 +2871,13 @@ namespace Analysis {
                 break;
             }
         ERROR_CONDITION( switch_ctx == NULL, "A switch condition node must have a context node as child, "\
-                         "but %d does not have one", cond_node_l[0]->get_id( ) );
+                         "but %d does not have one", cond->get_id( ) );
         Node* ctx_entry = switch_ctx->get_graph_entry_node( );
         for( ObjectList<Node*>::iterator it = cond_children.begin( ); it != cond_children.end( ); ++it )
             if( *it != switch_ctx )
             {
-                Edge* e = ExtensibleGraph::get_edge_between_nodes( cond_node_l[0], *it );
-                _pcfg->disconnect_nodes( cond_node_l[0], *it );
+                Edge* e = ExtensibleGraph::get_edge_between_nodes( cond, *it );
+                _pcfg->disconnect_nodes( cond, *it );
                 _pcfg->connect_nodes( ctx_entry, *it, e->get_type( ), e->get_label( ) );
             }
         
@@ -3312,7 +3358,8 @@ namespace Analysis {
         Node* cond_node = walk( n.get_condition( ) )[0];
         _pcfg->connect_nodes( while_graph_node->get_graph_entry_node( ), cond_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, cond_node );
-
+        while_graph_node->set_condition_node( cond_node );
+        
         // Build the while body node/s
         _utils->_continue_nodes.push( cond_node );
         _utils->_break_nodes.push( while_exit );

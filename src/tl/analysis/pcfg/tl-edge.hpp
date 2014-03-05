@@ -85,9 +85,9 @@ namespace Analysis {
                 is returned.
         */
         std::string get_label( );
-
+        void add_label( std::string label );
         void set_label( std::string label );
-
+        
         void set_true_edge( );
         void set_false_edge( );
         void set_catch_edge( );

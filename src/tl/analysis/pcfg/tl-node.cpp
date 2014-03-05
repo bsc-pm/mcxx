@@ -357,6 +357,11 @@ namespace Analysis {
         return ( ( get_type( ) == __Graph ) && get_graph_type( ) == __Switch );
     }
 
+    bool Node::is_switch_case_node( )
+    {
+        return ( ( get_type( ) == __Graph ) && get_graph_type( ) == __SwitchCase );
+    }
+    
     bool Node::is_goto_node( )
     {
         return ( get_type( ) == __Goto );
@@ -1486,9 +1491,7 @@ namespace Analysis {
         {
             ObjectList<Utils::InductionVariableData*> ivs;
             if( has_key( _INDUCTION_VARS ) )
-            {
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );
-            }
 
             ivs.insert( iv );
             set_data( _INDUCTION_VARS, ivs );
@@ -1500,13 +1503,50 @@ namespace Analysis {
         }
     }
 
+    Node* Node::get_condition_node( )
+    {
+        if( is_graph_node() )
+        {
+            if( is_for_loop() || is_switch_statement() || is_ifelse_statement() )
+                return get_data<Node*>( _CONDITION_NODE );
+            
+            internal_error( "Unexpected graph type '%s' while getting the condition node of loop node '%d'. LOOP|SWITCH|IFELSE expected",
+                            get_graph_type_as_string( ).c_str( ), _id );
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while getting condition node of loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+    
+    void Node::set_condition_node( Node* cond )
+    {
+        if( is_graph_node( ) )
+        {
+            if( is_for_loop() || is_switch_statement() || is_ifelse_statement() )
+            {
+                set_data( _CONDITION_NODE, cond );
+            }
+            else
+            {
+                internal_error( "Unexpected graph type '%s' while setting the condition node to loop node '%d'. LOOP expected",
+                                get_graph_type_as_string( ).c_str( ), _id );
+            }
+        }
+        else
+        {
+            internal_error( "Unexpected node type '%s' while setting condition node to loop graph node '%d'. GRAPH NODE expected.",
+                            get_type_as_string( ).c_str( ), _id );
+        }
+    }
+    
     // FIXME Other loop nodes can have a stride
     Node* Node::get_stride_node( )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
+        if( is_graph_node( ) )
         {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == __LoopFor )
+            if( is_for_loop( ) )
             {
                 return get_data<Node*>( _STRIDE_NODE );
             }
@@ -1522,14 +1562,13 @@ namespace Analysis {
                             get_type_as_string( ).c_str( ), _id );
         }
     }
-
+    
     // FIXME Other loop nodes can have a stride
     void Node::set_stride_node( Node* stride )
     {
-        if( get_data<Node_type>( _NODE_TYPE ) == __Graph )
+        if( is_graph_node( ) )
         {
-            Graph_type graph_type = get_data<Graph_type>( _GRAPH_TYPE );
-            if( graph_type == __LoopFor )
+            if( is_for_loop( ) )
             {
                 set_data( _STRIDE_NODE, stride );
             }
