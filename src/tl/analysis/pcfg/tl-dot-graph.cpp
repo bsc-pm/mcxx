@@ -305,10 +305,8 @@ namespace {
                 _subgraph_id++;
 
                 // Print inner nodes of the graph
-                std::vector<std::string> new_outer_edges; 
-                outer_edges.push_back( new_outer_edges );
-                std::vector<Node*> new_outer_nodes; 
-                outer_nodes.push_back( new_outer_nodes );
+                outer_edges.push_back( std::vector<std::string>() );
+                outer_nodes.push_back( std::vector<Node*>() );
                 get_dot_subgraph( current, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent + "\t" );
                 dot_graph += indent + "}\n";
                 
@@ -387,22 +385,20 @@ namespace {
             if( current->is_graph_node( ) && !outer_edges.empty( ) )
             {
                 // Printing the nodes
+                std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
+                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
+                // so we have to iterate over again
+                unsigned int last_nodes_size = current_outer_nodes.size( );
+                while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
                 {
-                    std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
-                    for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
-                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                    // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
-                    // so we have to iterate over again
-                    unsigned int last_nodes_size = current_outer_nodes.size( );
-                    while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
-                    {
-                        current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
-                        for( unsigned int i = last_nodes_size; i < current_outer_nodes.size( ); ++i )
-                            get_nodes_dot_data( current_outer_nodes[i], dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                        last_nodes_size = current_outer_nodes.size( );
-                    }
-                    outer_nodes.pop_back( );
+                    current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                    for( unsigned int i = last_nodes_size; i < current_outer_nodes.size( ); ++i )
+                        get_nodes_dot_data( current_outer_nodes[i], dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                    last_nodes_size = current_outer_nodes.size( );
                 }
+                outer_nodes.pop_back( );
                 
                 // Printing the edges
                 std::vector<std::string> current_outer_edges = outer_edges[outer_edges.size( )-1];
@@ -434,6 +430,7 @@ namespace {
             case __LoopWhile:
             case __SplitStmt:
             case __Switch:
+            case __SwitchCase:
                 dot_graph += indent + "color=grey45;\n";
                 break;
             case __OmpAtomic:

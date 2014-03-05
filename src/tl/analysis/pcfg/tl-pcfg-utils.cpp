@@ -73,6 +73,10 @@ namespace Analysis {
         delete _exit;
     }
 
+    void PCFGSwitch::set_condition( Node* condition )
+    {
+        _condition = condition;
+    }
 
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
