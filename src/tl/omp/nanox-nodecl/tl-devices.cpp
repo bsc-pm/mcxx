@@ -804,6 +804,10 @@ namespace TL { namespace Nanox {
 
             // FIXME - We should do all the remaining lvalue adjustments
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
+            if (is_restrict_qualified_type(it2->get_internal_symbol()->type_information))
+            {
+                it_ptypes->type_info = get_restrict_qualified_type(it_ptypes->type_info);
+            }
         }
 
         type_t *function_type = get_new_function_type(get_void_type(),

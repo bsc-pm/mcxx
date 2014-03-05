@@ -12436,13 +12436,17 @@ static void check_nodecl_member_access(
             nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
+        cv_qualifier_t cv_field = CV_NONE;
+        advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+        cv_field = cv_accessed | cv_field;
+
         ok = 1;
 
         *nodecl_output = nodecl_make_class_member_access(
                 nodecl_field,
                 nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
                 /* member form */ nodecl_null(),
-                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_accessed)),
+                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_field)),
                 nodecl_get_locus(nodecl_accessed));
     }
 

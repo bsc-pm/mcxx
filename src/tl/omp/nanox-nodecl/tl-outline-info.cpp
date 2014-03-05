@@ -869,6 +869,12 @@ namespace TL { namespace Nanox {
 
         outline_info.set_field_type(t.get_unqualified_type());
 
+        if (t.is_restrict())
+        {
+            outline_info.set_field_type(
+                    outline_info.get_field_type().get_restrict_type());
+        }
+
         if (is_new)
         {
             TL::Type in_outline_type = t.get_lvalue_reference_to();
