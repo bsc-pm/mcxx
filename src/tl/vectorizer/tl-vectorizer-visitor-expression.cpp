@@ -726,6 +726,11 @@ namespace TL
                         basic_type = basic_type.references_to();
                     }
 
+                    nontemporal_expr_map_t::const_iterator nontemporal_it =
+                        _environment._nontemporal_expr_map.find(subscripted_symbol.get_symbol());
+
+                    bool nontemporal_store = (nontemporal_it != _environment._nontemporal_expr_map.end());
+
                     // Aligned
                     if(Vectorizer::_analysis_info->is_simd_aligned_access(
                             _environment._analysis_simd_scope,
@@ -735,11 +740,7 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._unroll_factor * assignment_type.get_size()))
                     {
-                        nontemporal_expr_map_t::const_iterator nontemporal_it =
-                            _environment._nontemporal_expr_map.find(subscripted_symbol.get_symbol());
-
-                        if (nontemporal_it != _environment._nontemporal_expr_map.end() &&
-                                mask.is_null()) // So far, only supported without masks
+                        if (nontemporal_store)
                         {
                             DEBUG_CODE()
                             {
@@ -819,26 +820,49 @@ namespace TL
                         }
                         else
                         {
-                            DEBUG_CODE()
+                            if (nontemporal_store)
                             {
-                                fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
-                                        lhs.prettyprint().c_str());
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Unaligned stream store '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
+
+                                const Nodecl::UnalignedVectorStreamStore vector_stream_store =
+                                    Nodecl::UnalignedVectorStreamStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask,
+                                            Nodecl::List::make(nontemporal_it->second),
+                                            vector_type,
+                                            n.get_locus());
+
+                                n.replace(vector_stream_store);
                             }
+                            else
+                            {
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
 
+                                const Nodecl::UnalignedVectorStore vector_store =
+                                    Nodecl::UnalignedVectorStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask,
+                                            vector_type,
+                                            n.get_locus());
 
-                            const Nodecl::UnalignedVectorStore vector_store =
-                                Nodecl::UnalignedVectorStore::make(
-                                        Nodecl::Reference::make(
-                                            lhs.shallow_copy(),
-                                            basic_type.get_pointer_to(),
-                                            n.get_locus()),
-                                        rhs.shallow_copy(),
-                                        mask,
-                                        vector_type,
-                                        n.get_locus());
-
-                            n.replace(vector_store);
-
+                                n.replace(vector_store);
+                            }
                         }
                     }
                 }

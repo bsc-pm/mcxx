@@ -1722,7 +1722,8 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::VectorStore& node)
+        void KNCVectorLowering::visit_vector_store(const Nodecl::VectorStore& node,
+                const int hint)
         {
             Nodecl::NodeclBase lhs = node.get_lhs();
             Nodecl::NodeclBase rhs = node.get_rhs();
@@ -1731,8 +1732,8 @@ namespace TL
             TL::Type type = node.get_lhs().get_type().basic_type();
 
             TL::Source intrin_src, intrin_name, intrin_op_name, args,
-                intrin_type_suffix, mask_prefix, mask_args, casting_args;
-
+                intrin_type_suffix, mask_prefix, mask_args, casting_args,
+                conversion_arg;
 
             intrin_src << intrin_name
                 << "("
@@ -1751,21 +1752,24 @@ namespace TL
             process_mask_component(mask, mask_prefix, mask_args, type,
                     KNCConfigMaskProcessing::ONLY_MASK );
 
-            intrin_op_name << "store";
+            intrin_op_name << "extstore";
 
             if (type.is_float())
             {
                 intrin_type_suffix << "ps";
+                conversion_arg << "_MM_DOWNCONV_PS_NONE";
             }
             else if (type.is_double())
             {
                 intrin_type_suffix << "pd";
+                conversion_arg << "_MM_DOWNCONV_PD_NONE";
             }
             else if (type.is_integral_type())
             {
                 intrin_type_suffix << "epi32";
                 casting_args << get_casting_to_scalar_pointer(
                         TL::Type::get_void_type());
+                conversion_arg << "_MM_DOWNCONV_PS_NONE";
             }
             else
             {
@@ -1784,6 +1788,10 @@ namespace TL
                 << ", "
                 << mask_args
                 << as_expression(rhs)
+                << ", "
+                << conversion_arg
+                << ", "
+                << hint
                 ;
 
             Nodecl::NodeclBase function_call =
@@ -1792,11 +1800,22 @@ namespace TL
             node.replace(function_call);
         }
 
+        void KNCVectorLowering::visit(const Nodecl::VectorStore& node)
+        {
+            visit_vector_store(node, _MM_HINT_NONE);
+        }
+
         void KNCVectorLowering::visit(const Nodecl::VectorStreamStore& node)
         {
+            Nodecl::NodeclBase mask = node.get_mask();
+
+            // Stream store with mask is not supported
+            // Emit store with hint instead
+            if(!mask.is_null())
+                visit_vector_store(node.as<Nodecl::VectorStore>(), _MM_HINT_NT);
+
             Nodecl::NodeclBase lhs = node.get_lhs();
             Nodecl::NodeclBase rhs = node.get_rhs();
-            Nodecl::NodeclBase mask = node.get_mask();
 
             TL::Type type = node.get_lhs().get_type().basic_type();
 
@@ -1887,7 +1906,8 @@ namespace TL
             node.replace(function_call);
         }
 
-        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStore& node)
+        void KNCVectorLowering::visit_unaligned_vector_store(const Nodecl::UnalignedVectorStore& 
+                node, const int hint)
         {
             Nodecl::NodeclBase lhs = node.get_lhs();
             Nodecl::NodeclBase rhs = node.get_rhs();
@@ -1972,7 +1992,7 @@ namespace TL
                 << ", "
                 << extra_args
                 << ", "
-                << _MM_HINT_NONE
+                << hint
                 ;
 
             args_hi << "("
@@ -1985,13 +2005,23 @@ namespace TL
                 << ", "
                 << extra_args
                 << ", "
-                << _MM_HINT_NONE
+                << hint
                 ;
 
             Nodecl::NodeclBase function_call =
                 intrin_src.parse_expression(node.retrieve_context());
 
             node.replace(function_call);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStore& node)
+        {
+            visit_unaligned_vector_store(node, _MM_HINT_NONE);
+        }
+
+        void KNCVectorLowering::visit(const Nodecl::UnalignedVectorStreamStore& node)
+        {
+            visit_unaligned_vector_store(node.as<Nodecl::UnalignedVectorStore>(), _MM_HINT_NT);
         }
 
         void KNCVectorLowering::visit(const Nodecl::VectorGather& node)
