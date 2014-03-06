@@ -194,7 +194,7 @@ namespace TL
 
                 walk(n.get_then());
 
-                DEBUG_CODE()
+                VECTORIZER_DEBUG()
                 {
                     fprintf(stderr, "Masking 'if' cost heuristic: %d, threshold: %d\n", 
                             mask_check_cost_if, MASK_CHECK_THRESHOLD);
@@ -242,7 +242,7 @@ namespace TL
 
                     walk(n.get_else());
 
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr, "Masking 'else' cost: %d, threshold: %d\n", 
                                 mask_check_cost_else, MASK_CHECK_THRESHOLD);

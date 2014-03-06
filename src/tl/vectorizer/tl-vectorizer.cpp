@@ -368,7 +368,7 @@ namespace TL
                 const TL::Type& target_type, const bool masked, const FunctionPriority priority,
                 const bool is_svml)
         {
-            DEBUG_CODE()
+            VECTORIZER_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Adding '%s' function version (device=%s, vector_length=%u, target_type=%s, SVML=%d, masked=%d priority=%d)\n",
                         func_name.c_str(), device.c_str(), vector_length, 

@@ -742,7 +742,7 @@ namespace TL
                     {
                         if (nontemporal_store)
                         {
-                            DEBUG_CODE()
+                            VECTORIZER_DEBUG()
                             {
                                 fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -764,7 +764,7 @@ namespace TL
                         }
                         else
                         {
-                            DEBUG_CODE()
+                            VECTORIZER_DEBUG()
                             {
                                 fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -789,7 +789,7 @@ namespace TL
                        if (_environment._prefer_gather_scatter ||
                                 (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Store or Scatter
                         {
-                            DEBUG_CODE()
+                            VECTORIZER_DEBUG()
                             {
                                 fprintf(stderr, "VECTORIZER: Unaligned store (Scatter used) '%s'\n",
                                         lhs.prettyprint().c_str());
@@ -822,7 +822,7 @@ namespace TL
                         {
                             if (nontemporal_store)
                             {
-                                DEBUG_CODE()
+                                VECTORIZER_DEBUG()
                                 {
                                     fprintf(stderr, "VECTORIZER: Unaligned stream store '%s'\n",
                                             lhs.prettyprint().c_str());
@@ -844,7 +844,7 @@ namespace TL
                             }
                             else
                             {
-                                DEBUG_CODE()
+                                VECTORIZER_DEBUG()
                                 {
                                     fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
                                             lhs.prettyprint().c_str());
@@ -1059,7 +1059,7 @@ namespace TL
                             _environment._unroll_factor,
                             _environment._vector_length))
                 {
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr, "VECTORIZER: Aligned load   '%s'\n",
                             n.prettyprint().c_str());
@@ -1084,7 +1084,7 @@ namespace TL
                     if(_environment._prefer_gather_scatter ||
                             (_environment._prefer_mask_gather_scatter && !mask.is_null())) // Unaligned Load or Scatter
                     {
-                        DEBUG_CODE()
+                        VECTORIZER_DEBUG()
                         {
                             fprintf(stderr, "VECTORIZER: Unaligned load (gather used) '%s'\n",
                                     n.prettyprint().c_str());
@@ -1114,7 +1114,7 @@ namespace TL
                     }
                     else
                     {
-                        DEBUG_CODE()
+                        VECTORIZER_DEBUG()
                         {
                             fprintf(stderr, "VECTORIZER: Unaligned load '%s'\n",
                                     n.prettyprint().c_str());
@@ -1180,8 +1180,12 @@ namespace TL
 
             if (func_name == "_mm_prefetch" || func_name == "_mm_prefetche")
             {
-                std::cerr << "Warning: preventing prefetch function call from being vectorized: "
-                    << n.get_locus() << std::endl;
+                VECTORIZER_DEBUG()
+                {
+                    std::cerr << "Warning: preventing prefetch function call from being vectorized: "
+                        << n.get_locus() << std::endl;
+                }
+
                 return;
             }
 
@@ -1326,7 +1330,7 @@ namespace TL
                             _environment,
                             n))
                 {
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is NESTED IV and will be PROMOTED to vector\n",
                                 n.prettyprint().c_str());
@@ -1348,7 +1352,7 @@ namespace TL
                             _environment._local_scope_list.back().get_decl_context().current_scope,
                             n.get_symbol().get_scope().get_decl_context().current_scope))
                 {
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is DECLARED INSIDE OF THE SIMD SCOPE. Its TYPE will be vectorized\n",
                                 n.prettyprint().c_str());
@@ -1377,7 +1381,7 @@ namespace TL
                 // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
                 else if(tl_sym_type.is_vector())
                 {
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is a scalar NON-LOCAL Nodecl::Symbol whose"\
                                "TL::Symbol has vector type. Its Nodecl TYPE will be vectorized\n",
@@ -1398,7 +1402,7 @@ namespace TL
                             _environment._analysis_simd_scope,
                             n))
                 {
-                    DEBUG_CODE()
+                    VECTORIZER_DEBUG()
                     {
                         fprintf(stderr,"VECTORIZER: '%s' is CONSTANT and will be PROMOTED to vector\n",
                                 n.prettyprint().c_str());
@@ -1522,7 +1526,7 @@ namespace TL
 
         void VectorizerVisitorExpression::vectorize_basic_induction_variable(const Nodecl::Symbol& n)
         {
-            DEBUG_CODE()
+            VECTORIZER_DEBUG()
             {
                 fprintf(stderr,"VECTORIZER: '%s' is IV and will be PROMOTED with OFFSET\n",
                         n.prettyprint().c_str());

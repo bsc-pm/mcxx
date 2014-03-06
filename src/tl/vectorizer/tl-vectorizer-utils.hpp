@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -30,9 +30,11 @@
 #include <map>
 #include "tl-nodecl-visitor.hpp"
 
-namespace TL 
-{ 
-    namespace Vectorization 
+#define VECTORIZER_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorizer_verbose) 
+
+namespace TL
+{
+    namespace Vectorization
     {
         class VectorizerEnvironment;
 
@@ -74,7 +76,7 @@ namespace TL
                     MaskCheckCostEstimation();
 
                     unsigned int get_mask_check_cost(
-                            const Nodecl::NodeclBase& n, 
+                            const Nodecl::NodeclBase& n,
                             unsigned int initial_cost,
                             const unsigned int cost_threshold);
 
@@ -108,7 +110,7 @@ namespace TL
             Nodecl::NodeclBase get_proper_mask(const Nodecl::NodeclBase& mask);
 
             Nodecl::NodeclBase get_null_mask();
- 
+
             TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
             std::string get_var_counter();
 
@@ -116,7 +118,7 @@ namespace TL
                     const Nodecl::NodeclBase& n);
             bool is_nested_non_reduction_basic_induction_variable(const VectorizerEnvironment& environment,
                     const Nodecl::NodeclBase& n);
- 
+
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
 

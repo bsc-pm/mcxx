@@ -170,6 +170,7 @@ typedef struct debug_options_tag
     char print_pcfg;
     char do_not_codegen;
     char show_template_packs;
+    char vectorizer_verbose;
 } debug_options_t;
 
 typedef struct external_var_tag {
