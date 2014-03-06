@@ -388,6 +388,8 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output);
 static void string_literal_type(AST expr, nodecl_t* nodecl_output);
 static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -605,34 +607,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_THIS_VARIABLE :
             {
-                scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
-
-                if (entry_list != NULL)
-                {
-                    scope_entry_t *entry = entry_list_head(entry_list);
-
-                    if (is_pointer_to_class_type(entry->type_information))
-                    {
-                        *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(expression));
-                        // Note that 'this' is an rvalue!
-                        nodecl_set_type(*nodecl_output, entry->type_information);
-                        if (is_dependent_type(entry->type_information))
-                        {
-                            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-                        }
-                    }
-                }
-                else
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: 'this' cannot be used in this context\n",
-                                ast_location(expression));
-                    }
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
-                }
-                entry_list_free(entry_list);
-
+                resolve_this_symbol(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_SYMBOL :
@@ -1915,6 +1890,53 @@ static void pointer_literal_type(AST expr, decl_context_t decl_context, nodecl_t
                 /* sign */ 0));
 }
 
+static void resolve_this_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    scope_entry_t *this_symbol = NULL;
+    if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        // Lookup a symbol 'this' as usual
+        scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+        if (entry_list != NULL)
+        {
+            this_symbol = entry_list_head(entry_list);
+        }
+        entry_list_free(entry_list);
+    }
+    // We are not in block scope but lexically nested in a class scope, use the 'this' of the class
+    else if (decl_context.class_scope != NULL)
+    {
+        scope_entry_t* class_symbol = decl_context.class_scope->related_entry;
+        ERROR_CONDITION(class_symbol == NULL, "Invalid symbol", 0);
+
+        ERROR_CONDITION(class_symbol->entity_specs.num_related_symbols == 0
+                || class_symbol->entity_specs.related_symbols[0] == NULL,
+                "Invalid related symbol for class", 0);
+
+        this_symbol = class_symbol->entity_specs.related_symbols[0];
+    }
+
+    if (this_symbol == NULL)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: 'this' cannot be used in this context\n",
+                    ast_location(expression));
+        }
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_symbol(this_symbol, ast_get_locus(expression));
+        // Note that 'this' is an rvalue!
+        nodecl_set_type(*nodecl_output, this_symbol->type_information);
+        if (is_dependent_type(this_symbol->type_information))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+    }
+}
+
 static 
 char operand_is_class_or_enum(type_t* op_type)
 {
@@ -2410,10 +2432,13 @@ static char filter_only_nonmembers(scope_entry_t* e, void* p UNUSED_PARAMETER)
 
 static void error_message_delete_call(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
 {
-    error_printf("%s: error: call to deleted function '%s'\n",
-            locus_to_str(locus),
-            print_decl_type_str(entry->type_information, decl_context,
-                get_qualified_symbol_name(entry, decl_context)));
+    if (!checking_ambiguity())
+    {
+        error_printf("%s: error: call to deleted function '%s'\n",
+                locus_to_str(locus),
+                print_decl_type_str(entry->type_information, decl_context,
+                    get_qualified_symbol_name(entry, decl_context)));
+    }
 }
 
 char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
@@ -11518,6 +11543,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     }
 }
 
+// Used in cxx-typeutils.c
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand)
@@ -11537,7 +11563,8 @@ void get_packs_in_expression(nodecl_t nodecl,
 
     scope_entry_t* entry = nodecl_get_symbol(nodecl);
     if (entry != NULL
-            && entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+            && (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+                || entry->kind == SK_VARIABLE_PACK))
     {
         P_LIST_ADD_ONCE(*packs_to_expand, *num_packs_to_expand, entry);
         return;
@@ -12409,13 +12436,17 @@ static void check_nodecl_member_access(
             nodecl_field = cxx_integrate_field_accesses(nodecl_field, accessor);
         }
 
+        cv_qualifier_t cv_field = CV_NONE;
+        advance_over_typedefs_with_cv_qualif(entry->type_information, &cv_field);
+        cv_field = cv_accessed | cv_field;
+
         ok = 1;
 
         *nodecl_output = nodecl_make_class_member_access(
                 nodecl_field,
                 nodecl_make_symbol(entry, nodecl_get_locus(nodecl_accessed)),
                 /* member form */ nodecl_null(),
-                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_accessed)),
+                lvalue_ref(get_cv_qualified_type(no_ref(entry->type_information), cv_field)),
                 nodecl_get_locus(nodecl_accessed));
     }
 
@@ -12949,7 +12980,7 @@ static void check_postoperator(AST operator,
     type_t* operated_type = nodecl_get_type(postoperated_expr);
 
     char requires_overload = 0;
-    
+
     CXX_LANGUAGE()
     {
         requires_overload = is_class_type(no_ref(operated_type))
@@ -12961,12 +12992,32 @@ static void check_postoperator(AST operator,
         if (is_pointer_type(no_ref(operated_type))
                 || is_arithmetic_type(no_ref(operated_type)))
         {
-            // Should be a lvalue
+            // Should be an lvalue
             if (!is_lvalue_reference_type(operated_type))
             {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
+                            nodecl_locus_to_str(postoperated_expr),
+                            codegen_to_str(postoperated_expr, decl_context),
+                            is_decrement ? "postdecrement" : "postincrement");
+                }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
                 return;
             }
+            if (is_const_qualified_type(no_ref(operated_type)))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: operand '%s' of %s is read-only\n",
+                            nodecl_locus_to_str(postoperated_expr),
+                            codegen_to_str(postoperated_expr, decl_context),
+                            is_decrement ? "postdecrement" : "postincrement");
+                }
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                return;
+            }
+
             operated_type = reference_type_get_referenced_type(operated_type);
 
             *nodecl_output = nodecl_fun(postoperated_expr,
@@ -12976,6 +13027,13 @@ static void check_postoperator(AST operator,
         }
         else
         {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: type '%s' is not valid for %s operator\n",
+                        nodecl_locus_to_str(postoperated_expr),
+                        print_type_str(no_ref(operated_type), decl_context),
+                        is_decrement ? "postdecrement" : "postincrement");
+            }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
             return;
         }
@@ -13059,12 +13117,27 @@ static void check_preoperator(AST operator,
     if (is_pointer_type(no_ref(operated_type))
             || is_arithmetic_type(no_ref(operated_type)))
     {
+        // Should be an lvalue
         if (!is_lvalue_reference_type(operated_type))
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: %s operand is not a lvalue\n",
+                error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
                         nodecl_locus_to_str(preoperated_expr),
+                        codegen_to_str(preoperated_expr, decl_context),
+                        is_decrement ? "predecrement" : "preincrement");
+            }
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            return;
+        }
+
+        if (is_const_qualified_type(no_ref(operated_type)))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: operand '%s' of %s is read-only\n",
+                        nodecl_locus_to_str(preoperated_expr),
+                        codegen_to_str(preoperated_expr, decl_context),
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
@@ -13082,7 +13155,7 @@ static void check_preoperator(AST operator,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: type %s is not valid for %s operator\n",
+                error_printf("%s: error: type '%s' is not valid for %s operator\n",
                         nodecl_locus_to_str(preoperated_expr),
                         print_type_str(no_ref(operated_type), decl_context),
                         is_decrement ? "predecrement" : "preincrement");
@@ -19393,13 +19466,24 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
 // So we fully qualify the symbol lest it was a dependent entity again. Note
 // that this could bring problems if the symbol is the operand of a reference (&)
 // operator.
-static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
-        dependent_entry, 
+static nodecl_t complete_nodecl_name_of_dependent_entity(
+        scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
+        char dependent_entry_already_updated,
         int pack_index)
 {
+    // This may be left null if the dependent_entry is not a SK_DEPENDENT_ENTITY
+    nodecl_t nodecl_already_updated_extended_parts = nodecl_null();
     nodecl_t nodecl_extended_parts = nodecl_null();
+
+    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        dependent_typename_get_components(
+                dependent_entry->type_information,
+                &dependent_entry,
+                &nodecl_already_updated_extended_parts);
+    }
 
     add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
 
@@ -19410,16 +19494,32 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, make_locus("", 0, 0));
     if (is_template_specialized_type(dependent_entry->type_information))
     {
-        nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
-                /* template_tag */ "",
+        template_parameter_list_t* argument_list =
+            template_specialized_type_get_template_arguments(dependent_entry->type_information);
+
+        if (!dependent_entry_already_updated)
+        {
+            argument_list =
                 update_template_argument_list(
-                    decl_context,
-                    template_specialized_type_get_template_arguments(dependent_entry->type_information),
-                    make_locus("", 0, 0),
-                    pack_index),
+                        decl_context,
+                        template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                        make_locus("", 0, 0),
+                        pack_index);
+        }
+
+        nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
+                /* template tag */ "",
+                argument_list,
                 make_locus("", 0, 0));
     }
+
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
+
+    if (!nodecl_is_null(nodecl_already_updated_extended_parts))
+    {
+        nodecl_extended_parts = nodecl_concat_lists(nodecl_extended_parts,
+                nodecl_already_updated_extended_parts);
+    }
 
     // Concat with the existing parts but make sure we update the template arguments as well
     int i;
@@ -19444,8 +19544,20 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(scope_entry_t*
     }
     xfree(rest_of_parts);
 
+    nodecl_t (*nodecl_make_cxx_dep_fun_name)(nodecl_t, const locus_t*) = nodecl_make_cxx_dep_global_name_nested;
+    if (dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+    {
+        // Do not globally qualify these cases
+        nodecl_make_cxx_dep_fun_name = nodecl_make_cxx_dep_name_nested;
+    }
+
     nodecl_t result =
-        nodecl_make_cxx_dep_global_name_nested(nodecl_extended_parts, make_locus("", 0, 0));
+        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, make_locus("", 0, 0));
 
     return result;
 }
@@ -19530,6 +19642,15 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             nodecl_set_type(result, nodecl_get_type(node));
             nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
         }
+        // Special case when we are using a nontype template pack inside a pack expansion.
+        else if (argument->kind == SK_VARIABLE)
+        {
+            result = nodecl_shallow_copy(argument->value);
+            if (nodecl_expr_is_type_dependent(result))
+            {
+                nodecl_expr_set_is_value_dependent(result, 1);
+            }
+        }
         else
         {
             result = nodecl_make_err_expr(nodecl_get_locus(node));
@@ -19537,18 +19658,45 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
-        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym,
+        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
+                sym,
+                v->pack_index,
                 NULL,
                 nodecl_get_locus(node));
 
+        nodecl_t complete_nodecl_name = nodecl_null();
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
+
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
+        char dependent_entry_already_updated = 0;
+        if (entry_list != NULL)
+        {
+            scope_entry_t* updated_symbol = entry_list_head(entry_list);
+            if (updated_symbol->kind == SK_DEPENDENT_ENTITY)
+            {
+                nodecl_t nodecl_dummy = nodecl_null();
+                dependent_typename_get_components(
+                        updated_symbol->type_information,
+                        &dependent_entry,
+                        // We cannot update these, let
+                        // complete_nodecl_name_of_dependent_entity do that for us
+                        &nodecl_dummy);
+                dependent_entry_already_updated = 1;
+            }
+            else if (updated_symbol->kind == SK_CLASS
+                    || updated_symbol->kind == SK_ENUM)
+            {
+                dependent_entry_already_updated = 1;
+            }
+        }
+
         nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        nodecl_t complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+        complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
                 list_of_dependent_parts,
                 v->decl_context,
+                dependent_entry_already_updated,
                 v->pack_index);
 
         cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, NULL, &result);

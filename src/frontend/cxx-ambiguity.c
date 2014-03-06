@@ -2273,12 +2273,30 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
                 return 1;
         }
     }
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    else if (ASTType(a) == AST_AMBIGUITY)
     {
-        if (contains_template_parameter_pack(ast_get_child(a, i), decl_context))
-            return 1;
+        int i, n = ast_get_num_ambiguities(a);
+        for (i = 0; i < n; i++)
+        {
+            AST current_interpretation = ast_get_ambiguity(a, i);
+            if (contains_template_parameter_pack(current_interpretation, decl_context))
+                return 1;
+        }
+    }
+    else if (ASTType(a) == AST_DECLARATOR_ID_PACK
+            || ASTType(a) == AST_INITIALIZER_CLAUSE_PACK_EXPANSION)
+    {
+        // Stop here as these start a new expansion
+        return 0;
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            if (contains_template_parameter_pack(ast_get_child(a, i), decl_context))
+                return 1;
+        }
     }
 
     return 0;

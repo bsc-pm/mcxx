@@ -186,6 +186,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                     locus,
                     /* pack_index */ -1);
 
+
             if (updated_template_parameters->arguments[i] == NULL)
             {
                 if (!checking_ambiguity())
@@ -194,6 +195,13 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                             locus_to_str(locus));
                 }
                 return NULL;
+            }
+
+            // Preserve default parameters of template functions
+            if (!is_class)
+            {
+                updated_template_parameters->arguments[i]->is_default = 
+                    template_parameters->arguments[i]->is_default;
             }
         }
     }
@@ -792,6 +800,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
                             entry,
+                            /* pack_index */ -1,
                             NULL,
                             member_of_template->locus);
                 }
@@ -929,7 +938,9 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                        context_of_being_instantiated, sym, NULL, locus);
+                        context_of_being_instantiated, sym,
+                        /* pack_index */ -1,
+                        NULL, locus);
             }
         }
 
@@ -1023,7 +1034,8 @@ static void instantiate_dependent_friend_function(
                 // Try to solve the dependent entity
                 candidates_list =
                     query_dependent_entity_in_context(
-                            context_of_being_instantiated, sym, NULL, locus);
+                            context_of_being_instantiated, sym,
+                            /* pack_index */ -1, NULL, locus);
             }
         }
 
@@ -1685,10 +1697,10 @@ void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t d
 
 // Used in overload as it temptatively tries to instantiate classes lest they
 // were a based or a derived class of another
-void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+char instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
 {
     if (!template_class_needs_to_be_instantiated(entry))
-        return;
+        return 1;
 
     // Try to see if it can actually be instantiated
     template_parameter_list_t* deduced_template_arguments = NULL;
@@ -1698,9 +1710,11 @@ void instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t
     // No specialized template is eligible for it, give up
     if (selected_template == NULL
         || is_incomplete_type(selected_template))
-        return;
+        return 0;
 
     instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, locus);
+
+    return 1;
 }
 
 static nodecl_t nodecl_instantiation_units;

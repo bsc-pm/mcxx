@@ -1996,10 +1996,8 @@ static nodecl_t update_nodecl_template_argument_expression(
 
     nodecl_t nodecl_output = nodecl_null();
 
-    ERROR_CONDITION(!(pack_index < 0), "Pack expansion inside expressions not yet implemented", 0);
-
     nodecl_t nodecl_inst = instantiate_expression(nodecl, decl_context,
-            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+            /* instantiation_symbol_map */ NULL, /* pack_index */ pack_index);
 
     if (nodecl_is_list(nodecl_inst))
     {
@@ -2273,7 +2271,10 @@ static type_t* update_dependent_typename(
 
     scope_entry_t* current_member = dependent_entry;
 
-    instantiate_template_class_if_needed(current_member, current_member->decl_context, locus);
+    char possible = instantiate_template_class_if_possible(current_member, current_member->decl_context, locus);
+
+    if (!possible)
+        return NULL;
 
     nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context, locus,
             pack_index);
@@ -2695,6 +2696,28 @@ static type_t* update_type_aux_(type_t* orig_type,
                 return get_user_defined_type(argument);
             }
             else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    && argument->kind == SK_TYPEDEF)
+            {
+                // This happens when the template pack is used as a type-name _inside_
+                // a pack expansion.
+                //
+                // template <typename T, typename M = T*>
+                // struct B { };
+                //
+                // template <typename ...S>
+                // struct A
+                // {
+                //      void f(B<S>...);
+                // };
+                //
+                // B<S>... has to expand into B<S, S*>... but note that the argument S is a pack
+                // while M is a typedef (the type of which is T*)
+
+                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+                cv_qualif |= get_cv_qualifier(argument->type_information);
+                return get_cv_qualified_type(argument->type_information, cv_qualif);
+            }
+            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
                     && argument->kind == SK_TYPEDEF_PACK)
             {
                 if (is_named_type(argument->type_information)
@@ -2723,17 +2746,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                     }
                 }
             }
-            // else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            //         && argument->kind == SK_TYPEDEF_PACK)
-            // {
-            //     // This happens when a type template argument expansion is being
-            //     // used where a (nonpack) template type is expected. For this to be valid
-            //     // the sequence should be of length 1, but it is the caller who sould
-            //     // check this
-            //     //
-            //     // We return the whole sequence and let the caller deal with it
-            //     return argument->type_information;
-            // }
             else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
                     && argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
             {
@@ -2767,8 +2779,9 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
             else
             {
-                internal_error("Wrong pair template-argument/template-parameter %s != %s",
-                        symbol_kind_name(entry), symbol_kind_name(argument));
+                internal_error("Wrong pair template-parameter = %s vs template-argument = %s",
+                        symbol_kind_name(entry),
+                        symbol_kind_name(argument));
             }
         }
         else if (entry->kind == SK_TEMPLATE)
@@ -3845,7 +3858,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 P_LIST_ADD(result->parameters,
                         num_parameters,
                         primary_template_parameters->parameters[i]);
-                template_parameter_value_t* v = update_template_parameter_value_of_template_class(primary_template_parameters->arguments[i],
+                template_parameter_value_t* v = update_template_parameter_value_of_template_class(
+                        primary_template_parameters->arguments[i],
                         new_template_context,
                         locus, /* pack_index */ -1);
 
@@ -4140,6 +4154,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 }
             }
 
+            result->parameters[last_argument_index]
+                = primary_template_parameters->parameters[last_argument_index];
             result->arguments[last_argument_index] = folded_value;
             result->num_parameters = last_argument_index + 1;
         }
@@ -6921,6 +6937,7 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context,
 scope_entry_list_t* query_dependent_entity_in_context(
         decl_context_t decl_context,
         scope_entry_t* dependent_entity,
+        int pack_index,
         field_path_t* field_path,
         const locus_t* locus)
 {
@@ -6941,9 +6958,60 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         get_user_defined_type(dependent_entry),
                         decl_context, locus,
                         /* instantiation_symbol_map */ NULL,
-                        /* pack_index */ -1);
+                        pack_index);
 
-                if (is_dependent_type(new_class_type))
+                if (is_dependent_typename_type(new_class_type))
+                {
+                    // We are updating the base entry (T) of a dependent typename
+                    // [T]::T1 with another dependent typename [S]::S2
+                    // so the updated type should be [S]::S2::T1
+                    scope_entry_t* new_class_dependent_entry = NULL;
+                    nodecl_t new_class_dependent_parts = nodecl_null();
+                    dependent_typename_get_components(new_class_type,
+                            &new_class_dependent_entry, &new_class_dependent_parts);
+
+                    // Now append the dependent parts of this type
+                    nodecl_t appended_dependent_parts = nodecl_null();
+
+                    int num_items = 0;
+                    nodecl_t* list = NULL;
+                    int i;
+
+                    ERROR_CONDITION(nodecl_get_kind(new_class_dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+                    list = nodecl_unpack_list(nodecl_get_child(new_class_dependent_parts, 0), &num_items);
+                    for (i = 0; i < num_items; i++)
+                    {
+                        appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
+                    }
+                    xfree(list);
+
+                    ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid tree kind", 0);
+
+                    list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_items);
+                    for (i = 0; i < num_items; i++)
+                    {
+                        appended_dependent_parts = nodecl_append_to_list(appended_dependent_parts, list[i]);
+                    }
+                    xfree(list);
+
+                    dependent_parts = nodecl_make_cxx_dep_name_nested(
+                            appended_dependent_parts,
+                            nodecl_get_locus(dependent_parts));
+
+                    scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    new_sym->kind = SK_DEPENDENT_ENTITY;
+                    new_sym->locus = locus;
+                    new_sym->symbol_name = new_class_dependent_entry->symbol_name;
+                    new_sym->decl_context = decl_context;
+                    new_sym->type_information = get_dependent_typename_type_from_parts(
+                            new_class_dependent_entry,
+                            dependent_parts);
+
+                    return entry_list_new(new_sym);
+                }
+                else if (is_named_type(new_class_type)
+                        && is_dependent_type(new_class_type))
                 {
                     scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
                     new_sym->kind = SK_DEPENDENT_ENTITY;
@@ -6978,7 +7046,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         nodecl_t update_dependent_parts = update_dependent_typename_dependent_parts(
                                 dependent_parts,
                                 decl_context,
-                                locus, /* pack_index */ -1);
+                                locus, pack_index);
 
                         ERROR_CONDITION(nodecl_get_kind(update_dependent_parts) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
                                 "This is not possible here", 0);

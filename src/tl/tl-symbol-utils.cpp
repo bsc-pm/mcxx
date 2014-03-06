@@ -106,6 +106,11 @@ namespace SymbolUtils
             param->defined = 1;
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
 
             P_LIST_ADD(parameter_list, num_parameters, param);
 
@@ -272,6 +277,11 @@ namespace SymbolUtils
                     /* position */ entry->entity_specs.num_related_symbols);
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,

@@ -6,7 +6,7 @@ PROGRAM P
         INTEGER, POINTER :: X
     END TYPE T
 
-    TYPE(T), PARAMETER :: A = T(NULL())
+    TYPE(T) :: A = T(NULL())
 
     PRINT *, A % X
 END PROGRAM P

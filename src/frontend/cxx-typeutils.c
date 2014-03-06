@@ -10995,7 +10995,7 @@ char is_error_type(type_t* t)
 {
     // We do not allow a NULL type here at the moment
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
-    t = advance_over_typedefs(t);
+    t = get_unqualified_type(advance_over_typedefs(t));
     return (_error_type != NULL && t == _error_type);
 }
 
@@ -13442,6 +13442,15 @@ void get_packs_in_type(type_t* pack_type,
                         || k == TPK_TEMPLATE)
                 {
                     get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                }
+                else if (k == TPK_NONTYPE)
+                {
+                    get_packs_in_type(v->type, packs_to_expand, num_packs_to_expand);
+                    get_packs_in_expression(v->value, packs_to_expand, num_packs_to_expand);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
         }

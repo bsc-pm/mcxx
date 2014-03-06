@@ -541,6 +541,8 @@ namespace TL
                                 break;
                             }
                         case DEP_DIR_INOUT:
+                        case DEP_CONCURRENT:
+                        case DEP_COMMUTATIVE:
                             {
                                 p = &dep_list_inout;
                                 break;
