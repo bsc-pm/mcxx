@@ -645,6 +645,7 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
     #define CLAUSE_LIST \
+    CLAUSE(aligned) \
     CLAUSE(assert_autosc_firstprivate) \
     CLAUSE(assert_autosc_private) \
     CLAUSE(assert_autosc_shared) \
@@ -679,6 +680,7 @@ namespace Analysis {
     CLAUSE(mask) \
     CLAUSE(name) \
     CLAUSE(no_mask) \
+    CLAUSE(nontemporal) \
     CLAUSE(nowait) \
     CLAUSE(out) \
     CLAUSE(priority) \
@@ -686,6 +688,7 @@ namespace Analysis {
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
@@ -814,6 +817,9 @@ namespace Analysis {
         //! Boolean indicating whether we are building vector nodes or not
         bool _is_vector;
 
+        //! Boolean indicating whether we are building simd nodes or not
+        bool _is_simd;
+        
         //! Counter used to create a unique key for each new node
         unsigned int _nid;
 
