@@ -8908,6 +8908,16 @@ static const_value_t* cxx_nodecl_make_value_conversion(
                     type_get_size(get_unqualified_type(no_ref(dest_type))),
                     /* sign */ 0);
             break;
+        case SCI_COMPLEX_PROMOTION:
+        case SCI_COMPLEX_CONVERSION:
+            val = const_value_make_complex(
+                    const_value_cast_to_floating_type_value(
+                        const_value_complex_get_real_part(val),
+                        complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))),
+                    const_value_cast_to_floating_type_value(
+                        const_value_complex_get_imag_part(val),
+                        complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))));
+            break;
         case SCI_POINTER_TO_INTEGRAL_CONVERSION:
         case SCI_POINTER_TO_VOID_CONVERSION:
         case SCI_VOID_TO_POINTER_CONVERSION:
