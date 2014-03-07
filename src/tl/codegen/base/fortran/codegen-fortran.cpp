@@ -2353,7 +2353,7 @@ OPERATOR_TABLE
                 && result_var.get_name() != entry.get_name()
                 && result_var.get_name() != ".result")
         {
-            *(file) << " RESULT(" << result_var.get_name() << ")";
+            *(file) << " RESULT(" << rename(result_var) << ")";
         }
         *(file) << "\n";
     }
@@ -5850,7 +5850,7 @@ OPERATOR_TABLE
                 if (result_var.get_name() != entry.get_name()
                         && result_var.get_name() != ".result")
                 {
-                    *(file) << " RESULT(" << result_var.get_name() << ")";
+                    *(file) << " RESULT(" << rename(result_var) << ")";
                 }
 
                 if (result_var.get_name() == ".result")
