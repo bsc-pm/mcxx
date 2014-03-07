@@ -4155,8 +4155,23 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GxxTrait& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::AsmDefinition& node)
 {
     indent();
-    *(file) << "asm(";
-    walk(node.get_asm_text());
+    *(file) << "asm ";
+    Nodecl::List l = node.get_asm_text().as<Nodecl::List>();
+    if (l.size() == 1)
+    {
+        (*file) << "(";
+        walk(l[0]); // usual asm
+    }
+    else if (l.size() == 2)
+    {
+        walk(l[0]); // volatile
+        (*file) << "(";
+        walk(l[1]); // usual asm here
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
     *(file) << ");\n";
 }
 
