@@ -59,29 +59,29 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
     if(lhs.is_constant() && lhs_type.is_integral_type())
     {
         //TODO: It could be a different type than int
-        const_value_t * cv = lhs.get_constant(); 
+        const_value_t * cv = lhs.get_constant();
         int integer_value = const_value_cast_to_signed_int(cv);
 
         // 3 * V
         /*
         if (integer_value == 3)
         {
-            Nodecl::Add add3 = 
+            Nodecl::Add add3 =
                 Nodecl::Add::make(
-                        
+
                         Nodecl::BitwiseShl::make(
                             rhs.shallow_copy(),
                             const_value_to_nodecl(const_value_get_one(4, 1)),
                             node.get_type(),
                             node.get_locus()),
-                        
-                        
+
+
                         Nodecl::Add::make(
                             rhs.shallow_copy(),
                             rhs.shallow_copy(),
                             node.get_type(),
                             node.get_locus()),
-                        
+
                         rhs.shallow_copy(),
                         node.get_type(),
                         node.get_locus());
@@ -96,7 +96,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mul& node)
             int ctz = __builtin_ctz(integer_value);
 
             // lhs << (cv>>ctz)
-            Nodecl::BitwiseShl shl = 
+            Nodecl::BitwiseShl shl =
                 Nodecl::BitwiseShl::make(
                         rhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(ctz)),
@@ -122,7 +122,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
     if(rhs.is_constant() && rhs_type.is_integral_type())
     {
         //TODO: It could be a different type than int
-        const_value_t * cv = rhs.get_constant(); 
+        const_value_t * cv = rhs.get_constant();
         int integer_value = const_value_cast_to_signed_int(cv);
 
         if (__builtin_popcount(integer_value) == 1) //Pow2
@@ -130,7 +130,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             int ctz = __builtin_ctz(integer_value);
 
             // lhs << (cv>>ctz)
-            Nodecl::ArithmeticShr shr = 
+            Nodecl::ArithmeticShr shr =
                 Nodecl::ArithmeticShr::make(
                         lhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(ctz)),
@@ -140,8 +140,23 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             node.replace(shr);
         }
     }
-    else if(_fast_math) // RCP
+    else if(_fast_math)
     {
+        if(rhs.is_constant() && rhs_type.is_floating_type())
+        {
+            const_value_t * cv = rhs.get_constant();
+
+            // a / c --> a * 1/c
+            Nodecl::Mul mul =
+                Nodecl::Mul::make(
+                        lhs.shallow_copy(),
+                        const_value_to_nodecl(const_value_div(
+                                const_value_get_one(4, 1), cv)),
+                        node.get_type(),
+                        node.get_locus());
+
+            node.replace(mul);
+        }
     }
 }
 
@@ -160,7 +175,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
             && lhs_type.is_unsigned_int())
     {
         //TODO: It could be a different type than int
-        const_value_t * cv = rhs.get_constant(); 
+        const_value_t * cv = rhs.get_constant();
         int integer_value = const_value_cast_to_signed_int(cv);
 
         if (__builtin_popcount(integer_value) == 1) //Pow2
@@ -168,7 +183,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
             int mask = integer_value-1;
 
             // lhs << (cv>>ctz)
-            Nodecl::BitwiseAnd bw_and = 
+            Nodecl::BitwiseAnd bw_and =
                 Nodecl::BitwiseAnd::make(
                         lhs.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(mask)),
@@ -179,7 +194,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Mod& node)
         }
     }
 }
- 
+
 
 
 void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorAdd& node)
@@ -257,7 +272,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
         if (lhs.is<Nodecl::VectorPromotion>())
         {
             //TODO: It could be a different type than int
-            const_value_t * cv = lhs.as<Nodecl::VectorPromotion>().get_rhs().get_constant(); 
+            const_value_t * cv = lhs.as<Nodecl::VectorPromotion>().get_rhs().get_constant();
             int integer_value = const_value_cast_to_signed_int(cv);
 
             // C * V, C == Pow2
@@ -266,7 +281,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
                 int ctz = __builtin_ctz(integer_value);
 
                 // lhs << (cv>>ctz)
-                Nodecl::VectorBitwiseShlI shl = 
+                Nodecl::VectorBitwiseShlI shl =
                     Nodecl::VectorBitwiseShlI::make(
                             rhs.shallow_copy(),
                             const_value_to_nodecl(const_value_get_signed_int(ctz)),
@@ -311,7 +326,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
             if (all_pow2)
             {
                 // lhs << (cv>>ctz)
-                Nodecl::VectorBitwiseShl shl = 
+                Nodecl::VectorBitwiseShl shl =
                     Nodecl::VectorBitwiseShl::make(
                             rhs.shallow_copy(),
                             Nodecl::VectorLiteral::make(result_list,
@@ -338,7 +353,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
 
     TL::Type lhs_type = lhs.get_type().basic_type();
     TL::Type rhs_type = rhs.get_type().basic_type();
- 
+
     // Scalarize ops between vector promotions
     if(lhs.is<Nodecl::VectorPromotion>() && rhs.is<Nodecl::VectorPromotion>())
     {
@@ -356,7 +371,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
         if (rhs.is<Nodecl::VectorPromotion>())
         {
             //TODO: It could be a different type than int
-            const_value_t * cv = rhs.as<Nodecl::VectorPromotion>().get_rhs().get_constant(); 
+            const_value_t * cv = rhs.as<Nodecl::VectorPromotion>().get_rhs().get_constant();
             int integer_value = const_value_cast_to_signed_int(cv);
 
             // C * V, C == Pow2
@@ -365,7 +380,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
                 int ctz = __builtin_ctz(integer_value);
 
                 // lhs >> (cv>>ctz)
-                Nodecl::VectorArithmeticShrI shl = 
+                Nodecl::VectorArithmeticShrI shl =
                     Nodecl::VectorArithmeticShrI::make(
                             lhs.shallow_copy(),
                             const_value_to_nodecl(const_value_get_signed_int(ctz)),
@@ -410,7 +425,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
             if (all_pow2)
             {
                 // lhs >> (cv>>ctz)
-                Nodecl::VectorArithmeticShr shl = 
+                Nodecl::VectorArithmeticShr shl =
                     Nodecl::VectorArithmeticShr::make(
                             lhs.shallow_copy(),
                             Nodecl::VectorLiteral::make(result_list,
@@ -430,7 +445,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
         {
             Nodecl::VectorSqrt vsqrt = rhs.as<Nodecl::VectorSqrt>();
 
-            Nodecl::VectorMul mul = 
+            Nodecl::VectorMul mul =
                 Nodecl::VectorMul::make(
                         lhs.shallow_copy(),
                         Nodecl::VectorRsqrt::make(
@@ -449,7 +464,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorDiv& node)
         /*
         else
         {
-            Nodecl::VectorMul mul = 
+            Nodecl::VectorMul mul =
                 Nodecl::VectorMul::make(
                         lhs.shallow_copy(),
                         Nodecl::VectorRcp::make(
@@ -476,7 +491,7 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMod& node)
 
     TL::Type lhs_type = lhs.get_type().basic_type();
     TL::Type rhs_type = rhs.get_type().basic_type();
-    
+
     // Scalarize ops between vector promotions
     if(lhs.is<Nodecl::VectorPromotion>() && rhs.is<Nodecl::VectorPromotion>())
     {
@@ -490,4 +505,4 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMod& node)
                     node.get_locus()));
     }
 }
- 
+
