@@ -136,6 +136,7 @@ struct enum_information_tag {
     // (may be different to underlying_type if !underlying_type_is_fixed)
     type_t* underlying_type_for_conversion;
     _Bool underlying_type_is_fixed:1; // The underlying type is fixed through the syntax
+    _Bool is_scoped:1; // This is a scoped enumerator (C++11)
 } enum_info_t;
 
 struct simple_type_tag;
@@ -4549,6 +4550,30 @@ char is_enum_type(type_t* t)
 {
     return is_unnamed_enumerated_type(t)
         || is_named_enumerated_type(t);
+}
+
+char is_unscoped_enum_type(type_t* t)
+{
+    if (!is_enum_type(t))
+        return 0;
+
+    t = get_actual_enum_type(t);
+
+    simple_type_t* enum_type = t->type;
+
+    return !enum_type->enum_info->is_scoped;
+}
+
+char is_scoped_enum_type(type_t* t)
+{
+    if (!is_enum_type(t))
+        return 0;
+
+    t = get_actual_enum_type(t);
+
+    simple_type_t* enum_type = t->type;
+
+    return enum_type->enum_info->is_scoped;
 }
 
 char is_unnamed_enumerated_type(type_t* t)
@@ -10329,6 +10354,21 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+        else if (is_bool_type(dest)
+                && !is_bool_type(orig)
+                && (is_arithmetic_type(orig)
+                    || is_enum_type(orig)
+                    || is_pointer_type(orig)
+                    || is_pointer_to_member_type(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying boolean conversion\n");
+            }
+            (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
         else if (is_integer_type(dest)
                 && is_bool_type(orig))
         {
@@ -10533,21 +10573,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     get_unqualified_type(pointer_type_get_pointee_type(dest)), // This gives us 'T'
                     pointer_to_member_type_get_class(dest) // This is 'A'
                     );
-        }
-        else if (is_bool_type(dest)
-                && !is_bool_type(orig)
-                && (is_integral_type(orig)
-                    || is_enum_type(orig)
-                    || is_pointer_type(orig)
-                    || is_pointer_to_member_type(orig)))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCS: Applying boolean conversion\n");
-            }
-            (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
-            // Direct conversion, no cv-qualifiers can be involved here
-            orig = dest;
         }
         // _Complex cases
         else if (is_integer_type(orig)
@@ -13703,4 +13728,69 @@ char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* d
     ERROR_CONDITION(!base_found, "Should not happen", 0);
 
     return is_ambiguous;
+}
+
+static char class_type_is_virtual_base_or_base_of_virtual_base_rec(
+        type_t* base_type,
+        type_t* derived_type,
+        char seen_virtual)
+{
+    ERROR_CONDITION(!is_class_type(base_type) || !is_class_type(derived_type),
+            "This function expects class types", 0);
+    // This function assumes base_type is not an ambiguous base of derived_type
+    int num_bases = class_type_get_num_bases(derived_type);
+
+    int i;
+    // Check every base
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* current_base = class_type_get_base_num(derived_type, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        if (equivalent_types(
+                    get_actual_class_type(current_base->type_information),
+                    get_actual_class_type(base_type)))
+        {
+            return (seen_virtual || is_virtual);
+        }
+        else if (class_type_is_virtual_base_or_base_of_virtual_base_rec(
+                    base_type,
+                    get_user_defined_type(current_base),
+                    seen_virtual || is_virtual))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+char class_type_is_virtual_base_or_base_of_virtual_base(
+        type_t* base_type, type_t* derived_type)
+{
+    return class_type_is_virtual_base_or_base_of_virtual_base_rec(
+            base_type,
+            derived_type,
+            /* seen_virtual */ 0);
+}
+
+char type_is_reference_related_to(type_t* t1, type_t* t2)
+{
+    return (equivalent_types(t1, t2)
+            || (is_class_type(t1)
+                && is_class_type(t2)
+                && class_type_is_base(t1, t2)));
+}
+
+char type_is_reference_compatible_to(type_t* t1, type_t* t2)
+{
+    return type_is_reference_related_to(t1, t2)
+        && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
 }

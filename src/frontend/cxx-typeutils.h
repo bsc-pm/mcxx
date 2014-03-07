@@ -323,6 +323,10 @@ LIBMCXX_EXTERN char is_unsigned_integral_type(type_t* t);
 // A synonim in the standard
 LIBMCXX_EXTERN char is_integer_type(type_t* t); 
 LIBMCXX_EXTERN char is_enum_type(type_t* t);
+
+LIBMCXX_EXTERN char is_unscoped_enum_type(type_t* t);
+LIBMCXX_EXTERN char is_scoped_enum_type(type_t* t);
+
 LIBMCXX_EXTERN char is_named_enumerated_type(type_t* t);
 LIBMCXX_EXTERN char is_unnamed_enumerated_type(type_t* t);
 
@@ -450,6 +454,9 @@ LIBMCXX_EXTERN char is_template_specialized_type(type_t* t);
 /* Query functions: cv-qualification */
 LIBMCXX_EXTERN type_t* get_unqualified_type(type_t* t);
 LIBMCXX_EXTERN cv_qualifier_t get_cv_qualifier(type_t* type_info);
+
+LIBMCXX_EXTERN char type_is_reference_related_to(type_t* t1, type_t* t2);
+LIBMCXX_EXTERN char type_is_reference_compatible_to(type_t* t1, type_t* t2);
 
 LIBMCXX_EXTERN char is_less_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2);
 LIBMCXX_EXTERN char is_equal_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2);
@@ -637,6 +644,7 @@ LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* poss
 LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
 
 LIBMCXX_EXTERN char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class);
+LIBMCXX_EXTERN char class_type_is_virtual_base_or_base_of_virtual_base(type_t* base_class, type_t* derived_class);
 
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);

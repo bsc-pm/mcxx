@@ -234,7 +234,11 @@ expression : literal
 # Ths one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
-structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
+
+structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
+      | NODECL_STRUCTURED_VALUE_BRACED()
+      | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)

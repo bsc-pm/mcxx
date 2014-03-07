@@ -1185,7 +1185,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         CURRENT_COMPILED_FILE->global_decl_context);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
@@ -1217,7 +1219,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 entry_list_free(data_members);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);

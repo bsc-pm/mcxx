@@ -3039,12 +3039,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     if (entry.is_class())
     {
         // Use the qualified name, do not rely on class-scope unqualified lookup
-        *(file) << entry.get_qualified_name() << "(";
+        *(file) << entry.get_qualified_name();
     }
     else
     {
         // Otherwise the name must not be qualified
-        *(file) << entry.get_name() << "(";
+        *(file) << entry.get_name();
     }
 
     TL::Type type = entry.get_type();
@@ -3056,18 +3056,35 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     if (nodecl_calls_to_constructor(init_expr, type))
     {
         // Ignore top level constructor
+        *(file) << "(";
         walk_expression_list(nodecl_calls_to_constructor_get_arguments(init_expr));
+        *(file) << ")";
     }
     else if (init_expr.is<Nodecl::StructuredValue>())
     {
+        bool braces = false;
+        if (!init_expr.as<Nodecl::StructuredValue>().get_form().is_null()
+                && init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBraced>())
+            braces = true;
+
+        if (braces)
+            *(file) << "{";
+        else
+            *(file) << "(";
+
         walk_expression_list(init_expr.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>());
+
+        if (braces)
+            *(file) << "}";
+        else
+            *(file) << ")";
     }
     else
     {
+        *(file) << "(";
         walk(init_expr);
+        *(file) << ")";
     }
-
-    *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
@@ -3423,6 +3440,114 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     Nodecl::List items = node.get_items().as<Nodecl::List>();
     TL::Type type = node.get_type().no_ref();
 
+    Nodecl::NodeclBase form = node.get_form();
+    enum structured_form_kind_t
+    {
+        INVALID = 0,
+        TYPECAST, // C, C++  (T)expression
+        COMPOUND_LITERAL, // C99 (struct X){initializer-clause}
+        EXPLICIT_TYPECAST_PARENTHESIZED, // C++03   T(1, 2)
+        EXPLICIT_TYPECAST_BRACED, // C++11   T{1, 2}
+        UNKNOWN, // The node does not have an explicit form
+    } structured_value_form = INVALID;
+
+    if (!form.is_null())
+    {
+        if (form.is<Nodecl::StructuredValueBraced>())
+        {
+            structured_value_form = EXPLICIT_TYPECAST_BRACED;
+        }
+        else if (form.is<Nodecl::StructuredValueParenthesized>())
+        {
+            structured_value_form = EXPLICIT_TYPECAST_PARENTHESIZED;
+        }
+        else if (form.is<Nodecl::StructuredValueCompoundLiteral>())
+        {
+            structured_value_form = COMPOUND_LITERAL;
+        }
+    }
+    else
+    {
+        structured_value_form = UNKNOWN;
+    }
+
+    if (structured_value_form == UNKNOWN)
+    {
+        // Best effort
+        CXX_LANGUAGE()
+        {
+            structured_value_form = EXPLICIT_TYPECAST_PARENTHESIZED;
+        }
+        C_LANGUAGE()
+        {
+            structured_value_form = TYPECAST;
+        }
+    }
+
+    if (structured_value_form == TYPECAST
+            || structured_value_form == COMPOUND_LITERAL)
+    {
+        // ( type )
+        *(file) << "(" << this->get_declaration(type, this->get_current_scope(),  "") << ")";
+    }
+
+    if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
+            || (structured_value_form == EXPLICIT_TYPECAST_BRACED
+                && !state.inside_structured_value))
+    {
+        if (type.is_signed_short_int())
+        {
+            *(file) << "short";
+        }
+        else if (type.is_signed_long_int())
+        {
+            *(file) << "long";
+        }
+        else if (type.is_unsigned_int())
+        {
+            *(file) << "unsigned";
+        }
+        else
+        {
+            // No effort done for invalid cases that the syntax does not allow
+            *(file) << this->get_declaration(type, this->get_current_scope(),  "");
+        }
+    }
+
+    if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
+            || structured_value_form == TYPECAST)
+    {
+        *(file) << "(";
+    }
+    if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == COMPOUND_LITERAL)
+    {
+        *(file) << "{";
+    }
+
+    bool inside_structured_value = state.inside_structured_value;
+    state.inside_structured_value = true;
+    walk_expression_list(items);
+    state.inside_structured_value = inside_structured_value;
+
+    if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == COMPOUND_LITERAL)
+    {
+        *(file) << "}";
+    }
+    if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
+            || structured_value_form == TYPECAST)
+    {
+        *(file) << ")";
+    }
+}
+
+#if 0
+CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
+{
+    Nodecl::List items = node.get_items().as<Nodecl::List>();
+    TL::Type type = node.get_type().no_ref();
+
     enum structured_value_kind
     {
         INVALID = 0,
@@ -3594,6 +3719,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             }
     }
 }
+#endif
 
 CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
 {
@@ -7508,15 +7634,6 @@ bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, T
 
     return (nodecl_calls_to_constructor(node, t)
             && nodecl_calls_to_constructor_get_arguments(node).empty());
-}
-
-bool CxxBase::nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node)
-{
-    node = Nodecl::Utils::advance_conversions(node);
-
-    return (node.is<Nodecl::StructuredValue>()
-            && (node.as<Nodecl::StructuredValue>().get_items().is_null()
-                || node.as<Nodecl::StructuredValue>().get_items().as<Nodecl::List>().empty()));
 }
 
 std::string CxxBase::unmangle_symbol_name(TL::Symbol symbol)

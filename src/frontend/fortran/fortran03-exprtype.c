@@ -734,6 +734,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     }
 
     *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
+            nodecl_null(),
             ac_value_type,
             ast_get_locus(expr));
 
@@ -2261,6 +2262,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     entry_list_iterator_free(iter);
 
     *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list, 
+            nodecl_null(),
             get_user_defined_type(entry), 
             ast_get_locus(expr));
     nodecl_set_symbol(*nodecl_output, entry);

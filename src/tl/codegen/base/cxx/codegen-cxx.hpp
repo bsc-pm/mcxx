@@ -451,7 +451,6 @@ namespace Codegen
             static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
             static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
-            static bool nodecl_is_zero_args_structured_value(Nodecl::NodeclBase node);
 
             static std::string unmangle_symbol_name(TL::Symbol);
 

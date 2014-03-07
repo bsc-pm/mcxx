@@ -8307,11 +8307,14 @@ void check_nodecl_expr_initializer(nodecl_t expr,
 static void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
         decl_context_t decl_context, 
         type_t* declared_type, 
+        char is_explicit_type_cast,
         nodecl_t* nodecl_output);
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
         decl_context_t decl_context, 
         type_t* declared_type, 
         char is_explicit,
+        char is_explicit_type_cast,
+        char emit_cast,
         nodecl_t* nodecl_output);
 
 static void check_new_expression_impl(
@@ -8818,6 +8821,922 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
             nodecl_output);
 }
 
+static const_value_t* cxx_nodecl_make_value_conversion(
+        type_t* dest_type,
+        type_t* orig_type,
+        const_value_t* val, 
+        char is_explicit_cast,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(is_dependent_type(orig_type),
+            "Do not call this function to convert from dependent types", 0);
+    ERROR_CONDITION(is_dependent_type(dest_type),
+            "Do not call this function to convert to dependent types", 0);
+
+    if (val == NULL)
+        return NULL;
+
+    standard_conversion_t scs;
+    char there_is_a_scs = standard_conversion_between_types(
+            &scs,
+            get_unqualified_type(no_ref(orig_type)),
+            get_unqualified_type(no_ref(dest_type)));
+
+    if (!there_is_a_scs)
+        return NULL;
+
+    // The conversions involving values are in scs.conv[1]
+    switch (scs.conv[1])
+    {
+        case SCI_NO_CONVERSION:
+            // We can fall here for cases like const int -> int
+            break;
+        case SCI_FLOATING_PROMOTION:
+        case SCI_FLOATING_CONVERSION:
+        case SCI_INTEGRAL_FLOATING_CONVERSION:
+            val = const_value_cast_to_floating_type_value(
+                    val,
+                    get_unqualified_type(no_ref(dest_type)));
+            break;
+        case SCI_INTEGRAL_PROMOTION:
+        case SCI_INTEGRAL_CONVERSION:
+        case SCI_FLOATING_INTEGRAL_CONVERSION:
+            val = const_value_cast_to_bytes(
+                    val,
+                    type_get_size(get_unqualified_type(no_ref(dest_type))),
+                    is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
+            break;
+        case SCI_BOOLEAN_CONVERSION:
+            val = const_value_get_integer(
+                    const_value_is_nonzero(val),
+                    type_get_size(get_bool_type()),
+                    /* signed */ 1);
+            break;
+        case SCI_ZERO_TO_POINTER_CONVERSION:
+        case SCI_NULLPTR_TO_POINTER_CONVERSION:
+            val = const_value_get_zero(
+                    type_get_size(get_unqualified_type(no_ref(dest_type))),
+                    /* sign */ 0);
+            break;
+        case SCI_COMPLEX_TO_FLOAT_CONVERSION:
+            val = const_value_cast_to_floating_type_value(
+                    const_value_complex_get_real_part(val),
+                    get_unqualified_type(no_ref(dest_type)));
+            break;
+        case SCI_COMPLEX_TO_INTEGRAL_CONVERSION:
+            val = const_value_cast_to_bytes(
+                    const_value_complex_get_real_part(val),
+                    type_get_size(get_unqualified_type(no_ref(dest_type))),
+                    is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
+            break;
+        case SCI_INTEGRAL_TO_COMPLEX_CONVERSION:
+        case SCI_FLOAT_TO_COMPLEX_CONVERSION:
+        case SCI_FLOAT_TO_COMPLEX_PROMOTION:
+            val = const_value_make_complex(
+                    // cast real part (might do a no-op)
+                    const_value_cast_to_floating_type_value(
+                        val,
+                        complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))),
+                    // imag part is set to zero
+                    const_value_cast_to_floating_type_value(
+                        const_value_get_signed_int(0),
+                        complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))));
+            break;
+        case SCI_INTEGRAL_TO_POINTER_CONVERSION:
+            val = const_value_cast_to_bytes(
+                    val,
+                    type_get_size(get_unqualified_type(no_ref(dest_type))),
+                    /* sign */ 0);
+            break;
+        case SCI_POINTER_TO_INTEGRAL_CONVERSION:
+        case SCI_POINTER_TO_VOID_CONVERSION:
+        case SCI_VOID_TO_POINTER_CONVERSION:
+        case SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION:
+        case SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION:
+            // Leave these untouched
+            break;
+        default:
+            internal_error("Do not know how to handle conversion '%s'\n",
+                    sci_conversion_to_str(scs.conv[1]));
+    }
+
+    if (!checking_ambiguity())
+    {
+        if (there_is_a_scs && !is_explicit_cast)
+        {
+            // Emit a warning for some common cases
+            if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
+            {
+                warn_printf("%s: warning: conversion from integer type to pointer type\n",
+                        locus_to_str(locus));
+            }
+            else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
+            {
+                warn_printf("%s: warning: conversion from pointer type to integer\n",
+                        locus_to_str(locus));
+            }
+        }
+    }
+
+    return val;
+}
+
+static void compute_fake_types_cast_away_constness(type_t** fake_orig_type, type_t** fake_dest_type,
+        type_t* orig_type,
+        type_t* dest_type)
+{
+    if ((is_pointer_type(orig_type)
+                && is_pointer_type(dest_type))
+            || (is_pointer_to_member_type(orig_type)
+                && is_pointer_to_member_type(dest_type)))
+    {
+        compute_fake_types_cast_away_constness(
+                fake_orig_type,
+                fake_dest_type,
+                pointer_type_get_pointee_type(orig_type),
+                pointer_type_get_pointee_type(dest_type));
+
+        *fake_orig_type = get_pointer_type(*fake_orig_type);
+        *fake_dest_type = get_pointer_type(*fake_dest_type);
+    }
+    else
+    {
+        *fake_orig_type = get_signed_int_type();
+        *fake_dest_type = get_signed_int_type();
+    }
+
+    *fake_orig_type = get_cv_qualified_type(*fake_orig_type, get_cv_qualifier(orig_type));
+    *fake_dest_type = get_cv_qualified_type(*fake_dest_type, get_cv_qualifier(dest_type));
+}
+
+static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type)
+{
+    if ((is_pointer_type(orig_type)
+                && is_pointer_type(dest_type))
+            || (is_pointer_to_member_type(orig_type)
+                && is_pointer_to_member_type(dest_type)))
+    {
+        type_t* fake_orig_type = NULL;
+        type_t* fake_dest_type = NULL;
+
+        compute_fake_types_cast_away_constness(
+                &fake_orig_type,
+                &fake_dest_type,
+                orig_type,
+                dest_type);
+
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs, fake_orig_type, fake_dest_type))
+            return 1;
+    }
+    else if (is_lvalue_reference_type(orig_type)
+            && is_lvalue_reference_type(dest_type))
+    {
+        return conversion_casts_away_constness(
+                get_pointer_type(no_ref(orig_type)),
+                get_pointer_type(no_ref(dest_type)));
+    }
+    else if (is_rvalue_reference_type(orig_type)
+            && !is_any_reference_type(dest_type))
+    {
+        return conversion_casts_away_constness(
+                get_pointer_type(no_ref(orig_type)),
+                get_pointer_type(no_ref(dest_type)));
+    }
+
+    return 0;
+}
+
+#define RECURSION_PROTECTOR \
+static int reentrancy_counter = 0; \
+{ \
+    reentrancy_counter++; \
+    ERROR_CONDITION(reentrancy_counter > 256, "Too many recursive calls (%d), probably broken. Giving up\n", reentrancy_counter); \
+}
+
+#define RECURSION_RETURN(ret_) \
+do { \
+    reentrancy_counter--; \
+    ERROR_CONDITION(reentrancy_counter < 0, "Underflow (%d) in recursion counter\n", reentrancy_counter); \
+    return ret_; \
+} while (0)
+
+static char conversion_is_valid_static_cast(
+        nodecl_t *nodecl_expression,
+        type_t* dest_type,
+        decl_context_t decl_context)
+{
+    RECURSION_PROTECTOR
+#define RETURN(ret_) RECURSION_RETURN(ret_)
+
+    type_t* orig_type = nodecl_get_type(*nodecl_expression);
+
+    // A lvalue of type cv1 B can be cast to reference to cv2 D. B = base, D = derived
+    // cv2 >= cv1
+    if (is_lvalue_reference_to_class_type(orig_type)
+            && (is_lvalue_reference_to_class_type(dest_type)
+                || is_rvalue_reference_to_class_type(dest_type))
+            && class_type_is_base(no_ref(orig_type), no_ref(dest_type))
+            && !class_type_is_ambiguous_base_of_derived_class(no_ref(orig_type), no_ref(dest_type))
+            && !class_type_is_virtual_base_or_base_of_virtual_base(no_ref(orig_type), no_ref(dest_type))
+            && is_more_or_equal_cv_qualified_type(
+                no_ref(dest_type),
+                no_ref(orig_type)))
+        RETURN(1);
+
+    // A value of type cv1 B can be cast to a rvalue reference cv2 D
+    // cv2 >= cv1
+    if (is_class_type(orig_type)
+            && is_rvalue_reference_to_class_type(dest_type)
+            && class_type_is_base(no_ref(orig_type), no_ref(dest_type))
+            && !class_type_is_ambiguous_base_of_derived_class(no_ref(orig_type), no_ref(dest_type))
+            && !class_type_is_virtual_base_or_base_of_virtual_base(no_ref(orig_type), no_ref(dest_type))
+            && is_more_or_equal_cv_qualified_type(
+                no_ref(dest_type),
+                no_ref(orig_type)))
+        RETURN(1);
+
+    // A lvalue of type cv1 T1 can be cast to type rvalue reference to cv2 T2 if cv2 T2 is reference
+    // compatible with cv1 T1
+    if (is_lvalue_reference_type(orig_type)
+            && is_rvalue_reference_type(dest_type)
+            && type_is_reference_compatible_to(
+                // cv2 T2
+                get_cv_qualified_type(no_ref(dest_type), get_cv_qualifier(no_ref(dest_type))),
+                // cv1 T1
+                get_cv_qualified_type(no_ref(orig_type), get_cv_qualifier(no_ref(orig_type)))))
+        RETURN(1);
+
+    // Otherwise an expression can be explicitly converted to a type T using a
+    // static_cast<T>(e) if the declaration T t(e) is well formed for some
+    // invented variable t
+    nodecl_t nodecl_parenthesized_init =
+        nodecl_make_cxx_parenthesized_initializer(
+                nodecl_make_list_1(nodecl_shallow_copy(*nodecl_expression)),
+                nodecl_get_locus(*nodecl_expression));
+    nodecl_t nodecl_static_cast_output = nodecl_null();
+
+    enter_test_expression();
+    check_nodecl_parenthesized_initializer(
+            nodecl_parenthesized_init,
+            decl_context,
+            dest_type,
+            /* is_explicit */ 1,
+            /* is_explicit_type_cast */ 1,
+            /* emit_cast */ 0,
+            &nodecl_static_cast_output);
+    leave_test_expression();
+
+    if (!nodecl_is_err_expr(nodecl_static_cast_output))
+    {
+        nodecl_free(*nodecl_expression);
+        *nodecl_expression = nodecl_static_cast_output;
+        RETURN(1);
+    }
+    else
+    {
+        nodecl_free(nodecl_static_cast_output);
+    }
+    nodecl_free(nodecl_parenthesized_init);
+
+    // Any expression can be explicitly converted to cv void
+    if (is_void_type(dest_type))
+        RETURN(1);
+
+    // The inverse of any standard conversion sequence not containing
+    // lvalue-to-rvalue, array-to-pointer, function-to-pointer, null pointer,
+    // null member pointer, boolean conversion
+    standard_conversion_t scs;
+    char there_is_scs = standard_conversion_between_types(&scs, dest_type, orig_type);
+
+    if (there_is_scs
+            && scs.conv[0] != SCI_LVALUE_TO_RVALUE
+            && scs.conv[0] != SCI_ARRAY_TO_POINTER
+            && scs.conv[0] != SCI_FUNCTION_TO_POINTER
+
+            && scs.conv[1] != SCI_NULLPTR_TO_POINTER_CONVERSION
+            && scs.conv[1] != SCI_ZERO_TO_POINTER_CONVERSION
+            && scs.conv[1] != SCI_BOOLEAN_CONVERSION)
+        RETURN(1);
+
+    // Apply lvalue conversions
+    orig_type = no_ref(orig_type);
+    if (is_array_type(orig_type))
+        orig_type = get_pointer_type(array_type_get_element_type(orig_type));
+    else if (is_function_type(orig_type))
+        orig_type = get_pointer_type(orig_type);
+
+    unary_record_conversion_to_result(orig_type, nodecl_expression);
+
+    // A scoped enum can be converted to an integral type
+    if (is_scoped_enum_type(orig_type)
+            && is_integral_type(dest_type))
+        RETURN(1);
+
+    // An enum or integral can be converted to enum
+    if ((is_enum_type(orig_type)
+                || is_integral_type(orig_type))
+            && is_enum_type(dest_type))
+        RETURN(1);
+
+    // A base pointer can be converted to derived type
+    if (is_pointer_to_class_type(orig_type)
+            && is_pointer_to_class_type(dest_type)
+            && class_type_is_base(
+                pointer_type_get_pointee_type(orig_type),
+                pointer_type_get_pointee_type(dest_type))
+            && !class_type_is_ambiguous_base_of_derived_class(
+                pointer_type_get_pointee_type(orig_type),
+                pointer_type_get_pointee_type(dest_type))
+            && !class_type_is_virtual_base_or_base_of_virtual_base(
+                pointer_type_get_pointee_type(orig_type),
+                pointer_type_get_pointee_type(dest_type))
+            && is_more_or_equal_cv_qualified_type(
+                pointer_type_get_pointee_type(dest_type),
+                pointer_type_get_pointee_type(orig_type)))
+        RETURN(1);
+
+    // A pointer to member can be converted to a base pointer if the opposite
+    // conversion exists
+    // cv1 T D::* -> cv2 T B::*
+    if (is_pointer_to_member_type(orig_type)
+            && is_pointer_to_member_type(dest_type)
+            && class_type_is_base(
+                // B
+                pointer_to_member_type_get_class_type(dest_type),
+                // D
+                pointer_to_member_type_get_class_type(orig_type))
+            //  T B::* -> T D::*
+            && standard_conversion_between_types(&scs, 
+                get_unqualified_type(dest_type),
+                get_unqualified_type(orig_type))
+            // cv2 >= cv1
+            && is_more_or_equal_cv_qualified_type(
+                pointer_type_get_pointee_type(dest_type),
+                pointer_type_get_pointee_type(orig_type)))
+        RETURN(1);
+
+    // cv1 void* -> cv2 T*  where cv2 >= cv1
+    if (is_pointer_to_void_type(orig_type)
+            && is_pointer_type(dest_type)
+            && is_more_or_equal_cv_qualified_type(
+                pointer_type_get_pointee_type(dest_type),
+                pointer_type_get_pointee_type(orig_type)))
+        RETURN(1);
+
+    // No conversion was possible using static_cast
+    RETURN(0);
+#undef RETURN
+}
+
+static char conversion_is_valid_reinterpret_cast(
+        nodecl_t *nodecl_expression,
+        type_t* dest_type,
+        decl_context_t decl_context)
+{
+    RECURSION_PROTECTOR
+#define RETURN(ret_) RECURSION_RETURN(ret_)
+
+    type_t* orig_type = nodecl_get_type(*nodecl_expression);
+
+    // No way we can reinterpret a template function
+    if (is_unresolved_overloaded_type(orig_type))
+        return 0;
+
+    if (!is_any_reference_type(dest_type))
+    {
+        // Apply lvalue conversions
+        orig_type = no_ref(orig_type);
+        if (is_array_type(orig_type))
+            orig_type = get_pointer_type(array_type_get_element_type(orig_type));
+        else if (is_function_type(orig_type))
+            orig_type = get_pointer_type(orig_type);
+        unary_record_conversion_to_result(orig_type, nodecl_expression);
+    }
+
+    // Any integral, enumeration, pointer, pointer ot member can be explicitly
+    // converted to its own type
+    if ((is_integral_type(orig_type)
+            || is_enum_type(orig_type)
+            || is_pointer_type(orig_type)
+            || is_pointer_to_member_type(orig_type))
+            && (equivalent_types(get_unqualified_type(orig_type),
+                    get_unqualified_type(dest_type))))
+        RETURN(1);
+
+    // A pointer can be explicitly converted to any integral type
+    if (is_pointer_type(orig_type)
+            && is_integral_type(dest_type)
+            && type_get_size(orig_type) == type_get_size(dest_type))
+        RETURN(1);
+
+    // A nullptr can be converted to integral
+    if (is_nullptr_type(orig_type)
+            && is_integral_type(dest_type))
+        RETURN(1);
+
+    // An integral or enum can be converted to pointer
+    if ((is_integral_type(orig_type)
+            || is_enum_type(orig_type))
+            && is_pointer_type(dest_type))
+        RETURN(1);
+
+    // A pointer to function can be converted to another pointer to function type
+    if (is_pointer_to_function_type(orig_type)
+            && is_pointer_to_function_type(dest_type))
+        RETURN(1);
+
+    // A pointer can be converted to another pointer
+    // NOTE: This includes conversion pointer to object <-> pointer to function
+    if (is_pointer_type(orig_type)
+            && is_pointer_type(dest_type))
+        RETURN(1);
+
+    // It is possible to reinterpret_cast among pointer to member types (of any
+    // class) if both are to object or both to function (but not mixed)
+    if (is_pointer_to_member_type(orig_type)
+            && is_pointer_to_member_type(dest_type)
+            && (is_function_type(pointer_type_get_pointee_type(orig_type))
+                == is_function_type(pointer_type_get_pointee_type(dest_type))))
+        RETURN(1);
+
+    // reinterpret_cast<T&>(x) is valid if reinterpret_cast<T*>(&x) is valid
+    // reinterpret_cast<T&&>(x) is valid if reinterpret_cast<T*>(&x) is valid
+    nodecl_t n = nodecl_make_type(get_pointer_type(orig_type), NULL);
+    if (is_any_reference_type(dest_type)
+            && conversion_is_valid_reinterpret_cast(
+                &n,
+                get_pointer_type(dest_type),
+                decl_context))
+    {
+        nodecl_free(n);
+        RETURN(1);
+    }
+    nodecl_free(n);
+
+    RETURN(0);
+
+#undef RETURN
+}
+
+static char conversion_is_valid_dynamic_cast(
+        nodecl_t *nodecl_expression,
+        type_t* dest_type,
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    RECURSION_PROTECTOR
+#define RETURN(ret_) RECURSION_RETURN(ret_)
+
+    if (!is_pointer_to_void_type(dest_type)
+            && !is_pointer_to_class_type(dest_type)
+            && !is_class_type(no_ref(dest_type)))
+        RETURN(0);
+
+    type_t* orig_type = nodecl_get_type(*nodecl_expression);
+
+    if (is_pointer_to_class_type(dest_type))
+    {
+        if (!is_pointer_to_class_type(no_ref(orig_type)))
+            RETURN(0);
+        if (is_incomplete_type(pointer_type_get_pointee_type(no_ref(orig_type))))
+            RETURN(0);
+    }
+    else if (is_lvalue_reference_to_class_type(dest_type))
+    {
+        if (!is_lvalue_reference_to_class_type(orig_type))
+            RETURN(0);
+        if (is_incomplete_type(no_ref(orig_type)))
+            RETURN(0);
+    }
+    else if (is_rvalue_reference_to_class_type(dest_type))
+    {
+        if (!is_class_type(orig_type))
+            RETURN(0);
+        if (is_incomplete_type(orig_type))
+            RETURN(0);
+    }
+
+    if (equivalent_types(get_unqualified_type(orig_type), get_unqualified_type(dest_type))
+            && is_more_or_equal_cv_qualified_type(dest_type, orig_type))
+        RETURN(1);
+
+    if (is_pointer_type(dest_type)
+            && is_zero_type_or_nullptr_type(orig_type))
+        RETURN(1);
+
+    if (is_pointer_to_class_type(dest_type)
+            && is_pointer_to_class_type(no_ref(orig_type)))
+    {
+        if (class_type_is_base(
+                    pointer_type_get_pointee_type(dest_type),
+                    pointer_type_get_pointee_type(no_ref(orig_type))))
+        {
+            if (is_more_or_equal_cv_qualified_type(
+                        pointer_type_get_pointee_type(dest_type),
+                        pointer_type_get_pointee_type(no_ref(orig_type))))
+                RETURN(1);
+            else
+                RETURN(0);
+        }
+    }
+    else if (is_any_reference_to_class_type(dest_type)
+            && is_any_reference_to_class_type(orig_type))
+    {
+        if (class_type_is_base(
+                    no_ref(dest_type),
+                    no_ref(orig_type)))
+        {
+            if (is_more_or_equal_cv_qualified_type(
+                        no_ref(dest_type),
+                        no_ref(orig_type)))
+                RETURN(1);
+            else
+                RETURN(0);
+        }
+    }
+
+    if (!is_lvalue_reference_to_class_type(orig_type)
+            && !is_pointer_to_class_type(no_ref(orig_type)))
+        RETURN(0);
+
+    if (is_lvalue_reference_to_class_type(orig_type)
+            && !class_type_is_polymorphic(no_ref(orig_type)))
+        RETURN(0);
+
+    if (is_pointer_to_class_type(orig_type)
+            && !class_type_is_polymorphic(pointer_type_get_pointee_type(orig_type)))
+        RETURN(0);
+
+    if (is_pointer_to_void_type(dest_type))
+        RETURN(1);
+
+    // Here we would perform a runtime check
+    RETURN(1);
+
+#undef RETURN
+}
+
+static char same_level_pointer(type_t* t1, type_t* t2)
+{
+    ERROR_CONDITION(!is_pointer_type(t1)
+            || !is_pointer_type(t2), "Invalid types", 0);
+    while (is_pointer_type(t1)
+            && is_pointer_type(t2))
+    {
+        t1 = pointer_type_get_pointee_type(t1);
+        t2 = pointer_type_get_pointee_type(t2);
+    }
+
+    if (is_pointer_type(t1)
+            || is_pointer_type(t2))
+        return 0;
+
+    return 1;
+}
+
+static char same_level_pointer_to_member(type_t* t1, type_t* t2)
+{
+    ERROR_CONDITION(!is_pointer_to_member_type(t1)
+            || !is_pointer_to_member_type(t2), "Invalid types", 0);
+    while (is_pointer_to_member_type(t1)
+            && is_pointer_to_member_type(t2))
+    {
+        t1 = pointer_type_get_pointee_type(t1);
+        t2 = pointer_type_get_pointee_type(t2);
+    }
+
+    if (is_pointer_to_member_type(t1)
+            || is_pointer_to_member_type(t2))
+        return 0;
+
+    return 1;
+}
+
+static char conversion_is_valid_const_cast(
+        nodecl_t *nodecl_expression,
+        type_t* dest_type,
+        decl_context_t decl_context)
+{
+    RECURSION_PROTECTOR
+#define RETURN(ret_) RECURSION_RETURN(ret_)
+
+    type_t* orig_type = nodecl_get_type(*nodecl_expression);
+
+    if (is_unresolved_overloaded_type(orig_type))
+        RETURN(0);
+
+    if (!is_any_reference_type(dest_type))
+    {
+        // Apply lvalue conversions
+        orig_type = no_ref(orig_type);
+        if (is_array_type(orig_type))
+            orig_type = get_pointer_type(array_type_get_element_type(orig_type));
+        else if (is_function_type(orig_type))
+            orig_type = get_pointer_type(orig_type);
+        unary_record_conversion_to_result(orig_type, nodecl_expression);
+    }
+
+    // Conversion between pointers
+    if (is_pointer_type(no_ref(orig_type))
+            && is_pointer_type(no_ref(dest_type))
+            && same_level_pointer(no_ref(orig_type), no_ref(dest_type)))
+        RETURN(1);
+
+    if (is_pointer_to_member_type(no_ref(orig_type))
+            && is_pointer_to_member_type(no_ref(dest_type))
+            && same_level_pointer_to_member(no_ref(orig_type), no_ref(dest_type)))
+        RETURN(1);
+
+    // If it is an object type, check a conversion through pointers
+    nodecl_t n =
+                nodecl_make_type(get_pointer_type(no_ref(orig_type)),
+                        nodecl_get_locus(*nodecl_expression));
+    if (!is_pointer_type(no_ref(orig_type))
+            && !is_pointer_type(no_ref(dest_type))
+            && conversion_is_valid_const_cast(
+                &n,
+                get_pointer_type(no_ref(dest_type)),
+                decl_context))
+    {
+        nodecl_free(n);
+        // T1& -> T2&
+        if (is_lvalue_reference_type(orig_type)
+                && is_lvalue_reference_type(dest_type))
+            RETURN(1);
+
+        // T1& -> T2&&
+        // T1&& -> T2&&
+        if ((is_lvalue_reference_type(orig_type)
+                || is_rvalue_reference_type(orig_type))
+                && is_rvalue_reference_type(dest_type))
+            RETURN(1);
+
+        // C -> D&&
+        if (is_class_type(orig_type)
+                && is_rvalue_reference_type(dest_type))
+            RETURN(1);
+    }
+    else
+    {
+        nodecl_free(n);
+    }
+
+    RETURN(0);
+
+#undef RETURN
+}
+
+static void check_nodecl_cast_expr(
+        nodecl_t nodecl_casted_expr,
+        decl_context_t decl_context,
+        type_t* declarator_type,
+        const char* cast_kind,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    if (is_dependent_type(declarator_type))
+    {
+        *nodecl_output = nodecl_make_cast(
+                nodecl_casted_expr,
+                declarator_type,
+                cast_kind,
+                locus);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    if (is_dependent_type(nodecl_get_type(nodecl_casted_expr)))
+    {
+        *nodecl_output = nodecl_make_cast(
+                nodecl_casted_expr,
+                declarator_type,
+                cast_kind,
+                locus);
+        nodecl_expr_set_is_value_dependent(*nodecl_output,
+                nodecl_expr_is_value_dependent(nodecl_casted_expr));
+        return;
+    }
+
+    if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr)))
+    {
+        // Simplify this unresolved overloaded type
+        scope_entry_t* entry = unresolved_overloaded_type_simplify(
+                nodecl_get_type(nodecl_casted_expr),
+                decl_context, nodecl_get_locus(nodecl_casted_expr));
+        if (entry != NULL)
+        {
+            type_t* simplified_type = lvalue_ref(entry->type_information);
+            nodecl_casted_expr = nodecl_make_symbol(
+                    entry, nodecl_get_locus(nodecl_casted_expr));
+            nodecl_set_type(nodecl_casted_expr, simplified_type);
+        }
+    }
+
+#define CONVERSION_ERROR \
+    do { \
+      if (!checking_ambiguity()) \
+      { \
+          error_printf("%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
+                  locus_to_str(locus), \
+                  codegen_to_str(nodecl_casted_expr, decl_context), \
+                  print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context), \
+                  print_type_str(declarator_type, decl_context), \
+                  cast_kind); \
+          if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr))) \
+          { \
+              diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), locus); \
+          } \
+      } \
+      *nodecl_output = nodecl_make_err_expr(locus); \
+      return; \
+    } while (0)
+
+    if (strcmp(cast_kind, "C") == 0)
+    {
+        //   const_cast
+        //   static_cast
+        //   static_cast + const_cast
+        //   reinterpret_cast
+        //   reinterpret_cast + const_casted
+        //
+        // This should be the same as checking const_cast, static_cast and
+        // reinterpret_cast but not checking const being casted away
+
+        typedef char (*conversion_is_valid_fun_t)(
+                nodecl_t *nodecl_expression,
+                type_t* dest_type,
+                decl_context_t decl_context);
+
+        conversion_is_valid_fun_t conversion_funs[] = {
+            conversion_is_valid_const_cast,
+            conversion_is_valid_static_cast,
+            conversion_is_valid_reinterpret_cast,
+            NULL
+        };
+
+        int i = 0;
+        while (conversion_funs[i] != NULL)
+        {
+            // Copy the tree because the conversion functions may modify its
+            // argument due to lvalue conversions
+            nodecl_t nodecl_copy = nodecl_shallow_copy(nodecl_casted_expr);
+
+            if ((conversion_funs[i])(
+                    &nodecl_copy,
+                    declarator_type,
+                    decl_context))
+            {
+                // Use the first one that works for us
+                nodecl_free(nodecl_casted_expr);
+                nodecl_casted_expr = nodecl_copy;
+                break;
+            }
+
+            nodecl_free(nodecl_copy);
+            i++;
+        }
+
+        if (conversion_funs[i] == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
+                        locus_to_str(locus),
+                        codegen_to_str(nodecl_casted_expr, decl_context),
+                        print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context),
+                        print_type_str(declarator_type, decl_context));
+                if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr)))
+                {
+                    diagnostic_candidates(
+                            unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)),
+                            locus);
+                }
+            }
+            *nodecl_output = nodecl_make_err_expr(locus);
+
+            return;
+        }
+    }
+    else if (strcmp(cast_kind, "static_cast") == 0)
+    {
+        if (!conversion_is_valid_static_cast(
+                    &nodecl_casted_expr,
+                    declarator_type,
+                    decl_context))
+        {
+            CONVERSION_ERROR;
+        }
+
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        {
+            CONVERSION_ERROR;
+        }
+    }
+    else if (strcmp(cast_kind, "dynamic_cast") == 0)
+    {
+        if (!conversion_is_valid_dynamic_cast(
+                    &nodecl_casted_expr,
+                    declarator_type,
+                    decl_context))
+        {
+            CONVERSION_ERROR;
+        }
+
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        {
+            CONVERSION_ERROR;
+        }
+    }
+    else if (strcmp(cast_kind, "reinterpret_cast") == 0)
+    {
+        if (!conversion_is_valid_reinterpret_cast(
+                    &nodecl_casted_expr,
+                    declarator_type,
+                    decl_context))
+        {
+            CONVERSION_ERROR;
+        }
+
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        {
+            CONVERSION_ERROR;
+        }
+    }
+    else if (strcmp(cast_kind, "const_cast") == 0)
+    {
+        if (!conversion_is_valid_const_cast(
+                    &nodecl_casted_expr,
+                    declarator_type,
+                    decl_context))
+        {
+            CONVERSION_ERROR;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (IS_CXX_LANGUAGE)
+    {
+        if (is_class_type(declarator_type))
+        {
+            scope_entry_t* called_symbol = NULL;
+            ERROR_CONDITION((nodecl_get_kind(nodecl_casted_expr) != NODECL_FUNCTION_CALL)
+                    || (called_symbol = nodecl_get_symbol(nodecl_get_child(nodecl_casted_expr, 0))) == NULL
+                    || !(called_symbol->entity_specs.is_constructor)
+                    || !equivalent_types(
+                        get_actual_class_type(called_symbol->entity_specs.class_type),
+                        get_unqualified_type(get_actual_class_type(declarator_type))),
+                    "This should be a call to a constructor of the class", 0);
+
+            // Use the call to the constructor rather than a cast node
+            *nodecl_output = nodecl_casted_expr;
+
+            return;
+        }
+    }
+
+    *nodecl_output = nodecl_make_cast(
+            nodecl_casted_expr,
+            declarator_type,
+            cast_kind,
+            locus);
+
+    if (nodecl_is_constant(nodecl_casted_expr))
+    {
+        const_value_t * casted_value = nodecl_get_constant(nodecl_casted_expr);
+
+        const_value_t* converted_value = cxx_nodecl_make_value_conversion(
+                declarator_type,
+                nodecl_get_type(nodecl_casted_expr),
+                casted_value,
+                /* is_explicit_type_cast */ 1,
+                locus);
+
+        // Propagate zero types
+        if (converted_value != NULL)
+        {
+            if (is_zero_type(nodecl_get_type(nodecl_casted_expr))
+                    && const_value_is_zero(converted_value)
+                    && (is_integral_type(declarator_type)
+                        || is_bool_type(declarator_type)))
+            {
+                nodecl_set_type(*nodecl_output, get_zero_type(declarator_type));
+            }
+        }
+
+        nodecl_set_constant(*nodecl_output, converted_value);
+    }
+
+    nodecl_expr_set_is_value_dependent(*nodecl_output,
+            nodecl_expr_is_value_dependent(nodecl_casted_expr));
+
+#undef CONVERSION_ERROR
+}
+
+#if 0
 static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
         decl_context_t decl_context, 
         type_t* declarator_type,
@@ -8865,6 +9784,8 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                 decl_context, 
                 declarator_type, 
                 /* is_explicit */ 1,
+                /* is_explicit_type_cast */ 1,
+                /* emit_cast */ 1,
                 &nodecl_cast_output);
         leave_test_expression();
 
@@ -8887,7 +9808,8 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             }
             else
             {
-                // Take care of propagating value dependency
+                nodecl_set_type(nodecl_cast_output,
+                        nodecl_get_type(nodecl_casted_expr));
                 nodecl_expr_set_is_value_dependent(nodecl_cast_output,
                         nodecl_expr_is_value_dependent(nodecl_casted_expr));
 
@@ -8902,52 +9824,30 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             cast_kind,
             locus);
 
-    if (nodecl_is_constant(nodecl_casted_expr)
-            && (is_integral_type(declarator_type)
-               || is_pointer_type(declarator_type)))
+    if (nodecl_is_constant(nodecl_casted_expr))
     {
-        const_value_t * const_casted_expr = nodecl_get_constant(nodecl_casted_expr);
+        const_value_t * casted_value = nodecl_get_constant(nodecl_casted_expr);
 
-        // The const_casted_expr variable can be a string literal. 
-        // Example:
-        // (const void *)"ABC";
-        //
-        // Something similar appears in strcmp function
-        if (is_bool_type(declarator_type))
+        const_value_t* converted_value = cxx_nodecl_make_value_conversion(
+                declarator_type,
+                nodecl_get_type(nodecl_casted_expr),
+                casted_value,
+                /* is_explicit_type_cast */ 1,
+                locus);
+
+        // Propagate zero types
+        if (converted_value != NULL)
         {
-            // bool conversion is slightly different
-            const_value_t* cval = nodecl_get_constant(nodecl_casted_expr);
-            if (const_value_is_zero(cval))
+            if (is_zero_type(nodecl_get_type(nodecl_casted_expr))
+                    && const_value_is_zero(converted_value)
+                    && (is_integral_type(declarator_type)
+                        || is_bool_type(declarator_type)))
             {
-                nodecl_set_constant(*nodecl_output,
-                    const_value_get_zero(type_get_size(declarator_type), 1));
-                // Make sure we set the false type to this boolean cast
-                nodecl_set_type(*nodecl_output, get_bool_false_type());
-            }
-            else
-            {
-                nodecl_set_constant(*nodecl_output,
-                    const_value_get_one(type_get_size(declarator_type), 1));
+                nodecl_set_type(*nodecl_output, get_zero_type(declarator_type));
             }
         }
-        else if (const_value_is_integer(const_casted_expr)
-                || const_value_is_floating(const_casted_expr))
-        {
-            nodecl_set_constant(*nodecl_output,
-                    const_value_cast_to_bytes(
-                        const_casted_expr,
-                        type_get_size(declarator_type), 
-                        /* sign */ is_signed_integral_type(declarator_type)));
 
-            // Propagate zero types
-            if (const_value_is_integer(const_casted_expr)
-                    && const_value_is_zero(const_casted_expr)
-                    && is_integral_type(declarator_type))
-            {
-                nodecl_set_type(*nodecl_output,
-                        get_zero_type(declarator_type));
-            }
-        }
+        nodecl_set_constant(*nodecl_output, converted_value);
     }
 
     if (nodecl_expr_is_value_dependent(nodecl_casted_expr))
@@ -8955,7 +9855,9 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
 }
+#endif
 
+#if 0
 static void check_nodecl_explicit_type_conversion(type_t* type_info,
         nodecl_t nodecl_expr_list, decl_context_t decl_context,
         nodecl_t* nodecl_output,
@@ -8992,7 +9894,7 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
         }
 
         check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info,
-                /* is_explicit */ 1, nodecl_output);
+                /* is_explicit */ 1, /* is_explicit_type_cast */ 1, /* emit_cast */ 1, nodecl_output);
 
         if (nodecl_is_err_expr(*nodecl_output))
         {
@@ -9013,23 +9915,101 @@ static void check_nodecl_explicit_type_conversion(type_t* type_info,
         }
     }
 }
+#endif
 
-static void check_explicit_type_conversion_common(type_t* type_info, 
-        AST expr, AST expression_list, decl_context_t decl_context,
-        nodecl_t* nodecl_output)
+static void check_nodecl_explicit_type_conversion(
+        type_t* type_info,
+        nodecl_t nodecl_explicit_initializer,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        const locus_t* locus)
 {
-    nodecl_t nodecl_expr_list = nodecl_null();
-
-    check_list_of_expressions(expression_list, decl_context, &nodecl_expr_list);
-
-    if (!nodecl_is_null(nodecl_expr_list) 
-            && nodecl_is_err_expr(nodecl_expr_list))
+    if (nodecl_is_err_expr(nodecl_explicit_initializer))
     {
-        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression_list));
+        *nodecl_output = nodecl_explicit_initializer;
         return;
     }
 
-    check_nodecl_explicit_type_conversion(type_info, nodecl_expr_list, decl_context,
+    nodecl_t nodecl_initializer = nodecl_null();
+
+    if (nodecl_get_kind(nodecl_explicit_initializer) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+    {
+        nodecl_t nodecl_expr_list = nodecl_get_child(nodecl_explicit_initializer, 0);
+
+        // T(e) behaves like (T)e but we have to be careful to avoid
+        // constructing NODECL_CAST nodes when type_info is a dependent or
+        // when n is type-dependent (if n is only value-dependent then it is fine
+        // to have a NODECL_CAST)
+        nodecl_t n = nodecl_null();
+        if (nodecl_list_length(nodecl_expr_list) == 1)
+        {
+            n = nodecl_list_head(nodecl_expr_list);
+        }
+
+        if (!is_dependent_type(type_info)
+                && !nodecl_is_null(n)
+                && !nodecl_expr_is_type_dependent(n))
+        {
+            check_nodecl_cast_expr(n,
+                    decl_context,
+                    type_info,
+                    "C",
+                    locus,
+                    nodecl_output);
+
+            // Nothing else to do here, this NODECL_CAST is sensible
+            return;
+        }
+        else
+        {
+            check_nodecl_parenthesized_initializer(
+                    nodecl_explicit_initializer,
+                    decl_context,
+                    type_info,
+                    /* is_explicit */ 1,
+                    /* is_explicit_type_cast */ 1,
+                    /* emit_cast */ 1,
+                    &nodecl_initializer);
+        }
+    }
+    else if (nodecl_get_kind(nodecl_explicit_initializer) == NODECL_CXX_BRACED_INITIALIZER)
+    {
+        check_nodecl_braced_initializer(
+                nodecl_explicit_initializer,
+                decl_context,
+                type_info,
+                /* is_explicit_type_cast */ 1,
+                &nodecl_initializer);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (is_dependent_type(type_info)
+            || nodecl_expr_is_type_dependent(nodecl_initializer))
+    {
+        *nodecl_output =
+            nodecl_make_cxx_explicit_type_cast(nodecl_initializer, type_info, locus);
+        nodecl_expr_set_is_type_dependent(*nodecl_output,
+                is_dependent_type(type_info));
+        nodecl_expr_set_is_value_dependent(*nodecl_output,
+                nodecl_expr_is_value_dependent(nodecl_initializer));
+    }
+    else
+    {
+        *nodecl_output = nodecl_initializer;
+    }
+}
+
+static void check_explicit_type_conversion_common(type_t* type_info,
+        AST expr, AST explicit_initializer, decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_explicit_initializer = nodecl_null();
+    compute_nodecl_initialization(explicit_initializer, decl_context, &nodecl_explicit_initializer);
+
+    check_nodecl_explicit_type_conversion(type_info, nodecl_explicit_initializer, decl_context,
             nodecl_output, ast_get_locus(expr));
 }
 
@@ -9073,16 +10053,21 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
         return;
     }
 
-    AST expr_list = ASTSon1(expr);
+    AST explicit_initializer = ASTSon1(expr);
 
-    check_explicit_type_conversion_common(get_user_defined_type(entry), expr, expr_list, decl_context, nodecl_output);
+    check_explicit_type_conversion_common(
+            get_user_defined_type(entry),
+            expr,
+            explicit_initializer,
+            decl_context, nodecl_output);
 }
 
 static void check_explicit_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // An explicit type conversion is of the form
     //
-    //   T ( e );
+    //   T ( expression-list );
+    //   T { expression-list };
     //
     // T has to be a valid typename
     AST type_specifier_seq = ASTSon0(expr);
@@ -9102,8 +10087,13 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
         return;
     }
 
-    AST expression_list = ASTSon1(expr);
-    check_explicit_type_conversion_common(type_info, expr, expression_list, decl_context, nodecl_output);
+    AST explicit_initializer = ASTSon1(expr);
+    check_explicit_type_conversion_common(
+            type_info,
+            expr,
+            explicit_initializer,
+            decl_context,
+            nodecl_output);
 }
 
 void check_function_arguments(AST arguments, decl_context_t decl_context, 
@@ -10874,13 +11864,22 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     compute_declarator_type(abstract_declarator, &gather_info, simple_type_info,
             &declarator_type, decl_context, &dummy_nodecl_output);
 
+    if (is_error_type(declarator_type))
+    {
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+        return;
+    }
+
     int i;
     for (i = 0; i < gather_info.num_vla_dimension_symbols; i++)
     {
         push_extra_declaration_symbol(gather_info.vla_dimension_symbols[i]);
     }
 
-    check_nodecl_cast_expr(nodecl_casted_expr, decl_context, declarator_type, cast_kind,
+    check_nodecl_cast_expr(nodecl_casted_expr,
+            decl_context,
+            declarator_type,
+            cast_kind,
             ast_get_locus(expr),
             nodecl_output);
 }
@@ -12973,7 +13972,9 @@ static void check_postoperator(AST operator,
         *nodecl_output = nodecl_fun(postoperated_expr,
                 get_unknown_dependent_type(),
                 nodecl_get_locus(postoperated_expr));
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1); 
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output,
+                nodecl_expr_is_value_dependent(postoperated_expr));
         return;
     }
 
@@ -13109,6 +14110,8 @@ static void check_preoperator(AST operator,
                 get_unknown_dependent_type(), 
                 nodecl_get_locus(preoperated_expr));
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output,
+                nodecl_expr_is_value_dependent(preoperated_expr));
         return;
     }
 
@@ -13681,6 +14684,7 @@ static void nodecl_make_designator(nodecl_t *nodecl_output, type_t* declared_typ
 static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         decl_context_t decl_context,
         type_t* declared_type,
+        char is_explicit_type_cast,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_get_kind(braced_initializer) != NODECL_CXX_BRACED_INITIALIZER, "Invalid nodecl", 0);
@@ -14073,7 +15077,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
         }
 
-        *nodecl_output = nodecl_make_structured_value(init_list_output, initializer_type, locus);
+        *nodecl_output = nodecl_make_structured_value(init_list_output,
+                /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                initializer_type, locus);
         return;
     }
     else if (is_named_class_type(declared_type)
@@ -14403,7 +15409,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
                         /* called name */ nodecl_null(),
-                        nodecl_make_list_1(nodecl_make_structured_value(nodecl_arguments_output,
+                        nodecl_make_list_1(nodecl_make_structured_value(
+                                nodecl_arguments_output,
+                                /* structured-value-form */ nodecl_make_structured_value_braced(locus),
                                 specialized_std_initializer,
                                 locus)),
                         nodecl_make_cxx_function_form_implicit(
@@ -14448,8 +15456,11 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 if (!checking_ambiguity())
                 {
-                    warn_printf("%s: warning: redundant brace initializer of scalar\n",
-                            nodecl_locus_to_str(braced_initializer));
+                    if (!is_explicit_type_cast)
+                    {
+                        warn_printf("%s: warning: redundant brace initializer of scalar\n",
+                                nodecl_locus_to_str(braced_initializer));
+                    }
                 }
             }
 
@@ -14459,27 +15470,25 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
             if (nodecl_is_err_expr(nodecl_expr_out))
             {
-                *nodecl_output = nodecl_make_err_expr(
-                        locus);
+                *nodecl_output = nodecl_expr_out;
                 return;
             }
-            else
-            {
-                // Should we simply return nodecl_expr_out as we clearly know
-                // that this structured value is redundant?
-                *nodecl_output = nodecl_make_structured_value(
-                        nodecl_make_list_1(nodecl_expr_out),
-                        declared_type,
-                        locus);
 
-                nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_expr_out));
-            }
+            *nodecl_output = nodecl_make_structured_value(
+                    nodecl_make_list_1(nodecl_expr_out),
+                    /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                    declared_type,
+                    locus);
+
+            nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_expr_out));
             return;
         }
         else
         {
             // Empty is OK
-            *nodecl_output = nodecl_make_structured_value(nodecl_null(), 
+            *nodecl_output = nodecl_make_structured_value(
+                    nodecl_null(),
+                    /* structured-value-form */ nodecl_make_structured_value_braced(locus),
                     declared_type,
                     locus);
             return;
@@ -14634,6 +15643,8 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         decl_context_t decl_context,
         type_t* declared_type,
         char is_explicit,
+        char is_explicit_type_cast UNUSED_PARAMETER,
+        char emit_cast,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_get_kind(direct_initializer) != NODECL_CXX_PARENTHESIZED_INITIALIZER, "Invalid nodecl", 0);
@@ -14780,31 +15791,40 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         {
             nodecl_t expr = nodecl_list_head(nodecl_list);
 
-            check_nodecl_expr_initializer(expr, decl_context, declared_type, nodecl_output);
+            nodecl_t nodecl_expr_out = nodecl_null();
+            check_nodecl_expr_initializer(expr, decl_context, declared_type, &nodecl_expr_out);
 
-            // We do not build a structured value here because we do not need
-            // it in all the cases. Example:
-            //
-            // int* f(0); // We do not generate int* f = { 0 };
-
-            if (!nodecl_is_err_expr(*nodecl_output))
+            if (nodecl_is_err_expr(nodecl_expr_out))
             {
-                if (nodecl_is_constant(expr)
-                        && is_integral_type(declared_type))
-                {
-                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(expr));
-                }
-
-                if (nodecl_expr_is_value_dependent(expr))
-                {
-                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-                }
+                *nodecl_output = nodecl_expr_out;
+                return;
             }
+
+            // We only build a cast if this is an explicit type cast
+            if (emit_cast)
+            {
+                *nodecl_output = nodecl_make_cast(
+                        nodecl_expr_out,
+                        declared_type,
+                        /* cast_kind */ "C",
+                        nodecl_get_locus(nodecl_expr_out));
+            }
+            else
+            {
+                *nodecl_output = nodecl_expr_out;
+            }
+
+            nodecl_set_constant(*nodecl_output,
+                    nodecl_get_constant(nodecl_expr_out));
+            nodecl_expr_set_is_value_dependent(*nodecl_output,
+                    nodecl_expr_is_value_dependent(nodecl_expr_out));
         }
         else
         {
-            *nodecl_output = nodecl_make_structured_value(nodecl_null(), declared_type, 
-                    nodecl_get_locus(direct_initializer));
+            // Empty case int()
+            *nodecl_output = nodecl_make_structured_value(nodecl_null(),
+                    /* structured-value-form */ nodecl_make_structured_value_parenthesized(locus),
+                    declared_type, nodecl_get_locus(direct_initializer));
         }
     }
 }
@@ -14828,7 +15848,8 @@ static void compute_nodecl_initializer_clause(AST initializer, decl_context_t de
                 char is_type_dependent = nodecl_expr_is_type_dependent(*nodecl_output);
                 char is_value_dependent = nodecl_expr_is_value_dependent(*nodecl_output);
 
-                *nodecl_output = nodecl_make_cxx_initializer(*nodecl_output, 
+                *nodecl_output = nodecl_make_cxx_initializer(
+                        *nodecl_output,
                         nodecl_get_type(*nodecl_output),
                         nodecl_get_locus(*nodecl_output));
 
@@ -15361,6 +16382,7 @@ static void compute_nodecl_gcc_initializer(AST initializer,
 static void compute_nodecl_direct_initializer(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     char any_is_type_dependent = 0;
+    char any_is_value_dependent = 0;
     nodecl_t nodecl_initializer_list = nodecl_null();
 
     AST initializer_list = ASTSon0(initializer);
@@ -15388,6 +16410,8 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
 
                 any_is_type_dependent = any_is_type_dependent ||
                     nodecl_expr_is_type_dependent(current_nodecl);
+                any_is_value_dependent = any_is_value_dependent ||
+                    nodecl_expr_is_value_dependent(current_nodecl);
             }
         }
     }
@@ -15397,6 +16421,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
             ast_get_locus(initializer));
 
     nodecl_expr_set_is_type_dependent(*nodecl_output, any_is_type_dependent);
+    nodecl_expr_set_is_value_dependent(*nodecl_output, any_is_value_dependent);
 }
 
 static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -15453,15 +16478,19 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     type_t* initializer_expr_type = nodecl_get_type(nodecl_expr);
     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
 
-    if (nodecl_expr_is_type_dependent(nodecl_expr)
-            || nodecl_expr_is_value_dependent(nodecl_expr))
+    if (nodecl_is_err_expr(nodecl_expr))
     {
         *nodecl_output = nodecl_expr;
-        nodecl_set_type(*nodecl_output, declared_type_no_cv);
         return;
     }
 
-    if (nodecl_is_err_expr(nodecl_expr))
+    if (nodecl_expr_is_type_dependent(nodecl_expr))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    if (is_dependent_type(declared_type_no_cv))
     {
         *nodecl_output = nodecl_expr;
         return;
@@ -15500,14 +16529,6 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         *nodecl_output = nodecl_expr;
         unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
-        return;
-    }
-
-    // C++ only from now
-
-    if (is_dependent_type(declared_type_no_cv))
-    {
-        *nodecl_output = nodecl_expr;
         return;
     }
 
@@ -15611,7 +16632,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 nodecl_get_locus(nodecl_expr),
                 conversors,
                 &candidates);
-        
+
         if (chosen_constructor == NULL)
         {
             if (entry_list_size(candidates) != 0)
@@ -15789,16 +16810,16 @@ void check_nodecl_initialization(
         }
     }
 
-    if (is_dependent_type(declared_type))
+    if (nodecl_is_err_expr(nodecl_initializer))
     {
-        // We do not bother to check anything else if the declared entity is
-        // dependent
         *nodecl_output = nodecl_initializer;
         return;
     }
 
-    if (nodecl_is_err_expr(nodecl_initializer))
+    if (is_dependent_type(declared_type))
     {
+        // We do not bother to check anything else if the declared entity is
+        // dependent
         *nodecl_output = nodecl_initializer;
         return;
     }
@@ -15812,12 +16833,15 @@ void check_nodecl_initialization(
             }
         case NODECL_CXX_BRACED_INITIALIZER:
             {
-                check_nodecl_braced_initializer(nodecl_initializer, decl_context, declared_type, nodecl_output);
+                check_nodecl_braced_initializer(nodecl_initializer, decl_context, declared_type,
+                        /* is_explicit_type_cast */ 0, nodecl_output);
                 break;
             }
         case NODECL_CXX_PARENTHESIZED_INITIALIZER:
             {
-                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type, /* is_explicit */ 0, nodecl_output);
+                check_nodecl_parenthesized_initializer(nodecl_initializer, decl_context, declared_type,
+                        /* is_explicit */ 0, /* is_explicit_type_cast */ 0, /* emit_cast */ 0,
+                        nodecl_output);
                 break;
             }
         default:
@@ -15850,7 +16874,9 @@ static void check_nodecl_initializer_clause(nodecl_t initializer_clause,
             }
         case NODECL_CXX_BRACED_INITIALIZER:
             {
-                check_nodecl_braced_initializer(initializer_clause, decl_context, declared_type, nodecl_output);
+                check_nodecl_braced_initializer(initializer_clause, decl_context, declared_type,
+                        /* is_explicit_type_cast */ 0,
+                        nodecl_output);
                 break;
             }
         default:
@@ -17007,12 +18033,20 @@ static void check_gcc_postfix_expression(AST expression,
         return;
     }
 
-    check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t, nodecl_output);
+    check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t,
+            /* is_explicit_type_cast */ 0, nodecl_output);
 
     // This is an lvalue
-    if (!nodecl_is_err_expr(*nodecl_output))
+    if (nodecl_is_err_expr(*nodecl_output))
+        return;
+
+    nodecl_set_type(*nodecl_output, get_lvalue_reference_type(no_ref(nodecl_get_type(*nodecl_output))));
+
+    if (nodecl_get_kind(*nodecl_output) == NODECL_STRUCTURED_VALUE)
     {
         nodecl_set_type(*nodecl_output, get_lvalue_reference_type(no_ref(nodecl_get_type(*nodecl_output))));
+        nodecl_set_child(*nodecl_output, 1,
+                nodecl_make_structured_value_compound_literal(locus));
     }
 }
 
@@ -18121,6 +19155,14 @@ void diagnostic_candidates(scope_entry_list_t* candidates, const locus_t* locus)
         scope_entry_t* candidate_fun = entry_list_iterator_current(it);
         candidate_fun = entry_advance_aliases(candidate_fun);
 
+        if (candidate_fun->kind == SK_TEMPLATE)
+        {
+            // These are not very useful as candidates
+            candidate_fun = named_type_get_symbol(
+                    template_type_get_primary_type(
+                        candidate_fun->type_information));
+        }
+
         unrepeated_candidates = entry_list_add_once(unrepeated_candidates, candidate_fun);
     }
     entry_list_iterator_free(it);
@@ -18205,7 +19247,7 @@ static void error_message_overload_failed(candidate_t* candidates,
     }
 
 }
-
+ 
 nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
 {
     ERROR_CONDITION(nodecl_expr_is_type_dependent(expr),
@@ -18214,112 +19256,20 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
             "Do not call this function to convert to dependent types", 0);
 
     char is_value_dep = nodecl_expr_is_value_dependent(expr);
-    const_value_t* val = nodecl_get_constant(expr);
+    const_value_t* val = cxx_nodecl_make_value_conversion(dest_type,
+            nodecl_get_type(expr),
+            nodecl_get_constant(expr),
+            /* is_explicit_cast */ 0, locus);
 
-    standard_conversion_t scs;
-    char there_is_a_scs = standard_conversion_between_types(
-            &scs,
-            get_unqualified_type(no_ref(nodecl_get_type(expr))),
-            get_unqualified_type(no_ref(dest_type)));
+    // Propagate zero types
     if (val != NULL)
     {
-        // There may not be a standard conversion sequence
-        // (but a user-defined sequence, this is not an error)
-        if (there_is_a_scs)
+        if (is_zero_type(nodecl_get_type(expr))
+                && const_value_is_zero(val)
+                && (is_integral_type(dest_type)
+                    || is_bool_type(dest_type)))
         {
-            // The conversions involving values are in scs.conv[1]
-            switch (scs.conv[1])
-            {
-                case SCI_NO_CONVERSION:
-                    // We can fall here for cases like const int -> int
-                    break;
-                case SCI_FLOATING_PROMOTION:
-                case SCI_FLOATING_CONVERSION:
-                case SCI_INTEGRAL_FLOATING_CONVERSION:
-                    val = const_value_cast_to_floating_type_value(
-                            val,
-                            get_unqualified_type(no_ref(dest_type)));
-                    break;
-                case SCI_INTEGRAL_PROMOTION:
-                case SCI_INTEGRAL_CONVERSION:
-                case SCI_FLOATING_INTEGRAL_CONVERSION:
-                    val = const_value_cast_to_bytes(
-                            val,
-                            type_get_size(get_unqualified_type(no_ref(dest_type))),
-                            is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
-                    break;
-                    break;
-                case SCI_BOOLEAN_CONVERSION:
-                    val = const_value_get_integer(
-                            const_value_is_nonzero(val),
-                            type_get_size(get_bool_type()),
-                            /* signed */ 1);
-                    break;
-                case SCI_ZERO_TO_POINTER_CONVERSION:
-                case SCI_NULLPTR_TO_POINTER_CONVERSION:
-                    val = const_value_get_zero(
-                            type_get_size(get_unqualified_type(no_ref(dest_type))),
-                            /* sign */ 0);
-                    break;
-                case SCI_COMPLEX_TO_FLOAT_CONVERSION:
-                    val = const_value_cast_to_floating_type_value(
-                            const_value_complex_get_real_part(val),
-                            get_unqualified_type(no_ref(dest_type)));
-                    break;
-                case SCI_COMPLEX_TO_INTEGRAL_CONVERSION:
-                    val = const_value_cast_to_bytes(
-                            const_value_complex_get_real_part(val),
-                            type_get_size(get_unqualified_type(no_ref(dest_type))),
-                            is_signed_integral_type(get_unqualified_type(no_ref(dest_type))));
-                    break;
-                case SCI_INTEGRAL_TO_COMPLEX_CONVERSION:
-                case SCI_FLOAT_TO_COMPLEX_CONVERSION:
-                case SCI_FLOAT_TO_COMPLEX_PROMOTION:
-                    val = const_value_make_complex(
-                            // cast real part (might do a no-op)
-                            const_value_cast_to_floating_type_value(
-                                val,
-                                complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))),
-                            // imag part is set to zero
-                            const_value_cast_to_floating_type_value(
-                                const_value_get_signed_int(0),
-                                complex_type_get_base_type(get_unqualified_type(no_ref(dest_type)))));
-                    break;
-                case SCI_INTEGRAL_TO_POINTER_CONVERSION:
-                    val = const_value_cast_to_bytes(
-                            val,
-                            type_get_size(get_unqualified_type(no_ref(dest_type))),
-                            /* sign */ 0);
-                    break;
-                case SCI_POINTER_TO_INTEGRAL_CONVERSION:
-                case SCI_POINTER_TO_VOID_CONVERSION:
-                case SCI_VOID_TO_POINTER_CONVERSION:
-                case SCI_POINTER_TO_MEMBER_BASE_TO_DERIVED_CONVERSION:
-                case SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION:
-                    // Leave these untouched
-                    break;
-                default:
-                    internal_error("Do not know how to handle conversion '%s'\n",
-                            sci_conversion_to_str(scs.conv[1]));
-            }
-        }
-    }
-
-    if (!checking_ambiguity())
-    {
-        if (there_is_a_scs)
-        {
-            // Emit a warning for some common cases
-            if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
-            {
-                warn_printf("%s: warning: conversion from integer type to pointer type\n",
-                        locus_to_str(locus));
-            }
-            else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
-            {
-                warn_printf("%s: warning: conversion from pointer type to integer\n",
-                        locus_to_str(locus));
-            }
+            dest_type = get_zero_type(dest_type);
         }
     }
 
@@ -18327,7 +19277,6 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
 
     nodecl_set_constant(result, val);
     nodecl_expr_set_is_value_dependent(result, is_value_dep);
-
 
     return result;
 }
@@ -20017,7 +20966,10 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
     }
 
     v->nodecl_result =
-        nodecl_make_structured_value(nodecl_new_list, t, nodecl_get_locus(node));
+        nodecl_make_structured_value(nodecl_new_list,
+                nodecl_shallow_copy(nodecl_get_child(node, 1)),
+                t,
+                nodecl_get_locus(node));
 
     //FIXME: We should check this new structured value
 }
@@ -20327,44 +21279,12 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
             v->instantiation_symbol_map,
             v->pack_index);
 
-    nodecl_t nodecl_new_list = nodecl_null();
+    nodecl_t explicit_initializer = nodecl_get_child(node, 0);
+    nodecl_t instantiated_explicit_initializer = instantiate_expr_walk(v, explicit_initializer);
 
-    nodecl_t parenthesized_init = nodecl_get_child(node, 0);
-    if (!nodecl_is_null(parenthesized_init))
-    {
-        nodecl_t old_list = nodecl_get_child(parenthesized_init, 0);
-        int num_items = 0;
-        nodecl_t* list = nodecl_unpack_list(old_list, &num_items);
-
-        int i;
-        for (i = 0; i < num_items; i++)
-        {
-            nodecl_t n = instantiate_expr_walk(v, list[i]);
-
-            if (nodecl_is_err_expr(n))
-            {
-                v->nodecl_result = n;
-                return;
-            }
-
-            if (nodecl_is_list(n))
-            {
-                // This can be a list if this came from an expansion, integrate
-                // it into the call
-                nodecl_new_list = nodecl_concat_lists(nodecl_new_list, n);
-            }
-            else
-            {
-                nodecl_new_list = nodecl_append_to_list(nodecl_new_list, n);
-            }
-        }
-
-        xfree(list);
-    }
-
-    check_nodecl_explicit_type_conversion(t, 
-            nodecl_new_list,
-            v->decl_context, 
+    check_nodecl_explicit_type_conversion(t,
+            instantiated_explicit_initializer,
+            v->decl_context,
             &v->nodecl_result,
             nodecl_get_locus(node));
 }
@@ -20449,7 +21369,14 @@ static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visito
             return;
         }
 
-        nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
+        if (!nodecl_is_list(expr))
+        {
+            nodecl_result_list = nodecl_append_to_list(nodecl_result_list, expr);
+        }
+        else
+        {
+            nodecl_result_list = nodecl_concat_lists(nodecl_result_list, expr);
+        }
     }
 
     xfree(list);
