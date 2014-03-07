@@ -17173,9 +17173,22 @@ static void build_scope_default_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
 
-
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_default_statement(nodecl_statement, ast_get_locus(a)));
+    if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
+    {
+        // If we find 'default: case X: S;' we will generate 'default: ; case X: S;'
+        *nodecl_output = nodecl_concat_lists(
+                nodecl_make_list_1(
+                    nodecl_make_default_statement(
+                        nodecl_make_list_1(
+                            nodecl_make_empty_statement(ast_get_locus(a))),
+                        ast_get_locus(a))),
+                nodecl_statement);
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_default_statement(nodecl_statement, ast_get_locus(a)));
+    }
 }
 
 static void build_scope_case_statement(AST a, 
@@ -17195,13 +17208,39 @@ static void build_scope_case_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
 
-
-    // FIXME - We can try to coalesce several cases alla Fortran
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_case_statement(
-                nodecl_make_list_1(nodecl_expr), 
-                nodecl_statement, 
-                ast_get_locus(a)));
+    if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
+    {
+        // If we find a
+        //
+        //     case X:
+        //     case Y:
+        //      S
+        //
+        // Instead of case X : case Y : S; we will emit
+        //
+        //     case X:
+        //       ;
+        //     case Y:
+        //       S
+        //
+        *nodecl_output =
+            nodecl_concat_lists(
+                    nodecl_make_list_1(
+                        nodecl_make_case_statement(
+                            nodecl_make_list_1(nodecl_expr),
+                            nodecl_make_list_1(
+                                nodecl_make_empty_statement(ast_get_locus(a))),
+                            ast_get_locus(a))),
+                    nodecl_statement);
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_case_statement(
+                    nodecl_make_list_1(nodecl_expr), 
+                    nodecl_statement, 
+                    ast_get_locus(a)));
+    }
 }
 
 static void build_scope_return_statement(AST a, 
