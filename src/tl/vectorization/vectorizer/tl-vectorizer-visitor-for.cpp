@@ -25,8 +25,10 @@
 --------------------------------------------------------------------*/
 
 #include "cxx-cexpr.h"
+#include "tl-nodecl-utils.hpp"
+
+#include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"

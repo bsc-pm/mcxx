@@ -1,36 +1,36 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorizer.hpp"
-#include "tl-vectorizer-utils.hpp"
+#include "tl-vectorization-utils.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
-namespace TL 
-{ 
-    namespace Vectorization 
+namespace TL
+{
+    namespace Vectorization
     {
         namespace Utils
         {
@@ -40,9 +40,9 @@ namespace TL
             {
             }
 
-            bool LookForReturnVisitor::join_list(ObjectList<bool>& list) 
+            bool LookForReturnVisitor::join_list(ObjectList<bool>& list)
             {
-                for(ObjectList<bool>::const_iterator it = list.begin(); 
+                for(ObjectList<bool>::const_iterator it = list.begin();
                         it != list.end();
                         it++)
                 {
@@ -59,13 +59,13 @@ namespace TL
             }
 
             MaskCheckCostEstimation::MaskCheckCostEstimation()
-                : 
+                :
                 _add_cost(1),
                 _minus_cost(1),
                 _mul_cost(3),
                 _div_cost(5),
                 _return_cost(3),
-                _if_statement_cost(4), 
+                _if_statement_cost(4),
                 _else_statement_cost(1),
                 _static_for_statement_cost(10),
                 _masked_for_statement_cost(3),
@@ -88,7 +88,7 @@ namespace TL
                 return _cost;
             }
 
-            void MaskCheckCostEstimation::binary_operation(const Nodecl::NodeclBase& n, 
+            void MaskCheckCostEstimation::binary_operation(const Nodecl::NodeclBase& n,
                     const unsigned int cost)
             {
                 _cost += cost;
@@ -105,7 +105,7 @@ namespace TL
             {
                 binary_operation(n, _minus_cost);
             }
- 
+
             void MaskCheckCostEstimation::visit(const Nodecl::Mul& n)
             {
                 binary_operation(n, _mul_cost);
@@ -121,7 +121,7 @@ namespace TL
                 _cost += _return_cost;
                 walk(n.get_value());
             }
- 
+
             void MaskCheckCostEstimation::visit(const Nodecl::IfElseStatement& n)
             {
                 _cost += _if_statement_cost + _else_statement_cost;
@@ -162,7 +162,7 @@ namespace TL
                     const int mask_size,
                     const bool ref_type)
             {
-                TL::Symbol new_mask_sym = scope.new_symbol("__mask_" + 
+                TL::Symbol new_mask_sym = scope.new_symbol("__mask_" +
                         Utils::get_var_counter());
                 new_mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 new_mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
@@ -282,7 +282,7 @@ namespace TL
                 return Nodecl::NodeclBase::null();
             }
 
-            TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int num_elements) 
+            TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int num_elements)
             {
                 cv_qualifier_t cv_qualif = get_cv_qualifier(no_ref(src_type.get_internal_type()));
                 TL::Type result_type = src_type.no_ref().get_unqualified_type().get_vector_of_elements(num_elements);
@@ -307,59 +307,6 @@ namespace TL
                 return result.str();
             }
 
-            bool is_nested_induction_variable_dependent_access(const VectorizerEnvironment& environment,
-                    const Nodecl::NodeclBase& n)
-            {
-                for(std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator> current_scope(environment._analysis_scopes.end());
-                        current_scope != std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator>(environment._analysis_scopes.begin());
-                        current_scope++)
-                {
-                    if((*current_scope) == environment._analysis_simd_scope)
-                        return false;
-
-                    if((*current_scope).is<Nodecl::ForStatement>() ||
-                            (*current_scope).is<Nodecl::IfElseStatement>() ||
-                            (*current_scope).is<Nodecl::FunctionCode>())
-                    {
-                        if(Vectorizer::_analysis_info->is_induction_variable_dependent_access(
-                                    *current_scope,
-                                    n))
-                        {
-                            return true;
-                        }
-                    }
-
-                }
-
-                return false;
-            }
-
-            bool is_nested_non_reduction_basic_induction_variable(const VectorizerEnvironment& environment,
-                    const Nodecl::NodeclBase& n)
-            {
-                for(std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator> current_scope(environment._analysis_scopes.end());
-                        current_scope != std::reverse_iterator<std::list<Nodecl::NodeclBase>::const_iterator>(environment._analysis_scopes.begin());
-                        current_scope++)
-                {
-                    if((*current_scope) == environment._analysis_simd_scope)
-                        return false;
-
-                    if((*current_scope).is<Nodecl::ForStatement>() ||
-                            (*current_scope).is<Nodecl::IfElseStatement>() ||
-                            (*current_scope).is<Nodecl::FunctionCode>())
-                    {
-                        if(Vectorizer::_analysis_info->is_non_reduction_basic_induction_variable(
-                                    *current_scope,
-                                    n))
-                        {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
-            }
-
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then)
             {
@@ -369,7 +316,7 @@ namespace TL
                     processed_then = then;
                 else
                     processed_then = Nodecl::List::make(then);
-                    
+
 
                 // Create IF to check if if_mask is all zero
                 Nodecl::IfElseStatement if_mask_is_zero =
@@ -393,12 +340,12 @@ namespace TL
                 {
                     internal_error("GDO: type is not an array", 0);
                 }
-                
+
                 if (!type.array_has_size())
                 {
                     internal_error("GDO: array has no size", 0);
                 }
-                
+
                 Nodecl::NodeclBase array_size = type.array_get_size();
 
                 if(!type.array_element().is_array()) // Last Dimension
@@ -436,17 +383,17 @@ namespace TL
 
                 if (size == 16)
                 {
-                    unsigned short int value = 
+                    unsigned short int value =
                         ~(((signed short int)0x8000) >> (15 - ((unsigned short int) num_active_lanes)));
 
-                    mask_value = const_value_get_integer(value, 2, 0); 
+                    mask_value = const_value_get_integer(value, 2, 0);
                 }
                 else if (size == 8)
                 {
-                    unsigned char value = 
+                    unsigned char value =
                         ~(((signed char)0x80) >> (7 - ((unsigned char) num_active_lanes)));
 
-                    mask_value = const_value_get_integer(value, 1, 0); 
+                    mask_value = const_value_get_integer(value, 1, 0);
                 }
                 else
                 {
@@ -471,7 +418,7 @@ namespace TL
                     literal_list.prepend(const_value_to_nodecl(i));
                 }
 
-                
+
                 Nodecl::List offset_list = Nodecl::List::make(literal_list);
                 offset_list.set_constant(get_vector_const_value(literal_list));
 
@@ -514,7 +461,7 @@ namespace TL
                 // UB is normalized. < --> <=
                 if (loop_condition.is<Nodecl::LowerThan>() ||
                      loop_condition.is<Nodecl::LowerOrEqualThan>())
-                { 
+                {
                     result = Nodecl::Add::make(ub.shallow_copy(),
                             Nodecl::IntegerLiteral::make(
                                 TL::Type::get_int_type(),

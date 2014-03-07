@@ -82,8 +82,6 @@ namespace TL
                 bool _support_masking;
                 unsigned int _mask_size;
                 bool _fast_math_enabled;
-                bool _prefer_gather_scatter;
-                bool _prefer_mask_gather_scatter;
 
                 void process_aligned_clause(const Nodecl::List& environment,
                         TL::Vectorization::aligned_expr_map_t& aligned_expressions_map);
@@ -105,8 +103,7 @@ namespace TL
 
             public:
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                        bool fast_math_enabled, bool svml_enabled,
-                        bool prefer_gather_scatter, bool prefer_mask_gather_scatter);
+                        bool fast_math_enabled, bool svml_enabled);
 
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);

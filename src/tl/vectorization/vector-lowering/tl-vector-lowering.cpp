@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -52,6 +52,11 @@ namespace TL
                     "If set to '1' enable the Intel Compiler profile, otherwise GNU is assumed",
                     _intel_compiler_profile_str,
                     "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
+
+            register_parameter("intel_compiler_profile",
+                    "If set to '1' enable the Intel Compiler profile, otherwise GNU is assumed",
+                    _intel_compiler_profile_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
@@ -79,6 +84,24 @@ namespace TL
             }
         }
 
+        void VectorLoweringPhase::set_prefer_gather_scatter(
+                const std::string prefer_gather_scatter_str)
+        {
+            if (prefer_gather_scatter_str == "1")
+            {
+                _prefer_gather_scatter = true;
+            }
+        }
+
+        void VectorLoweringPhase::set_prefer_mask_gather_scatter(
+                const std::string prefer_mask_gather_scatter_str)
+        {
+            if (prefer_mask_gather_scatter_str == "1")
+            {
+                _prefer_mask_gather_scatter = true;
+            }
+        }
+
         void VectorLoweringPhase::run(TL::DTO& dto)
         {
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
@@ -101,7 +124,8 @@ namespace TL
             else if (_knc_enabled)
             {
                 // KNC Legalization phase
-                KNCVectorLegalization knc_vector_legalization;
+                KNCVectorLegalization knc_vector_legalization(
+                        _prefer_gather_scatter, _prefer_mask_gather_scatter);
                 knc_vector_legalization.walk(translation_unit);
 
                 // Lowering to intrinsics

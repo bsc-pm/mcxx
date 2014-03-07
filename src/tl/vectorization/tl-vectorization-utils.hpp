@@ -24,29 +24,24 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_UTILS_HPP
-#define TL_VECTORIZER_UTILS_HPP
+#ifndef TL_VECTORIZATION_UTILS_HPP
+#define TL_VECTORIZATION_UTILS_HPP
 
 #include <map>
 #include "tl-nodecl-visitor.hpp"
 
-#define VECTORIZER_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorizer_verbose) 
 
 namespace TL
 {
     namespace Vectorization
     {
-        class VectorizerEnvironment;
-
         namespace Utils
         {
             class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<bool>
             {
                 public:
                     LookForReturnVisitor();
-
                     virtual Ret join_list(ObjectList<bool>& list);
-
                     virtual Ret visit(const Nodecl::ReturnStatement& n);
             };
 
@@ -114,11 +109,6 @@ namespace TL
             TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
             std::string get_var_counter();
 
-            bool is_nested_induction_variable_dependent_access(const VectorizerEnvironment& environment,
-                    const Nodecl::NodeclBase& n);
-            bool is_nested_non_reduction_basic_induction_variable(const VectorizerEnvironment& environment,
-                    const Nodecl::NodeclBase& n);
-
             Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
 
@@ -132,5 +122,5 @@ namespace TL
     }
 }
 
-#endif //TL_VECTORIZER_UTILS_VERSIONING_HPP
+#endif //TL_VECTORIZATION_UTILS_VERSIONING_HPP
 

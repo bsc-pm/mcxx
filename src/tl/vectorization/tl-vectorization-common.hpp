@@ -1,70 +1,54 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef VECTOR_LOWERING_PHASE_HPP
-#define VECTOR_LOWERING_PHASE_HPP
+#ifndef TL_VECTORIZATION_COMMON_HPP
+#define TL_VECTORIZATION_COMMON_HPP
 
-#include "tl-compilerphase.hpp"
+#include <list>
+#include <map>
+
+#include "tl-symbol.hpp"
+
+#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
 
 namespace TL
 {
     namespace Vectorization
     {
-        class VectorLoweringPhase : public TL::CompilerPhase
-        {
-            private:
-                bool _knc_enabled;
-                bool _avx2_enabled;
-                bool _intel_compiler_profile;
+        typedef std::map<TL::Symbol, int> aligned_expr_map_t;
+        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontemporal_expr_map_t;
+        typedef TL::ObjectList<Nodecl::NodeclBase> objectlist_nodecl_t;
+        typedef TL::ObjectList<TL::Symbol> objectlist_tlsymbol_t;
 
-                std::string _knc_enabled_str;
-                std::string _avx2_enabled_str;
-                std::string _intel_compiler_profile_str;
+        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
+        typedef std::list<TL::Scope> stdlist_scope_t;
 
-                void set_knc(const std::string knc_enabled_str);
-                void set_avx2(const std::string avx2_enabled_str);
-                void set_intel_compiler_profile(const std::string intel_compiler_profile_str);
-
-            public:
-                VectorLoweringPhase();
-                virtual void run(TL::DTO& dto);
-        };
-
-
-        /*
-        class VectorLoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
-        {
-            public:
-                VectorLoweringVisitor();
-                
-                virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
-                virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-        };
-        */
+        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
     }
 }
 
-#endif // VECTOR_LOWERING_PHASE_HPP
+#endif //TL_VECTORIZATION_COMMON_HPP
+

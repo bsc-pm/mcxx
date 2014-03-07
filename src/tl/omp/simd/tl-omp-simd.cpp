@@ -38,8 +38,7 @@ namespace TL {
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
-            _avx2_enabled(false), _knc_enabled(false), _prefer_gather_scatter(false),
-            _prefer_mask_gather_scatter(false)
+            _avx2_enabled(false), _knc_enabled(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -70,15 +69,6 @@ namespace TL {
                     _avx2_enabled_str,
                     "0").connect(functor(&Simd::set_avx2, *this));
 
-            register_parameter("prefer_gather_scatter",
-                    "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions",
-                    _prefer_gather_scatter_str,
-                    "0").connect(functor(&Simd::set_prefer_gather_scatter, *this));
-
-            register_parameter("prefer_mask_gather_scatter",
-                    "If set to '1' enables generation of gather/scatter instructions instead of unaligned memory instructions with masks",
-                    _prefer_mask_gather_scatter_str,
-                    "0").connect(functor(&Simd::set_prefer_mask_gather_scatter, *this));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -121,22 +111,6 @@ namespace TL {
             }
         }
 
-        void Simd::set_prefer_gather_scatter(const std::string prefer_gather_scatter_str)
-        {
-            if (prefer_gather_scatter_str == "1")
-            {
-                _prefer_gather_scatter = true;
-            }
-        }
-
-        void Simd::set_prefer_mask_gather_scatter(const std::string prefer_mask_gather_scatter_str)
-        {
-            if (prefer_mask_gather_scatter_str == "1")
-            {
-                _prefer_mask_gather_scatter = true;
-            }
-        }
-
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -172,20 +146,15 @@ namespace TL {
                     running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
                 }
 
-                SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled,
-                        _prefer_gather_scatter, _prefer_mask_gather_scatter);
+                SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled);
                 simd_visitor.walk(translation_unit);
             }
         }
 
         SimdVisitor::SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
-                bool fast_math_enabled, bool svml_enabled,
-                bool prefer_gather_scatter, bool prefer_mask_gather_scatter)
+                bool fast_math_enabled, bool svml_enabled)
             : _vectorizer(TL::Vectorization::Vectorizer::get_vectorizer())
         {
-            _prefer_gather_scatter = prefer_gather_scatter;
-            _prefer_mask_gather_scatter = prefer_mask_gather_scatter;
-
             if (fast_math_enabled)
             {
                 _fast_math_enabled = true;
@@ -279,8 +248,6 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
-                    _prefer_gather_scatter,
-                    _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     aligned_expressions,
                     suitable_expressions,
@@ -505,8 +472,6 @@ namespace TL {
                     _support_masking,
                     _mask_size,
                     _fast_math_enabled,
-                    _prefer_gather_scatter,
-                    _prefer_mask_gather_scatter,
                     vectorlengthfor_type,
                     aligned_expressions,
                     suitable_expressions,
@@ -744,8 +709,6 @@ namespace TL {
                     _vector_length,
                     _support_masking,
                     _mask_size,
-                    _prefer_gather_scatter,
-                    _prefer_mask_gather_scatter,
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,

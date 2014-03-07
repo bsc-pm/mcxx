@@ -29,10 +29,12 @@
 
 #include <string>
 #include <list>
-//#include "tl-analysis-static-info.hpp"
+
 #include "tl-nodecl-base.hpp"
+
+#include "tl-vectorization-common.hpp"
+//#include "tl-vectorization-utils.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-cache.hpp"
 #include "tl-vectorizer-analysis.hpp"
 
@@ -40,84 +42,6 @@ namespace TL
 {
     namespace Vectorization
     {
-        typedef std::map<TL::Symbol, int> aligned_expr_map_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontemporal_expr_map_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objectlist_nodecl_t;
-        typedef TL::ObjectList<TL::Symbol> objectlist_tlsymbol_t;
-
-        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
-
-        class VectorizerCache;
-
-        class VectorizerEnvironment
-        {
-            private:
-                const std::string& _device;
-                const unsigned int _vector_length;
-                const unsigned int _unroll_factor;
-                const bool _support_masking;
-                const unsigned int _mask_size;
-                const bool _fast_math;
-                const bool _prefer_gather_scatter;
-                const bool _prefer_mask_gather_scatter;
-                const TL::Type& _target_type;
-                const aligned_expr_map_t& _aligned_expr_map;
-                const objectlist_nodecl_t& _suitable_expr_list;
-                const nontemporal_expr_map_t& _nontemporal_expr_map;
-                const VectorizerCache& _vectorizer_cache;
-
-                const objectlist_tlsymbol_t* _reduction_list;
-                std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
-
-                TL::Scope _external_scope;                      // Enclosing scope of the SIMD region (to add reduction symbols)
-                std::list<TL::Scope> _local_scope_list;         // TL::Scopes used to determine if a variable is locally declared
-                std::list<Nodecl::NodeclBase> _analysis_scopes; // Stack of useful scopes (If, FunctionCode and For) for the analysis
-                Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
-
-                std::list<Nodecl::NodeclBase> _mask_list;       // Stack of masks
-                std::list<bool> _inside_inner_masked_bb;        // TBD :)
-                std::list<unsigned int> _mask_check_bb_cost;    // Costs of BB for early exist heuristic
-
-                TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
-
-           public:
-                VectorizerEnvironment(const std::string& device,
-                        const unsigned int vector_length,
-                        const bool support_masking,
-                        const unsigned int mask_size,
-                        const bool fast_math,
-                        const bool prefer_gather_scatter,
-                        const bool prefer_mask_gather_scatter,
-                        const TL::Type& target_type,
-                        const aligned_expr_map_t& aligned_expr_map,
-                        const objectlist_nodecl_t& suitable_expr_list,
-                        const nontemporal_expr_map_t& nontemporal_expr_map,
-                        const VectorizerCache& vectorizer_cache,
-                        const objectlist_tlsymbol_t* reduction_list,
-                        std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
-
-                ~VectorizerEnvironment();
-
-                friend class Vectorizer;
-                friend class VectorizerVisitorFor;
-                friend class VectorizerVisitorForEpilog;
-                friend class VectorizerVisitorLoopHeader;
-                friend class VectorizerVisitorLoopCond;
-                friend class VectorizerVisitorLoopNext;
-                friend class VectorizerVisitorFunction;
-                friend class VectorizerVisitorStatement;
-                friend class VectorizerVisitorExpression;
-                friend class VectorizerVectorReduction;
-                friend class VectorizerCache;
-
-                friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
-                        const VectorizerEnvironment& environment,
-                        const Nodecl::NodeclBase& n);
-                friend bool Vectorization::Utils::is_nested_non_reduction_basic_induction_variable(
-                        const VectorizerEnvironment& environment,
-                        const Nodecl::NodeclBase& n);
-        };
-
         class Vectorizer
         {
             private:
@@ -194,6 +118,7 @@ namespace TL
                 void enable_svml_knc();
                 void enable_fast_math();
 
+                friend class VectorizerAnalysisStaticInfo;
                 friend class VectorizerVisitorFor;
                 friend class VectorizerVisitorForEpilog;
                 friend class VectorizerVisitorLoopCond;
@@ -202,13 +127,6 @@ namespace TL
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
                 friend class VectorizerVisitorLoopHeader;
-
-                friend bool Vectorization::Utils::is_nested_induction_variable_dependent_access(
-                        const VectorizerEnvironment& environment,
-                        const Nodecl::NodeclBase& n);
-                friend bool Vectorization::Utils::is_nested_non_reduction_basic_induction_variable(
-                        const VectorizerEnvironment& environment,
-                        const Nodecl::NodeclBase& n);
         };
    }
 }

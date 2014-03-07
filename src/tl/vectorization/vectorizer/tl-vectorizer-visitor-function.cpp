@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -25,14 +25,15 @@
 --------------------------------------------------------------------*/
 
 #include "cxx-cexpr.h"
+#include "tl-nodecl-utils.hpp"
+
+#include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-utils.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-#include "tl-nodecl-utils.hpp"
 
-namespace TL 
+namespace TL
 {
     namespace Vectorization
     {
@@ -87,7 +88,7 @@ namespace TL
                 mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
 
-                symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(), 
+                symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
                         vect_func_sym.get_internal_symbol(),
                         /*nesting*/ 0, parameters.size());
 
@@ -113,7 +114,7 @@ namespace TL
                     vect_func_sym.get_internal_symbol()->entity_specs.num_parameters = num_parameters;
                 }
 
-                Nodecl::Symbol mask_nodecl_sym = 
+                Nodecl::Symbol mask_nodecl_sym =
                     mask_sym.make_nodecl(true, function_code.get_locus());
 
                 _environment._mask_list.push_back(mask_nodecl_sym);
@@ -129,7 +130,7 @@ namespace TL
                 _environment._mask_list.push_back(all_one_mask);
             }
 
-            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(), 
+            vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
                         _environment._unroll_factor).get_function_returning(parameters_vector_type));
 
             // Vectorize function statements
@@ -160,15 +161,15 @@ namespace TL
             _environment._local_scope_list.pop_back();
             _environment._function_return = TL::Symbol();
         }
- 
-        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n) 
-        { 
-            std::cerr << "Function Visitor: Unknown node " 
-                << ast_print_node_type(n.get_kind()) 
-                << " at " << n.get_locus() 
+
+        Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorFunction::unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            std::cerr << "Function Visitor: Unknown node "
+                << ast_print_node_type(n.get_kind())
+                << " at " << n.get_locus()
                 << std::endl;
 
-            return Ret(); 
+            return Ret();
         }
-    } 
+    }
 }
