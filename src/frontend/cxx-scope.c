@@ -865,6 +865,19 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
     return 0;
 }
 
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
@@ -882,6 +895,7 @@ static scope_entry_t* create_new_dependent_entity(
     {
         dependent_entry = named_type_get_symbol(advance_over_typedefs(dependent_entry->type_information));
     }
+
     if (dependent_entry->kind == SK_CLASS)
     {
         build_dependent_parts_for_symbol_rec(dependent_entry,
@@ -899,13 +913,32 @@ static scope_entry_t* create_new_dependent_entity(
 
     nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, make_locus("", 0, 0));
 
-    // FIXME - Cache these symbols
-    scope_entry_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    type_t* dependent_type = get_dependent_typename_type_from_parts(updated_dependent_entry, nodecl_parts);
 
-    result->kind = SK_DEPENDENT_ENTITY;
-    result->decl_context = decl_context;
-    result->symbol_name = dependent_entry->symbol_name;
-    result->type_information = get_dependent_typename_type_from_parts(updated_dependent_entry, nodecl_parts);
+    static rb_red_blk_tree *_dependent_symbols = NULL;
+    if (_dependent_symbols == NULL)
+    {
+        _dependent_symbols = rb_tree_create(intptr_t_comp, NULL, NULL);
+    }
+
+    scope_entry_t* result = NULL;
+    // Try to reuse an existing symbol through its dependent type
+    rb_red_blk_node * n = rb_tree_query(_dependent_symbols, dependent_type);
+    if (n != NULL)
+    {
+        result = (scope_entry_t*)rb_node_get_info(n);
+    }
+    else
+    {
+        result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+
+        result->kind = SK_DEPENDENT_ENTITY;
+        result->decl_context = decl_context;
+        result->symbol_name = dependent_entry->symbol_name;
+        result->type_information = dependent_type;
+
+        rb_tree_insert(_dependent_symbols, dependent_type, result);
+    }
 
     return result;
 }
@@ -3766,6 +3799,8 @@ static void get_template_arguments_from_syntax_rec(
         for (i = 0; i < num_ambiguities; i++)
         {
             AST current_interpretation = ast_get_ambiguity(template_parameters_list_tree, i);
+
+            ast_fix_parents_inside_intepretation(current_interpretation);
 
             potential_results[i] = xcalloc(1, sizeof(*(potential_results[i])));
             copy_template_parameter_list(potential_results[i], *result);

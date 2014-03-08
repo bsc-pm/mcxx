@@ -1460,7 +1460,309 @@ type_t* get_indirect_type(scope_entry_t* entry)
     return get_indirect_type_(entry, /* indirect */ 1);
 }
 
+static char same_template_argument_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        decl_context_t decl_context);
+
+static int compare_dependent_parts(const void *v1, const void *v2)
+{
+    nodecl_t n1 = _nodecl_wrap((AST)v1);
+    nodecl_t n2 = _nodecl_wrap((AST)v2);
+
+    if (nodecl_is_null(n1) && nodecl_is_null(n2))
+        return 0;
+    if (nodecl_is_null(n1))
+        return -1;
+    if (nodecl_is_null(n2))
+        return 1;
+
+    n1 = nodecl_get_child(n1, 0);
+    n2 = nodecl_get_child(n2, 0);
+
+    if (nodecl_is_null(n1)
+            && nodecl_is_null(n2))
+        return 0;
+    if (nodecl_is_null(n1))
+        return -1;
+    if (nodecl_is_null(n2))
+        return 1;
+
+    if (nodecl_list_length(n1) < nodecl_list_length(n2))
+        return -1;
+    if (nodecl_list_length(n1) > nodecl_list_length(n2))
+        return 1;
+
+    int num_items1 = 0;
+    nodecl_t* list1 = nodecl_unpack_list(n1, &num_items1);
+    int num_items2 = 0;
+    nodecl_t* list2 = nodecl_unpack_list(n2, &num_items2);
+
+    ERROR_CONDITION(num_items1 != num_items2, "This should not happen", 0);
+
+    int i;
+    for (i = 0; i < num_items1; i++)
+    {
+        if (nodecl_get_kind(list1[i]) < nodecl_get_kind(list2[i]))
+        {
+            xfree(list1);
+            xfree(list2);
+            return -1;
+        }
+        else if (nodecl_get_kind(list1[i]) > nodecl_get_kind(list2[i]))
+        {
+            xfree(list1);
+            xfree(list2);
+            return 1;
+        }
+        else
+        {
+            switch (nodecl_get_kind(list1[i]))
+            {
+                case NODECL_CXX_DEP_NAME_SIMPLE:
+                    {
+                        int cmp = strcmp(nodecl_get_text(list1[i]), nodecl_get_text(list2[i]));
+                        if (cmp < 0)
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return -1;
+                        }
+                        else if (cmp > 0)
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return 1;
+                        }
+
+                        break;
+                    }
+                case NODECL_CXX_DEP_TEMPLATE_ID:
+                    {
+                        int cmp = strcmp(nodecl_get_text(list1[i]), nodecl_get_text(list2[i]));
+                        if (cmp < 0)
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return -1;
+                        }
+                        else if (cmp > 0)
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return 1;
+                        }
+
+                        template_parameter_list_t *tpl1 = 
+                                    nodecl_get_template_parameters(list1[i]);
+                        template_parameter_list_t *tpl2 = 
+                                    nodecl_get_template_parameters(list2[i]);
+
+                        if (!same_template_argument_list(
+                                    tpl1,
+                                    tpl2,
+                                    // Cannot get a better context at this point
+                                    CURRENT_COMPILED_FILE->global_decl_context))
+                        {
+                            if (tpl1->num_parameters < tpl2->num_parameters)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return -1;
+                            }
+                            else if (tpl1->num_parameters > tpl2->num_parameters)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return 1;
+                            }
+
+                            int k;
+                            for (k = 0; k < tpl1->num_parameters; k++)
+                            {
+                                if (tpl1->arguments[k] < tpl2->arguments[k])
+                                {
+                                    xfree(list1);
+                                    xfree(list2);
+                                    return -1;
+                                }
+                                else if (tpl1->arguments[k] > tpl2->arguments[k])
+                                {
+                                    xfree(list1);
+                                    xfree(list2);
+                                    return 1;
+                                }
+                            }
+
+                            // We know they were different, we should not reach here!
+                            internal_error("Code unreachable", 0);
+                        }
+
+
+                        nodecl_t name1 = nodecl_get_child(list1[i], 0);
+                        nodecl_t name2 = nodecl_get_child(list2[i], 0);
+
+                        if (nodecl_get_kind(name1) < nodecl_get_kind(name2))
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return -1;
+                        }
+                        else if (nodecl_get_kind(name1) > nodecl_get_kind(name2))
+                        {
+                            xfree(list1);
+                            xfree(list2);
+                            return 1;
+                        }
+
+                        switch (nodecl_get_kind(name1))
+                        {
+                            case NODECL_CXX_DEP_NAME_SIMPLE:
+                                {
+                                    cmp = strcmp(nodecl_get_text(name1), nodecl_get_text(name2));
+                                    if (cmp < 0)
+                                    {
+                                        xfree(list1);
+                                        xfree(list2);
+                                        return -1;
+                                    }
+                                    else if (cmp > 0)
+                                    {
+                                        xfree(list1);
+                                        xfree(list2);
+                                        return 1;
+                                    }
+                                }
+                                break;
+                            default:
+                                internal_error("Unexpected node '%s'\n", ast_print_node_type(nodecl_get_kind(name1)));
+                        }
+
+                        break;
+                    }
+                case NODECL_CXX_DEP_NAME_CONVERSION:
+                    {
+                        type_t* conversion1 = (!nodecl_is_null(nodecl_get_child(list1[i], 0))) ? nodecl_get_type(nodecl_get_child(list1[i], 0)) : NULL;
+                        type_t* conversion2 = (!nodecl_is_null(nodecl_get_child(list2[i], 0))) ? nodecl_get_type(nodecl_get_child(list2[i], 0)) : NULL;
+                        
+                        if (!equivalent_types(conversion1, conversion2))
+                        {
+                            if (conversion1 < conversion2)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return -1;
+                            }
+                            else if (conversion1 > conversion2)
+                            {
+                                xfree(list1);
+                                xfree(list2);
+                                return 1;
+                            }
+                            // We know they were different, we should not reach here!
+                            internal_error("Code unreachable", 0);
+                        }
+                        break;
+                    }
+                default:
+                    internal_error("Unexpected node '%s'\n", ast_print_node_type(nodecl_get_kind(list1[i])));
+                    break;
+            }
+        }
+    }
+
+    return 0;
+}
+
 // This function must always return a new type
+type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
+        nodecl_t dependent_parts)
+{
+    ERROR_CONDITION(!nodecl_is_null(dependent_parts) && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
+
+    char new_dependent_parts = 0;
+
+    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        // Flatten dependent typenames
+        type_t* indirect_dependent_type = dependent_entry->type_information;
+        dependent_entry = indirect_dependent_type->type->dependent_entry;
+
+        new_dependent_parts = 1;
+
+        if (!nodecl_is_null(indirect_dependent_type->type->dependent_parts)
+                && !nodecl_is_null(dependent_parts))
+        {
+            dependent_parts =
+                nodecl_make_cxx_dep_name_nested(
+                        nodecl_concat_lists(nodecl_shallow_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
+                            nodecl_shallow_copy(nodecl_get_child(dependent_parts, 0))), 
+                        nodecl_get_locus(indirect_dependent_type->type->dependent_parts));
+        }
+        else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
+        {
+            dependent_parts = nodecl_shallow_copy(dependent_parts);
+        }
+        else // nodecl_is_null(dependent_parts)
+        {
+            dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
+        }
+    }
+
+    // Try to reuse an existing type
+    static rb_red_blk_tree *_dependent_entries = NULL;
+    if (_dependent_entries == NULL)
+    {
+        _dependent_entries = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    }
+
+    rb_red_blk_tree * dependent_entry_hash = NULL;
+    rb_red_blk_node * n = rb_tree_query(_dependent_entries, dependent_entry);
+    if (n != NULL)
+    {
+        dependent_entry_hash = rb_node_get_info(n);
+    }
+
+    if (dependent_entry_hash == NULL)
+    {
+        dependent_entry_hash = rb_tree_create(compare_dependent_parts, null_dtor, null_dtor);
+
+        rb_tree_insert(_dependent_entries, dependent_entry, dependent_entry_hash);
+    }
+
+    n = rb_tree_query(dependent_entry_hash, nodecl_get_ast(dependent_parts));
+
+    type_t* result = NULL;
+    if (n != NULL)
+    {
+        result = (type_t*)rb_node_get_info(n);
+
+        if (new_dependent_parts)
+        {
+            nodecl_free(dependent_parts);
+        }
+    }
+    else
+    {
+        result = get_simple_type();
+        result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+        result->info->is_dependent = 1;
+
+        if (!new_dependent_parts)
+        {
+            dependent_parts = nodecl_shallow_copy(dependent_parts);
+        }
+
+        result->type->dependent_entry = dependent_entry;
+        result->type->dependent_parts = dependent_parts;
+
+        rb_tree_insert(dependent_entry_hash, nodecl_get_ast(dependent_parts), result);
+    }
+
+    return result;
+}
+
+#if 0
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
 {
@@ -1505,6 +1807,7 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
 
     return result;
 }
+#endif
 
 #if 0
 void dependent_typename_set_is_artificial(type_t* t, char is_artificial)

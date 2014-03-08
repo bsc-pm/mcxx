@@ -86,10 +86,6 @@ static void gather_single_virt_specifier(AST item,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 
-static void build_scope_declaration(AST a, decl_context_t decl_context, 
-        nodecl_t* nodecl_output, 
-        scope_entry_list_t** declared_symbols,
-        gather_decl_spec_list_t *gather_decl_spec_list);
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
         char is_template, char is_explicit_specialization,
         nodecl_t *nodecl_output, 
@@ -445,14 +441,8 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
     c_initialize_builtin_symbols(decl_context);
 }
 
-// Builds scope for the translation unit
-nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
+void build_scope_translation_unit_pre(translation_unit_t* translation_unit UNUSED_PARAMETER)
 {
-    AST a = translation_unit->parsed_tree;
-    decl_context_t decl_context = translation_unit->global_decl_context;
-
-    nodecl_t nodecl = nodecl_null();
-
     C_LANGUAGE()
     {
         linkage_push("\"C\"", /* is_braced */ 1);
@@ -464,25 +454,41 @@ nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
             instantiation_init();
         }
     }
+}
+
+void build_scope_translation_unit_post(translation_unit_t* translation_unit UNUSED_PARAMETER)
+{
+    CXX_LANGUAGE()
+    {
+        if (CURRENT_CONFIGURATION->explicit_instantiation)
+        {
+            internal_error("Not yet implemented", 0);
+            // nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
+            // nodecl = nodecl_concat_lists(nodecl, instantiated_units);
+        }
+    }
+    C_LANGUAGE()
+    {
+        linkage_pop();
+    }
+}
+
+// Builds scope for the translation unit
+nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit)
+{
+    AST a = translation_unit->parsed_tree;
+    decl_context_t decl_context = translation_unit->global_decl_context;
+
+    nodecl_t nodecl = nodecl_null();
+
+    build_scope_translation_unit_pre(translation_unit);
 
     AST list = ASTSon0(a);
     if (list != NULL)
     {
         build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
-    CXX_LANGUAGE()
-    {
-        if (CURRENT_CONFIGURATION->explicit_instantiation)
-        {
-            nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
-            nodecl = nodecl_concat_lists(nodecl, instantiated_units);
-        }
-    }
-
-    C_LANGUAGE()
-    {
-        linkage_pop();
-    }
+    build_scope_translation_unit_post(translation_unit);
 
     return nodecl;
 }
@@ -715,7 +721,7 @@ void build_scope_declaration_sequence(AST list,
 static char gcc_extension = 0;
 
 // Build scope for a declaration
-static void build_scope_declaration(AST a, decl_context_t decl_context, 
+void build_scope_declaration(AST a, decl_context_t decl_context, 
         nodecl_t* nodecl_output, 
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t *gather_decl_spec_list)

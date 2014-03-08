@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "cxx-ast.h"
@@ -324,29 +325,31 @@ char ast_check(const_AST node)
     if (node != NULL)
     {
         int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        if (ast_get_type(node) != AST_AMBIGUITY)
         {
-            if (ast_get_child(node, i) != NULL)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
             {
-                if (ast_get_parent(ast_get_child(node, i)) != node)
+                if (ast_get_child(node, i) != NULL)
                 {
-                    check = 0;
-                    AST wrong_parent = ast_get_parent(ast_get_child(node, i));
-                    fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
-                            i, ast_location(node), ast_print_node_type(ast_get_type(node)), node,
-                            wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
-                            wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_type(wrong_parent)),
-                            wrong_parent);
-                            
-                }
-                else
-                {
-                    check &= ast_check(ast_get_child(node, i));
+                    if (ast_get_parent(ast_get_child(node, i)) != node)
+                    {
+                        check = 0;
+                        AST wrong_parent = ast_get_parent(ast_get_child(node, i));
+                        fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
+                                i, ast_location(node), ast_print_node_type(ast_get_type(node)), node,
+                                wrong_parent == NULL ? "(null)" : ast_location(wrong_parent),
+                                wrong_parent == NULL ? "null" : ast_print_node_type(ast_get_type(wrong_parent)),
+                                wrong_parent);
+
+                    }
+                    else
+                    {
+                        check &= ast_check(ast_get_child(node, i));
+                    }
                 }
             }
         }
-
-        if (ast_get_type(node) == AST_AMBIGUITY)
+        else 
         {
             for (i = 0; i < node->num_ambig; i++)
             {
@@ -382,20 +385,28 @@ AST ast_copy(const_AST a)
     ast_copy_one_node(result, (AST)a);
 
     int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        ast_set_child(result, i, ast_copy(ast_get_child(a, i)));
-    }
-
-    // Duplicate ambiguous trees too
-    if (a->node_type == AST_AMBIGUITY && 
-            (a->num_ambig > 0))
+    if (a->node_type == AST_AMBIGUITY
+            && a->num_ambig > 0)
     {
         result->num_ambig = a->num_ambig;
         result->ambig = counted_xcalloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
+        }
+    }
+    else
+    {
+        result->bitmap_sons = a->bitmap_sons;
+        int num_children = count_bitmap(result->bitmap_sons);
+
+        result->children = counted_xcalloc(num_children, sizeof(*(result->children)), &_bytes_due_to_astmake);
+
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST c = ast_copy(ast_get_child(a, i));
+            if (c != NULL)
+                ast_set_child(result, i, c);
         }
     }
 
@@ -564,7 +575,141 @@ const char* ast_location(const_AST a)
     return locus_to_str(a->locus);
 }
 
-// Trees are copied
+// Note that we use expr_info to mark visited nodes since AST involved
+// in ambiguities do not have expr_info
+static void ast_mark_visit(AST a, char visited)
+{
+    if (a == NULL)
+        return;
+
+    if (ast_get_type(a) == AST_AMBIGUITY)
+    {
+        int i;
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            AST current = ast_get_ambiguity(a, i);
+            current->expr_info = (struct nodecl_expr_info_tag*)(intptr_t)visited;
+
+            ast_mark_visit(current, visited);
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            AST current = ast_get_child(a, i);
+            if (current != NULL)
+            {
+                current->expr_info = (struct nodecl_expr_info_tag*)(intptr_t)visited;
+                ast_mark_visit(current, visited);
+            }
+        }
+    }
+}
+
+static char ast_has_been_visited(AST a)
+{
+    // We will piggy back the expr_info to keep the visited mark
+    return a->expr_info != NULL;
+}
+
+int ast_get_num_ambiguities(const_AST a)
+{
+    return a->num_ambig;
+}
+
+AST ast_get_ambiguity(const_AST a, int num)
+{
+    return a->ambig[num];
+}
+
+#if 0
+static void ast_set_ambiguity(AST a, int num, AST child)
+{
+    a->ambig[num] = child;
+}
+
+static AST unshare_nodes_rec(AST a)
+{
+    if (a == NULL)
+        return NULL;
+
+    if (node_has_been_visited(a))
+    {
+        return ast_copy(a);
+    }
+    else
+    {
+        if (ast_get_type(a) == AST_AMBIGUITY)
+        {
+            int i;
+            for (i = 0; i < ast_get_num_ambiguities(a); i++)
+            {
+                AST current = ast_get_ambiguity(a, i);
+
+                ast_set_ambiguity(a, i, unshare_nodes_rec(current));
+            }
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            {
+                AST current = ast_get_child(a, i);
+
+                ast_set_child(a, i, unshare_nodes_rec(current));
+            }
+        }
+
+        return a;
+    }
+}
+#endif
+
+void ast_fix_parents_inside_intepretation(AST node)
+{
+    if (node == NULL)
+        return;
+
+    if (ast_get_type(node) == AST_AMBIGUITY)
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (ast_get_child(node, i) != NULL)
+        {
+            ast_set_parent(ast_get_child(node, i), node);
+
+            ast_fix_parents_inside_intepretation(ast_get_child(node, i));
+        }
+    }
+}
+
+#if 0
+static void unshare_nodes(AST son0, AST son1)
+{
+    // Mark all reachables from son0
+    do_mark(son0, 1);
+
+    // Unshare son1
+    son1 = unshare_nodes_rec(son1);
+
+    // Clear visited mark
+    do_mark(son0, 0);
+    do_mark(son1, 0);
+
+    // Correct parents should they have been left dangling
+    fix_parents(son0);
+    fix_parents(son1);
+
+    // ERROR_CONDITION(!ast_check(son0) || !ast_check(son1), "Wrong tree", 0);
+}
+#endif
+
+// Be careful when handling ambiguity nodes, the set of interpretations may not
+// be an actual tree but a DAG
 AST ast_make_ambiguous(AST son0, AST son1)
 {
     if (ASTType(son0) == AST_AMBIGUITY)
@@ -588,7 +733,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         {
             son0->num_ambig++;
             son0->ambig = (AST*) xrealloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-            son0->ambig[son0->num_ambig-1] = ast_copy(son1);
+            son0->ambig[son0->num_ambig-1] = son1;
 
             return son0;
         }
@@ -597,7 +742,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
     {
         son1->num_ambig++;
         son1->ambig = (AST*) xrealloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
-        son1->ambig[son1->num_ambig-1] = ast_copy(son0);
+        son1->ambig[son1->num_ambig-1] = son0;
 
         return son1;
     }
@@ -607,28 +752,14 @@ AST ast_make_ambiguous(AST son0, AST son1)
 
         result->num_ambig = 2;
         result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
-        result->ambig[0] = ast_copy(son0);
-        result->ambig[1] = ast_copy(son1);
+        result->ambig[0] = son0;
+        result->ambig[1] = son1;
         result->locus = son0->locus;
 
         return result;
     }
 }
 
-int ast_get_num_ambiguities(const_AST a)
-{
-    return a->num_ambig;
-}
-
-AST ast_get_ambiguity(const_AST a, int num)
-{
-    return a->ambig[num];
-}
-
-static void ast_set_ambiguity(AST a, int num, AST child)
-{
-    a->ambig[num] = child;
-}
 
 void ast_replace(AST dest, const_AST src)
 {
@@ -666,6 +797,40 @@ void ast_free(AST a)
     }
 }
 
+void ast_free_unvisited(AST a)
+{
+    if (a == NULL)
+        return;
+
+    if (ast_has_been_visited(a))
+        return;
+
+    if (ast_get_type(a) == AST_AMBIGUITY)
+    {
+        int i;
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            ast_free_unvisited(ast_get_ambiguity(a, i));
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            ast_free_unvisited(ast_get_child(a, i));
+        }
+    }
+
+    // This will uncover dangling references
+    xfree(a->children);
+    _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
+    memset(a, 0, sizeof(*a));
+    xfree(a);
+
+    _bytes_due_to_astmake -= sizeof(*a);
+}
+
 void ast_replace_with_ambiguity(AST a, int n)
 {
     if (n >= ast_get_num_ambiguities(a))
@@ -678,12 +843,6 @@ void ast_replace_with_ambiguity(AST a, int n)
     }
 
     AST parent = ASTParent(a);
-    // int num_children = get_children_num(parent, a);
-
-    // if (num_children < 0)
-    // {
-    //  internal_error("Children not found in the parent!\n", 0);
-    // }
 
     DEBUG_CODE()
     {
@@ -692,41 +851,17 @@ void ast_replace_with_ambiguity(AST a, int n)
                 ast_get_ambiguity(a, n));
     }
 
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
-    {
-        if (i != n)
-        {
-            ast_free(ast_get_ambiguity(a, i));
-            ast_set_ambiguity(a, i, NULL);
-        }
-    }
-    
-    if (!ASTCheck(a))
-    {
-        internal_error("*** INCONSISTENT TREE DETECTED IN ABOUT TO BE DISAMBIGUATED TREE %p ***\n", a);
-    }
-
-    // This will work, trust me :)
-    ast_replace(a, ast_get_ambiguity(a, n));
+    AST chosen_ambig = ast_get_ambiguity(a, n);
+    ast_replace(a, chosen_ambig);
 
     // Correctly relink to the parent
     ast_set_parent(a, parent);
+    ast_fix_parents_inside_intepretation(a);
 
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if (ASTChild(a, i) != NULL)
-        {
-            AST child = ASTChild(a, i);
-
-            ast_set_parent(child, a);
-        }
-    }
-
-    if (!ASTCheck(a))
-    {
-        internal_error("*** INCONSISTENT TREE DETECTED IN DISAMBIGUATED TREE %p ***\n", a);
-    }
+    // if (!ASTCheck(a))
+    // {
+    //     internal_error("*** INCONSISTENT TREE DETECTED IN DISAMBIGUATED TREE %p ***\n", a);
+    // }
 }
 
 const locus_t* ast_get_locus(const_AST a)

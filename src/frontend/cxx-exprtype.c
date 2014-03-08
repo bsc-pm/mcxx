@@ -6453,9 +6453,14 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         scope_entry_t* entry = entry_list_head(entry_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
-            entry->value = nodecl_name;
-            nodecl_set_type(*nodecl_output, entry->type_information);
+            // We cannot reuse the symbol here, make a copy
+            // FIXME - Do we always have to copy?
+            scope_entry_t *new_entry = xcalloc(1, sizeof(*entry));
+            *new_entry = *entry;
+
+            *nodecl_output = nodecl_make_symbol(new_entry, nodecl_get_locus(nodecl_name));
+            new_entry->value = nodecl_name;
+            nodecl_set_type(*nodecl_output, new_entry->type_information);
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             return;
