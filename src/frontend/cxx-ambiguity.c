@@ -160,7 +160,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     choose_option(a, valid_option);
 }
 
-char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation
         )
@@ -1321,87 +1321,6 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
 
     return result;
 }
-
-// Returns if the template_parameter could be disambiguated.
-// If it can be disambiguated, it is disambiguated here
-void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context)
-{
-    int i;
-
-    int selected_option = -1;
-    int expression_option = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambig_template_parameter); i++)
-    {
-        char current_option = 0;
-        AST current_template_parameter = ast_get_ambiguity(ambig_template_parameter, i);
-
-        switch (ASTType(current_template_parameter))
-        {
-            case AST_TEMPLATE_TYPE_ARGUMENT :
-                {
-                    AST type_id = ASTSon0(current_template_parameter);
-
-                    current_option = check_type_id_tree_or_class_template_name(type_id, decl_context);
-                    break;
-                }
-            case AST_TEMPLATE_EXPRESSION_ARGUMENT :
-                {
-                    expression_option = i;
-                    AST expression_arg = ASTSon0(current_template_parameter);
-
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    enter_test_expression();
-                    current_option = check_expression(expression_arg, decl_context, &nodecl_dummy);
-                    leave_test_expression();
-
-                    break;
-                }
-            default :
-                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(current_template_parameter)), 
-                        ast_location(current_template_parameter));
-                break;
-        }
-        
-        if (current_option)
-        {
-            if (selected_option < 0)
-            {
-                selected_option = i;
-            }
-            else
-            {
-                AST previous_template_parameter = ast_get_ambiguity(ambig_template_parameter, selected_option);
-
-                int either;
-                if ((either = either_type(previous_template_parameter, current_template_parameter, 
-                                AST_TEMPLATE_TYPE_ARGUMENT, AST_TEMPLATE_EXPRESSION_ARGUMENT)))
-                {
-                    if (either < 0)
-                    {
-                        selected_option = i;
-                    }
-                }
-                else
-                {
-                    internal_error("Two valid ambiguities", 0);
-                }
-            }
-        }
-    }
-
-    if (selected_option < 0)
-    {
-        if (expression_option < 0)
-            expression_option = 0;
-        choose_option(ambig_template_parameter, expression_option);
-    }
-    else
-    {
-        // Can be disambiguated, so we do it
-        choose_option(ambig_template_parameter, selected_option);
-    }
-}
-
 
 static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context, void* info UNUSED_PARAMETER)
 {

@@ -3543,6 +3543,29 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 }
 
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
+        decl_context_t template_parameters_context, int position);
+
+static char check_single_template_argument_from_syntax(AST template_parameter, 
+        decl_context_t template_parameters_context, void* info)
+{
+    enter_test_expression();
+    template_parameter_value_t* res = get_single_template_argument_from_syntax(template_parameter,
+            template_parameters_context,
+            *(int*)info);
+    leave_test_expression();
+
+    if (res != NULL)
+    {
+        xfree(res);
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
         decl_context_t template_parameters_context, int position)
 {
     char is_expansion = 0;
@@ -3554,7 +3577,13 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
     if (ASTType(template_parameter) == AST_AMBIGUITY)
     {
-        solve_ambiguous_template_argument(template_parameter, template_parameters_context);
+        solve_ambiguity_generic(
+                template_parameter,
+                template_parameters_context,
+                &position,
+                check_single_template_argument_from_syntax,
+                NULL,
+                NULL);
     }
 
     switch (ASTType(template_parameter))
@@ -3676,38 +3705,177 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
     return NULL;
 }
 
+static void free_template_parameter_list(template_parameter_list_t* tpl)
+{
+    if (tpl == NULL)
+        return;
+    // Not yet implemented
+    xfree(tpl->parameters);
+    tpl->parameters = NULL;
+    xfree(tpl->arguments);
+    tpl->arguments = NULL;
+    xfree(tpl);
+}
+
+static void copy_template_parameter_list(template_parameter_list_t* dest, template_parameter_list_t* src)
+{
+    ERROR_CONDITION(src == NULL, "Invalid source", 0);
+
+    int i;
+
+    memset(dest, 0, sizeof(*dest));
+    dest->enclosing = src->enclosing;
+    dest->arguments = xcalloc(src->num_parameters, sizeof(*(dest->arguments)));
+    for (i = 0; i < src->num_parameters; i++)
+    {
+        dest->arguments[i] = src->arguments[i];
+    }
+    if (src->parameters != NULL)
+    {
+        dest->parameters = xcalloc(src->num_parameters, sizeof(*(dest->parameters)));
+        for (i = 0; i < src->num_parameters; i++)
+        {
+            dest->parameters[i] = src->parameters[i];
+        }
+    }
+    dest->is_explicit_specialization = src->is_explicit_specialization;
+}
+
+static void get_template_arguments_from_syntax_rec(
+        AST template_parameters_list_tree,
+        decl_context_t template_parameters_context,
+
+        // Out
+        template_parameter_list_t** result,
+        int *position)
+{
+    ERROR_CONDITION(template_parameters_list_tree == NULL, "Invalid tree", 0);
+
+    if (ASTType(template_parameters_list_tree) == AST_AMBIGUITY)
+    {
+        // We have to try every interpretation and keep the good one. Only one should end being valid
+        int num_ambiguities = ast_get_num_ambiguities(template_parameters_list_tree);
+
+        ERROR_CONDITION(num_ambiguities <= 0, "Should not happen", 0);
+        template_parameter_list_t* potential_results[num_ambiguities];
+        int potential_positions[num_ambiguities];
+
+        int valid = -1;
+
+        int i;
+        for (i = 0; i < num_ambiguities; i++)
+        {
+            AST current_interpretation = ast_get_ambiguity(template_parameters_list_tree, i);
+
+            potential_results[i] = xcalloc(1, sizeof(*(potential_results[i])));
+            copy_template_parameter_list(potential_results[i], *result);
+            potential_positions[i] = *position;
+
+            enter_test_expression();
+            get_template_arguments_from_syntax_rec(
+                    current_interpretation,
+                    template_parameters_context,
+
+                    &potential_results[i],
+                    &potential_positions[i]);
+            leave_test_expression();
+
+            if (potential_results[i] != NULL)
+            {
+                if (valid < 0)
+                {
+                    valid = i;
+                }
+                else
+                {
+                    internal_error("Two possible interpretations for a template-parameter-list", 0);
+                }
+            }
+            else
+            {
+                free_template_parameter_list(potential_results[i]);
+            }
+        }
+
+        if (valid < 0)
+        {
+            free_template_parameter_list(*result);
+            *result = NULL;
+            return;
+        }
+        else
+        {
+            ast_replace_with_ambiguity(template_parameters_list_tree, i);
+
+            // Update the result with the new ones
+            free_template_parameter_list(*result);
+            *result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+            copy_template_parameter_list(*result, potential_results[valid]);
+            *position = potential_positions[i];
+        }
+    }
+    else if (ASTType(template_parameters_list_tree) == AST_NODE_LIST)
+    {
+        // If we are not the first, invoke recursively
+        if (ASTSon0(template_parameters_list_tree) != NULL)
+        {
+            get_template_arguments_from_syntax_rec(
+                    ASTSon0(template_parameters_list_tree),
+                    template_parameters_context,
+
+                    result,
+                    position);
+            if (*result == NULL)
+                return;
+        }
+
+        AST template_parameter = ASTSon1(template_parameters_list_tree);
+
+        template_parameter_value_t* t_argument = get_single_template_argument_from_syntax(template_parameter,
+                template_parameters_context, *position);
+
+        if (t_argument == NULL)
+        {
+            free_template_parameter_list(*result);
+            *result = NULL;
+            return;
+        }
+
+        P_LIST_ADD((*result)->arguments,
+                (*result)->num_parameters,
+                t_argument);
+
+        (*position)++;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
 template_parameter_list_t* get_template_arguments_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context)
 {
     template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
-
     if (template_parameters_list_tree == NULL)
     {
         return result;
     }
 
-    int position = 0;
-    AST iter;
-    for_each_element(template_parameters_list_tree, iter)
+    int position = 1;
+    get_template_arguments_from_syntax_rec(
+            template_parameters_list_tree,
+            template_parameters_context,
+
+            &result,
+            &position);
+
+    if (result != NULL)
     {
-        AST template_parameter = ASTSon1(iter);
-
-        template_parameter_value_t* t_argument = get_single_template_argument_from_syntax(template_parameter,
-                template_parameters_context, position);
-
-        if (t_argument == NULL)
-            return NULL;
-
-        P_LIST_ADD(result->arguments,
-                result->num_parameters,
-                t_argument);
-
-        position++;
+        // Empty parameters, they will be filled elsewhere
+        result->parameters = xcalloc(result->num_parameters, sizeof(*(result->parameters)));
     }
-
-    // Empty parameters, they will be filled elsewhere
-    result->parameters = xcalloc(result->num_parameters, sizeof(*(result->parameters)));
 
     return result;
 }
@@ -6663,18 +6831,8 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 const char* name = ASTText(ASTSon0(unqualified_id));
                 AST template_arguments = ASTSon1(unqualified_id);
 
-                template_parameter_list_t* template_parameters = NULL;
-                if (template_arguments != NULL &&
-                        ASTType(template_arguments) == AST_AMBIGUITY)
-                {
-                    template_parameters =
-                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
-                }
-                else
-                {
-                    template_parameters =
-                        get_template_arguments_from_syntax(template_arguments, decl_context);
-                }
+                template_parameter_list_t* template_parameters =
+                    get_template_arguments_from_syntax(template_arguments, decl_context);
 
                 if (template_parameters == NULL)
                 {
@@ -6712,18 +6870,8 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
 
                 AST template_arguments = ASTSon1(unqualified_id);
 
-                template_parameter_list_t* template_parameters = NULL;
-                if (template_arguments != NULL &&
-                        ASTType(template_arguments) == AST_AMBIGUITY)
-                {
-                    template_parameters =
-                        solve_ambiguous_list_of_template_arguments(template_arguments, decl_context);
-                }
-                else
-                {
-                    template_parameters =
+                template_parameter_list_t* template_parameters =
                         get_template_arguments_from_syntax(template_arguments, decl_context);
-                }
 
                 if (template_parameters == NULL)
                 {
