@@ -3559,7 +3559,7 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        // if (!checking_ambiguity())
+        if (!checking_ambiguity())
         {
             error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
                     locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
