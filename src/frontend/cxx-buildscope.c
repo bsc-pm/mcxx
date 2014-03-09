@@ -5565,12 +5565,14 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
 
     if (is_template_specialized_type(entry->type_information))
     {
-        if (!entry->entity_specs.is_user_declared)
+        if (is_dependent_type(entry->type_information)
+                || !entry->entity_specs.is_user_declared)
         {
             /*
-             * We check for non user declared because of explicit
-             * specializations cannot have a template header (they are somehow
-             * already specialized, nothing is left for specialization)
+             * We do this check for dependent types which will obviously
+             * require some template header. But note that user-defined
+             * explicit specializations are not dependent and their
+             * members cannot have template headers.
              *
              * a)
              *
@@ -5607,6 +5609,17 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
              * void A<int>::f(int, float)
              * {
              * }
+             *
+             * c) but note that
+             *
+             * template <typename T>
+             * struct A;
+             *
+             * template <>
+             * struct A<int> { void f(); };
+             *
+             * // a template header would be an error here
+             * void A<int>::f() { };
              *
              */
 
