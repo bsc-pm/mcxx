@@ -2673,9 +2673,13 @@ static type_t* template_type_get_specialized_type_(
 
     type_t* result = get_user_defined_type(specialized_symbol);
 
-    P_LIST_ADD(t->type->specialized_types,
-            t->type->num_specialized_types, 
-            result);
+    if (existing_spec == NULL)
+    {
+        // Register this new specialization
+        P_LIST_ADD(t->type->specialized_types,
+                t->type->num_specialized_types, 
+                result);
+    }
 
     DEBUG_CODE()
     {
