@@ -575,6 +575,7 @@ const char* ast_location(const_AST a)
     return locus_to_str(a->locus);
 }
 
+#if 0
 // Note that we use expr_info to mark visited nodes since AST involved
 // in ambiguities do not have expr_info
 static void ast_mark_visit(AST a, char visited)
@@ -613,6 +614,7 @@ static char ast_has_been_visited(AST a)
     // We will piggy back the expr_info to keep the visited mark
     return a->expr_info != NULL;
 }
+#endif
 
 int ast_get_num_ambiguities(const_AST a)
 {
@@ -686,27 +688,6 @@ void ast_fix_parents_inside_intepretation(AST node)
         }
     }
 }
-
-#if 0
-static void unshare_nodes(AST son0, AST son1)
-{
-    // Mark all reachables from son0
-    do_mark(son0, 1);
-
-    // Unshare son1
-    son1 = unshare_nodes_rec(son1);
-
-    // Clear visited mark
-    do_mark(son0, 0);
-    do_mark(son1, 0);
-
-    // Correct parents should they have been left dangling
-    fix_parents(son0);
-    fix_parents(son1);
-
-    // ERROR_CONDITION(!ast_check(son0) || !ast_check(son1), "Wrong tree", 0);
-}
-#endif
 
 // Be careful when handling ambiguity nodes, the set of interpretations may not
 // be an actual tree but a DAG
@@ -795,40 +776,6 @@ void ast_free(AST a)
 
         _bytes_due_to_astmake -= sizeof(*a);
     }
-}
-
-void ast_free_unvisited(AST a)
-{
-    if (a == NULL)
-        return;
-
-    if (ast_has_been_visited(a))
-        return;
-
-    if (ast_get_type(a) == AST_AMBIGUITY)
-    {
-        int i;
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            ast_free_unvisited(ast_get_ambiguity(a, i));
-        }
-    }
-    else
-    {
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            ast_free_unvisited(ast_get_child(a, i));
-        }
-    }
-
-    // This will uncover dangling references
-    xfree(a->children);
-    _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
-    memset(a, 0, sizeof(*a));
-    xfree(a);
-
-    _bytes_due_to_astmake -= sizeof(*a);
 }
 
 void ast_replace_with_ambiguity(AST a, int n)
