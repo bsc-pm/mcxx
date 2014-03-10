@@ -24,6 +24,7 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "tl-task-syncs-tune.hpp"
 
 namespace TL { 
@@ -290,8 +291,7 @@ namespace {
                     ObjectList<Edge*> exits = current->get_exit_edges( );
                     for( ObjectList<Edge*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
                     {
-                        std::string label = ( *it )->get_label( );
-                        if( label == "maybe" )
+                        if( (*it)->get_label_as_string() == "maybe" )
                         {   // Can we tune this edge to make it static
                             // if so, remove the rest of the edges
                             Nodecl::NodeclBase target_task_environ = ( *it )->get_target( )->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( );
@@ -384,12 +384,15 @@ namespace {
                             DEBUG_MESSAGE( "Dependency between %d and %d changes from maybe to static", source->get_id( ), target->get_id( ) );
                         // Transform the type of the edge from "maybe" to "static"
                         Edge* e = ExtensibleGraph::get_edge_between_nodes( source, target );
-                        e->set_label( "static" );
+                        const char* s = "static";
+                        e->set_label( Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )), 
+                                                                   const_value_make_string(s, strlen(s)) ) );
                         // Remove any other "strict" synchronization, since now it is synchronized here for sure
                         ObjectList<Edge*> sexits = source->get_exit_edges( );
                         for( ObjectList<Edge*>::iterator it = sexits.begin( ); it != sexits.end( ); ++it )
                         {
-                            if( ( ( *it )->get_target( ) != target ) && ( ( *it )->get_label( ) == "strict" ) )
+                            if( ( ( *it )->get_target( ) != target ) && 
+                                ( ( *it )->get_label_as_string( ) == "strict" ) )
                             {
                                 if( VERBOSE )
                                     DEBUG_MESSAGE( "Removing unnecessary strict edge between %d and %d", source->get_id( ), target->get_id( ) );

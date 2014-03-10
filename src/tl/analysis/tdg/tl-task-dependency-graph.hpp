@@ -31,7 +31,34 @@
 
 namespace TL { 
 namespace Analysis {
-
+    
+    // ******************************************************************* //
+    // ************ Task Dependency Graph Control Structures ************* //
+    
+    enum ControlStructureType {
+        Loop,
+        Select
+    };
+    
+    struct ControlStructure {
+        int _id;
+        ControlStructureType _type;
+        Nodecl::NodeclBase _condition;
+        
+        ControlStructure(int id, ControlStructureType type, const Nodecl::NodeclBase condition);
+        
+        int get_id();
+        ControlStructureType get_type();
+        Nodecl::NodeclBase get_condition();
+    };
+    
+    // ************ Task Dependency Graph Control Structures ************* //
+    // ******************************************************************* //
+    
+    
+    // ******************************************************************* //
+    // ************** Task Dependency Graph Edges and Nodes ************** //
+    
     struct TDG_Edge;
     
     enum TDGNodeType {
@@ -46,8 +73,12 @@ namespace Analysis {
         TDGNodeType _type;
         ObjectList<TDG_Edge*> _entries;
         ObjectList<TDG_Edge*> _exits;
+        ObjectList<ControlStructure> _control_structures;
         
-        TDG_Node( Node* n, TDGNodeType type );
+        TDG_Node(Node* n, TDGNodeType type);
+        
+        void add_control_structure(ControlStructure cs);
+        ObjectList<ControlStructure> get_control_structures();
         
         friend class TDG_Edge;
         friend class TaskDependencyGraph;
@@ -68,55 +99,67 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> _target_clauses;
         Nodecl::NodeclBase _condition;
         
-        TDG_Edge( TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition );
-        TDG_Node* get_source( );
-        TDG_Node* get_target( );
+        TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition);
+        TDG_Node* get_source();
+        TDG_Node* get_target();
         
         friend class TDG_Node;
         friend class TaskDependencyGraph;
     };
     
+    // ************** Task Dependency Graph Edges and Nodes ************** //
+    // ******************************************************************* //
+    
+    
+    // ******************************************************************* //
+    // ********************** Task Dependency Graph ********************** //
+    
     class LIBTL_CLASS TaskDependencyGraph
     {
     private:
         // *** Class members *** //
-        ExtensibleGraph* _pcfg;                 /*!< PCFG corresponding to the graph */
-        ObjectList<TDG_Node*> _tdg_nodes;       /*!< List of nodes in the TDG */
+        ExtensibleGraph* _pcfg;                                 /*!< PCFG corresponding to the graph */
+        ObjectList<TDG_Node*> _tdg_nodes;                       /*!< List of nodes in the TDG */
         
-        std::map<Symbol, unsigned int> _syms;   /*!< Map of symbols appearing in the TDG associated to their identifier */
+        std::map<Symbol, unsigned int> _syms;                   /*!< Map of symbols appearing in the TDG associated to their identifier */
+        std::map<Node*, int> _pcfg_control_structure_to_id;     /*!< Map of PCFG control structure nodes to their TDG identifier */
         
         // *** Not allowed construction methods *** //
-        TaskDependencyGraph( const TaskDependencyGraph& n );
-        TaskDependencyGraph& operator=( const TaskDependencyGraph& );
+        TaskDependencyGraph(const TaskDependencyGraph& n);
+        TaskDependencyGraph& operator=(const TaskDependencyGraph&);
         
         // *** Private methods *** //
-        void connect_tdg_nodes( TDG_Node* parent, TDG_Node* child, 
-                                std::string type, const Nodecl::NodeclBase& condition );
+        void connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
+                               Nodecl::NodeclBase type, const Nodecl::NodeclBase& condition);
         
-        TDG_Node* find_task_from_tdg_nodes_list( Node* task );
-        void create_tdg_nodes_from_pcfg( Node* current );
-        void connect_tdg_nodes_from_pcfg( Node* current );
-        void store_condition_list_of_symbols( const Nodecl::NodeclBase& condition );
+        TDG_Node* find_task_from_tdg_nodes_list(Node* task);
+        void create_tdg_nodes_from_pcfg(Node* current);
+        void set_tdg_nodes_control_structures();
+        void connect_tdg_nodes_from_pcfg(Node* current);
+        void store_condition_list_of_symbols(const Nodecl::NodeclBase& condition);
         
-        void taskify_graph( Node* current );
-        void create_tdg( Node* current );
+        void taskify_graph(Node* current);
+        void create_tdg(Node* current);
         
-        void print_tdg_node_to_dot( TDG_Node* current, std::ofstream& dot_tdg );
-        void print_tdg_syms_to_json( std::ofstream& json_tdg );
-        void print_tdg_nodes_to_json( std::ofstream& json_tdg );
+        void print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg);
+        void print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent);
+        void print_tdg_syms_to_json(std::ofstream& json_tdg);
+        void print_tdg_nodes_to_json(std::ofstream& json_tdg);
         
     public:
         // *** Constructor *** //
-        TaskDependencyGraph( ExtensibleGraph* pcfg );
+        TaskDependencyGraph(ExtensibleGraph* pcfg);
         
         // *** Getters and Setters *** //
-        std::string get_name( ) const;
+        std::string get_name() const;
         
         // *** Printing methods *** //
-        void print_tdg_to_dot( );
-        void print_tdg_to_json( );
+        void print_tdg_to_dot();
+        void print_tdg_to_json();
     };
 
+    // ********************** Task Dependency Graph ********************** //
+    // ******************************************************************* //
 }
 }
 

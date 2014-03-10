@@ -54,7 +54,7 @@ namespace TaskAnalysis {
 #undef SYNC_KIND
     };
 
-    inline std::string sync_kind_to_str(SyncKind sk)
+    inline const char* sync_kind_to_str(SyncKind sk)
     {
         switch (sk)
         {

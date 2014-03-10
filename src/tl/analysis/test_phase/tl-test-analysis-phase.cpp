@@ -174,14 +174,24 @@ namespace Analysis {
                 std::cerr << "===============  Printing PCFG to dot file done  ===============" << std::endl;
         }
         
-        if( CURRENT_CONFIGURATION->debug_options.tdg_to_json )
+        if( CURRENT_CONFIGURATION->debug_options.print_tdg )
         {
             if( VERBOSE )
                 std::cerr << "==================  Printing TDG to dot file  =================" << std::endl;
             for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it )
-                analysis.tdg_to_json( memento, (*it)->get_name( ) );
+                analysis.print_tdg( memento, (*it)->get_name( ) );
             if( VERBOSE )
                 std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
+        }
+        
+        if( CURRENT_CONFIGURATION->debug_options.tdg_to_json )
+        {
+            if( VERBOSE )
+                std::cerr << "==================  Printing TDG to json file  ================" << std::endl;
+            for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it )
+                analysis.tdg_to_json( memento, (*it)->get_name( ) );
+            if( VERBOSE )
+                std::cerr << "===============  Printing TDG to json file done  ==============" << std::endl;
         }
     }
 

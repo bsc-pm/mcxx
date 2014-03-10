@@ -358,7 +358,8 @@ namespace {
                         extra_edge_attrs = ", style=dashed";
                     
                     std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
-                                        + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                                        + " [label=\"" + current_edge->get_label_as_string( ) 
+                                        + "\"" + direction + extra_edge_attrs + "];\n";
                     Node* source_outer = current->get_outer_node( );
                     Node* target_outer = ( *it )->get_outer_node( );
                     if( source_outer == target_outer )
