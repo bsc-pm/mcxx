@@ -3938,6 +3938,22 @@ const char* const_value_to_str(const_value_t* cval)
                 result = strappend(result, "]}");
                 break;
             }
+        case CVK_COMPLEX:
+            {
+                result = "{complex: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
         case CVK_MASK:
             {
                 uniquestr_sprintf(&result, "{mask%d: %llx}",

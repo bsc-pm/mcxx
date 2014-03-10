@@ -1780,7 +1780,35 @@ namespace {
 
     }
     
+    void UsageVisitor::visit( const Nodecl::VectorSincos& n )
+    {
+        Nodecl::NodeclBase source = n.get_source( );
+        Nodecl::NodeclBase sin_ptr = n.get_sin_pointer( );
+        Nodecl::NodeclBase cos_ptr = n.get_cos_pointer( );
+        
+        walk( source );
+        walk( sin_ptr );
+        walk( cos_ptr );
+        
+        // Uses the source of the operation
+        if( !Utils::ext_sym_set_contains_nodecl( source, _node->get_killed_vars( ) ) )
+            set_var_usage_to_node( Utils::ExtendedSymbol( source ), Utils::UsageKind::USED );
+        
+        // Defines the memory pointed by the second and third parameters
+        Nodecl::NodeclBase sin_ptd = Nodecl::Dereference::make( sin_ptr.shallow_copy( ), sin_ptr.get_type( ) );
+        if( !Utils::ext_sym_set_contains_nodecl( sin_ptd, _node->get_killed_vars( ) ) )
+            set_var_usage_to_node( Utils::ExtendedSymbol( sin_ptd ), Utils::UsageKind::DEFINED );
+        Nodecl::NodeclBase cos_ptd = Nodecl::Dereference::make( cos_ptr.shallow_copy( ), cos_ptr.get_type( ) );
+        if( !Utils::ext_sym_set_contains_nodecl( cos_ptd, _node->get_killed_vars( ) ) )
+            set_var_usage_to_node( Utils::ExtendedSymbol( cos_ptd ), Utils::UsageKind::DEFINED );
+    }
+    
     void UsageVisitor::visit( const Nodecl::VectorStore& n )
+    {
+        visit_assignment( n );
+    }
+    
+    void UsageVisitor::visit( const Nodecl::VectorStreamStore& n )
     {
         visit_assignment( n );
     }

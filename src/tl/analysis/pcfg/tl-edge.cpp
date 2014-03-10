@@ -133,17 +133,20 @@ namespace Analysis {
         return label;
     }
 
-    void Edge::set_label( std::string label )
+    void Edge::add_label( std::string label )
     {
         std::string new_label = "";
         if( get_data<std::string>( _EDGE_LABEL ) != "")
-        {
             new_label = get_data<std::string>( _EDGE_LABEL ) + ", ";
-        }
         new_label += label;
         set_data( _EDGE_LABEL, new_label );
     }
 
+    void Edge::set_label( std::string label )
+    {
+        set_data( _EDGE_LABEL, label );
+    }
+    
     void Edge::set_true_edge( )
     {
         set_data( _EDGE_TYPE, __TrueEdge );

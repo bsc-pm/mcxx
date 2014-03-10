@@ -220,7 +220,9 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorGather& n );
         Ret visit( const Nodecl::VectorMaskAssignment& n );
         Ret visit( const Nodecl::VectorScatter& n );
+        Ret visit( const Nodecl::VectorSincos& n );
         Ret visit( const Nodecl::VectorStore& n );
+        Ret visit( const Nodecl::VectorStreamStore& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
     };
 

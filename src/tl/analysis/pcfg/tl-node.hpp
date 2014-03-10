@@ -232,6 +232,9 @@ namespace Analysis {
             //! Returns true when the node is a SWITCH node
             bool is_switch_statement( );
 
+            //! Returns true when the node is a CASE|DEFAULT node
+            bool is_switch_case_node( );
+            
             //! Returns true when the node is a composed node because the statement it contains has been split
             bool is_split_statement( );
 
@@ -635,8 +638,10 @@ namespace Analysis {
             //! Set a new induction variable in a loop graph node
             void set_induction_variable( Utils::InductionVariableData* iv );
 
+            Node* get_condition_node( );
+            void set_condition_node( Node* cond );
+            
             Node* get_stride_node( );
-
             void set_stride_node( Node* stride );
 
             bool is_stride_node( );
