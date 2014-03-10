@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <math.h>
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 #include "tl-strength-reduction.hpp"
@@ -140,12 +142,17 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::Div& node)
             node.replace(shr);
         }
     }
-    else if(_fast_math)
+    else if(rhs.is_constant() && rhs_type.is_floating_type())
     {
-        if(rhs.is_constant() && rhs_type.is_floating_type())
-        {
-            const_value_t * cv = rhs.get_constant();
+        const_value_t * cv = rhs.get_constant();
+        float const_float = const_value_cast_to_float(rhs.get_constant());
 
+        int exp;
+        double mantissa = frexp(const_float, &exp);
+
+        if (mantissa == 0x1p-1 ||   // If mantissa is power of 2, the transformation is exact
+                _fast_math)          // 0x1p-1 == 1 * 2^-1
+        {
             // a / c --> a * 1/c
             Nodecl::Mul mul =
                 Nodecl::Mul::make(
