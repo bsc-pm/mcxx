@@ -1283,8 +1283,7 @@ then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZER], [test x$disable_vectorization = xno])
-AM_CONDITIONAL([BUILD_VECTOR_LOWERING], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$disable_vectorization = xno])
 
 dnl ------------------------------------
 

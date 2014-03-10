@@ -2074,9 +2074,11 @@ namespace TL
 
             if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()))
             {
-                internal_error("KNC Lowering: Node %s at %s has an unsupported index type.",
+                internal_error("KNC Lowering: Node %s (%s) at %s has an unsupported index type: %s",
+                        base.prettyprint().c_str(),
                         ast_print_node_type(node.get_kind()),
-                        locus_to_str(node.get_locus()));
+                        locus_to_str(node.get_locus()),
+                        index_type.get_simple_declaration(node.retrieve_context(), "").c_str());
             }
 
             walk(base);

@@ -49,14 +49,19 @@ namespace TL
                     "0").connect(functor(&VectorLoweringPhase::set_avx2, *this));
 
             register_parameter("intel_compiler_profile",
-                    "If set to '1' enable the Intel Compiler profile, otherwise GNU is assumed",
+                    "If set to '1' enables the Intel Compiler profile, otherwise GNU is assumed",
                     _intel_compiler_profile_str,
                     "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
 
-            register_parameter("intel_compiler_profile",
-                    "If set to '1' enable the Intel Compiler profile, otherwise GNU is assumed",
-                    _intel_compiler_profile_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
+            register_parameter("prefer_mask_gather_scatter",
+                    "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
+                    _prefer_mask_gather_scatter_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_prefer_mask_gather_scatter, *this));
+
+            register_parameter("prefer_gather_scatter",
+                    "If set to '1' enables gather/scatter generation for unaligned load/stores",
+                    _prefer_gather_scatter_str,
+                    "0").connect(functor(&VectorLoweringPhase::set_prefer_gather_scatter, *this));
         }
 
         void VectorLoweringPhase::set_knc(const std::string knc_enabled_str)
