@@ -1433,7 +1433,9 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         used_hub_symbol->entity_specs.access = current_access;
         used_hub_symbol->locus = nodecl_get_locus(nodecl_name);
 
-        class_type_add_member(current_class->type_information, used_hub_symbol);
+        class_type_add_member(current_class->type_information,
+                used_hub_symbol,
+                /* is_definition */ 1);
     }
     else
     {
@@ -1653,7 +1655,7 @@ static void build_scope_common_template_alias_declaration(AST a,
         primary_symbol->entity_specs.class_type = class_info;
         primary_symbol->entity_specs.access = access_specifier;
 
-        class_type_add_member(class_info, primary_symbol);
+        class_type_add_member(class_info, primary_symbol, /* is_definition */ 1);
     }
 }
 
@@ -1704,7 +1706,7 @@ static void build_scope_nontemplate_alias_declaration(AST a, decl_context_t decl
         entry->entity_specs.is_member = 1;
         entry->entity_specs.class_type = class_info;
         entry->entity_specs.access = access_specifier;
-        class_type_add_member(class_info, entry);
+        class_type_add_member(class_info, entry, /* is_definition */ 1);
     }
 }
 
@@ -4064,7 +4066,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
             type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-            class_type_add_member(enclosing_class_type, class_entry);
+            class_type_add_member(enclosing_class_type, class_entry,
+                    /* is_definition */ 0);
 
             CXX_LANGUAGE()
             {
@@ -4291,7 +4294,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: '%s' is not an enum-name\n", 
+                error_printf("%s: error: '%s' is not an enum-name\n",
                         locus_to_str(current_entry->locus), current_entry->symbol_name);
             }
             *type_info = get_error_type();
@@ -4336,7 +4339,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
                 // If does not exist and there are no declarators
                 && ((gather_info->no_declarators
                         && !gather_info->parameter_declaration)
-                    || (gcc_extern_enum = (IS_C_LANGUAGE && gather_info->is_extern))))
+                    || (gcc_extern_enum = (IS_C_LANGUAGE && gather_info->is_extern))
+                    || (IS_CXX11_LANGUAGE && (enum_base != NULL))))
         {
             DEBUG_CODE()
             {
@@ -4347,7 +4351,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: invalid enum-name '%s'\n", 
+                    error_printf("%s: invalid enum-name '%s'\n",
                             ast_location(id_expression),
                             prettyprint_in_buffer(id_expression));
                 }
@@ -4382,13 +4386,16 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context);
 
+            new_enum->entity_specs.is_user_declared = 1;
+
             *type_info = get_user_defined_type(new_enum);
 
             if (new_decl_context.current_scope->kind == CLASS_SCOPE)
             {
                 scope_entry_t* class_symbol = new_decl_context.current_scope->related_entry;
                 type_t* class_type = class_symbol->type_information;
-                class_type_add_member(get_actual_class_type(class_type), new_enum);
+                class_type_add_member(get_actual_class_type(class_type), new_enum,
+                        /* is_definition */ 0);
 
                 CXX_LANGUAGE()
                 {
@@ -4895,7 +4902,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     {
         scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
         type_t* class_type = class_symbol->type_information;
-        class_type_add_member(get_actual_class_type(class_type), new_enum);
+        class_type_add_member(get_actual_class_type(class_type), new_enum,
+                /* is_definition */ 1);
         CXX_LANGUAGE()
         {
             new_enum->entity_specs.is_member = 1;
@@ -5021,7 +5029,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 {
                     scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
                     type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-                    class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+                    class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
+                            /* is_definition */ 1);
 
                     enumeration_item->entity_specs.is_member = 1;
                     enumeration_item->entity_specs.access = gather_info->current_access;
@@ -5043,7 +5052,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
                         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-                        class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item);
+                        class_type_add_member(get_actual_class_type(enclosing_class_type), enumeration_item,
+                                /* is_definition */ 1);
 
                         enumeration_item->entity_specs.is_member = 1;
                         enumeration_item->entity_specs.access = gather_info->current_access;
@@ -6612,7 +6622,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
         implicit_default_constructor->entity_specs.num_parameters = 0;
 
-        class_type_add_member(class_type, implicit_default_constructor);
+        class_type_add_member(class_type, implicit_default_constructor, /* is_definition */ 0);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
 
         // Now check if the implicitly declared constructor is deleted
@@ -6997,7 +7007,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_copy_constructor->entity_specs.num_parameters = 1;
         implicit_copy_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
 
-        class_type_add_member(class_type, implicit_copy_constructor);
+        class_type_add_member(class_type, implicit_copy_constructor, /* is_definition */ 1);
 
         // We have to see whether this copy constructor is trivial
         char has_bases_with_no_trivial_copy_constructor = 0;
@@ -7256,7 +7266,7 @@ static void finish_class_type_cxx(type_t* class_type,
             implicit_move_constructor->entity_specs.num_parameters = 1;
             implicit_move_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
 
-            class_type_add_member(class_type, implicit_move_constructor);
+            class_type_add_member(class_type, implicit_move_constructor, /* is_definition */ 1);
 
             // If it is not deleted we still have to figure if it is trivial
             /*
@@ -7368,7 +7378,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
         implicit_copy_assignment_function->entity_specs.is_copy_assignment_operator = 1;
 
-        class_type_add_member(class_type, implicit_copy_assignment_function);
+        class_type_add_member(class_type, implicit_copy_assignment_function, /* is_definition */ 1);
 
         char union_has_member_with_nontrivial_copy_assignment = 0;
         if (is_union_type(class_type)
@@ -7689,7 +7699,7 @@ static void finish_class_type_cxx(type_t* class_type,
 
             implicit_move_assignment_function->entity_specs.is_move_assignment_operator = 1;
 
-            class_type_add_member(class_type, implicit_move_assignment_function);
+            class_type_add_member(class_type, implicit_move_assignment_function, /* is_definition */ 1);
 
             // If not deleted it may be trivial
             char has_base_classes_with_no_trivial_move_assignment = 0;
@@ -7782,7 +7792,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_destructor->defined = 1;
 
         implicit_destructor->entity_specs.num_parameters = 0;
-        class_type_add_member(class_type, implicit_destructor);
+        class_type_add_member(class_type, implicit_destructor, /* is_definition */ 1);
         class_type_set_destructor(class_type, implicit_destructor);
         if (is_virtual_destructor(class_type))
         {
@@ -8783,18 +8793,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
         type_t* enclosing_class_type = enclosing_class_symbol->type_information;
 
-        CXX_LANGUAGE()
-        {
-            // If this member has been declared before, we want to update the order
-            // in the member list to try to help codegen member declaration
-            scope_entry_list_t* updated_member_list =
-                entry_list_remove(class_type_get_members(enclosing_class_type), class_entry);
-
-            class_type_set_members(enclosing_class_type, updated_member_list);
-            entry_list_free(updated_member_list);
-        }
-
-        class_type_add_member(enclosing_class_type, class_entry);
+        class_type_add_member(enclosing_class_type, class_entry, /* is_definition */ 1);
 
         CXX_LANGUAGE()
         {
@@ -15204,7 +15203,7 @@ static scope_entry_t* build_scope_member_function_definition(
     else
     {
         // Otherwise, we add this symbol as a member of the class
-        class_type_add_member(get_actual_class_type(class_info), entry);
+        class_type_add_member(get_actual_class_type(class_info), entry, /* is_definition */ 1);
     }
 
     build_scope_delayed_add_delayed_function_def(function_definition, entry, block_context, gather_info);
@@ -15604,7 +15603,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         bitfield_symbol->entity_specs.access = current_access;
                         bitfield_symbol->entity_specs.is_member = 1;
                         bitfield_symbol->entity_specs.class_type = class_info;
-                        class_type_add_member(get_actual_class_type(class_type), bitfield_symbol);
+                        class_type_add_member(get_actual_class_type(class_type), bitfield_symbol, /* is_definition */ 1);
 
                         if (current_gather_info.is_static)
                         {
@@ -15762,8 +15761,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         entry->entity_specs.is_hides_member = current_gather_info.is_hides_member;
                         entry->entity_specs.is_final = current_gather_info.is_final;
 
-                        class_type_add_member(get_actual_class_type(class_type), entry);
-
                         if (entry->kind == SK_FUNCTION)
                         {
                             update_member_function_info(declarator_name, is_constructor, entry, class_info);
@@ -15809,6 +15806,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             // Do nothing
                         }
+                        class_type_add_member(get_actual_class_type(class_type), entry, entry->defined);
 
                         if (!current_gather_info.is_static && current_gather_info.is_auto_type)
                         {
@@ -15950,7 +15948,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             new_member->entity_specs.access = current_access;
             new_member->entity_specs.class_type = class_info;
 
-            class_type_add_member(class_type, new_member);
+            class_type_add_member(class_type, new_member, /* is_definition */ 1);
         }
     }
 }

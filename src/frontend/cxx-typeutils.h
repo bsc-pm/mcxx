@@ -282,9 +282,11 @@ LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class
 
 LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
 
-LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member);
-LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry);
+LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member, char is_definition);
+LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
+        char is_definition);
+LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
+        char is_definition);
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
@@ -549,7 +551,7 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int nu
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_members(type_t* t);
-LIBMCXX_EXTERN void class_type_set_members(type_t* t, scope_entry_list_t* new_member_list);
+LIBMCXX_EXTERN member_declaration_info_t* class_type_get_member_declarations(type_t* t, int *num_declarations);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_static_data_members(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_member_functions(type_t* t);

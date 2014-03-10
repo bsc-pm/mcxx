@@ -343,7 +343,8 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.access = AS_PUBLIC;
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         function_context.function_scope->related_entry = new_function_sym;
@@ -878,7 +879,8 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.access = AS_PUBLIC;
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)

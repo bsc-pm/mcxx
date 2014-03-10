@@ -12521,7 +12521,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     {
         new_operator_call->type_information = get_const_qualified_type(new_operator_call->type_information);
     }
-    class_type_add_member(lambda_class->type_information, new_operator_call);
+    class_type_add_member(lambda_class->type_information, new_operator_call,
+            /* is_definition */ 1);
 
     if (entry_list_size(capture_copy_entities) == 0
             && entry_list_size(capture_reference_entities) == 0)
@@ -12538,7 +12539,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
             get_new_function_type(pointer_to_function, NULL, 0, REF_QUALIFIER_NONE);
         new_conversion->entity_specs.is_conversion = 1;
 
-        class_type_add_member(lambda_class->type_information, new_conversion);
+        class_type_add_member(lambda_class->type_information, new_conversion, /* is_definition */ 1);
     }
 
     // rvalue of the class type

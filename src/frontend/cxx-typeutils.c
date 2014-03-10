@@ -199,6 +199,11 @@ struct class_info_tag {
 
     // All members must be here
     scope_entry_list_t* members;
+    // This is a literal list of member declarations
+    // We allow it to be NULL (in this case codegen will use member and the
+    // traditional algorithm), otherwise it will trust this list
+    int num_member_declarations;
+    member_declaration_info_t *member_declarations;
 
     // Destructor
     scope_entry_t* destructor;
@@ -4553,15 +4558,25 @@ scope_entry_list_t* class_type_get_members(type_t* t)
     return entry_list_copy(members);
 }
 
-void class_type_set_members(type_t* t, scope_entry_list_t* new_member_list)
+member_declaration_info_t* class_type_get_member_declarations(type_t* t, int *num_declarations)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
 
-    // Dealloc the old list of members
-    entry_list_free(t->type->class_info->members);
+    member_declaration_info_t* mdi = t->type->class_info->member_declarations;
 
-    t->type->class_info->members = entry_list_copy(new_member_list);
+    if (mdi == NULL)
+    {
+        *num_declarations = 0;
+        return NULL;
+    }
+
+    int num_decls = t->type->class_info->num_member_declarations;
+    member_declaration_info_t* result = xcalloc(num_decls, sizeof(*mdi));
+    memcpy(result, mdi, sizeof(*result) * num_decls);
+
+    *num_declarations = num_decls;
+    return result;
 }
 
 static scope_entry_list_t* _class_type_get_members_pred(type_t* t, void* data, char (*fun)(scope_entry_t*, void*))
@@ -4828,29 +4843,104 @@ scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
     return result;
 }
 
-void class_type_add_member(type_t* class_type, scope_entry_t* entry)
+void class_type_add_member(type_t* class_type,
+        scope_entry_t* entry,
+        char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
 
     // It may happen that a type is added twice (redeclared classes ...)
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
+
+    // Keep the declaration list
+    member_declaration_info_t mdi = { entry, is_definition };
+    P_LIST_ADD(class_type->type->class_info->member_declarations,
+        class_type->type->class_info->num_member_declarations,
+        mdi);
 }
 
-void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry)
+void class_type_add_member_after(
+        type_t* class_type,
+        scope_entry_t* position,
+        scope_entry_t* entry,
+        char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
 
     class_type->type->class_info->members = entry_list_add_after(class_type->type->class_info->members, position, entry);
+
+    // Find from the end
+    int i;
+    char found = 0;
+    // Note the -2 if position is the last, we do not have to do anything special
+    for (i = class_type->type->class_info->num_member_declarations - 2; i >= 0 && !found; i--)
+    {
+        if (class_type->type->class_info->member_declarations[i].entry == position)
+        {
+            found = 1;
+            break;
+        }
+    }
+
+    member_declaration_info_t mdi = { entry, is_definition };
+    P_LIST_ADD(class_type->type->class_info->member_declarations,
+            class_type->type->class_info->num_member_declarations,
+            mdi);
+
+    if (found)
+    {
+        // Shift right all elements right of "i"
+        i++; // Now i is where we will write
+
+        memmove(&class_type->type->class_info->member_declarations[i+1],
+                &class_type->type->class_info->member_declarations[i],
+                (class_type->type->class_info->num_member_declarations - i - 1)
+                * sizeof(class_type->type->class_info->member_declarations[i]));
+
+        class_type->type->class_info->member_declarations[i] = mdi;
+    }
 }
 
-void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry)
+
+void class_type_add_member_before(type_t* class_type,
+        scope_entry_t* position,
+        scope_entry_t* entry,
+        char is_definition)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
 
     class_type->type->class_info->members = entry_list_add_before(class_type->type->class_info->members, position, entry);
+
+    // Find from the beginning
+    int i;
+    char found = 0;
+    for (i = 0; i < class_type->type->class_info->num_member_declarations && !found; i++)
+    {
+        if (class_type->type->class_info->member_declarations[i].entry == position)
+        {
+            found = 1;
+            break;
+        }
+    }
+
+    member_declaration_info_t mdi = { entry, is_definition };
+    P_LIST_ADD(class_type->type->class_info->member_declarations,
+            class_type->type->class_info->num_member_declarations,
+            mdi);
+
+    if (found)
+    {
+        // Shift right all elements right of "i"
+        memmove(&class_type->type->class_info->member_declarations[i+1],
+                &class_type->type->class_info->member_declarations[i],
+                (class_type->type->class_info->num_member_declarations - i - 1)
+                * sizeof(class_type->type->class_info->member_declarations[i]));
+
+        class_type->type->class_info->member_declarations[i] = mdi;
+    }
 }
 
 char is_enum_type(type_t* t)

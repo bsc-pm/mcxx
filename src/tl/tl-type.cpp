@@ -1064,6 +1064,27 @@ namespace TL
         return result;
     }
 
+    ObjectList<MemberDeclarationInfo> Type::get_member_declarations() const
+    {
+        TL::ObjectList<MemberDeclarationInfo> result;
+
+        int num_decls = 0;
+
+        member_declaration_info_t* mdi = ::class_type_get_member_declarations(_type_info, &num_decls);
+
+        int i;
+        for (i = 0; i < num_decls; i++)
+        {
+            result.push_back(
+                    MemberDeclarationInfo(mdi[i].entry, mdi[i].is_definition)
+                    );
+        }
+
+        xfree(mdi);
+
+        return result;
+    }
+
     bool Type::some_member_is_mutable() const
     {
         ObjectList<Symbol> nonstatic_data_members = get_nonstatic_data_members();
