@@ -7230,6 +7230,15 @@ scope_entry_list_t* query_dependent_entity_in_context(
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
+                        if (class_sym->kind == SK_TYPEDEF)
+                        {
+                            // Make sure a typedef does not slip in since
+                            // lookup functions may not expect them
+                            class_sym = named_type_get_symbol(
+                                    advance_over_typedefs(class_sym->type_information)
+                                    );
+                        }
+
                         // Make sure class_type_get_inner_context does not return a bogus context below
                         instantiate_template_class_if_needed(class_sym, class_sym->decl_context, locus);
 
