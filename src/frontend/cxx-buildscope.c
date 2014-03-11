@@ -17516,6 +17516,8 @@ struct declaration_pragma_info_tag
     nodecl_t *pragma_lines;
     int num_pragma_texts;
     const char** pragma_texts;
+
+    char is_function_definition;
 } declaration_pragma_info_t;
 
 typedef
@@ -17608,7 +17610,8 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
 // Picks the context of the first non null parameter
 static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
         scope_entry_t* entry,
-        gather_decl_spec_t gather_info)
+        gather_decl_spec_t gather_info,
+        declaration_pragma_info_t* info)
 {
     decl_context_t result = decl_context;
 
@@ -17622,6 +17625,14 @@ static decl_context_t get_prototype_context_if_any(decl_context_t decl_context,
                 result = gather_info.arguments_info[i].entry->decl_context;
                 break;
             }
+        }
+
+        if (info->is_function_definition)
+        {
+            // If no parameters were found use the context of the function
+            result = nodecl_get_decl_context(
+                    nodecl_get_child(entry->entity_specs.function_code, 0)
+                    );
         }
     }
 
@@ -17655,7 +17666,7 @@ static void finish_pragma_declaration(
                     nodecl_single_pragma_declaration,
                     nodecl_make_pragma_context(decl_context, entry->locus),
                     nodecl_make_pragma_context(
-                        get_prototype_context_if_any(decl_context, entry, gather_info),
+                        get_prototype_context_if_any(decl_context, entry, gather_info, info),
                         entry->locus),
                     entry,
                     info->pragma_texts[j],
@@ -17742,6 +17753,10 @@ static void build_scope_pragma_custom_construct_declaration_rec(
                 build_scope_declaration(pragma_decl, decl_context, nodecl_output,
                         info->declared_symbols,
                         info->gather_decl_spec_list);
+                if (ASTType(pragma_decl) == AST_FUNCTION_DEFINITION)
+                {
+                    info->is_function_definition = 1;
+                }
                 break;
             }
     }
