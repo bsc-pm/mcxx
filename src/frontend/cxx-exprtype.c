@@ -11905,6 +11905,18 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
         nodecl_t* nodecl_output,
         const locus_t* locus)
 {
+    if (nodecl_is_err_expr(nodecl_lhs))
+    {
+        *nodecl_output = nodecl_lhs;
+        return;
+    }
+
+    if (nodecl_is_err_expr(nodecl_rhs))
+    {
+        *nodecl_output = nodecl_rhs;
+        return;
+    }
+
     static AST operation_comma_tree = NULL;
     if (operation_comma_tree == NULL)
     {
@@ -12001,20 +12013,8 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
     nodecl_t nodecl_lhs = nodecl_null();
     check_expression_impl_(lhs, decl_context, &nodecl_lhs);
 
-    if (nodecl_is_err_expr(nodecl_lhs))
-    {
-        *nodecl_output = nodecl_lhs;
-        return;
-    }
-
     nodecl_t nodecl_rhs = nodecl_null();
     check_expression_impl_(rhs, decl_context, &nodecl_rhs);
-
-    if (nodecl_is_err_expr(nodecl_rhs))
-    {
-        *nodecl_output = nodecl_rhs;
-        return;
-    }
 
     check_nodecl_comma_operand(nodecl_lhs, nodecl_rhs, decl_context,
             nodecl_output,
@@ -13970,7 +13970,7 @@ static type_t* postoperator_result(type_t** lhs,
     return result;
 }
 
-static void check_postoperator(AST operator, 
+static void check_nodecl_postoperator(AST operator, 
         nodecl_t postoperated_expr, 
         decl_context_t decl_context, char is_decrement,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
@@ -14108,7 +14108,7 @@ static type_t* preoperator_result(type_t** lhs)
     return *lhs;
 }
 
-static void check_preoperator(AST operator, 
+static void check_nodecl_preoperator(AST operator, 
         nodecl_t preoperated_expr, decl_context_t decl_context,
         char is_decrement, nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
@@ -14218,6 +14218,24 @@ static void check_preoperator(AST operator,
     return;
 }
 
+static void check_nodecl_postincrement(
+        nodecl_t nodecl_postincremented,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    static AST operation_tree = NULL;
+    if (operation_tree == NULL)
+    {
+        operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_INCREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+    }
+
+    check_nodecl_postoperator(operation_tree,
+            nodecl_postincremented,
+            decl_context, /* is_decr */ 0,
+            nodecl_make_postincrement, nodecl_output);
+}
+
 static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
@@ -14226,20 +14244,29 @@ static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t*
     //
     AST postincremented_expr = ASTSon0(expr);
 
+    nodecl_t nodecl_postincremented = nodecl_null();
+    check_expression_impl_(postincremented_expr, decl_context, &nodecl_postincremented);
+
+    check_nodecl_postincrement(
+            nodecl_postincremented,
+            decl_context,
+            nodecl_output);
+}
+
+static void check_nodecl_postdecrement(nodecl_t nodecl_postdecremented,
+    decl_context_t decl_context, nodecl_t* nodecl_output)
+{
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_INCREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+                ASTLeaf(AST_DECREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    nodecl_t nodecl_postincremented = nodecl_null();
-    check_expression_impl_(postincremented_expr, decl_context, &nodecl_postincremented);
-
-    check_postoperator(operation_tree, 
-            nodecl_postincremented, 
-            decl_context, /* is_decr */ 0, 
-            nodecl_make_postincrement, nodecl_output);
+    check_nodecl_postoperator(operation_tree,
+            nodecl_postdecremented,
+            decl_context, /* is_decr */ 1,
+            nodecl_make_postdecrement, nodecl_output);
 }
 
 static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -14250,20 +14277,32 @@ static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t*
     //
     AST postdecremented_expr = ASTSon0(expr);
 
+    nodecl_t nodecl_postdecremented = nodecl_null();
+    check_expression_impl_(postdecremented_expr, decl_context, &nodecl_postdecremented);
+
+    check_nodecl_postdecrement(
+            nodecl_postdecremented,
+            decl_context,
+            nodecl_output);
+}
+
+static void check_nodecl_preincrement(nodecl_t nodecl_preincremented,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DECREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+                ASTLeaf(AST_INCREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    nodecl_t nodecl_postdecremented = nodecl_null();
-    check_expression_impl_(postdecremented_expr, decl_context, &nodecl_postdecremented);
-
-    check_postoperator(operation_tree, 
-            nodecl_postdecremented, 
-            decl_context, /* is_decr */ 1, 
-            nodecl_make_postdecrement, nodecl_output);
+    check_nodecl_preoperator(operation_tree,
+            nodecl_preincremented,
+            decl_context,
+            /* is_decr */ 0,
+            nodecl_make_preincrement,
+            nodecl_output);
 }
 
 static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -14274,23 +14313,36 @@ static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* 
     //
     AST preincremented_expr = ASTSon0(expr);
 
+    nodecl_t nodecl_preincremented = nodecl_null();
+    check_expression_impl_(preincremented_expr, decl_context, &nodecl_preincremented);
+
+    check_nodecl_preincrement(nodecl_preincremented, decl_context, nodecl_output);
+}
+
+static void check_nodecl_predecrement(
+        nodecl_t nodecl_predecremented,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_INCREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
+                ASTLeaf(AST_DECREMENT_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    nodecl_t nodecl_preincremented = nodecl_null();
-    check_expression_impl_(preincremented_expr, decl_context, &nodecl_preincremented);
-
-    check_preoperator(operation_tree, nodecl_preincremented, 
-            decl_context, /* is_decr */ 0, nodecl_make_preincrement, nodecl_output);
+    check_nodecl_preoperator(operation_tree,
+            nodecl_predecremented,
+            decl_context,
+            /* is_decr */ 1,
+            nodecl_make_predecrement,
+            nodecl_output);
 }
 
 static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
+    //
     //
     // '--e' is either 'operator--(e)' or 'e.operator--()'
     //
@@ -14306,8 +14358,7 @@ static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* 
     nodecl_t nodecl_predecremented = nodecl_null();
     check_expression_impl_(predecremented_expr, decl_context, &nodecl_predecremented);
 
-    check_preoperator(operation_tree, nodecl_predecremented, 
-            decl_context, /* is_decr */ 1, nodecl_make_predecrement, nodecl_output);
+    check_nodecl_predecrement(nodecl_predecremented, decl_context, nodecl_output);
 }
 
 static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus_t* locus)
@@ -21123,8 +21174,41 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             &v->nodecl_result);
 }
 
+static void instantiate_comma_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
 
+    check_nodecl_comma_operand(nodecl_lhs,
+            nodecl_rhs,
+            v->decl_context,
+            &v->nodecl_result,
+            nodecl_get_locus(node));
+}
 
+static void instantiate_predecrement(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    check_nodecl_predecrement(nodecl_op, v->decl_context, &v->nodecl_result);
+}
+
+static void instantiate_preincrement(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    check_nodecl_preincrement(nodecl_op, v->decl_context, &v->nodecl_result);
+}
+
+static void instantiate_postdecrement(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    check_nodecl_postdecrement(nodecl_op, v->decl_context, &v->nodecl_result);
+}
+
+static void instantiate_postincrement(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    check_nodecl_postincrement(nodecl_op, v->decl_context, &v->nodecl_result);
+}
 
 static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
@@ -21642,6 +21726,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_bitwise_or_assignment  = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_bitwise_xor_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
     NODECL_VISITOR(v)->visit_mod_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+
+    NODECL_VISITOR(v)->visit_comma = instantiate_expr_visitor_fun(instantiate_comma_op);
+
+    NODECL_VISITOR(v)->visit_preincrement = instantiate_expr_visitor_fun(instantiate_preincrement);
+    NODECL_VISITOR(v)->visit_postincrement = instantiate_expr_visitor_fun(instantiate_postincrement);
+    NODECL_VISITOR(v)->visit_predecrement = instantiate_expr_visitor_fun(instantiate_predecrement);
+    NODECL_VISITOR(v)->visit_postdecrement = instantiate_expr_visitor_fun(instantiate_postdecrement);
 
     // Unary
     NODECL_VISITOR(v)->visit_dereference = instantiate_expr_visitor_fun(instantiate_unary_op);
