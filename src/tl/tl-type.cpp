@@ -961,6 +961,19 @@ namespace TL
         return get_cv_qualified_type(this->_type_info, CV_NONE);
     }
 
+    Type Type::get_unqualified_type_but_keep_restrict()
+    {
+        // Might return itself if not qualified
+        if (is_restrict_qualified_type(this->_type_info))
+        {
+            return get_cv_qualified_type(this->_type_info, CV_RESTRICT);
+        }
+        else
+        {
+            return get_cv_qualified_type(this->_type_info, CV_NONE);
+        }
+    }
+
     Type Type::get_const_type()
     {
         // Might return itself if already const qualified

@@ -764,6 +764,9 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
+            //! Returns the unqualified type of current type but keeps restrict
+            Type get_unqualified_type_but_keep_restrict();
+
             //! Qualifies current type with the qualifier of t
             Type get_as_qualified_as(TL::Type t);
 
