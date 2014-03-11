@@ -8580,10 +8580,12 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
 
                             if (result[strlen(result) - 1] == '>')
                             {
-                                result = strappend(result, " ");
+                                result = strappend(result, " >");
                             }
-
-                            result = strappend(result, ">");
+                            else
+                            {
+                                result = strappend(result, ">");
+                            }
                         }
 
                         // At this moment we do not allow nesting of types in

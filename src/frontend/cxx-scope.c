@@ -4704,7 +4704,14 @@ static const char* get_fully_qualified_symbol_name_of_depedent_typename_internal
                         print_type_data);
 
             result = strappend(result, template_arguments_str);
-            result = strappend(result, ">");
+            if (result[strlen(result) - 1] == '>')
+            {
+                result = strappend(result, " >");
+            }
+            else
+            {
+                result = strappend(result, ">");
+            }
         }
     }
 
