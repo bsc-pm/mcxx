@@ -168,6 +168,8 @@ typedef struct debug_options_tag
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;
+    char print_tdg;
+    char tdg_to_json;
     char do_not_codegen;
     char show_template_packs;
 } debug_options_t;

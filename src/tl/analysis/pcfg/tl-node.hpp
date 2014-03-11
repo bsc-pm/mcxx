@@ -173,7 +173,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_entry_edge_types( );
 
             //! Returns the list of entry edges labels of the node.
-            ObjectList<std::string> get_entry_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> get_entry_edge_labels( );
 
             //! Returns the list parent nodes of the node.
             ObjectList<Node*> get_parents( );
@@ -188,7 +188,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_exit_edge_types( );
 
             //! Returns the list of exit edges labels of the node.
-            ObjectList<std::string> get_exit_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> get_exit_edge_labels( );
 
             //! Returns the edge between the node and a target node, if exists
             Edge* get_exit_edge( Node* target );

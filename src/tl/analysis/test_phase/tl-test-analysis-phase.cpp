@@ -33,36 +33,47 @@ namespace TL {
 namespace Analysis {
 
     TestAnalysisPhase::TestAnalysisPhase( )
-        : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ),
-            _reaching_defs_enabled( false ), _induction_vars_enabled( false ), _range_analysis_enabled( false )
+        : _pcfg_enabled( false ), _use_def_enabled( false ), _liveness_enabled( false ), 
+          _reaching_defs_enabled( false ), _induction_vars_enabled( false ), 
+          _task_sync_tune_enabled( false ), _tdg_enabled( false ), _range_analysis_enabled( false )
     {
         set_phase_name("Experimental phase for testing compiler analysis");
         set_phase_description("This is a temporal phase called with code testing purposes.");
 
-        register_parameter("pcfg_enabled",
+        register_parameter( "pcfg_enabled",
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _pcfg_enabled_str,
-                            "0").connect(functor(&TestAnalysisPhase::set_pcfg, *this));
+                            "0" ).connect( functor( &TestAnalysisPhase::set_pcfg, *this ) );
 
-        register_parameter("use_def_enabled",
+        register_parameter( "use_def_enabled",
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _use_def_enabled_str,
-                            "0").connect(functor(&TestAnalysisPhase::set_use_def, *this));
+                            "0" ).connect( functor( &TestAnalysisPhase::set_use_def, *this ) );
 
-        register_parameter("liveness_enabled",
+        register_parameter( "liveness_enabled",
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _liveness_enabled_str,
-                            "0").connect(functor(&TestAnalysisPhase::set_liveness, *this));
+                            "0" ).connect( functor( &TestAnalysisPhase::set_liveness, *this ) );
 
-        register_parameter("reaching_defs_enabled",
+        register_parameter( "reaching_defs_enabled",
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _reaching_defs_enabled_str,
-                            "0").connect(functor(&TestAnalysisPhase::set_reaching_defs, *this));
+                            "0" ).connect( functor( &TestAnalysisPhase::set_reaching_defs, *this ) );
 
-        register_parameter("induction_vars_enabled",
+        register_parameter( "induction_vars_enabled",
                             "If set to '1' enables pcfg analysis, otherwise it is disabled",
                             _induction_vars_enabled_str,
-                            "0").connect(functor(&TestAnalysisPhase::set_induction_vars, *this));
+                            "0" ).connect( functor( &TestAnalysisPhase::set_induction_vars, *this ) );
+                            
+        register_parameter( "task_sync_tune_enabled", 
+                            "If set to '1' enables task synchronizations tunning in the PCFG", 
+                            _task_sync_tune_enabled_str, 
+                            "0" ).connect( functor( &TestAnalysisPhase::set_task_sync_tune, *this ) );
+                            
+        register_parameter( "tdg_enabled",
+                            "If set to '1' enables tdg analysis, otherwise it is disabled",
+                            _tdg_enabled_str,
+                            "0" ).connect( functor( &TestAnalysisPhase::set_tdg, *this ) );
 
         register_parameter("range_analysis_enabled",
                             "If set to '1' enables range analysis, otherwise it is disabled",
@@ -86,7 +97,7 @@ namespace Analysis {
                 std::cerr << "====================  Testing PCFG creation  =================" << std::endl;
             pcfgs = analysis.parallel_control_flow_graph( memento, ast );
             if( VERBOSE )
-                std::cerr << "================  Testing PCFG creation done  ================" << std::endl;
+                std::cerr << "=================  Testing PCFG creation done  ===============" << std::endl;
         }
 
         if( _use_def_enabled )
@@ -95,7 +106,7 @@ namespace Analysis {
                 std::cerr << "==============  Testing Use-Definition analysis  ==============" << std::endl;
             pcfgs = analysis.use_def( memento, ast );
             if( VERBOSE )
-                std::cerr << "===========  Testing Use-Definition analysis done  ============" << std::endl;
+                std::cerr << "============  Testing Use-Definition analysis done  ===========" << std::endl;
         }
 
         if( _liveness_enabled )
@@ -119,10 +130,29 @@ namespace Analysis {
         if( _induction_vars_enabled )
         {
             if( VERBOSE )
-                std::cerr << "============  Testing Induction Variables analysis  =============" << std::endl;
+                std::cerr << "=============  Testing Induction Variables analysis  ==========" << std::endl;
             pcfgs = analysis.induction_variables( memento, ast );
             if( VERBOSE )
-                std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
+                std::cerr << "==========  Testing Induction Variables analysis done  ========" << std::endl;
+        }
+        
+        if( _task_sync_tune_enabled )
+        {
+            if( VERBOSE )
+                std::cerr << "============  Testing Tasks synchronization tunning  ===========" << std::endl;
+            pcfgs = analysis.tune_task_synchronizations( memento, ast );
+            if( VERBOSE )
+                std::cerr << "=========  Testing Tasks synchronization tunning done  =========" << std::endl;
+        }
+        
+        ObjectList<TaskDependencyGraph*> tdgs;
+        if( _tdg_enabled )
+        {
+            if( VERBOSE )
+                std::cerr << "====================  Testing TDG creation  ====================" << std::endl;
+            tdgs = analysis.task_dependency_graph( memento, ast );
+            if( VERBOSE )
+                std::cerr << "==================  Testing TDG creation done  =================" << std::endl;
         }
         
         if( _range_analysis_enabled )
@@ -137,13 +167,31 @@ namespace Analysis {
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
         {
             if( VERBOSE )
-                std::cerr << "===================  Printing PCFG to dot file  ==================" << std::endl;
-            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it)
-            {
+                std::cerr << "=================  Printing PCFG to dot file  ==================" << std::endl;
+            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
                 analysis.print_pcfg( memento, (*it)->get_name( ) );
-            }
             if( VERBOSE )
-                std::cerr << "================  Printing PCFG to dot file done =================" << std::endl;
+                std::cerr << "===============  Printing PCFG to dot file done  ===============" << std::endl;
+        }
+        
+        if( CURRENT_CONFIGURATION->debug_options.print_tdg )
+        {
+            if( VERBOSE )
+                std::cerr << "==================  Printing TDG to dot file  =================" << std::endl;
+            for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it )
+                analysis.print_tdg( memento, (*it)->get_name( ) );
+            if( VERBOSE )
+                std::cerr << "===============  Printing TDG to dot file done  ===============" << std::endl;
+        }
+        
+        if( CURRENT_CONFIGURATION->debug_options.tdg_to_json )
+        {
+            if( VERBOSE )
+                std::cerr << "==================  Printing TDG to json file  ================" << std::endl;
+            for( ObjectList<TaskDependencyGraph*>::iterator it = tdgs.begin( ); it != tdgs.end( ); ++it )
+                analysis.tdg_to_json( memento, (*it)->get_name( ) );
+            if( VERBOSE )
+                std::cerr << "===============  Printing TDG to json file done  ==============" << std::endl;
         }
     }
 
@@ -175,6 +223,18 @@ namespace Analysis {
     {
         if( induction_vars_enabled_str == "1" )
             _induction_vars_enabled = true;
+    }
+    
+    void TestAnalysisPhase::set_task_sync_tune( const std::string& task_sync_tune_enabled_str )
+    {
+        if( task_sync_tune_enabled_str == "1" )
+            _task_sync_tune_enabled = true;
+    }
+    
+    void TestAnalysisPhase::set_tdg( const std::string& tdg_enabled_str )
+    {
+        if( tdg_enabled_str == "1" )
+            _tdg_enabled = true;
     }
 
     void TestAnalysisPhase::set_range_analsysis( const std::string& range_analysis_enabled_str )

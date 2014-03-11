@@ -113,7 +113,7 @@ namespace Analysis {
          * \param n Nodecl containing the Case or the Default Statement
          * \return The graph node created while the Statement has been parsed
          */
-        Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::NodeclBase& case_val );
+        Ret visit_case_or_default( const Nodecl::NodeclBase& case_stmt, const Nodecl::List& case_val );
 
         //! This method implements the visitor for a ConditionalExpression and a VectorConditionalExpression
         /*!

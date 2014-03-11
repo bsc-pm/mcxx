@@ -222,9 +222,9 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<std::string> Node::get_entry_edge_labels( )
+    ObjectList<Nodecl::NodeclBase> Node::get_entry_edge_labels( )
     {
-        ObjectList<std::string> result;
+        ObjectList<Nodecl::NodeclBase> result;
         for( ObjectList<Edge*>::iterator it = _entry_edges.begin( ); it != _entry_edges.end( ); ++it )
             result.append( ( *it )->get_label( ) );
         return result;
@@ -256,9 +256,9 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<std::string> Node::get_exit_edge_labels( )
+    ObjectList<Nodecl::NodeclBase> Node::get_exit_edge_labels( )
     {
-        ObjectList<std::string> result;
+        ObjectList<Nodecl::NodeclBase> result;
         for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
             result.append( ( *it )->get_label( ) );
         return result;
@@ -1507,7 +1507,7 @@ namespace Analysis {
     {
         if( is_graph_node() )
         {
-            if( is_for_loop() || is_switch_statement() || is_ifelse_statement() )
+            if( is_loop_node() || is_switch_statement() || is_ifelse_statement() )
                 return get_data<Node*>( _CONDITION_NODE );
             
             internal_error( "Unexpected graph type '%s' while getting the condition node of loop node '%d'. LOOP|SWITCH|IFELSE expected",
@@ -1524,7 +1524,7 @@ namespace Analysis {
     {
         if( is_graph_node( ) )
         {
-            if( is_for_loop() || is_switch_statement() || is_ifelse_statement() )
+            if( is_loop_node() || is_switch_statement() || is_ifelse_statement() )
             {
                 set_data( _CONDITION_NODE, cond );
             }

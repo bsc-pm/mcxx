@@ -231,7 +231,7 @@ namespace {
                                               bool ranges, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_pcfg;
-
+        
         // Create the directory of dot files if it has not been previously created
         char buffer[1024];
         char* err = getcwd(buffer, 1024);
@@ -245,37 +245,16 @@ namespace {
             if( dot_directory != 0 )
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
         }
-
-        std::string date_str;
-        {
-            time_t t = time(NULL);
-            struct tm* tmp = localtime(&t);
-            if (tmp == NULL)
-            {
-                internal_error("localtime failed", 0);
-            }
-            char outstr[200];
-            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
-            {
-                internal_error("strftime failed", 0);
-            }
-            outstr[199] = '\0';
-            date_str = outstr;
-        }
-
-        Nodecl::NodeclBase node = this->get_nodecl();
-        std::string filename = ::give_basename(node.get_filename().c_str());
-        int line = node.get_line();
-        std::stringstream ss; ss << filename << "_" << line;
-        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
+        
+        std::string dot_file_name = directory_name + _name + "_pcfg.dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
             
         // Create the dot graphs
         if( VERBOSE )
-            std::cerr << "- File '" << dot_file_name << "'" << std::endl;
-        
+            std::cerr << "- PCFG File '" << dot_file_name << "'" << std::endl;
+
         _usage = usage;
         _liveness = liveness;
         _reaching_defs = reaching_defs;
@@ -379,7 +358,8 @@ namespace {
                         extra_edge_attrs = ", style=dashed";
                     
                     std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
-                                        + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
+                                        + " [label=\"" + current_edge->get_label_as_string( ) 
+                                        + "\"" + direction + extra_edge_attrs + "];\n";
                     Node* source_outer = current->get_outer_node( );
                     Node* target_outer = ( *it )->get_outer_node( );
                     if( source_outer == target_outer )

@@ -24,8 +24,9 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#include "tl-task-sync.hpp"
+#include "cxx-cexpr.h"
 #include "tl-datareference.hpp"
+#include "tl-task-sync.hpp"
 #include "tl-tribool.hpp"
 
 namespace TL { 
@@ -906,8 +907,11 @@ namespace {
 #ifdef TASK_SYNC_DEBUG
                 std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
 #endif
-                Edge* edge = _graph->connect_nodes(it->first, (*jt).first, __Always, "", /*is task edge*/ true);
-                edge->set_label(sync_kind_to_str((*jt).second));
+                Edge* edge = _graph->connect_nodes(it->first, (*jt).first, __Always, 
+                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                const char* s = sync_kind_to_str((*jt).second);
+                edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )), 
+                                                            const_value_make_string(s, strlen(s))));
             }
         }
 
@@ -923,8 +927,11 @@ namespace {
 #ifdef TASK_SYNC_DEBUG
                 std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
 #endif
-                Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always, "", /*is task edge*/ true);
-                edge->set_label(sync_kind_to_str(Sync_post));
+                Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always, 
+                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                const char* s = sync_kind_to_str(Sync_post);
+                edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, /*is_wchar*/false)),
+                                                            const_value_make_string(s, strlen(s))));
             }
         }
     }

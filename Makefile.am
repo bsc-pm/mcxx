@@ -1146,8 +1146,8 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 lib_LTLIBRARIES += src/tl/analysis/pcfg/libpcfg.la
 
 PCFG_COMMON_FLAGS= $(tl_cflags) \
-			$(ANALYSIS_CFLAGS) \
-			-I $(srcdir)/src/tl/analysis/loops
+		$(ANALYSIS_CFLAGS) \
+		-I $(srcdir)/src/tl/analysis/loops
 
 src_tl_analysis_pcfg_libpcfg_la_CFLAGS = $(PCFG_COMMON_FLAGS)
 src_tl_analysis_pcfg_libpcfg_la_CXXFLAGS = $(PCFG_COMMON_FLAGS)
@@ -1155,7 +1155,7 @@ src_tl_analysis_pcfg_libpcfg_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_pcfg_libpcfg_la_LIBADD = $(tl_libadd) src/tl/libtl.la src/tl/analysis/common/libanalysis_utils.la
 
 src_tl_analysis_pcfg_libpcfg_la_SOURCES = \
-		    src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
+                    src/tl/analysis/pcfg/tl-pcfg-utils.hpp \
                     src/tl/analysis/pcfg/tl-pcfg-utils.cpp \
                     src/tl/analysis/pcfg/tl-edge.hpp \
                     src/tl/analysis/pcfg/tl-edge.cpp \
@@ -1251,6 +1251,24 @@ src_tl_analysis_loops_libloops_analysis_la_SOURCES = src/tl/analysis/loops/tl-iv
                                $(END)
 
 ##########################################################################
+# src/tl/analysis/pcfg-tasks
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/pcfg_tasks/libpcfg_tasks.la
+
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CFLAGS = $(tl_cflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LDFLAGS = $(tl_ldflags)
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
+							src/tl/libtl.la \
+							$(ANALYSIS_LIBADD)
+
+src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
+                               src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp \
+                               src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp \
+                               $(END)
+
+##########################################################################
 # src/tl/analysis/auto-scope
 ##########################################################################
 if BUILD_AUTO_SCOPE
@@ -1258,7 +1276,7 @@ if BUILD_AUTO_SCOPE
 lib_LTLIBRARIES += src/tl/analysis/auto-scope/libauto_scope.la
 
 src_tl_analysis_auto_scope_libauto_scope_la_CFLAGS = $(tl_cflags)
-src_tl_analysis_auto_scope_libauto_scope_la_CXXFLAGS = $(tl_cflags)\
+src_tl_analysis_auto_scope_libauto_scope_la_CXXFLAGS = $(tl_cflags) \
 							$(ANALYSIS_CFLAGS)
 src_tl_analysis_auto_scope_libauto_scope_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_auto_scope_libauto_scope_la_LIBADD = $(tl_libadd) \
@@ -1273,6 +1291,22 @@ src_tl_analysis_auto_scope_libauto_scope_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/analysis/tdg
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/tdg/libtdg.la
+
+src_tl_analysis_tdg_libtdg_la_CFLAGS = $(tl_cflags)
+src_tl_analysis_tdg_libtdg_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_tdg_libtdg_la_LDFLAGS = $(tl_ldflags)
+src_tl_analysis_tdg_libtdg_la_LIBADD = $(tl_libadd) \
+					src/tl/libtl.la \
+					$(ANALYSIS_LIBADD)
+
+src_tl_analysis_tdg_libtdg_la_SOURCES = src/tl/analysis/tdg/tl-task-dependency-graph.hpp \
+					src/tl/analysis/tdg/tl-task-dependency-graph.cpp \
+					$(END)
+
 # src/tl/analysis/range
 ##########################################################################
 
@@ -1305,7 +1339,9 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/analysis/liveness \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
 				-I$(srcdir)/src/tl/analysis/loops \
+				-I$(srcdir)/src/tl/analysis/pcfg_tasks \
 				-I$(srcdir)/src/tl/analysis/auto-scope \
+				-I$(srcdir)/src/tl/analysis/tdg \
 				-I$(srcdir)/src/tl/analysis/range \
 				-I$(srcdir)/src/tl/omp/core \
 				$(END)
@@ -1321,7 +1357,9 @@ src_tl_analysis_singleton_libanalysis_singleton_la_LIBADD= \
 				src/tl/analysis/liveness/libliveness.la \
 				src/tl/analysis/reach_defs/libreaching_definitions.la \
 				src/tl/analysis/loops/libloops_analysis.la \
+				src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 				src/tl/analysis/auto-scope/libauto_scope.la \
+				src/tl/analysis/tdg/libtdg.la \
 				src/tl/analysis/range/librange.la \
 				$(END)
 
@@ -1341,12 +1379,14 @@ phases_LTLIBRARIES += src/tl/analysis/test_phase/libtest_analysis.la
 
 src_tl_analysis_test_phase_libtest_analysis_la_CFLAGS = $(phases_cflags)
 src_tl_analysis_test_phase_libtest_analysis_la_CXXFLAGS = $(phases_cflags) \
-							$(ANALYSIS_CFLAGS) \
-							-I$(srcdir)/src/tl/analysis/singleton
+							  $(ANALYSIS_CFLAGS) \
+							  -I$(srcdir)/src/tl/analysis/singleton \
+							  -I$(srcdir)/src/tl/analysis/tdg
 src_tl_analysis_test_phase_libtest_analysis_la_LDFLAGS = $(phases_ldflags)
 src_tl_analysis_test_phase_libtest_analysis_la_LIBADD = $(phases_libadd) \
-                             $(ANALYSIS_LIBADD) \
-							 src/tl/analysis/singleton/libanalysis_singleton.la
+							$(ANALYSIS_LIBADD) \
+							src/tl/analysis/singleton/libanalysis_singleton.la \
+							src/tl/analysis/tdg/libtdg.la
 
 src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               src/tl/analysis/test_phase/tl-test-analysis-phase.hpp \
@@ -1361,19 +1401,20 @@ phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
 
 src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
 src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
-												$(ANALYSIS_CFLAGS) \
-												-I$(srcdir)/src/tl/analysis/singleton
+						$(ANALYSIS_CFLAGS) \
+						-I$(srcdir)/src/tl/analysis/singleton \
+						-I$(srcdir)/src/tl/analysis/tdg
 
 src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
 src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
-                             $(ANALYSIS_LIBADD) \
-							 src/tl/analysis/singleton/libanalysis_singleton.la
-
+						$(ANALYSIS_LIBADD) \
+						src/tl/analysis/singleton/libanalysis_singleton.la \
+						src/tl/analysis/tdg/libtdg.la
 
 src_tl_analysis_libanalysis_check_la_SOURCES = \
 			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
-                                    src/tl/analysis/checker/tl-analysis-check-phase.cpp \
-                                    $(END)
+						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
+						$(END)
 
 ##########################################################################
 # src/tl/analysis/constants
@@ -1483,16 +1524,18 @@ src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
                           -I $(srcdir)/src/tl/omp/core \
                           -I $(srcdir)/src/tl/vectorizer \
                           -I $(srcdir)/src/tl/analysis/singleton\
-                          -I $(top_srcdir)/src/tl/analysis/common \
-                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/common \
+                          -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/tdg \
                           $(END)
 
 src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                           -I $(srcdir)/src/tl/omp/core \
                           -I $(srcdir)/src/tl/vectorizer \
                           -I $(srcdir)/src/tl/analysis/singleton\
-                          -I $(top_srcdir)/src/tl/analysis/common \
-                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/common \
+                          -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/tdg \
                           $(END)
 
 src_tl_omp_base_libtlomp_base_la_LDFLAGS = $(phases_ldflags)
@@ -1528,6 +1571,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/singleton \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/tdg \
                           -I$(srcdir)/src/tl/omp/core \
                           $(END)
 
@@ -1535,6 +1579,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/singleton \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
+                          -I $(srcdir)/src/tl/analysis/tdg \
                           -I$(srcdir)/src/tl/omp/core \
                           $(END)
 
@@ -1875,12 +1920,14 @@ phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/singleton\
                           $(END)
 
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
 		          $(END)
 
@@ -1977,6 +2024,7 @@ HLT_ANALYSIS_CFLAGS= \
 			  -I $(srcdir)/src/tl/analysis/singleton \
 			  -I $(srcdir)/src/tl/analysis/test_phase \
 			  -I $(srcdir)/src/tl/analysis/use_def \
+			  -I $(srcdir)/src/tl/analysis/tdg \
 			  $(END)
 
 HLT_ANALYSIS_LIBADD = src/tl/analysis/singleton/libanalysis_singleton.la

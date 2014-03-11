@@ -57,7 +57,8 @@ namespace Analysis {
         * \param label          Additional argument, when the edge will not be always taken in the graph
         *                       flow. It indicates the condition of the edge.
         */
-        Edge( Node *source, Node *target, bool is_task_edge, Edge_type type, std::string label = "" );
+        Edge( Node *source, Node *target, bool is_task_edge, Edge_type type, 
+              Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
 
 
         // *** Getters and Setters *** //
@@ -79,14 +80,17 @@ namespace Analysis {
         //! Returns the boolean indicating whether the target of the edge is a Task
         bool is_task_edge( );
 
-        //! Returns the label of the edge.
-        /*!
-        \return When the label is empty, meaning the edge is always taken, an empty string
-                is returned.
-        */
-        std::string get_label( );
-        void add_label( std::string label );
-        void set_label( std::string label );
+        /*! Returns the label of the edge.
+         * \return When the label is empty, meaning the edge is always taken, an empty string is returned.
+         */
+        std::string get_label_as_string( );
+        Nodecl::NodeclBase get_label( );
+        void add_label( Nodecl::NodeclBase label );
+        void set_label( Nodecl::NodeclBase label );
+
+        //! Returns the condition of the task synchronization e
+        Nodecl::NodeclBase get_condition( );
+        void set_condition( const Nodecl::NodeclBase& condition );
         
         void set_true_edge( );
         void set_false_edge( );

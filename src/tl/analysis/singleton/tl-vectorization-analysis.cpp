@@ -108,7 +108,7 @@ namespace Analysis {
         if( n.is<Nodecl::ArraySubscript>( ) )
         {
             ArrayAccessInfoVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
-            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence( n );
             for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
             {
                 result = iv_v.var_is_iv_dependent_in_scope( *it );
@@ -786,7 +786,7 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); ( it != stmts.end( ) ) && !result; ++it )
         {
-            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( *it );
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence( *it );
             for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); ( its != syms.end( ) ) && !result; ++its )
             {
                 if( visited_syms.find( *its ) == visited_syms.end( ) )

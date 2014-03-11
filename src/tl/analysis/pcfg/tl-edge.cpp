@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "cxx-cexpr.h"
 #include "cxx-codegen.h"
 #include "tl-edge.hpp"
 #include "tl-node.hpp"
@@ -31,7 +32,7 @@
 namespace TL {
 namespace Analysis {
 
-    Edge::Edge( Node *source, Node *target, bool is_task_edge_, Edge_type type, std::string label )
+    Edge::Edge( Node *source, Node *target, bool is_task_edge_, Edge_type type, Nodecl::NodeclBase label )
         : _source( source ), _target( target )
     {
         set_data( _EDGE_TYPE, type );
@@ -106,26 +107,33 @@ namespace Analysis {
         }
     }
 
-    std::string Edge::get_label( )
+    std::string Edge::get_label_as_string( )
     {
         std::string label = "";
 
-        if ( has_key( _EDGE_TYPE) &&
-             get_data<Edge_type>( _EDGE_TYPE ) != __UnclassifiedEdge )
+        if( has_key( _EDGE_TYPE ) && has_key( _EDGE_LABEL ) )
         {
             Edge_type etype = get_data<Edge_type>( _EDGE_TYPE );
             switch ( etype )
             {
                 case __Always:
-                case __Case:
-                case __Catch:       label = get_data<std::string>( _EDGE_LABEL );
-                                    break;
-                case __FalseEdge:   label = "FALSE";
-                                    break;
-                case __GotoEdge:    label = get_data<std::string>( _EDGE_LABEL );
-                                    break;
-                case __TrueEdge:    label = "TRUE";
-                                    break;
+                case __Catch:
+                case __GotoEdge:    {   Nodecl::NodeclBase lab = get_label();
+                                        if(!lab.is_null())
+                                        {
+                                            if( lab.is<Nodecl::StringLiteral>() )       // avoid printing "\"...\""
+                                                label = std::string(const_value_string_unpack_to_string(lab.get_constant()));
+                                            else
+                                                label = lab.prettyprint( );
+                                    }
+                                     break; }
+                case __Case:        {   Nodecl::NodeclBase lab = get_label( );
+                                        label = ( lab.is_null( ) ? "default" : lab.prettyprint() );
+                                        break; }
+                case __FalseEdge:   {   label = "FALSE";
+                                        break; }
+                case __TrueEdge:    {   label = "TRUE";
+                                        break; }
                 default:            WARNING_MESSAGE( "Unexpected type '%d'\n", etype );
             };
         }
@@ -133,18 +141,43 @@ namespace Analysis {
         return label;
     }
 
-    void Edge::add_label( std::string label )
+    Nodecl::NodeclBase Edge::get_label( )
     {
-        std::string new_label = "";
-        if( get_data<std::string>( _EDGE_LABEL ) != "")
-            new_label = get_data<std::string>( _EDGE_LABEL ) + ", ";
-        new_label += label;
+        Nodecl::NodeclBase label = Nodecl::NodeclBase::null( );
+        if( has_key( _EDGE_LABEL ) )
+            label = get_data<Nodecl::NodeclBase>( _EDGE_LABEL );
+        return label;
+    }
+    
+    void Edge::add_label( Nodecl::NodeclBase label )
+    {
+        Nodecl::NodeclBase new_label = label;
+        Nodecl::NodeclBase old_label = get_label( );
+        if( !old_label.is_null( ) )
+            new_label = Nodecl::BitwiseAnd::make( old_label, new_label, old_label.get_type( ) );
         set_data( _EDGE_LABEL, new_label );
     }
-
-    void Edge::set_label( std::string label )
+    
+    void Edge::set_label( Nodecl::NodeclBase label )
     {
         set_data( _EDGE_LABEL, label );
+    }
+
+    Nodecl::NodeclBase Edge::get_condition( )
+    {
+        ERROR_CONDITION( !_source->is_omp_task_node( ) || 
+                         ( !_target->is_omp_task_node( ) && _target->is_omp_taskwait_node( ) && _target->is_omp_barrier_node( ) ), 
+                         "Only edges between two tasks can have a condition, related with the dependency clauses" 
+                         "Edge between %d and %d does not fulfill this condition", _source->get_id( ), _target->get_id( ) );
+        Nodecl::NodeclBase cond;
+        if( has_key( _CONDITION ) )
+            cond = get_data<Nodecl::NodeclBase>( _CONDITION );
+        return cond;
+    }
+    
+    void Edge::set_condition( const Nodecl::NodeclBase& condition )
+    {
+        set_data( _CONDITION, condition );
     }
     
     void Edge::set_true_edge( )
