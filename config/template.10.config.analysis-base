@@ -1,7 +1,7 @@
 # OpenMP + Analysis
 
 [analysiscc : plaincc]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
@@ -29,7 +29,7 @@ options = --openmp
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysiscxx : plaincxx]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
@@ -58,7 +58,7 @@ options = --openmp
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysisfc : plainfc]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
