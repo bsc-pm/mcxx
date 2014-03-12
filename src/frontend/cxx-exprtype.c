@@ -5765,9 +5765,9 @@ static void parse_reference(AST op,
     check_expression_impl_(op, decl_context, nodecl_output);
 }
 
-static void compute_operator_reference_type(nodecl_t* op, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
-        const locus_t* locus, 
+static void compute_operator_reference_type(nodecl_t* op,
+        decl_context_t decl_context,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     static AST operation_tree = NULL;
@@ -5782,7 +5782,19 @@ static void compute_operator_reference_type(nodecl_t* op,
     if (nodecl_get_kind(*op) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
             || nodecl_get_kind(*op) == NODECL_CXX_DEP_NAME_NESTED)
     {
-        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, *op, NULL);
+        scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, *op, NULL, DF_DEPENDENT_TYPENAME);
+
+        if (entry_list == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: name '%s' not found in scope\n",
+                        locus_to_str(locus),
+                        codegen_to_str(*op, decl_context));
+            }
+
+            *nodecl_output = nodecl_make_err_expr(locus);
+        }
 
         ERROR_CONDITION(entry_list == NULL, "Invalid list", 0);
 
@@ -5812,6 +5824,16 @@ static void compute_operator_reference_type(nodecl_t* op,
             }
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
             *nodecl_output = nodecl_make_reference(*op, t, locus);
+        }
+        else if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            // This is trivially dependent
+            *nodecl_output = nodecl_make_reference(*op,
+                    get_unknown_dependent_type(),
+                    locus);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output,
+                    nodecl_expr_is_value_dependent(*op));
         }
         else
         {
@@ -6441,8 +6463,9 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
     }
 }
 
-static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
-        scope_entry_list_t* entry_list, 
+static void cxx_compute_name_from_entry_list(
+        nodecl_t nodecl_name,
+        scope_entry_list_t* entry_list,
         decl_context_t decl_context,
         field_path_t* field_path,
         nodecl_t* nodecl_output)
@@ -6453,14 +6476,9 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         scope_entry_t* entry = entry_list_head(entry_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            // We cannot reuse the symbol here, make a copy
-            // FIXME - Do we always have to copy?
-            scope_entry_t *new_entry = xcalloc(1, sizeof(*entry));
-            *new_entry = *entry;
-
-            *nodecl_output = nodecl_make_symbol(new_entry, nodecl_get_locus(nodecl_name));
-            new_entry->value = nodecl_name;
-            nodecl_set_type(*nodecl_output, new_entry->type_information);
+            *nodecl_output = nodecl_shallow_copy(nodecl_name);
+            nodecl_set_symbol(*nodecl_output, entry);
+            nodecl_set_type(*nodecl_output, entry->type_information);
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             return;
@@ -6483,8 +6501,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     // Check again if this is an alias to a dependent entity
     if (entry->kind == SK_DEPENDENT_ENTITY)
     {
-        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_locus(nodecl_name));
-        entry->value = nodecl_name;
+        *nodecl_output = nodecl_shallow_copy(nodecl_name);
+        nodecl_set_symbol(*nodecl_output, entry);
         nodecl_set_type(*nodecl_output, entry->type_information);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
@@ -6516,24 +6534,18 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
                 || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID))
     {
-        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_expr_check);
-        new_sym->kind = SK_DEPENDENT_ENTITY;
-        new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
-        new_sym->decl_context = decl_context;
-        new_sym->locus = nodecl_get_locus(nodecl_name);
-        new_sym->type_information = build_dependent_typename_for_entry(
+        type_t* dependent_typename =
+           build_dependent_typename_for_entry(
                 named_type_get_symbol(entry->entity_specs.class_type),
                 nodecl_name,
                 nodecl_get_locus(nodecl_name));
-        new_sym->value = nodecl_name;
 
-        *nodecl_output = nodecl_make_symbol(new_sym, nodecl_get_locus(nodecl_name));
-        nodecl_set_type(*nodecl_output, new_sym->type_information);
+        *nodecl_output = nodecl_shallow_copy(nodecl_name);
+        nodecl_set_type(*nodecl_output, dependent_typename);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
-
 
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
@@ -6709,7 +6721,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     {
         type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
-        *nodecl_output = nodecl_name;
+        *nodecl_output = nodecl_shallow_copy(nodecl_name);
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL
@@ -6736,7 +6748,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
-        *nodecl_output = nodecl_name;
+        *nodecl_output = nodecl_shallow_copy(nodecl_name);
         nodecl_set_type(*nodecl_output, t);
 
         if (last_template_args != NULL
@@ -6835,6 +6847,9 @@ static void cxx_common_name_check(AST expr, decl_context_t decl_context, nodecl_
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
 
     cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, &field_path, nodecl_output);
+
+    entry_list_free(result_list);
+    nodecl_free(nodecl_name);
 }
 
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, 
@@ -6863,6 +6878,9 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
                 ast_get_locus(expression));
 
         cxx_compute_name_from_entry_list(nodecl_name, entry_list, decl_context, NULL, nodecl_output);
+
+        entry_list_free(entry_list);
+        nodecl_free(nodecl_name);
     }
     else
     {
@@ -11044,7 +11062,9 @@ static void check_nodecl_function_call_cxx(
         }
         else if (candidates != NULL)
         {
-            cxx_compute_name_from_entry_list(nodecl_shallow_copy(nodecl_called), candidates, decl_context, NULL, &nodecl_called);
+            nodecl_t nodecl_tmp = nodecl_null();
+            cxx_compute_name_from_entry_list(nodecl_called, candidates, decl_context, NULL, &nodecl_tmp);
+            nodecl_called = nodecl_tmp;
         }
     }
 
@@ -20578,6 +20598,64 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
     return result;
 }
 
+static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v, nodecl_t node)
+{
+    scope_entry_t* sym = nodecl_get_symbol(node);
+
+    ERROR_CONDITION(sym->kind != SK_DEPENDENT_ENTITY, "Invalid symbol", 0);
+
+    scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
+            sym,
+            v->pack_index,
+            NULL,
+            nodecl_get_locus(node));
+
+    nodecl_t complete_nodecl_name = nodecl_null();
+    scope_entry_t* dependent_entry = NULL;
+    nodecl_t dependent_parts = nodecl_null();
+
+    dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
+
+    char dependent_entry_already_updated = 0;
+    if (entry_list != NULL)
+    {
+        scope_entry_t* updated_symbol = entry_list_head(entry_list);
+        if (updated_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            nodecl_t nodecl_dummy = nodecl_null();
+            dependent_typename_get_components(
+                    updated_symbol->type_information,
+                    &dependent_entry,
+                    // We cannot update these, let
+                    // complete_nodecl_name_of_dependent_entity do that for us
+                    &nodecl_dummy);
+            dependent_entry_already_updated = 1;
+        }
+        else if (updated_symbol->kind == SK_CLASS
+                || updated_symbol->kind == SK_ENUM)
+        {
+            dependent_entry_already_updated = 1;
+        }
+    }
+
+    nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
+    complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
+            list_of_dependent_parts,
+            v->decl_context,
+            dependent_entry_already_updated,
+            v->pack_index);
+
+    cxx_compute_name_from_entry_list(
+            complete_nodecl_name,
+            entry_list,
+            v->decl_context,
+            NULL,
+            &v->nodecl_result);
+
+    entry_list_free(entry_list);
+    nodecl_free(complete_nodecl_name);
+}
+
 static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     scope_entry_t* sym = nodecl_get_symbol(node);
@@ -20672,57 +20750,16 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             result = nodecl_make_err_expr(nodecl_get_locus(node));
         }
     }
-    else if (sym->kind == SK_DEPENDENT_ENTITY)
-    {
-        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
-                sym,
-                v->pack_index,
-                NULL,
-                nodecl_get_locus(node));
-
-        nodecl_t complete_nodecl_name = nodecl_null();
-        scope_entry_t* dependent_entry = NULL;
-        nodecl_t dependent_parts = nodecl_null();
-
-        dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
-
-        char dependent_entry_already_updated = 0;
-        if (entry_list != NULL)
-        {
-            scope_entry_t* updated_symbol = entry_list_head(entry_list);
-            if (updated_symbol->kind == SK_DEPENDENT_ENTITY)
-            {
-                nodecl_t nodecl_dummy = nodecl_null();
-                dependent_typename_get_components(
-                        updated_symbol->type_information,
-                        &dependent_entry,
-                        // We cannot update these, let
-                        // complete_nodecl_name_of_dependent_entity do that for us
-                        &nodecl_dummy);
-                dependent_entry_already_updated = 1;
-            }
-            else if (updated_symbol->kind == SK_CLASS
-                    || updated_symbol->kind == SK_ENUM)
-            {
-                dependent_entry_already_updated = 1;
-            }
-        }
-
-        nodecl_t list_of_dependent_parts = nodecl_get_child(dependent_parts, 0);
-        complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
-                list_of_dependent_parts,
-                v->decl_context,
-                dependent_entry_already_updated,
-                v->pack_index);
-
-        cxx_compute_name_from_entry_list(complete_nodecl_name, entry_list, v->decl_context, NULL, &result);
-    }
     else if (sym->kind == SK_VARIABLE
             && sym->symbol_name != NULL
             && strcmp(sym->symbol_name, "nullptr") == 0)
     {
         // nullptr is special
         pointer_literal_type(nodecl_get_ast(node), v->decl_context, &result);
+    }
+    else if (sym->kind == SK_DEPENDENT_ENTITY)
+    {
+        internal_error("This kind of symbol should not be wrapped in a NODECL_SYMBOL\n", 0);
     }
     else
     {
@@ -20742,6 +20779,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
 
         entry_list_free(entry_list);
+        nodecl_free(nodecl_name);
     }
 
     v->nodecl_result = result;
@@ -20776,7 +20814,7 @@ static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nod
                 v->pack_index);
 
     nodecl_t nodecl_name = nodecl_make_cxx_dep_template_id(
-            nodecl_get_child(node, 0), // FIXME - We may have to update this as well!
+            nodecl_shallow_copy(nodecl_get_child(node, 0)), // FIXME - We may have to update this as well!
             nodecl_get_text(node),
             update_template_args,
             nodecl_get_locus(node));
@@ -21391,6 +21429,13 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
 
 static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
+    if (nodecl_get_symbol(node) != NULL
+            && nodecl_get_symbol(node)->kind == SK_DEPENDENT_ENTITY)
+    {
+        instantiate_dependent_typename(v, node);
+        return;
+    }
+
     nodecl_t nodecl_name =
         nodecl_make_cxx_dep_name_simple(nodecl_get_text(node),
         nodecl_get_locus(node));
@@ -21406,11 +21451,21 @@ static void instantiate_dep_name_simple(nodecl_instantiate_expr_visitor_t* v, no
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
     cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &field_path, &v->nodecl_result);
+
+    entry_list_free(result_list);
+    nodecl_free(nodecl_name);
 }
 
 
 static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
+    if (nodecl_get_symbol(node) != NULL
+            && nodecl_get_symbol(node)->kind == SK_DEPENDENT_ENTITY)
+    {
+        instantiate_dependent_typename(v, node);
+        return;
+    }
+
     nodecl_t nodecl_name = update_dep_template_id(v, node);
 
     scope_entry_list_t* result_list = query_nodecl_name_flags(
@@ -21421,11 +21476,21 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
     cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, NULL, &v->nodecl_result);
+
+    entry_list_free(result_list);
+    nodecl_free(nodecl_name);
 }
 
 static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
         nodecl_t (*func)(nodecl_t, const locus_t*))
 {
+    if (nodecl_get_symbol(node) != NULL
+            && nodecl_get_symbol(node)->kind == SK_DEPENDENT_ENTITY)
+    {
+        instantiate_dependent_typename(v, node);
+        return;
+    }
+
     nodecl_t nodecl_name = update_common_dep_name_nested(v, node, func);
 
     field_path_t field_path;
@@ -21439,6 +21504,9 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
             DF_IGNORE_FRIEND_DECL |
             DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY);
     cxx_compute_name_from_entry_list(nodecl_name, result_list, v->decl_context, &field_path, &v->nodecl_result);
+
+    entry_list_free(result_list);
+    nodecl_free(nodecl_name);
 }
 
 static void instantiate_dep_global_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

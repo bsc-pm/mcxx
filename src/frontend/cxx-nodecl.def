@@ -336,14 +336,14 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_PARSE_LATER()
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
-                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) type-opt
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
 
-cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text type-opt
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
 cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type

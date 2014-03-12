@@ -908,12 +908,14 @@ static scope_entry_t* create_new_dependent_entity(
     int i;
     for (i = nested_name_index + 1; i < nested_name_size; i++)
     {
-        nodecl_list = nodecl_append_to_list(nodecl_list, parts[i]);
+        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_shallow_copy(parts[i]));
     }
 
     nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, make_locus("", 0, 0));
 
     type_t* dependent_type = get_dependent_typename_type_from_parts(updated_dependent_entry, nodecl_parts);
+
+    nodecl_free(nodecl_parts);
 
     static rb_red_blk_tree *_dependent_symbols = NULL;
     if (_dependent_symbols == NULL)
