@@ -1745,6 +1745,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (!function_type.is_function())
     {
         char needs_parentheses = operand_has_lower_priority(node, called_entity);
+
+        // Non-koenig dependent calls: emit parentheses to avoid them looking as koenig
+        needs_parentheses = needs_parentheses
+            || (node.template is <Nodecl::CxxDepFunctionCall>()
+                    && called_entity.is<Nodecl::CxxDepNameSimple>()
+                    && called_entity.get_type().is_valid());
+
         if (needs_parentheses)
         {
             *(file) << "(";
@@ -1838,6 +1845,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case STATIC_MEMBER_CALL:
             {
                 bool needs_parentheses = operand_has_lower_priority(node, called_entity);
+
                 if (needs_parentheses)
                     *(file) << "(";
                 walk(called_entity);

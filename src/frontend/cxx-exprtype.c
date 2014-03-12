@@ -543,8 +543,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                             nodecl_get_type(nodecl_inner),
                             ast_get_locus(expression));
 
-                    // Make sure we propagate the constant value
+                    // Make sure we propagate everything
                     nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_inner));
+                    nodecl_expr_set_is_type_dependent(*nodecl_output, nodecl_expr_is_type_dependent(nodecl_inner));
+                    nodecl_expr_set_is_value_dependent(*nodecl_output, nodecl_expr_is_value_dependent(nodecl_inner));
                 }
                 break;
             }
@@ -11026,11 +11028,13 @@ static void check_nodecl_function_call_cxx(
         entry_list_free(this_query);
     }
 
-    // // Let's check the called entity
-    // //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
+    // Let's check the called entity
+    // If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
     nodecl_t nodecl_called_name = nodecl_called;
-    if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
+    if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE
+            // If not NULL it means it has some type and then it is not a Koenig call
+            && nodecl_get_type(nodecl_called) == NULL)
     {
         char can_succeed = 1;
         // If can_succeed becomes zero, this call is not possible at all (e.g.
@@ -11784,17 +11788,15 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
                         prettyprint_in_buffer(called_expression));
             }
             compute_nodecl_name_from_id_expression(called_expression, decl_context, &nodecl_called);
+            // We tell a Koenig lookup from any other unqualified call because
+            // the NODECL_CXX_DEP_NAME_SIMPLE does not have any type
+            ERROR_CONDITION(nodecl_get_kind(nodecl_called) != NODECL_CXX_DEP_NAME_SIMPLE
+                    || nodecl_get_type(nodecl_called) != NULL, "Invalid node", 0);
         }
         // Although conversion function id's are technically subject to argument dependent lookup
         // they never receive arguments and they always will be members. The latter property makes
         // that argument dependent lookup is actually not applied to conversion functions!!!
-        else if (ASTType(called_expression) == AST_CONVERSION_FUNCTION_ID)
-        {
-            // We make a special case just for the sake of documentation but this
-            // is actually no different than the 'else' case below
-            check_expression_impl_(called_expression, decl_context, &nodecl_called);
-        }
-        else
+        else 
         {
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
@@ -21168,8 +21170,10 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     nodecl_t nodecl_called = nodecl_null();
     nodecl_t orig_called = nodecl_get_child(node, 0);
 
-    if (nodecl_get_kind(orig_called) == NODECL_CXX_DEP_NAME_SIMPLE)
+    if (nodecl_get_kind(orig_called) == NODECL_CXX_DEP_NAME_SIMPLE
+            && nodecl_get_type(orig_called) == NULL)
     {
+        // Preserve koenig lookup calls
         nodecl_called = nodecl_shallow_copy(orig_called);
     }
     else
@@ -21629,6 +21633,19 @@ static void instantiate_conversion(nodecl_instantiate_expr_visitor_t* v, nodecl_
     }
 }
 
+static void instantiate_parenthesized_expression(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    v->nodecl_result = nodecl_make_parenthesized_expression(nodecl_expr,
+            nodecl_get_type(nodecl_expr),
+            nodecl_get_locus(nodecl_expr));
+
+    nodecl_set_constant(v->nodecl_result, nodecl_get_constant(nodecl_expr));
+    nodecl_expr_set_is_type_dependent(v->nodecl_result, nodecl_expr_is_type_dependent(nodecl_expr));
+    nodecl_expr_set_is_value_dependent(v->nodecl_result, nodecl_expr_is_value_dependent(nodecl_expr));
+}
+
 static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_casted_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -21834,6 +21851,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Conversion
     NODECL_VISITOR(v)->visit_conversion = instantiate_expr_visitor_fun(instantiate_conversion);
+
+    NODECL_VISITOR(v)->visit_parenthesized_expression = instantiate_expr_visitor_fun(instantiate_parenthesized_expression);
 
     // Initializers
     NODECL_VISITOR(v)->visit_cxx_initializer = instantiate_expr_visitor_fun(instantiate_initializer);
