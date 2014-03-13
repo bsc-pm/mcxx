@@ -9252,9 +9252,11 @@ static char conversion_is_valid_reinterpret_cast(
     // Any integral, enumeration, pointer, pointer ot member can be explicitly
     // converted to its own type
     if ((is_integral_type(orig_type)
-            || is_enum_type(orig_type)
-            || is_pointer_type(orig_type)
-            || is_pointer_to_member_type(orig_type))
+                || is_enum_type(orig_type)
+                || is_pointer_type(orig_type)
+                || is_pointer_to_member_type(orig_type)
+                // extension: allow vector to convert to themselves...
+                || is_vector_type(orig_type))
             && (equivalent_types(get_unqualified_type(orig_type),
                     get_unqualified_type(dest_type))))
         RETURN(1);
@@ -9274,6 +9276,21 @@ static char conversion_is_valid_reinterpret_cast(
     if ((is_integral_type(orig_type)
             || is_enum_type(orig_type))
             && is_pointer_type(dest_type))
+        RETURN(1);
+
+    // arithmetic to vector
+    if (is_arithmetic_type(orig_type)
+            && is_vector_type(dest_type))
+        RETURN(1);
+
+    // vector to arithmetic
+    if (is_vector_type(orig_type)
+            && is_arithmetic_type(dest_type))
+        RETURN(1);
+
+    // vector to vector
+    if (is_vector_type(orig_type)
+            && is_vector_type(dest_type))
         RETURN(1);
 
     // A pointer to function can be converted to another pointer to function type
@@ -9636,11 +9653,19 @@ static void check_nodecl_cast_expr(
         {
             if (!checking_ambiguity())
             {
+                type_t* orig_type = nodecl_get_type(nodecl_casted_expr);
+                type_t* dest_type = declarator_type;
+                C_LANGUAGE()
+                {
+                    // Remove references for the sake of the diagnostic
+                    orig_type = no_ref(orig_type);
+                    dest_type = no_ref(dest_type);
+                }
                 error_printf("%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
                         locus_to_str(locus),
                         codegen_to_str(nodecl_casted_expr, decl_context),
-                        print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context),
-                        print_type_str(declarator_type, decl_context));
+                        print_type_str(orig_type, decl_context),
+                        print_type_str(dest_type, decl_context));
                 if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr)))
                 {
                     diagnostic_candidates(

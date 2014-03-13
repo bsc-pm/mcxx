@@ -11094,7 +11094,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
             }
             (*result).conv[1] = SCI_SCALAR_TO_VECTOR_CONVERSION;
-            dest = vector_type_get_element_type(dest);
+            dest = vector_type_get_element_type(no_ref(dest));
         }
         // Vector conversions
         // vector type -> struct __m128 / struct __m256 / struct __M512
