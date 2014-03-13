@@ -239,9 +239,14 @@ complexsuffix [ji]
  /* A.2.28 */
 cchar       ([^\\'\n]|{escape_seq}|(\\[']))
 
+universal4 (\\u[0-9a-fA-F]{4})
+universal8 (\\U[0-9a-fA-F]{8})
+
+universal ({universal4}|{universal8})
+
  /* A.2.29 */
  /* \e is a GNU extension */
-escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
+escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+)|{universal})
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
@@ -1344,7 +1349,12 @@ type {
 {hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); return HEXADECIMAL_LITERAL; }
 
  /* A.2.26 */
+ /*!if CPLUSPLUS*/
+[LUu]?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+ /*!endif*/
+ /*!if C99*/
 L?'{cchar}*'        { parse_token_text(); return CHARACTER_LITERAL; }
+ /*!endif*/
 
  /* A.2.33 */
 {fractconst}{exponent}?{floatingsuffix}?        { parse_token_text();
@@ -1362,7 +1372,12 @@ return FLOATING_LITERAL; }
 }
 
  /* A.2.39 */
+ /*!if C99*/
 L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+ /*!endif*/
 
 
 "["         { parse_token_text(); return '['; }

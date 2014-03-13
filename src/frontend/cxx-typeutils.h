@@ -176,7 +176,7 @@ LIBMCXX_EXTERN type_t* get_error_type(void);
 
 LIBMCXX_EXTERN type_t* get_pseudo_destructor_call_type(void);
 
-LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
+LIBMCXX_EXTERN type_t* get_literal_string_type(int length, type_t* base_type);
 
 LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
@@ -437,7 +437,7 @@ LIBMCXX_EXTERN char is_implicit_none_type(type_t *t);
 
 LIBMCXX_EXTERN char is_pseudo_destructor_call_type(type_t *t);
 
-LIBMCXX_EXTERN char is_literal_string_type(type_t* t);
+LIBMCXX_EXTERN char is_string_literal_type(type_t* t);
 
 LIBMCXX_EXTERN char is_template_type(type_t* t);
 
@@ -526,6 +526,8 @@ LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 LIBMCXX_EXTERN int  array_type_get_total_number_of_elements(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
+
+LIBMCXX_EXTERN char array_type_is_string_literal(type_t* t);
 
 LIBMCXX_EXTERN char array_type_with_descriptor(type_t* t);
 

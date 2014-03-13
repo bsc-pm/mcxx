@@ -404,7 +404,7 @@ struct array_tag
     // Is a doped array (array with an in-memory descriptor)
     _Bool with_descriptor:1;
     // Is literal string type ?
-    _Bool is_literal_string:1;
+    _Bool is_string_literal:1;
     _Bool is_vla:1;
 } array_info_t;
 
@@ -2888,12 +2888,14 @@ static void init_qualification_hash(void)
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
         array_region_t** array_region,
-        char *with_descriptor);
+        char *with_descriptor,
+        char *is_string_literal);
 
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
         array_region_t* array_region,
-        char with_descriptor);
+        char with_descriptor,
+        char is_string_literal);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
@@ -2901,12 +2903,16 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         nodecl_t lower_bound = nodecl_null();
         nodecl_t upper_bound = nodecl_null();
         char with_descriptor = 0;
+        char is_string_literal = 0;
         array_region_t* array_region = NULL;
 
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
-        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region, &with_descriptor);
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context,
+                &array_region,
+                &with_descriptor,
+                &is_string_literal);
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
@@ -2915,10 +2921,8 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 nodecl_shallow_copy(upper_bound), 
                 decl_context,
                 array_region,
-                with_descriptor);
-
-        // Keep this attribute
-        result->array->is_literal_string = array_type->array->is_literal_string;
+                with_descriptor,
+                is_string_literal);
 
         return result;
 }
@@ -3229,6 +3233,7 @@ typedef struct array_sized_hash
     _size_t lower_bound;
     _size_t upper_bound;
     char with_descriptor;
+    char is_string_literal;
     rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
@@ -3239,12 +3244,14 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
         _size_t whole_size,
         _size_t lower_bound,
         _size_t upper_bound,
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     array_sized_hash_elem->whole_size = whole_size;
     array_sized_hash_elem->lower_bound = lower_bound;
     array_sized_hash_elem->upper_bound = upper_bound;
     array_sized_hash_elem->with_descriptor = with_descriptor;
+    array_sized_hash_elem->is_string_literal = is_string_literal;
     array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
@@ -3313,19 +3320,25 @@ int array_hash_compar(const void* v1, const void* v2)
             return -1;
         else if (a1->with_descriptor > a2->with_descriptor)
             return 1;
-        else
-            return 0;
+
+        if (a1->is_string_literal < a2->is_string_literal)
+            return -1;
+        else if (a1->is_string_literal > a2->is_string_literal)
+            return 1;
     }
+    return 0;
 }
 
 static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound, 
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     array_sized_hash_t key = { 
         .whole_size = whole_size, 
         .lower_bound = lower_bound, 
         .upper_bound = upper_bound, 
-        .with_descriptor = with_descriptor 
+        .with_descriptor = with_descriptor,
+        .is_string_literal = is_string_literal
     };
 
     array_sized_hash_t* sized_hash = bsearch(&key, 
@@ -3338,7 +3351,7 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
         _array_sized_hash = xrealloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
         rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
-                whole_size, lower_bound, upper_bound, with_descriptor);
+                whole_size, lower_bound, upper_bound, with_descriptor, is_string_literal);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -3355,7 +3368,8 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
         array_region_t** array_region,
-        char *with_descriptor)
+        char *with_descriptor,
+        char *is_string_literal)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -3365,6 +3379,7 @@ static void _get_array_type_components(type_t* array_type,
     *decl_context = array_type->array->array_expr_decl_context;
     *array_region = array_type->array->region;
     *with_descriptor = array_type->array->with_descriptor;
+    *is_string_literal = array_type->array->is_string_literal;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
@@ -3372,7 +3387,8 @@ static void _get_array_type_components(type_t* array_type,
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
         array_region_t* array_region, 
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -3447,11 +3463,11 @@ static type_t* _get_array_type(type_t* element_type,
         // Use the same strategy we use for pointers when all components (size,
         // lower, upper) of the array are null otherwise create a new array
         // every time (it is safer)
-        static rb_red_blk_tree *_undefined_array_types[2] = { NULL, NULL };
+        static rb_red_blk_tree *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
 
-        if (_undefined_array_types[!!with_descriptor] == NULL)
+        if (_undefined_array_types[!!with_descriptor][!!is_string_literal] == NULL)
         {
-            _undefined_array_types[!!with_descriptor] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+            _undefined_array_types[!!with_descriptor][!!is_string_literal] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = NULL;
@@ -3459,7 +3475,7 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
+            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type);
         }
         if (undefined_array_type == NULL)
         {
@@ -3476,6 +3492,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->upper_bound = upper_bound;
 
             result->array->with_descriptor = with_descriptor;
+            result->array->is_string_literal = is_string_literal;
 
             result->array->region = array_region;
 
@@ -3503,7 +3520,7 @@ static type_t* _get_array_type(type_t* element_type,
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+                rb_tree_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type, result);
             }
         }
         else
@@ -3519,7 +3536,11 @@ static type_t* _get_array_type(type_t* element_type,
                 && upper_bound_is_constant
                 && array_region == NULL)
         {
-            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k, with_descriptor);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k,
+                    lower_bound_k,
+                    upper_bound_k,
+                    with_descriptor,
+                    is_string_literal);
 
             type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
@@ -3551,6 +3572,8 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->array_expr_decl_context = decl_context;
                 result->info->is_dependent = is_dependent_type(element_type);
 
+                result->array->is_string_literal = is_string_literal;
+
                 rb_tree_insert(array_sized_hash, element_type, result);
             }
             else
@@ -3573,6 +3596,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->region = array_region;
 
             result->array->with_descriptor = with_descriptor;
+            result->array->is_string_literal = is_string_literal;
 
             // In C This is a VLA
             if (IS_C_LANGUAGE)
@@ -3649,7 +3673,47 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0);
+            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 0);
+}
+
+static type_t* get_array_type_for_literal_string(type_t* element_type,
+        nodecl_t whole_size,
+        decl_context_t decl_context)
+{
+    nodecl_t lower_bound = nodecl_null();
+    nodecl_t upper_bound = nodecl_null();
+    if (!nodecl_is_null(whole_size))
+    {
+        lower_bound = get_zero_tree(nodecl_get_locus(whole_size));
+
+        if (nodecl_is_constant(whole_size))
+        {
+            // Compute the constant
+            const_value_t* c = const_value_sub(
+                    nodecl_get_constant(whole_size),
+                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+
+            upper_bound = const_value_to_nodecl(c);
+        }
+        else
+        {
+            nodecl_t temp = nodecl_shallow_copy(whole_size);
+
+            upper_bound = nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(temp, 
+                        nodecl_get_type(temp), 
+                        nodecl_get_locus(whole_size)),
+                    get_one_tree(nodecl_get_locus(whole_size)),
+                    get_signed_int_type(),
+                    nodecl_get_locus(whole_size));
+        }
+
+        nodecl_expr_set_is_value_dependent(upper_bound,
+                nodecl_expr_is_value_dependent(whole_size));
+    }
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
+            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 1);
 }
 
 static nodecl_t compute_whole_size_given_bounds(
@@ -3705,7 +3769,7 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, with_descriptor);
+            /* array_region */ NULL, with_descriptor, /* is_string_literal */ 0);
 }
 
 type_t* get_array_type_bounds(type_t* element_type,
@@ -3750,7 +3814,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->region_decl_context = region_decl_context;
     
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            array_region, /* with_descriptor */ 0);
+            array_region, /* with_descriptor */ 0, /* is_string_literal */ 0);
 }
 
 static rb_red_blk_tree* get_vector_sized_hash(unsigned int vector_size)
@@ -10586,7 +10650,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //
     // We remember whether the original was a string because we will lose this
     // information when we drop the array type
-    char is_literal_string = is_literal_string_type(orig);
+    char is_string_literal = is_string_literal_type(orig);
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
@@ -11128,7 +11192,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (IS_CXX_LANGUAGE
-                && is_literal_string // We saved this before dropping the array
+                && is_string_literal // We saved this before dropping the array
                 && is_pointer_type(dest)
                 && is_char_type(pointer_type_get_pointee_type(dest))
                 && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
@@ -11141,7 +11205,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (IS_CXX_LANGUAGE
-                && is_literal_string // We saved this before dropping the array
+                && is_string_literal // We saved this before dropping the array
                 && is_pointer_type(dest)
                 && is_wchar_t_type(pointer_type_get_pointee_type(dest))
                 && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
@@ -11424,82 +11488,33 @@ char is_error_type(type_t* t)
 }
 
 
-static int _literal_string_set_num_elements = 0;
-static type_t** _literal_string_set = NULL;
-
-static int _literal_wide_string_set_num_elements = 0;
-static type_t** _literal_wide_string_set = NULL;
-
-type_t* get_literal_string_type(int length, char is_wchar)
+type_t* get_literal_string_type(int length, type_t* base_type)
 {
-    int *max_length = &_literal_string_set_num_elements;
-    type_t*** set = &_literal_string_set;
+    nodecl_t integer_literal = nodecl_make_integer_literal(
+            get_signed_int_type(),
+            const_value_get_unsigned_int(length),
+            make_locus("", 0, 0));
 
-    if (is_wchar)
-    {
-        max_length = &_literal_wide_string_set_num_elements;
-        set = &_literal_wide_string_set;
-    }
+    type_t* array_type = get_array_type_for_literal_string(
+            base_type,
+            integer_literal,
+            CURRENT_COMPILED_FILE->global_decl_context);
 
-    // Allocate exponentially
-    while ((*max_length) < length)
-    {
-        // The +1 is important or we will never grow
-        int previous_max_length = (*max_length);
-        (*max_length) = (*max_length) * 2 + 1;
+    type_t* literal_type = get_lvalue_reference_type(
+            array_type);
 
-        // +1 is because of zero position (never used)
-        (*set) = xrealloc(*set, sizeof(type_t*) * ((*max_length) + 1));
-
-        // Clear new slots
-        int i;
-        for (i = previous_max_length; i <= (*max_length); i++)
-        {
-            (*set)[i] = NULL;
-        }
-    }
-
-    if ((*set)[length] == NULL)
-    {
-
-        nodecl_t integer_literal = nodecl_make_integer_literal(
-                get_signed_int_type(),
-                const_value_get_unsigned_int(length),
-                make_locus("", 0, 0));
-
-        type_t* char_type = NULL;
-
-        if (!is_wchar)
-        {
-            char_type = get_char_type();
-        }
-        else
-        {
-            char_type = get_wchar_t_type();
-        }
-        CXX_LANGUAGE()
-        {
-            char_type = get_cv_qualified_type(char_type, CV_CONST);
-        }
-
-        /*
-         * FIXME - We need a decl context here 
-         */
-        decl_context_t decl_context;
-        memset(&decl_context, 0, sizeof(decl_context));
-
-        type_t* array_type = get_array_type(char_type, integer_literal, decl_context);
-
-        // Set that this array is actually a string literal
-        array_type->array->is_literal_string = 1;
-
-        (*set)[length] = get_lvalue_reference_type(array_type);
-    }
-
-    return (*set)[length];
+    return literal_type;
 }
 
-char is_literal_string_type(type_t* t)
+char array_type_is_string_literal(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
+    t = advance_over_typedefs(no_ref(t));
+
+    return t->array->is_string_literal;
+}
+
+char is_string_literal_type(type_t* t)
 {
     if (!is_lvalue_reference_type(t)
             || !is_array_type(no_ref(t)))
@@ -11507,9 +11522,7 @@ char is_literal_string_type(type_t* t)
         return 0;
     }
 
-    t = advance_over_typedefs(no_ref(t));
-
-    return t->array->is_literal_string;
+    return array_type_is_string_literal(no_ref(t));
 }
 
 static type_t* _ellipsis_type = NULL;
@@ -13187,8 +13200,14 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
         element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        // Use the constructor that affects the least to the array type
-        if ((IS_C_LANGUAGE
+        if (array_type_is_string_literal(orig))
+        {
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            array_size = nodecl_deep_copy_compute_maps(array_size, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            get_array_type_for_literal_string(element_type, array_size, new_decl_context);
+        }
+        else if ((IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
                 && !array_type_has_region(orig))
         {

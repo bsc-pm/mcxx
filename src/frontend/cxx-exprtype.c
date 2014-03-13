@@ -55,6 +55,9 @@
 #include <math.h>
 #include <errno.h>
 
+#include <iconv.h>
+
+
 #include "fortran/fortran03-exprtype.h"
 
 static const char builtin_prefix[] = "__builtin_";
@@ -1269,6 +1272,18 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     }
 }
 
+#define IS_OCTA_CHAR(_c) \
+(((_c) >= '0') \
+  && ((_c) <= '7'))
+
+#define IS_HEXA_CHAR(_c) \
+((((_c) >= '0') \
+  && ((_c) <= '9')) \
+ || (((_c) >= 'a') \
+     && ((_c) <= 'f')) \
+ || (((_c) >= 'A') \
+     && ((_c) <= 'F')))
+
 // Given a character literal computes the type due to its lexic form
 static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 {
@@ -1280,6 +1295,26 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_wchar_t_type();
         literal++;
     }
+    else if (*literal == 'u')
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            warn_printf("%s: warning: char16_t literals are a C++11 feature\n",
+                    ast_location(expr));
+        }
+        result = get_char16_t_type();
+        literal++;
+    }
+    else if (*literal == 'U')
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            warn_printf("%s: warning: char32_t literals are a C++11 feature\n",
+                    ast_location(expr));
+        }
+        result = get_char32_t_type();
+        literal++;
+    }
     else
     {
         result = get_char_type();
@@ -1289,6 +1324,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     uint64_t value = 0;
     if (literal[1] != '\\')
     {
+        // Usual case: not an escape of any kind
         value = literal[1];
     }
     else
@@ -1330,9 +1366,12 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
-                                       prettyprint_in_buffer(expr));
+                               if (!checking_ambiguity())
+                               {
+                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                           ast_location(expr),
+                                           prettyprint_in_buffer(expr));
+                               }
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
@@ -1356,12 +1395,68 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
-                                       prettyprint_in_buffer(expr));
+                               if (!checking_ambiguity())
+                               {
+                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                           ast_location(expr),
+                                           prettyprint_in_buffer(expr));
+                               }
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
+                           break;
+                       }
+            case 'u' :
+            case 'U' :
+                       {
+                           // Universal names are followed by 4 hexa digits
+                           // or 8 depending on 'u' or 'U' respectively
+                           char remaining_hexa_digits = 8;
+                           if (literal[2] == 'u')
+                           {
+                               remaining_hexa_digits = 4;
+                           }
+
+                           unsigned int current_value = 0;
+
+                           int i = 3;
+                           while (remaining_hexa_digits > 0)
+                           {
+                               if (!IS_HEXA_CHAR(literal[i]))
+                               {
+                                   if (!checking_ambiguity())
+                                   {
+                                       char ill_literal[11];
+                                       strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                       error_printf("%s: error: invalid universal literal character name '%s'", 
+                                               ast_location(expr),
+                                               ill_literal);
+                                   }
+                                   *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                                   return;
+                               }
+
+                               current_value *= 16;
+                               char current_literal = tolower(literal[i]);
+                               if (('0' <= tolower(current_literal))
+                                       && (tolower(current_literal) <= '9'))
+                               {
+                                   current_value += current_literal - '0';
+                               }
+                               else if (('a' <= tolower(current_literal))
+                                       && (tolower(current_literal) <= 'f'))
+                               {
+                                   current_value += 10 + (tolower(current_literal) - 'a');
+                               }
+                               else
+                               {
+                                   internal_error("Code unreachable", 0);
+                               }
+
+                               remaining_hexa_digits--;
+                               i++;
+                           }
+
                            break;
                        }
             default: {
@@ -1563,47 +1658,85 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     }
 }
 
-#define IS_OCTA_CHAR(_c) \
-(((_c) >= '0') \
-  && ((_c) <= '7'))
-
-#define IS_HEXA_CHAR(_c) \
-((((_c) >= '0') \
-  && ((_c) <= '9')) \
- || (((_c) >= 'a') \
-     && ((_c) <= 'f')) \
- || (((_c) >= 'A') \
-     && ((_c) <= 'F')))
-
-static void compute_length_of_literal_string(AST expr, int* length, char *is_wchar, int **real_literal)
+static void compute_length_of_literal_string(AST expr,
+        int *num_codepoints,
+        int **codepoints,
+        type_t** base_type)
 {
     // We allow the parser not to mix the two strings
     const char *literal = ASTText(expr);
 
-    int max_real_size = strlen(literal);
-    (*real_literal) = counted_xcalloc(max_real_size, sizeof(**real_literal), &_bytes_used_expr_check);
+    int capacity_codepoints = 16;
+    *num_codepoints = 0;
+
+    (*codepoints) = xcalloc(capacity_codepoints, sizeof(**codepoints));
+
+    *base_type = NULL;
 
     int num_of_strings_seen = 0;
 
-    *length = 0;
-    *is_wchar = 0;
+#define ADD_CODEPOINT(value) \
+        do { \
+            int v_ = (value); \
+            if (*num_codepoints == capacity_codepoints) \
+            { \
+                capacity_codepoints *= 2; \
+                (*codepoints) = xrealloc((*codepoints), capacity_codepoints * sizeof(**codepoints)); \
+            } \
+            (*codepoints)[*num_codepoints] = v_; \
+            (*num_codepoints)++; \
+        } while (0);
 
     // Beginning of a string
     while (*literal != '\0')
     {
-        // C99 says that "a" L"b" is L"ab"
-        // C++ says it is undefined
-        // 
-        // Do it like C99
+        // Check the prefix
+        type_t* current_base_type = NULL;
         if ((*literal) == 'L')
         {
-            (*is_wchar) = 1;
-            // Advance L
+            current_base_type = get_wchar_t_type();
+            CXX_LANGUAGE()
+            {
+                current_base_type = get_const_qualified_type(current_base_type);
+            }
             literal++;
+        }
+        else if ((*literal) == 'u' && (*(literal + 1) == '8'))
+        {
+            current_base_type = get_const_qualified_type(get_char_type());
+            literal += 2;
+        }
+        else if ((*literal) == 'u')
+        {
+            current_base_type = get_const_qualified_type(get_char16_t_type());
+            literal++;
+        }
+        else if ((*literal) == 'U')
+        {
+            current_base_type = get_const_qualified_type(get_char32_t_type());
+            literal++;
+        }
+        else
+        {
+            current_base_type = get_const_qualified_type(get_char_type());
+        }
+
+        if (*base_type == NULL)
+        {
+            *base_type = current_base_type;
+        }
+        else
+        {
+            // "a" U"b" -> U"a" U"b"
+            if (is_char_type(get_unqualified_type(*base_type))
+                    && !is_char_type(get_unqualified_type(current_base_type)))
+            {
+                *base_type = current_base_type;
+            }
         }
 
         ERROR_CONDITION(*literal != '"',
-                "Lexic problem in the literal '%s'\n", ASTText(expr));
+                "Lexical problem in the literal '%s'\n", ASTText(expr));
 
         // Advance the "
         literal++;
@@ -1622,18 +1755,18 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                         literal++;
                         switch (*literal)
                         {
-                            case '\'' : { (*real_literal)[(*length)]  = '\''; break; }
-                            case '"' : { (*real_literal)[(*length)]  = '"'; break; }
-                            case '?' : { (*real_literal)[(*length)]  = '\?'; break; }
-                            case '\\' : { (*real_literal)[(*length)]  = '\\'; break; }
-                            case 'a' : { (*real_literal)[(*length)]  = '\a'; break; }
-                            case 'b' : { (*real_literal)[(*length)]  = '\b'; break; }
-                            case 'f' : { (*real_literal)[(*length)]  = '\f'; break; }
-                            case 'n' : { (*real_literal)[(*length)]  = '\n'; break; }
-                            case 'r' : { (*real_literal)[(*length)]  = '\r'; break; }
-                            case 't' : { (*real_literal)[(*length)]  = '\t'; break; }
-                            case 'v' : { (*real_literal)[(*length)]  = '\v'; break; }
-                            case 'e' : { (*real_literal)[(*length)]  = '\033'; break; } // GNU Extension: A synonim for \033
+                            case '\'' : { ADD_CODEPOINT('\''); break; }
+                            case '"' : { ADD_CODEPOINT('"'); break; }
+                            case '?' : { ADD_CODEPOINT('\?'); break; }
+                            case '\\' : { ADD_CODEPOINT('\\'); break; }
+                            case 'a' : { ADD_CODEPOINT('\a'); break; }
+                            case 'b' : { ADD_CODEPOINT('\b'); break; }
+                            case 'f' : { ADD_CODEPOINT('\f'); break; }
+                            case 'n' : { ADD_CODEPOINT('\n'); break; }
+                            case 'r' : { ADD_CODEPOINT('\r'); break; }
+                            case 't' : { ADD_CODEPOINT('\t'); break; }
+                            case 'v' : { ADD_CODEPOINT('\v'); break; }
+                            case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
                             case '0' :
                             case '1' :
                             case '2' :
@@ -1664,7 +1797,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // escaped entity
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             case 'x' :
@@ -1701,7 +1834,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // escaped entity
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             case 'u' :
@@ -1729,7 +1862,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                             error_printf("%s: error: invalid universal literal name '%s'", 
                                                     ast_location(expr),
                                                     ill_literal);
-                                            *length = -1;
+                                            *num_codepoints = -1;
+                                            xfree(*codepoints);
                                             return;
                                         }
 
@@ -1757,7 +1891,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // Go backwards one
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             default:
@@ -1768,7 +1902,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     error_printf("%s: error: invalid escape sequence '%s'\n",
                                             ast_location(expr),
                                             c);
-                                    *length = -1;
+                                    *num_codepoints = -1;
+                                    xfree(*codepoints);
                                     return;
                                 }
                         }
@@ -1776,19 +1911,17 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                     }
                 default:
                     {
-                        // A plain literal
-                        (*real_literal)[(*length)] = (*literal);
+                        // A plain codepoint
+                        ADD_CODEPOINT(*literal);
                         break;
                     }
             }
 
-            // Make 'literal' always point to the last thing that represents one char/wchar_t
+            // Make 'literal' always point to the last thing that represents one codepoint
             //
             // For instance, for "\n", "\002", "\uabcd" and "\U98abcdef" (*literal) should
             // be 'n', '2', 'd' and 'f' respectively.
             literal++;
-
-            (*length)++;
         }
 
         // Advance the "
@@ -1796,24 +1929,22 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
 
         num_of_strings_seen++;
     }
-    
-    // NULL
-    (*real_literal)[(*length)] = 0;
-    (*length)++;
+
+    // Final NULL value
+    ADD_CODEPOINT(0);
 
     ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
 }
 
 static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 {
-    char is_wchar = 0;
-    int length = 0;
+    int num_codepoints = 0;
+    int *codepoints = NULL;
 
-    const_value_t *value = NULL;
+    type_t* base_type = NULL;
 
-    int* real_literal = NULL;
-    compute_length_of_literal_string(expr, &length, &is_wchar, &real_literal);
-    if (length < 0)
+    compute_length_of_literal_string(expr, &num_codepoints, &codepoints, &base_type);
+    if (num_codepoints < 0)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
@@ -1821,30 +1952,116 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: String literal %s type is '%s[%d]'\n",
+        fprintf(stderr, "EXPRTYPE: String literal %s base type is '%s'. Number of codepoints %d'\n",
                 ASTText(expr),
-                !is_wchar ? "char" : "wchar_t",
-                length);
+                print_declarator(base_type),
+                num_codepoints);
     }
 
-    // Now we have an unsigned int[] with the values of the elements of the string, create one or other according to the type
-    if (!is_wchar)
+    // Note that the length represents the length of the array in memory and depending on the encoding it may
+    // be different to the number of codepoints
+    int length = 0;
+    const_value_t* value = NULL;
+
+    if (is_char_type(get_unqualified_type(base_type)))
     {
+        length = num_codepoints;
+
         char c[length];
         int i;
         for (i = 0; i < length; i++)
-            c[i] = real_literal[i];
+            c[i] = codepoints[i];
 
-        // -1 due to '\0' being added by compute_length_of_literal_string
         value = const_value_make_string(c, length - 1);
+    }
+    else if (is_wchar_t_type(get_unqualified_type(base_type)))
+    {
+        // FIXME - Should we perform a conversion as well?
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
+    }
+    else if (is_char16_t_type(get_unqualified_type(base_type)))
+    {
+        // Note that we should not care if UTF16LE or UTF16BE, we only want
+        // iconv not to emit a BOM
+        iconv_t cd = iconv_open("UTF16LE", "UTF32");
+
+        ERROR_CONDITION(cd == (iconv_t)-1,
+            "Cannot convert to UTF16LE from UTF32\n", 0);
+
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
+
+        // Usually there are no surrogates, so initially allocate the same number of codepoints
+        int capacity_out = num_codepoints;
+        uint16_t *output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+
+        char done = 0;
+        while (!done)
+        {
+            char* inbuff = (char*)codepoints;
+            size_t inbyteslefts = num_codepoints * sizeof(*codepoints);
+
+            size_t outbytesleft = capacity_out * sizeof(*output_buffer), outbytesbeginning = outbytesleft;
+            char *outbuff = (char*)output_buffer;
+
+            size_t conv_result = iconv(cd, &inbuff, &inbyteslefts, &outbuff, &outbytesleft);
+            if (conv_result == (size_t)-1)
+            {
+                // Our output buffer is too small, reallocate and try again
+                if (errno == E2BIG)
+                {
+                    capacity_out *= 2;
+                    xfree(output_buffer);
+                    output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+
+                    // Reset the state of iconv
+                    iconv(cd, NULL, NULL, NULL, NULL);
+
+                    // Start again
+                    continue;
+                }
+                else if (errno == EINVAL || errno == EILSEQ)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: discarding invalid UTF-16 literal\n",
+                                ast_location(expr));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                    xfree(output_buffer);
+                }
+                else
+                {
+                    internal_error("Unexpected error '%s' from 'iconv'\n",
+                            strerror(errno));
+                }
+            }
+            done = 1;
+
+            ERROR_CONDITION(inbyteslefts != 0, "There are still bytes left", 0);
+            ERROR_CONDITION(((outbytesleft - outbytesbeginning) % sizeof(uint16_t)) != 0,
+                    "The conversion has not generated an even number of bytes", 0);
+            ERROR_CONDITION(outbytesbeginning < outbytesleft,
+                    "There were less bytes at the beginning", 0);
+
+            length = (outbytesbeginning - outbytesleft) / sizeof(uint16_t);
+        }
+
+        xfree(output_buffer);
+        iconv_close(cd);
+    }
+    else if (is_char32_t_type(get_unqualified_type(base_type)))
+    {
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
     }
     else
     {
-        // -1 due to '\0' being added by compute_length_of_literal_string
-        value = const_value_make_wstring(real_literal, length - 1);
+        internal_error("Code unreachable", 0);
     }
 
-    type_t* result = get_literal_string_type(length, is_wchar);
+    type_t* result = get_literal_string_type(length, base_type);
 
     *nodecl_output = nodecl_make_string_literal(result, value, ast_get_locus(expr));
 }
@@ -14877,6 +15094,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         && (is_array_type(no_ref(type_element))
                             && (is_char_type(array_type_get_element_type(no_ref(type_element)))
                                 || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_char16_t_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_char32_t_type(array_type_get_element_type(no_ref(type_element)))
                                )
                            )
                    )
@@ -16614,20 +16833,20 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     C_LANGUAGE()
     {
         standard_conversion_t standard_conversion_sequence;
-        if (!standard_conversion_between_types(
+
+        char can_be_initialized = 
+            (is_string_literal_type(initializer_expr_type)
+             && is_array_type(declared_type_no_cv)
+             && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
+            || standard_conversion_between_types(
                     &standard_conversion_sequence,
                     initializer_expr_type,
-                    declared_type_no_cv)
-                && !(is_array_type(declared_type_no_cv)
-                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                && !(is_array_type(declared_type_no_cv)
-                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-           )
+                    declared_type_no_cv);
+
+        if (!can_be_initialized)
         {
             if (!checking_ambiguity())
             {
@@ -16651,21 +16870,26 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
     if (!is_class_type(declared_type_no_cv))
     {
-        if ((!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv,
+        char can_be_initialized = 
+            (is_string_literal_type(initializer_expr_type)
+             && is_array_type(declared_type_no_cv)
+             && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_char16_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_char16_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_char32_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_char32_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
+            || (type_can_be_implicitly_converted_to(
+                        initializer_expr_type, 
+                        declared_type_no_cv,
                         decl_context,
                         &ambiguous_conversion, &conversor,
                         nodecl_get_locus(nodecl_expr))
-                    || ambiguous_conversion)
-                & !(is_array_type(declared_type_no_cv)
-                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                && !(is_array_type(declared_type_no_cv)
-                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-           )
+                    && !ambiguous_conversion);
+
+        if (!can_be_initialized)
         {
             if (!checking_ambiguity())
             {

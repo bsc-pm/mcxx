@@ -3434,11 +3434,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
     int length = 0;
     const_value_string_unpack_to_int(v, &bytes, &length);
 
-    type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
-    char is_wchar = !is_unsigned_char_type(element_type)
-        && !is_signed_char_type(element_type);
+    type_t* base_type = get_unqualified_type(
+            array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())))
+            );
 
-    *(file) << quote_c_string(bytes, length, is_wchar);
+    std::string prefix;
+    if (is_signed_char_type(base_type) || is_unsigned_char_type(base_type))
+    {
+        // No prefix
+    }
+    else if (is_wchar_t_type(base_type))
+    {
+        prefix = "L";
+    }
+    else if (is_char16_t_type(base_type))
+    {
+        prefix = "u";
+    }
+    else if (is_char32_t_type(base_type))
+    {
+        prefix = "U";
+    }
+    else if (IS_C_LANGUAGE && is_integral_type(base_type))
+    {
+        prefix = "L";
+    }
+
+    *(file) << quote_c_string(bytes, length, prefix);
 
     ::xfree(bytes);
 }
@@ -8151,13 +8173,10 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
     return rank_operand < rank_current;
 }
 
-std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
+std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefix)
 {
     std::string result;
-    if (is_wchar)
-    {
-        result += "L";
-    }
+    result += prefix;
 
     result += "\"";
 
@@ -8223,8 +8242,7 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
         else
         {
             std::stringstream ss;
-            if (!is_wchar
-                    || (current < 255))
+            if (current < 256)
             {
                 ss << "\\"
                     << std::oct << std::setw(3) << std::setfill('0')
