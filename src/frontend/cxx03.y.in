@@ -2098,6 +2098,14 @@ functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
+| functional_direct_declarator parameters_and_qualifiers
+{
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
+}
+| functional_direct_declarator '[' constant_expression_opt ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
+}
 | '(' functional_main_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
