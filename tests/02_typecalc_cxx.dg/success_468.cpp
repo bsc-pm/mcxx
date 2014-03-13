@@ -4,6 +4,8 @@ test_generator="config/mercurium run"
 </testinfo>
 */
 
+#if defined(__GNUC__) && (__GNUC__ >= 4 && __GNUC_MINOR__ >= 6)
+
 #include <stdlib.h>
 
 struct small
@@ -48,3 +50,9 @@ int main(int argc, char* argv[])
         abort();
     return 0;
 }
+
+#else
+
+int main(int argc, char* argv[]) { return 0; }
+
+#endif
