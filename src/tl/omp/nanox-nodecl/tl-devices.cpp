@@ -1138,6 +1138,21 @@ namespace TL
 
             std::set<TL::Type> _used_types;
 
+            bool not_in_the_same_module(TL::Scope sc, TL::Symbol module)
+            {
+                scope_t* current_scope = sc.get_decl_context().current_scope;
+
+                while (current_scope != NULL)
+                {
+                    if (current_scope->related_entry == module.get_internal_symbol())
+                        return 1;
+
+                    current_scope = current_scope->contained_in;
+                }
+
+                return 0;
+            }
+
             void add_used_types_rec(TL::Type t, TL::Scope sc)
             {
                 if (!t.is_valid())
@@ -1152,6 +1167,11 @@ namespace TL
                     if (t.get_symbol().is_from_module())
                     {
                         Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    }
+                    else if (t.get_symbol().is_in_module()
+                            && not_in_the_same_module(sc, t.get_symbol().in_module()))
+                    {
+                        Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().in_module(), sc);
                     }
                     else
                     {
