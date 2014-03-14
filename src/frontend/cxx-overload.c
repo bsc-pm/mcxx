@@ -1408,12 +1408,8 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
         standard_conversion_t scs2)
 {
     if ((scs1.conv[0] == scs2.conv[0])
-            && (scs1.conv[1] == scs2.conv[1])
-            && (scs1.conv[2] == scs2.conv[2])
-            && is_pointer_conversion(scs1.conv[2]))
+            && is_pointer_conversion(scs1.conv[1]))
     {
-        // XXX - I think this branch is never executed
-
         // FIXME - What about the deprecated literal string conversion?
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);

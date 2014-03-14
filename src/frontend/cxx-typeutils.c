@@ -10550,8 +10550,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
             }
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -10578,8 +10576,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a rvalue-reference\n");
             }
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
         else if (is_nullptr_type(ref_orig)
@@ -10592,8 +10588,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // std::nullptr_t&& -> null pointer value is already a rvalue
             // null pointer value -> c2 T2*&&
             (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -10605,7 +10599,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
-        (*result) = identity_scs(no_ref(orig), get_unqualified_type(no_ref(dest)));
+        (*result) = identity_scs(orig, dest);
 
         char ok = 0;
         if (is_class_type(no_ref(orig))
@@ -10654,11 +10648,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 }
 
                 fprintf(stderr, "SCS: This is a binding to %s by means of %s\n", bind_to, by_means_of);
-            }
-
-            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
-            {
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             }
 
             return 1;
