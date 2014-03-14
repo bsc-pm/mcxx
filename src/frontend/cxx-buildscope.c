@@ -1259,13 +1259,137 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
         nodecl_make_list_1(cxx_using_namespace);
 }
 
-void introduce_using_entities(
+void introduce_using_entities_in_class(
         nodecl_t nodecl_name,
         scope_entry_list_t* used_entities,
         decl_context_t decl_context,
         scope_entry_t* current_class,
-        char is_class_scope,
         access_specifier_t current_access,
+        char is_typename,
+        const locus_t* locus)
+{
+    scope_entry_list_t* existing_usings =
+        query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name, NULL);
+
+    enum cxx_symbol_kind filter_usings[] = { SK_USING, SK_USING_TYPENAME };
+
+    existing_usings = filter_symbol_kind_set(existing_usings, STATIC_ARRAY_LENGTH(filter_usings), filter_usings);
+
+    scope_entry_list_t* already_using = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(existing_usings);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_using = entry_list_iterator_current(it);
+
+        already_using = entry_list_add_once(already_using, current_using->entity_specs.alias_to);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(existing_usings);
+
+    const char* symbol_name = NULL;
+    // Now add all the used entities to the current scope
+    for (it = entry_list_iterator_begin(used_entities);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        entry = entry_advance_aliases(entry);
+
+        symbol_name = entry->symbol_name;
+
+        char is_hidden = 0;
+
+        if (entry->kind != SK_DEPENDENT_ENTITY)
+        {
+            if (!entry->entity_specs.is_member
+                    || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: '%s' is not a member of a base class\n",
+                            locus_to_str(locus),
+                            get_qualified_symbol_name(entry, 
+                                decl_context));
+                }
+                return;
+            }
+
+            // If this entity is being hidden by another member of this class, do not add it
+            scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
+            scope_entry_list_iterator_t* it2 = NULL;
+            for (it2 = entry_list_iterator_begin(member_functions);
+                    !entry_list_iterator_end(it2);
+                    entry_list_iterator_next(it2))
+            {
+                scope_entry_t* current_member = entry_list_iterator_current(it2);
+
+                if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
+                        && entry->kind == SK_FUNCTION
+                        && function_type_same_parameter_types_and_cv_qualif(current_member->type_information, entry->type_information))
+                {
+                    // This one is being hidden by a member function of the current class
+                    is_hidden = 1;
+                    break;
+                }
+            }
+            entry_list_iterator_free(it2);
+            entry_list_free(member_functions);
+        }
+        else
+        {
+            // Dependent entity like _Base::f where _Base is a template parameter
+            if (nodecl_is_null(nodecl_name))
+            {
+                internal_error("Invalid dependent name found", 0);
+            }
+
+            // The name of the symbol will be _Base but we do not want that one, we want f
+            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
+            symbol_name = nodecl_get_text(nodecl_last_part);
+        }
+
+        if (is_hidden)
+            continue;
+
+        // Do not add it twice in the scope
+        if (entry_list_contains(already_using, entry))
+            continue;
+
+        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, symbol_name);
+        used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
+        used_name->locus = locus;
+        used_name->entity_specs.alias_to = entry;
+
+        used_name->entity_specs.is_member = 1;
+        used_name->entity_specs.class_type = get_user_defined_type(current_class);
+        used_name->entity_specs.access = current_access;
+
+        insert_entry(decl_context.current_scope, used_name);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(already_using);
+
+    scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
+    used_hub_symbol->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
+    used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
+    used_hub_symbol->entity_specs.access = current_access;
+    used_hub_symbol->locus = locus;
+
+    class_type_add_member(current_class->type_information,
+            used_hub_symbol,
+            /* is_definition */ 1);
+}
+
+// This is for using found in non class scope
+static void introduce_using_entities(
+        scope_entry_list_t* used_entities,
+        decl_context_t decl_context,
         char is_typename,
         const locus_t* locus)
 {
@@ -1300,62 +1424,6 @@ void introduce_using_entities(
         scope_entry_t* entry = entry_list_iterator_current(it);
         symbol_name = entry->symbol_name;
 
-        char is_hidden = 0;
-
-        if (is_class_scope)
-        {
-            if (entry->kind != SK_DEPENDENT_ENTITY)
-            {
-                if (!entry->entity_specs.is_member
-                        || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: '%s' is not a member of a base class\n",
-                                locus_to_str(locus),
-                                get_qualified_symbol_name(entry, 
-                                    decl_context));
-                    }
-                    return;
-                }
-
-                // If this entity is being hidden by another member of this class, do not add it
-                scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
-                scope_entry_list_iterator_t* it2 = NULL;
-                for (it2 = entry_list_iterator_begin(member_functions);
-                        !entry_list_iterator_end(it2);
-                        entry_list_iterator_next(it2))
-                {
-                    scope_entry_t* current_member = entry_list_iterator_current(it2);
-
-                    if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
-                            && function_type_same_parameter_types_and_cv_qualif(current_member->type_information, entry->type_information))
-                    {
-                        // This one is being hidden by a member function of the current class
-                        is_hidden = 1;
-                        break;
-                    }
-                }
-                entry_list_iterator_free(it2);
-                entry_list_free(member_functions);
-            }
-            else
-            {
-                // Dependent entity like _Base::f where _Base is a template parameter
-                if (nodecl_is_null(nodecl_name))
-                {
-                    internal_error("Invalid dependent name found", 0);
-                }
-
-                // The name of the symbol will be _Base but we do not want that one, we want f
-                nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
-                symbol_name = nodecl_get_text(nodecl_last_part);
-            }
-        }
-
-        if (is_hidden)
-            continue;
-
         scope_entry_t* original_entry = entry;
         if (original_entry->kind == SK_USING
                 || original_entry->kind == SK_USING_TYPENAME)
@@ -1372,12 +1440,6 @@ void introduce_using_entities(
         used_name->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
         used_name->locus = locus;
         used_name->entity_specs.alias_to = original_entry;
-        if (current_class != NULL)
-        {
-            used_name->entity_specs.is_member = 1;
-            used_name->entity_specs.class_type = get_user_defined_type(current_class);
-            used_name->entity_specs.access = current_access;
-        }
 
         insert_entry(decl_context.current_scope, used_name);
     }
@@ -1417,28 +1479,24 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
         is_class_scope = 1;
     }
 
-    introduce_using_entities(nodecl_name, used_entities,
-            decl_context,
-            current_class,
-            is_class_scope,
-            current_access,
-            is_typename,
-            nodecl_get_locus(nodecl_name));
-
-    if (current_class != NULL)
+    if (is_class_scope)
     {
-        scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
-        used_hub_symbol->kind = !is_typename ? SK_USING : SK_USING_TYPENAME;
-        used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
-        used_hub_symbol->entity_specs.access = current_access;
-        used_hub_symbol->locus = nodecl_get_locus(nodecl_name);
-
-        class_type_add_member(current_class->type_information,
-                used_hub_symbol,
-                /* is_definition */ 1);
+        introduce_using_entities_in_class(
+                nodecl_name, used_entities,
+                decl_context,
+                current_class,
+                current_access,
+                is_typename,
+                nodecl_get_locus(nodecl_name));
     }
     else
     {
+        introduce_using_entities(
+                used_entities,
+                decl_context,
+                is_typename,
+                nodecl_get_locus(nodecl_name));
+
         scope_entry_t* entry = entry_list_head(used_entities);
         *nodecl_output =
             nodecl_make_list_1(

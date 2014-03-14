@@ -813,22 +813,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (entry_list == NULL)
                     return;
 
-                introduce_using_entities(
+                introduce_using_entities_in_class(
                         nodecl_null(),
                         entry_list, context_of_being_instantiated,
                         named_type_get_symbol(being_instantiated),
-                        /* is_class_scope */ 1,
                         member_of_template->entity_specs.access,
                         /* is_typename */ 0,
                         member_of_template->locus);
-
-                scope_entry_t* used_hub_symbol = xcalloc(1, sizeof(*used_hub_symbol));
-                used_hub_symbol->kind = SK_USING;
-                used_hub_symbol->type_information = get_unresolved_overloaded_type(entry_list, NULL);
-                used_hub_symbol->entity_specs.access = member_of_template->entity_specs.access;
-
-                class_type_add_member(get_actual_class_type(being_instantiated), used_hub_symbol,
-                        /* is_definition */ 1);
                 break;
             }
         default:
