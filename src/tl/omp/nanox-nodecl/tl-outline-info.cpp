@@ -238,8 +238,8 @@ namespace TL { namespace Nanox {
         if (IS_CXX_LANGUAGE
                 && sym.get_name() == "this")
         {
-            outline_info.set_field_type(t.get_unqualified_type());
-            outline_info.set_in_outline_type(t.get_unqualified_type());
+            outline_info.set_field_type(t.get_unqualified_type_but_keep_restrict());
+            outline_info.set_in_outline_type(t.get_unqualified_type_but_keep_restrict());
         }
         else
         {
@@ -318,9 +318,9 @@ namespace TL { namespace Nanox {
                 t = t.array_element().get_pointer_to();
             }
 
-            outline_info.set_field_type(t.get_unqualified_type());
+            outline_info.set_field_type(t.get_unqualified_type_but_keep_restrict());
 
-            TL::Type in_outline_type = t.get_unqualified_type();
+            TL::Type in_outline_type = t.get_unqualified_type_but_keep_restrict();
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
@@ -352,9 +352,9 @@ namespace TL { namespace Nanox {
                 t = t.array_element().get_pointer_to();
             }
 
-            outline_info.set_field_type(t.get_unqualified_type());
+            outline_info.set_field_type(t.get_unqualified_type_but_keep_restrict());
 
-            TL::Type in_outline_type = t.get_unqualified_type();
+            TL::Type in_outline_type = t.get_unqualified_type_but_keep_restrict();
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
@@ -387,9 +387,9 @@ namespace TL { namespace Nanox {
                 t = t.array_element().get_pointer_to();
             }
 
-            outline_info.set_field_type(t.get_unqualified_type());
+            outline_info.set_field_type(t.get_unqualified_type_but_keep_restrict());
 
-            TL::Type in_outline_type = t.get_unqualified_type();
+            TL::Type in_outline_type = t.get_unqualified_type_but_keep_restrict();
             in_outline_type = add_extra_dimensions(sym, in_outline_type, &outline_info);
 
             outline_info.set_in_outline_type(in_outline_type);
@@ -867,7 +867,7 @@ namespace TL { namespace Nanox {
             t = t.references_to();
         }
 
-        outline_info.set_field_type(t.get_unqualified_type());
+        outline_info.set_field_type(t.get_unqualified_type_but_keep_restrict());
 
         if (is_new)
         {

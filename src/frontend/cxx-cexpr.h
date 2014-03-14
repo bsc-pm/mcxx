@@ -99,6 +99,13 @@ LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_as_another(const_value_t* val, const_value_t* mold);
 
 LIBMCXX_EXTERN int const_value_cast_to_signed_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned int const_value_cast_to_unsigned_int(const_value_t* val);
+
+LIBMCXX_EXTERN long int const_value_cast_to_signed_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long int const_value_cast_to_unsigned_long_int(const_value_t* val);
+
+LIBMCXX_EXTERN long long int const_value_cast_to_signed_long_long_int(const_value_t* val);
+LIBMCXX_EXTERN unsigned long long int const_value_cast_to_unsigned_long_long_int(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 

@@ -90,6 +90,7 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_standard_layout", GXX_IS_STANDARD_LAYOUT },
     { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
+    { "__is_final", GXX_IS_FINAL },
     { "__underlying_type", GXX_UNDERLYING_TYPE },
     // Sentinel
     { NULL, 0 },
@@ -293,6 +294,24 @@ identifier {idnondigit}({idnondigit}|{digit})*
 
 <preprocess>[ ]*pragma[ ]+ {
 	BEGIN(pragma_line);
+}
+
+<pragma_line>mcc[ ]+enable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _enable_debug(void);
+    _enable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
+}
+
+<pragma_line>mcc[ ]+disable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _disable_debug(void);
+    _disable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
 }
 
 <pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
@@ -1179,6 +1198,7 @@ type {
 "__is_standard_layout" |
 "__is_trivial" |
 "__is_union" |
+"__is_final" |
 "__underlying_type" {
     return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }

@@ -343,7 +343,8 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.access = AS_PUBLIC;
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         function_context.function_scope->related_entry = new_function_sym;
@@ -804,6 +805,10 @@ namespace TL { namespace Nanox {
 
             // FIXME - We should do all the remaining lvalue adjustments
             it_ptypes->type_info = get_unqualified_type(it2->get_internal_symbol()->type_information);
+            if (is_restrict_qualified_type(it2->get_internal_symbol()->type_information))
+            {
+                it_ptypes->type_info = get_restrict_qualified_type(it_ptypes->type_info);
+            }
         }
 
         type_t *function_type = get_new_function_type(get_void_type(),
@@ -874,7 +879,8 @@ namespace TL { namespace Nanox {
             new_function_sym->entity_specs.access = AS_PUBLIC;
 
             ::class_type_add_member(new_function_sym->entity_specs.class_type,
-                    new_function_sym);
+                    new_function_sym,
+                    /* is_definition */ 0);
         }
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
@@ -1132,6 +1138,21 @@ namespace TL
 
             std::set<TL::Type> _used_types;
 
+            bool in_the_same_module(TL::Scope sc, TL::Symbol module)
+            {
+                scope_t* current_scope = sc.get_decl_context().current_scope;
+
+                while (current_scope != NULL)
+                {
+                    if (current_scope->related_entry == module.get_internal_symbol())
+                        return 1;
+
+                    current_scope = current_scope->contained_in;
+                }
+
+                return 0;
+            }
+
             void add_used_types_rec(TL::Type t, TL::Scope sc)
             {
                 if (!t.is_valid())
@@ -1146,6 +1167,11 @@ namespace TL
                     if (t.get_symbol().is_from_module())
                     {
                         Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().from_module(), sc);
+                    }
+                    else if (t.get_symbol().is_in_module()
+                            && !in_the_same_module(sc, t.get_symbol().in_module()))
+                    {
+                        Nodecl::Utils::Fortran::append_module_to_scope(t.get_symbol().in_module(), sc);
                     }
                     else
                     {

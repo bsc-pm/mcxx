@@ -67,9 +67,12 @@ namespace TL { namespace OpenMP {
                     Nodecl::List arguments,
                     sym_to_argument_expr_t& param_to_arg_expr);
 
-            Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call);
+            FunctionTaskInfo instantiate_function_task_info(
+                    const FunctionTaskInfo& function_task_info,
+                    TL::Scope context_of_being_instantiated,
+                    instantiation_symbol_map_t* instantiation_symbol_map);
 
-            Nodecl::NodeclBase update_join_task(const Nodecl::NodeclBase& enclosing_stmt);
+            Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call);
 
             Nodecl::OpenMP::Task generate_join_task(const Nodecl::NodeclBase& enclosing_stmt);
 

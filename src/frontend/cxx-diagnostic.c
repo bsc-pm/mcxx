@@ -78,3 +78,22 @@ void info_printf(const char* format, ...)
     vfprintf(stderr, format, va);
     va_end(va);
 }
+
+void warn_or_error_printf(char emit_error, const char* format, ...)
+{
+    va_list va;
+    va_start(va, format);
+    vfprintf(stderr, format, va);
+    va_end(va);
+    if (emit_error)
+    {
+        error_count++;
+
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+            raise(SIGABRT);
+    }
+    else
+    {
+        warn_count++;
+    }
+}

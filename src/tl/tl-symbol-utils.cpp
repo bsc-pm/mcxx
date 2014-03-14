@@ -106,6 +106,11 @@ namespace SymbolUtils
             param->defined = 1;
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
 
             P_LIST_ADD(parameter_list, num_parameters, param);
 
@@ -178,7 +183,9 @@ namespace SymbolUtils
 
             new_function_sym->entity_specs.access = AS_PUBLIC;
 
-            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym);
+            // We make it as a declaration because we do not expect it to be defined inside class
+            ::class_type_add_member(new_function_sym->entity_specs.class_type, new_function_sym,
+                    /* is_declaration */ 0);
         }
 
         if (current_function.is_inline())
@@ -272,6 +279,11 @@ namespace SymbolUtils
                     /* position */ entry->entity_specs.num_related_symbols);
 
             param->type_information = get_unqualified_type(type_it->get_internal_type());
+            if (type_it->is_restrict())
+            {
+                // Keep restrict
+                param->type_information = get_restrict_qualified_type(param->type_information);
+            }
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,

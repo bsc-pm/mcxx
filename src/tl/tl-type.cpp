@@ -379,7 +379,7 @@ namespace TL
         {
             num_parameters++;
             parameters_list[i].is_ellipsis = 1;
-            parameters_list[i].type_info = NULL;
+            parameters_list[i].type_info = get_ellipsis_type();
             parameters_list[i].nonadjusted_type_info = NULL;
         }
 
@@ -961,6 +961,19 @@ namespace TL
         return get_cv_qualified_type(this->_type_info, CV_NONE);
     }
 
+    Type Type::get_unqualified_type_but_keep_restrict()
+    {
+        // Might return itself if not qualified
+        if (is_restrict_qualified_type(this->_type_info))
+        {
+            return get_cv_qualified_type(this->_type_info, CV_RESTRICT);
+        }
+        else
+        {
+            return get_cv_qualified_type(this->_type_info, CV_NONE);
+        }
+    }
+
     Type Type::get_const_type()
     {
         // Might return itself if already const qualified
@@ -1060,6 +1073,27 @@ namespace TL
         ObjectList<Symbol> result;
         Scope::convert_to_vector(class_type_get_members(
                     ::get_actual_class_type(_type_info)), result);
+
+        return result;
+    }
+
+    ObjectList<MemberDeclarationInfo> Type::get_member_declarations() const
+    {
+        TL::ObjectList<MemberDeclarationInfo> result;
+
+        int num_decls = 0;
+
+        member_declaration_info_t* mdi = ::class_type_get_member_declarations(_type_info, &num_decls);
+
+        int i;
+        for (i = 0; i < num_decls; i++)
+        {
+            result.push_back(
+                    MemberDeclarationInfo(mdi[i].entry, mdi[i].is_definition)
+                    );
+        }
+
+        xfree(mdi);
 
         return result;
     }

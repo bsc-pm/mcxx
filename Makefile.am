@@ -2593,7 +2593,8 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
-     -e 's|@NANOX_LDFLAGS[@]|$(NANOX_LDFLAGS)|g' \
+     -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
+     -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
@@ -2621,8 +2622,8 @@ config_edit = \
      -e 's|@ICC[@]|$(ICC)|g' \
      -e 's|@ICPC[@]|$(ICPC)|g' \
      -e 's|@IFORT[@]|$(IFORT)|g' \
-     -e 's|@GXLC[@]|$(GXLC)|g' \
-     -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
+     -e 's|@XLC[@]|$(XLC)|g' \
+     -e 's|@XLCXX[@]|$(XLCXX)|g' \
      -e 's|@XLF[@]|$(XLF)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \

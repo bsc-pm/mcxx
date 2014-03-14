@@ -273,34 +273,13 @@
 "                           support locking at file level. This \n" \
 "                           option is incompatible with parallel\n" \
 "                           compilation\n" \
+"  --xl-compat              Enables compatibility features with\n" \
+"                           IBM XL C/C++/Fortran. This flag may be\n" \
+"                           required when using such compiler.\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
-"  -v\n" \
-"  -V\n" \
-"  -f<name>\n" \
-"  -m<name>\n" \
-"  -M\n" \
-"  -MM\n" \
-"  -MF <file>\n" \
-"  -MG <file>\n" \
-"  -MP\n" \
-"  -MT <target>\n" \
-"  -MD\n" \
-"  -MMD\n" \
-"  -static\n" \
-"  -shared\n" \
-"  -std=<option>\n" \
-"  -rdynamic\n" \
-"  -export-dynamic\n" \
-"  -w\n" \
-"  -W<option>\n" \
-"  -pthread\n" \
-"  -Xpreprocessor OPTION\n" \
-"  -Xlinker OPTION\n" \
-"  -Xassembler OPTION\n" \
-"  -include FILE\n" \
-"  -S\n" \
+"  -ansi\n" \
 "  -dA\n" \
 "  -dD\n" \
 "  -dH\n" \
@@ -310,6 +289,32 @@
 "  -dv\n" \
 "  -dx\n" \
 "  -dy\n" \
+"  -export-dynamic\n" \
+"  -f<name>\n" \
+"  -include FILE\n" \
+"  -MD\n" \
+"  -MF <file>\n" \
+"  -MG <file>\n" \
+"  -MMD\n" \
+"  -MM\n" \
+"  -M\n" \
+"  -m<name>\n" \
+"  -MP\n" \
+"  -MT <target>\n" \
+"  -pipe\n" \
+"  -pthread\n" \
+"  -rdynamic\n" \
+"  -shared\n" \
+"  -S\n" \
+"  -static\n" \
+"  -std=<option>\n" \
+"  -v\n" \
+"  -V\n" \
+"  -w\n" \
+"  -W<option>\n" \
+"  -Xassembler OPTION\n" \
+"  -Xlinker OPTION\n" \
+"  -Xpreprocessor OPTION\n" \
 "\n" \
 "Parameters above are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -381,6 +386,7 @@ typedef enum
     OPTION_NO_WHOLE_FILE,
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DISABLE_FILE_LOCKING,
+    OPTION_XL_COMPATIBILITY,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -461,6 +467,7 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
+    {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1504,6 +1511,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->disable_locking = 1;
                         break;
                     }
+                case OPTION_XL_COMPATIBILITY:
+                    {
+                        CURRENT_CONFIGURATION->xl_compatibility = 1;
+                        break;
+                    }
                 default:
                     {
                         const char* unhandled_flag = "<<<unknown!>>>";
@@ -1774,6 +1786,24 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
     switch (argument[1])
     {
         // GCC parameters
+        case 'a':
+            {
+                if (strcmp(argument, "-ansi") == 0)
+                {
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
+                    }
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                break;
+            }
         case 'n' :
             {
                 if (strcmp(argument, "-nostdlib") == 0
@@ -1795,8 +1825,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case 'f':
         case 'm':
-            // IBM XL Compiler Optimization Flags
-        case 'q':
+        case 'q': // IBM XL Compiler Optimization Flags
             {
                 char hide_parameter = 0;
                 if (!dry_run)
@@ -2019,6 +2048,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'p':
             {
                 if (strcmp(argument, "-pthread") == 0)
+                {
+                }
+                else if (strcmp(argument, "-pipe") == 0)
                 {
                 }
                 else if ((strcmp(argument, "-print-search-dirs") == 0)
@@ -4644,9 +4676,14 @@ static compilation_configuration_t* get_sublanguage_configuration(
 
 
 // Useful for debugging sessions
-void _enable_debug(void)
+extern void _enable_debug(void)
 {
     CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+}
+
+extern void _disable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 }
 
 

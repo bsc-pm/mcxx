@@ -147,6 +147,16 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
 
+    if (!sign
+            && (num_bytes < (int)sizeof(value)))
+    {
+        // Make sure higher bits are set to zero if this value is unsigned
+        cvalue_uint_t mask = ~(cvalue_uint_t)0;
+        mask >>= (8 * num_bytes);
+        mask <<= (8 * num_bytes);
+        value &= ~mask;
+    }
+
     int bucket_index = value % CVAL_HASH_SIZE;
 
     int pool = 2 * num_bytes + !!sign;
@@ -165,7 +175,7 @@ const_value_t* const_value_get_integer(cvalue_uint_t value, int num_bytes, char 
     if (bucket == NULL)
     {
         bucket = xcalloc(1, sizeof(*bucket));
-        
+
         bucket->constant_value = xcalloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->kind = CVK_INTEGER;
         bucket->constant_value->value.i = value;
@@ -789,25 +799,38 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     }
 }
 
-int const_value_cast_to_signed_int(const_value_t* val)
-{
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return val->value.i;
-        case CVK_FLOAT:
-            return val->value.f;
-        case CVK_DOUBLE:
-            return val->value.d;
-        case CVK_LONG_DOUBLE:
-            return val->value.ld;
-#ifdef HAVE_QUADMATH_H
-        case CVK_FLOAT128:
+#ifdef HAVE_QUADMATH_H 
+#define CONST_VALUE_CAST_FROM_FLOAT_128 \
+        case CVK_FLOAT128: \
             return val->value.f128;
+#else
+#define CONST_VALUE_CAST_FROM_FLOAT_128
 #endif
-        OTHER_KIND;
-    }
+
+#define CONST_VALUE_CAST_TO_TYPE(type, typename) \
+type const_value_cast_to_##typename(const_value_t* val) \
+{ \
+    switch (val->kind) \
+    { \
+        case CVK_INTEGER: \
+            return val->value.i; \
+        case CVK_FLOAT: \
+            return val->value.f; \
+        case CVK_DOUBLE: \
+            return val->value.d; \
+        case CVK_LONG_DOUBLE: \
+            return val->value.ld; \
+        CONST_VALUE_CAST_FROM_FLOAT_128 \
+        OTHER_KIND; \
+    } \
 }
+
+CONST_VALUE_CAST_TO_TYPE(int, signed_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned int, unsigned_int)
+CONST_VALUE_CAST_TO_TYPE(long int, signed_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long int, unsigned_long_int)
+CONST_VALUE_CAST_TO_TYPE(long long int, signed_long_long_int)
+CONST_VALUE_CAST_TO_TYPE(unsigned long long int, unsigned_long_long_int)
 
 #ifdef HAVE_QUADMATH_H
   #define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE || kind == CVK_FLOAT128)
@@ -1162,7 +1185,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         CURRENT_COMPILED_FILE->global_decl_context);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
@@ -1194,7 +1219,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 entry_list_free(data_members);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
@@ -3733,17 +3760,17 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
     }
     else
     {
-        if (neg)
-        {
-            result[len] = '-';
-            len++;
-        }
-
         while (i > 0)
         {
             result[len] = digits[i % 10];
             len++;
             i /= 10;
+        }
+
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
         }
 
         // Now reverse the string
@@ -3756,6 +3783,7 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
             result[begin] = result[end];
             result[end] = t;
         }
+
     }
 
     ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);
@@ -3902,6 +3930,22 @@ const char* const_value_to_str(const_value_t* cval)
         case CVK_RANGE:
             {
                 result = "{range: [";
+                int i;
+                for (i = 0; i < cval->value.m->num_elements; i++)
+                {
+                    if (i  > 0)
+                    {
+                        result = strappend(result, ", ");
+                    }
+
+                    result = strappend(result, const_value_to_str(cval->value.m->elements[i]));
+                }
+                result = strappend(result, "]}");
+                break;
+            }
+        case CVK_COMPLEX:
+            {
+                result = "{complex: [";
                 int i;
                 for (i = 0; i < cval->value.m->num_elements; i++)
                 {

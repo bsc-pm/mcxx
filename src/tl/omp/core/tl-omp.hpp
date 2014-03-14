@@ -282,6 +282,10 @@ namespace OpenMP
                     Nodecl::Utils::SimpleSymbolMap translation_map,
                     TL::Symbol target_symbol);
 
+            TargetInfo instantiate_target_info(
+                    TL::Scope context_of_being_instantiated,
+                    instantiation_symbol_map_t* instantiation_symbol_map);
+
             bool can_be_ommitted();
 
             void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
@@ -504,6 +508,11 @@ namespace OpenMP
                         const FunctionTaskInfo& task_info,
                         Nodecl::Utils::SimpleSymbolMap& translation_map,
                         TL::Symbol function_sym);
+
+                FunctionTaskInfo instantiate_function_task_info(
+                        TL::Symbol specialized_function,
+                        TL::Scope context_of_being_instantiated,
+                        instantiation_symbol_map_t* instantiation_symbol_map);
 
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 

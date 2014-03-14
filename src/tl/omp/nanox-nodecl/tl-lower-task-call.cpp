@@ -144,7 +144,7 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
     else if (t.is_pointer())
     {
-        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to();
+        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to().get_as_qualified_as(t);
     }
     else if (t.is_array())
     {
@@ -1077,31 +1077,13 @@ void LoweringVisitor::visit_task_call_c(
 
     Nodecl::List nodecl_arg_list = Nodecl::List::make(new_arguments);
 
-    Nodecl::NodeclBase called = function_call.get_called().shallow_copy();
-    Nodecl::NodeclBase function_form = nodecl_null();
-    Symbol called_symbol = called.get_symbol();
-
-    if (IS_CXX_LANGUAGE
-            && !called_symbol.is_valid()
-            && called_symbol.get_type().is_template_specialized_type())
-    {
-        // FIXME - Could this ever happen?
-        function_form =
-            Nodecl::CxxFunctionFormTemplateId::make(
-                    function_call.get_locus());
-
-        TemplateParameters template_args =
-            called.get_template_parameters();
-        function_form.set_template_parameters(template_args);
-    }
-
     Nodecl::NodeclBase expr_statement =
         Nodecl::ExpressionStatement::make(
                 Nodecl::FunctionCall::make(
-                    called,
+                    function_call.get_called().shallow_copy(),
                     nodecl_arg_list,
                     function_call.get_alternate_name().shallow_copy(),
-                    function_form,
+                    function_call.get_function_form().shallow_copy(),
                     Type::get_void_type(),
                     function_call.get_locus()),
                 function_call.get_locus());
@@ -1187,7 +1169,7 @@ void LoweringVisitor::visit_task_call_c(
     emit_async_common(
             new_construct,
             function_symbol,
-            called_symbol,
+            called_sym,
             statements,
             updated_priority,
             updated_if_condition,

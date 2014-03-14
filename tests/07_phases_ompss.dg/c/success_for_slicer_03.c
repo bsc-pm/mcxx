@@ -33,6 +33,7 @@ test_generator=config/mercurium-ompss
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 
 int a;
 

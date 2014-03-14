@@ -386,6 +386,12 @@ namespace TL
             //! States whether this symbol is explicit override (C++11)
             bool is_explicit_override() const;
 
+            //! States whether the symbol has been deleted (C++11)
+            bool is_deleted() const;
+
+            //! States whether the symbol has been defaulted (C++11)
+            bool is_defaulted() const;
+
             //! States whether this symbol hides a member of a base class (C++11)
             bool is_hides_member() const;
 
@@ -476,6 +482,9 @@ namespace TL
 
             //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
+
+            // Class marked as explicit
+            bool is_explicit_class() const;
 
             //! States whether symbol exists just because was mentioned in a friend declaration
             /*!

@@ -333,6 +333,23 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 	xfree(filename);
 }
 
+
+^[[:blank:]]*[!][$]MCC[[:blank:]]+enable_debug[[:blank:]]*{newline} {
+    // This is only for debugging Mercurium itself
+    extern void _enable_debug(void);
+    _enable_debug();
+    fortran_scanning_now->line_number++;
+    // Do not return anything
+}
+
+^[[:blank:]]*[!][$]MCC[[:blank:]]+disable_debug[[:blank:]]*{newline} {
+    // This is only for debugging Mercurium itself
+    extern void _disable_debug(void);
+    _disable_debug();
+    fortran_scanning_now->line_number++;
+    // Do not return anything
+}
+
 ^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n\r!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n\r]*)?{newline}([[:blank:]]*({comment_not_sentinel})?{newline})*[[:blank:]]*{sentinel}[[:blank:]]*&[^\n\r]+{newline} {
 	// !$SENTINEL INT&
 	// !$SENTINEL   &EGE&

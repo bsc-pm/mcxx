@@ -448,6 +448,7 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
     {
         i++;
         params[i].is_ellipsis = 1;
+        params[i].type_info = get_ellipsis_type();
 
         num_params = function_type_get_num_parameters(funct_type);
     }

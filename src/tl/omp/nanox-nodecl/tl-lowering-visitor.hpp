@@ -158,11 +158,9 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences_internal(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 bool on_wait,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void handle_dependency_item(
                 Nodecl::NodeclBase ctr,
@@ -176,17 +174,14 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void fill_dependences(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
-                Source arguments_accessor,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void fill_dependences_taskwait(
                 Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
-                Source& result_src
-                );
+                Source& result_src);
 
         void emit_wait_async(Nodecl::NodeclBase construct,
                 bool has_dependences,

@@ -441,6 +441,16 @@ namespace TL
         return (_symbol->entity_specs.is_override);
     }
 
+    bool Symbol::is_deleted() const
+    {
+        return (_symbol->entity_specs.is_deleted);
+    }
+
+    bool Symbol::is_defaulted() const
+    {
+        return (_symbol->entity_specs.is_defaulted);
+    }
+
     bool Symbol::is_hides_member() const
     {
         return (_symbol->entity_specs.is_hides_member);
@@ -526,6 +536,11 @@ namespace TL
 
     // Is an explicit constructor
     bool Symbol::is_explicit_constructor() const
+    {
+        return (_symbol->entity_specs.is_explicit);
+    }
+
+    bool Symbol::is_explicit_class() const
     {
         return (_symbol->entity_specs.is_explicit);
     }
