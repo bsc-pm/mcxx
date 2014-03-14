@@ -8462,6 +8462,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                     class_entry->type_information = new_class_type;
 
+                    // This is the only legitimate use of this function
                     set_as_template_specialized_type(
                             class_entry->type_information,
                             class_entry->decl_context.template_parameters,
