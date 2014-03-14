@@ -3518,7 +3518,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             || structured_value_form == COMPOUND_LITERAL)
     {
         // ( type )
-        *(file) << "(" << this->get_declaration(type, this->get_current_scope(),  "") << ")";
+        *(file) << "(" << this->get_declaration(type, this->get_current_scope(), "") << ")";
     }
 
     if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
@@ -8662,6 +8662,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     const char* result = NULL;
     if (IS_CXX_LANGUAGE
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
+            && !_this->symbol_is_nested_in_defined_classes(sym)
             && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM))
     {
