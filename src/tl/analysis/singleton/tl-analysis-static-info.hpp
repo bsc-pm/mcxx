@@ -95,20 +95,20 @@ namespace Analysis {
             Node* _autoscoped_task;
 
             Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
-            
+
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
                               ObjectList<Symbol> reductions,
-                              Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
+                              Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs,
                               Node* autoscoped_task );
 
-            
+
             // *** Queries about Use-Def analysis *** //
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
 
-            bool has_been_defined( const Nodecl::NodeclBase& n, 
-                                   const Nodecl::NodeclBase& s, 
+            bool has_been_defined( const Nodecl::NodeclBase& n,
+                                   const Nodecl::NodeclBase& s,
                                    const Nodecl::NodeclBase& scope ) const;
 
             // *** Queries about induction variables *** //
@@ -118,45 +118,51 @@ namespace Analysis {
             bool is_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
 
             bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
-            
+
+            Nodecl::NodeclBase get_induction_variable_lower_bound( const Nodecl::NodeclBase& n ) const;
+
             Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
 
             ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const;
-            
+
+            Nodecl::NodeclBase get_induction_variable_upper_bound( const Nodecl::NodeclBase& n ) const;
+
             bool is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const;
 
             //! Returns the induction variable containing the given nodecl
             //! If the nodecl is not an induction variable, then returns NULL
             Utils::InductionVariableData* get_induction_variable( const Nodecl::NodeclBase& n ) const;
 
-            ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n ) const;
-            
-            
+            ObjectList<Utils::InductionVariableData*> get_induction_variables( ) const;
+
+
             // *** Queries for Vectorization *** //
-            
+
             bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
-            
+
+            bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+
             bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
 
             bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
-            
+
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
-            bool is_simd_aligned_access( const Nodecl::NodeclBase& n, 
-                    const std::map<TL::Symbol, int>& aligned_expressions, 
-                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
+            bool is_simd_aligned_access( const Nodecl::NodeclBase& n,
+                    const std::map<TL::Symbol, int>& aligned_expressions,
+                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                     int unroll_factor, int alignment ) const;
 
-            bool is_suitable_expression( const Nodecl::NodeclBase& n, 
-                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
+            bool is_suitable_expression( const Nodecl::NodeclBase& n,
+                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module ) const;
-            
+
             // *** Queries about Auto-Scoping *** //
 
             void print_auto_scoping_results( ) const;
 
             Utils::AutoScopedVariables get_auto_scoped_variables( );
-            
+
         friend class AnalysisStaticInfo;
     };
 
@@ -181,7 +187,7 @@ namespace Analysis {
             // *** Constructors *** //
             //! Constructor useful to make queries that do not require previous analyses
             AnalysisStaticInfo( );
-            
+
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
@@ -201,7 +207,7 @@ namespace Analysis {
             //! Returns true when an object is constant in a given scope
             virtual bool is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
-            virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+            virtual bool has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                                    const Nodecl::NodeclBase& s ) const;
 
 
@@ -214,7 +220,11 @@ namespace Analysis {
             virtual bool is_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             virtual bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
-            
+
+            //! Returns the const_value corresponding to the lower bound of an induction variable in a given scope
+            virtual Nodecl::NodeclBase get_induction_variable_lower_bound( const Nodecl::NodeclBase& scope,
+                                                             const Nodecl::NodeclBase& n ) const;
+
             //! Returns the const_value corresponding to the increment of an induction variable in a given scope
             virtual Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                              const Nodecl::NodeclBase& n ) const;
@@ -222,7 +232,11 @@ namespace Analysis {
             //! Returns the list of const_values containing the increments of an induction variable in a given scope
             virtual ObjectList<Nodecl::NodeclBase> get_induction_variable_increment_list( const Nodecl::NodeclBase& scope,
                                                                                           const Nodecl::NodeclBase& n ) const;
-                                                             
+
+            //! Returns the const_value corresponding to the upper bound of an induction variable in a given scope
+            virtual Nodecl::NodeclBase get_induction_variable_upper_bound( const Nodecl::NodeclBase& scope,
+                                                             const Nodecl::NodeclBase& n ) const;
+
             //! Returns true when the increment of a given induction variable is constant and equal to 1
             virtual bool is_induction_variable_increment_one( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
@@ -232,29 +246,31 @@ namespace Analysis {
 
 
             // *** Queries about OmpSs *** //
-            
+
             virtual bool is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const;
 
 
             // *** Queries for Vectorization *** //
-        
+
             //! Returns true if the given nodecl is an array accessed by adjacent positions
             virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
-            //! Returns true if the given nodecl is an array accessed by an IV
-            virtual bool is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
+            //! Returns true if the given nodecl is an expression that contains an IV from ivs_scope
+            virtual bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& ivs_scope, const Nodecl::NodeclBase& n ) const;
+
+            virtual bool contains_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns true if the given nodecl is an array accessed by a constant expression
             virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns true if the given nodecl is aligned to a given value
-            virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                         const std::map<TL::Symbol, int>& aligned_expressions, 
+            virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
+                                         const std::map<TL::Symbol, int>& aligned_expressions,
                                          const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                          int unroll_factor, int alignment ) const;
-            
+
             //! Returns true if the given nodecl is suitable
-            virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+            virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                                          const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                          int unroll_factor, int alignment, int& vector_size_module ) const;
 
@@ -320,10 +336,10 @@ namespace Analysis {
     // ********************************************************************************************* //
 
 
-    
+
     // ********************************************************************************************* //
     // ************************ Visitor retrieving suitable simd alignment ************************* //
-    
+
     class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
     {
     private:
@@ -332,21 +348,21 @@ namespace Analysis {
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
-        
+
         bool is_suitable_expression( Nodecl::NodeclBase n );
         bool is_suitable_constant( int n );
-        
+
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
+                                  const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                   int unroll_factor, int type_size, int alignment );
-        
+
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );
         bool is_aligned_access( const Nodecl::ArraySubscript& n,
                 const std::map<TL::Symbol, int> aligned_expressions );
-        
+
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::BitwiseShl& n );
@@ -358,20 +374,20 @@ namespace Analysis {
         Ret visit( const Nodecl::Mul& n );
         Ret visit( const Nodecl::ParenthesizedExpression& n );
         Ret visit( const Nodecl::Symbol& n );
-        
+
         Ret unhandled_node(const Nodecl::NodeclBase& n);
     };
-    
+
     // ********************** END visitor retrieving suitable simd alignment *********************** //
     // ********************************************************************************************* //
-    
-    
-    
+
+
+
     // ********************************************************************************************* //
     // ***************** Visitor retrieving adjacent array accesses within a loop ****************** //
-    
+
     // The return value indicates whether the visit returns a constant value
-    class LIBTL_CLASS ArrayAccessInfoVisitor : public Nodecl::NodeclVisitor<bool>
+    class LIBTL_CLASS ExpressionEvolutionVisitor : public Nodecl::NodeclVisitor<bool>
     {
     private:
         const ObjectList<Utils::InductionVariableData*> _induction_variables;   /* All IVs in the containing loop */
@@ -380,35 +396,36 @@ namespace Analysis {
         Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
         ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
         bool _is_adjacent_access;
-        
+
         bool variable_is_iv( const Nodecl::NodeclBase& n );
         bool node_uses_iv( Node* node );
-        bool node_stmts_depend_on_iv( Node* node, int recursion_level, 
-                                      std::map<Node*, std::set<int> >& visits, 
+        bool node_stmts_depend_on_iv( Node* node, int recursion_level,
+                                      std::map<Node*, std::set<int> >& visits,
                                       std::set<Nodecl::Symbol>& visited_syms );
         bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
-        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current, 
-                                               int recursion_level, std::map<Node*, std::set<int> >& visits, 
+        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current,
+                                               int recursion_level, std::map<Node*, std::set<int> >& visits,
                                                std::set<Nodecl::Symbol>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
-        
+
     public:
         // *** Constructor *** //
-        ArrayAccessInfoVisitor( ObjectList<Utils::InductionVariableData*> ivs, 
+        ExpressionEvolutionVisitor( ObjectList<Utils::InductionVariableData*> ivs,
                                 Utils::ext_sym_set killed, Node* scope, Node* pcfg_node );
-        
+
         // *** Consultants *** //
         bool is_adjacent_access( );
         bool depends_on_induction_vars( );
         bool var_is_iv_dependent_in_scope( const Nodecl::Symbol& n );
-        
+
         // *** Visiting methods *** //
         Ret unhandled_node( const Nodecl::NodeclBase& n );
         Ret join_list( ObjectList<bool>& list );
-        
+
         Ret visit( const Nodecl::Add& n );
         Ret visit( const Nodecl::ArraySubscript& n );
+        Ret visit( const Nodecl::Assignment& n );
         Ret visit( const Nodecl::BitwiseShl& n );
         Ret visit( const Nodecl::BitwiseShr& n );
         Ret visit( const Nodecl::BooleanLiteral& n );
@@ -419,6 +436,7 @@ namespace Analysis {
         Ret visit( const Nodecl::FloatingLiteral& n );
         Ret visit( const Nodecl::FunctionCall& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
+        Ret visit( const Nodecl::LowerThan& n );
         Ret visit( const Nodecl::MaskLiteral& n );
         Ret visit( const Nodecl::Minus& n );
         Ret visit( const Nodecl::Mul& n );
@@ -434,7 +452,7 @@ namespace Analysis {
         Ret visit( const Nodecl::StringLiteral& n );
         Ret visit( const Nodecl::Symbol& n );
     };
-    
+
     // *************** END visitor retrieving adjacent array accesses within a loop **************** //
     // ********************************************************************************************* //
 }

@@ -1455,6 +1455,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-analysis.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-analysis.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
