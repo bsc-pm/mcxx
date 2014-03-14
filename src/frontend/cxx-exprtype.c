@@ -6131,7 +6131,8 @@ static void check_expression_eval_rhs_if_lhs_is_zero(
         check_expr_flags.do_not_evaluate = do_not_evaluate;
 
         if (nodecl_is_constant(lhs) // !const_value_is_zero(lhs)
-                && !nodecl_is_constant(*output))
+                && !nodecl_is_constant(*output)
+                && !nodecl_expr_is_value_dependent(*output))
         {
             // 1 || e2
             //
@@ -6167,7 +6168,8 @@ static void check_expression_eval_rhs_if_lhs_is_nonzero(
         check_expr_flags.do_not_evaluate = do_not_evaluate;
 
         if (nodecl_is_constant(lhs)
-                && !nodecl_is_constant(*output))
+                && !nodecl_is_constant(*output)
+                && !nodecl_expr_is_value_dependent(*output))
         {
             // 0 && e2
             //
