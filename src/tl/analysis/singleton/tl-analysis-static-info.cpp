@@ -72,7 +72,7 @@ namespace Analysis {
 
     NodeclStaticInfo::NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
                                         ObjectList<Symbol> reductions,
-                                        Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs, 
+                                        Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs,
                                         Node* autoscoped_task )
             : _induction_variables( induction_variables ), _reductions( reductions ) ,_killed( killed ),
               _pcfgs( pcfgs ), _autoscoped_task( autoscoped_task )
@@ -91,7 +91,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
         bool result = true;
@@ -99,16 +99,16 @@ namespace Analysis {
         for( ObjectList<Nodecl::NodeclBase>::iterator it = n_mem_accesses.begin( ); it != n_mem_accesses.end( ); ++it )
         {
             if( _killed.find( Utils::ExtendedSymbol( *it ) ) != _killed.end( ) )
-            {    
+            {
                 result = false;
                 break;
             }
         }
         return result;
     }
-    
-    bool NodeclStaticInfo::has_been_defined( const Nodecl::NodeclBase& n, 
-                                             const Nodecl::NodeclBase& s, 
+
+    bool NodeclStaticInfo::has_been_defined( const Nodecl::NodeclBase& n,
+                                             const Nodecl::NodeclBase& s,
                                              const Nodecl::NodeclBase& scope ) const
     {
         bool result = false;
@@ -119,13 +119,13 @@ namespace Analysis {
             if( s_node == NULL )
             {
                 WARNING_MESSAGE( "Nodecl '%s' not found in the current analysis. " \
-                                 "Cannot compute whether '%s' has been defined. Returning false.\n", 
+                                 "Cannot compute whether '%s' has been defined. Returning false.\n",
                                  s.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
             }
             else if( ExtensibleGraph::node_contains_node( scope_node, s_node ) )
             {
                 WARNING_MESSAGE( "Nodecl '%s' not found in the given analysis. " \
-                                 "Cannot compute whether '%s' has been defined. Returning false.\n", 
+                                 "Cannot compute whether '%s' has been defined. Returning false.\n",
                                  s.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
             }
             else
@@ -134,7 +134,7 @@ namespace Analysis {
                 if( Utils::ext_sym_set_contains_nodecl( n, _killed ) )
                 {
                     ObjectList<Nodecl::NodeclBase> stmts = s_node->get_statements( );
-                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); 
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                          it != stmts.end( ); ++it )
                     {
                         if( !Nodecl::Utils::equal_nodecls( n, *it ) )
@@ -154,11 +154,11 @@ namespace Analysis {
                         }
                     }
                 }
-                
+
                 // Look for definitions in the parents
                 s_node->set_visited( true );
                 ObjectList<Node*> parents = s_node->get_parents( );
-                for( ObjectList<Node*>::iterator it = parents.begin( ); 
+                for( ObjectList<Node*>::iterator it = parents.begin( );
                      it != parents.end( ) && !result; ++it )
                 {
                     if( !ExtensibleGraph::is_backward_parent( s_node, *it ) )
@@ -177,7 +177,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool NodeclStaticInfo::is_induction_variable( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -215,15 +215,15 @@ namespace Analysis {
     bool NodeclStaticInfo::is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
-        
+
         ObjectList<Analysis::Utils::InductionVariableData*> non_reduction_induction_variables;
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( ); 
+        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if( !_reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
                 non_reduction_induction_variables.insert( *it );
         }
-            
+
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = non_reduction_induction_variables.begin( );
              it != non_reduction_induction_variables.end( ); ++it )
         {
@@ -233,15 +233,64 @@ namespace Analysis {
                 break;
             }
         }
-            
+
         return result;
     }
-    
+
+    Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_lower_bound( const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
+
+        ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it;
+        for( it = _induction_variables.begin( );
+             it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            {
+                result = ( *it )->get_lb( );
+                break;
+            }
+        }
+
+        if( it == _induction_variables.end( ) )
+        {
+            WARNING_MESSAGE( "You are asking for the lower bound of an Object ( %s ) "\
+                             "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
+        }
+
+        return result;
+    }
+
+    Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_upper_bound( const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
+
+        ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it;
+        for( it = _induction_variables.begin( );
+             it != _induction_variables.end( ); ++it )
+        {
+            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            {
+                result = ( *it )->get_ub( );
+                break;
+            }
+        }
+
+        if( it == _induction_variables.end( ) )
+        {
+            WARNING_MESSAGE( "You are asking for the upper bound of an Object ( %s ) "\
+                             "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
+        }
+
+        return result;
+    }
+
     Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& n ) const
     {
         Nodecl::NodeclBase result;
 
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
+        ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it;
+        for( it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
             if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
@@ -251,7 +300,7 @@ namespace Analysis {
             }
         }
 
-        if( result.is_null( ) )
+        if( it == _induction_variables.end( ) )
         {
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
@@ -263,7 +312,7 @@ namespace Analysis {
     ObjectList<Nodecl::NodeclBase> NodeclStaticInfo::get_induction_variable_increment_list( const Nodecl::NodeclBase& n ) const
     {
         ObjectList<Nodecl::NodeclBase> result;
-        
+
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
@@ -273,16 +322,16 @@ namespace Analysis {
                 break;
             }
         }
-        
+
         if( result.empty( ) )
         {
             WARNING_MESSAGE( "You are asking for the increment of an Object ( %s ) "\
                              "which is not an Induction Variable\n", n.prettyprint( ).c_str( ) );
         }
-        
+
         return result;
     }
-    
+
     bool NodeclStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -317,12 +366,11 @@ namespace Analysis {
         return iv;
     }
 
-    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::get_induction_variables( 
-            const Nodecl::NodeclBase& n ) const
+    ObjectList<Utils::InductionVariableData*> NodeclStaticInfo::get_induction_variables( ) const
     {
         return _induction_variables;
     }
-    
+
     void NodeclStaticInfo::print_auto_scoping_results( ) const
     {
         if( _autoscoped_task != NULL )
@@ -343,16 +391,16 @@ namespace Analysis {
 
     // ************** END class to retrieve analysis info about one specific nodecl **************** //
     // ********************************************************************************************* //
-    
-    
-    
+
+
+
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
     AnalysisStaticInfo::AnalysisStaticInfo( )
         : _node( Nodecl::NodeclBase::null( ) ), _static_info_map( )
     {}
-    
+
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                             WhereAnalysis nested_analysis_mask, int nesting_level )
     {
@@ -389,10 +437,10 @@ namespace Analysis {
         {
             analysis.auto_scoping( analysis_state, n );
         }
-        
+
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             analysis.print_all_pcfg( analysis_state );
-        
+
         // Save static analysis
         NestedBlocksStaticInfoVisitor v( analysis_mask, nested_analysis_mask, analysis_state, nesting_level );
         v.walk( n );
@@ -426,11 +474,11 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_constant( n );
         }
-        
+
         return result;
     }
 
-    bool AnalysisStaticInfo::has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
+    bool AnalysisStaticInfo::has_been_defined( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                                                const Nodecl::NodeclBase& s ) const
     {
         bool result = false;
@@ -449,7 +497,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool AnalysisStaticInfo::is_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -490,7 +538,7 @@ namespace Analysis {
         return result;
     }
 
-    bool AnalysisStaticInfo::is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope, 
+    bool AnalysisStaticInfo::is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& scope,
                                                                         const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -510,7 +558,79 @@ namespace Analysis {
 
         return result;
     }
-    
+
+    bool AnalysisStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    {
+        bool result = false;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot resolve whether '%s' contains the induction variable.'",
+                             n.prettyprint( ).c_str( ), scope.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            Node* scope_node = current_info.find_node_from_nodecl( scope );
+            if( scope_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
+                                 scope.prettyprint( ).c_str( ) );
+
+            Node* n_node = current_info.find_node_from_nodecl( n );
+            if( n_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
+                                 n.prettyprint( ).c_str( ) );
+
+            result =  current_info.contains_induction_variable( n, scope_node, n_node );
+        }
+
+        return result;
+    }
+
+    Nodecl::NodeclBase AnalysisStaticInfo::get_induction_variable_lower_bound( const Nodecl::NodeclBase& scope,
+                                                                               const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot get the lower bound of the induction variable '%s'.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.get_induction_variable_lower_bound( n );
+        }
+
+        return result;
+    }
+
+    Nodecl::NodeclBase AnalysisStaticInfo::get_induction_variable_upper_bound( const Nodecl::NodeclBase& scope,
+                                                                               const Nodecl::NodeclBase& n ) const
+    {
+        Nodecl::NodeclBase result;
+
+        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
+        if( scope_static_info == _static_info_map.end( ) )
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
+                             "Cannot get the upper bound of the induction variable '%s'.'",
+                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+        }
+        else
+        {
+            NodeclStaticInfo current_info = scope_static_info->second;
+            result = current_info.get_induction_variable_upper_bound( n );
+        }
+
+        return result;
+    }
+
     Nodecl::NodeclBase AnalysisStaticInfo::get_induction_variable_increment( const Nodecl::NodeclBase& scope,
                                                                              const Nodecl::NodeclBase& n ) const
     {
@@ -552,7 +672,7 @@ namespace Analysis {
 
         return result;
     }
-    
+
     bool AnalysisStaticInfo::is_induction_variable_increment_one( const Nodecl::NodeclBase& scope,
                                                                   const Nodecl::NodeclBase& n ) const
     {
@@ -589,19 +709,19 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            result = current_info.get_induction_variables( n );
+            result = current_info.get_induction_variables( );
         }
 
         return result;
-    }                                                                          
-    
+    }
+
     static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) )
             return false;
-        
+
         bool result = false;
-        
+
         // Check the current node
         if( n.is<Nodecl::FunctionCall>( ) )
         {
@@ -609,29 +729,29 @@ namespace Analysis {
             if( s.is_valid( ) && function_tasks->is_function_task( s ) )
                 result = true;
         }
-        
+
         // Check its children
         ObjectList<Nodecl::NodeclBase> children = n.children( );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
         {
             result = nodecl_calls_outline_task( *it, function_tasks );
         }
-        
+
         return result;
     }
-    
-    static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs, 
+
+    static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs,
                                               RefPtr<OpenMP::FunctionTaskSet> function_tasks )
     {
-        if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) || 
-            ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) || 
+        if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) ||
+            ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) ||
                                                  !function_tasks->is_function_task( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) ) ) ) )
             return false;
-        
+
         // Check the current node
         if( Nodecl::Utils::equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
             return true;
-        
+
         // Check the children
         bool result = false;
         ObjectList<Nodecl::NodeclBase> children = n.children( );
@@ -641,20 +761,20 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool AnalysisStaticInfo::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
     {
         bool result = false;
-        
-        if( n.is<Nodecl::Assignment>( ) || 
-            n.is<Nodecl::AddAssignment>( ) || n.is<Nodecl::MinusAssignment>( ) || 
+
+        if( n.is<Nodecl::Assignment>( ) ||
+            n.is<Nodecl::AddAssignment>( ) || n.is<Nodecl::MinusAssignment>( ) ||
             n.is<Nodecl::DivAssignment>( ) || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( ) ||
-            n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( ) || n.is<Nodecl::ArithmeticShrAssignment>( ) || 
+            n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( ) || n.is<Nodecl::ArithmeticShrAssignment>( ) ||
             n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
         {
             Nodecl::Assignment n_assig = n.as<Nodecl::Assignment>( );
             result = nodecl_calls_outline_task( n_assig.get_rhs( ), function_tasks );
-            
+
             if( result && n.is<Nodecl::Assignment>( ) )
             {   // Check also if the LHS also contains the RHS
                 Nodecl::NodeclBase rhs_c = n_assig.get_rhs( ).shallow_copy( );
@@ -664,10 +784,10 @@ namespace Analysis {
                     result = false;
             }
         }
-        
+
         return result;
     }
-    
+
     bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
@@ -676,52 +796,55 @@ namespace Analysis {
         if( scope_static_info == _static_info_map.end( ) )
         {
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
-                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+                    "Cannot resolve whether the accesses to '%s' are adjacent.'",
+                    scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
         }
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
             Node* scope_node = current_info.find_node_from_nodecl( scope );
             if( scope_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  scope.prettyprint( ).c_str( ) );
             Node* n_node = current_info.find_node_from_nodecl( n );
             if( n_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  n.prettyprint( ).c_str( ) );
-                
+
             result = current_info.is_adjacent_access( n, scope_node, n_node );
         }
 
         return result;
     }
 
-    bool AnalysisStaticInfo::is_induction_variable_dependent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    bool AnalysisStaticInfo::is_induction_variable_dependent_expression( const Nodecl::NodeclBase& ivs_scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
 
-        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
-        if( scope_static_info == _static_info_map.end( ) )
+        static_info_map_t::const_iterator ivs_scope_static_info = _static_info_map.find( ivs_scope );
+        if( ivs_scope_static_info == _static_info_map.end( ) )
         {
             WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                             "Cannot resolve whether the accesses to '%s' are adjacent.'",
-                             scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
+                             "Cannot resolve whether expression '%s' is induction variable dependent.'",
+                             ivs_scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
         }
         else
         {
-            NodeclStaticInfo current_info = scope_static_info->second;
-            Node* scope_node = current_info.find_node_from_nodecl( scope );
-            if( scope_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
-                                 scope.prettyprint( ).c_str( ) );
+            NodeclStaticInfo current_info = ivs_scope_static_info->second;
+            Node* ivs_scope_node = current_info.find_node_from_nodecl( ivs_scope );
+            if( ivs_scope_node == NULL )
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for ivs_scope nodecl %s.",
+                                 ivs_scope.prettyprint( ).c_str( ) );
             Node* n_node = current_info.find_node_from_nodecl( n );
             if( n_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.", 
+            {
+                std::cerr << "IVS scope is: " << ivs_scope.prettyprint() <<
+                    std::endl;
+                WARNING_MESSAGE( "No PCFG node found in the static info computed for n nodecl %s.",
                                  n.prettyprint( ).c_str( ) );
-            
-            result = current_info.contains_induction_variable( n, scope_node, n_node ) || 
-                     current_info.var_is_iv_dependent_in_scope( n, scope_node, n_node );
+            }
+
+            result = current_info.is_induction_variable_dependent_expression( n, ivs_scope_node, n_node );
         }
 
         return result;
@@ -747,13 +870,13 @@ namespace Analysis {
         return result;
     }
 
-    bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-                                                     const std::map<TL::Symbol, int>& aligned_expressions, 
-                                                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
-                                                     int unroll_factor, int alignment ) const 
+    bool AnalysisStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
+                                                     const std::map<TL::Symbol, int>& aligned_expressions,
+                                                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
+                                                     int unroll_factor, int alignment ) const
     {
         bool result = false;
-        
+
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
         {
@@ -765,19 +888,19 @@ namespace Analysis {
         {
             NodeclStaticInfo current_info = scope_static_info->second;
 
-            result = current_info.is_simd_aligned_access( n, aligned_expressions, 
+            result = current_info.is_simd_aligned_access( n, aligned_expressions,
                     suitable_expressions, unroll_factor, alignment );
         }
-        
+
         return result;
     }
 
-    bool AnalysisStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n, 
-            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions, 
-            int unroll_factor, int alignment, int& vector_size_module ) const 
+    bool AnalysisStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
+            int unroll_factor, int alignment, int& vector_size_module ) const
     {
         bool result = false;
-        
+
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
         if( scope_static_info == _static_info_map.end( ) )
         {
@@ -790,10 +913,10 @@ namespace Analysis {
             NodeclStaticInfo current_info = scope_static_info->second;
             result = current_info.is_suitable_expression( n, suitable_expressions, unroll_factor, alignment, vector_size_module );
         }
-       
+
         return result;
     }
-    
+
     void AnalysisStaticInfo::print_auto_scoping_results( const Nodecl::NodeclBase& scope )
     {
         static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );

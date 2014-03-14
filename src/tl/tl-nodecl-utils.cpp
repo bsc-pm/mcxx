@@ -141,7 +141,7 @@ namespace Nodecl
         return get_all_symbols(n).filter(non_local);
     }
 
-    static void get_all_nodecl_occurrences_rec(Nodecl::NodeclBase target_ocurrence, 
+    static void get_all_nodecl_occurrences_rec(Nodecl::NodeclBase target_ocurrence,
             Nodecl::NodeclBase container, TL::ObjectList<Nodecl::NodeclBase> &result)
     {
         if (target_ocurrence.is_null() || container.is_null())
@@ -151,7 +151,7 @@ namespace Nodecl
         {
             result.append(container);
         }
-        
+
         if (container.is<Nodecl::ObjectInit>())
         {
             get_all_nodecl_occurrences_rec(target_ocurrence, container, result);
@@ -167,7 +167,7 @@ namespace Nodecl
         }
     }
 
-    TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_nodecl_occurrences(Nodecl::NodeclBase target_ocurrence, 
+    TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_nodecl_occurrences(Nodecl::NodeclBase target_ocurrence,
             Nodecl::NodeclBase container)
     {
         TL::ObjectList<Nodecl::NodeclBase> result;
@@ -307,9 +307,9 @@ namespace Nodecl
         if (n.is_null())
             return;
 
-        if (!in_ref && !only_subscripts && 
+        if (!in_ref && !only_subscripts &&
             (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
-                || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::Dereference>() 
+                || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::Dereference>()
                 || n.is<Nodecl::ArraySubscript>() || n.is<Nodecl::ClassMemberAccess>()))
         {
             result.insert(n);
@@ -318,7 +318,7 @@ namespace Nodecl
         {   // Nothing to be done for &x
             in_ref = true;
         }
-        
+
         if (n.is<Nodecl::ArraySubscript>())
         {
             Nodecl::ArraySubscript as = n.as<Nodecl::ArraySubscript>();
@@ -335,7 +335,7 @@ namespace Nodecl
             {
                 get_all_memory_accesses_rec(*it, /*in_ref*/false, /*only_subscripts*/false, result);
             }
-            
+
         }
         else
         {
@@ -343,7 +343,7 @@ namespace Nodecl
             if (!only_subscripts)
                 if (n.is<Nodecl::ClassMemberAccess>())
                     only_subscripts = true;
-            
+
             TL::ObjectList<Nodecl::NodeclBase> children = n.children();
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
                 it != children.end(); it++)
@@ -600,7 +600,7 @@ namespace Nodecl
 
         return result;
     }
-    
+
     bool Utils::stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
         ExprFinderVisitor efv( container );
@@ -1188,7 +1188,7 @@ namespace Nodecl
             {
                 // Nonnumeric labels in Fortran live in the program unit context
                 decl_context_t program_unit_context = decl_context.current_scope->related_entry->related_decl_context;
-                new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope, 
+                new_label = ::new_symbol(program_unit_context, program_unit_context.current_scope,
                         uniquestr(register_name.c_str()));
             }
             else
@@ -1349,7 +1349,7 @@ namespace Nodecl
 
         return result_array;
     }
-    
+
     bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& containee)
     {
         for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = container.begin();
@@ -1364,7 +1364,7 @@ namespace Nodecl
 
         return false;
     }
-    
+
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_strings_as_expressions(
             const TL::ObjectList<std::string>& string_list,
             const Nodecl::NodeclBase& ref_scope)
@@ -1389,14 +1389,14 @@ namespace Nodecl
 
         return nodecl_list;
     }
-    
+
     // ********************************************************************************* //
     // *************** Visitor looking for a nodecl contained in a scope *************** //
-    
+
     Utils::ExprFinderVisitor::ExprFinderVisitor( const Nodecl::NodeclBase& stmt_expr )
         : _scope( stmt_expr ), _n( Nodecl::NodeclBase::null( ) ), _nodecl_is_found( false )
     {}
-    
+
     bool Utils::ExprFinderVisitor::find( const Nodecl::NodeclBase& n )
     {
         _nodecl_is_found = false;
@@ -1404,8 +1404,8 @@ namespace Nodecl
         walk( _scope );
         return _nodecl_is_found;
     }
-    
-    void Utils::ExprFinderVisitor::binary_visitor( const Nodecl::NodeclBase& n, 
+
+    void Utils::ExprFinderVisitor::binary_visitor( const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
     {
         if( equal_nodecls( n, _n ) )
@@ -1418,7 +1418,25 @@ namespace Nodecl
         }
     }
 
-    void Utils::ExprFinderVisitor::unary_visitor( const Nodecl::NodeclBase& n, 
+    void Utils::ExprFinderVisitor::ternary_visitor( const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
+            const Nodecl::NodeclBase& third )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+        else
+        {
+            walk( first );
+            if( !_nodecl_is_found )
+            {
+                walk( second );
+                if( !_nodecl_is_found )
+                    walk( third );
+            }
+        }
+    }
+
+    void Utils::ExprFinderVisitor::unary_visitor( const Nodecl::NodeclBase& n,
                                                   const Nodecl::NodeclBase& rhs )
     {
         if( equal_nodecls( n, _n ) )
@@ -1426,92 +1444,158 @@ namespace Nodecl
         else
             walk( rhs );
     }
-    
+
     void Utils::ExprFinderVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        WARNING_MESSAGE( "Unhandled node '%s' during ExprFinderVisitor", n.prettyprint( ).c_str( ) );
+        WARNING_MESSAGE( "Unhandled node '%s' during ExprFinderVisitor",
+                ast_print_node_type(n.get_kind()));
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Add& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::AddAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         binary_visitor( n, n.get_subscripted( ), n.get_subscripts( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Assignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );   
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Cast& n )
+    {
+        unary_visitor( n, n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_member( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Conversion& n )
+    {
+        unary_visitor( n, n.get_nest( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Dereference& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Div& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::DivAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::FloatingLiteral& n )
+    {
+        if( equal_nodecls( n, _n ) )
+        {
+            if (const_value_eq(n.get_constant(),
+                        _n.get_constant()))
+                _nodecl_is_found = true;
+        }
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::FunctionCall& n )
     {
         binary_visitor( n, n.get_called( ), n.get_arguments( ) );
-    } 
-    
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::IntegerLiteral& n )
+    {
+        if( equal_nodecls( n, _n ) )
+        {
+            if (const_value_eq(n.get_constant(),
+                        _n.get_constant()))
+                _nodecl_is_found = true;
+        }
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::LowerThan& n )
+    {
+        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Minus& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Mod& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::ModAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Mul& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::MulAssignment& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Neg& n )
+    {
+        unary_visitor( n, n.get_rhs( ));
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::ObjectInit& n )
     {
         TL::Symbol sym = n.get_symbol( );
@@ -1525,27 +1609,27 @@ namespace Nodecl
                 walk( val );
         }
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Postdecrement& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Postincrement& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Predecrement& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Preincrement& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Range& n )
     {
         if( equal_nodecls( n, _n ) )
@@ -1561,21 +1645,62 @@ namespace Nodecl
             }
         }
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Reference& n )
     {
         unary_visitor( n, n.get_rhs( ) );
     }
-    
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Symbol& n )
     {
         if( equal_nodecls( n, _n ) )
             _nodecl_is_found = true;
     }
-    
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::UnalignedVectorLoad& n )
+    {
+        binary_visitor( n, n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::UnalignedVectorStore& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorAdd& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorConversion& n )
+    {
+        binary_visitor( n, n.get_nest(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorLoad& n )
+    {
+        binary_visitor( n, n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorMul& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorPromotion& n )
+    {
+        binary_visitor( n, n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorStore& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
-    
+
 }
 
 namespace TL
