@@ -105,7 +105,8 @@ void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
         char (*property)(type_t*),
-        type_t* (*result_type)(type_t**));
+        type_t* (*result_type)(type_t**),
+        const locus_t* locus);
 
 static
 void build_binary_builtin_operators(type_t* t1, 
@@ -113,7 +114,8 @@ void build_binary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
         char (*property)(type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**));
+        type_t* (*result_type)(type_t**, type_t**),
+        const locus_t* locus);
 
 static
 void build_ternary_builtin_operators(type_t* t1, 
@@ -122,7 +124,8 @@ void build_ternary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**, type_t**));
+        type_t* (*result_type)(type_t**, type_t**, type_t**),
+        const locus_t* locus);
 
 scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_set_t* builtin_operators)
 {
@@ -3340,7 +3343,8 @@ void compute_bin_operator_generic(
             &builtin_set,
             decl_context, operator, 
             overload_operator_predicate,
-            overload_operator_result_types);
+            overload_operator_result_types,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -5351,7 +5355,8 @@ static void compute_unary_operator_generic(
             &builtin_set,
             decl_context, operator,
             overload_operator_predicate,
-            overload_operator_result_types);
+            overload_operator_result_types,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -7440,7 +7445,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             &builtin_set, decl_context,
             operator_subscript_tree,
             array_subcript_types_pred,
-            array_subscript_types_result);
+            array_subscript_types_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -8206,7 +8212,8 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                     decl_context,
                     "operator ?",
                     ternary_operator_property,
-                    ternary_operator_result
+                    ternary_operator_result,
+                    locus
                     );
 
             scope_entry_list_t* builtins =
@@ -14243,6 +14250,7 @@ static void check_nodecl_postoperator(AST operator,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
+    const locus_t* locus = nodecl_get_locus(postoperated_expr);
     if (nodecl_is_err_expr(postoperated_expr))
     {
         *nodecl_output = nodecl_make_err_expr(
@@ -14342,7 +14350,8 @@ static void check_nodecl_postoperator(AST operator,
             &builtin_set,
             decl_context, operator,
             postoperator_pred,
-            postoperator_result);
+            postoperator_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -14380,6 +14389,7 @@ static void check_nodecl_preoperator(AST operator,
         char is_decrement, nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
+    const locus_t* locus = nodecl_get_locus(preoperated_expr);
     if (nodecl_is_err_expr(preoperated_expr))
     {
         *nodecl_output = nodecl_make_err_expr(
@@ -14468,7 +14478,8 @@ static void check_nodecl_preoperator(AST operator,
             &builtin_set,
             decl_context, operator, 
             preoperator_pred,
-            preoperator_result);
+            preoperator_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -16373,7 +16384,8 @@ static void check_nodecl_pointer_to_pointer_member(
             &builtin_set,
             decl_context, operation_tree, 
             operator_bin_pointer_to_pm_pred,
-            operator_bin_pointer_to_pm_result);
+            operator_bin_pointer_to_pm_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -17332,7 +17344,8 @@ AST advance_expression_nest_flags(AST expr, char advance_parentheses)
     }
 }
 
-static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, decl_context_t decl_context)
+static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, decl_context_t decl_context,
+        const locus_t* locus)
 {
     ERROR_CONDITION(is_unresolved_overloaded_type(t), 
             "Do not invoke this function on unresolved overloaded types", 0);
@@ -17355,7 +17368,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
             scope_entry_t* symbol = named_type_get_symbol(t);
             instantiate_template_class_if_needed(symbol, decl_context, 
                     // FIXME - Locus was lost here!
-                    make_locus("", 0, 0));
+                    locus);
         }
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
@@ -17399,14 +17412,15 @@ void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
         char (*property)(type_t*),
-        type_t* (*result_type)(type_t**))
+        type_t* (*result_type)(type_t**),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         // Add ourselves because we might be things like 'int&'
         // or 'T*&'
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
@@ -17478,7 +17492,8 @@ void build_binary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
         char (*property)(type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**))
+        type_t* (*result_type)(type_t**, type_t**),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
@@ -17488,13 +17503,13 @@ void build_binary_builtin_operators(type_t* t1,
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t2)))
     {
-        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context);
+        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context, locus);
         P_LIST_ADD(accessibles_2, num_accessibles_2, t2);
     }
 
@@ -17586,7 +17601,8 @@ void build_ternary_builtin_operators(type_t* t1,
         // Note that since no ternary operator actually exists we use a faked name
         decl_context_t decl_context, char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**, type_t**))
+        type_t* (*result_type)(type_t**, type_t**, type_t**),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
@@ -17599,19 +17615,19 @@ void build_ternary_builtin_operators(type_t* t1,
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t2)))
     {
-        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context);
+        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context, locus);
         P_LIST_ADD(accessibles_2, num_accessibles_2, t2);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t3)))
     {
-        accessible_types_through_conversion(no_ref(t3), &accessibles_3, &num_accessibles_3, decl_context);
+        accessible_types_through_conversion(no_ref(t3), &accessibles_3, &num_accessibles_3, decl_context, locus);
         P_LIST_ADD(accessibles_3, num_accessibles_3, t3);
     }
 
@@ -19312,7 +19328,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         {
             candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
-            if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
+            if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 return 0;
             }
@@ -19421,7 +19437,7 @@ char check_move_assignment_operator(scope_entry_t* entry,
         {
             candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
-            if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
+            if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 return 0;
             }
@@ -20684,14 +20700,14 @@ static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodec
 }
 
 
-static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts)
+static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts, const locus_t* locus)
 {
     if (sym == NULL
             || sym->symbol_name == NULL)
         return;
     ERROR_CONDITION(sym->kind != SK_NAMESPACE, "Invalid symbol", 0);
 
-    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts);
+    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts, locus);
 
     if (strcmp(sym->symbol_name, "(unnamed)") == 0)
     {
@@ -20700,19 +20716,20 @@ static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_par
     else
     {
         *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, 
-                nodecl_make_cxx_dep_name_simple(sym->symbol_name, make_locus("", 0, 0)));
+                nodecl_make_cxx_dep_name_simple(sym->symbol_name, locus));
     }
 }
 
-static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context)
+static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context,
+        const locus_t* locus)
 {
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
     if (class_sym->entity_specs.is_member)
     {
-        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts, decl_context);
+        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts, decl_context, locus);
     }
 
-    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, make_locus("", 0, 0));
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, locus);
     if (is_template_specialized_type(class_type))
     {
         nodecl_name = nodecl_make_cxx_dep_template_id(
@@ -20721,9 +20738,9 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(class_type),
-                    make_locus("", 0, 0),
+                    locus,
                     /* pack_index */ -1),
-                make_locus("", 0, 0));
+                locus);
     }
 
     *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, nodecl_name);
@@ -20761,7 +20778,8 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
         char dependent_entry_already_updated,
-        int pack_index)
+        int pack_index,
+        const locus_t* locus)
 {
     // This may be left null if the dependent_entry is not a SK_DEPENDENT_ENTITY
     nodecl_t nodecl_already_updated_extended_parts = nodecl_null();
@@ -20775,13 +20793,13 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 &nodecl_already_updated_extended_parts);
     }
 
-    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
+    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts, locus);
 
     if (dependent_entry->entity_specs.is_member)
-        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context);
+        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context, locus);
 
     // The dependent entry itself
-    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, make_locus("", 0, 0));
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, locus);
     if (is_template_specialized_type(dependent_entry->type_information))
     {
         template_parameter_list_t* argument_list =
@@ -20793,14 +20811,14 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 update_template_argument_list(
                         decl_context,
                         template_specialized_type_get_template_arguments(dependent_entry->type_information),
-                        make_locus("", 0, 0),
+                        locus,
                         pack_index);
         }
 
         nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
                 /* template tag */ "",
                 argument_list,
-                make_locus("", 0, 0));
+                locus);
     }
 
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
@@ -20826,7 +20844,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                     update_template_argument_list(
                         decl_context,
                         nodecl_get_template_parameters(copied_part),
-                        make_locus("", 0, 0),
+                        locus,
                         pack_index));
         }
 
@@ -20847,7 +20865,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
     }
 
     nodecl_t result =
-        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, make_locus("", 0, 0));
+        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, locus);
 
     return result;
 }
@@ -20897,7 +20915,8 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
             list_of_dependent_parts,
             v->decl_context,
             dependent_entry_already_updated,
-            v->pack_index);
+            v->pack_index,
+            nodecl_get_locus(node));
 
     cxx_compute_name_from_entry_list(
             complete_nodecl_name,
