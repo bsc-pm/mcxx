@@ -1297,8 +1297,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiating class '%s'\n", 
-                print_declarator(being_instantiated));
+        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n", 
+                locus_to_str(locus),
+                print_declarator(being_instantiated),
+                print_declarator(selected_template));
     }
 
     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);

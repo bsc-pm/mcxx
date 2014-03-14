@@ -2150,6 +2150,35 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     return type_info;
 }
 
+void free_temporary_template_type(type_t* t)
+{
+    ERROR_CONDITION(t->kind != TK_DIRECT
+            || t->type->kind != STK_TEMPLATE_TYPE, "Invalid type", 0);
+
+    type_t* primary_specialization_type = t->type->primary_specialization;
+    scope_entry_t* primary_specialization = named_type_get_symbol(primary_specialization_type);
+
+    if (primary_specialization->type_information->kind == TK_FUNCTION)
+    {
+        xfree(primary_specialization->type_information->function->parameter_list);
+        xfree(primary_specialization->type_information->function);
+    }
+    else if (primary_specialization->type_information->kind == TK_DIRECT
+            && primary_specialization->type_information->type->kind == STK_CLASS)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    xfree(primary_specialization->type_information->info);
+
+    xfree(primary_specialization);
+    xfree(t->type);
+    xfree(t);
+}
 
 void set_as_template_specialized_type(type_t* type_to_specialize, 
         template_parameter_list_t * template_parameters, 

@@ -871,5 +871,8 @@ LIBMCXX_EXTERN const char* print_opencl_vector_type(
 
 LIBMCXX_EXTERN parameter_info_t get_parameter_info_for_type(type_t* t);
 
+// Used by cxx-typeorder.c
+void free_temporary_template_type(type_t* t);
+
 MCXX_END_DECLS
 #endif // CXX_TYPEUTILS_H
