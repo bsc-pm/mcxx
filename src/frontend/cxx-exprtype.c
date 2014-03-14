@@ -2711,7 +2711,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         nodecl_make_cxx_dep_name_simple(get_operator_function_name(operator_name),
                 locus);
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, locus);
 
     nodecl_free(nodecl_op_name); // Not used anymore
 
@@ -2953,7 +2953,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                 locus);
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, locus);
 
     nodecl_free(nodecl_op_name); // Not used anymore
 
@@ -10588,7 +10588,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
             num_arguments,
             argument_types,
             decl_context,
-            nodecl_simple_name);
+            nodecl_simple_name,
+            nodecl_get_locus(nodecl_simple_name));
 
     if (entry_list != NULL)
     {
@@ -13951,7 +13952,7 @@ static void check_postoperator_user_defined(
                 get_operator_function_name(operator),
                 nodecl_get_locus(postoperated_expr));
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, nodecl_get_locus(postoperated_expr));
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, argument_types, num_arguments,
@@ -14101,7 +14102,7 @@ static void check_preoperator_user_defined(AST operator,
                 get_operator_function_name(operator),
                 nodecl_get_locus(preoperated_expr));
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, nodecl_get_locus(preoperated_expr));
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, argument_types, num_arguments,

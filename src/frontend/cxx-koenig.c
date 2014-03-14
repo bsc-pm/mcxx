@@ -49,13 +49,15 @@ struct associated_scopes_tag
     scope_entry_t* associated_classes[MCXX_MAX_KOENIG_ASSOCIATED_SCOPES];
 } koenig_lookup_info_t;
 
-static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
+static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list,
+        const locus_t* locus);
 
 scope_entry_list_t* koenig_lookup(
         int num_arguments,
         type_t** argument_type_list,
         decl_context_t normal_decl_context,
-        nodecl_t nodecl_simple_name)
+        nodecl_t nodecl_simple_name,
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -76,7 +78,7 @@ scope_entry_list_t* koenig_lookup(
     }
 
     koenig_lookup_info_t koenig_info;
-    koenig_info = compute_associated_scopes(num_arguments, argument_type_list);
+    koenig_info = compute_associated_scopes(num_arguments, argument_type_list, locus);
 
     DEBUG_CODE()
     {
@@ -179,33 +181,38 @@ scope_entry_list_t* koenig_lookup(
 }
 
 static void compute_associated_scopes_aux(koenig_lookup_info_t* koenig_info, 
-        int num_arguments, type_t** argument_type_list);
+        int num_arguments, type_t** argument_type_list,
+        const locus_t* locus);
 
 static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info, 
-        type_t* argument_type);
+        type_t* argument_type,
+        const locus_t* locus);
 
-static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list)
+static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list,
+        const locus_t* locus)
 {
     koenig_lookup_info_t result;
     memset(&result, 0, sizeof(result));
 
-    compute_associated_scopes_aux(&result, num_arguments, argument_type_list);
+    compute_associated_scopes_aux(&result, num_arguments, argument_type_list, locus);
 
     return result;
 }
 
 static void compute_associated_scopes_aux(koenig_lookup_info_t* koenig_info, 
-        int num_arguments, type_t** argument_type_list)
+        int num_arguments, type_t** argument_type_list,
+        const locus_t* locus)
 {
     int i;
     for (i = 0; i < num_arguments; i++)
     {
         type_t* argument_type = argument_type_list[i];
-        compute_associated_scopes_rec(koenig_info, argument_type);
+        compute_associated_scopes_rec(koenig_info, argument_type, locus);
     }
 }
 
-static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lookup_info_t* koenig_info);
+static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lookup_info_t* koenig_info,
+        const locus_t* locus);
 
 static void add_associated_scope(koenig_lookup_info_t* koenig_info, scope_t* sc)
 {
@@ -265,8 +272,10 @@ static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_
     koenig_info->num_associated_classes++;
 }
 
-static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info, 
-        type_t* argument_type)
+static void compute_associated_scopes_rec(
+        koenig_lookup_info_t* koenig_info, 
+        type_t* argument_type,
+        const locus_t* locus)
 {
     argument_type = no_ref(advance_over_typedefs(argument_type));
 
@@ -286,7 +295,7 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
      */
     if (is_class_type(argument_type))
     {
-        compute_set_of_associated_classes_scope(argument_type, koenig_info);
+        compute_set_of_associated_classes_scope(argument_type, koenig_info, locus);
 
         /*
          * Furthermore, if T is a class template specialization, its associated
@@ -332,7 +341,7 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
                         || arg->kind == TPK_TYPE_PACK
                         || arg->kind == TPK_TEMPLATE_PACK)
                 {
-                    compute_associated_scopes_rec(koenig_info, arg->type);
+                    compute_associated_scopes_rec(koenig_info, arg->type, locus);
                 }
             }
         }
@@ -362,7 +371,7 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
             if (symbol->entity_specs.is_member)
             {
                 type_t* class_type = symbol->entity_specs.class_type;
-                compute_associated_scopes_rec(koenig_info, class_type);
+                compute_associated_scopes_rec(koenig_info, class_type, locus);
             }
         }
 
@@ -387,7 +396,7 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
             pointed_type = array_type_get_element_type(argument_type);
         }
 
-        compute_associated_scopes_rec(koenig_info, pointed_type);
+        compute_associated_scopes_rec(koenig_info, pointed_type, locus);
 
         // Nothing else to be done
         return;
@@ -405,11 +414,13 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
         {
             type_t* current_parameter = function_type_get_parameter_type_num(argument_type, i);
 
-            compute_associated_scopes_rec(koenig_info, current_parameter);
+            compute_associated_scopes_rec(koenig_info, current_parameter, locus);
         }
 
         // Return type
-        compute_associated_scopes_rec(koenig_info, function_type_get_return_type(argument_type));
+        compute_associated_scopes_rec(koenig_info,
+                function_type_get_return_type(argument_type),
+                locus);
 
         // Nothing else to be done
         return;
@@ -427,29 +438,45 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
          * are those associated with the member type together with those associated with X
          */
         compute_associated_scopes_rec(koenig_info, 
-                pointer_type_get_pointee_type(argument_type));
+                pointer_type_get_pointee_type(argument_type),
+                locus);
 
         type_t* pointed_class_type = pointer_to_member_type_get_class_type(argument_type);
 
-        compute_associated_scopes_rec(koenig_info, pointed_class_type);
+        compute_associated_scopes_rec(koenig_info, pointed_class_type, locus);
         return;
     }
 }
 
 static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
-        koenig_lookup_info_t* koenig_info);
+        koenig_lookup_info_t* koenig_info,
+        const locus_t* locus);
 
-static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lookup_info_t* koenig_info)
+static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lookup_info_t* koenig_info,
+        const locus_t* locus)
 {
-    compute_set_of_associated_classes_scope_rec(type_info, koenig_info);
+    compute_set_of_associated_classes_scope_rec(type_info, koenig_info, locus);
 }
 
 static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
-        koenig_lookup_info_t* koenig_info)
+        koenig_lookup_info_t* koenig_info,
+        const locus_t* locus)
 {
+    // Ignore typedefs
+    type_info = advance_over_typedefs(type_info);
+
     // Add the scope of the current class
     ERROR_CONDITION(!is_named_class_type(type_info), "This must be a named class type", 0);
     ERROR_CONDITION(class_type_get_context(type_info).current_scope == NULL, "Error, this scope should not be NULL", 0);
+
+    scope_entry_t* class_symbol = named_type_get_symbol(type_info);
+    int i;
+    for (i = 0; i < koenig_info->num_associated_classes; i++)
+    {
+        // Do nothing if already here
+        if (koenig_info->associated_classes[i] == class_symbol)
+            return;
+    }
 
     scope_t* outer_namespace = class_type_get_context(type_info).namespace_scope;
 
@@ -463,20 +490,18 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         instantiate_template_class_if_possible(
                 named_type_get_symbol(type_info),
                 named_type_get_symbol(type_info)->decl_context,
-                make_locus("", 0, 0));
+                locus);
     }
 
-    add_associated_class(koenig_info, named_type_get_symbol(type_info));
+    add_associated_class(koenig_info, class_symbol);
 
-    scope_entry_t* symbol = named_type_get_symbol(type_info);
-    if (symbol->entity_specs.is_member)
+    if (class_symbol->entity_specs.is_member)
     {
-        type_t* class_type = symbol->entity_specs.class_type;
-        compute_associated_scopes_rec(koenig_info, class_type);
+        type_t* class_type = class_symbol->entity_specs.class_type;
+        compute_associated_scopes_rec(koenig_info, class_type, locus);
     }
 
     // Add the bases
-    int i;
     for (i = 0; i < class_type_get_num_bases(type_info); i++)
     {
         char is_dependent = 0;
@@ -488,6 +513,6 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         if (is_dependent)
             continue;
 
-        compute_set_of_associated_classes_scope_rec(get_user_defined_type(base_symbol), koenig_info);
+        compute_set_of_associated_classes_scope_rec(get_user_defined_type(base_symbol), koenig_info, locus);
     }
 }
