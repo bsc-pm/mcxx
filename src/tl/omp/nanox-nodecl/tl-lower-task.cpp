@@ -433,8 +433,7 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           dependences_info,
-           register_reductions_info;
+           dependences_info;
 
     TL::Symbol xlate_function_symbol;
 
@@ -539,14 +538,6 @@ void LoweringVisitor::emit_async_common(
             << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
             ;
     }
-
-    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
-    {
-        dynamic_wd_info
-            << "nanos_wd_dyn_props.flags.reduction_role = 0;"
-            ;
-    }
-
 
     Source dynamic_size;
     struct_size << "sizeof(imm_args)" << dynamic_size;
@@ -696,7 +687,6 @@ void LoweringVisitor::emit_async_common(
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
         <<     dependences_info
-        <<     register_reductions_info
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -766,8 +756,6 @@ void LoweringVisitor::emit_async_common(
     }
 
     fill_dependences(construct, outline_info, dependences_info);
-
-    register_reductions(outline_info, register_reductions_info);
 
     FORTRAN_LANGUAGE()
     {
@@ -884,8 +872,6 @@ void LoweringVisitor::visit_task(
     {
         new_construct = construct;
     }
-
-    handle_reductions_on_task(new_construct, outline_info, statements);
 
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
@@ -2236,42 +2222,11 @@ void LoweringVisitor::fill_dependences(
     fill_dependences_internal(ctr, outline_info, /* on_wait */ false, result_src);
 }
 
-void LoweringVisitor::register_reductions(
-        OutlineInfo& outline_info,
-        // out
-        Source& result_src)
-{
-    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
-    {
-        bool change_reduction_role = false;
-        TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
-                it != data_items.end();
-                it++)
-        {
-            if ((*it)->get_sharing() == OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
-            {
-                change_reduction_role = true;
-                result_src
-                    << "nanos_reduction_register((void *)&" <<  (*it)->get_symbol().get_name() <<  ");"
-                    ;
-            }
-        }
-        if (change_reduction_role)
-        {
-            result_src
-                << "nanos_wd_dyn_props.flags.reduction_role |= REDUCTION;"
-                ;
-        }
-    }
-}
-
 void LoweringVisitor::handle_dependency_item(
         Nodecl::NodeclBase ctr,
         TL::DataReference dep_expr,
         OutlineDataItem::DependencyDirectionality dir,
         int current_dep_num,
-        Source& reductions_stuff,
         Source& dependency_regions,
         Source& dependency_init,
         Source& result_src)
@@ -2291,6 +2246,7 @@ void LoweringVisitor::handle_dependency_item(
            dependency_flags_commutative;
 
     Nodecl::NodeclBase base_address, dep_source_expr = dep_expr;
+
     // if (!(*it)->get_base_address_expression().is_null())
     // {
     //     // This is only for function task dependences
@@ -2319,27 +2275,6 @@ void LoweringVisitor::handle_dependency_item(
         base_address = dep_expr.get_base_address().shallow_copy();
     }
 
-    bool input         = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
-    bool output        = ((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT);
-    bool input_value   = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
-    bool input_alloca  = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
-    bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
-    bool concurrent    = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
-    bool commutative   = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
-
-    Source pendant_reduction_var;
-    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)
-            && input)
-    {
-        pendant_reduction_var << "mcc_pendant_reduction_" << current_dep_num;
-        reductions_stuff
-            << as_type(TL::Type::get_bool_type()) << " " << pendant_reduction_var <<  ";"
-            << pendant_reduction_var << " = " <<  "nanos_reduction_check_for_pending((void *)" << as_expression(base_address) << ");"
-            << "if (" << pendant_reduction_var << ")"
-            <<      "nanos_wd_dyn_props.flags.reduction_role |= REDUCER;"
-            ;
-    }
-
     dependency_flags
         << "{"
         << dependency_flags_in << ","
@@ -2354,20 +2289,19 @@ void LoweringVisitor::handle_dependency_item(
 
     int num_dimensions = dependency_type.get_num_dimensions();
 
+    bool input        = ((dir & OutlineDataItem::DEP_IN) == OutlineDataItem::DEP_IN);
+    bool input_value  = ((dir & OutlineDataItem::DEP_IN_VALUE) == OutlineDataItem::DEP_IN_VALUE);
+    bool input_alloca = ((dir & OutlineDataItem::DEP_IN_ALLOCA) == OutlineDataItem::DEP_IN_ALLOCA);
+    bool input_private = ((dir & OutlineDataItem::DEP_IN_PRIVATE) == OutlineDataItem::DEP_IN_PRIVATE);
+    bool concurrent   = ((dir & OutlineDataItem::DEP_CONCURRENT) == OutlineDataItem::DEP_CONCURRENT);
+    bool commutative  = ((dir & OutlineDataItem::DEP_COMMUTATIVE) == OutlineDataItem::DEP_COMMUTATIVE);
 
     dependency_flags_in << ( input || input_value || input_alloca || input_private || concurrent || commutative);
-    dependency_flags_out << (output || concurrent || commutative);
+
+    dependency_flags_out << (((dir & OutlineDataItem::DEP_OUT) == OutlineDataItem::DEP_OUT)
+            || concurrent || commutative);
     dependency_flags_concurrent << concurrent;
     dependency_flags_commutative << commutative;
-
-
-    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)
-            && input)
-    {
-        dependency_flags_out << " || " << pendant_reduction_var;
-    }
-
-
     //
     // Compute the base type of the dependency and the array containing the size of each dimension
     Type dependency_base_type = dependency_type;
@@ -2597,10 +2531,9 @@ void LoweringVisitor::fill_dependences_internal(
 
     if (Nanos::Version::interface_is_at_least("deps_api", 1001))
     {
-        Source reductions_stuff, dependency_regions;
+        Source dependency_regions;
 
         result_src
-            << reductions_stuff
             << dependency_regions
             << "nanos_data_access_t dependences[" << num_deps << "]"
             ;
@@ -2608,12 +2541,13 @@ void LoweringVisitor::fill_dependences_internal(
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
         {
-            result_src
-                << " = {" << dependency_init << "};"
+            result_src << " = {"
+                << dependency_init
+                << "};"
                 ;
         }
-        else result_src << ";";
-
+        result_src << ";"
+            ;
 
         int current_dep_num = 0;
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -2633,7 +2567,7 @@ void LoweringVisitor::fill_dependences_internal(
                 TL::DataReference dep_expr(dep_it->expression);
 
                 handle_dependency_item(ctr, dep_expr, dir,
-                        current_dep_num, reductions_stuff, dependency_regions, dependency_init, result_src);
+                        current_dep_num, dependency_regions, dependency_init, result_src);
             }
         }
     }
