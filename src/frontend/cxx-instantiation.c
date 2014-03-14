@@ -392,7 +392,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     }
                 }
 
-                if (!nodecl_is_null(member_of_template->value))
+                if (!nodecl_is_null(member_of_template->value)
+                        && member_of_template->entity_specs.is_defined_inside_class_specifier)
                 {
                     nodecl_t new_expr = instantiate_expression(member_of_template->value,
                             context_of_being_instantiated,
