@@ -33,6 +33,7 @@ test_generator=config/mercurium-omp
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 
 int main (int argc, char *argv[])
 {
