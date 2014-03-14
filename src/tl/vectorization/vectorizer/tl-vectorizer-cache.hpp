@@ -67,7 +67,7 @@ namespace TL
                 cache_map_t _cache_map;
 
             public:
-                VectorizerCache(const TL::ObjectList<Nodecl::NodeclBase>& cached_expressions);
+                VectorizerCache(const objlist_nodecl_t& cached_expressions);
 
                 void declare_cache_symbols(TL::Scope scope,
                         const VectorizerEnvironment& environment);

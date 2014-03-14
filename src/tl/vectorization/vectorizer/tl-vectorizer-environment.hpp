@@ -28,17 +28,10 @@
 #define TL_VECTORIZER_ENVIRONMENT_HPP
 
 
-//#include <string>
-//#include <list>
-//
-//#include "tl-nodecl-base.hpp"
-//
-#include "tl-vectorization-common.hpp"
-////#include "tl-vectorization-utils.hpp"
-//#include "tl-function-versioning.hpp"
 #include "tl-vectorizer-environment-fwd.hpp"
+
+#include "tl-vectorization-common.hpp"
 #include "tl-vectorizer-cache.hpp"
-//#include "tl-vectorizer-analysis.hpp"
 
 namespace TL
 {
@@ -55,11 +48,11 @@ namespace TL
                 const bool _fast_math;
                 const TL::Type& _target_type;
                 const aligned_expr_map_t& _aligned_expr_map;
-                const objectlist_nodecl_t& _suitable_expr_list;
-                const nontemporal_expr_map_t& _nontemporal_expr_map;
+                const objlist_nodecl_t& _suitable_expr_list;
+                const nontmp_expr_map_t& _nontemporal_expr_map;
                 const VectorizerCache& _vectorizer_cache;
 
-                const objectlist_tlsymbol_t* _reduction_list;
+                const objlist_tlsymbol_t* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
                 TL::Scope _external_scope;                      // Enclosing scope of the SIMD region (to add reduction symbols)
@@ -81,10 +74,10 @@ namespace TL
                         const bool fast_math,
                         const TL::Type& target_type,
                         const aligned_expr_map_t& aligned_expr_map,
-                        const objectlist_nodecl_t& suitable_expr_list,
-                        const nontemporal_expr_map_t& nontemporal_expr_map,
+                        const objlist_nodecl_t& suitable_expr_list,
+                        const nontmp_expr_map_t& nontemporal_expr_map,
                         const VectorizerCache& vectorizer_cache,
-                        const objectlist_tlsymbol_t* reduction_list,
+                        const objlist_tlsymbol_t* reduction_list,
                         std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
                 ~VectorizerEnvironment();
@@ -92,6 +85,7 @@ namespace TL
                 friend class Vectorizer;
                 friend class VectorizerAnalysisStaticInfo;
                 friend class VectorizerCache;
+                friend class VectorizerLoopInfo;
                 friend class VectorizerVectorReduction;
                 friend class VectorizerVisitorFor;
                 friend class VectorizerVisitorForEpilog;

@@ -24,8 +24,10 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "cxx-cexpr.h"
 #include "tl-omp-simd.hpp"
+
+#include "cxx-cexpr.h"
+#include "tl-nodecl-utils.hpp"
 #include "tl-omp.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-optimizations.hpp"
@@ -215,11 +217,11 @@ namespace TL {
             process_aligned_clause(simd_environment, aligned_expressions);
 
             // Suitable clause
-            objectlist_nodecl_t suitable_expressions;
+            objlist_nodecl_t suitable_expressions;
             process_suitable_clause(simd_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontemporal_expr_map_t nontemporal_expressions;
+            nontmp_expr_map_t nontemporal_expressions;
             process_nontemporal_clause(simd_environment, nontemporal_expressions);
 
             // Vectorlengthfor clause
@@ -227,7 +229,7 @@ namespace TL {
             process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
 
             // Cache clause
-            objectlist_nodecl_t cached_expressions;
+            objlist_nodecl_t cached_expressions;
             process_cache_clause(simd_environment, cached_expressions);
             VectorizerCache vectorizer_cache(cached_expressions);
 
@@ -235,7 +237,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction and simd_reduction clauses
-            objectlist_tlsymbol_t reductions;
+            objlist_tlsymbol_t reductions;
 
             Nodecl::List omp_reduction_list = process_reduction_clause(simd_environment,
                     reductions, new_external_vector_symbol_map,
@@ -439,15 +441,15 @@ namespace TL {
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
             // Suitable clause
-            objectlist_nodecl_t suitable_expressions;
+            objlist_nodecl_t suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontemporal_expr_map_t nontemporal_expressions;
+            nontmp_expr_map_t nontemporal_expressions;
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
             // Cache clause
-            objectlist_nodecl_t cached_expressions;
+            objlist_nodecl_t cached_expressions;
             process_cache_clause(omp_simd_for_environment, cached_expressions);
             VectorizerCache vectorizer_cache(cached_expressions);
 
@@ -459,7 +461,7 @@ namespace TL {
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
 
             // Reduction clause
-            objectlist_tlsymbol_t reductions;
+            objlist_tlsymbol_t reductions;
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_for_environment,
                         reductions, new_external_vector_symbol_map,
@@ -673,15 +675,15 @@ namespace TL {
             process_aligned_clause(omp_environment, aligned_expressions);
 
             // Suitable clause
-            objectlist_nodecl_t suitable_expressions;
+            objlist_nodecl_t suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
 
             // Nontemporal clause
-            nontemporal_expr_map_t nontemporal_expressions;
+            nontmp_expr_map_t nontemporal_expressions;
             process_nontemporal_clause(omp_environment, nontemporal_expressions);
 
             // Cache clause
-            objectlist_nodecl_t cached_expressions;
+            objlist_nodecl_t cached_expressions;
             process_cache_clause(omp_environment, cached_expressions);
             VectorizerCache vectorizer_cache(cached_expressions);
 
@@ -832,7 +834,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
-                objectlist_nodecl_t& suitable_expressions)
+                objlist_nodecl_t& suitable_expressions)
         {
             Nodecl::OpenMP::Suitable omp_suitable =
                 environment.find_first<Nodecl::OpenMP::Suitable>();
@@ -845,7 +847,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_nontemporal_clause(const Nodecl::List& environment,
-                nontemporal_expr_map_t& nontemporal_expressions)
+                nontmp_expr_map_t& nontemporal_expressions)
         {
             TL::ObjectList<Nodecl::OpenMP::Nontemporal> omp_nontemporal_list =
                 environment.find_all<Nodecl::OpenMP::Nontemporal>();

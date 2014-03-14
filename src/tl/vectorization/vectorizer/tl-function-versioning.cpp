@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -26,15 +26,15 @@
 
 #include "tl-function-versioning.hpp"
 
-namespace TL 
-{ 
-    namespace Vectorization 
+namespace TL
+{
+    namespace Vectorization
     {
         VectorFunctionVersion::VectorFunctionVersion(const Nodecl::NodeclBase& func_version,
-                const std::string& device, 
-                const unsigned int vector_length, 
-                const TL::Type& target_type, 
-                const bool masked, 
+                const std::string& device,
+                const unsigned int vector_length,
+                const TL::Type& target_type,
+                const bool masked,
                 const FunctionPriority priority,
                 const bool is_svml) :
             _func_version(func_version), _priority(priority), _device(device),
@@ -58,7 +58,7 @@ namespace TL
             return (_device == device) &&
                 (_vector_length == vector_length) &&
                 compatible_type &&
-                (_masked == masked); 
+                (_masked == masked);
         }
 
         bool VectorFunctionVersion::is_better_than(const VectorFunctionVersion& func_version) const
@@ -76,7 +76,7 @@ namespace TL
         {
         }
 
-        void FunctionVersioning::add_version(const std::string& func_name, 
+        void FunctionVersioning::add_version(const std::string& func_name,
                 const VectorFunctionVersion& value)
         {
             _versions.insert(std::pair<const std::string, const VectorFunctionVersion>(func_name, value));
@@ -88,7 +88,7 @@ namespace TL
                 const Type& target_type,
                 const bool masked) const
         {
-            std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range = 
+            std::pair<versions_map_t::const_iterator, versions_map_t::const_iterator> func_range =
                 _versions.equal_range(func_name);
 
             versions_map_t::const_iterator it;
@@ -127,9 +127,9 @@ namespace TL
 
             if (best_version == _versions.end())
             {
-                running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'", 
-                    func_name.c_str(), device.c_str(), 
-                    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(), 
+                running_error("Error: There is no vector version of function '%s' for '%s', '%s', '%d', 'mask=%d'",
+                    func_name.c_str(), device.c_str(),
+                    target_type.get_simple_declaration(TL::Scope::get_global_scope() , "").c_str(),
                     vector_length, masked);
             }
 

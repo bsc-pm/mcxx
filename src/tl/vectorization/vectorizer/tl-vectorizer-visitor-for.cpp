@@ -24,15 +24,16 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer-visitor-for.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-visitor-for.hpp"
+#include "tl-vectorizer-analysis.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
-#include "tl-nodecl-utils.hpp"
 
 namespace TL
 {
@@ -49,7 +50,7 @@ namespace TL
             // CACHE: Before vectorizing!
             Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
             Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
- 
+
             // Vectorize Loop Header
             VectorizerVisitorLoopHeader visitor_loop_header(_environment);
             visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
@@ -58,8 +59,7 @@ namespace TL
             VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
             visitor_stmt.walk(for_statement.get_statement());
 
-  
-            // Add cache it update to Compound Statement 
+            // Add cache it update to Compound Statement
             if (!cache_it_update_pre.empty())
             {
                 // TODO: Function to do this in Nodecl::Utils
@@ -185,9 +185,9 @@ namespace TL
             Nodecl::NodeclBase lhs = condition.get_lhs();
             Nodecl::NodeclBase rhs = condition.get_rhs();
 
-            bool lhs_const_flag = Vectorizer::_analysis_info->is_constant(
+            bool lhs_const_flag = VectorizerAnalysisStaticInfo::_analysis_info->is_constant(
                     _environment._analysis_simd_scope, lhs);
-            bool rhs_const_flag = Vectorizer::_analysis_info->is_constant(
+            bool rhs_const_flag = VectorizerAnalysisStaticInfo::_analysis_info->is_constant(
                     _environment._analysis_simd_scope, rhs);
 
             Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
@@ -201,11 +201,11 @@ namespace TL
                 Nodecl::NodeclBase step;
                 Nodecl::Mul new_step;
 
-                if (Vectorizer::_analysis_info->is_induction_variable(
+                if (VectorizerAnalysisStaticInfo::_analysis_info->is_induction_variable(
                             _environment._analysis_simd_scope,
                             lhs))
                 {
-                    step = Vectorizer::_analysis_info->get_induction_variable_increment(
+                    step = VectorizerAnalysisStaticInfo::_analysis_info->get_induction_variable_increment(
                             _environment._analysis_scopes.back(),
                             lhs);
 
@@ -252,11 +252,11 @@ namespace TL
                 Nodecl::NodeclBase step;
                 Nodecl::Mul new_step;
 
-                if (Vectorizer::_analysis_info->is_induction_variable(
+                if (VectorizerAnalysisStaticInfo::_analysis_info->is_induction_variable(
                             _environment._analysis_simd_scope,
                             rhs))
                 {
-                    step = Vectorizer::_analysis_info->get_induction_variable_increment(
+                    step = VectorizerAnalysisStaticInfo::_analysis_info->get_induction_variable_increment(
                             _environment._analysis_scopes.back(),
                             rhs);
 
@@ -350,11 +350,11 @@ namespace TL
         {
             Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
 
-            if (Vectorizer::_analysis_info->is_induction_variable(
+            if (VectorizerAnalysisStaticInfo::_analysis_info->is_induction_variable(
                         _environment._analysis_simd_scope,
                         lhs))
             {
-                Nodecl::NodeclBase step = Vectorizer::_analysis_info->get_induction_variable_increment(
+                Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::_analysis_info->get_induction_variable_increment(
                         _environment._analysis_scopes.back(),
                         lhs);
 
@@ -368,7 +368,7 @@ namespace TL
                         Nodecl::AddAssignment::make(
                                 lhs.shallow_copy(),
                                 const_value_to_nodecl(
-                                    const_value_mul(const_value_get_signed_int(_environment._unroll_factor), 
+                                    const_value_mul(const_value_get_signed_int(_environment._unroll_factor),
                                         step.get_constant())),
                                 node.get_type(),
                                 node.get_locus());
@@ -383,7 +383,7 @@ namespace TL
                                         TL::Type::get_int_type(),
                                         const_value_get_signed_int(_environment._unroll_factor),
                                         node.get_locus()),
-                                    Vectorizer::_analysis_info->get_induction_variable_increment(
+                                    VectorizerAnalysisStaticInfo::_analysis_info->get_induction_variable_increment(
                                         _environment._analysis_scopes.back(),
                                         lhs),
                                     node.get_type(),
@@ -405,9 +405,9 @@ namespace TL
         }
 
 
-        VectorizerVisitorForEpilog::VectorizerVisitorForEpilog(VectorizerEnvironment& environment, 
+        VectorizerVisitorForEpilog::VectorizerVisitorForEpilog(VectorizerEnvironment& environment,
                 int epilog_iterations, bool only_epilog, bool is_parallel_loop) :
-            _environment(environment), _epilog_iterations(epilog_iterations), 
+            _environment(environment), _epilog_iterations(epilog_iterations),
             _only_epilog(only_epilog), _is_parallel_loop(is_parallel_loop)
         {
             if (_epilog_iterations == 0)
@@ -477,7 +477,7 @@ namespace TL
                     for_statement.retrieve_context(),
                     _environment._unroll_factor, true);
 
-            
+
             // Vectorize Loop Body if iterations > 1
             if (_epilog_iterations != 1)
             {
@@ -502,7 +502,7 @@ namespace TL
             {
                 get_updated_iv_init_for_epilog(for_statement, iv, iv_init);
 
-                new_iv_init = 
+                new_iv_init =
                     Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
                                 iv.shallow_copy(),
@@ -522,7 +522,7 @@ namespace TL
                     //    std::cerr << "Masks have the same type" << std::endl;
                     mask_exp =
                         Nodecl::ExpressionStatement::make(
-                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym,
                                     mask_value.shallow_copy(),
                                     mask_nodecl_sym.get_type(),
                                     for_statement.get_locus()));
@@ -533,7 +533,7 @@ namespace TL
 
                     mask_exp =
                         Nodecl::ExpressionStatement::make(
-                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym, 
+                                Nodecl::VectorMaskAssignment::make(mask_nodecl_sym,
                                     Nodecl::VectorMaskConversion::make(
                                         mask_value.shallow_copy(),
                                         mask_nodecl_sym.get_type(),
@@ -542,7 +542,7 @@ namespace TL
                                     for_statement.get_locus()));
                 }
 
-                result_stmt_list.append(mask_exp); 
+                result_stmt_list.append(mask_exp);
             }
 
             // Add IF check to skip epilog if mask is not zero
@@ -550,7 +550,7 @@ namespace TL
             Nodecl::NodeclBase if_mask_is_not_zero;
             if (_epilog_iterations == -1)
             {
-                if_mask_is_not_zero = 
+                if_mask_is_not_zero =
                     Vectorization::Utils::get_if_mask_is_not_zero_nodecl(
                             mask_nodecl_sym.shallow_copy(),
                             for_inner_statement);
@@ -615,7 +615,7 @@ namespace TL
         }
 
         void VectorizerVisitorForEpilog::get_updated_iv_init_for_epilog(
-                const Nodecl::ForStatement& for_statement, 
+                const Nodecl::ForStatement& for_statement,
                 Nodecl::NodeclBase &induction_variable,
                 Nodecl::NodeclBase &iv_init)
         {

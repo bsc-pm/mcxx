@@ -86,15 +86,15 @@ namespace TL
                 void process_aligned_clause(const Nodecl::List& environment,
                         TL::Vectorization::aligned_expr_map_t& aligned_expressions_map);
                 void process_suitable_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objectlist_nodecl_t& suitable_expressions);
+                        TL::Vectorization::objlist_nodecl_t& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,
-                        TL::Vectorization::nontemporal_expr_map_t& nontemporal_expressions);
+                        TL::Vectorization::nontmp_expr_map_t& nontemporal_expressions);
                 int process_unroll_clause(const Nodecl::List& environment);
                 int process_unroll_and_jam_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
                 void process_cache_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objectlist_nodecl_t& cached_expressions);
+                        TL::Vectorization::objlist_nodecl_t& cached_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,

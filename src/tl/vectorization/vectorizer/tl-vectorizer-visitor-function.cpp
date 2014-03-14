@@ -24,12 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer-visitor-function.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 

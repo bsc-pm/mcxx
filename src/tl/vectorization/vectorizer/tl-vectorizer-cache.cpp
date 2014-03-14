@@ -24,10 +24,11 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer-cache.hpp"
+
 #include "cxx-cexpr.h"
 
 #include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer-cache.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 
 namespace TL
@@ -42,9 +43,9 @@ namespace Vectorization
     {
     }
 
-    VectorizerCache::VectorizerCache(const objectlist_nodecl_t& cached_expressions)
+    VectorizerCache::VectorizerCache(const objlist_nodecl_t& cached_expressions)
     {
-        for(objectlist_nodecl_t::const_iterator it = cached_expressions.begin();
+        for(objlist_nodecl_t::const_iterator it = cached_expressions.begin();
                 it != cached_expressions.end();
                 it++)
         {

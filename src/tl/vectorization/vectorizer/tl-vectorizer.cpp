@@ -24,12 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer.hpp"
+#include "tl-vectorizer-analysis.hpp"
+#include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
@@ -41,7 +43,7 @@ namespace Vectorization
 {
     Vectorizer *Vectorizer::_vectorizer = 0;
     FunctionVersioning Vectorizer::_function_versioning;
-    VectorizerAnalysisStaticInfo* Vectorizer::_analysis_info = 0;
+//    VectorizerAnalysisStaticInfo* Vectorizer::_analysis_info = 0;
 
     Vectorizer& Vectorizer::get_vectorizer()
     {
@@ -51,30 +53,17 @@ namespace Vectorization
         return *_vectorizer;
     }
 
-    void Vectorizer::initialize_analysis(const Nodecl::FunctionCode& enclosing_function)
+    void Vectorizer::initialize_analysis(
+            const Nodecl::FunctionCode& enclosing_function)
     {
-        std::cerr << "VECTORIZER: Computing new analysis" << std::endl;
-
-        if(Vectorizer::_analysis_info != 0)
-            running_error("VECTORIZER: Analysis was previously initialize");
-
-        Vectorizer::_analysis_info = new VectorizerAnalysisStaticInfo(
-                enclosing_function,
-                Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
-                Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, /* nesting level */ 100);
+        VectorizerAnalysisStaticInfo::initialize_analysis(enclosing_function);
     }
 
     void Vectorizer::finalize_analysis()
     {
-        std::cerr << "VECTORIZER: Finalizing analysis" << std::endl;
-
-        if(Vectorizer::_analysis_info != 0)
-        {
-            delete Vectorizer::_analysis_info;
-            Vectorizer::_analysis_info = 0;
-        }
+        VectorizerAnalysisStaticInfo::finalize_analysis();
     }
+
 
     Vectorizer::Vectorizer() : _avx2_enabled(false), _knc_enabled(false),
     _svml_sse_enabled(false), _svml_avx2_enabled(false), _svml_knc_enabled(false),
@@ -128,22 +117,42 @@ namespace Vectorization
     void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
             VectorizerEnvironment& environment)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
+        }
+
         VectorizerVisitorFor visitor_for(environment);
         visitor_for.walk(for_statement);
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
     }
 
     void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
             VectorizerEnvironment& environment,
             const bool masked_version)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing function code -----\n");
+        }
+
         VectorizerVisitorFunction visitor_function(environment, masked_version);
         visitor_function.walk(func_code);
 
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(func_code, _fast_math_enabled);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
     }
 
     void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement,
@@ -153,6 +162,11 @@ namespace Vectorization
             bool only_epilog,
             bool is_parallel_loop)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing epilog -----\n");
+        }
+
         VectorizerVisitorForEpilog visitor_epilog(environment,
                 epilog_iterations, only_epilog, is_parallel_loop);
         visitor_epilog.visit(for_statement, net_epilog_node);
@@ -160,6 +174,11 @@ namespace Vectorization
         // Applying strenth reduction
         TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
         TL::Optimizations::canonicalize_and_fold(net_epilog_node, _fast_math_enabled);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
     }
 
     bool Vectorizer::is_supported_reduction(bool is_builtin,
@@ -177,128 +196,10 @@ namespace Vectorization
             VectorizerEnvironment& environment,
             bool& only_epilog)
     {
-        int remain_its = -1;
-        only_epilog = false;
+        VectorizerLoopInfo loop_info(for_statement, environment);
 
-        TL::ForStatement tl_for(for_statement);
-
-        Nodecl::NodeclBase lb = tl_for.get_lower_bound();
-        Nodecl::NodeclBase ub = TL::Vectorization::Utils::get_denormalize_ub(for_statement);
-        Nodecl::NodeclBase step = tl_for.get_step();
-
-
-        if(step.is_constant())
-        {
-            long long int const_lb;
-            long long int const_ub;
-            long long int const_step = const_value_cast_to_8(step.get_constant());
-
-
-            bool ub_is_suitable = false;
-            bool lb_is_suitable = false;
-            int lb_vector_size_module = -1;
-            int ub_vector_size_module = -1;
-
-
-            if (lb.is_constant())
-            {
-                const_lb = const_value_cast_to_8(lb.get_constant());
-            }
-            else
-            {
-                // Push ForStatement as scope for analysis
-                environment._analysis_simd_scope = for_statement;
-                environment._analysis_scopes.push_back(for_statement);
-
-                // Suitable LB
-                lb_is_suitable = _analysis_info->is_suitable_expression(for_statement, lb,
-                        environment._suitable_expr_list, environment._unroll_factor,
-                        environment._vector_length, lb_vector_size_module);
-
-                environment._analysis_scopes.pop_back();
-
-                // LB
-                if (lb_is_suitable)
-                {
-                    printf("SUITABLE LB\n");
-                    const_lb = 0; // Assuming 0 for suitable LB
-                }
-                else if (lb_vector_size_module != -1) // Is not suitable but is constant in some way
-                {
-                    const_lb = lb_vector_size_module / environment._target_type.get_size();
-                    printf("VECTOR MODULE LB EPILOG %lld\n", const_lb);
-                }
-                else // We cannot say anything about the number of iterations of the epilog
-                {
-                    printf("DEFAULT EPILOG LB\n");
-                    return remain_its; // -1
-                }
-            }
-
-            if (ub.is_constant())
-            {
-                const_ub = const_value_cast_to_8(ub.get_constant());
-            }
-            else
-            {
-                // Push ForStatement as scope for analysis
-                environment._analysis_simd_scope = for_statement;
-                environment._analysis_scopes.push_back(for_statement);
-
-                // Suitable UB
-                ub_is_suitable = _analysis_info->is_suitable_expression(for_statement, ub,
-                        environment._suitable_expr_list, environment._unroll_factor,
-                        environment._vector_length, ub_vector_size_module);
-
-                environment._analysis_scopes.pop_back();
-
-                // UB
-                if (ub_is_suitable)
-                {
-                    printf("SUITABLE EPILOG\n");
-                    const_ub = environment._unroll_factor;
-                }
-                else if (ub_vector_size_module != -1) // Is not suitable but is constant in some way
-                {
-                    const_ub = ub_vector_size_module / environment._target_type.get_size();
-
-                    if (const_lb > const_ub)
-                        const_ub += environment._unroll_factor;
-
-                    printf("VECTOR MODULE EPILOG %lld\n", const_ub);
-                }
-                else // We cannot say anything about the number of iterations of the epilog
-                {
-                    printf("DEFAULT EPILOG\n");
-                    return remain_its; // -1
-                }
-            }
-
-
-            // Compute epilog its
-            long long int num_its = (((const_ub - const_lb)%const_step) == 0) ?
-                ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
-
-            if ((num_its < environment._unroll_factor) &&
-                    (!ub_is_suitable) && (!lb_is_suitable) &&
-                    (ub_vector_size_module == -1) &&
-                    (lb_vector_size_module == -1))
-            {
-                printf("ONLY EPILOG\n");
-                only_epilog = true;
-            }
-
-            remain_its = num_its % environment._unroll_factor;
-
-            printf("CONSTANT EPILOG %d\n", remain_its);
-        }
-
-        if (remain_its < -1)
-        {
-            internal_error("Vectorizer: Remain iterations %d < -1", remain_its);
-        }
-
-        return remain_its;
+        return loop_info.get_epilog_info(for_statement,
+                environment, only_epilog);
     }
 
     void Vectorizer::vectorize_reduction(const TL::Symbol& scalar_symbol,
@@ -330,7 +231,9 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: Adding '%s' function version (device=%s, vector_length=%u, target_type=%s, SVML=%d, masked=%d priority=%d)\n",
+            fprintf(stderr, "VECTORIZER: Adding '%s' function version "\
+                    "(device=%s, vector_length=%u, target_type=%s, SVML=%d,"\
+                    " masked=%d priority=%d)\n",
                     func_name.c_str(), device.c_str(), vector_length,
                     target_type.get_simple_declaration(TL::Scope::get_global_scope(), "").c_str(),
                     masked, is_svml,

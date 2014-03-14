@@ -30,6 +30,8 @@
 
 #include "tl-nodecl-visitor.hpp"
 
+#include "tl-vectorizer-environment.hpp"
+
 namespace TL
 {
     namespace Vectorization
@@ -41,7 +43,7 @@ namespace TL
 
             public:
                 VectorizerVisitorFor(VectorizerEnvironment& environment);
-                
+
                 virtual void visit(const Nodecl::ForStatement& for_statement);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
@@ -107,11 +109,11 @@ namespace TL
                 void visit(const Nodecl::Postincrement& node);
                 void visit(const Nodecl::AddAssignment& node);
                 void visit(const Nodecl::Assignment& node);
-                
+
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
         };
 
-        class VectorizerVisitorForEpilog 
+        class VectorizerVisitorForEpilog
         {
             private:
                 VectorizerEnvironment& _environment;
@@ -119,7 +121,7 @@ namespace TL
                 bool _only_epilog;
                 bool _is_parallel_loop;
 
-                void get_updated_iv_init_for_epilog(const Nodecl::ForStatement& for_statement, 
+                void get_updated_iv_init_for_epilog(const Nodecl::ForStatement& for_statement,
                         Nodecl::NodeclBase &induction_variable,
                         Nodecl::NodeclBase &iv_init);
 
@@ -130,15 +132,13 @@ namespace TL
 
                 void visit(const Nodecl::ForStatement& for_statement,
                         Nodecl::NodeclBase& net_epilog_node);
-                
+
                 void visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
                         Nodecl::NodeclBase& net_epilog_node);
                 void visit_vector_epilog(const Nodecl::ForStatement& for_statement,
                         Nodecl::NodeclBase& net_epilog_node);
 
         };
-
-
     }
 }
 

@@ -38,7 +38,7 @@ namespace TL
         {
             walk(n.get_lhs());
             walk(n.get_rhs());
- 
+
             const Nodecl::Assignment assignment =
                 Nodecl::Assignment::make(
                         n.get_lhs().shallow_copy(),
@@ -134,6 +134,5 @@ namespace TL
 //            Nodecl::NodeclBase new_array_subscript = Nodecl::Utils::linearize_array_subscript(n);
 //            n.replace(new_array_subscript);
         }
-
     }
 }

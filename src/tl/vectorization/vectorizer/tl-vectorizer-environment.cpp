@@ -25,14 +25,6 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorizer-environment.hpp"
-//#include "tl-vectorizer.hpp"
-//#include "tl-vectorizer-visitor-preprocessor.hpp"
-//#include "tl-vectorizer-visitor-for.hpp"
-//#include "tl-vectorizer-visitor-function.hpp"
-//#include "tl-vectorizer-vector-reduction.hpp"
-//#include "tl-source.hpp"
-//#include "tl-optimizations.hpp"
-//#include "cxx-cexpr.h"
 
 namespace TL
 {
@@ -45,10 +37,10 @@ namespace Vectorization
             const bool fast_math,
             const TL::Type& target_type,
             const aligned_expr_map_t& aligned_expr_map,
-            const objectlist_nodecl_t& suitable_expr_list,
-            const nontemporal_expr_map_t& nontemporal_expr_list,
+            const objlist_nodecl_t& suitable_expr_list,
+            const nontmp_expr_map_t& nontemporal_expr_list,
             const VectorizerCache& vectorizer_cache,
-            const objectlist_tlsymbol_t * reduction_list,
+            const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
         _unroll_factor(vector_length/target_type.get_size()),

@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -39,29 +39,29 @@ test_generator=config/mercurium-serial-simd-mic
 typedef int * __restrict__ F;
 
 __attribute__((noinline)) int foo(
-        int * __restrict__ __attribute__((__aligned__(VECTOR_SIZE))) b, 
+        int * __restrict__ __attribute__((__aligned__(VECTOR_SIZE))) b,
         int N)
 {
     int i,j;
 
     int tmp = 0.0f;
 
-#pragma omp simd for simd_reduction(+:tmp) nowait 
+#pragma omp simd for simd_reduction(+:tmp) nowait
         for(i=0; i<(N-16); i++)
         {
-            tmp += b[i] * 
+            tmp += b[i] *
 
-                (((b[i+1] + 
-                  b[i+2] * 
-                   b[i+3]) + 
+                (((b[i+1] +
+                  b[i+2] *
+                   b[i+3]) +
 
-                    (b[i+4] + 
+                    (b[i+4] +
                      b[i+5] *
                       b[i+6]) *
 
-                       ((b[i+7] + 
-                        b[i+8] * 
-                         b[i+9]) + 
+                       ((b[i+7] +
+                        b[i+8] *
+                         b[i+9]) +
 
                           (b[i+10] +
                            b[i+11] *
@@ -77,9 +77,9 @@ __attribute__((noinline)) int foo(
 
 int main (int argc, char* argv[])
 {
-    int* b; 
+    int* b;
     int result, i;
-    int N = 16000; 
+    int N = 16000;
 
     if(posix_memalign((void **) &b, VECTOR_SIZE, N * sizeof(int)) != 0)
     {
@@ -96,19 +96,19 @@ int main (int argc, char* argv[])
 
     for(i=0; i<N-16; i++)
     {
-        result += b[i] * 
+        result += b[i] *
 
-            (((b[i+1] + 
-               b[i+2] * 
-               b[i+3]) + 
+            (((b[i+1] +
+               b[i+2] *
+               b[i+3]) +
 
-              (b[i+4] + 
+              (b[i+4] +
                b[i+5] *
                b[i+6]) *
 
-              ((b[i+7] + 
-                b[i+8] * 
-                b[i+9]) + 
+              ((b[i+7] +
+                b[i+8] *
+                b[i+9]) +
 
                (b[i+10] +
                 b[i+11] *
@@ -133,19 +133,19 @@ int main (int argc, char* argv[])
     N = 1600;
     for(i=0; i<N-16; i++)
     {
-        result += b[i] * 
+        result += b[i] *
 
-            (((b[i+1] + 
-               b[i+2] * 
-               b[i+3]) + 
+            (((b[i+1] +
+               b[i+2] *
+               b[i+3]) +
 
-              (b[i+4] + 
+              (b[i+4] +
                b[i+5] *
                b[i+6]) *
 
-              ((b[i+7] + 
-                b[i+8] * 
-                b[i+9]) + 
+              ((b[i+7] +
+                b[i+8] *
+                b[i+9]) +
 
                (b[i+10] +
                 b[i+11] *

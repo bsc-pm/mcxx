@@ -24,12 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-vectorizer-visitor-statement.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 
 namespace TL
@@ -55,22 +57,130 @@ namespace Vectorization
     // Nested ForStatement
     void VectorizerVisitorStatement::visit(const Nodecl::ForStatement& n)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: --- Vectorizing nested loop ---\n");
+        }
+
+        _environment._analysis_scopes.push_back(n);
+
+        VectorizerLoopInfo loop_info(n, _environment);
         Nodecl::LoopControl loop_control = n.get_loop_header().
             as<Nodecl::LoopControl>();
 
-        // If condition depends on IV
-        if (Vectorizer::_analysis_info->loop_control_depends_on_simd_iv(
-                    loop_control))
+        VectorizerVisitorExpression visitor_expression(_environment,
+                _cache_enabled);
+
+        // PROCESING LOOP CONTROL
+        // Init
+        bool ivs_lb_depend_on_simd_iv =
+            loop_info.ivs_lb_depend_on_simd_iv();
+
+        if (ivs_lb_depend_on_simd_iv)
         {
-            walk(loop_control);
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: IVs init depend on SIMD IV\n");
+            }
+        }
+        // Step
+        bool ivs_step_depend_on_simd_iv =
+            loop_info.ivs_step_depend_on_simd_iv();
+
+        if (ivs_step_depend_on_simd_iv)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: IVs step depend on SIMD IV\n");
+            }
         }
 
-        // Vectorize loop body
-        _environment._local_scope_list.push_back(n.get_statement().as<Nodecl::List>().front().retrieve_context());
-        _environment._analysis_scopes.push_back(n);
+        // If Init or Step depends on SIMD IV both need to be vectorized
+        if (ivs_lb_depend_on_simd_iv || ivs_step_depend_on_simd_iv)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Vectorizing init\n");
+            }
+
+            visitor_expression.walk(loop_control.get_init());
+
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Vectorizing next\n");
+            }
+
+            visitor_expression.walk(loop_control.get_next());
+        }
+
+        // Condition
+        bool condition_depends_on_simd_iv =
+            loop_info.condition_depends_on_simd_iv();
+
+        if (condition_depends_on_simd_iv)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Condition depends on SIMD IV\n");
+            }
+        }
+
+        if (condition_depends_on_simd_iv)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Vectorizing loop condition\n");
+            }
+
+            // New condition: while((mask = cmp) != 0) do
+            Nodecl::NodeclBase mask_condition_symbol = Utils::get_new_mask_symbol(
+                    // To be improved
+                    n.get_parent().get_parent().get_parent().get_parent().
+                    retrieve_context(), _environment._unroll_factor, true /*ref_type*/);
+
+            Nodecl::NodeclBase condition = loop_control.get_cond();
+
+            visitor_expression.walk(condition);
+
+            Nodecl::Different new_condition =
+                Nodecl::Different::make(
+                        Nodecl::Assignment::make(mask_condition_symbol,
+                            condition.shallow_copy(),
+                            mask_condition_symbol.get_type()),
+                        const_value_to_nodecl(const_value_get_zero(4, 1)),
+                        Type::get_bool_type());
+
+            condition.replace(new_condition);
+
+            // Add loop condition as mask for vectorization
+            _environment._mask_list.push_back(mask_condition_symbol);
+        }
+
+        // LOOP BODY
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
+        }
+
+
+        _environment._local_scope_list.push_back(n.get_statement().
+                as<Nodecl::List>().front().retrieve_context());
+
         walk(n.get_statement());
+
         _environment._analysis_scopes.pop_back();
         _environment._local_scope_list.pop_back();
+
+
+        if(condition_depends_on_simd_iv) // Remove mask pushed by loop control
+        {
+            _environment._mask_list.pop_back();
+        }
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: -------------------------------\n");
+        }
     }
 
 #define MASK_CHECK_THRESHOLD 9
@@ -292,7 +402,7 @@ namespace Vectorization
                 // Remove previous mask. It will never be used again.
                 _environment._mask_list.pop_back();
 
-                ObjectList<Nodecl::NodeclBase> bb_predecessor_masks;
+                objlist_nodecl_t bb_predecessor_masks;
                 bb_predecessor_masks.push_back(if_mask_symbol);
                 bb_predecessor_masks.push_back(else_mask_nodecl);
 

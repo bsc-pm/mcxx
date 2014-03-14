@@ -77,6 +77,10 @@ namespace TL
                         const std::string& intrin_op_name);
                 void bitwise_binary_op_lowering(const Nodecl::NodeclBase& node,
                         const std::string& intrin_op_name);
+                virtual void common_comparison_op_lowering(
+                        const Nodecl::NodeclBase& node,
+                        const std::string& float_cmp_flavor_str,
+                        const std::string& int_cmp_flavor_str);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
@@ -130,10 +134,12 @@ namespace TL
                 virtual void visit(const Nodecl::VectorAssignment& node);
                 virtual void visit(const Nodecl::VectorLoad& node);
                 virtual void visit(const Nodecl::UnalignedVectorLoad& node);
-                virtual void visit_vector_store(const Nodecl::VectorStore& node, const int hint);
+                virtual void visit_vector_store(const Nodecl::VectorStore& node,
+                        const int hint);
                 virtual void visit(const Nodecl::VectorStore& node);
                 virtual void visit(const Nodecl::VectorStreamStore& node);
-                virtual void visit_unaligned_vector_store(const Nodecl::UnalignedVectorStore& node,
+                virtual void visit_unaligned_vector_store(
+                        const Nodecl::UnalignedVectorStore& node,
                         const int hint);
                 virtual void visit(const Nodecl::UnalignedVectorStore& node);
                 virtual void visit(const Nodecl::UnalignedVectorStreamStore& node);
@@ -160,47 +166,10 @@ namespace TL
 
                 virtual void visit(const Nodecl::MaskLiteral& node);
 
-                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+                virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(
+                        const Nodecl::NodeclBase& n);
         };
     }
 }
-
-#define _CMP_EQ_OQ     0x00
-#define _CMP_LT_OS     0x01
-#define _CMP_LE_OS     0x02
-#define _CMP_UNORD_Q   0x03
-#define _CMP_NEQ_UQ    0x04
-#define _CMP_NLT_US    0x05
-#define _CMP_NLE_US    0x06
-#define _CMP_ORD_Q     0x07
-#define _CMP_EQ_UQ     0x08
-#define _CMP_NGE_US    0x09
-#define _CMP_NGT_US    0x0A
-#define _CMP_FALSE_OQ  0x0B
-#define _CMP_NEQ_OQ    0x0C
-#define _CMP_GE_OS     0x0D
-#define _CMP_GT_OS     0x0E
-#define _CMP_TRUE_UQ   0x0F
-#define _CMP_EQ_OS     0x10
-#define _CMP_LT_OQ     0x11
-#define _CMP_LE_OQ     0x12
-#define _CMP_UNORD_S   0x13
-#define _CMP_NEQ_US    0x14
-#define _CMP_NLT_UQ    0x15
-#define _CMP_NLE_UQ    0x16
-#define _CMP_ORD_S     0x17
-#define _CMP_EQ_US     0x18
-#define _CMP_NGE_UQ    0x19
-#define _CMP_NGT_UQ    0x1A
-#define _CMP_FALSE_OS  0x1B
-#define _CMP_NEQ_OS    0x1C
-#define _CMP_GE_OQ     0x1D
-#define _CMP_GT_OQ     0x1E
-#define _CMP_TRUE_US   0x1F
-
-#define _MM_HINT_NONE 0x0
-#define _MM_HINT_NT   0x1
-
-#define _MM_FROUND_CUR_DIRECTION     0x04
 
 #endif // KNC_VECTOR_LOWERING_HPP

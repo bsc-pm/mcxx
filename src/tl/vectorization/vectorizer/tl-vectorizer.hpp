@@ -33,10 +33,8 @@
 #include "tl-nodecl-base.hpp"
 
 #include "tl-vectorization-common.hpp"
-//#include "tl-vectorization-utils.hpp"
 #include "tl-function-versioning.hpp"
 #include "tl-vectorizer-cache.hpp"
-#include "tl-vectorizer-analysis.hpp"
 
 namespace TL
 {
@@ -48,7 +46,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
 
-                static VectorizerAnalysisStaticInfo *_analysis_info;
+//                static VectorizerAnalysisStaticInfo *_analysis_info;
 
                 bool _avx2_enabled;
                 bool _knc_enabled;
@@ -61,7 +59,8 @@ namespace TL
 
             public:
                 static Vectorizer& get_vectorizer();
-                static void initialize_analysis(const Nodecl::FunctionCode& enclosing_function);
+                static void initialize_analysis(
+                        const Nodecl::FunctionCode& function_code);
                 static void finalize_analysis();
 
                 ~Vectorizer();
@@ -118,15 +117,7 @@ namespace TL
                 void enable_svml_knc();
                 void enable_fast_math();
 
-                friend class VectorizerAnalysisStaticInfo;
-                friend class VectorizerVisitorFor;
-                friend class VectorizerVisitorForEpilog;
-                friend class VectorizerVisitorLoopCond;
-                friend class VectorizerVisitorLoopNext;
-                friend class VectorizerVisitorFunction;
-                friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
-                friend class VectorizerVisitorLoopHeader;
         };
    }
 }

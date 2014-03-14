@@ -24,8 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
+
+#include "tl-vectorization-utils.hpp"
 
 namespace TL
 {

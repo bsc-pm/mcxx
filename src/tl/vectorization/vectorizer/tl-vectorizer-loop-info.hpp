@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,32 +24,43 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_VISITOR_FUNCTION_HPP
-#define TL_VECTORIZER_VISITOR_FUNCTION_HPP
+#ifndef TL_VECTORIZER_LOOP_INFO_HPP
+#define TL_VECTORIZER_LOOP_INFO_HPP
 
-#include "tl-nodecl-visitor.hpp"
-
+#include "tl-nodecl-base.hpp"
+#include "tl-analysis-utils.hpp"
 #include "tl-vectorizer-environment.hpp"
+
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+    class VectorizerLoopInfo
     {
-        class VectorizerVisitorFunction : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                VectorizerEnvironment& _environment;
-                const bool _masked_version;
+        private:
+            const VectorizerEnvironment _environment;
 
-            public:
-                VectorizerVisitorFunction(VectorizerEnvironment& environment,
-                        const bool masked_version);
+            const Nodecl::NodeclBase _loop;
+            const Nodecl::NodeclBase _condition;
+            const objlist_nodecl_t _ivs;
 
-                virtual void visit(const Nodecl::FunctionCode& function_code);
+        public:
+            VectorizerLoopInfo(const Nodecl::ForStatement& n,
+                    const VectorizerEnvironment& environment);
+            VectorizerLoopInfo(const Nodecl::WhileStatement& n,
+                    const VectorizerEnvironment& environment);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
-    }
+            bool ivs_lb_depend_on_simd_iv();
+            bool condition_depends_on_simd_iv();
+            bool ivs_ub_depend_on_simd_iv();
+            bool ivs_step_depend_on_simd_iv();
+
+            int get_epilog_info(const Nodecl::ForStatement& for_statement,
+                    VectorizerEnvironment& environment, bool& only_epilog);
+    };
+}
 }
 
-#endif //TL_VECTORIZER_VISITOR_FUNCTION_HPP
+#endif //TL_VECTORIZER_LOOP_INFO_HPP
+
