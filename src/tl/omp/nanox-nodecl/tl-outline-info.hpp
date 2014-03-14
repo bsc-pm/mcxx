@@ -65,6 +65,8 @@ namespace TL
                     SHARING_PRIVATE,
 
                     SHARING_REDUCTION,
+                    // Reductions on tasks
+                    SHARING_CONCURRENT_REDUCTION,
                     // Like SHARING_SHARED but we do not keep the address of
                     // the symbol but of the _base_address_expression
                     // This is used for dependences in function tasks
@@ -561,7 +563,7 @@ namespace TL
                 void add_capture(Symbol sym);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr);
                 void add_capture_with_value(Symbol sym, Nodecl::NodeclBase expr, Nodecl::NodeclBase condition);
-                void add_reduction(TL::Symbol symbol, TL::Type reduction_type, OpenMP::Reduction* reduction);
+                void add_reduction(TL::Symbol symbol, TL::Type reduction_type, OpenMP::Reduction* reduction, OutlineDataItem::Sharing kind);
 
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t);
                 TL::Type add_extra_dimensions(TL::Symbol sym, TL::Type t, OutlineDataItem* outline_data_item);

@@ -92,7 +92,7 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
+                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine, bool is_inline_task);
 
                 Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);

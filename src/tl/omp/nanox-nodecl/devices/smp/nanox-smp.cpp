@@ -425,6 +425,7 @@ namespace TL { namespace Nanox {
                         break;
                     }
                 case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         // // Pass the original reduced variable as if it were a shared
                         Source argument;

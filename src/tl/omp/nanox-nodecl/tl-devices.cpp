@@ -288,6 +288,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
                 case OutlineDataItem::SHARING_REDUCTION:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 name.c_str());
@@ -558,6 +559,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_SHARED_ALLOCA:
                 case OutlineDataItem::SHARING_CAPTURE:
                 case OutlineDataItem::SHARING_CAPTURE_ADDRESS:
+                case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
                                 name.c_str());
