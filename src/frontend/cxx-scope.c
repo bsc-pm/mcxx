@@ -3294,7 +3294,6 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (is_dependent_typename_type(fixed_type))
         {
-            cv_qualifier_t cv_qualif_dep = get_cv_qualifier(fixed_type);
             // We are updating the base entry (T) of a dependent typename
             // [T]::T1 with another dependent typename [S]::S2
             // so the updated type should be [S]::S2::T1
@@ -3334,8 +3333,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
             xfree(list);
 
-            cv_qualif |= cv_qualif_dep;
-
             fixed_type = get_user_defined_type(fix_dependent_entry);
 
             dependent_parts = nodecl_make_cxx_dep_name_nested(appended_dependent_parts, 
@@ -3372,7 +3369,14 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (updated_type != NULL)
         {
-            updated_type = get_cv_qualified_type(updated_type, cv_qualif);
+            // We are not reconstructing a type but making a replacement, so we
+            // have to add qualifiers rather than simply restoring the original
+            // one
+            cv_qualifier_t cv_qualifiers_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(updated_type, &cv_qualifiers_new);
+
+            updated_type = get_cv_qualified_type(updated_type, 
+                    cv_qualifiers_new | cv_qualif);
         }
 
         return updated_type;
