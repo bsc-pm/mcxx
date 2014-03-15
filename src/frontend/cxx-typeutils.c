@@ -2573,9 +2573,9 @@ static type_t* template_type_get_specialized_type_(
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
-        // We will ignore nonidentical matches of existing specializations
-        // for functions
-        existing_spec = NULL;
+        // For template functions, nonidentical matches are OK
+        if (existing_spec != NULL)
+            return existing_spec;
 
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
