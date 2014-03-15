@@ -2641,7 +2641,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
     if (is_named_type(orig_type))
     {
-        scope_entry_t* entry = named_type_get_symbol(orig_type);
+        scope_entry_t* orig_symbol = named_type_get_symbol(orig_type);
 
         // Nesting level does not have to be checked because 
         // instantiation will do all the work automatically
@@ -2670,37 +2670,43 @@ static type_t* update_type_aux_(type_t* orig_type,
         //
         // A<int> it is actually A<int, int*>
         //
-        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+        if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || orig_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                 // template packs
-                || entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                || orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                || orig_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
-            scope_entry_t* argument = lookup_of_template_parameter(
+            scope_entry_t* new_symbol = lookup_of_template_parameter(
                     decl_context,
-                    entry->entity_specs.template_parameter_nesting,
-                    entry->entity_specs.template_parameter_position);
+                    orig_symbol->entity_specs.template_parameter_nesting,
+                    orig_symbol->entity_specs.template_parameter_position);
 
-            if (argument == NULL)
+            if (new_symbol == NULL)
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "SCOPE: No update performed for template parameter '%s'"
-                            " since a template argument for it was not found\n",
+                            " since a template new_symbol for it was not found\n",
                             print_declarator(orig_type));
                 }
                 return orig_type;
             }
 
-            if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                        && argument->kind == SK_TEMPLATE_TYPE_PARAMETER)
+            // Note that for template-types (not specializations) do not have cv-qualifiers
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            cv_qualifier_t cv_qualif_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(new_symbol->type_information, &cv_qualif_new);
+
+            if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
+                        && new_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER)
             {
                 // A type template parameter replaced by another one
-                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                return get_cv_qualified_type(get_user_defined_type(argument), cv_qualif);
+                return get_cv_qualified_type(get_user_defined_type(new_symbol), cv_qualif_orig | cv_qualif_new);
             }
-            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    && argument->kind == SK_TYPEDEF)
+            else if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
+                    && new_symbol->kind == SK_TYPEDEF)
             {
                 // A type template parameter replaced by another type
                 //
@@ -2710,28 +2716,26 @@ static type_t* update_type_aux_(type_t* orig_type,
                 //   struct A { };
                 //
                 //   A<const int>   ->   A<const int, const volatile int>
-                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                cv_qualif |= get_cv_qualifier(argument->type_information);
-                return get_cv_qualified_type(argument->type_information, cv_qualif);
+
+                return get_cv_qualified_type(new_symbol->type_information, cv_qualif_orig | cv_qualif_new);
             }
-            else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                    && (argument->kind == SK_TEMPLATE
-                        || argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+            else if (orig_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    && (new_symbol->kind == SK_TEMPLATE
+                        || new_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
             {
                 // A template template parameter replaced by a template-name (SK_TEMPLATE) or
                 // another template template parameter (SK_TEMPLATE_TEMPLATE_PARAMETER)
-                return get_user_defined_type(argument);
+                return get_user_defined_type(new_symbol);
             }
-            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                    && argument->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
+            else if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    && new_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
             {
                 // A type template parameter pack replaced by another template
                 // type parameter pack
-                // FIXME - Should we augment the qualifier of the packed type as well?
-                return get_user_defined_type(argument);
+                return get_cv_qualified_type(get_user_defined_type(new_symbol), cv_qualif_orig | cv_qualif_new);
             }
-            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                    && argument->kind == SK_TYPEDEF)
+            else if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    && new_symbol->kind == SK_TYPEDEF)
             {
                 // This happens when the template pack is used as a type-name _inside_
                 // a pack expansion.
@@ -2745,86 +2749,85 @@ static type_t* update_type_aux_(type_t* orig_type,
                 //      void f(B<S>...);
                 // };
                 //
-                // B<S>... has to expand into B<S, S*>... but note that the argument S is a pack
+                // B<S>... has to expand into B<S, S*>... but note that the new_symbol S is a pack
                 // while M is a typedef (the type of which is T*)
 
-                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                cv_qualif |= get_cv_qualifier(argument->type_information);
-                return get_cv_qualified_type(argument->type_information, cv_qualif);
+                return get_cv_qualified_type(new_symbol->type_information, cv_qualif_orig | cv_qualif_new);
             }
-            else if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                    && argument->kind == SK_TYPEDEF_PACK)
+            else if (orig_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    && new_symbol->kind == SK_TYPEDEF_PACK)
             {
-                if (is_named_type(argument->type_information)
-                        && named_type_get_symbol(argument->type_information)->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                if (is_named_type(new_symbol->type_information)
+                        && named_type_get_symbol(new_symbol->type_information)->kind == SK_TEMPLATE_TYPE_PARAMETER)
                 {
                     // This happens when unification has unified a pack with another T... <- S... (may happen
                     // when ordering two partial specializations)
-                    return argument->type_information;
+                    return get_cv_qualified_type(new_symbol->type_information, cv_qualif_orig | cv_qualif_new);
                 }
                 else
                 {
-                    // FIXME - We may need to add up the cv-qualifier to the
-                    // members of the sequence type
                     if (pack_index < 0)
                     {
                         // If we are not expanding. Return the sequence as a whole
-                        return argument->type_information;
+                        return get_cv_qualified_type(new_symbol->type_information, cv_qualif_orig | cv_qualif_new);
                     }
                     else
                     {
                         // We are expanding a pack, return the requested index in
                         // the sequence
-                        return sequence_of_types_get_type_num(
-                                argument->type_information,
+
+                        type_t* item = sequence_of_types_get_type_num(
+                                new_symbol->type_information,
                                 pack_index);
+
+                        return get_cv_qualified_type(item, cv_qualif_orig | cv_qualif_new);
                     }
                 }
             }
-            else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
-                    && argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+            else if (orig_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+                    && new_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
             {
                 // A template-template parameter pack being replaced with
                 // another template-template parameter pack
-                ERROR_CONDITION(!is_pack_type(argument->type_information),
-                        "This type should be a pack type but it is '%s'", print_declarator(argument->type_information));
-                return argument->type_information;
+                ERROR_CONDITION(!is_pack_type(new_symbol->type_information),
+                        "This type should be a pack type but it is '%s'", print_declarator(new_symbol->type_information));
+                return new_symbol->type_information;
             }
-            else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
-                    && argument->kind == SK_TEMPLATE_PACK)
+            else if (orig_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+                    && new_symbol->kind == SK_TEMPLATE_PACK)
             {
                 // A template template parameter pack replaced by a sequence of templates
-                ERROR_CONDITION(!is_sequence_of_types(argument->type_information),
-                        "This type should be a sequence of types but it is '%s'", print_declarator(argument->type_information));
+                ERROR_CONDITION(!is_sequence_of_types(new_symbol->type_information),
+                        "This type should be a sequence of types but it is '%s'", print_declarator(new_symbol->type_information));
                 // FIXME - We may need to add up the cv-qualifier to the
                 // members of the sequence type
                 if (pack_index < 0)
                 {
                     // If we are not expanding. Return the sequence as a whole
-                    return argument->type_information;
+                    return new_symbol->type_information;
                 }
                 else
                 {
                     // We are expanding a pack, return the requested index in
                     // the sequence
                     return sequence_of_types_get_type_num(
-                            argument->type_information,
+                            new_symbol->type_information,
                             pack_index);
                 }
             }
             else
             {
-                internal_error("Wrong pair template-parameter = %s vs template-argument = %s",
-                        symbol_kind_name(entry),
-                        symbol_kind_name(argument));
+                internal_error("Wrong pair template-parameter = %s vs template-new_symbol = %s",
+                        symbol_kind_name(orig_symbol),
+                        symbol_kind_name(new_symbol));
             }
         }
-        else if (entry->kind == SK_TEMPLATE)
+        else if (orig_symbol->kind == SK_TEMPLATE)
         {
             // A template-name return ummodified
             return orig_type;
         }
-        else if (is_template_specialized_type(entry->type_information))
+        else if (is_template_specialized_type(orig_symbol->type_information))
         {
             // Update the arguments of this templated type
             //
@@ -2834,7 +2837,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             // };
 
             type_t* template_type = 
-                template_specialized_type_get_related_template_type(entry->type_information);
+                template_specialized_type_get_related_template_type(orig_symbol->type_information);
             scope_entry_t* template_related_symbol =
                 template_type_get_related_symbol(template_type);
 
@@ -2849,7 +2852,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                         template_related_symbol->entity_specs.template_parameter_nesting,
                         template_related_symbol->entity_specs.template_parameter_position);
 
-                ERROR_CONDITION(entry == NULL, "This should not be NULL", 0);
+                ERROR_CONDITION(orig_symbol == NULL, "This should not be NULL", 0);
 
                 // Now update the template_type with the new one
                 template_type = argument->type_information;
@@ -2865,7 +2868,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             template_parameter_list_t* current_template_arguments =
-                template_specialized_type_get_template_arguments(entry->type_information);
+                template_specialized_type_get_template_arguments(orig_symbol->type_information);
 
             // First make an update for all the current template arguments
             template_parameter_value_t **updated_parameter_values = xcalloc(current_template_arguments->num_parameters, 
@@ -3007,11 +3010,11 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             return updated_specialized;
         }
-        else if (entry->kind == SK_TYPEDEF)
+        else if (orig_symbol->kind == SK_TYPEDEF)
         {
             cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
             return get_cv_qualified_type(
-                    update_type_aux_(entry->type_information,
+                    update_type_aux_(orig_symbol->type_information,
                         decl_context,
                         locus, instantiation_symbol_map, pack_index),
                     cv_qualif);
