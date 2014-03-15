@@ -121,7 +121,8 @@ namespace Vectorization
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "VECTORIZER: Condition depends on SIMD IV\n");
+                fprintf(stderr, "VECTORIZER: Condition '%s' depends on SIMD IV\n",
+                        loop_control.get_cond().prettyprint().c_str());
             }
         }
 
