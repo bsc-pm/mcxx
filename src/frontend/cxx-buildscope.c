@@ -16506,7 +16506,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         C_LANGUAGE()
         {
             standard_conversion_t dummy;
-            if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type()))
+            if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type(), ast_get_locus(a)))
             {
                 if (!checking_ambiguity())
                 {

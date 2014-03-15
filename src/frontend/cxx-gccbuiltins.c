@@ -3244,9 +3244,14 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             }
             else
             {
+                // We do not have locus
+                const locus_t* locus = make_locus("", 0, 0);
                 // Allow conversions here
                 standard_conversion_t scs;
-                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
+                all_arguments_matched = standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus);
             }
         }
 

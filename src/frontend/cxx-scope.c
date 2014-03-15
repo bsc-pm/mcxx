@@ -4176,7 +4176,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     if (!is_dependent_type(arg_type))
                     {
                         standard_conversion_t scs_conv;
-                        if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(dest_type)))
+                        if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(dest_type), locus))
                         {
                             DEBUG_CODE()
                             {
@@ -4330,7 +4330,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             if (!is_dependent_type(arg_type))
                             {
                                 standard_conversion_t scs_conv;
-                                if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(parameter_type)))
+                                if (!standard_conversion_between_types(&scs_conv, arg_type, get_unqualified_type(parameter_type), locus))
                                 {
                                     DEBUG_CODE()
                                     {
@@ -5996,6 +5996,14 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             void* data),
         void *extra_data)
 {
+    ERROR_CONDITION(previous_symbol != NULL
+            && previous_symbol->kind != SK_NAMESPACE
+            && previous_symbol->kind != SK_CLASS
+            && (!IS_CXX11_LANGUAGE && previous_symbol->kind != SK_ENUM),
+            "Invalid previous symbol '%s' of kind '%s'\n",
+            previous_symbol->symbol_name,
+            symbol_kind_name(previous_symbol));
+
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_NESTED
             && nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
             "Invalid nodecl", 0);
@@ -6675,8 +6683,10 @@ static char check_symbol_is_base_or_member(
             }
             return 0;
         }
-        else if (!class_type_is_base(nested_name_spec_symbol->type_information,
-                    class_symbol->type_information))
+        else if (!class_type_is_base_instantiating(
+                    nested_name_spec_symbol->type_information,
+                    class_symbol->type_information,
+                    locus))
         {
             if (!checking_ambiguity())
             {
@@ -6704,9 +6714,10 @@ static char check_symbol_is_base_or_member(
 
     // If we are the last component we must be a member of class_symbol
     if (!(current_symbol->entity_specs.is_member
-                && class_type_is_base(
+                && class_type_is_base_instantiating(
                     current_symbol->entity_specs.class_type,
-                    get_user_defined_type(class_symbol))))
+                    get_user_defined_type(class_symbol),
+                    locus)))
     {
         if (!checking_ambiguity())
         {

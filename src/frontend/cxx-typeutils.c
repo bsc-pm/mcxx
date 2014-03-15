@@ -45,6 +45,7 @@
 #include "cxx-codegen.h"
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-gccbuiltins.h"
+#include "cxx-instantiation.h"
 
 #include "fortran03-scope.h"
 
@@ -7666,18 +7667,10 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     if (equivalent_types(possible_base, possible_derived))
         return 1;
 
-    if (is_named_class_type(possible_base))
-    {
-        possible_base = named_type_get_symbol(possible_base)->type_information;
-    }
-    if (is_named_class_type(possible_derived))
-    {
-        ERROR_CONDITION(is_named_type(possible_derived)
-                && class_type_is_incomplete_independent(get_actual_class_type(possible_derived)),
-                "Cannot test if a class type is derived of another if "
-                "the potentially derived is independent incomplete\n", 0);
-        possible_derived = named_type_get_symbol(possible_derived)->type_information;
-    }
+    ERROR_CONDITION(
+            class_type_is_incomplete_independent(possible_derived),
+            "Cannot test if class type is derived of another if "
+            "the potentially derived is independent incomplete\n", 0);
 
     // Search in bases of the derived
     int i;
@@ -7720,6 +7713,30 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     return 0;
 }
 
+char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus)
+{
+    CXX_LANGUAGE()
+    {
+        if (class_type_is_incomplete_independent(possible_derived))
+        {
+            if (is_named_class_type(possible_derived))
+            {
+                instantiate_template_class_if_possible(
+                        named_type_get_symbol(possible_derived),
+                        named_type_get_symbol(possible_derived)->decl_context,
+                        locus);
+            }
+            else
+            {
+                internal_error("An unnamed incomplete template dependent type is not valid here", 0);
+            }
+        }
+    }
+
+    return class_type_is_base(possible_base, possible_derived);
+}
+
+
 char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived)
 {
     possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
@@ -7735,14 +7752,39 @@ char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived)
     return class_type_is_base(possible_base, possible_derived);
 }
 
+char class_type_is_base_strict_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus)
+{
+    possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
+    possible_derived = get_unqualified_type(advance_over_typedefs(possible_derived));
+
+    ERROR_CONDITION(!is_class_type(possible_base)
+            || !is_class_type(possible_derived), 
+            "This function expects class types", 0);
+
+    if (equivalent_types(possible_base, possible_derived))
+        return 0;
+
+    return class_type_is_base_instantiating(possible_base, possible_derived, locus);
+}
+
 char class_type_is_derived(type_t* possible_derived, type_t* possible_base)
 {
     return class_type_is_base(possible_base, possible_derived);
 }
 
+char class_type_is_derived_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus)
+{
+    return class_type_is_base_instantiating(possible_base, possible_derived, locus);
+}
+
 char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base)
 {
     return class_type_is_base_strict(possible_base, possible_derived);
+}
+
+char class_type_is_derived_strict_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus)
+{
+    return class_type_is_base_strict_instantiating(possible_base, possible_derived, locus);
 }
 
 char is_pointer_to_void_type(type_t* t)
@@ -9923,15 +9965,8 @@ static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_cont
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
-    DEBUG_CODE()
-    {
-        if (printed_declarator == NULL)
-        {
-            return "<<NULL>>";
-        }
-    }
-
-    ERROR_CONDITION(printed_declarator == NULL, "This cannot be null", 0);
+    if (printed_declarator == NULL)
+        return "<<NULL>>";
 
     const char* tmp_result = "";
 
@@ -9950,6 +9985,9 @@ const char* print_declarator(type_t* printed_declarator)
         tmp_result = "< unresolved overload function type >";
         return tmp_result;
     }
+
+    char debug = CURRENT_CONFIGURATION->debug_options.enable_debug_code;
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 
     do 
     {
@@ -10203,6 +10241,8 @@ const char* print_declarator(type_t* printed_declarator)
                 }
         }
     } while (printed_declarator != NULL);
+
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = debug;
 
     return tmp_result;
 }
@@ -10469,7 +10509,8 @@ static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
 
 }
 
-char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
+char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest,
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -10541,7 +10582,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
@@ -10567,7 +10608,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
@@ -10604,8 +10645,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         char ok = 0;
         if (is_class_type(no_ref(orig))
                 && is_class_type(no_ref(dest))
-                && class_type_is_base(no_ref(dest),
-                    get_unqualified_type(no_ref(orig)))
+                && class_type_is_base_instantiating(no_ref(dest),
+                    get_unqualified_type(no_ref(orig)),
+                    locus)
                 && !class_type_is_ambiguous_base_of_derived_class(
                     no_ref(dest),
                     no_ref(orig)))
@@ -10614,7 +10656,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (standard_conversion_between_types(&conversion_among_lvalues,
                     no_ref(orig),
-                    get_unqualified_type(no_ref(dest))))
+                    get_unqualified_type(no_ref(dest)),
+                    locus))
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
@@ -11017,7 +11060,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
-                && pointer_to_class_type_is_base_strict(dest, orig)
+                && class_type_is_base_strict_instantiating(
+                    pointer_type_get_pointee_type(dest),
+                    pointer_type_get_pointee_type(orig), locus)
                 && !class_type_is_ambiguous_base_of_derived_class(
                         pointer_type_get_pointee_type(dest),
                         pointer_type_get_pointee_type(orig)))
@@ -11039,7 +11084,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 && is_pointer_to_member_type(dest)
                 // Note: we will check that they are valid pointer-to-members later, in qualification conversion
                 // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest))
+                && class_type_is_base_strict_instantiating(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest), locus)
                 && !class_type_is_ambiguous_base_of_derived_class(pointer_to_member_type_get_class_type(orig),
                     pointer_to_member_type_get_class_type(dest)))
         {
