@@ -1030,9 +1030,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxMemberInit& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
-    TL::Type t = node.get_type();
+    TL::Type type = node.get_type();
 
-    *(file) << this->get_declaration(t, this->get_current_scope(),  "");
+    if (type.is_signed_short_int())
+    {
+        *(file) << "short";
+    }
+    else if (type.is_signed_long_int())
+    {
+        *(file) << "long";
+    }
+    else if (type.is_unsigned_int())
+    {
+        *(file) << "unsigned";
+    }
+    else
+    {
+        *(file) << this->get_declaration(type, this->get_current_scope(),  "");
+    }
 
     walk(node.get_init_list());
 }
