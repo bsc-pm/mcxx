@@ -1322,17 +1322,17 @@ namespace Vectorization
                         _environment._local_scope_list.back().get_decl_context().current_scope,
                         n.get_symbol().get_scope().get_decl_context().current_scope))
             {
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr,"VECTORIZER: Type promotion '%s'\n",
-                            n.prettyprint().c_str());
-                }
-
                 //std::cerr << "NS scalar_type: " << n.prettyprint() << std::endl;
 
                 //TL::Symbol
                 if (tl_sym_type.is_scalar_type())
                 {
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr,"VECTORIZER: Type promotion '%s'\n",
+                                n.prettyprint().c_str());
+                    }
+
                     //std::cerr << "TS scalar_type: " << n.prettyprint() << std::endl;
                     tl_sym.set_type(Utils::get_qualified_vector_to(tl_sym_type,
                                 _environment._unroll_factor));
