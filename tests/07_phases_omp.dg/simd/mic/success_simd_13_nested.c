@@ -45,7 +45,7 @@ void foo(float *A, float *B, float *C)
 
         int k = m;
 
-        for (j = 0; j < 10; j++)
+        for (j = 0; j < 10; j+=1)
         {
             B[i] += A[k] + C[j];
         }
@@ -60,7 +60,7 @@ void foo(float *A, float *B, float *C)
 
         int k = m;
 
-        for (j = 0; j < 10; j++)
+        for (j = 0; j < 10; j+=1)
         {
             A[k] = B[i] + C[j];
         }

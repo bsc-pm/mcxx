@@ -30,6 +30,8 @@ test_generator=config/mercurium-serial-simd-mic
 </testinfo>
 */
 
+#include <stdio.h>
+
 #define VECTOR_SIZE 64
 
 void foo_simd(float * __restrict__ __attribute__((__aligned__(VECTOR_SIZE))) b,
