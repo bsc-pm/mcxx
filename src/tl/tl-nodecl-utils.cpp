@@ -1447,6 +1447,29 @@ namespace Nodecl
         }
     }
 
+    void Utils::ExprFinderVisitor::quaternary_visitor( const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
+            const Nodecl::NodeclBase& third, const Nodecl::NodeclBase& fourth )
+    {
+        if( equal_nodecls( n, _n ) )
+            _nodecl_is_found = true;
+        else
+        {
+            walk( first );
+            if( !_nodecl_is_found )
+            {
+                walk( second );
+                if( !_nodecl_is_found )
+                {
+                    walk( third );
+                    if( !_nodecl_is_found )
+                        walk( fourth );
+                }
+            }
+        }
+    }
+
+
     void Utils::ExprFinderVisitor::unary_visitor( const Nodecl::NodeclBase& n,
                                                   const Nodecl::NodeclBase& rhs )
     {
@@ -1532,12 +1555,22 @@ namespace Nodecl
         unary_visitor( n, n.get_rhs( ) );
     }
 
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Different& n )
+    {
+        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::Div& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
     void Utils::ExprFinderVisitor::visit( const Nodecl::DivAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::Equal& n )
     {
         binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
     }
@@ -1570,6 +1603,21 @@ namespace Nodecl
     void Utils::ExprFinderVisitor::visit( const Nodecl::LowerThan& n )
     {
         binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::LowerOrEqualThan& n )
+    {
+        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::MaskLiteral& n )
+    {
+        if( equal_nodecls( n, _n ) )
+        {
+            if (const_value_eq(n.get_constant(),
+                        _n.get_constant()))
+                _nodecl_is_found = true;
+        }
     }
 
     void Utils::ExprFinderVisitor::visit( const Nodecl::Minus& n )
@@ -1678,8 +1726,32 @@ namespace Nodecl
         ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
     }
 
-
     void Utils::ExprFinderVisitor::visit( const Nodecl::VectorAdd& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorAssignment& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorBitwiseShl& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorBitwiseShlI& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorBitwiseShr& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorBitwiseShrI& n )
     {
         ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
     }
@@ -1689,9 +1761,64 @@ namespace Nodecl
         binary_visitor( n, n.get_nest(), n.get_mask());
     }
 
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorDiv& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorFabs& n )
+    {
+        binary_visitor(n, n.get_argument(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorFunctionCall& n )
+    {
+        walk(n.get_function_call());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorGather& n )
+    {
+        ternary_visitor( n, n.get_base(), n.get_strides(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorGreaterThan& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorGreaterOrEqualThan& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorLiteral& n )
+    {
+        if( equal_nodecls( n, _n ) )
+        {
+            if (const_value_eq(n.get_constant(),
+                        _n.get_constant()))
+                _nodecl_is_found = true;
+        }
+    }
+
     void Utils::ExprFinderVisitor::visit( const Nodecl::VectorLoad& n )
     {
         binary_visitor( n, n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorLowerThan& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorLowerOrEqualThan& n )
+    {
+        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorMaskAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs(), n.get_rhs());
     }
 
     void Utils::ExprFinderVisitor::visit( const Nodecl::VectorMul& n )
@@ -1702,6 +1829,16 @@ namespace Nodecl
     void Utils::ExprFinderVisitor::visit( const Nodecl::VectorPromotion& n )
     {
         binary_visitor( n, n.get_rhs(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorReductionAdd& n )
+    {
+        ternary_visitor( n, n.get_scalar_dst(), n.get_vector_src(), n.get_mask());
+    }
+
+    void Utils::ExprFinderVisitor::visit( const Nodecl::VectorScatter& n )
+    {
+        quaternary_visitor( n, n.get_base(), n.get_strides(), n.get_source(), n.get_mask());
     }
 
     void Utils::ExprFinderVisitor::visit( const Nodecl::VectorStore& n )

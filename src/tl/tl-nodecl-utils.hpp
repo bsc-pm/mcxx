@@ -284,6 +284,9 @@ namespace Nodecl
             void ternary_visitor( const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
                     const Nodecl::NodeclBase& third );
+            void quaternary_visitor( const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
+                    const Nodecl::NodeclBase& third, const Nodecl::NodeclBase& fourth );
 
         public:
             // *** Constructor *** //
@@ -308,12 +311,16 @@ namespace Nodecl
             Ret visit( const Nodecl::ClassMemberAccess& n );
             Ret visit( const Nodecl::Conversion& n );
             Ret visit( const Nodecl::Dereference& n );
+            Ret visit( const Nodecl::Different& n );
             Ret visit( const Nodecl::Div& n );
             Ret visit( const Nodecl::DivAssignment& n );
+            Ret visit( const Nodecl::Equal& n );
             Ret visit( const Nodecl::FloatingLiteral& n );
             Ret visit( const Nodecl::FunctionCall& n );
             Ret visit( const Nodecl::IntegerLiteral& n );
             Ret visit( const Nodecl::LowerThan& n );
+            Ret visit( const Nodecl::LowerOrEqualThan& n );
+            Ret visit( const Nodecl::MaskLiteral& n );
             Ret visit( const Nodecl::Minus& n );
             Ret visit( const Nodecl::MinusAssignment& n );
             Ret visit( const Nodecl::Mod& n );
@@ -332,10 +339,27 @@ namespace Nodecl
             Ret visit( const Nodecl::UnalignedVectorLoad& n );
             Ret visit( const Nodecl::UnalignedVectorStore& n );
             Ret visit( const Nodecl::VectorAdd& n );
+            Ret visit( const Nodecl::VectorAssignment& n );
+            Ret visit( const Nodecl::VectorBitwiseShl& n );
+            Ret visit( const Nodecl::VectorBitwiseShlI& n );
+            Ret visit( const Nodecl::VectorBitwiseShr& n );
+            Ret visit( const Nodecl::VectorBitwiseShrI& n );
             Ret visit( const Nodecl::VectorConversion& n );
+            Ret visit( const Nodecl::VectorDiv& n );
+            Ret visit( const Nodecl::VectorFabs& n );
+            Ret visit( const Nodecl::VectorFunctionCall& n );
+            Ret visit( const Nodecl::VectorGather& n );
+            Ret visit( const Nodecl::VectorGreaterThan& n );
+            Ret visit( const Nodecl::VectorGreaterOrEqualThan& n );
+            Ret visit( const Nodecl::VectorLiteral& n );
             Ret visit( const Nodecl::VectorLoad& n );
+            Ret visit( const Nodecl::VectorLowerThan& n );
+            Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
             Ret visit( const Nodecl::VectorMul& n );
+            Ret visit( const Nodecl::VectorMaskAssignment& n );
             Ret visit( const Nodecl::VectorPromotion& n );
+            Ret visit( const Nodecl::VectorReductionAdd& n );
+            Ret visit( const Nodecl::VectorScatter& n );
             Ret visit( const Nodecl::VectorStore& n );
         };
     }
