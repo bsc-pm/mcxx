@@ -86,34 +86,6 @@ namespace Vectorization
                 _fast_math_enabled);
     }
 
-    void Vectorizer::load_environment(const Nodecl::ForStatement& for_statement,
-            VectorizerEnvironment& environment)
-    {
-        // Set up scopes
-        environment._external_scope =
-            for_statement.retrieve_context();
-        environment._local_scope_list.push_back(
-                for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
-
-        // Push ForStatement as scope for analysis
-        environment._analysis_simd_scope = for_statement;
-        environment._analysis_scopes.push_back(for_statement);
-
-        // Add MaskLiteral to mask_list
-        Nodecl::MaskLiteral all_one_mask =
-            Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(environment._unroll_factor),
-                    const_value_get_minus_one(environment._unroll_factor, 1));
-        environment._mask_list.push_back(all_one_mask);
-    }
-
-    void Vectorizer::unload_environment(VectorizerEnvironment& environment)
-    {
-        environment._mask_list.pop_back();
-        environment._analysis_scopes.pop_back();
-        environment._local_scope_list.pop_back();
-    }
-
     void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
             VectorizerEnvironment& environment)
     {

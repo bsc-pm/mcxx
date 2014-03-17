@@ -26,6 +26,8 @@
 
 #include "tl-vectorizer-environment.hpp"
 
+#include "cxx-cexpr.h"
+
 namespace TL
 {
 namespace Vectorization
@@ -60,6 +62,39 @@ namespace Vectorization
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);
+    }
+
+    void VectorizerEnvironment::load_environment(
+            const Nodecl::ForStatement& for_statement)
+    {
+        // Set up scopes
+        _external_scope =
+            for_statement.retrieve_context();
+        _local_scope_list.push_back(
+                for_statement.get_statement().
+                as<Nodecl::List>().front().retrieve_context());
+
+        // Push ForStatement as scope for analysis
+        _analysis_simd_scope = for_statement;
+        _analysis_scopes.push_back(for_statement);
+
+        // Add MaskLiteral to mask_list
+        Nodecl::MaskLiteral all_one_mask =
+            Nodecl::MaskLiteral::make(
+                    TL::Type::get_mask_type(_unroll_factor),
+                    const_value_get_minus_one(_unroll_factor, 1));
+        _mask_list.push_back(all_one_mask);
+    }
+
+    void VectorizerEnvironment::unload_environment()
+    {
+        // Cleaning stacks and nullifying scopes
+        _external_scope = TL::Scope();
+        _analysis_simd_scope = Nodecl::NodeclBase::null();
+
+        _mask_list.pop_back();
+        _analysis_scopes.pop_back();
+        _local_scope_list.pop_back();
     }
 
     VectorizerEnvironment::~VectorizerEnvironment()

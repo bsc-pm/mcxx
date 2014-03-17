@@ -82,6 +82,9 @@ namespace TL
 
                 ~VectorizerEnvironment();
 
+                void load_environment(const Nodecl::ForStatement& for_statement);
+                void unload_environment();
+
                 friend class Vectorizer;
                 friend class VectorizerAnalysisStaticInfo;
                 friend class VectorizerCache;

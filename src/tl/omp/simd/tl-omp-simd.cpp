@@ -279,7 +279,7 @@ namespace TL {
                     for_environment, only_epilog);
 
             // Add scopes, default masks, etc.
-            _vectorizer.load_environment(for_statement, for_environment);
+            for_environment.load_environment(for_statement);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
@@ -291,8 +291,6 @@ namespace TL {
             {
                 _vectorizer.vectorize(for_statement, for_environment);
             }
-
-            _vectorizer.unload_environment(for_environment);
 
             // Add new vector symbols
             if (!new_external_vector_symbol_map.empty())
@@ -352,11 +350,17 @@ namespace TL {
                 // firstprivate in SIMD
             }
 
+            for_environment.unload_environment();
+
             // Process epilog
             if (epilog_iterations != 0)
             {
                 Nodecl::NodeclBase net_epilog_node;
                 Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.get_statement().as<Nodecl::ForStatement>();
+
+                // Load environment epilog
+                for_environment.load_environment(for_stmt_epilog);
+
                 _vectorizer.process_epilog(for_stmt_epilog,
                         for_environment,
                         net_epilog_node,
@@ -367,6 +371,7 @@ namespace TL {
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
 
+                for_environment.unload_environment();
             }
             else // Remove epilog
             {
@@ -503,7 +508,7 @@ namespace TL {
                     for_environment, only_epilog);
 
             // Add scopes, default masks, etc.
-            _vectorizer.load_environment(for_statement, for_environment);
+            for_environment.load_environment(for_statement);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
@@ -516,7 +521,7 @@ namespace TL {
                 _vectorizer.vectorize(for_statement, for_environment);
             }
 
-            _vectorizer.unload_environment(for_environment);
+            for_environment.unload_environment();
 
             // Add new vector symbols
             Nodecl::List pre_for_nodecls, post_for_nodecls;
