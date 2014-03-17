@@ -140,11 +140,11 @@ namespace Analysis {
 
             bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
 
-            bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
-            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
-            bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
@@ -403,9 +403,12 @@ namespace Analysis {
                                       std::map<Node*, std::set<int> >& visits,
                                       std::set<Nodecl::Symbol>& visited_syms );
         bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
-        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current,
-                                               int recursion_level, std::map<Node*, std::set<int> >& visits,
-                                               std::set<Nodecl::Symbol>& visited_syms );
+        bool var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
+                int recursion_level, std::map<Node*, std::set<int> >& visits,
+                std::set<Nodecl::Symbol>& visited_syms );
+        bool var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
+                int recursion_level, std::map<Node*, std::set<int> >& visits,
+                std::set<Nodecl::Symbol>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
 

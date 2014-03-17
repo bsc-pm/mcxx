@@ -77,14 +77,14 @@ namespace Analysis {
     }
 
     bool NodeclStaticInfo::is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n,
-                                                        Node* scope_node, Node* n_node ) const
+                                                        Node* scope_node/*, Node* n_node*/ ) const
     {
-        return contains_induction_variable( n, scope_node, n_node ) ||
-            var_is_iv_dependent_in_scope( n, scope_node, n_node );
+        return contains_induction_variable( n, scope_node/*, n_node*/ ) ||
+            var_is_iv_dependent_in_scope( n, scope_node/*, n_node*/ );
     }
 
     bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n,
-                                                        Node* scope_node, Node* n_node ) const
+                                                        Node* scope_node/*, Node* n_node*/ ) const
     {
         bool result = false;
 
@@ -92,7 +92,7 @@ namespace Analysis {
         Nodecl::NodeclBase s = n.shallow_copy( );
         v.walk( s );
 
-        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node, n_node );
+        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node, /*n_node*/ NULL );
         iv_v.walk( s );
         result = iv_v.depends_on_induction_vars( );
 
@@ -100,11 +100,11 @@ namespace Analysis {
     }
 
     bool NodeclStaticInfo::var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n,
-                                                         Node* scope_node, Node* n_node ) const
+                                                         Node* scope_node/*, Node* n_node*/ ) const
     {
         bool result = false;
 
-        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
+        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, /*n_node*/ NULL );
         ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
         for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
         {
@@ -645,8 +645,8 @@ namespace Analysis {
             for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); ( its != syms.end( ) ) && !result; ++its )
             {
                 if( visited_syms.find( *its ) == visited_syms.end( ) )
-                    result = result || var_is_iv_dependent_in_scope_rec( *its, node,
-                                                                         recursion_level+1, visits, visited_syms );
+                    result = result || var_is_iv_dependent_in_scope_forward( *its, node,
+                                recursion_level+1, visits, visited_syms );
             }
         }
         return result;
@@ -674,9 +674,9 @@ namespace Analysis {
         return result;
     }
 
-    bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current,
-                                                                   int recursion_level, std::map<Node*, std::set<int> >& visits,
-                                                                   std::set<Nodecl::Symbol>& visited_syms )
+    bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
+            int recursion_level, std::map<Node*, std::set<int> >& visits,
+            std::set<Nodecl::Symbol>& visited_syms )
     {
         bool result = false;
         visited_syms.insert( n );
@@ -705,7 +705,7 @@ namespace Analysis {
                     if( current->is_graph_node( ) )
                     {   // The current graph node defined the symbol \n
                         // Treat the inner nodes of the current graph node
-                        result = var_is_iv_dependent_in_scope_rec( n, current->get_graph_exit_node( ),
+                        result = var_is_iv_dependent_in_scope_backwards( n, current->get_graph_exit_node( ),
                                                                    recursion_level, visits, visited_syms );
                         if( !result )
                         {
@@ -764,20 +764,123 @@ namespace Analysis {
                     else
                         parents = current->get_parents( );
                     for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ) && !result; ++it )
-                        result = var_is_iv_dependent_in_scope_rec( n, *it, recursion_level, visits, visited_syms );
+                        result = var_is_iv_dependent_in_scope_backwards( n, *it, recursion_level, visits, visited_syms );
                 }
             }
         }
         return result;
     }
 
+    bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
+            int recursion_level, std::map<Node*, std::set<int> >& visits,
+            std::set<Nodecl::Symbol>& visited_syms )
+    {
+        bool result = false;
+        visited_syms.insert( n );
+        if( current != _scope_node->get_graph_exit_node() )
+        {
+            bool visit_node = false;
+            // If the node has never been visited or, if it was visit, it was in a different recursion level
+            if( visits.find( current ) == visits.end( ) )
+            {
+                int recursion_level_value[] = { recursion_level };
+                visits[current] = std::set<int>( recursion_level_value, recursion_level_value + 1 );
+                visit_node = true;
+            }
+            else if( visits.find( current )->second.find( recursion_level ) == visits.find( current )->second.end( ) )
+            {
+                visits.find( current )->second.insert( recursion_level );
+                visit_node = true;
+            }
+            
+            if( visit_node )
+            {
+                // Treat the current node
+                Utils::ext_sym_set killed = current->get_killed_vars( );
+                if( killed.find( n ) != killed.end( ) )
+                {
+                    if( current->is_graph_node( ) )
+                    {   // The current graph node defined the symbol \n
+                        // Treat the inner nodes of the current graph node
+                        result = var_is_iv_dependent_in_scope_forward( n, current->get_graph_entry_node( ),
+                                                                   recursion_level, visits, visited_syms );
+                        if( !result )
+                        {
+                            Node* current_entry = current->get_graph_entry_node( );
+                            if( current->is_ifelse_statement( ) || current->is_switch_statement( ) || current->is_while_loop( ) )
+                            {   // Case 1.1: This checks situations such as:
+                                // if(i%2==0)       -> where 'i' is an induction variable in 'scope'
+                                //     n=...;
+                                // switch(i)        -> where 'i' is an induction variable in 'scope'
+                                // {case 0:n=...;}
+                                // while( i )       -> where 'i' is an induction variable in 'scope'
+                                // {n=...;}
+                                Node* cond = current_entry->get_children( )[0];
+                                result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
+                            }
+                            else if( current->is_for_loop( ) )
+                            {   // Case 1.2:
+                                // for(;...<i;)      -> where 'i' is an induction variable in 'scope'
+                                //     n=...;
+                                Node* cond = current_entry->get_children( )[0];
+                                if( ( cond->get_children( ).size( ) == 2 ) && ( cond->get_parents( ).size( ) == 2 ) )
+                                {   // Recheck whether this node is the condition of the loop, or the condition is empty
+                                    result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
+                                }
+                            }
+                            else if( current->is_do_loop( ) )
+                            {   // Case 1.2:
+                                // do {n=...;}
+                                // while(i)          -> where 'i' is an induction variable in 'scope'
+                                Node* cond = current->get_graph_exit_node( )->get_parents( )[0];
+                                result = node_uses_iv( cond ) || node_stmts_depend_on_iv( cond, recursion_level, visits, visited_syms );
+                            }
+                        }
+                    }
+                    else
+                    {   // Case 2: This checks situations such as:
+                        // n=i;                      -> where 'i' is an induction variable in 'scope'
+                        Utils::ext_sym_map reaching_defs_out = current->get_reaching_definitions_out( );
+                        for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( );
+                            it != reaching_defs_out.end( ) && !result; ++it )
+                            {
+                                if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
+                                {   // 'n' is being modified
+                                    result = definition_depends_on_iv( it->second, current );
+                            }
+                    }
+                }
+            }
+            
+            // Recursively treat the parents of the current node
+            if( !result )
+            {
+                ObjectList<Node*> children = current->get_children();
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+                    result = var_is_iv_dependent_in_scope_forward( n, *it, recursion_level, visits, visited_syms );
+            }
+        }
+    }
+    return result;
+}
+    
     // Check whether the definition of 'n' depends on the value of the '_scope' induction variable
     bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope( const Nodecl::Symbol& n )
     {
         std::map<Node*, std::set<int> > visits;
         std::set<Nodecl::Symbol> visited_syms;
-        bool result = var_is_iv_dependent_in_scope_rec( n, _n_node, 0, visits, visited_syms );
-        ExtensibleGraph::clear_visits_backwards_in_level( _n_node, _scope_node );
+        Node* init = ((_n_node==NULL) ? _scope_node->get_graph_entry_node() : _n_node);
+        bool result = false;
+        if(_n_node == NULL)
+        {
+            result = var_is_iv_dependent_in_scope_forward( n, init, 0, visits, visited_syms );
+            ExtensibleGraph::clear_visits_in_level(init, _scope_node);
+        }
+        else
+        {
+            result = var_is_iv_dependent_in_scope_backwards( n, init, 0, visits, visited_syms );
+            ExtensibleGraph::clear_visits_backwards_in_level( init, _scope_node );
+        }
         return result;
     }
 
