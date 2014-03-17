@@ -578,12 +578,7 @@ namespace Analysis {
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  scope.prettyprint( ).c_str( ) );
 
-            Node* n_node = current_info.find_node_from_nodecl( n );
-            if( n_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
-                                 n.prettyprint( ).c_str( ) );
-
-            result =  current_info.contains_induction_variable( n, scope_node, n_node );
+            result =  current_info.contains_induction_variable( n, scope_node );
         }
 
         return result;
@@ -835,16 +830,8 @@ namespace Analysis {
             if( ivs_scope_node == NULL )
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for ivs_scope nodecl %s.",
                                  ivs_scope.prettyprint( ).c_str( ) );
-            Node* n_node = current_info.find_node_from_nodecl( n );
-            if( n_node == NULL )
-            {
-                std::cerr << "IVS scope is: " << ivs_scope.prettyprint() <<
-                    std::endl;
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for n nodecl %s.",
-                                 n.prettyprint( ).c_str( ) );
-            }
 
-            result = current_info.is_induction_variable_dependent_expression( n, ivs_scope_node, n_node );
+            result = current_info.is_induction_variable_dependent_expression( n, ivs_scope_node );
         }
 
         return result;
