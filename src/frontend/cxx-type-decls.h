@@ -68,6 +68,13 @@ enum ref_qualifier_tag
     REF_QUALIFIER_RVALUE = 2  // &&
 } ref_qualifier_t;
 
+typedef
+struct member_declaration_info_tag
+{
+    scope_entry_t* entry;
+    char is_definition:1;
+} member_declaration_info_t;
+
 #define SCI_LIST \
     SCI_CONVERSION_ID(SCI_INVALID) \
     SCI_CONVERSION_ID(SCI_NO_CONVERSION) \

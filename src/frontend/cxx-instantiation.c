@@ -110,7 +110,8 @@ static scope_entry_t* add_duplicate_member_to_class(
 
 #undef COPY_ARRAY
 
-    class_type_add_member(get_actual_class_type(being_instantiated), new_member);
+    class_type_add_member(get_actual_class_type(being_instantiated), new_member,
+            /* is_definition */ member_of_template->defined);
 
     return new_member;
 }
@@ -282,7 +283,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     class_type_add_member(
             get_actual_class_type(being_instantiated),
-            new_primary_symbol);
+            new_primary_symbol, /* is_definition */ 1);
 
     if (is_class)
     {
@@ -570,7 +571,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->entity_specs.is_user_declared = 0;
                     new_member->entity_specs.class_type = being_instantiated;
 
-                    class_type_add_member(get_actual_class_type(being_instantiated), new_member);
+                    class_type_add_member(get_actual_class_type(being_instantiated),
+                            new_member,
+                            member_of_template->defined);
 
                     set_is_complete_type(new_member->type_information, 0);
                     set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
@@ -594,7 +597,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         anon_member->entity_specs.access = new_member->entity_specs.access;
                         anon_member->entity_specs.class_type = get_user_defined_type(new_member);
 
-                        class_type_add_member(being_instantiated, anon_member);
+                        class_type_add_member(being_instantiated, anon_member, /* is_definition */ 1);
                     }
                 }
                 else
@@ -672,7 +675,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
-                                named_type_get_symbol(new_template_specialized_type));
+                                named_type_get_symbol(new_template_specialized_type),
+                                named_type_get_symbol(new_template_specialized_type)->defined
+                                );
                     }
                 }
                 break;
@@ -822,7 +827,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 used_hub_symbol->type_information = get_unresolved_overloaded_type(entry_list, NULL);
                 used_hub_symbol->entity_specs.access = member_of_template->entity_specs.access;
 
-                class_type_add_member(get_actual_class_type(being_instantiated), used_hub_symbol);
+                class_type_add_member(get_actual_class_type(being_instantiated), used_hub_symbol,
+                        /* is_definition */ 1);
                 break;
             }
         default:
@@ -1512,7 +1518,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     if (selected_template_sym->entity_specs.is_member)
     {
         scope_entry_t* enclosing_class = named_type_get_symbol(selected_template_sym->entity_specs.class_type);
-        class_type_add_member(enclosing_class->type_information, being_instantiated_sym);
+        class_type_add_member(enclosing_class->type_information,
+                being_instantiated_sym,
+                /* is_definition */ 1);
     }
 
     DEBUG_CODE()

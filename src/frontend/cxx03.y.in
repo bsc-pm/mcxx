@@ -500,6 +500,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> simple_declaration
 %type<ast> non_empty_simple_declaration
 %type<ast> explicit_simple_type_specifier
+%type<ast> explicit_type_initializer
 %type<ast> statement
 %type<ast> statement_seq
 %type<ast> nondeclarating_statement
@@ -2096,6 +2097,14 @@ ref_qualifier : '&'
 functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
+}
+| functional_direct_declarator parameters_and_qualifiers
+{
+	$$ = ASTMake2(AST_DECLARATOR_FUNC, $1, $2, ast_get_locus($1), NULL);
+}
+| functional_direct_declarator '[' constant_expression_opt ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ast_get_locus($1), NULL);
 }
 | '(' functional_main_declarator ')'
 {
@@ -4405,27 +4414,11 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_FUNCTION_CALL, $1, $3, ast_get_locus($1), NULL);
 }
-| explicit_simple_type_specifier '(' ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_EXPLICIT_TYPE_CONVERSION, $1, NULL, ast_get_locus($1), NULL);
-}
-| explicit_simple_type_specifier '(' expression_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_EXPLICIT_TYPE_CONVERSION, $1, $3, ast_get_locus($1), NULL);
-}
-| explicit_simple_type_specifier braced_init_list
+| explicit_simple_type_specifier explicit_type_initializer %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_EXPLICIT_TYPE_CONVERSION, $1, $2, ast_get_locus($1), NULL);
 }
-| TYPENAME qualified_id_type_expr '(' ')'
-{
-	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| TYPENAME qualified_id_type_expr '(' expression_list ')'
-{
-	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, $4, make_locus($1.token_file, $1.token_line, 0), NULL);
-}
-| TYPENAME qualified_id_type_expr braced_init_list
+| TYPENAME qualified_id_type_expr explicit_type_initializer
 {
 	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -4485,6 +4478,16 @@ postfix_expression : primary_expression
 ;
 
 expression_list : initializer_list
+{
+    $$ = $1;
+}
+;
+
+explicit_type_initializer : parent_initializer_ctor
+{
+    $$ = $1;
+}
+| braced_init_list
 {
     $$ = $1;
 }
@@ -4735,11 +4738,7 @@ direct_new_declarator : '[' expression ']'
 }
 ;
 
-new_initializer : parent_initializer_ctor
-{
-	$$ = $1;
-}
-| braced_init_list
+new_initializer : explicit_type_initializer
 {
 	$$ = $1;
 }

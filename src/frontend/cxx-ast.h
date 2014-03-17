@@ -180,6 +180,10 @@ LIBMCXX_EXTERN AST ast_get_ambiguity(const_AST a, int num);
 // used when solving ambiguities
 LIBMCXX_EXTERN void ast_replace_with_ambiguity(AST a, int num);
 
+// Fixes parents inside an interpretation, this is needed
+// for proper navigation inside the interpretation of an ambiguity
+LIBMCXX_EXTERN void ast_fix_parents_inside_intepretation(AST node);
+
 LIBMCXX_EXTERN struct nodecl_expr_info_tag* ast_get_expr_info(const_AST a);
 LIBMCXX_EXTERN void ast_set_expr_info(AST a, struct nodecl_expr_info_tag*);
 

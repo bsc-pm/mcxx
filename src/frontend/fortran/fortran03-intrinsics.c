@@ -319,6 +319,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, sind, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, cosd, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, tand, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, atan2d, "Y,X", E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, imag, "Z", E, simplify_aimag) \
+FORTRAN_GENERIC_INTRINSIC(NULL, imagpart, "Z", E, simplify_aimag) \
 ISO_C_BINDING_INTRINSICS \
 IEEE_EXCEPTIONS_INTRINSICS \
 MERCURIUM_SPECIFIC_INTRINSICS
@@ -1658,9 +1660,8 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dconjg", "conjg", get_complex_type(fortran_get_doubleprecision_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("dimag", "aimag", get_complex_type(fortran_get_doubleprecision_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("imag", "aimag", get_complex_type(fortran_get_default_real_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("imagpart", "aimag", get_complex_type(fortran_get_default_real_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("derf", "erf", fortran_get_doubleprecision_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("derfc", "erfc", fortran_get_doubleprecision_type());
 
     REGISTER_CUSTOM_INTRINSIC_2("getenv", get_void_type(), fortran_get_default_character_type(), 
             fortran_get_default_character_type());
@@ -1795,6 +1796,24 @@ scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_ELEMENTAL(symbol, "aimag", complex_type_get_base_type(t0), t0);
     }
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_imag(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_aimag(symbol, argument_types, argument_expressions, num_arguments, const_value);
+}
+
+scope_entry_t* compute_intrinsic_imagpart(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    return compute_intrinsic_aimag(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,

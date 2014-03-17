@@ -164,7 +164,7 @@ namespace TL { namespace Nanox {
                         orig_symbol,
                         parameters[0].get_scope().get_decl_context(),
                         orig_symbol->symbol_name,
-                        orig_symbol->entity_specs.in_module,
+                        module,
                         NULL);
 
                 // Update the type to refer to the USEd one and not the original
@@ -177,7 +177,7 @@ namespace TL { namespace Nanox {
                 // Add an explicit USE statement
                 new_used_modules_info->value = nodecl_make_list_1(
                         nodecl_make_fortran_use_only(
-                            nodecl_make_symbol(orig_symbol->entity_specs.in_module, NULL),
+                            nodecl_make_symbol(module, NULL),
                             nodecl_make_list_1(
                                 nodecl_make_symbol(used_symbol, NULL)),
                             NULL));

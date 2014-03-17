@@ -2353,7 +2353,7 @@ OPERATOR_TABLE
                 && result_var.get_name() != entry.get_name()
                 && result_var.get_name() != ".result")
         {
-            *(file) << " RESULT(" << result_var.get_name() << ")";
+            *(file) << " RESULT(" << rename(result_var) << ")";
         }
         *(file) << "\n";
     }
@@ -3347,13 +3347,14 @@ OPERATOR_TABLE
                 TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                if (
-                        // The symbol should not come from a module unless at this point
-                        // has not been emitted yet
-                        (!class_type.is_from_module()
-                         || get_codegen_status(class_type) == CODEGEN_STATUS_NONE)
-                        // And its related entry should not be ours
-                        && (TL::Symbol(class_context.current_scope->related_entry) != entry))
+                if (class_type.is_in_module())
+                    continue;
+
+                // The symbol should not come from a module unless at this
+                // point has not been emitted yet
+                if ((!class_type.is_from_module()
+                            || (get_codegen_status(class_type) == CODEGEN_STATUS_NONE))
+                        && TL::Symbol(class_context.current_scope->related_entry) != entry)
                 {
                     imported_symbols.insert(class_type);
                 }
@@ -5059,6 +5060,11 @@ OPERATOR_TABLE
         {
             codegen_use_statement(entry, sc, use_stmt_info);
         }
+        else if (entry.is_in_module()
+                && (entry.in_module() != get_current_declaring_module()))
+        {
+            codegen_use_statement(entry, sc, use_stmt_info);
+        }
         else
         {
             // From here we now that entry is not coming from any module
@@ -5297,8 +5303,12 @@ OPERATOR_TABLE
 
     void FortranBase::codegen_use_statement(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo& use_stmt_info)
     {
-        ERROR_CONDITION(!entry.is_from_module(),
-                "Symbol '%s' must be from module\n", entry.get_name().c_str());
+        ERROR_CONDITION(!entry.is_from_module() && !entry.is_in_module(),
+                "Symbol '%s' must be from/in module\n", entry.get_name().c_str());
+        ERROR_CONDITION(!entry.is_from_module() 
+                && entry.is_in_module()
+                && (entry.in_module() == get_current_declaring_module()),
+                "Symbol '%s' cannot be in the current module\n", entry.get_name().c_str());
 
         // Has the symbol 'entry' been declared as USEd in the current context?
         if (!entry_is_in_scope(entry, sc)
@@ -5312,42 +5322,55 @@ OPERATOR_TABLE
         if (entry.is_variable())
             return;
 
-        TL::Symbol module = entry.from_module();
-
-        // Is this a module actually used in this program unit?
-        TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
-        if (!used_modules.is_valid()
-                // When .used_modules has a non null value we do not attempt
-                // anything automatic
-                || (!used_modules.get_value().is_null() && !_deduce_use_statements))
-            return;
-
-        if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
-            return;
-
-        TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
-        bool found = used_modules_list.contains(module);
-        // This module was not explicitly used but maybe can be explicitly reached
-        // using one of the USEd in the current program unit
-        if (!found)
+        TL::Symbol module;
+        if (entry.is_from_module())
         {
-            for (TL::ObjectList<TL::Symbol>::iterator it = used_modules_list.begin();
-                    it != used_modules_list.end();
-                    it++)
+            module = entry.from_module();
+            // Is this a module actually used in this program unit?
+            TL::Symbol used_modules = sc.get_related_symbol().get_used_modules();
+            if (!used_modules.is_valid()
+                    // When .used_modules has a non null value we do not attempt
+                    // anything automatic
+                    || (!used_modules.get_value().is_null() && !_deduce_use_statements))
+                return;
+
+            if (get_codegen_status(entry) == CODEGEN_STATUS_DEFINED)
+                return;
+
+            TL::ObjectList<TL::Symbol> used_modules_list = used_modules.get_related_symbols();
+            bool found = used_modules_list.contains(module);
+            // This module was not explicitly used but maybe can be explicitly reached
+            // using one of the USEd in the current program unit
+            if (!found)
             {
-                if (module_can_be_reached(*it, module)
-                        && symbol_is_public_in_module(*it, entry))
+                for (TL::ObjectList<TL::Symbol>::iterator it = used_modules_list.begin();
+                        it != used_modules_list.end();
+                        it++)
                 {
-                    // Use this module
-                    module = *it;
-                    found = true;
-                    break;
+                    if (module_can_be_reached(*it, module)
+                            && symbol_is_public_in_module(*it, entry))
+                    {
+                        // Use this module
+                        module = *it;
+                        found = true;
+                        break;
+                    }
                 }
             }
+
+            if (!found)
+                return;
+        }
+        else if (entry.is_in_module())
+        {
+            module = entry.in_module();
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
 
-        if (!found)
-            return;
+        ERROR_CONDITION(!module.is_valid(), "Invalid module for symbol '%s'", entry.get_name().c_str());
 
         set_codegen_status(entry, CODEGEN_STATUS_DEFINED);
 
@@ -5850,7 +5873,7 @@ OPERATOR_TABLE
                 if (result_var.get_name() != entry.get_name()
                         && result_var.get_name() != ".result")
                 {
-                    *(file) << " RESULT(" << result_var.get_name() << ")";
+                    *(file) << " RESULT(" << rename(result_var) << ")";
                 }
 
                 if (result_var.get_name() == ".result")
