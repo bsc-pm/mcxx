@@ -6473,6 +6473,8 @@ static void check_unary_expression_(node_t node_kind,
                     get_operation_function_name(node_kind), 
                     codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
         }
+
+        nodecl_free(*op);
     }
 }
 
@@ -6506,6 +6508,9 @@ static void check_binary_expression_(node_t node_kind,
                     codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
                     codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
         }
+
+        nodecl_free(*nodecl_lhs);
+        nodecl_free(*nodecl_rhs);
     }
 }
 
@@ -6528,6 +6533,8 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -6551,6 +6558,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
     if (nodecl_is_err_expr(nodecl_op))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        nodecl_free(nodecl_op);
         return;
     }
 
@@ -7142,6 +7150,8 @@ static void check_nodecl_array_subscript_expression_c(
             || nodecl_is_err_expr(nodecl_subscript))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 
@@ -7179,6 +7189,8 @@ static void check_nodecl_array_subscript_expression_c(
                         print_type_str(get_ptrdiff_t_type(), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_subscripted);
+            nodecl_free(nodecl_subscript);
             return;
         }
         else
@@ -7248,6 +7260,8 @@ static void check_nodecl_array_subscript_expression_c(
                     print_type_str(no_ref(subscripted_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 }
@@ -7310,6 +7324,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             || nodecl_is_err_expr(nodecl_subscript))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 
@@ -7382,6 +7398,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_subscripted);
+                nodecl_free(nodecl_subscript);
                 return;
             }
 
@@ -7398,6 +7416,8 @@ static void check_nodecl_array_subscript_expression_cxx(
                     if (function_has_been_deleted(decl_context, conversors[1], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_subscripted);
+                        nodecl_free(nodecl_subscript);
                         return;
                     }
 
@@ -7500,6 +7520,8 @@ static void check_nodecl_array_subscript_expression_cxx(
                     print_type_str(subscripted_type, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
     }
 }
 
@@ -7879,6 +7901,9 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -7941,6 +7966,9 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
     if (!standard_conversion_between_types(&sc, no_ref(first_type), no_ref(converted_type), locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -7998,6 +8026,9 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -8026,6 +8057,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -8158,6 +8192,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                         " when agreeing second and third types\n");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -8166,6 +8203,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (second_to_third_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -8183,6 +8223,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (third_to_second_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -8277,6 +8320,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                 }
                 candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
             candidate_set_free(&candidate_set);
@@ -8284,6 +8330,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -8295,6 +8344,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                     if (function_has_been_deleted(decl_context, conversors[k], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(first_op);
+                        nodecl_free(second_op);
+                        nodecl_free(third_op);
                         return;
                     }
 
@@ -8367,6 +8419,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -8505,59 +8560,6 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
 
     check_conditional_expression_impl(expression, 
             first_op, second_op, third_op, decl_context, nodecl_output);
-}
-
-UNUSED_PARAMETER static void check_default_constructor(type_t* t, 
-        decl_context_t decl_context,
-        const locus_t* locus,
-        nodecl_t* nodecl_output)
-{
-    ERROR_CONDITION(!is_class_type(t), "Invalid type", 0);
-
-    int num_arguments = 0;
-    type_t** arguments = NULL;
-
-    scope_entry_list_t* candidates = NULL;
-    scope_entry_t* chosen_constructor = solve_constructor(t,
-            arguments, num_arguments,
-            /* is_explicit */ 1,
-            decl_context,
-            locus,
-            /* conversors */ NULL,
-            &candidates);
-
-    if (chosen_constructor == NULL)
-    {
-        if (entry_list_size(candidates) != 0)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: no default constructor for class type '%s'\n",
-                        locus_to_str(locus),
-                        print_type_str(t, decl_context));
-            }
-            *nodecl_output = nodecl_make_err_expr(locus);
-        }
-        entry_list_free(candidates);
-        return;
-    }
-    else
-    {
-        entry_list_free(candidates);
-        if (function_has_been_deleted(decl_context, chosen_constructor, locus))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(chosen_constructor, locus),
-                /* called name */ nodecl_null(),
-                /* args */ nodecl_null(),
-                nodecl_make_cxx_function_form_implicit(locus),
-                actual_type_of_conversor(chosen_constructor),
-                locus);
-    }
 }
 
 static void check_nodecl_initializer_clause(nodecl_t initializer_clause, 
@@ -8708,6 +8710,8 @@ static void check_new_expression_impl(
                     prettyprint_in_buffer(called_operation_new_tree));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
@@ -8775,12 +8779,16 @@ static void check_new_expression_impl(
             entry_list_free(operator_new_list);
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
     if (function_has_been_deleted(decl_context, chosen_operator_new, locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
@@ -8809,6 +8817,8 @@ static void check_new_expression_impl(
                     if (function_has_been_deleted(decl_context, conversors[j], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_placement_list);
+                        nodecl_free(nodecl_initializer);
                         return;
                     }
 
@@ -8938,6 +8948,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     if (is_error_type(dummy_type))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement);
         return;
     }
 
@@ -9026,6 +9037,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                         print_type_str(deleted_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_deleted_expr);
             return;
         }
 
@@ -9047,6 +9059,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                         is_array_delete ? "[]" : "");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_deleted_expr);
             return;
         }
     }
@@ -9381,7 +9394,6 @@ static char conversion_is_valid_static_cast(
     {
         nodecl_free(nodecl_static_cast_output);
     }
-    nodecl_free(nodecl_parenthesized_init);
 
     // Any expression can be explicitly converted to cv void
     if (is_void_type(dest_type))
@@ -9857,6 +9869,7 @@ static void check_nodecl_cast_expr(
           } \
       } \
       *nodecl_output = nodecl_make_err_expr(locus); \
+      nodecl_free(nodecl_casted_expr); \
       return; \
     } while (0)
 
@@ -9930,6 +9943,7 @@ static void check_nodecl_cast_expr(
                 }
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_casted_expr);
 
             return;
         }
@@ -10051,187 +10065,6 @@ static void check_nodecl_cast_expr(
 
 #undef CONVERSION_ERROR
 }
-
-#if 0
-static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
-        decl_context_t decl_context, 
-        type_t* declarator_type,
-        const char* cast_kind,
-        const locus_t* locus,
-        nodecl_t* nodecl_output)
-{
-    if (is_dependent_type(declarator_type))
-    {
-        *nodecl_output = nodecl_make_cast(
-                nodecl_casted_expr,
-                declarator_type,
-                cast_kind,
-                locus);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    if (IS_CXX_LANGUAGE
-            && !nodecl_expr_is_type_dependent(nodecl_casted_expr)
-            && (strcmp(cast_kind, "C") == 0
-                || strcmp(cast_kind, "static_cast") == 0))
-    {
-        // FIXME - For a C cast we need to check the following cases (in this order!)
-        //
-        //   const_cast
-        //   static_cast
-        //   static_cast + const_cast
-        //   reinterpret_cast
-        //   reinterpret_cast + const_cast
-        // 
-        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
-
-        // Shut up the compiler if things go wrong
-        enter_test_expression();
-        // Check if an initialization is possible
-        // If possible this will set a proper conversion call
-        nodecl_t nodecl_cast_output = nodecl_null();
-        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_shallow_copy(nodecl_casted_expr)),
-                nodecl_get_locus(nodecl_casted_expr));
-        // This actually checks T(e)
-        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
-                decl_context, 
-                declarator_type, 
-                /* is_explicit */ 1,
-                /* is_explicit_type_cast */ 1,
-                /* emit_cast */ 1,
-                &nodecl_cast_output);
-        leave_test_expression();
-
-        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-        // unless this is a vector type where (T){1,2,3,4} is fine
-        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE
-                && !is_vector_type(no_ref(declarator_type)))
-        {
-            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
-        }
-
-        if (!nodecl_is_err_expr(nodecl_cast_output))
-        {
-            if (is_class_type(no_ref(declarator_type)))
-            {
-                // For classes there will be an explicit call to a constructor
-                // we cannot do an extra cast
-                *nodecl_output = nodecl_cast_output;
-                return;
-            }
-            else
-            {
-                nodecl_set_type(nodecl_cast_output,
-                        nodecl_get_type(nodecl_casted_expr));
-                nodecl_expr_set_is_value_dependent(nodecl_cast_output,
-                        nodecl_expr_is_value_dependent(nodecl_casted_expr));
-
-                nodecl_casted_expr = nodecl_cast_output;
-            }
-        }
-    }
-
-    *nodecl_output = nodecl_make_cast(
-            nodecl_casted_expr,
-            declarator_type,
-            cast_kind,
-            locus);
-
-    if (nodecl_is_constant(nodecl_casted_expr))
-    {
-        const_value_t * casted_value = nodecl_get_constant(nodecl_casted_expr);
-
-        const_value_t* converted_value = cxx_nodecl_make_value_conversion(
-                declarator_type,
-                nodecl_get_type(nodecl_casted_expr),
-                casted_value,
-                /* is_explicit_type_cast */ 1,
-                locus);
-
-        // Propagate zero types
-        if (converted_value != NULL)
-        {
-            if (is_zero_type(nodecl_get_type(nodecl_casted_expr))
-                    && const_value_is_zero(converted_value)
-                    && (is_integral_type(declarator_type)
-                        || is_bool_type(declarator_type)))
-            {
-                nodecl_set_type(*nodecl_output, get_zero_type(declarator_type));
-            }
-        }
-
-        nodecl_set_constant(*nodecl_output, converted_value);
-    }
-
-    if (nodecl_expr_is_value_dependent(nodecl_casted_expr))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-    }
-}
-#endif
-
-#if 0
-static void check_nodecl_explicit_type_conversion(type_t* type_info,
-        nodecl_t nodecl_expr_list, decl_context_t decl_context,
-        nodecl_t* nodecl_output,
-        const locus_t* locus)
-{
-    if (nodecl_list_length(nodecl_expr_list) == 1
-            && !is_dependent_type(type_info)
-            && !is_class_type(type_info))
-    {
-        // Use the same code as the (T)e syntax
-        check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", locus, nodecl_output);
-    }
-    else
-    {
-        // Otherwise try a parenthesized initializer (which should do)
-        nodecl_t parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, locus);
-
-        int num_items = 0, i = 0;
-        char any_arg_is_type_dependent = 0;
-        nodecl_t* list = nodecl_unpack_list(nodecl_expr_list, &num_items);
-        while (i < num_items  && !any_arg_is_type_dependent)
-        {
-            any_arg_is_type_dependent = nodecl_expr_is_type_dependent(list[i]);
-            ++i;
-        }
-
-        if (any_arg_is_type_dependent)
-        {
-            *nodecl_output =
-                nodecl_make_cxx_explicit_type_cast(parenthesized_init, type_info, locus);
-            nodecl_set_type(*nodecl_output, type_info);
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-            return;
-        }
-
-        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info,
-                /* is_explicit */ 1, /* is_explicit_type_cast */ 1, /* emit_cast */ 1, nodecl_output);
-
-        if (nodecl_is_err_expr(*nodecl_output))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        if (is_dependent_type(type_info))
-        {
-            *nodecl_output =
-                nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, locus);
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        }
-        if (is_dependent_type(type_info)
-                || nodecl_expr_is_value_dependent(*nodecl_output))
-        {
-            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        }
-    }
-}
-#endif
 
 static void check_nodecl_explicit_type_conversion(
         type_t* type_info,
@@ -11184,6 +11017,7 @@ static void handle_computed_function_type(
         }
         *nodecl_called = nodecl_make_err_expr(locus);
         *called_type = get_error_type();
+        nodecl_free(nodecl_argument_list);
     }
     else
     {
@@ -11204,13 +11038,18 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
 
     if (is_computed_function_type(called_type))
     {
-        handle_computed_function_type(&nodecl_called, &called_type, nodecl_argument_list, decl_context, locus);
+        nodecl_t nodecl_called_sym = nodecl_shallow_copy(nodecl_called);
+        handle_computed_function_type(&nodecl_called_sym, &called_type, nodecl_argument_list, decl_context, locus);
 
-        if (nodecl_is_err_expr(nodecl_called))
+        if (nodecl_is_err_expr(nodecl_called_sym))
         {
-            *nodecl_output = nodecl_called;
+            *nodecl_output = nodecl_called_sym;
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
+
+        nodecl_called = nodecl_called_sym;
     }
 
     if (!is_function_type(called_type)
@@ -11223,6 +11062,8 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
                     codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11243,6 +11084,8 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
                 &nodecl_argument_list_output))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11345,6 +11188,8 @@ static void check_nodecl_function_call_cxx(
                         codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_called));
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
         else if (candidates != NULL)
@@ -11457,6 +11302,8 @@ static void check_nodecl_function_call_cxx(
                         codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
         else if (is_function_type(no_ref(called_type))
@@ -11482,6 +11329,8 @@ static void check_nodecl_function_call_cxx(
                         &nodecl_argument_list_output))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_called);
+                nodecl_free(nodecl_argument_list);
                 return;
             }
 
@@ -11799,6 +11648,8 @@ static void check_nodecl_function_call_cxx(
         }
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -11856,6 +11707,8 @@ static void check_nodecl_function_call_cxx(
     if (function_has_been_deleted(decl_context, overloaded_call, locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11874,6 +11727,8 @@ static void check_nodecl_function_call_cxx(
                             get_qualified_symbol_name(overloaded_call, decl_context)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
     }
@@ -11950,6 +11805,8 @@ static void check_nodecl_function_call_cxx(
                         if (function_has_been_deleted(decl_context, conversors[arg_i], locus))
                         {
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(nodecl_called);
+                            nodecl_free(nodecl_argument_list);
                             return;
                         }
                         nodecl_t nodecl_conversor =
@@ -11979,6 +11836,8 @@ static void check_nodecl_function_call_cxx(
                     if (is_error_type(default_argument_promoted_type))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_called);
+                        nodecl_free(nodecl_argument_list);
                         return;
                     }
                 }
@@ -11987,6 +11846,8 @@ static void check_nodecl_function_call_cxx(
             if (nodecl_is_err_expr(nodecl_arg))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_called);
+                nodecl_free(nodecl_argument_list);
                 return;
             }
 
@@ -12079,7 +11940,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
         // Although conversion function id's are technically subject to argument dependent lookup
         // they never receive arguments and they always will be members. The latter property makes
         // that argument dependent lookup is actually not applied to conversion functions!!!
-        else 
+        else
         {
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
@@ -12141,6 +12002,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     if (nodecl_is_err_expr(nodecl_called))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -12233,14 +12096,16 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
     if (nodecl_expr_is_type_dependent(nodecl_lhs)
             || nodecl_expr_is_type_dependent(nodecl_rhs))
     {
-        *nodecl_output = nodecl_make_comma(nodecl_lhs, 
-                nodecl_rhs, 
+        *nodecl_output = nodecl_make_comma(nodecl_lhs,
+                nodecl_rhs,
                 get_unknown_dependent_type(),
                 nodecl_get_locus(nodecl_lhs));
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -12279,7 +12144,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
         if (!is_error_type(computed_type))
         {
             ERROR_CONDITION(selected_operator == NULL, "Invalid operator", 0);
-            *nodecl_output = 
+            *nodecl_output =
                 cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, locus),
                         /* called name */ nodecl_null(),
@@ -12951,6 +12816,7 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
                     locus_to_str(locus));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(pack);
         return;
     }
 
@@ -13431,6 +13297,8 @@ static void check_nodecl_member_access(
     if (nodecl_is_err_expr(nodecl_accessed))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13513,6 +13381,8 @@ static void check_nodecl_member_access(
                             prettyprint_in_buffer(type_id));
                 }
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
                 return;
             }
 
@@ -13572,6 +13442,8 @@ static void check_nodecl_member_access(
                         print_type_str(no_ref(accessed_type), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13608,6 +13480,8 @@ static void check_nodecl_member_access(
                         print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13652,6 +13526,8 @@ static void check_nodecl_member_access(
             }
             candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
         candidate_set_free(&candidate_set);
@@ -13660,12 +13536,16 @@ static void check_nodecl_member_access(
                     nodecl_get_locus(nodecl_accessed)))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13712,6 +13592,8 @@ static void check_nodecl_member_access(
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13738,6 +13620,8 @@ static void check_nodecl_member_access(
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13908,6 +13792,8 @@ static void check_nodecl_member_access(
     if (!ok)
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
     }
 }
 
@@ -14037,6 +13923,7 @@ static void check_postoperator_user_defined(
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
         candidate_set_free(&candidate_set);
+        nodecl_free(postoperated_expr);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -14045,6 +13932,7 @@ static void check_postoperator_user_defined(
                 nodecl_get_locus(postoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+        nodecl_free(postoperated_expr);
         return;
     }
 
@@ -14064,6 +13952,7 @@ static void check_postoperator_user_defined(
                             nodecl_get_locus(postoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                    nodecl_free(postoperated_expr);
                     return;
                 }
 
@@ -14185,6 +14074,7 @@ static void check_preoperator_user_defined(AST operator,
         }
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -14192,8 +14082,8 @@ static void check_preoperator_user_defined(AST operator,
     if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_locus(preoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
-    
     }
 
     if (!overloaded_call->entity_specs.is_member)
@@ -14211,6 +14101,7 @@ static void check_preoperator_user_defined(AST operator,
                 if (function_has_been_deleted(decl_context, conversors[0], nodecl_get_locus(preoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+                    nodecl_free(preoperated_expr);
                     return;
                 }
 
@@ -14287,6 +14178,7 @@ static void check_nodecl_postoperator(AST operator,
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
+        nodecl_free(postoperated_expr);
         return;
     }
 
@@ -14327,6 +14219,7 @@ static void check_nodecl_postoperator(AST operator,
                             is_decrement ? "postdecrement" : "postincrement");
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                nodecl_free(postoperated_expr);
                 return;
             }
             if (is_const_qualified_type(no_ref(operated_type)))
@@ -14339,6 +14232,7 @@ static void check_nodecl_postoperator(AST operator,
                             is_decrement ? "postdecrement" : "postincrement");
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                nodecl_free(postoperated_expr);
                 return;
             }
 
@@ -14359,6 +14253,7 @@ static void check_nodecl_postoperator(AST operator,
                         is_decrement ? "postdecrement" : "postincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+            nodecl_free(postoperated_expr);
             return;
         }
     }
@@ -14426,6 +14321,7 @@ static void check_nodecl_preoperator(AST operator,
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
     }
 
@@ -14456,6 +14352,7 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
 
@@ -14469,6 +14366,7 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
 
@@ -14489,6 +14387,7 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
     }
@@ -14824,6 +14723,7 @@ static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr,
     if (nodecl_is_err_expr(nodecl_typeid_expr))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_typeid_expr);
         return;
     }
 
@@ -14831,6 +14731,7 @@ static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr,
     if (typeid_type_class == NULL)
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_typeid_expr);
         return;
     }
 
@@ -15125,6 +15026,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_locus_to_str(braced_initializer));
                 }
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(braced_initializer);
                 return;
             }
 
@@ -15148,14 +15050,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 {
                     // Attempt an interpretation like char a[] = "hello";
                     enter_test_expression();
-                    check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
+                    nodecl_t nodecl_tmp = nodecl_shallow_copy(
+                            nodecl_get_child(nodecl_list_head(initializer_clause_list), 0)
+                            );
+                    check_nodecl_expr_initializer(nodecl_tmp,
                             decl_context,
                             declared_type,
                             nodecl_output);
                     leave_test_expression();
 
                     if (!nodecl_is_err_expr(*nodecl_output))
+                    {
+                        // It succeeded
                         return;
+                    }
+                    nodecl_free(*nodecl_output);
+                    *nodecl_output = nodecl_null();
                 }
             }
 
@@ -15183,6 +15093,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                         nodecl_locus_to_str(braced_initializer));
                             }
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                         if (!nodecl_is_constant(array_type_get_array_size_expr(declared_type)))
@@ -15193,6 +15104,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                         nodecl_locus_to_str(braced_initializer));
                             }
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                         type_stack[type_stack_idx].num_items =
@@ -15342,6 +15254,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(braced_initializer);
                         return;
                     }
 
@@ -15371,7 +15284,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     {
                         nodecl_t nodecl_init_output = nodecl_null();
                         enter_test_expression();
-                        check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context,
+                        nodecl_t nodecl_tmp = nodecl_shallow_copy(nodecl_initializer_clause);
+                        check_nodecl_initializer_clause(nodecl_tmp, decl_context,
                                 type_to_be_initialized, &nodecl_init_output);
                         leave_test_expression();
                         if (!nodecl_is_err_expr(nodecl_init_output))
@@ -15383,6 +15297,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             type_stack[type_stack_idx].item++;
                             continue;
                         }
+                        nodecl_free(nodecl_init_output);
                     }
 
                     // Now we have to initialize an aggregate but the syntax lacks braces, so we have to push this item
@@ -15524,6 +15439,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         print_type_str(declared_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(braced_initializer);
         }
         return;
     }
@@ -15617,6 +15533,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 xfree(nodecl_list);
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
+                nodecl_free(braced_initializer);
                 return;
             }
             else
@@ -15626,6 +15543,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 {
                     *nodecl_output = nodecl_make_err_expr(
                             locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
                 for (i = 0; i < num_args; i++)
@@ -15637,6 +15555,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         {
                             *nodecl_output = nodecl_make_err_expr(
                                     locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                     }
@@ -15734,6 +15653,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 }
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
+                nodecl_free(braced_initializer);
                 return;
             }
             else
@@ -15743,6 +15663,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 {
                     *nodecl_output = nodecl_make_err_expr(
                             locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
 
@@ -15756,6 +15677,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         {
                             *nodecl_output = nodecl_make_err_expr(
                                     locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                     }
@@ -15818,8 +15740,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         error_printf("%s: error: brace initialization with more than one element is not valid here\n",
                                 nodecl_locus_to_str(braced_initializer));
                     }
-                    *nodecl_output = nodecl_make_err_expr(
-                            locus);
+                    *nodecl_output = nodecl_make_err_expr(locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
                 C_LANGUAGE()
@@ -15850,6 +15772,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             if (nodecl_is_err_expr(nodecl_expr_out))
             {
                 *nodecl_output = nodecl_expr_out;
+                nodecl_free(braced_initializer);
                 return;
             }
 
@@ -16015,6 +15938,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(nodecl_designation));
+        nodecl_free(nodecl_designation);
     }
 }
 
@@ -16088,6 +16012,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             entry_list_free(candidates);
 
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(direct_initializer);
             return;
         }
         else
@@ -16096,6 +16021,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             if (function_has_been_deleted(decl_context, chosen_constructor, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(direct_initializer);
                 return;
             }
 
@@ -16137,6 +16063,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     if (is_error_type(default_argument_promoted_type))
                     {
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
+                        nodecl_free(direct_initializer);
                         return;
                     }
                 }
@@ -16165,6 +16092,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             }
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
+            nodecl_free(direct_initializer);
         }
         else if (nodecl_list_length(nodecl_list) == 1)
         {
@@ -16301,6 +16229,8 @@ static void check_nodecl_pointer_to_pointer_member(
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16339,6 +16269,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16350,6 +16282,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16375,6 +16309,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         print_type_str(no_ref(pointed_lhs_type), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16457,6 +16393,8 @@ static void check_nodecl_pointer_to_pointer_member(
     }
 
     *nodecl_output = nodecl_make_err_expr(locus);
+    nodecl_free(nodecl_lhs);
+    nodecl_free(nodecl_rhs);
 }
 
 static void check_pointer_to_pointer_to_member(AST expression, 
@@ -16490,6 +16428,8 @@ static void check_nodecl_pointer_to_member(
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16516,6 +16456,8 @@ static void check_nodecl_pointer_to_member(
                     nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
     if (!is_pointer_to_member_type(no_ref(rhs_type)))
@@ -16526,6 +16468,8 @@ static void check_nodecl_pointer_to_member(
                     nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16546,6 +16490,8 @@ static void check_nodecl_pointer_to_member(
                     print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16908,6 +16854,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -16951,6 +16898,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -17039,6 +16987,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             entry_list_free(candidates);
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
         else
@@ -17047,6 +16996,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             if (function_has_been_deleted(decl_context, chosen_constructor, nodecl_get_locus(nodecl_expr)))
             {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                nodecl_free(nodecl_expr);
                 return;
             }
 
@@ -17139,6 +17089,7 @@ void check_nodecl_initialization(
                             nodecl_locus_to_str(nodecl_initializer));
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+                nodecl_free(nodecl_initializer);
                 return;
             }
         }
@@ -17195,6 +17146,7 @@ void check_nodecl_initialization(
                         print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            nodecl_free(nodecl_initializer);
             return;
         }
     }
@@ -17794,6 +17746,7 @@ static void check_sizeof_type(type_t* t,
                         print_type_str(t, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -18193,6 +18146,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
             }
 
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -18293,6 +18247,7 @@ static void check_gcc_alignof_type(type_t* t,
                     print_type_str(t, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_expr);
         return;
     }
 
@@ -20574,6 +20529,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         }
 
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        nodecl_free(nodecl_expr);
         return 0;
     }
 
@@ -20587,6 +20543,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
                     codegen_to_str(nodecl_expr, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        nodecl_free(nodecl_expr);
         return 0;
     }
 
@@ -21010,6 +20967,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         else
         {
             result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(node);
         }
     }
     else if (sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
@@ -21041,6 +20999,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             else
             {
                 result = nodecl_make_err_expr(nodecl_get_locus(node));
+                nodecl_free(node);
             }
         }
         else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
@@ -21061,6 +21020,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         else
         {
             result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(node);
         }
     }
     else if (sym->kind == SK_VARIABLE
@@ -21228,6 +21188,8 @@ static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -21269,6 +21231,8 @@ static void instantiate_logical_and(nodecl_instantiate_expr_visitor_t* v, nodecl
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -21310,6 +21274,8 @@ static void instantiate_logical_or(nodecl_instantiate_expr_visitor_t* v, nodecl_
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -21333,6 +21299,7 @@ static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
     if (nodecl_is_err_expr(nodecl_op))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_op);
     }
     else
     {
@@ -21377,6 +21344,7 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
         if (nodecl_is_err_expr(nodecl_new_item))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(nodecl_new_item);
             return;
         }
 
@@ -21399,6 +21367,7 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     if (nodecl_is_err_expr(nodecl_op))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_op);
     }
     else if (nodecl_get_kind(nodecl_op) == NODECL_SYMBOL)
     {
@@ -21457,6 +21426,8 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
         if (nodecl_is_err_expr(current_arg))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(new_list);
+            nodecl_free(current_arg);
             return;
         }
 
@@ -21495,6 +21466,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     if (nodecl_is_err_expr(nodecl_called))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_called);
         return;
     }
 
@@ -21513,6 +21485,8 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
         if (nodecl_is_err_expr(current_arg))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(new_list);
+            nodecl_free(current_arg);
             return;
         }
 
@@ -21571,6 +21545,7 @@ static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     if (nodecl_is_err_expr(lhs_type_inst))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(lhs_type_inst);
         return;
     }
     type_t* instantiated_type_lhs = nodecl_get_type(lhs_type_inst);
@@ -21583,6 +21558,8 @@ static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t
         if (nodecl_is_err_expr(rhs_type_inst_opt))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(lhs_type_inst);
+            nodecl_free(rhs_type_inst_opt);
             return;
         }
     }
@@ -21610,6 +21587,7 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     if (nodecl_is_err_expr(expr))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expr);
     }
     else
     {
@@ -21657,6 +21635,7 @@ static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, n
     if (nodecl_is_err_expr(expr))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expr);
     }
     else
     {
@@ -22036,6 +22015,8 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     if (len < 0)
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expansion);
+        nodecl_free(packed_expr);
         return;
     }
 

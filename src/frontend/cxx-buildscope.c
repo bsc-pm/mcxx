@@ -61,6 +61,7 @@
 #include "cxx-pragma.h"
 #include "cxx-codegen.h"
 #include "cxx-placeholders.h"
+#include "cxx-driver-utils.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating

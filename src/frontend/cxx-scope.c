@@ -5689,12 +5689,16 @@ scope_entry_list_t* query_nodecl_template_id(
         SK_DEPENDENT_ENTITY
     };
 
+    scope_entry_list_t* old_entry_list = entry_list;
     entry_list = filter_symbol_kind_set(entry_list, 
             STATIC_ARRAY_LENGTH(template_name_filter), 
             template_name_filter);
+    entry_list_free(old_entry_list);
 
     if (entry_list == NULL)
+    {
         return NULL;
+    }
 
     scope_entry_t* template_symbol = entry_advance_aliases(entry_list_head(entry_list));
 
@@ -5738,7 +5742,10 @@ scope_entry_list_t* query_nodecl_template_id(
                     nodecl_get_locus(nodecl_name));
 
         if (completed_template_parameters == NULL)
+        {
+            entry_list_free(entry_list);
             return NULL;
+        }
 
         specialized_type = template_type_get_specialized_type(generic_type,
                 completed_template_parameters,
@@ -5751,10 +5758,12 @@ scope_entry_list_t* query_nodecl_template_id(
 
             scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
 
+            entry_list_free(entry_list);
             return result;
         }
         else
         {
+            entry_list_free(entry_list);
             return NULL;
         }
     }
@@ -5785,10 +5794,12 @@ scope_entry_list_t* query_nodecl_template_id(
 
             scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
 
+            entry_list_free(entry_list);
             return result;
         }
         else
         {
+            entry_list_free(entry_list);
             return NULL;
         }
     }

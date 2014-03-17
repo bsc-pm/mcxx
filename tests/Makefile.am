@@ -57,6 +57,7 @@ BETS_OPTIONS="-only-fails"
 do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
+	export MALLOC_CHECK_=2; \
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 preserve-check-log:
@@ -103,22 +104,27 @@ ANALYSIS_DIRS=\
 	$(END)
 
 fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(FORTRAN_DIRS)
 
 core-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS)
 
 core-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
 
 omp-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
 
 analysis-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
 		

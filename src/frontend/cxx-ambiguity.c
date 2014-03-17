@@ -2016,6 +2016,9 @@ static char solve_ambiguous_expression_check_intepretation(AST ambig_expression,
         check_expression(ambig_expression, decl_context, &current_nodecl);
     leave_test_expression();
 
+    if (!current_check)
+        nodecl_free(current_nodecl);
+
     return current_check;
 }
 

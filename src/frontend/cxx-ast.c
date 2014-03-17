@@ -769,6 +769,7 @@ void ast_free(AST a)
         }
 
         // This will uncover dangling references
+        xfree(a->expr_info);
         xfree(a->children);
         _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
         memset(a, 0, sizeof(*a));
