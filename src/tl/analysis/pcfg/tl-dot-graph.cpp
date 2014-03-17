@@ -227,6 +227,8 @@ namespace {
     }
 }
     
+    static int id_ = 0;
+    
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                               bool ranges, bool auto_scoping, bool auto_deps )
     {
@@ -267,7 +269,9 @@ namespace {
         std::string filename = ::give_basename(node.get_filename().c_str());
         int line = node.get_line();
         std::stringstream ss; ss << filename << "_" << line;
-        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
+        std::stringstream ss_; ss_ << ++id_;
+        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + "_" + ss_.str() + ".dot";
+        std::cerr << "Print PCFG to file '" << dot_file_name << "'" << std::endl;
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
