@@ -65,6 +65,7 @@ namespace Nodecl
 
         bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool stmtexpr_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
+        bool stmtexpr_contains_nodecl_pointer( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
         bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
         bool equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2);
         bool equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
@@ -295,6 +296,98 @@ namespace Nodecl
             // *** Consultants *** //
             bool find( const Nodecl::NodeclBase& n );
 
+            // *** Visitors *** //
+            Ret unhandled_node( const Nodecl::NodeclBase& n );
+            Ret visit( const Nodecl::Add& n );
+            Ret visit( const Nodecl::AddAssignment& n );
+            Ret visit( const Nodecl::ArithmeticShrAssignment& n );
+            Ret visit( const Nodecl::ArraySubscript& n );
+            Ret visit( const Nodecl::Assignment& n );
+            Ret visit( const Nodecl::BitwiseAndAssignment& n );
+            Ret visit( const Nodecl::BitwiseOrAssignment& n );
+            Ret visit( const Nodecl::BitwiseShlAssignment& n );
+            Ret visit( const Nodecl::BitwiseShrAssignment& n );
+            Ret visit( const Nodecl::BitwiseXorAssignment& n );
+            Ret visit( const Nodecl::Cast& n );
+            Ret visit( const Nodecl::ClassMemberAccess& n );
+            Ret visit( const Nodecl::Conversion& n );
+            Ret visit( const Nodecl::Dereference& n );
+            Ret visit( const Nodecl::Different& n );
+            Ret visit( const Nodecl::Div& n );
+            Ret visit( const Nodecl::DivAssignment& n );
+            Ret visit( const Nodecl::Equal& n );
+            Ret visit( const Nodecl::FloatingLiteral& n );
+            Ret visit( const Nodecl::FunctionCall& n );
+            Ret visit( const Nodecl::IntegerLiteral& n );
+            Ret visit( const Nodecl::LowerThan& n );
+            Ret visit( const Nodecl::LowerOrEqualThan& n );
+            Ret visit( const Nodecl::MaskLiteral& n );
+            Ret visit( const Nodecl::Minus& n );
+            Ret visit( const Nodecl::MinusAssignment& n );
+            Ret visit( const Nodecl::Mod& n );
+            Ret visit( const Nodecl::ModAssignment& n );
+            Ret visit( const Nodecl::Mul& n );
+            Ret visit( const Nodecl::MulAssignment& n );
+            Ret visit( const Nodecl::Neg& n );
+            Ret visit( const Nodecl::ObjectInit& n );
+            Ret visit( const Nodecl::Postdecrement& n );
+            Ret visit( const Nodecl::Postincrement& n );
+            Ret visit( const Nodecl::Predecrement& n );
+            Ret visit( const Nodecl::Preincrement& n );
+            Ret visit( const Nodecl::Range& n );
+            Ret visit( const Nodecl::Reference& n );
+            Ret visit( const Nodecl::Symbol& n );
+            Ret visit( const Nodecl::UnalignedVectorLoad& n );
+            Ret visit( const Nodecl::UnalignedVectorStore& n );
+            Ret visit( const Nodecl::VectorAdd& n );
+            Ret visit( const Nodecl::VectorAssignment& n );
+            Ret visit( const Nodecl::VectorBitwiseShl& n );
+            Ret visit( const Nodecl::VectorBitwiseShlI& n );
+            Ret visit( const Nodecl::VectorBitwiseShr& n );
+            Ret visit( const Nodecl::VectorBitwiseShrI& n );
+            Ret visit( const Nodecl::VectorConversion& n );
+            Ret visit( const Nodecl::VectorDiv& n );
+            Ret visit( const Nodecl::VectorFabs& n );
+            Ret visit( const Nodecl::VectorFunctionCall& n );
+            Ret visit( const Nodecl::VectorGather& n );
+            Ret visit( const Nodecl::VectorGreaterThan& n );
+            Ret visit( const Nodecl::VectorGreaterOrEqualThan& n );
+            Ret visit( const Nodecl::VectorLiteral& n );
+            Ret visit( const Nodecl::VectorLoad& n );
+            Ret visit( const Nodecl::VectorLowerThan& n );
+            Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
+            Ret visit( const Nodecl::VectorMul& n );
+            Ret visit( const Nodecl::VectorMaskAssignment& n );
+            Ret visit( const Nodecl::VectorPromotion& n );
+            Ret visit( const Nodecl::VectorReductionAdd& n );
+            Ret visit( const Nodecl::VectorScatter& n );
+            Ret visit( const Nodecl::VectorStore& n );
+        };
+        
+        class LIBTL_CLASS ExprPointerFinderVisitor : public Nodecl::NodeclVisitor<void>
+        {
+        private:
+            Nodecl::NodeclBase _scope;
+            Nodecl::NodeclBase _n;
+            bool _nodecl_is_found;
+            
+            void unary_visitor( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
+            void binary_visitor( const Nodecl::NodeclBase& n,
+                                 const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+            void ternary_visitor( const Nodecl::NodeclBase& n,
+                                  const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
+                                  const Nodecl::NodeclBase& third );
+            void quaternary_visitor( const Nodecl::NodeclBase& n,
+                                     const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
+                                     const Nodecl::NodeclBase& third, const Nodecl::NodeclBase& fourth );
+            
+        public:
+            // *** Constructor *** //
+            ExprPointerFinderVisitor( const Nodecl::NodeclBase& stmt );
+            
+            // *** Consultants *** //
+            bool find( const Nodecl::NodeclBase& n );
+            
             // *** Visitors *** //
             Ret unhandled_node( const Nodecl::NodeclBase& n );
             Ret visit( const Nodecl::Add& n );

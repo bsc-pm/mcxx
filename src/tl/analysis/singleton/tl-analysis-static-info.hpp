@@ -95,6 +95,9 @@ namespace Analysis {
             Node* _autoscoped_task;
 
             Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
+            Node* find_node_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
+            Node* find_node_from_nodecl_in_scope( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& scope ) const;
+            ExtensibleGraph* find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const;
 
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
