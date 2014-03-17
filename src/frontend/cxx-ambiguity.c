@@ -72,8 +72,6 @@ void set_test_expression_status(char c)
 }
 
 // Generic routines
-static void choose_option(AST a, int n);
-
 void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation,
@@ -89,6 +87,8 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     {
         AST current_interpretation = ast_get_ambiguity(a, i);
 
+        ast_fix_parents_inside_intepretation(current_interpretation);
+
         if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
         {
             if (valid_option < 0)
@@ -102,6 +102,8 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
 
                 if (ambiguity_choose_interpretation != NULL)
                 {
+                    // WARNING: previous_interpretation may have wrong parents
+                    // since we cannot fix two trees that may be sharing nodes
                     chosen_result = ambiguity_choose_interpretation(
                             current_interpretation,
                             previous_interpretation,
@@ -135,6 +137,8 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         for (i = 0; i < n; i++)
         {
             AST current_interpretation = ast_get_ambiguity(a, i);
+            ast_fix_parents_inside_intepretation(current_interpretation);
+
             if (ambiguity_fallback_interpretation(current_interpretation, decl_context, info))
             {
                 valid_option = i;
@@ -157,10 +161,10 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         }
     }
 
-    choose_option(a, valid_option);
+    ast_replace_with_ambiguity(a, valid_option);
 }
 
-char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
+static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
         ambiguity_choose_interpretation_fun_t* ambiguity_choose_interpretation
         )
@@ -173,6 +177,7 @@ char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *in
     for (i = 0; i < n; i++)
     {
         AST current_interpretation = ast_get_ambiguity(a, i);
+        ast_fix_parents_inside_intepretation(current_interpretation);
 
         if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
         {
@@ -187,6 +192,8 @@ char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *in
 
                 if (ambiguity_choose_interpretation != NULL)
                 {
+                    // WARNING: previous_interpretation may have wrong parents
+                    // since we cannot fix two trees that may be sharing nodes
                     chosen_result = ambiguity_choose_interpretation(
                             current_interpretation,
                             previous_interpretation,
@@ -215,7 +222,7 @@ char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, void *in
         return 0;
     }
 
-    choose_option(a, valid_option);
+    ast_replace_with_ambiguity(a, valid_option);
     return 1;
 }
 
@@ -293,7 +300,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
 
     if (k != -1)
     {
-        choose_option(a, k);
+        ast_replace_with_ambiguity(a, k);
     }
     else
     {
@@ -499,7 +506,7 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAME
                     && (operator_function_id2 != NULL))
             {
                 // We want the declarator_id_expr
-                choose_option(a, m);
+                ast_replace_with_ambiguity(a, m);
                 return;
             }
         }
@@ -1196,6 +1203,7 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
     for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
     {
         AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
+        ast_fix_parents_inside_intepretation(current_expression_list);
 
         nodecl_t nodecl_expr = nodecl_null();
         enter_test_expression();
@@ -1230,7 +1238,7 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
     }
     else
     {
-        choose_option(ambiguous_list, correct_choice);
+        ast_replace_with_ambiguity(ambiguous_list, correct_choice);
         return 1;
     }
 }
@@ -1245,6 +1253,7 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
     for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
     {
         AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
+        ast_fix_parents_inside_intepretation(current_expression_list);
 
         nodecl_t nodecl_expr = nodecl_null();
         enter_test_expression();
@@ -1279,7 +1288,7 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
     }
     else
     {
-        choose_option(ambiguous_list, correct_choice);
+        ast_replace_with_ambiguity(ambiguous_list, correct_choice);
         return 1;
     }
 }
@@ -1296,6 +1305,7 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
     for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
     {
         AST current_template_argument_list = ast_get_ambiguity(ambiguous_list, i);
+        ast_fix_parents_inside_intepretation(current_template_argument_list);
 
         enter_test_expression();
         template_parameter_list_t* template_parameters =
@@ -1316,92 +1326,11 @@ template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambigu
 
     if (valid >= 0)
     {
-        choose_option(ambiguous_list, valid);
+        ast_replace_with_ambiguity(ambiguous_list, valid);
     }
 
     return result;
 }
-
-// Returns if the template_parameter could be disambiguated.
-// If it can be disambiguated, it is disambiguated here
-void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context)
-{
-    int i;
-
-    int selected_option = -1;
-    int expression_option = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambig_template_parameter); i++)
-    {
-        char current_option = 0;
-        AST current_template_parameter = ast_get_ambiguity(ambig_template_parameter, i);
-
-        switch (ASTType(current_template_parameter))
-        {
-            case AST_TEMPLATE_TYPE_ARGUMENT :
-                {
-                    AST type_id = ASTSon0(current_template_parameter);
-
-                    current_option = check_type_id_tree_or_class_template_name(type_id, decl_context);
-                    break;
-                }
-            case AST_TEMPLATE_EXPRESSION_ARGUMENT :
-                {
-                    expression_option = i;
-                    AST expression_arg = ASTSon0(current_template_parameter);
-
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    enter_test_expression();
-                    current_option = check_expression(expression_arg, decl_context, &nodecl_dummy);
-                    leave_test_expression();
-
-                    break;
-                }
-            default :
-                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(current_template_parameter)), 
-                        ast_location(current_template_parameter));
-                break;
-        }
-        
-        if (current_option)
-        {
-            if (selected_option < 0)
-            {
-                selected_option = i;
-            }
-            else
-            {
-                AST previous_template_parameter = ast_get_ambiguity(ambig_template_parameter, selected_option);
-
-                int either;
-                if ((either = either_type(previous_template_parameter, current_template_parameter, 
-                                AST_TEMPLATE_TYPE_ARGUMENT, AST_TEMPLATE_EXPRESSION_ARGUMENT)))
-                {
-                    if (either < 0)
-                    {
-                        selected_option = i;
-                    }
-                }
-                else
-                {
-                    internal_error("Two valid ambiguities", 0);
-                }
-            }
-        }
-    }
-
-    if (selected_option < 0)
-    {
-        if (expression_option < 0)
-            expression_option = 0;
-        choose_option(ambig_template_parameter, expression_option);
-    }
-    else
-    {
-        // Can be disambiguated, so we do it
-        choose_option(ambig_template_parameter, selected_option);
-    }
-}
-
 
 static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context, void* info UNUSED_PARAMETER)
 {
@@ -1462,6 +1391,7 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         AST init_declarator = ast_get_ambiguity(a, i);
+        ast_fix_parents_inside_intepretation(init_declarator);
 
         if (check_init_declarator(init_declarator, decl_context))
         {
@@ -1474,6 +1404,7 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
                 // Ambiguity: T t(Q()); where T and Q are type-names always solves to 
                 // function declaration
 
+                // WARNING: previous choice may share nodes with init_declarator
                 AST previous_choice = ast_get_ambiguity(a, correct_choice);
                 AST previous_choice_declarator = ASTSon0(previous_choice);
 
@@ -1503,7 +1434,7 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
     }
     else
     {
-        choose_option(a, correct_choice);
+        ast_replace_with_ambiguity(a, correct_choice);
         return 1;
     }
 }
@@ -1983,14 +1914,6 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
 /*
  * Auxiliar functions
  */
-/*
- * This function discards all but the n-option of this ambiguity. The node is
- * converted to one of its options.
- */
-static void choose_option(AST a, int n)
-{
-    ast_replace_with_ambiguity(a, n);
-}
 
 // Returns the index of the first node of type "type"
 static int select_node_type(AST a, node_t type)
@@ -2169,7 +2092,7 @@ void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
         // Prioritize function call if any
         int m = select_node_type(ambig_expression, AST_FUNCTION_CALL);
         if (m < 0) m = 0;
-        choose_option(ambig_expression, m);
+        ast_replace_with_ambiguity(ambig_expression, m);
     }
 
     // Recheck for hidden diagnostics
@@ -2248,7 +2171,7 @@ void solve_ambiguous_condition(AST a, decl_context_t decl_context)
                 solve_ambiguous_condition_choose_interpretation))
     {
         // Best effort
-        choose_option(a, 0);
+        ast_replace_with_ambiguity(a, 0);
     }
 }
 

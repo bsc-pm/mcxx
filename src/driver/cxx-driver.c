@@ -279,31 +279,7 @@
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
-"  -v\n" \
-"  -V\n" \
-"  -f<name>\n" \
-"  -m<name>\n" \
-"  -M\n" \
-"  -MM\n" \
-"  -MF <file>\n" \
-"  -MG <file>\n" \
-"  -MP\n" \
-"  -MT <target>\n" \
-"  -MD\n" \
-"  -MMD\n" \
-"  -static\n" \
-"  -shared\n" \
-"  -std=<option>\n" \
-"  -rdynamic\n" \
-"  -export-dynamic\n" \
-"  -w\n" \
-"  -W<option>\n" \
-"  -pthread\n" \
-"  -Xpreprocessor OPTION\n" \
-"  -Xlinker OPTION\n" \
-"  -Xassembler OPTION\n" \
-"  -include FILE\n" \
-"  -S\n" \
+"  -ansi\n" \
 "  -dA\n" \
 "  -dD\n" \
 "  -dH\n" \
@@ -313,6 +289,32 @@
 "  -dv\n" \
 "  -dx\n" \
 "  -dy\n" \
+"  -export-dynamic\n" \
+"  -f<name>\n" \
+"  -include FILE\n" \
+"  -MD\n" \
+"  -MF <file>\n" \
+"  -MG <file>\n" \
+"  -MMD\n" \
+"  -MM\n" \
+"  -M\n" \
+"  -m<name>\n" \
+"  -MP\n" \
+"  -MT <target>\n" \
+"  -pipe\n" \
+"  -pthread\n" \
+"  -rdynamic\n" \
+"  -shared\n" \
+"  -S\n" \
+"  -static\n" \
+"  -std=<option>\n" \
+"  -v\n" \
+"  -V\n" \
+"  -w\n" \
+"  -W<option>\n" \
+"  -Xassembler OPTION\n" \
+"  -Xlinker OPTION\n" \
+"  -Xpreprocessor OPTION\n" \
 "\n" \
 "Parameters above are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -1784,6 +1786,24 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
     switch (argument[1])
     {
         // GCC parameters
+        case 'a':
+            {
+                if (strcmp(argument, "-ansi") == 0)
+                {
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
+                    }
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                break;
+            }
         case 'n' :
             {
                 if (strcmp(argument, "-nostdlib") == 0
@@ -2028,6 +2048,9 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'p':
             {
                 if (strcmp(argument, "-pthread") == 0)
+                {
+                }
+                else if (strcmp(argument, "-pipe") == 0)
                 {
                 }
                 else if ((strcmp(argument, "-print-search-dirs") == 0)
@@ -4653,9 +4676,14 @@ static compilation_configuration_t* get_sublanguage_configuration(
 
 
 // Useful for debugging sessions
-void _enable_debug(void)
+extern void _enable_debug(void)
 {
     CURRENT_CONFIGURATION->debug_options.enable_debug_code = 1;
+}
+
+extern void _disable_debug(void)
+{
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 }
 
 

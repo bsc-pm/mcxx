@@ -5371,7 +5371,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     }
                 }
 
-                class_type_add_member(class_name->type_information, entry);
+                class_type_add_member(class_name->type_information, entry, /* is_definition */ 1);
             }
         }
     }
@@ -8147,15 +8147,6 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
     unsupported_statement(a, "UNLOCK");
 }
 
-static char come_from_the_same_module(scope_entry_t* new_symbol_used,
-        scope_entry_t* existing_symbol)
-{
-    new_symbol_used = fortran_get_ultimate_symbol(new_symbol_used);
-    existing_symbol = fortran_get_ultimate_symbol(existing_symbol);
-
-    return new_symbol_used == existing_symbol;
-}
-
 scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* local_name, 
@@ -8164,27 +8155,6 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 {
     ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
 
-    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, NULL, DF_ONLY_CURRENT_SCOPE); 
-
-    if (check_repeated_name != NULL)
-    {
-        scope_entry_list_iterator_t *it = NULL;
-        for (it = entry_list_iterator_begin(check_repeated_name);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* existing_name = entry_list_iterator_current(it);
-            if (come_from_the_same_module(entry, existing_name))
-            {
-                entry_list_iterator_free(it);
-                return existing_name;
-            }
-        }
-        entry_list_iterator_free(it);
-        // We allow the symbol be repeated, using it will be wrong 
-    }
-    entry_list_free(check_repeated_name);
-    
     // Always insert the ultimate symbol
     scope_entry_t* named_entry_from_module = entry;
     if (entry->entity_specs.from_module != NULL)

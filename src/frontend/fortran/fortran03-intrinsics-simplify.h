@@ -472,6 +472,7 @@ static nodecl_t simplify_xbound(scope_entry_t* entry UNUSED_PARAMETER, int num_a
 
         nodecl_t result = nodecl_make_structured_value(
                 nodecl_list,
+                nodecl_null(),
                 get_array_type_bounds(choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
                     nodecl_make_int_literal(kind_),
@@ -645,6 +646,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     {
         result = nodecl_make_structured_value(
                 nodecl_list,
+                nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),
                     nodecl_make_one(),
@@ -671,6 +673,7 @@ static nodecl_t simplify_shape(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     else
     {
         result = nodecl_make_structured_value(
+                nodecl_null(),
                 nodecl_null(),
                 get_array_type_bounds(
                     choose_int_type_from_kind(kind, kind_),

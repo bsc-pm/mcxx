@@ -234,7 +234,11 @@ expression : literal
 # Ths one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
-structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
+
+structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
+      | NODECL_STRUCTURED_VALUE_BRACED()
+      | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
@@ -332,14 +336,14 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_PARSE_LATER()
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
-                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) type-opt
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
 
-cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text type-opt
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
 cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type

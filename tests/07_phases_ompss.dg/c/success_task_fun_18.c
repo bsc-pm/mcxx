@@ -5,6 +5,7 @@ test_generator=config/mercurium-ompss
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #pragma omp task copy_inout([n]f)

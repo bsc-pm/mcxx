@@ -71,7 +71,9 @@ namespace TL { namespace Nanox {
             }
         }
 
-        class_type_add_member(new_class_type.get_internal_type(), field.get_internal_symbol());
+        class_type_add_member(new_class_type.get_internal_type(),
+                field.get_internal_symbol(),
+                /* is_definition */ 1);
         return field;
     }
 
@@ -227,7 +229,10 @@ namespace TL { namespace Nanox {
             ::class_type_add_member_before(
                     related_symbol.get_class_type().get_internal_type(), 
                     related_symbol.get_internal_symbol(),
-                    new_class_symbol.get_internal_symbol());
+                    new_class_symbol.get_internal_symbol(),
+                    /* is_definition */
+                    new_class_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier
+                    );
         }
         else if (related_symbol.is_in_module())
         {

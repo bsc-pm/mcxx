@@ -296,6 +296,24 @@ identifier {idnondigit}({idnondigit}|{digit})*
 	BEGIN(pragma_line);
 }
 
+<pragma_line>mcc[ ]+enable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _enable_debug(void);
+    _enable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
+}
+
+<pragma_line>mcc[ ]+disable_debug[ ]*\n {
+    // This is only for debugging Mercurium itself
+    extern void _disable_debug(void);
+    _disable_debug();
+    scanning_now.line_number++;
+    // Do not return anything
+    BEGIN(INITIAL);
+}
+
 <pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
     BEGIN(verbatim_clauses);
     parse_token_text();

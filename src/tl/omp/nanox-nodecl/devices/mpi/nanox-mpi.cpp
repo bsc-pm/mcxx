@@ -129,10 +129,10 @@ void DeviceMPI::generate_additional_mpi_code(
         const std::string& outline_name,
         TL::Source& code_host,
         TL::Source& code_device_pre,        
-        TL::Source& code_device_post) {
-    
+        TL::Source& code_device_post,
+        const TL::Symbol& curr_function) 
+{    
     std::string ompss_get_mpi_type="ompss_get_mpi_type";
-    const std::string& device_outline_name = get_outline_name(outline_name);
 
     TL::Type argument_type = ::get_user_defined_type(struct_args.get_internal_symbol());
     TL::ObjectList<TL::Symbol> parameters_called = argument_type.get_fields();
@@ -153,7 +153,14 @@ void DeviceMPI::generate_additional_mpi_code(
     code_host << "MPI_Status ompss___status; "
             << "int offload_err; ";
     
-    code_device_pre << struct_args.get_name() << " args;"
+    Source struct_arg_type_name;
+    struct_arg_type_name
+         << ((struct_args.get_type().is_template_specialized_type()
+                     &&  struct_args.get_type().is_dependent()) ? "typename " : "")
+         << struct_args.get_qualified_name();
+    //std::cout << "struct name " << struct_arg_type_name.get_source() << "\n";
+    
+    code_device_pre << struct_arg_type_name.get_source() << " args;"
             << "int offload_err; "            
             << "MPI_Comm ompss_parent_comp; "            
             << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);"
@@ -169,8 +176,13 @@ void DeviceMPI::generate_additional_mpi_code(
         Source struct_mpi_create, host_call, device_call;
 
 
+        Source type_name;
+        //type_name << "(void (*)(void*))"
+        type_name << "(void*)"
+				<< "(" << as_type(curr_function.get_type().get_pointer_to()) << " )"
+				<< curr_function.get_qualified_name();
 
-        host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
+        host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
         host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
         //host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
@@ -215,7 +227,13 @@ void DeviceMPI::generate_additional_mpi_code(
                 << device_call;
     //If there are no parameters, just send the order to start the task and wait for the ending ack
     } else {
-        code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host((void *)" << device_outline_name << "_host)" << ";";
+        Source type_name;
+        //type_name << "(void (*)(void*))"
+        type_name << "(void*)"
+				<< "(" << as_type(curr_function.get_type().get_pointer_to()) << " )"
+				<< curr_function.get_qualified_name();
+
+        code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
         code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         //code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
@@ -598,7 +616,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
             info._outline_name,
             code_host,
             code_device_pre,
-            code_device_post);
+            code_device_post,
+            host_function);
     
     Source unpacked_source;
     Source extra_declarations;
@@ -849,6 +868,7 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 ;
         
        new_device_body = device_src.parse_statement(device_function_body);
+       // std::cout << new_device_body.get_text() << "\n";
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -912,10 +932,33 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
         _extraFortranDecls <<
                "extern void " + device_outline_name + "_host" << append  << "(struct " << info._arguments_struct.get_name() << " *const args);"
                "extern void " << device_outline_name << "_device"  << append << "(void);";
-    }
-    
-    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
-    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+        
+       _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+       _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+       _currTaskId++; 
+    } else {
+        if( is_template_specialized_type(current_function.get_type().get_internal_type()) ){
+            type_t* type=template_specialized_type_get_related_template_type(current_function.get_type().get_internal_type());
+            int n = template_type_get_num_specializations(type);
+            
+            //Emmit pointers to all the specialization for the original function, but in our device/host functions
+            for (int i = 0; i < n; i++)
+            {
+                TL::Type t=template_type_get_specialization_num(type, i);
+                if ( template_type_get_primary_type(type) != t.get_internal_type() ) {              
+                    template_parameter_list_t* arguments_list= template_specialized_type_get_template_arguments(t.get_symbol().get_type().get_internal_type());
+                    std::string templateName(template_arguments_to_str(arguments_list,0,1,current_function.get_scope().get_decl_context()));
+                    _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name(true) + templateName,",");
+                    _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name(true) + templateName,",");    
+                    _currTaskId++; 
+                }
+            }
+        } else {
+           _sectionCodeHost.append_with_separator("(void*)" + host_function.get_qualified_name() + append,",");
+           _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
+           _currTaskId++; 
+        }
+    }  
     
 }
 
@@ -932,7 +975,8 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         Source &fortran_dynamic_init UNUSED_PARAMETER) {
     TargetInformation& target_information = info._target_info;
     const std::string& device_outline_name = get_outline_name(info._outline_name);
-    if (Nanos::Version::interface_is_at_least("master", 5012)) {
+    const std::string& arguments_struct = info._arguments_struct;
+    if (Nanos::Version::interface_is_at_least("master", 5012)) {         
         ObjectList<Nodecl::NodeclBase> onto_clause = target_information.get_onto();
         Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
         
@@ -956,14 +1000,35 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         }
         
         if (!IS_FORTRAN_LANGUAGE)
-        {
+        {                  
+            // Extra cast for solving some issues of GCC 4.6.* and lowers (this
+            // issues seem to be fixed in GCC 4.7 =D)
+            std::string ref = IS_CXX_LANGUAGE ? "&" : "*";
+            std::string extra_cast = "(void(*)(" + arguments_struct + ref + "))";
+            
+            TL::Symbol current_function = info._current_function;
+
+            //FIXME (together with SMP): This is confusing. In a future, we should get the template
+            //arguments of the outline function and print them
+            std::string original_name = current_function.get_name();
+            current_function.set_name(device_outline_name+"_host");
+            Nodecl::NodeclBase code = current_function.get_function_code();
+            Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
+                ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
+                : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();    
+            TL::Scope function_scope = context.retrieve_context();
+            std::string qualified_name = current_function.get_qualified_name(function_scope);            
+            // Restore the original name of the current function
+            current_function.set_name(original_name);
+            
+            //Initialize static with 0's and then change its value each time we spawn a task
+            //This struct will be copied by nanox at task creation time, so values will be correct in the runtime
             ancillary_device_description
                 << "static nanos_mpi_args_t "
-                << device_outline_name << "_mpi_args;"
-                << device_outline_name << "_mpi_args.outline = (void(*)(void*))" << device_outline_name << "_host;"
+                << device_outline_name << "_mpi_args = "
+                << "{ ((void(*)(void*))" << "(" << extra_cast << " &" << qualified_name << ")),0,0 };"
                 << device_outline_name << "_mpi_args.assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_mpi_args.assignedRank = " << assignedRank << ";";
-
 
             device_descriptor << "{ &nanos_mpi_factory, &" << device_outline_name << "_mpi_args }";
         }
@@ -990,9 +1055,7 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         }
     } else {
         internal_error("Unsupported Nanos version.", 0);
-    }
-    
-    _currTaskId++;    
+    }   
 }
 
 bool DeviceMPI::remove_function_task_from_original_source() const
