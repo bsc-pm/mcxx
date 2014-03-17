@@ -227,6 +227,8 @@ namespace {
     }
 }
     
+    static int id_ = 0;
+    
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                               bool ranges, bool auto_scoping, bool auto_deps )
     {
@@ -245,8 +247,30 @@ namespace {
             if( dot_directory != 0 )
                 internal_error ( "An error occurred while creating the dot files directory in '%s'", directory_name.c_str( ) );
         }
-        
-        std::string dot_file_name = directory_name + _name + "_pcfg.dot";
+
+        std::string date_str;
+        {
+            time_t t = time(NULL);
+            struct tm* tmp = localtime(&t);
+            if (tmp == NULL)
+            {
+                internal_error("localtime failed", 0);
+            }
+            char outstr[200];
+            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+            {
+                internal_error("strftime failed", 0);
+            }
+            outstr[199] = '\0';
+            date_str = outstr;
+        }
+
+        Nodecl::NodeclBase node = this->get_nodecl();
+        std::string filename = ::give_basename(node.get_filename().c_str());
+        int line = node.get_line();
+        std::stringstream ss; ss << filename << "_" << line;
+        std::stringstream ss_; ss_ << ++id_;
+        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + "_" + ss_.str() + "_pcfg.dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
