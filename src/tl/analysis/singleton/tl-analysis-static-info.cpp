@@ -91,7 +91,47 @@ namespace Analysis {
         }
         return result;
     }
-
+    
+    Node* NodeclStaticInfo::find_node_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const
+    {
+        Node* result = NULL;
+        for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result = ( *it )->find_nodecl_pointer( n );
+            if( result != NULL )
+                break;
+        }
+        return result;
+    }
+    
+    Node* NodeclStaticInfo::find_node_from_nodecl_in_scope( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& scope ) const
+    {
+        Node* result = NULL;
+        for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            result = ( *it )->find_nodecl/*_in_scope*/( n/*, scope*/ );
+            if( result != NULL )
+            {
+                break;
+            }
+        }
+        return result;
+    }
+    
+    ExtensibleGraph* NodeclStaticInfo::find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const
+    {
+        ExtensibleGraph* result = NULL;
+        for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
+        {
+            if( ( *it )->find_nodecl( n ) != NULL )
+            {
+                result = *it;
+                break;
+            }
+        }
+        return result;
+    }
+    
     bool NodeclStaticInfo::is_constant( const Nodecl::NodeclBase& n ) const
     {
         bool result = true;
@@ -114,8 +154,8 @@ namespace Analysis {
         bool result = false;
         if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::ArraySubscript>( ) || n.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Node* s_node = find_node_from_nodecl( s );
-            Node* scope_node = find_node_from_nodecl( s );
+            Node* s_node = find_node_from_nodecl_pointer( s );
+            Node* scope_node = find_node_from_nodecl_pointer( s );
             if( s_node == NULL )
             {
                 WARNING_MESSAGE( "Nodecl '%s' not found in the current analysis. " \
@@ -573,7 +613,7 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            Node* scope_node = current_info.find_node_from_nodecl( scope );
+            Node* scope_node = current_info.find_node_from_nodecl_pointer( scope );
             if( scope_node == NULL )
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  scope.prettyprint( ).c_str( ) );
@@ -797,11 +837,11 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = scope_static_info->second;
-            Node* scope_node = current_info.find_node_from_nodecl( scope );
+            Node* scope_node = current_info.find_node_from_nodecl_pointer( scope );
             if( scope_node == NULL )
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  scope.prettyprint( ).c_str( ) );
-            Node* n_node = current_info.find_node_from_nodecl( n );
+            Node* n_node = current_info.find_node_from_nodecl_pointer( n );
             if( n_node == NULL )
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
                                  n.prettyprint( ).c_str( ) );
@@ -826,12 +866,12 @@ namespace Analysis {
         else
         {
             NodeclStaticInfo current_info = ivs_scope_static_info->second;
-            Node* ivs_scope_node = current_info.find_node_from_nodecl( ivs_scope );
-            if( ivs_scope_node == NULL )
+            Node* scope_node = current_info.find_node_from_nodecl_pointer( ivs_scope );
+            if( scope_node == NULL )
                 WARNING_MESSAGE( "No PCFG node found in the static info computed for ivs_scope nodecl %s.",
                                  ivs_scope.prettyprint( ).c_str( ) );
 
-            result = current_info.is_induction_variable_dependent_expression( n, ivs_scope_node );
+            result = current_info.is_induction_variable_dependent_expression( n, scope_node );
         }
 
         return result;

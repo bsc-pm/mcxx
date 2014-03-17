@@ -134,8 +134,12 @@ namespace Analysis {
 
         void erase_jump_nodes( Node* current );
 
-        //! Looks for nodecl 'n' in 'current' and its successors
+        //! Structurally looks for nodecl 'n' in 'current' and its successors
         Node* find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+        
+        //! Looks for the same pointer nodecl 'n' in 'current' and its successors
+        Node* find_nodecl_pointer_rec( Node* current, const Nodecl::NodeclBase& n );
+        
         
         // *************************************************************************************** //
         // ********************************* DOT printing methods ******************************** //
@@ -412,7 +416,8 @@ namespace Analysis {
         
         static bool has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n );
         
-        Node* find_nodecl( const Nodecl::NodeclBase& n );
+        Node* find_nodecl( const Nodecl::NodeclBase& n );           // structural search
+        Node* find_nodecl_pointer( const Nodecl::NodeclBase& n );   // pointer search
         
         bool usage_is_computed( );
 

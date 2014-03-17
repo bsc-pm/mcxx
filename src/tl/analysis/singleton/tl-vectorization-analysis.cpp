@@ -77,14 +77,14 @@ namespace Analysis {
     }
 
     bool NodeclStaticInfo::is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n,
-                                                        Node* scope_node/*, Node* n_node*/ ) const
+                                                        Node* scope_node ) const
     {
-        return contains_induction_variable( n, scope_node/*, n_node*/ ) ||
-            var_is_iv_dependent_in_scope( n, scope_node/*, n_node*/ );
+        return contains_induction_variable( n, scope_node ) ||
+                var_is_iv_dependent_in_scope( n, scope_node );
     }
 
     bool NodeclStaticInfo::contains_induction_variable( const Nodecl::NodeclBase& n,
-                                                        Node* scope_node/*, Node* n_node*/ ) const
+                                                        Node* scope_node ) const
     {
         bool result = false;
 
@@ -92,7 +92,7 @@ namespace Analysis {
         Nodecl::NodeclBase s = n.shallow_copy( );
         v.walk( s );
 
-        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node, /*n_node*/ NULL );
+        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node,  NULL );
         iv_v.walk( s );
         result = iv_v.depends_on_induction_vars( );
 
@@ -100,11 +100,11 @@ namespace Analysis {
     }
 
     bool NodeclStaticInfo::var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n,
-                                                         Node* scope_node/*, Node* n_node*/ ) const
+                                                         Node* scope_node ) const
     {
         bool result = false;
 
-        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, /*n_node*/ NULL );
+        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, NULL );
         ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
         for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
         {
