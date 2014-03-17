@@ -655,8 +655,23 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for range analysis ******************* //
             
+            //! Returns all the constraints associated to the node or propagated from its parents
+            Utils::ConstraintMap get_all_constraints( );
+
+            //! Returns all the constraints that have been propagated to the node
+            Utils::ConstraintMap get_propagated_constraints( );
+            
+            //! Returns all the constraints associated to the node
+            Utils::ConstraintMap get_constraints( );
+            
             //! Returns the constraints associated to a given variable in the node
-            ObjectList<Utils::Constraint> get_constraints( const Nodecl::NodeclBase& var );
+            Utils::Constraint get_constraint( const Nodecl::NodeclBase& var );
+            
+            //! Sets a new map of constraints to the node
+            void set_constraints( Utils::ConstraintMap constraints );
+            
+            //! Sets a new map of propagated constraints to the node
+            void set_propagated_constraints( Utils::ConstraintMap constraints );
             
             //! Returns the map of variables and their range values associated 
             //! at the entry point of the node

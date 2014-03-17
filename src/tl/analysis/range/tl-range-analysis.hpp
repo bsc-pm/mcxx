@@ -28,6 +28,7 @@
 #define TL_RANGE_ANALYSIS_HPP
 
 #include "tl-extensible-graph.hpp"
+#include "tl-range-analysis-utils.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -35,47 +36,60 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
     
+    class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<Utils::Constraint>
+    {
+    private:
+        // map containing the constraints arriving at the nodecl being visited
+        Utils::ConstraintMap _input_constraints;        // Constraints coming from the parents or from previous statements in the current node
+        Utils::ConstraintMap _output_constraints;       // Constraints computed so far for the current node
+        Utils::ConstraintMap _output_true_constraints;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
+        Utils::ConstraintMap _output_false_constraints; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        
+    public:
+        
+        // *** Constructor *** //
+        ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
+                                 Utils::ConstraintMap current_constraints );
+        
+        // *** Modifiers *** //
+        void compute_constraints(const Nodecl::NodeclBase& n);
+        
+        // *** Getters and setters *** //
+        Utils::ConstraintMap get_output_constraints();
+        Utils::ConstraintMap get_output_true_constraints();
+        Utils::ConstraintMap get_output_false_constraints();
+        
+        // *** Consultants *** //
+        bool new_constraint_is_repeated(const Utils::Constraint& c);
+        
+        // *** Visiting methods *** //
+        Ret join_list(TL::ObjectList<Utils::Constraint>& list);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::Preincrement& n);
+    };
+    
     class LIBTL_CLASS RangeAnalysis
     {
     private:
         ExtensibleGraph* _graph;
         
-        void initialize_range_values( Node* current );
-        void compute_node_range_analysis( Node* node, bool& changed );
-        void compute_range_analysis_rec( Node* current, bool& changed );
+        void compute_initial_constraints(Node* n);
+        
         
     public:
         //! Constructor
-        RangeAnalysis( ExtensibleGraph* graph );
+        RangeAnalysis(ExtensibleGraph* graph);
         
         //! Method computing the Ranges information on the member #graph
-        void compute_range_analysis( );
+        void compute_range_analysis();
+        
+        void propagate_constraints_from_backwards_edges(Node* n);
+        void recompute_node_constraints(Node* n, Utils::ConstraintMap new_constraint_map);
+        
     };
 
     // ****************************** End class implementing range analysis ******************************* //
-    // **************************************************************************************************** //
-    
-    
-    
-    // **************************************************************************************************** //
-    // *************** Class implementing reaching definitions substitution and propagation *************** //
-    
-    class LIBTL_CLASS DefinitionsPropagationVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-    private:
-        Utils::ext_sym_map _reaching_definitions;
-        
-    public:
-        // *** Constructor *** //
-        DefinitionsPropagationVisitor( Utils::ext_sym_map reaching_defs );
-        
-        // *** Visiting methods *** //
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Symbol& n );
-    };
-    
-    // ************* END class implementing reaching definitions substitution and propagation ************* //
     // **************************************************************************************************** //
     
 }

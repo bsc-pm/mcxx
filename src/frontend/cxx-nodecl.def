@@ -635,10 +635,10 @@ interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
 constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
                       | interval_expression
 
-constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
+constraint_operation : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
+                     | NODECL_ANALYSIS*RANGE_UNION([lhs] constraint_expression, [rhs] constraint_expression) type
+                     | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] constraint_expression, [rhs] constraint_expression) type
+                     | NODECL_ANALYSIS*RANGE_SUB([lhs] constraint_expression, [rhs] constraint_expression) type
 
 constraint : constraint_expression
            | constraint_operation

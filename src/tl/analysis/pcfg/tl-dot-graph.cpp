@@ -167,17 +167,9 @@ namespace {
         std::string ranges = "";
         if( _ranges )
         {
-            Utils::RangeValuesMap ranges_in_ = current->get_ranges_in( );
-            Utils::RangeValuesMap ranges_out_ = current->get_ranges_out( );
-            if( current->get_id( ) == 9 )
-            {
-                std::cerr << "Node 9 has " << ranges_in_.size( ) << " ranges_in and " << ranges_out_.size( ) << " ranges_out" << std::endl;
-            }
-            std::string ranges_in = prettyprint_range_values_map( current->get_ranges_in( ), /*dot*/ true );
-            std::string ranges_out = prettyprint_range_values_map( current->get_ranges_out( ), /*dot*/ true );
-            
-            ranges = ( ranges_in.empty( )    ? "" : "RI: " + ranges_in  + "\\n" )
-                     + ( ranges_out.empty( ) ? "" : "RO: " + ranges_out );
+            Utils::ConstraintMap constraints = current->get_constraints( );
+            for(Utils::ConstraintMap::iterator it = constraints.begin(); it != constraints.end(); ++it)
+                ranges += it->second.get_symbol().get_name() + " = " + it->second.get_constraint().prettyprint() + "\\n";
             
             int l_size = ranges.size( );
             if( ( l_size > 3 ) && ( ranges.substr( l_size - 2, l_size - 1 ) == "\\n" ) )

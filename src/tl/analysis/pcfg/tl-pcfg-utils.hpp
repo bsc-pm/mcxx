@@ -273,6 +273,12 @@ namespace Analysis {
      */
     #define _IS_TASK_EDGE                   "is_task_edge"
     
+    /*! \def _IS_BACK_EDGE
+     * Boolean indicating whether an edge connects a target which appears before in the source code
+     * Available and mandatory in all edges.
+     */
+    #define _IS_BACK_EDGE                   "is_back_edge"    
+    
     
     // Constant propagation attributes
     //////////////////////////////////
@@ -417,6 +423,12 @@ namespace Analysis {
      * Available in all simple nodes (Mandatory after Range Analysis is performed)
      */
     #define _CONSTRAINTS                    "constraints"
+
+    /*! \def _PROPAGATED_CONSTRAINTS
+     * Map of variables and the related constraints computed during Range Analysis
+     * Available in all simple nodes (Mandatory after Range Analysis is performed)
+     */
+    #define _PROPAGATED_CONSTRAINTS         "propagated_constraints"
     
     /*! \def _RANGES_IN
      * Map containing range of values assigned to a value at the entry point of a node

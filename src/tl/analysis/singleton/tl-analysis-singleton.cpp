@@ -616,7 +616,7 @@ namespace Analysis {
     
     ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
     {
-        ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
+        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
         
         if( !memento.is_range_analysis_computed( ) )
         {

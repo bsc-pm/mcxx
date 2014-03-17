@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+(C) Copyright 2006-2013 Barcelona Supercomputing Center             *
 Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,6 +24,8 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+#include "cxx-cexpr.h"
 #include "tl-range-analysis.hpp"
 
 #include <algorithm>
@@ -31,326 +33,348 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
     
-namespace
-{
-    // TODO Complete this node, some cases are not properly handled
-    void combine_ranges( ObjectList<Utils::RangeValue_tag>& original, 
-                                ObjectList<Utils::RangeValue_tag> new_values )
-    {
-        ObjectList<Utils::RangeValue_tag> elems_to_add;
-        ObjectList<ObjectList<Utils::RangeValue_tag>::iterator> elems_to_erase;
-        for( ObjectList<Utils::RangeValue_tag>::iterator it = new_values.begin( ); it != new_values.end( ); ++it )
-        {
-            if( !it->n->is_null( ) )
-            {   // Element is a Nodecl::NodeclBase*
-                bool needs_insertion = true;        // Indicates whether we need to add *it to the original list
-                for( ObjectList<Utils::RangeValue_tag>::iterator ito = original.begin( ); ito != original.end( ); ++ito )
-                {
-                    if( !ito->n->is_null( ) )
-                    {
-                        if( Nodecl::Utils::equal_nodecls( *it->n, *ito->n ) )
-                        {
-                            needs_insertion = false;
-                            break;
-                        }
-                        else if( Nodecl::Utils::nodecl_contains_nodecl( *it->n, *ito->n ) )
-                        {
-                            needs_insertion = false;
-                            elems_to_erase.append( ito );
-                            elems_to_add.append( *it );
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        if( Nodecl::Utils::equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
-                        {
-                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n" 
-                                             "Assuming values not overlapped", 0 );
-                        }
-                    }
-                }
-                if( needs_insertion )
-                    elems_to_add.append( *it );
-            }
-            else
-            {   // Element is an InductionVariableData*
-                bool needs_insertion = true;        // Indicates whether we need to add *it to the original list
-                for( ObjectList<Utils::RangeValue_tag>::iterator ito = original.begin( ); ito != original.end( ); ++ito )
-                {
-                    if( !ito->n->is_null( ) )
-                    {
-                        if( Nodecl::Utils::equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
-                        {
-                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n" 
-                                             "Assuming values do not overlap", 0 );
-                        }
-                    }
-                    else
-                    {
-                        if( Nodecl::Utils::equal_nodecls( it->iv->get_variable( ).get_nodecl( ), 
-                            ito->iv->get_variable( ).get_nodecl( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_lb( ), ito->iv->get_lb( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_ub( ), ito->iv->get_ub( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_increment( ), ito->iv->get_increment( ), /*skip conversion nodes*/ true ) && 
-                            ( it->iv->is_basic( ) == ito->iv->is_basic( ) ) )
-                        {
-                            needs_insertion = false;
-                        }
-                        else
-                        {
-                            WARNING_MESSAGE( "Combining ranges between two InductionVariableData is not yet supported.\n" 
-                                             "Assuming values do not overlap", 0 );
-                        }
-                    }
-                }
-                if( needs_insertion )
-                    elems_to_add.append( *it );
-            }
-        }
-        
-        // Erase the elements of the original list that we don't want anymore
-        for( ObjectList<ObjectList<Utils::RangeValue_tag>::iterator>::iterator it = elems_to_erase.begin( ); 
-            it != elems_to_erase.end( ); ++it )
-            {
-                original.erase( *it );
-            }
-            // Add the new elements to the original list
-            for( ObjectList<Utils::RangeValue_tag>::iterator it = elems_to_add.begin( ); it != elems_to_add.end( ); ++it )
-                original.append( *it );
-    }
-    
-    bool equal_maps( const Utils::RangeValuesMap& m1, const Utils::RangeValuesMap& m2 )
-    {
-        // No predicate needed because there is operator== for pairs already.
-        return ( ( m1.size( ) == m2.size( ) )
-        && std::equal( m1.begin( ), m1.end( ), m2.begin( ), Utils::map_pair_compare ) );
-    }
-}
-    
+    //! This maps stores the relationship between each variable in a given node and 
+    //! the last identifier used to create a constraint for that variable
+    std::map<Nodecl::NodeclBase, unsigned int, Nodecl::Utils::NodeclLess> var_to_last_constraint_id;
     
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
+
+namespace {
+    unsigned int get_next_id(const Nodecl::NodeclBase& n)
+    {
+        unsigned int next_id = 0;
+        if(var_to_last_constraint_id.find(n) != var_to_last_constraint_id.end())
+            next_id = var_to_last_constraint_id[n] + 1;
+        var_to_last_constraint_id[n] = next_id;
+        return next_id;
+    }
+}
     
-    RangeAnalysis::RangeAnalysis( ExtensibleGraph* graph )
-        : _graph( graph )
+    ConstraintBuilderVisitor::ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
+                                                       Utils::ConstraintMap current_constraints)
+        : _input_constraints(input_constraints), _output_constraints(current_constraints), 
+          _output_true_constraints(), _output_false_constraints()
     {}
     
-    void RangeAnalysis::compute_range_analysis( )
+    void ConstraintBuilderVisitor::compute_constraints(const Nodecl::NodeclBase& n)
     {
-        bool changed = true;
-        Node* entry = _graph->get_graph( )->get_graph_entry_node( );
-        
-        // Initialize range values with information about the reaching definitions out and killed variables
-        initialize_range_values( entry );
-        ExtensibleGraph::clear_visits( entry );
-        
-        // Iterate over the graph until no change is performed
-//         while( changed )
-//         {
-//             changed = false;
-//             compute_range_analysis_rec( entry, changed );
-//             ExtensibleGraph::clear_visits( entry );
-//         }
+        walk(n);
     }
     
-    void RangeAnalysis::initialize_range_values( Node* current )
+    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_constraints()
     {
-        if( !current->is_visited( ) )
-        {
-            current->set_visited( true );
-            
-            if( current->is_graph_node( ) )
-            {
-                initialize_range_values( current->get_graph_entry_node( ) );
-            }
-            else
-            {
-                // Compute input ranges for the current node
-                Utils::ext_sym_map reaching_defs_in = current->get_reaching_definitions_in( );
-                for( Utils::ext_sym_map::iterator it = reaching_defs_in.begin( ); it != reaching_defs_in.end( ); )
-                {
-                    Nodecl::NodeclBase var = it->first.get_nodecl( );
-                    ObjectList<Utils::RangeValue_tag> values;
-                    while( Nodecl::Utils::equal_nodecls( var, it->first.get_nodecl( ) ) )
-                    {
-                        Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
-                        Utils::RangeValue_tag rv; rv.n = value;
-                        values.append( rv );
-                        ++it;
-                    }
-                    current->set_range_in( var, values );
-                }
-                // Compute output ranges for the current node
-                Utils::ext_sym_map reaching_defs_out = current->get_reaching_definitions_out( );
-                DefinitionsPropagationVisitor dpv( reaching_defs_out );
-                for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( ); it != reaching_defs_out.end( ); )
-                {
-                    Nodecl::NodeclBase var = it->first.get_nodecl( );
-                    ObjectList<Utils::RangeValue_tag> values;
-                    while( Nodecl::Utils::equal_nodecls( var, it->first.get_nodecl( ) ) )
-                    {
-                        Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
-//                         dpv.walk( *value );
-                        Utils::RangeValue_tag rv; rv.n = value;
-                        values.append( rv );
-                        ++it;
-                    }
-                    if( !values.empty( ) )
-                    {
-                        Utils::RangeValue_tag rv = values[0];
-                        rv;
-                    }
-                    current->set_range_out( var, values );
-                }
-            }
-            
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                initialize_range_values( *it );
-            }
+        return _output_constraints;
+    }
+
+    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_true_constraints()
+    {
+        return _output_true_constraints;
+    }
+    
+    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_false_constraints()
+    {
+        return _output_false_constraints;
+    }
+    
+    Utils::Constraint ConstraintBuilderVisitor::join_list(TL::ObjectList<Utils::Constraint>& list)
+    {
+        Utils::Constraint result = list[0];
+        WARNING_MESSAGE("join_list of a list of constraint is not yet supported. Doing nothing.", 0);
+        return result;    
+    }
+    
+    Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::Assignment& n)
+    {
+        Utils::Constraint c;
+        
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        if(rhs.is_constant()) 
+        {   // x = c;    -->    X1 = c
+            // Build a symbol for the new constraint based on the name of the original variable
+            std::stringstream ss; ss << get_next_id(lhs);
+            std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
+            Symbol s(n.retrieve_context().new_symbol(constr_name));
+            c = Utils::Constraint(s, lhs, rhs);
         }
-    }
-    
-    void RangeAnalysis::compute_node_range_analysis( Node* node, bool& changed )
-    {
-        // Get parents ranges
-        Utils::RangeValuesMap parents_range_values;
-        ObjectList<Node*> parents = node->get_parents( );
-        for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+        else 
         {
-            Utils::RangeValuesMap parent_range_out = ( *it )->get_ranges_out( );
-            for( Utils::RangeValuesMap::iterator itr = parent_range_out.begin( ); itr != parent_range_out.end( ); ++itr )
+            ObjectList<Nodecl::NodeclBase> rhs_mem_access = Nodecl::Utils::get_all_memory_accesses(rhs);
+            for(ObjectList<Nodecl::NodeclBase>::iterator it = rhs_mem_access.begin(); it != rhs_mem_access.end(); ++it)
             {
-                if( parents_range_values.find( itr->first ) == parents_range_values.end( ) )
-                {   // Parent value has not yet been added
-                    parents_range_values.insert( Utils::RangeValuesMapEntry( itr->first, itr->second ) );
+                if(_input_constraints.find(*it) != _input_constraints.end())
+                {
+                    // TODO Replace *it in constr_rhs with constraints[0]
+                    Utils::Constraint constraint = _input_constraints[*it];
+                    internal_error("Constraints found for variable %s. We should replace the variable but this is not yet implemented.", 
+                                    it->prettyprint().c_str());
                 }
                 else
-                {   // Combine results
-                    combine_ranges( parents_range_values[itr->first], itr->second );
+                {
+                    std::stringstream ss; ss << get_next_id(lhs);
+                    std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
+                    Symbol s(n.retrieve_context().new_symbol(constr_name));
+                    c = Utils::Constraint(s, lhs, rhs);
                 }
             }
         }
+
+        _input_constraints[lhs] = c;
+        _output_constraints[lhs] = c;
         
-        // Combine parents ranges with current range
-        Utils::RangeValuesMap old_node_range_values = node->get_ranges_in( );
-        Utils::RangeValuesMap new_node_range_values;
-        Utils::ext_sym_map out_reach_defs = node->get_reaching_definitions_out( );
-        for( Utils::ext_sym_map::iterator it = out_reach_defs.begin( ); it != out_reach_defs.end( ); )
+        return c;
+    }
+    
+    // x < c;    -->    X1 = X0 ∩ [-∞, c-1]
+    Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::LowerThan& n)
+    {
+        Utils::Constraint c;
+        
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        
+        ERROR_CONDITION(_input_constraints.find(lhs) == _input_constraints.end(), 
+                        "Some input constraint required for the RHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
+
+        // TODO Check whether we have more than one input constraint for RHS
+        if(rhs.is_constant()) 
+        {   // x = c;    -->    X1 = c            
+            Utils::Constraint constraint = _input_constraints[lhs];
+            
+            // Compute the constraint that corresponds to the current node
+            std::stringstream ss; ss << get_next_id(lhs);
+            std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
+            Symbol s(n.retrieve_context().new_symbol(constr_name));
+            Nodecl::NodeclBase val = Nodecl::Symbol::make(constraint.get_symbol());
+            c = Utils::Constraint(s, lhs, val);
+            
+            // Compute the constraint that corresponds to the true branch taken from this node
+            std::stringstream ss_true; ss_true << get_next_id(lhs);
+            std::string constr_name_true = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss_true.str();
+            Symbol s_true(n.retrieve_context().new_symbol(constr_name_true));
+            Nodecl::NodeclBase val_true = 
+                Nodecl::Analysis::RangeIntersection::make(
+                    Nodecl::Symbol::make(s), 
+                    Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(),  
+                                                  const_value_to_nodecl(const_value_sub(rhs.get_constant(), const_value_get_one(/*num_bytes*/ 4, /*sign*/1))),
+                                                  lhs.get_type()), 
+                    lhs.get_type());
+            Utils::Constraint c_true = Utils::Constraint(s_true, lhs, val_true);
+            _output_true_constraints[lhs] = c_true;
+            
+            // Compute the constraint that corresponds to the false branch taken from this node
+            std::stringstream ss_false; ss_false << get_next_id(lhs);
+            std::string constr_name_false = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss_false.str();
+            Symbol s_false(n.retrieve_context().new_symbol(constr_name_false));
+            Nodecl::NodeclBase val_false = 
+                Nodecl::Analysis::RangeIntersection::make(
+                    Nodecl::Symbol::make(s), 
+                    Nodecl::Analysis::Range::make(rhs.shallow_copy(),
+                                                  Nodecl::Analysis::PlusInfinity::make(),
+                                                  lhs.get_type()), 
+                    lhs.get_type());
+            Utils::Constraint c_false = Utils::Constraint(s_false, lhs, val_false);
+            _output_false_constraints[lhs] = c_false;
+        }
+        else
         {
-            Nodecl::NodeclBase reaching_def_var = it->first.get_nodecl( );
-            if( parents_range_values.find( reaching_def_var ) != parents_range_values.end( ) )
+            ObjectList<Nodecl::NodeclBase> rhs_mem_access = Nodecl::Utils::get_all_memory_accesses(rhs);
+            for(ObjectList<Nodecl::NodeclBase>::iterator it = rhs_mem_access.begin(); it != rhs_mem_access.end(); ++it)
             {
-                Utils::RangeValue_tag rv; rv.n = &it->second;
-                ObjectList<Utils::RangeValue_tag> values( 1, rv );
-                if( it->second.is_constant( ) )
-                {   // Set this new value, since the other are not available anymore
-                    node->set_range_in( reaching_def_var, values );
-                }
-                else
-                {   // Check whether the value is computed depending on ranges that are already computed
+                if(_input_constraints.find(*it) != _input_constraints.end())
+                {
                     // TODO
-                    WARNING_MESSAGE( "Combining parents ranges with current non-constant value is not yet supported\n" 
-                                     "Assuming current value", 0 );
-                    node->set_range_in( reaching_def_var, values );
                 }
             }
-            else
-            {
-                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> var_reach_defs = 
-                        out_reach_defs.equal_range( it->first );
-                ObjectList<Utils::RangeValue_tag> range_values;
-                while( var_reach_defs.first != var_reach_defs.second )
-                {
-                    Utils::RangeValue_tag rv; rv.n = &var_reach_defs.first->second;
-                    range_values.append( rv );
-                    ++var_reach_defs.first;
-                }
-                new_node_range_values.insert( Utils::RangeValuesMapEntry( reaching_def_var, range_values ) );
-            }
-            
-            // scape all reaching definitions corresponding to the same variable
-            ++it;
-            while( Nodecl::Utils::equal_nodecls( it->first.get_nodecl( ), reaching_def_var ) )
-                ++it;
         }
         
-        if( !equal_maps( new_node_range_values, old_node_range_values ) )
-            changed = true;
+        _input_constraints[lhs] = c;
+        _output_constraints[lhs] = c;
+        
+        return c;
     }
     
-    void RangeAnalysis::compute_range_analysis_rec( Node* current, bool& changed )
+    // ++x;    -->    X1 = X0 + 1
+    Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::Preincrement& n)
     {
-        if( !current->is_visited( ) )
+        Utils::Constraint c;
+        
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        ERROR_CONDITION(_input_constraints.find(rhs) == _input_constraints.end(), 
+                        "Some input constraint required for the RHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
+        
+        // TODO Check whether we have more than one input constraint for RHS
+        // Build a symbol for the new constraint based on the name of the original variable
+        std::stringstream ss; ss << get_next_id(rhs);
+        std::string constr_name = Utils::get_nodecl_base(rhs).get_symbol().get_name() + "_" + ss.str();
+        Symbol s(n.retrieve_context().new_symbol(constr_name));
+        
+        Utils::Constraint constraint = _input_constraints[rhs];
+        Nodecl::NodeclBase val = 
+        Nodecl::Add::make(Nodecl::Symbol::make(constraint.get_symbol()), 
+                            const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)), 
+                            rhs.get_type());
+        
+        c = Utils::Constraint(s, rhs, val);
+        _input_constraints[rhs] = c;
+        _output_constraints[rhs] = c;
+        
+        return c;
+    }
+
+
+    RangeAnalysis::RangeAnalysis(ExtensibleGraph* graph)
+        : _graph(graph)
+    {}
+    
+    void RangeAnalysis::compute_range_analysis()
+    {
+        // Compute the constraints of the current graph
+        Node* entry = _graph->get_graph()->get_graph_entry_node();
+        compute_initial_constraints(entry);
+        ExtensibleGraph::clear_visits(entry);
+        propagate_constraints_from_backwards_edges(entry);
+        ExtensibleGraph::clear_visits(entry);
+    }
+    
+    void RangeAnalysis::compute_initial_constraints(Node* n)
+    {
+        if(n->is_visited())
+            return;
+        
+        n->set_visited(true);
+        
+        // Treat the current node
+        if(n->is_graph_node())
         {
-            current->set_visited( true );
+            // recursively compute the constraints for the inner nodes
+            compute_initial_constraints(n->get_graph_entry_node());
             
-            // TODO
-            if( current->is_graph_node( ) )
+            // propagate constraint from the inner nodes (summarized in the exit node) to the graph node
+            n->set_propagated_constraints(n->get_graph_exit_node()->get_propagated_constraints());
+        }
+        else
+        {
+            // Collect the constraints computed from all the parents
+            Utils::ConstraintMap input_constraints;
+            ObjectList<Node*> parents = (n->is_entry_node() ? n->get_outer_node()->get_parents() : n->get_parents());
+            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
             {
-                if( current->is_loop_node( ) )
-                {   // Ranges are different depending on the node
-                    
+                Utils::ConstraintMap it_constraints = (*it)->get_all_constraints();
+                for(Utils::ConstraintMap::iterator itt = it_constraints.begin(); itt != it_constraints.end(); ++itt)
+                {
+                    if(input_constraints.find(itt->first)==input_constraints.end())
+                    {   // No constraints already found for variable itt->first
+                        input_constraints[itt->first] = itt->second;
+                    }
+                    else
+                    {   // Merge the constraint that already existed with the new one
+                        Nodecl::NodeclBase constraint = input_constraints[itt->first].get_constraint();
+                        if(constraint.is<Nodecl::Analysis::Phi>())
+                        {   // Attach a new element to the list inside the node Phi
+                            Nodecl::List expressions = constraint.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
+                            expressions.append(itt->second.get_constraint());
+                            constraint.as<Nodecl::Analysis::Phi>().set_expressions(expressions);
+                        }
+                        else
+                        {   // Create a new node Phi with the combination of the old constraint and the new one
+                            Nodecl::List expressions = Nodecl::List::make(constraint.shallow_copy(), itt->second.get_constraint().shallow_copy());
+                            constraint = Nodecl::Analysis::Phi::make(expressions, itt->second.get_constraint().get_type());
+                        }
+                        input_constraints[itt->first] = Utils::Constraint(input_constraints[itt->first].get_symbol(), 
+                                                                          input_constraints[itt->first].get_var(), constraint);
+                    }
                 }
-                
-                compute_range_analysis_rec( current->get_graph_entry_node( ), changed );
-            }
-            else
-            {
-                compute_node_range_analysis( current, changed );
             }
             
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            // Propagate constraints from parent nodes to the current node
+            n->set_propagated_constraints(input_constraints);
+            
+            // Compute the constraints of the current node
+            // Note: take into account the constraints the node may already has (if it is the TRUE or FALSE child of a conditional)
+            n->set_propagated_constraints(input_constraints);
+            Utils::ConstraintMap current_constraints = n->get_constraints();
+            ConstraintBuilderVisitor cbv(input_constraints, current_constraints);
+            ObjectList<Nodecl::NodeclBase> stmts = n->get_statements();
+            for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                cbv.compute_constraints(*it);
+            n->set_constraints(cbv.get_output_constraints());
+            
+            // Set true/false output constraints to current children, if applies
+            ObjectList<Edge*> exits = n->get_exit_edges();
+            if(exits.size()==2 &&
+                ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())) )
             {
-                compute_range_analysis_rec( *it, changed );
+                Utils::ConstraintMap child_zero_constraints = exits[0]->get_target()->get_all_constraints();
+                Utils::ConstraintMap child_one_constraints = exits[1]->get_target()->get_all_constraints();
+                Utils::ConstraintMap out_true_constraints = cbv.get_output_true_constraints();
+                Utils::ConstraintMap out_false_constraints = cbv.get_output_false_constraints();
+                if(exits[0]->is_true_edge())
+                {
+                    exits[0]->get_target()->set_constraints(out_true_constraints);
+                    exits[1]->get_target()->set_constraints(out_false_constraints);
+                }
+                else
+                {
+                    exits[0]->get_target()->set_constraints(out_false_constraints);
+                    exits[1]->get_target()->set_constraints(out_true_constraints);
+                }
             }
         }
+        
+        // Treat the children
+        ObjectList<Node*> children = n->get_children();
+        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            compute_initial_constraints(*it);
+    }
+    
+    void RangeAnalysis::propagate_constraints_from_backwards_edges(Node* n)
+    {
+        if(n->is_visited())
+            return;
+        n->set_visited(true);
+        
+        if(n->is_graph_node())
+            propagate_constraints_from_backwards_edges(n->get_graph_entry_node());
+        
+        // Check the exit edges looking for back edges
+        ObjectList<Edge*> exit_edges = n->get_exit_edges();
+        for(ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
+        {
+            if((*it)->is_back_edge())
+                recompute_node_constraints((*it)->get_target(), n->get_constraints());
+        }
+        
+        // Recursively treat the children
+        ObjectList<Node*> children = n->get_children();
+        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            propagate_constraints_from_backwards_edges(*it);
+    }
+
+    void RangeAnalysis::recompute_node_constraints(Node* n, Utils::ConstraintMap new_constraint_map)
+    {
+        Utils::ConstraintMap current_constraint_map = n->get_constraints();
+        for(Utils::ConstraintMap::iterator it = new_constraint_map.begin(); it != new_constraint_map.end(); ++it)
+        {
+            if(current_constraint_map.find(it->first) != current_constraint_map.end())
+            {
+                Nodecl::NodeclBase c1 = current_constraint_map[it->first].get_constraint().shallow_copy();
+                Nodecl::NodeclBase c2 = Nodecl::Symbol::make(it->second.get_symbol());
+                Nodecl::List expressions = Nodecl::List::make(c1, c2);
+                Nodecl::NodeclBase c = Nodecl::Analysis::Phi::make(expressions, it->first.get_type());
+                // Set the new constraint
+                current_constraint_map[it->first] = Utils::Constraint(current_constraint_map[it->first].get_symbol(), 
+                                                                      current_constraint_map[it->first].get_var(), c);
+            }
+        }
+        n->set_constraints(current_constraint_map);
     }
     
     // ****************************** End class implementing range analysis ******************************* //
     // **************************************************************************************************** //
-    
-    
-    
-    // **************************************************************************************************** //
-    // *************** Class implementing reaching definitions substitution and propagation *************** //
-    
-    DefinitionsPropagationVisitor::DefinitionsPropagationVisitor( Utils::ext_sym_map reaching_defs )
-        : _reaching_definitions( reaching_defs )
-    {}
-    
-    void DefinitionsPropagationVisitor::visit( const Nodecl::ArraySubscript& n )
-    {
-        if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
-                      << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
-            Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
-        }
-    }
-    
-    void DefinitionsPropagationVisitor::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
-                      << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
-            Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
-        }
-    }
-    
-    void DefinitionsPropagationVisitor::visit( const Nodecl::Symbol& n )
-    {
-        if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
-                      << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
-            Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
-        }
-    }
-    
-    // ************* END class implementing reaching definitions substitution and propagation ************* //
-    // **************************************************************************************************** //
-    
+
 }
 }

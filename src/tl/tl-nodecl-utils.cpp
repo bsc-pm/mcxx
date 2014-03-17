@@ -662,10 +662,11 @@ namespace Nodecl
     {
         return nodecl_hash_table(n.get_internal_nodecl());
     }
-
-    bool Utils::Nodecl_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
+       
+    bool Utils::NodeclLess::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
-        return equal_nodecls(n1, n2);
+        // States whether n1 < n2 under structural equivalence ignoring conversions
+        return cmp_nodecls(n1, n2, /* skip_conversion_nodes */ true) < 0;
     }
 
     Nodecl::List Utils::get_all_list_from_list_node(Nodecl::List n)

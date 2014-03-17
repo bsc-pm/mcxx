@@ -61,17 +61,25 @@ namespace Utils {
      *  - Y = X ∩ [lb, ub]
      */
     struct Constraint {
-        Nodecl::NodeclBase _original_var;     /*!< variable from the program to whom this constraint applies */
         TL::Symbol _constr_sym;               /*!< symbol associated to a given variable at this point of the program */
+        Nodecl::NodeclBase _original_var;     /*!< variable from the program to whom this constraint applies */
         Nodecl::NodeclBase _constraint;       /*!< actual constraint applying to the variable */
         
-        Constraint( const Nodecl::NodeclBase orig_var, const TL::Symbol constr_sym, 
-                    const Nodecl::NodeclBase& constraint )
-            : _original_var( orig_var ), _constr_sym( constr_sym ), _constraint( constraint )
-        {}
+        // *** Constructors *** //
+        Constraint();
+        Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& orig_var, 
+                    const Nodecl::NodeclBase& constraint );
+        
+        // *** Getters and Setters *** //
+        TL::Symbol get_symbol() const;
+        Nodecl::NodeclBase get_var() const;
+        Nodecl::NodeclBase get_constraint() const;
+        
+        // *** Comparators *** //
+        bool operator!=(const Constraint& c);
     };
     
-    typedef std::map<Nodecl::NodeclBase, ObjectList<Constraint> > ConstraintMap;
+    typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::NodeclLess> ConstraintMap;
     
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //

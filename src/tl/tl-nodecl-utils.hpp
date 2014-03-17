@@ -74,9 +74,13 @@ namespace Nodecl
         struct Nodecl_hash {
             size_t operator() (const Nodecl::NodeclBase& n) const;
         };
-        struct Nodecl_comp {
+        
+        // This is the structurally equivalent of less<Nodecl>
+        /* Note that we ignore conversions here */
+        struct NodeclLess {
             bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
         };
+        
 
         // Basic replacement
         //
