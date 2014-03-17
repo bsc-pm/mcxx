@@ -2414,7 +2414,10 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
+static char types_are_almost_identical_in_template_argument(type_t* t1,
+        type_t* t2);
+
+static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_t n2)
 {
     if (nodecl_is_null(n1) && nodecl_is_null(n2))
         return 1;
@@ -2428,13 +2431,15 @@ static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
     if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
         return 0;
 
-    if (nodecl_get_type(n1) != nodecl_get_type(n2))
+    if (!types_are_almost_identical_in_template_argument(
+                nodecl_get_type(n1),
+                nodecl_get_type(n2)))
         return 0;
 
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        if (!nodecl_trees_are_identical(
+        if (!nodecl_trees_are_identical_in_template_argument(
                     nodecl_get_child(n1, i),
                     nodecl_get_child(n2, i)))
             return 0;
@@ -2442,6 +2447,39 @@ static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
 
     return 1;
 }
+
+static char types_are_almost_identical_in_template_argument(type_t* t1,
+        type_t* t2)
+{
+    if ((t1 == NULL) != (t2 == NULL))
+        return 0;
+
+    if (t1 == NULL)
+        return 1;
+
+    if (equivalent_types(t1, t2))
+    {
+        if (is_named_type(t1))
+        {
+            if (named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                return 1;
+        }
+
+        if (is_dependent_type(t1))
+            return 1;
+
+        // This is very strict so above we checked some cases where this would be a problem
+        return t1 == t2;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 
 // This function compares types by pointers
 static char template_arguments_are_identical(
@@ -2468,14 +2506,14 @@ static char template_arguments_are_identical(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (targ_1->type != targ_2->type)
+                    if (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type))
                         return 0;
                     break;
                 }
             case TPK_NONTYPE:
                 {
-                    if (!nodecl_trees_are_identical(targ_1->value, targ_2->value)
-                            || (targ_1->type != targ_2->type))
+                    if (!nodecl_trees_are_identical_in_template_argument(targ_1->value, targ_2->value)
+                            || (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type)))
                         return 0;
                     break;
                 }
