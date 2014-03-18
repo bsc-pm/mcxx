@@ -1674,7 +1674,8 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                     }
                     else
                     {
-                        // The (missing) implicit argument will not play any role in overload
+                        // Make sure we mark it is as invalid, lest we attempt anything with it
+                        P_LIST_ADD(ics_arguments, num_ics_arguments, invalid_ics);
                         continue;
                     }
                 }
@@ -1781,6 +1782,7 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     {
         implicit_conversion_sequence_t ics_to_f = ovl_f->ics_arguments[i];
         implicit_conversion_sequence_t ics_to_g = ovl_g->ics_arguments[i];
+
         DEBUG_CODE()
         {
             fprintf(stderr, "OVERLOAD: Comparing ICSs of argument %d\n", i);
@@ -2017,7 +2019,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             it = it->next;
         }
     }
-    
+
     // First get the viable functions
     overload_entry_list_t *viable_functions = compute_viable_functions(candidate_set, 
             decl_context, locus);
