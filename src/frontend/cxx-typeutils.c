@@ -14089,10 +14089,16 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         {
             // Duplicate paths
             class_path[i].length = base_class_path->length;
+
             class_path[i].class_type = xcalloc(base_class_path->length,
                     sizeof(*(class_path[i].class_type)));
             memcpy(class_path[i].class_type, base_class_path->class_type,
                     sizeof(*(class_path[i].class_type)) * base_class_path->length);
+
+            class_path[i].is_virtual = xcalloc(base_class_path->length,
+                    sizeof(*(class_path[i].is_virtual)));
+            memcpy(class_path[i].is_virtual, base_class_path->is_virtual,
+                    sizeof(*(class_path[i].is_virtual)) * base_class_path->length);
         }
 
         char is_virtual = 0;
@@ -14124,12 +14130,14 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         else
         {
             class_type_is_ambiguous_base_of_class_aux(
-                    current_base->type_information,
+                    get_user_defined_type(current_base),
                     base_class,
                     &(class_path[i]),
                     &found[i],
                     is_ambiguous);
         }
+
+        *base_found = *base_found || found[i];
     }
 
     // Note if already determined to be ambiguous, do nothing
@@ -14212,8 +14220,6 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
                                 class_path[last_found].class_type[i]);
                     }
                 }
-
-                *base_found = 1;
             }
         }
     }
