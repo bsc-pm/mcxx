@@ -405,8 +405,6 @@ namespace Analysis {
                 // Store the pcfg in the singleton
                 memento.set_pcfg( pcfg_name, pcfg );
                 result.append( pcfg );
-                
-                print_pcfg(memento, pcfg_name);
             }
             else
             {
