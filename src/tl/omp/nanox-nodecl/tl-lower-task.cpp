@@ -873,6 +873,8 @@ void LoweringVisitor::visit_task(
         new_construct = construct;
     }
 
+    handle_reductions_on_task(new_construct, outline_info, statements);
+
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(
             new_construct,
