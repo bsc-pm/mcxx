@@ -395,6 +395,7 @@ namespace Analysis {
     private:
         const ObjectList<Utils::InductionVariableData*> _induction_variables;   /* All IVs in the containing loop */
         const Utils::ext_sym_set _killed;                                       /* All killed variables in the containing loop */
+        ExtensibleGraph* _pcfg;
         Node* _scope_node;                                                      /* Scope from which the node is being analyzed */
         Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
         ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
@@ -418,7 +419,7 @@ namespace Analysis {
     public:
         // *** Constructor *** //
         ExpressionEvolutionVisitor( ObjectList<Utils::InductionVariableData*> ivs,
-                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node );
+                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
 
         // *** Consultants *** //
         bool is_adjacent_access( );

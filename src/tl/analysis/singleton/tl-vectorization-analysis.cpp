@@ -66,7 +66,9 @@ namespace Analysis {
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
 
-                    ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, n_node );
+                    ExtensibleGraph* pcfg = find_extensible_graph_from_nodecl(s);
+                    ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n", s.prettyprint().c_str());
+                    ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, n_node, pcfg );
                     iv_v.walk( s );
                     result = iv_v.is_adjacent_access( );
                 }
@@ -92,7 +94,7 @@ namespace Analysis {
         Nodecl::NodeclBase s = n.shallow_copy( );
         v.walk( s );
 
-        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node,  NULL );
+        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node,  NULL, NULL );
         iv_v.walk( s );
         result = iv_v.depends_on_induction_vars( );
 
@@ -104,7 +106,7 @@ namespace Analysis {
     {
         bool result = false;
 
-        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, NULL );
+        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, NULL, NULL );
         ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
         for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
         {
@@ -599,9 +601,9 @@ namespace Analysis {
     // ******************* Visitor retrieving array accesses info within a loop ******************** //
 
     ExpressionEvolutionVisitor::ExpressionEvolutionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs,
-                                                    Utils::ext_sym_set killed, Node* scope, Node* n_node )
+                                                            Utils::ext_sym_set killed, Node* scope, Node* n_node, ExtensibleGraph* pcfg )
             : _induction_variables( ivs ), _killed( killed ),
-              _scope_node( scope ), _n_node( n_node ),
+              _pcfg( pcfg ), _scope_node( scope ), _n_node( n_node ),
               _ivs( ), _is_adjacent_access( false )
     {}
 
@@ -803,7 +805,7 @@ namespace Analysis {
                     {   // The current graph node defined the symbol \n
                         // Treat the inner nodes of the current graph node
                         result = var_is_iv_dependent_in_scope_forward( n, current->get_graph_entry_node( ),
-                                                                   recursion_level, visits, visited_syms );
+                                                                       recursion_level, visits, visited_syms );
                         if( !result )
                         {
                             Node* current_entry = current->get_graph_entry_node( );
@@ -842,27 +844,29 @@ namespace Analysis {
                         // n=i;                      -> where 'i' is an induction variable in 'scope'
                         Utils::ext_sym_map reaching_defs_out = current->get_reaching_definitions_out( );
                         for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( );
-                            it != reaching_defs_out.end( ) && !result; ++it )
-                            {
-                                if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
-                                {   // 'n' is being modified
-                                    result = definition_depends_on_iv( it->second, current );
+                             it != reaching_defs_out.end( ) && !result; ++it )
+                        {
+                            if( Nodecl::Utils::stmtexpr_contains_nodecl( it->first.get_nodecl( ), n ) )
+                            {   // 'n' is being modified
+                                result = definition_depends_on_iv( it->second, current );
                             }
+                        }
+                    }
+                }
+                
+                // Recursively treat the children of the current node
+                if( !result )
+                {
+                    ObjectList<Node*> children = current->get_children();
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+                    {
+                        result = var_is_iv_dependent_in_scope_forward( n, *it, recursion_level, visits, visited_syms );
                     }
                 }
             }
-            
-            // Recursively treat the parents of the current node
-            if( !result )
-            {
-                ObjectList<Node*> children = current->get_children();
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
-                    result = var_is_iv_dependent_in_scope_forward( n, *it, recursion_level, visits, visited_syms );
-            }
         }
+        return result;
     }
-    return result;
-}
     
     // Check whether the definition of 'n' depends on the value of the '_scope' induction variable
     bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope( const Nodecl::Symbol& n )
@@ -951,7 +955,8 @@ namespace Analysis {
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
-                           || ( lhs_is_const && rhs_is_adjacent_access );
+                           || ( lhs_is_const && rhs_is_adjacent_access ) 
+                           || ( lhs_is_adjacent_access && rhs_is_adjacent_access );
 
         return ( rhs_is_const && lhs_is_const );
     }
@@ -1245,8 +1250,40 @@ namespace Analysis {
         // Collect information about the induction variables contained in the node
         bool n_is_iv = variable_is_iv( n );
 
-        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
+        bool reach_def_is_adjacent = false;
+        if(!n_is_iv && (_n_node!=NULL))
+        {
+            Utils::ext_sym_map reach_def_in = _n_node->get_reaching_definitions_in( );
+            //         Utils::ext_sym_map reach_def_out = _n_node->get_reaching_definitions_out( );
+            // FIXME Compare the two maps. 
+            //       - If they are equal, continue. 
+            //       - Otherwise, if 'n' is modified within the node, after the access (original call to walk method), continue
+            //       -            if 'n' is modified before the access, analyze the reaching definition
+            Utils::ExtendedSymbol es(n);
+            if(reach_def_in.find(es)!=reach_def_in.end())
+            {
+                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> def_nodes = reach_def_in.equal_range(es);
+                for(Utils::ext_sym_map::iterator it = def_nodes.first; it != def_nodes.second; ++it)
+                {
+                    Nodecl::NodeclBase current_def = it->second;
+                    Node* reach_def_node = _pcfg->find_nodecl_pointer(current_def);
+                    ERROR_CONDITION(reach_def_node==NULL, "Nodecl corresponding to reaching definition %s not found\n", current_def.prettyprint().c_str() );
+                    // FIXME This comparison is not enough because we can have cycles in the reaching definitions of the variables
+                    // A solution might be to store the list of nodes we have visited. In that case, this list must be reseted each time we initiate a walk
+                    if(reach_def_node!=_n_node)
+                    {
+                        ExpressionEvolutionVisitor eev(_induction_variables, _killed, _scope_node, reach_def_node, _pcfg);
+                        eev.walk(current_def);
+                        reach_def_is_adjacent = eev.is_adjacent_access();
+                    }
+                }
+            }
+        }
+        
+        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) ) || reach_def_is_adjacent;
+        
+        bool is_constant = !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
+        return is_constant;
     }
 
     // ***************** END visitor retrieving array accesses info within a loop ****************** //

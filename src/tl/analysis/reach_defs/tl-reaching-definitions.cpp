@@ -69,8 +69,7 @@ namespace Analysis {
                     ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                     {
-                        Nodecl::NodeclBase it_copied = it->shallow_copy( );
-                        rdv.walk( it_copied );
+                        rdv.walk( *it );
                     }
                     current->set_generated_stmts( rdv.get_gen( ) );
                 }
@@ -140,10 +139,6 @@ namespace Analysis {
                         else
                         {
                             pred_rd_out = ( *it )->get_reaching_definitions_out( );
-                        }
-                        if( current->get_id( ) == 37 )
-                        {
-
                         }
                         rd_in = Utils::ext_sym_map_union( rd_in, pred_rd_out );
                     }
@@ -225,14 +220,14 @@ namespace Analysis {
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                                  n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
@@ -244,63 +239,63 @@ namespace Analysis {
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
-        Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                          n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
-        Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
-        Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
-        Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::DivAssignment& n )
     {
-        Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MinusAssignment& n )
     {
-        Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                  n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ModAssignment& n )
     {
-        Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ),  n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MulAssignment& n )
     {
-        Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
