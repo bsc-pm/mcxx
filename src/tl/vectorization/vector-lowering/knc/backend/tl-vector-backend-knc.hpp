@@ -24,12 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef KNC_VECTOR_LOWERING_HPP
-#define KNC_VECTOR_LOWERING_HPP
+#ifndef KNC_VECTOR_BACKEND_HPP
+#define KNC_VECTOR_BACKEND_HPP
+
+#include "tl-vector-backend-knc-extern.hpp"
 
 #include "tl-vectorizer.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-visitor.hpp"
+
 #include <list>
 
 namespace TL
@@ -64,7 +67,7 @@ namespace TL
                 }
         };
 
-        class KNCVectorLowering : public Nodecl::ExhaustiveVisitor<void>
+        class KNCVectorBackend : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 TL::Vectorization::Vectorizer& _vectorizer;
@@ -79,8 +82,8 @@ namespace TL
                         const std::string& intrin_op_name);
                 virtual void common_comparison_op_lowering(
                         const Nodecl::NodeclBase& node,
-                        const std::string& float_cmp_flavor_str,
-                        const std::string& int_cmp_flavor_str);
+                        const int float_cmp_flavor,
+                        const _MM_CMPINT_ENUM int_cmp_flavor);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
@@ -94,7 +97,7 @@ namespace TL
 
             public:
 
-                KNCVectorLowering();
+                KNCVectorBackend();
 
                 virtual void visit(const Nodecl::ObjectInit& node);
 
@@ -172,4 +175,4 @@ namespace TL
     }
 }
 
-#endif // KNC_VECTOR_LOWERING_HPP
+#endif // KNC_VECTOR_BACKEND_HPP

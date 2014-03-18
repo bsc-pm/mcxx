@@ -134,8 +134,8 @@ namespace TL
                 knc_vector_legalization.walk(translation_unit);
 
                 // Lowering to intrinsics
-                KNCVectorLowering knc_vector_lowering;
-                knc_vector_lowering.walk(translation_unit);
+                KNCVectorBackend knc_vector_backend;
+                knc_vector_backend.walk(translation_unit);
             }
             else
             {

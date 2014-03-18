@@ -521,8 +521,6 @@ namespace TL {
                 _vectorizer.vectorize(for_statement, for_environment);
             }
 
-            for_environment.unload_environment();
-
             // Add new vector symbols
             Nodecl::List pre_for_nodecls, post_for_nodecls;
 
@@ -579,6 +577,8 @@ namespace TL {
                 //single_epilog.append_sibling(post_for_nodecls);
             }
 
+            for_environment.unload_environment();
+
             Nodecl::List appendix_list;
             Nodecl::NodeclBase net_epilog_node;
             Nodecl::ForStatement epilog_for_statement;
@@ -589,12 +589,17 @@ namespace TL {
                 epilog_for_statement = simd_node_epilog.get_openmp_for().as<Nodecl::OpenMP::For>().
                         get_loop().as<Nodecl::ForStatement>();
 
+                // Add scopes, default masks, etc.
+                for_environment.load_environment(epilog_for_statement);
+
                 _vectorizer.process_epilog(epilog_for_statement,
                         for_environment,
                         net_epilog_node,
                         epilog_iterations,
                         only_epilog,
                         true /*parallel loop*/);
+
+                for_environment.unload_environment();
 
                 // SINGLE
                 Nodecl::List single_environment;

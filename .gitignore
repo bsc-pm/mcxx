@@ -50,6 +50,7 @@ config/50.config.gpu
 config/50.config.ocl
 config/50.config.omp.fortran
 config/50.config.omp.mercurium
+config/55.config.omp.nvidia
 config/55.config.omp.intel
 config/55.config.omp.intel.fortran
 config/57.config.omp.smp
