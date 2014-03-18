@@ -95,6 +95,9 @@ namespace Analysis {
             Node* _autoscoped_task;
 
             Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
+            Node* find_node_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
+            Node* find_node_from_nodecl_in_scope( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& scope ) const;
+            ExtensibleGraph* find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const;
 
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
@@ -140,11 +143,11 @@ namespace Analysis {
 
             bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
 
-            bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
-            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
-            bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
+            bool var_is_iv_dependent_in_scope( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
@@ -392,6 +395,7 @@ namespace Analysis {
     private:
         const ObjectList<Utils::InductionVariableData*> _induction_variables;   /* All IVs in the containing loop */
         const Utils::ext_sym_set _killed;                                       /* All killed variables in the containing loop */
+        ExtensibleGraph* _pcfg;
         Node* _scope_node;                                                      /* Scope from which the node is being analyzed */
         Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
         ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
@@ -403,16 +407,19 @@ namespace Analysis {
                                       std::map<Node*, std::set<int> >& visits,
                                       std::set<Nodecl::Symbol>& visited_syms );
         bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
-        bool var_is_iv_dependent_in_scope_rec( const Nodecl::Symbol& n, Node* current,
-                                               int recursion_level, std::map<Node*, std::set<int> >& visits,
-                                               std::set<Nodecl::Symbol>& visited_syms );
+        bool var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
+                int recursion_level, std::map<Node*, std::set<int> >& visits,
+                std::set<Nodecl::Symbol>& visited_syms );
+        bool var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
+                int recursion_level, std::map<Node*, std::set<int> >& visits,
+                std::set<Nodecl::Symbol>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
 
     public:
         // *** Constructor *** //
         ExpressionEvolutionVisitor( ObjectList<Utils::InductionVariableData*> ivs,
-                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node );
+                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
 
         // *** Consultants *** //
         bool is_adjacent_access( );

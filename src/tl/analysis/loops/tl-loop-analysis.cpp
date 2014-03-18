@@ -74,9 +74,12 @@ namespace Analysis {
                         }
                         else
                         {
-                            WARNING_MESSAGE( "Cannot compute the lower bound of the Induction Variable '%s' in node '%d'", 
-                                             ( *it )->get_variable( ).get_nodecl( ).prettyprint( ).c_str( ), 
-                                             current->get_id( ) );
+                            if( VERBOSE )
+                            {
+                                WARNING_MESSAGE( "Cannot compute the lower bound of the Induction Variable '%s' in node '%d'", 
+                                                 ( *it )->get_variable( ).get_nodecl( ).prettyprint( ).c_str( ), 
+                                                 current->get_id( ) );
+                            }
                         }
 
                         // Loop limits
@@ -148,11 +151,19 @@ namespace Analysis {
         }
         else if( cond.is<Nodecl::LogicalOr>( ) )
         {
-            internal_error( "Combined || expressions as loop condition not yet implemented", 0 );
+            if( VERBOSE )
+            {
+                WARNING_MESSAGE( "Cannot decide the upper bound of the induction variables of loop %d "
+                                 "because the condition is a Nodecl::LogicalOr", loop_id );
+            }
         }
         else if( cond.is<Nodecl::LogicalNot>( ) )
         {
-            internal_error( "Combined ! expressions as loop condition not yet implemented", 0 );
+            if( VERBOSE )
+            {
+                WARNING_MESSAGE( "Cannot decide the upper bound of the induction variables of loop %d "
+                                 "because the condition is a Nodecl::LogicalNot", loop_id );
+            }
         }
         else if( cond.is<Nodecl::LowerThan>( ) )
         {
@@ -254,11 +265,19 @@ namespace Analysis {
         }
         else if( cond.is<Nodecl::Different>( ) )
         {
-            internal_error( "Analysis of loops with DIFFERENT condition expression not yet implemented", 0 );
+            if( VERBOSE )
+            {
+                WARNING_MESSAGE( "Cannot decide the upper bound of the induction variables of loop %d "
+                                 "because the condition is a Nodecl::Different", loop_id );
+            }
         }
         else if( cond.is<Nodecl::Equal>( ) )
         {
-            internal_error( "Analysis of loops with EQUAL condition expression not yet implemented", 0 );
+            if( VERBOSE )
+            {
+                WARNING_MESSAGE( "Cannot decide the upper bound of the induction variables of loop %d "
+                                 "because the condition is a Nodecl::Equal", loop_id );
+            }
         }
         else
         {   // TODO Complex expression in the condition node may contain an UB or LB of the induction variable
