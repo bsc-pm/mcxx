@@ -2068,7 +2068,7 @@ static int get_symbol(void *datum,
                         && member->entity_specs.alias_to == alias_to
                         // A name can be repeated if one of them is a generic
                         // specifier, so the name and module coordenates will be the same
-                        && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
+                        /* && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec */)
                 {
                     //         oid,
                     //         in_module->symbol_name, member->symbol_name);
