@@ -878,6 +878,7 @@ static int intptr_t_comp(const void *v1, const void *v2)
         return 0;
 }
 
+
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
@@ -889,17 +890,33 @@ static scope_entry_t* create_new_dependent_entity(
     nodecl_t nodecl_list = nodecl_null();
     scope_entry_t* updated_dependent_entry = NULL;
 
-    // We may have to extend the nodecl name here
-    if (dependent_entry->kind == SK_TYPEDEF
-            && is_class_type(dependent_entry->type_information))
+    if (is_dependent_typename_type(dependent_entry->type_information))
     {
-        dependent_entry = named_type_get_symbol(advance_over_typedefs(dependent_entry->type_information));
-    }
+        dependent_typename_get_components(dependent_entry->type_information,
+                &updated_dependent_entry, &nodecl_list);
 
-    if (dependent_entry->kind == SK_CLASS)
+        nodecl_list = nodecl_shallow_copy(nodecl_get_child(nodecl_list, 0));
+    }
+    else
     {
-        build_dependent_parts_for_symbol_rec(dependent_entry,
-                locus, &updated_dependent_entry, &nodecl_list);
+        if (dependent_entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(dependent_entry->type_information);
+            if (is_named_type(t))
+                dependent_entry = named_type_get_symbol(t);
+        }
+
+        ERROR_CONDITION(!is_valid_symbol_for_dependent_typename(dependent_entry),
+                "Unexpected symbol '%s' of kind '%s'\n",
+                dependent_entry->symbol_name,
+                symbol_kind_name(dependent_entry));
+
+
+        if (dependent_entry->kind == SK_CLASS)
+        {
+            build_dependent_parts_for_symbol_rec(dependent_entry,
+                    locus, &updated_dependent_entry, &nodecl_list);
+        }
     }
 
     if (updated_dependent_entry == NULL)

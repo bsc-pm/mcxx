@@ -127,6 +127,7 @@ LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
+LIBMCXX_EXTERN char is_valid_symbol_for_dependent_typename(scope_entry_t* entry);
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
 LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 

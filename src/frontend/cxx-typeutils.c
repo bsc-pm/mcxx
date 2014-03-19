@@ -1680,6 +1680,15 @@ static int compare_dependent_parts(const void *v1, const void *v2)
     return 0;
 }
 
+char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
+{
+    return entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+        || ((entry->kind == SK_CLASS
+                    || entry->kind == SK_FUNCTION)
+                && is_dependent_type(entry->type_information))
+        || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
+}
+
 // This function must always return a new type
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
@@ -1714,6 +1723,18 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
             dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
         }
     }
+
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        type_t* t = advance_over_typedefs(dependent_entry->type_information);
+        if (is_named_type(t))
+            dependent_entry = named_type_get_symbol(t);
+    }
+
+    ERROR_CONDITION(!is_valid_symbol_for_dependent_typename(dependent_entry),
+            "Invalid base symbol %s %s for dependent entry",
+            dependent_entry->symbol_name,
+            symbol_kind_name(dependent_entry));
 
     // Try to reuse an existing type
     static rb_red_blk_tree *_dependent_entries = NULL;
@@ -1767,69 +1788,6 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
 
     return result;
 }
-
-#if 0
-type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
-        nodecl_t dependent_parts)
-{
-    type_t* result = get_simple_type();
-    result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-
-    ERROR_CONDITION(!nodecl_is_null(dependent_parts) && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
-
-    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
-    {
-        // Flatten dependent typenames
-        type_t* indirect_dependent_type = dependent_entry->type_information;
-
-        result->type->dependent_entry = indirect_dependent_type->type->dependent_entry;
-
-        if (!nodecl_is_null(indirect_dependent_type->type->dependent_parts)
-                && !nodecl_is_null(dependent_parts))
-        {
-            result->type->dependent_parts = 
-                nodecl_make_cxx_dep_name_nested(
-                        nodecl_concat_lists(nodecl_shallow_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
-                            nodecl_shallow_copy(nodecl_get_child(dependent_parts, 0))), 
-                        nodecl_get_locus(indirect_dependent_type->type->dependent_parts));
-        }
-        else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
-        {
-            result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
-        }
-        else // nodecl_is_null(dependent_parts)
-        {
-            result->type->dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
-        }
-    }
-    else
-    {
-        result->type->dependent_entry = dependent_entry;
-        result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
-    }
-
-    // This is always dependent
-    result->info->is_dependent = 1;
-
-    return result;
-}
-#endif
-
-#if 0
-void dependent_typename_set_is_artificial(type_t* t, char is_artificial)
-{
-    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
-
-    t->type->is_artificial = is_artificial;
-}
-
-char dependent_typename_is_artificial(type_t* t)
-{
-    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
-
-    return t->type->is_artificial;
-}
-#endif
 
 char is_transparent_union(type_t* t)
 {
@@ -2281,7 +2239,8 @@ static char same_template_argument_list(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (!equivalent_types_in_context(targ_1->type,
+                    if (!equivalent_types_in_context(
+                                targ_1->type,
                                 targ_2->type, decl_context))
                     {
                         return 0;
@@ -2468,8 +2427,11 @@ static char types_are_almost_identical_in_template_argument(type_t* t1,
                 return 1;
         }
 
-        if (is_dependent_type(t1))
+        if (is_dependent_typename_type(t1)
+                && is_dependent_typename_type(t2))
+        {
             return 1;
+        }
 
         // This is very strict so above we checked some cases where this would be a problem
         return t1 == t2;
