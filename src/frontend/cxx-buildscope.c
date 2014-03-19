@@ -12167,7 +12167,19 @@ static char find_function_declaration(AST declarator_id,
     {
         if (entry_list_size(result_function_list) == 1)
         {
-            *result_entry = entry_list_head(result_function_list);
+            scope_entry_t* result  = entry_list_head(result_function_list);
+
+            // if the candidate symbol is an explicit specialization we enable
+            // the 'is_explicit_specialization' flag from its template arguments
+            if (gather_info->is_explicit_specialization
+                    && is_template_specialized_type(result->type_information))
+            {
+                template_parameter_list_t* template_args =
+                    template_specialized_type_get_template_arguments(result->type_information);
+                template_args->is_explicit_specialization = 1;
+            }
+
+            *result_entry = result;
             entry_list_free(result_function_list);
 
             // No error
