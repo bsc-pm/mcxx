@@ -12827,6 +12827,13 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         if (!ok)
             return;
 
+        // Copy gcc attributes
+        keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
+
+        // Propagate the __extension__ attribute to the symbol
+        entry->entity_specs.gcc_extension = gcc_extension;
+
         if (declared_symbols != NULL)
         {
             *declared_symbols = entry_list_new(entry);
