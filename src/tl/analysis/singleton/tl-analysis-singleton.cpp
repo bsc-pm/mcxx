@@ -673,7 +673,8 @@ namespace Analysis {
                     printf( "Task Dependency Graph of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                 
                 TaskDependencyGraph* tdg = new TaskDependencyGraph( *it );
-                tdgs.insert( tdg );
+                if( tdg->contains_nodes( ) )        // This will be false when the related function does not have any task inside
+                    tdgs.insert( tdg );
                 memento.set_tdg( ( *it )->get_name( ), tdg );
             }
         }

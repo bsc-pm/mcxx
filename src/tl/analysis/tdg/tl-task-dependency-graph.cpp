@@ -338,6 +338,11 @@ namespace{
         return name;
     }
     
+    bool TaskDependencyGraph::contains_nodes() const
+    {
+        return !_tdg_nodes.empty();
+    }
+    
     void TaskDependencyGraph::connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
                                                 Nodecl::NodeclBase type, const Nodecl::NodeclBase& condition)
     {    

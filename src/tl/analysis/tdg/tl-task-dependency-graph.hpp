@@ -152,6 +152,7 @@ namespace Analysis {
         
         // *** Getters and Setters *** //
         std::string get_name() const;
+        bool contains_nodes() const;
         
         // *** Printing methods *** //
         void print_tdg_to_dot();
