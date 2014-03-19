@@ -43,7 +43,7 @@ struct scope_entry_list_node_tag
 
 struct scope_entry_list_tag
 {
-    unsigned short num_items_list;
+    int num_items_list;
     scope_entry_list_node_t* next;
 };
 
@@ -269,7 +269,8 @@ scope_entry_list_t* entry_list_add_after(scope_entry_list_t* list,
     return list;
 }
 
-static char entry_list_add_before_rec(scope_entry_list_node_t* list,
+static char entry_list_add_before_rec(
+        scope_entry_list_node_t* list,
         scope_entry_t* position,
         scope_entry_t* entry)
 {

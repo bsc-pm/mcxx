@@ -1185,7 +1185,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                         CURRENT_COMPILED_FILE->global_decl_context);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
@@ -1217,7 +1219,9 @@ nodecl_t const_value_to_nodecl_with_basic_type(const_value_t* v,
                 entry_list_free(data_members);
 
                 nodecl_t result = nodecl_make_structured_value(
-                        list, t,
+                        list,
+                        /* structured-value-form */ nodecl_null(),
+                        t,
                         make_locus("", 0, 0));
 
                 nodecl_set_constant(result, v);
@@ -3756,17 +3760,17 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
     }
     else
     {
-        if (neg)
-        {
-            result[len] = '-';
-            len++;
-        }
-
         while (i > 0)
         {
             result[len] = digits[i % 10];
             len++;
             i /= 10;
+        }
+
+        if (neg)
+        {
+            result[len] = '-';
+            len++;
         }
 
         // Now reverse the string
@@ -3779,6 +3783,7 @@ const char* unsigned_int128_to_str(unsigned __int128 i, char neg)
             result[begin] = result[end];
             result[end] = t;
         }
+
     }
 
     ERROR_CONDITION(len >= MAX_DIGITS, "Too many digits", 0);

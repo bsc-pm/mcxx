@@ -5371,7 +5371,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     }
                 }
 
-                class_type_add_member(class_name->type_information, entry);
+                class_type_add_member(class_name->type_information, entry, /* is_definition */ 1);
             }
         }
     }
@@ -6214,15 +6214,67 @@ static scope_entry_list_t* build_scope_single_interface_specification(
                 scope_entry_list_t* entry_list = query_in_scope_str_flags(
                         decl_context, strtolower(ASTText(procedure_name)), NULL, DF_ONLY_CURRENT_SCOPE);
 
-                if (entry_list != NULL)
-                {
-                    entry = entry_list_head(entry_list);
-                    entry_list_free(entry_list);
+                char is_generic_name_of_this_module = 0;
 
-                    // A generic specifier can be called like a specific interface
-                    if (entry->entity_specs.is_generic_spec)
-                        entry = NULL;
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(entry_list);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current = entry_list_iterator_current(it);
+
+                    // If this symbol is from this module we allow non generic specifiers only
+                    // but we need to remember if we saw some generic as well
+                    if (current->entity_specs.in_module == decl_context.current_scope->related_entry
+                            && current->entity_specs.from_module == NULL)
+                    {
+                        if (current->entity_specs.is_generic_spec)
+                        {
+                            is_generic_name_of_this_module = 1;
+                        }
+                        else if (current->kind == SK_FUNCTION
+                                    || current->kind == SK_UNDEFINED)
+                        {
+                            entry = current;
+                            break;
+                        }
+                    }
+                    // If it comes from another module, we allow non generic specifiers module
+                    // procedure
+                    else if (current->entity_specs.from_module != NULL
+                            && current->kind == SK_FUNCTION
+                            && !current->entity_specs.is_generic_spec
+                            && current->entity_specs.is_module_procedure)
+                    {
+                        entry = current;
+                        break;
+                    }
                 }
+
+                if (entry_list != NULL
+                        && entry == NULL)
+                {
+                    if (!is_generic_name_of_this_module)
+                    {
+                        error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n",
+                                ast_location(procedure_name),
+                                prettyprint_in_buffer(procedure_name));
+                        break;
+                    }
+                    else
+                    {
+                        /*
+                         * MODULE MOO
+                         *   INTERFACE FOO
+                         *      MODULE PROCEDURE FOO
+                         *   END INTERFACE FOO
+                         * END MODULE MOO
+                         */
+                        entry = NULL;
+                    }
+                }
+
+                entry_list_free(entry_list);
 
                 if (entry == NULL)
                 {
@@ -6254,13 +6306,29 @@ static scope_entry_list_t* build_scope_single_interface_specification(
             {
                 AST procedure_name = ASTSon1(it2);
 
-                scope_entry_t* entry = NULL;
-                entry = get_symbol_for_name(decl_context, procedure_name,
+                scope_entry_list_t* entry_list = get_symbols_for_name(decl_context, procedure_name,
                         ASTText(procedure_name));
 
-                if (entry == NULL
-                        || entry->kind != SK_FUNCTION
-                        || !entry->entity_specs.is_module_procedure)
+                scope_entry_t* entry = NULL;
+
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(entry_list);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current = entry_list_iterator_current(it);
+                    if (current->kind == SK_FUNCTION
+                            && !current->entity_specs.is_generic_spec
+                            && current->entity_specs.is_module_procedure)
+                    {
+                        entry = current;
+                        break;
+                    }
+                }
+
+                entry_list_free(entry_list);
+
+                if (entry == NULL)
                 {
                     error_printf("%s: error: name '%s' is not a MODULE PROCEDURE\n", 
                             ast_location(procedure_name),
@@ -8164,9 +8232,10 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
 {
     ERROR_CONDITION(local_name == NULL, "Invalid alias name", 0);
 
-    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, NULL, DF_ONLY_CURRENT_SCOPE); 
+    scope_entry_list_t* check_repeated_name = query_in_scope_str_flags(decl_context, local_name, NULL, DF_ONLY_CURRENT_SCOPE);
 
-    if (check_repeated_name != NULL)
+    if (check_repeated_name != NULL
+            && strcasecmp(local_name, entry->symbol_name) == 0)
     {
         scope_entry_list_iterator_t *it = NULL;
         for (it = entry_list_iterator_begin(check_repeated_name);
@@ -8181,10 +8250,10 @@ scope_entry_t* insert_symbol_from_module(scope_entry_t* entry,
             }
         }
         entry_list_iterator_free(it);
-        // We allow the symbol be repeated, using it will be wrong 
+        // We allow the symbol be repeated, using it will be wrong
     }
     entry_list_free(check_repeated_name);
-    
+
     // Always insert the ultimate symbol
     scope_entry_t* named_entry_from_module = entry;
     if (entry->entity_specs.from_module != NULL)

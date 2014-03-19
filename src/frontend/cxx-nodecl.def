@@ -74,7 +74,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
-          | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
+          | NODECL_CASE_STATEMENT([case]expression-seq, [statement]statement-seq)
           | NODECL_BREAK_STATEMENT([construct_name]name-opt)
           | NODECL_CONTINUE_STATEMENT([construct_name]name-opt)
           | NODECL_GOTO_STATEMENT() symbol
@@ -89,8 +89,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | assert-construct
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
-
-case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
             | range-loop-control
@@ -239,7 +237,11 @@ expression : literal
 # Ths one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
-structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type const-value-opt
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
+
+structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
+      | NODECL_STRUCTURED_VALUE_BRACED()
+      | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
@@ -337,14 +339,14 @@ cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_PARSE_LATER()
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
-                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) type-opt
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) type-opt
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
 
-cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text type-opt
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
 cxx-dependent-initializer : NODECL_CXX_INITIALIZER([init] expression) type
     | NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt) type

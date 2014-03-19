@@ -110,6 +110,28 @@ namespace TL
             bool get_is_explicit_specialization() const;
     };
 
+    struct LIBTL_CLASS MemberDeclarationInfo
+    {
+        private:
+            TL::Symbol _entry;
+            bool _is_definition;
+        public:
+            MemberDeclarationInfo(TL::Symbol entry, bool is_definition)
+                : _entry(entry), _is_definition(is_definition)
+            {
+            }
+
+            TL::Symbol get_symbol() const
+            {
+                return _entry;
+            }
+
+            bool get_is_definition() const
+            {
+                return _is_definition;
+            }
+    };
+
     //! This class wraps a type in the compiler type system
     class LIBTL_CLASS Type : public Object
     {
@@ -717,6 +739,9 @@ namespace TL
             //! Returns all the data members, either static or non-static
             ObjectList<Symbol> get_all_members() const;
 
+            //! Returns (all) the data member declarations
+            ObjectList<MemberDeclarationInfo> get_member_declarations() const;
+
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
 
@@ -738,6 +763,9 @@ namespace TL
             Type get_volatile_type();
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
+
+            //! Returns the unqualified type of current type but keeps restrict
+            Type get_unqualified_type_but_keep_restrict();
 
             //! Qualifies current type with the qualifier of t
             Type get_as_qualified_as(TL::Type t);

@@ -86,9 +86,17 @@ LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* tran
 LIBMCXX_EXTERN void c_initialize_builtin_symbols(decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit);
+LIBMCXX_EXTERN void build_scope_translation_unit_post(translation_unit_t* translation_unit UNUSED_PARAMETER);
+LIBMCXX_EXTERN void build_scope_translation_unit_pre(translation_unit_t* translation_unit UNUSED_PARAMETER);
+
 LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list,
         decl_context_t decl_context,
         nodecl_t* nodecl_output_list);
+LIBMCXX_EXTERN void build_scope_declaration(AST a,
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output, 
+        scope_entry_list_t** declared_symbols,
+        gather_decl_spec_list_t *gather_decl_spec_list);
 
 LIBMCXX_EXTERN void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared);
 

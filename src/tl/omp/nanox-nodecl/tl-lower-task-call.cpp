@@ -144,7 +144,7 @@ static TL::Type rewrite_type_in_outline(TL::Type t, const param_sym_to_arg_sym_t
     }
     else if (t.is_pointer())
     {
-        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to();
+        return (rewrite_type_in_outline(t.points_to(), map)).get_pointer_to().get_as_qualified_as(t);
     }
     else if (t.is_array())
     {

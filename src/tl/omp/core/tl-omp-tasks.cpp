@@ -944,13 +944,81 @@ namespace TL
                 }
         };
 
-        static void dependence_list_check(ObjectList<Nodecl::NodeclBase>& expression_list, DependencyDirection direction)
+        struct LocalSymbolsInDependences : Predicate<Nodecl::NodeclBase>
+        {
+            private:
+                TL::Symbol _function;
+                TL::ObjectList<TL::Symbol> &_seen_local_symbols;
+
+                bool is_local_symbol(TL::Symbol sym)
+                {
+                    return sym.get_scope().is_block_scope()
+                        && (sym.get_scope().get_related_symbol() == _function)
+                        && !sym.is_parameter_of(_function)
+                        && (!IS_CXX_LANGUAGE || (sym.get_name() != "this"))
+                        // In Fortran saved expressions are only created for
+                        // explicit size arrays with nonconstant size dependent
+                        // of dummy arguments (i.e. the equivalent of a VLA
+                        // parameter in the Fortran world)
+                        && (!IS_FORTRAN_LANGUAGE || !sym.is_saved_expression());
+                }
+
+            public:
+                LocalSymbolsInDependences(
+                    TL::Symbol function,
+                    TL::ObjectList<TL::Symbol>& seen_local_symbols)
+                    : _function(function),
+                      _seen_local_symbols(seen_local_symbols)
+                {
+                }
+
+                virtual bool do_(LocalSymbolsInDependences::ArgType expr) const
+                {
+                    TL::ObjectList<TL::Symbol> local_symbols;
+                    local_symbols.insert(
+                            Nodecl::Utils::get_all_symbols(expr)
+                            .filter(predicate(&LocalSymbolsInDependences::is_local_symbol,
+                                    /* predicates were lacking some cases at the moment of writing this */
+                                    (LocalSymbolsInDependences&)*this))
+                            );
+
+                    for (TL::ObjectList<TL::Symbol>::iterator it = local_symbols.begin();
+                            it != local_symbols.end();
+                            it++)
+                    {
+                        if (!_seen_local_symbols.contains(*it))
+                        {
+                            error_printf("%s: error: cannot reference local variable '%s' in dependence\n",
+                                    expr.get_locus_str().c_str(),
+                                    it->get_name().c_str());
+                        }
+                    }
+
+                    _seen_local_symbols.insert(local_symbols);
+
+                    return !local_symbols.empty();
+                }
+        };
+
+
+
+        static void dependence_list_check(
+                ObjectList<Nodecl::NodeclBase>& expression_list,
+                DependencyDirection direction,
+                TL::Symbol function)
         {
             IsUselessDependence is_useless_dependence(direction);
-
-            // Remove useless expressions
+            // Remove useless dependences
             expression_list.erase(
                     std::remove_if(expression_list.begin(), expression_list.end(), is_useless_dependence),
+                    expression_list.end());
+
+            TL::ObjectList<TL::Symbol> seen_local_symbols;
+            LocalSymbolsInDependences there_are_local_symbols_in_dependence(function, seen_local_symbols);
+            // Remove wrong dependences because they reference local symbols
+            expression_list.erase(
+                    std::remove_if(expression_list.begin(), expression_list.end(),
+                        there_are_local_symbols_in_dependence),
                     expression_list.end());
         }
 
@@ -1221,35 +1289,35 @@ namespace TL
 
             ObjectList<FunctionTaskDependency> dependence_list;
 
-            dependence_list_check(input_arguments, DEP_DIR_IN);
+            dependence_list_check(input_arguments, DEP_DIR_IN, function_sym);
             dependence_list.append(input_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_IN))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE);
+            dependence_list_check(input_value_arguments, DEP_DIR_IN_VALUE, function_sym);
             dependence_list.append(input_value_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_IN_VALUE)));
 
-            dependence_list_check(input_private_arguments, DEP_DIR_IN_PRIVATE);
+            dependence_list_check(input_private_arguments, DEP_DIR_IN_PRIVATE, function_sym);
             dependence_list.append(input_private_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_IN_PRIVATE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list_check(output_arguments, DEP_DIR_OUT);
+            dependence_list_check(output_arguments, DEP_DIR_OUT, function_sym);
             dependence_list.append(output_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_OUT))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list_check(inout_arguments, DEP_DIR_INOUT);
+            dependence_list_check(inout_arguments, DEP_DIR_INOUT, function_sym);
             dependence_list.append(inout_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list_check(concurrent_arguments, DEP_CONCURRENT);
+            dependence_list_check(concurrent_arguments, DEP_CONCURRENT, function_sym);
             dependence_list.append(concurrent_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_CONCURRENT))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
 
-            dependence_list_check(commutative_arguments, DEP_COMMUTATIVE);
+            dependence_list_check(commutative_arguments, DEP_COMMUTATIVE, function_sym);
             dependence_list.append(commutative_arguments
                     .map(FunctionTaskDependencyGenerator(DEP_COMMUTATIVE))
                     .filter(predicate(&FunctionTaskDependency::is_valid)));
