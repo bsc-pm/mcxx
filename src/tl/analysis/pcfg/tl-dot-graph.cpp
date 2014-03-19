@@ -424,6 +424,10 @@ namespace {
                 outer_edges.pop_back( );
             }
         }
+        else
+        {
+            std::cerr << "DOT does not print node " << current->get_id() << " because it is already visited" << std::endl;
+        }
     }
 
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph, std::string& graph_analysis_info,

@@ -791,7 +791,10 @@ namespace Analysis {
                 return;
             
             if( current->is_graph_node( ) )
-                clear_visits_in_level( current->get_graph_entry_node( ), outer_node );
+            {
+                Node* new_outer = ( current->is_omp_task_node( ) ? current : outer_node );
+                clear_visits_in_level( current->get_graph_entry_node( ), new_outer );
+            }
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
