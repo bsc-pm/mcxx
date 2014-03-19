@@ -1457,6 +1457,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-analysis.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
@@ -2132,6 +2134,7 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \
      src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.hpp \
      src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.cpp \
      src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.hpp \
+     src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc-extern.hpp \
      src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.cpp \
      $(END)
 endif

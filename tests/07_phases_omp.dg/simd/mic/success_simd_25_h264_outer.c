@@ -48,17 +48,18 @@ void __attribute__((noinline)) h264(
 {
     int i, j;
 
+#pragma omp simd
     for (i = 0; i <= 24; i++)
     {
-#pragma omp simd
        for (j = 0; j <= 24; j++)
         {
             X[i][j] = PI * j;
         }
     }
+
+#pragma omp simd
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
         for (j = 0; j <= 24; j++)
         {
             H[i][j] =
@@ -66,9 +67,10 @@ void __attribute__((noinline)) h264(
                  2.0f * X[i + 4][j] + X[i + 5][j]) / 14.0f;
         }
     }
+
+#pragma omp simd
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             K[i][j] =
@@ -76,17 +78,19 @@ void __attribute__((noinline)) h264(
                  2.0f * H[i][j + 4] + H[i][j + 5]) / 14.0f;
         }
     }
+
+#pragma omp simd
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             Y[i][j] = K[i][j] + H[i][j];
         }
     }
+
+#pragma omp simd
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             output[i][j] = Y[i][j];

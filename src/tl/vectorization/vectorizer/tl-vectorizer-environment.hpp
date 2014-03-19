@@ -98,6 +98,7 @@ namespace TL
                 friend class VectorizerVisitorFunction;
                 friend class VectorizerVisitorStatement;
                 friend class VectorizerVisitorExpression;
+                friend class StrideSplitterVisitor;
         };
     }
 }

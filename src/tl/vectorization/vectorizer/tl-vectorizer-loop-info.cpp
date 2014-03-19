@@ -41,7 +41,7 @@ namespace Vectorization
         : _environment(environment), _loop(for_stmt),
         _condition(for_stmt.get_loop_header().as<Nodecl::LoopControl>().
                 get_cond()),
-        _ivs(VectorizerAnalysisStaticInfo::_analysis_info->
+        _ivs(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
                 get_ivs_nodecls(for_stmt, for_stmt))
     {
     }
@@ -51,7 +51,7 @@ namespace Vectorization
         const VectorizerEnvironment& environment)
         : _environment(environment), _loop(while_stmt),
         _condition(while_stmt.get_condition()),
-        _ivs(VectorizerAnalysisStaticInfo::_analysis_info->
+        _ivs(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
             get_ivs_nodecls(while_stmt, while_stmt))
 
     {
@@ -65,7 +65,7 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizerAnalysisStaticInfo::_analysis_info->
+            result = result || VectorizerAnalysisStaticInfo::_vectorizer_analysis->
                 iv_lb_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,
@@ -77,7 +77,7 @@ namespace Vectorization
 
     bool VectorizerLoopInfo::condition_depends_on_simd_iv()
     {
-        return VectorizerAnalysisStaticInfo::_analysis_info->
+        return VectorizerAnalysisStaticInfo::_vectorizer_analysis->
            is_induction_variable_dependent_expression(
                     _environment._analysis_simd_scope, _condition);
     }
@@ -92,7 +92,7 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizerAnalysisStaticInfo::_analysis_info->
+            result = result || VectorizerAnalysisStaticInfo::_vectorizer_analysis->
                 iv_ub_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,
@@ -110,8 +110,8 @@ namespace Vectorization
             it != _ivs.end();
             it ++)
         {
-            result = result || VectorizerAnalysisStaticInfo::_analysis_info->
-                iv_step_depends_on_ivs_from_scope(
+            result = result || VectorizerAnalysisStaticInfo::
+                _vectorizer_analysis->iv_step_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         *it,
                         _environment._analysis_simd_scope);
@@ -166,7 +166,7 @@ namespace Vectorization
 
                 // Suitable LB
                 lb_is_suitable = VectorizerAnalysisStaticInfo::
-                    _analysis_info->is_suitable_expression(
+                    _vectorizer_analysis->is_suitable_expression(
                         for_statement, lb, environment._suitable_expr_list,
                         environment._unroll_factor,
                         environment._vector_length, lb_vector_size_module);
@@ -208,7 +208,7 @@ namespace Vectorization
 
                 // Suitable UB
                 ub_is_suitable = VectorizerAnalysisStaticInfo::
-                    _analysis_info->is_suitable_expression(
+                    _vectorizer_analysis->is_suitable_expression(
                         for_statement, ub, environment._suitable_expr_list,
                         environment._unroll_factor,environment._vector_length,
                         ub_vector_size_module);

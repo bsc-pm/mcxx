@@ -57,7 +57,7 @@ namespace Vectorization
                                          public Analysis::AnalysisStaticInfo
     {
         private:
-            static VectorizerAnalysisStaticInfo *_analysis_info;
+            static VectorizerAnalysisStaticInfo *_vectorizer_analysis;
 
             Nodecl::NodeclBase _original_node;
 
@@ -183,7 +183,7 @@ namespace Vectorization
             friend class VectorizerVisitorStatement;
             friend class VectorizerVisitorExpression;
             friend class VectorizerVisitorLoopHeader;
-
+            friend class StrideSplitterVisitor;
     };
 }
 }

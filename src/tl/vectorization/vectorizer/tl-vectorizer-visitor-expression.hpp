@@ -83,6 +83,8 @@ namespace TL
                 virtual void visit(const Nodecl::Reference& n);
                 virtual void visit(const Nodecl::Dereference& n);
 
+                virtual void visit(const Nodecl::VectorLaneId& n);
+
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 
                 void vectorize_basic_induction_variable(const Nodecl::Symbol& n);

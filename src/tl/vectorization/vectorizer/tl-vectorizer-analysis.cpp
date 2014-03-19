@@ -37,20 +37,20 @@ namespace TL
 {
 namespace Vectorization
 {
-    VectorizerAnalysisStaticInfo* VectorizerAnalysisStaticInfo::_analysis_info = 0;
+    VectorizerAnalysisStaticInfo* VectorizerAnalysisStaticInfo::_vectorizer_analysis = 0;
 
     void VectorizerAnalysisStaticInfo::initialize_analysis(
             const Nodecl::FunctionCode& enclosing_function)
     {
-        if(_analysis_info != 0)
+        if(_vectorizer_analysis != 0)
         {
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Freeing previous analysis\n");
             }
 
-            delete _analysis_info;
-            _analysis_info = 0;
+            delete _vectorizer_analysis;
+            _vectorizer_analysis = 0;
         }
 
         VECTORIZATION_DEBUG()
@@ -58,7 +58,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: Computing new analysis\n");
         }
 
-        _analysis_info = new VectorizerAnalysisStaticInfo(
+        _vectorizer_analysis = new VectorizerAnalysisStaticInfo(
                 enclosing_function,
                 Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                 Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
@@ -73,10 +73,10 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: Finalizing analysis\n");
         }
 
-        if(_analysis_info != 0)
+        if(_vectorizer_analysis != 0)
         {
-            delete _analysis_info;
-            _analysis_info = 0;
+            delete _vectorizer_analysis;
+            _vectorizer_analysis = 0;
         }
     }
 
@@ -721,7 +721,8 @@ namespace Vectorization
                     (*current_scope).is<Nodecl::IfElseStatement>() ||
                     (*current_scope).is<Nodecl::FunctionCode>())
             {
-                if(_analysis_info->is_induction_variable_dependent_expression(
+                if(_vectorizer_analysis->
+                        is_induction_variable_dependent_expression(
                             *current_scope,
                             n))
                 {
@@ -752,7 +753,7 @@ namespace Vectorization
                     (*current_scope).is<Nodecl::IfElseStatement>() ||
                     (*current_scope).is<Nodecl::FunctionCode>())
             {
-                if(_analysis_info->is_non_reduction_basic_induction_variable(
+                if(_vectorizer_analysis->is_non_reduction_basic_induction_variable(
                             *current_scope,
                             n))
                 {
