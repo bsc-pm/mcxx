@@ -3911,6 +3911,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
+{
+    indent();
+    *(file) << "VECTOR_LANE_ID";
+}
+
 // Bug in GCC 4.4
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::VirtualFunctionCall>(const Nodecl::VirtualFunctionCall& node, bool is_virtual_call);
 
