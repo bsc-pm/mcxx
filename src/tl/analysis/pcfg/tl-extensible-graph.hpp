@@ -44,7 +44,7 @@
 
 namespace TL {
 namespace Analysis {
-
+    
     class LIBTL_CLASS ExtensibleGraph
     {
     protected:
@@ -54,7 +54,7 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
+        const Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
 
         /*!Graph scope (This variable is used when the variables are tagged as global)
          * If the graph contains a function code, the scope is the function's scope.
@@ -235,7 +235,8 @@ namespace Analysis {
         *                     Thus, the edge will have special type _TASK_EDGE
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, std::string label = "",
+        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, 
+                             Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ),
                              bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
@@ -243,23 +244,23 @@ namespace Analysis {
         //! A set of edge types and labels must be provided. It is assumed that each parent is
         //! connected to all its children with the same type of edge.
         void connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
-                            ObjectList<Edge_type> etypes, ObjectList<std::string> elabels );
+                            ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> elabels );
 
         //! Wrapper method for #connect_nodes when a parent must be connected to a set of
         //! children and each connection may be different from the others.
         //! A set of edge types and labels must be provided.
         void connect_nodes( Node* parent, ObjectList<Node*> children,
-                            ObjectList<Edge_type> etypes, ObjectList<std::string> labels );
+                            ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> labels );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, ObjectList<Edge_type> etypes,
-                            ObjectList<std::string> labels, bool is_task_edge = false );
+                            ObjectList<Nodecl::NodeclBase> labels, bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
-                            std::string label = "" );
+                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
         void disconnect_nodes( ObjectList<Node*> parents, Node* child );
@@ -409,6 +410,7 @@ namespace Analysis {
         static Node* get_enclosing_task( Node* n );
         static bool task_encloses_task( Node* container, Node* contained );
         static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
+        static Node* get_enclosing_control_structure( Node* node );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

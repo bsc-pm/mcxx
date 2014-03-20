@@ -1,7 +1,7 @@
 # OpenMP + Analysis
 
 [analysiscc : plaincc]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
@@ -16,9 +16,11 @@ options = --openmp
 {liveness} options = --variable=liveness_enabled:1
 {reaching-defs} options = --variable=reaching_defs_enabled:1
 {induction-vars} options = --variable=induction_vars_enabled:1
+{task-sync-tune} options = --variable=task_sync_tune_enabled:1
 {range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
+{tdg} options = --variable=tdg_enabled:1
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
@@ -27,7 +29,7 @@ options = --openmp
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysiscxx : plaincxx]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
@@ -43,9 +45,11 @@ options = --openmp
 {liveness} options = --variable=liveness_enabled:1
 {reaching-defs} options = --variable=reaching_defs_enabled:1
 {induction-vars} options = --variable=induction_vars_enabled:1
+{task-sync-tune} options = --variable=task_sync_tune_enabled:1
 {range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
+{tdg} options = --variable=tdg_enabled:1
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
@@ -54,7 +58,7 @@ options = --openmp
 {openmp} compiler_phase = libtlnanox-smp.so
 
 [analysisfc : plainfc]
-options = --openmp
+options = --openmp --debug-flags=analysis_verbose
 {openmp} compiler_phase = libtlomp-base.so
 {openmp} compiler_phase = libtlnanos-version.so
 {openmp} pragma_prefix = nanos
@@ -78,6 +82,7 @@ preprocessor_options = -E
 {range} options = --variable=range_analysis_enabled:1
 {auto-scope} compiler_phase = libtlomp_auto_scope.so
 {auto-scope} options = --variable=auto_scope_enabled:1
+{tdg} options = --variable=tdg_enabled:1
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance

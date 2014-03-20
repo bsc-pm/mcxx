@@ -32,6 +32,7 @@
 #include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
+#include "tl-task-dependency-graph.hpp"
 
 // Set of classes implementing the Memento Pattern with Analysis purposes.
 // ----------------         -------------        ----------------
@@ -51,12 +52,14 @@ namespace Analysis {
     // *************** Class containing all analysis related to a given AST *************** //
 
     typedef std::map<std::string, ExtensibleGraph*> Name_to_pcfg_map;
+    typedef std::map<std::string, TaskDependencyGraph*> Name_to_tdg_map;
 
     //! Memento class capturing the internal state of the PCFG regarding the analysis
     class PCFGAnalysis_memento {
     private:
 
         Name_to_pcfg_map _pcfgs;
+        Name_to_tdg_map _tdgs;
 
         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
@@ -65,9 +68,11 @@ namespace Analysis {
         bool _loops;                //!<True when loops analysis has been applied
         bool _reaching_definitions; //!<True when reaching definitions has been calculated
         bool _induction_variables;  //!<True when induction variable analysis has been applied
+        bool _tune_task_syncs;      //!<True when the task synchronization has been tuned
         bool _range;                //!<True when range analysis has been applied
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
+        bool _tdg;                  //!<True when PCFG's tasks dependency graphs have been created
 
         /*!Returns the PCFG node enclosed in a PCFG node containing th flow of a nodecl
          * @param current PCFG node where to search the nodecl
@@ -90,7 +95,10 @@ namespace Analysis {
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
         ObjectList<ExtensibleGraph*> get_pcfgs( );
-        
+
+        TaskDependencyGraph* get_tdg( std::string name );
+        void set_tdg( std::string name, TaskDependencyGraph* tdg );
+
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
@@ -105,19 +113,23 @@ namespace Analysis {
         void set_reaching_definitions_computed( );
         bool is_induction_variables_computed( ) const;
         void set_induction_variables_computed( );
+        bool is_task_synchronizations_tuned( ) const;
+        void set_tune_task_synchronizations( );
         bool is_range_analysis_computed( ) const;
         void set_range_analysis_computed( );
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
         void set_auto_deps_computed( );
-        
+        bool is_tdg_computed( ) const;
+        void set_tdg_computed( );
+
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 
         //! Returns the list of reduction symbols found in #n
         ObjectList<Symbol> get_reductions( const Nodecl::NodeclBase& n );
-        
+
         //! Returns a list of objects that are killed in #n
         Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
 
@@ -201,19 +213,27 @@ namespace Analysis {
          */
         ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<ExtensibleGraph*> tune_task_synchronizations( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+
         ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
-        
+
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
+        ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+
         ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
-        
+
         ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
 
         // ********************* Utils ******************** //
 
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
-        
+
         void print_all_pcfg( PCFGAnalysis_memento& memento );
+
+        void print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name );
+
+        void tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name );
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

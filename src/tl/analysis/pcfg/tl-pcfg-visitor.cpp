@@ -236,7 +236,7 @@ namespace Analysis {
                 {
                     int n_connects = graph_parents.size( );
                     _pcfg->connect_nodes( graph_parents, result, ObjectList<Edge_type>( n_connects, __Always ),
-                                          ObjectList<std::string>( n_connects, "" ) );
+                                          ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
                 }
 
                 // Erase those positions in the list that are non-Graph nodes
@@ -371,7 +371,7 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
-                                                          const Nodecl::NodeclBase& case_val )
+                                                          const Nodecl::List& case_val )
     {
         Node* case_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), case_stmt, __SwitchCase );
 
@@ -389,12 +389,12 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, case_node );
         Edge* e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_node, __Case );
-        std::string label;
-        if( !case_val.is_null( ) )
-            label = case_val.prettyprint( );
-        else
-            label = "default";
-        e->add_label( label );
+
+        // case_val is a list (FORTRAN)
+        ERROR_CONDITION( case_val.size()>1, "Case statement '%s' with more than one value per case is not yet supported\n",
+                         case_stmt.prettyprint().c_str() );
+        if(case_val.size()==1)
+            e->add_label( case_val[0] );
 
         Node* entry_node = case_node->get_graph_entry_node( );
         Node* exit_node = case_node->get_graph_exit_node( );
@@ -408,31 +408,21 @@ namespace Analysis {
 
         exit_node->set_id( ++( _utils->_nid ) );
 
+        _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
+
         // Set Case node as _last_nodes when it does not end with a break statement
-        if( case_stmts.empty( ) )
-        {   // Case without statements => Connect Case entry and exit nodes
-            // 1.- case XX:
-            // 2.- case YY: break;
-            _pcfg->connect_nodes( entry_node, exit_node );
+        // Example:
+        // case XX : { ... ; break; }
+        if( case_stmts.empty( ) ||
+            ( (case_stmts.size( ) == 1) && !case_stmts[0]->is_break_node() &&
+                                           ( !case_stmts[0]->is_context_node( ) ||
+                                             ( case_stmts[0]->is_context_node( ) &&
+                                               !case_stmts[0]->get_graph_exit_node( )->get_parents().empty() ) ) ) )
+        {
             _utils->_last_nodes = ObjectList<Node*>( 1, case_node );
         }
         else
-        {
-            _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
-            if( (case_stmts.size( ) == 1) &&
-                 ( ( !case_stmts[0]->is_context_node( ) && !case_stmts[0]->is_break_node( ) ) ||
-                   ( case_stmts[0]->is_context_node( ) && !case_stmts[0]->get_graph_exit_node( )->get_parents( ).empty( ) ) ) )
-            {   // Case not ending with a break statement
-                // 1.- case XX : ... ; break;
-                // 2.- case YY: ...;
-                _utils->_last_nodes = ObjectList<Node*>( 1, case_node );
-            }
-            else
-            {   // Case ending with a break statement
-                // 1.- case XX : { ... ; break; }
-                _pcfg->connect_nodes( exit_node, _utils->_switch_nodes.top( )->_exit );
-            }
-        }
+            _pcfg->connect_nodes( exit_node, _utils->_switch_nodes.top( )->_exit );
 
         _utils->_outer_nodes.pop( );
         return ObjectList<Node*>(1, case_node);
@@ -848,7 +838,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::CaseStatement& n )
     {
-        return visit_case_or_default( n.get_statement( ), n.get_case( ) );
+        return visit_case_or_default( n.get_statement( ), n.get_case( ).as<Nodecl::List>() );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Cast& n )
@@ -868,11 +858,13 @@ namespace Analysis {
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
-        std::string label;
-        if( n.get_name( ).is_null( ) )
-            label = "...";
-        else
-            label = n.get_name( ).prettyprint( );
+        Nodecl::NodeclBase label = n.get_name( );
+        if( label.is_null() )
+        {
+            const char* s = "...";
+            label = Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                                                 const_value_make_string( s, strlen(s) ) );
+        }
         for( ObjectList<Node*>::iterator it = current_tryblock->_handler_parents.begin( );
               it != current_tryblock->_handler_parents.end( ); ++it )
         {
@@ -880,7 +872,7 @@ namespace Analysis {
             if( catch_edge != NULL )
             {
                 catch_edge->set_catch_edge( );
-                catch_edge->set_label( label );
+                catch_edge->add_label( label );
             }
         }
 
@@ -986,7 +978,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::DefaultStatement& n )
     {
-        return visit_case_or_default( n.get_statement( ), Nodecl::NodeclBase::null( ) );
+        return visit_case_or_default( n.get_statement( ), Nodecl::List( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Delete& n )
@@ -1114,7 +1106,7 @@ namespace Analysis {
                     {
                         _pcfg->connect_nodes( expr_last_nodes, expr_first_nodes,
                                               ObjectList<Edge_type>( n_connects, __Always ),
-                                              ObjectList<std::string>( n_connects, "" ) );
+                                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null( ) ) );
                     }
                 }
 
@@ -1211,7 +1203,7 @@ namespace Analysis {
             n_connects = _utils->_last_nodes.size( );
             _pcfg->connect_nodes( _utils->_last_nodes, init,
                                   ObjectList<Edge_type>( n_connects, __Always ),
-                                  ObjectList<std::string>( n_connects, "" ) );
+                                  ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null( ) ) );
             // Init can generate more than one node: find the last
             Node* last_init_node = init;
             ObjectList<Node*> init_children = last_init_node->get_children( );
@@ -1230,7 +1222,7 @@ namespace Analysis {
         n_connects = _utils->_last_nodes.size( );
         _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
                               ObjectList<Edge_type>( n_connects, __Always ),
-                              ObjectList<std::string>( n_connects, "" ) );
+                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
 
         // Connect the conditional node
         Node* entry_node = for_graph_node->get_graph_entry_node( );
@@ -1428,7 +1420,8 @@ namespace Analysis {
         {
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
-                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, n.get_symbol( ).get_name( ) );
+                Nodecl::Symbol s = Nodecl::Symbol::make( n.get_symbol( ) );
+                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, s );
                 break;
             }
         }
@@ -1543,7 +1536,10 @@ namespace Analysis {
         {
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
-                _pcfg->connect_nodes( *it, labeled_node, __GotoEdge, n.get_symbol( ).get_name( ) );
+                const char* s = n.get_symbol( ).get_name( ).c_str();
+                _pcfg->connect_nodes( *it, labeled_node, __GotoEdge,
+                                      Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                                                                   const_value_make_string( s, strlen(s) ) ) );
                 break;
             }
         }
@@ -2149,7 +2145,7 @@ namespace Analysis {
         int n_connects = entry_children.size( );
         _pcfg->connect_nodes( entry_flush, entry_children,
                               ObjectList<Edge_type>( n_connects, __Always ),
-                              ObjectList<std::string>( n_connects, "" ) );
+                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
 
         // Restore current info
         environ_entry = entry_flush;
@@ -2627,8 +2623,11 @@ namespace Analysis {
 
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        Edge* edge = _pcfg->connect_nodes( task_creation, task_node, __Always, "", /* is task */ true );
-        edge->set_label("create");
+        const char* s = "create";
+        _pcfg->connect_nodes( task_creation, task_node, __Always,
+                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                                                          const_value_make_string(s, strlen(s))),
+                              /* is task */ true );
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
@@ -2664,8 +2663,11 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, task_creation );
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
-        Edge* edge = _pcfg->connect_nodes( task_creation, task_node, __Always, "", /* is task */ true );
-        edge->set_label("create");
+        const char* s = "create";
+        _pcfg->connect_nodes( task_creation, task_node, __Always,
+                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                                                          const_value_make_string(s, strlen(s))),
+                              /* is task */ true );
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
@@ -2977,7 +2979,6 @@ namespace Analysis {
             {
                 Edge* catch_edge = ( *it )->get_exit_edges( ).back( );
                 catch_edge->set_catch_edge( );
-                catch_edge->set_label( "" );
             }
         }
 

@@ -645,7 +645,7 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
         for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); ( it != stmts.end( ) ) && !result; ++it )
         {
-            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( *it );
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence( *it );
             for( ObjectList<Nodecl::Symbol>::iterator its = syms.begin( ); ( its != syms.end( ) ) && !result; ++its )
             {
                 if( visited_syms.find( *its ) == visited_syms.end( ) )
