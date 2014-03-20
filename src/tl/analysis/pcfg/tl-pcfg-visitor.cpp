@@ -862,7 +862,8 @@ namespace Analysis {
         if( label.is_null() )
         {
             const char* s = "...";
-            label = Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+            label = Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1,
+                            get_char_type())),
                                                  const_value_make_string( s, strlen(s) ) );
         }
         for( ObjectList<Node*>::iterator it = current_tryblock->_handler_parents.begin( );
@@ -1538,7 +1539,7 @@ namespace Analysis {
             {   // Connect the nodes
                 const char* s = n.get_symbol( ).get_name( ).c_str();
                 _pcfg->connect_nodes( *it, labeled_node, __GotoEdge,
-                                      Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                                      Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                                    const_value_make_string( s, strlen(s) ) ) );
                 break;
             }
@@ -2625,7 +2626,7 @@ namespace Analysis {
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
         _pcfg->connect_nodes( task_creation, task_node, __Always,
-                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                           const_value_make_string(s, strlen(s))),
                               /* is task */ true );
 
@@ -2665,7 +2666,7 @@ namespace Analysis {
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
         _pcfg->connect_nodes( task_creation, task_node, __Always,
-                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )),
+                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                           const_value_make_string(s, strlen(s))),
                               /* is task */ true );
 
