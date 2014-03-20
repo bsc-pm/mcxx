@@ -78,6 +78,9 @@ namespace Analysis {
               _pcfgs( pcfgs ), _autoscoped_task( autoscoped_task )
     {}
 
+    NodeclStaticInfo::~NodeclStaticInfo()
+    {}
+    
     Node* NodeclStaticInfo::find_node_from_nodecl( const Nodecl::NodeclBase& n ) const
     {
         Node* result = NULL;
@@ -451,33 +454,33 @@ namespace Analysis {
         TL::Analysis::PCFGAnalysis_memento analysis_state;
 
         // Compute "dynamic" analysis
-
-        if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
+        // Do it in such an order that the first is the most complete analysis and the last is the simplest one
+        if( analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
         {
-            analysis.parallel_control_flow_graph( analysis_state, n );
-        }
-        if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS
-                                              | WhichAnalysis::CONSTANTS_ANALYSIS ) )
-        {
-            analysis.use_def( analysis_state, n );
-        }
-        if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
-        {
-            analysis.liveness( analysis_state, n );
-        }
-        if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
-        {
-            analysis.reaching_definitions( analysis_state, n );
+            analysis.auto_scoping( analysis_state, n );
         }
         if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
         {
             analysis.induction_variables( analysis_state, n );
         }
-        if( analysis_mask._which_analysis & WhichAnalysis::AUTO_SCOPING )
+        if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
-            analysis.auto_scoping( analysis_state, n );
+            analysis.reaching_definitions( analysis_state, n );
         }
-
+        if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
+        {
+            analysis.liveness( analysis_state, n );
+        }
+        if( analysis_mask._which_analysis & ( WhichAnalysis::USAGE_ANALYSIS |
+                                              WhichAnalysis::CONSTANTS_ANALYSIS ) )
+        {
+            analysis.use_def( analysis_state, n );
+        }
+        if( analysis_mask._which_analysis & WhichAnalysis::PCFG_ANALYSIS )
+        {
+            analysis.parallel_control_flow_graph( analysis_state, n );
+        }
+        
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             analysis.print_all_pcfg( analysis_state );
 
@@ -488,6 +491,9 @@ namespace Analysis {
         _static_info_map.insert( nested_blocks_static_info.begin( ), nested_blocks_static_info.end( ) );
     }
 
+    AnalysisStaticInfo::~AnalysisStaticInfo()
+    {}
+    
     static_info_map_t AnalysisStaticInfo::get_static_info_map( ) const
     {
         return _static_info_map;

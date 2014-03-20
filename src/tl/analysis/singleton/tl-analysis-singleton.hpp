@@ -61,6 +61,7 @@ namespace Analysis {
         Name_to_pcfg_map _pcfgs;
         Name_to_tdg_map _tdgs;
 
+        bool _pcfg;                 //!<True when parallel control flow graph have bee build
         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
         bool _use_def;              //!<True when use-definition chains have been calculated
@@ -99,6 +100,8 @@ namespace Analysis {
         TaskDependencyGraph* get_tdg( std::string name );
         void set_tdg( std::string name, TaskDependencyGraph* tdg );
         
+        bool is_pcfg_computed() const;
+        void set_pcfg_computed();
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
