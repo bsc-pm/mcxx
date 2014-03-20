@@ -9565,6 +9565,12 @@ static char conversion_is_valid_reinterpret_cast(
                 && is_intel_vector_struct_type(dest_type, &dest_size)
                 && (dest_size == orig_size))
             RETURN(1);
+
+        if (vector_type_to_intel_vector_struct_type(orig_type, dest_type))
+            RETURN(1);
+
+        if (vector_type_to_intel_vector_struct_type(dest_type, orig_type))
+            RETURN(1);
     }
 
     // A pointer to function can be converted to another pointer to function type
