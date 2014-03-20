@@ -495,18 +495,13 @@ type {
 
 [\n] {
 
-    // Degenerate case. Our yytext is now "gcc\n". We do not want the "\n"
-    int len = strlen(yytext);
-    char c[len + 1];
-    strncpy(c, yytext, len);
-    c[len] = '\0';
-    ERROR_CONDITION(c[len - 1] != '\n', "There should be a newline here", 0);
-    c[len-1] = '\0';
+    // Degenerate case. This either '#pragma gcc' probably due to wrong input or a 
+    // removed "#pragma GCC system_header"
 
-	parse_token_text_str(c);
+    // Do not lose track of the line
+    unput('\n');
 
 	BEGIN(INITIAL);
-	return UNKNOWN_PRAGMA;
 }
 
 }
