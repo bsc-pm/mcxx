@@ -105,7 +105,8 @@ namespace Analysis {
                               Utils::ext_sym_set killed, ObjectList<ExtensibleGraph*> pcfgs,
                               Node* autoscoped_task );
 
-
+            ~NodeclStaticInfo();
+            
             // *** Queries about Use-Def analysis *** //
 
             bool is_constant( const Nodecl::NodeclBase& n ) const;
@@ -194,7 +195,7 @@ namespace Analysis {
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
-            virtual ~AnalysisStaticInfo(){};
+            virtual ~AnalysisStaticInfo();
 
 
             // *** Getters and Setters *** //

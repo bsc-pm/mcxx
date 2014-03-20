@@ -862,6 +862,7 @@ namespace Analysis {
         if( label.is_null() )
         {
             const char* s = "...";
+
             label = Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1,
                             get_char_type())),
                                                  const_value_make_string( s, strlen(s) ) );
@@ -1538,6 +1539,7 @@ namespace Analysis {
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
                 const char* s = n.get_symbol( ).get_name( ).c_str();
+
                 _pcfg->connect_nodes( *it, labeled_node, __GotoEdge,
                                       Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                                    const_value_make_string( s, strlen(s) ) ) );
@@ -2625,6 +2627,7 @@ namespace Analysis {
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
+
         _pcfg->connect_nodes( task_creation, task_node, __Always,
                               Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                           const_value_make_string(s, strlen(s))),
@@ -2665,6 +2668,7 @@ namespace Analysis {
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
+
         _pcfg->connect_nodes( task_creation, task_node, __Always,
                               Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                           const_value_make_string(s, strlen(s))),
