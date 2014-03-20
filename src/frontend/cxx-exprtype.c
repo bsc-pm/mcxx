@@ -13788,16 +13788,44 @@ static void check_nodecl_member_access(
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
+
             // Note that we do not store anything from the field_path as we
             // will have to reconstruct the accessed subobject when building the
             // function call
-            *nodecl_output = nodecl_make_class_member_access(
-                    nodecl_accessed_out,
-                    /* This symbol goes unused when we see that its type is already an overload */
-                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    /* member literal */ nodecl_shallow_copy(nodecl_member),
-                    t,
-                    nodecl_get_locus(nodecl_accessed));
+
+            if (last_template_args != NULL
+                    && has_dependent_template_parameters(last_template_args))
+            {
+                // A case like this
+                //
+                // struct A
+                // {
+                //    template <typename T>
+                //    void f()
+                //    {
+                //       this->template g<T>(3);
+                //    }
+                // };
+                //
+                // Nothing is dependent but the nodecl_member
+                *nodecl_output = nodecl_make_cxx_class_member_access(
+                        nodecl_accessed_out,
+                        nodecl_member,
+                        get_unknown_dependent_type(),
+                        locus);
+
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                *nodecl_output = nodecl_make_class_member_access(
+                        nodecl_accessed_out,
+                        /* This symbol goes unused when we see that its type is already an overload */
+                        nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
+                        /* member literal */ nodecl_shallow_copy(nodecl_member),
+                        t,
+                        nodecl_get_locus(nodecl_accessed));
+            }
 
             ok = 1;
         }
