@@ -125,6 +125,10 @@ namespace Vectorization
         }
     }
 
+    // Base destructor is called automatically
+    VectorizerAnalysisStaticInfo::~VectorizerAnalysisStaticInfo()
+    {}
+    
     Nodecl::FunctionCode VectorizerAnalysisStaticInfo::copy_function_code(
             const Nodecl::FunctionCode& n)
     {

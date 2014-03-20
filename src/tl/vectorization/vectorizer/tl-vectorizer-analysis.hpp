@@ -95,7 +95,7 @@ namespace Vectorization
                     Analysis::WhereAnalysis nested_analysis_mask,
                     int nesting_level);
 
-            virtual ~VectorizerAnalysisStaticInfo(){};
+            ~VectorizerAnalysisStaticInfo();
 
             virtual bool is_constant(const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);

@@ -2658,7 +2658,7 @@ namespace Analysis {
         _pcfg->_task_nodes_l.insert( task_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, task_creation );
         return ObjectList<Node*>( 1, task_creation );
-    }
+}
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
