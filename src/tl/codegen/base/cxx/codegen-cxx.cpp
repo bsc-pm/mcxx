@@ -3,7 +3,7 @@
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -6581,7 +6581,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
-                    << " : " 
+                    << " : "
                     << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
                             symbol.get_scope().get_decl_context(),
                             /* we need to store the current codegen */ (void*) this)
@@ -8615,12 +8615,15 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it != children.end();
             it++, i++)
     {
-        indent();
-        *(file) << start_inline_comment();
-        *(file) << "Children " << i;
-        *(file) << end_inline_comment() << "\n";
+        if (!it->is_null())
+        {
+            indent();
+            *(file) << start_inline_comment();
+            *(file) << "Children " << i;
+            *(file) << end_inline_comment() << "\n";
 
-        walk(*it);
+            walk(*it);
+        }
     }
 
     dec_indent();
@@ -8844,7 +8847,7 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
-                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), 
+                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i),
                         current_param.get_scope());
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
