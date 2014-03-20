@@ -160,13 +160,13 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
         {
             standard_conversion_t result;
             is_convertible = standard_conversion_between_types(&result,
-                    orig_type, dest_type);
+                    orig_type, dest_type, locus);
 
             if (!is_convertible)
             {
                 // we mimick C++ behavior
                 is_convertible =
-                    (standard_conversion_between_types(&result, orig_type, get_signed_int_type())
+                    (standard_conversion_between_types(&result, orig_type, get_signed_int_type(), locus)
                      && equivalent_types(no_ref(get_unqualified_type(dest_type)), dim3_type));
             }
         }
