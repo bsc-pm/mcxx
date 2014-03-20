@@ -31,7 +31,7 @@ CLEANFILES=
 
 CLEANFILES+=test.log test.log.xml
 
-prepare-check: ./config/bets
+prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
 	chmod +x config/mercurium-cxx11
 	chmod +x config/mercurium-libraries
@@ -49,6 +49,9 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-run
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
+
+wipe-modules:
+	rm -f *.mod
 
 BETS_DIRS=$(srcdir)
 
