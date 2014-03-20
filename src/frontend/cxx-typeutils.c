@@ -11189,8 +11189,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // Vector conversions
         // vector type -> struct __m128 / struct __m256 / struct __M512
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (vector_type_to_intel_vector_struct_type(no_ref(orig), no_ref(dest))
-                    || vector_type_to_intel_vector_struct_type(no_ref(dest), no_ref(orig))))
+                && (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
+                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig))))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible
