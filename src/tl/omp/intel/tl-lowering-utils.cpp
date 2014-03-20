@@ -103,7 +103,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
                     const_value_get_zero(/* bytes */ 4, /* sign */1)),
                 /* psource */
                 string_literal_tree),
-            Nodecl::NodeclBase::null(),
+            Nodecl::StructuredValueBraced::make(new_ident_sym->locus),
             ident_t_type,
             new_ident_sym->locus);
 
