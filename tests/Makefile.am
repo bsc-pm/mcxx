@@ -31,7 +31,7 @@ CLEANFILES=
 
 CLEANFILES+=test.log test.log.xml
 
-prepare-check: ./config/bets
+prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
 	chmod +x config/mercurium-cxx11
 	chmod +x config/mercurium-libraries
@@ -52,6 +52,9 @@ prepare-check: ./config/bets
 	chmod +x config/mercurium-analysis
 	chmod +x */mercurium
 
+wipe-modules:
+	rm -f *.mod
+
 BETS_DIRS=$(srcdir)
 
 BETS_OPTIONS="-only-fails"
@@ -59,6 +62,7 @@ BETS_OPTIONS="-only-fails"
 do-check : prepare-check
 	$(MAKE) -C config
 	$(MAKE) -C .
+	export MALLOC_CHECK_=2; \
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 preserve-check-log:
@@ -105,22 +109,27 @@ ANALYSIS_DIRS=\
 	$(END)
 
 fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(FORTRAN_DIRS)
 
 core-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS)
 
 core-fortran-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(CORE_DIRS) $(FORTRAN_DIRS)
 
 omp-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
 
 analysis-check : prepare-check
+	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(ANALYSIS_DIRS)
 		

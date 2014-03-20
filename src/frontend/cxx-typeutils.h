@@ -40,6 +40,7 @@
 #include "cxx-macros.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-locus.h"
 
 MCXX_BEGIN_DECLS
 
@@ -49,7 +50,7 @@ LIBMCXX_EXTERN type_t* standard_conversion_get_orig_type(standard_conversion_t s
 LIBMCXX_EXTERN type_t* standard_conversion_get_dest_type(standard_conversion_t scs);
 
 LIBMCXX_EXTERN char standard_conversion_between_types(standard_conversion_t *result, 
-        type_t* orig, type_t* dest);
+        type_t* orig, type_t* dest, const locus_t* locus);
 
 // Get environmental information for the type
 LIBMCXX_EXTERN char type_is_runtime_sized(type_t* t);
@@ -126,6 +127,7 @@ LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         nodecl_t dependent_parts);
+LIBMCXX_EXTERN char is_valid_symbol_for_dependent_typename(scope_entry_t* entry);
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
 LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
@@ -176,7 +178,7 @@ LIBMCXX_EXTERN type_t* get_error_type(void);
 
 LIBMCXX_EXTERN type_t* get_pseudo_destructor_call_type(void);
 
-LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
+LIBMCXX_EXTERN type_t* get_literal_string_type(int length, type_t* base_type);
 
 LIBMCXX_EXTERN type_t* get_throw_expr_type(void);
 
@@ -437,7 +439,7 @@ LIBMCXX_EXTERN char is_implicit_none_type(type_t *t);
 
 LIBMCXX_EXTERN char is_pseudo_destructor_call_type(type_t *t);
 
-LIBMCXX_EXTERN char is_literal_string_type(type_t* t);
+LIBMCXX_EXTERN char is_string_literal_type(type_t* t);
 
 LIBMCXX_EXTERN char is_template_type(type_t* t);
 
@@ -526,6 +528,8 @@ LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 LIBMCXX_EXTERN int  array_type_get_total_number_of_elements(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
+
+LIBMCXX_EXTERN char array_type_is_string_literal(type_t* t);
 
 LIBMCXX_EXTERN char array_type_with_descriptor(type_t* t);
 
@@ -640,25 +644,22 @@ LIBMCXX_EXTERN char class_type_is_trivial(type_t* t);
 LIBMCXX_EXTERN char class_type_is_trivially_copiable(type_t* t);
 LIBMCXX_EXTERN char class_type_is_standard_layout(type_t* t);
 
+// Avoid using these from now and prioritize the _instantiating versions
 LIBMCXX_EXTERN char class_type_is_base(type_t* possible_base, type_t* possible_derived);
 LIBMCXX_EXTERN char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(type_t* possible_derived, type_t* possible_base);
 LIBMCXX_EXTERN char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base);
+
+LIBMCXX_EXTERN char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_is_base_strict_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_is_derived_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_is_derived_strict_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus);
 
 LIBMCXX_EXTERN char class_type_is_ambiguous_base_of_derived_class(type_t* base_class, type_t* derived_class);
 LIBMCXX_EXTERN char class_type_is_virtual_base_or_base_of_virtual_base(type_t* base_class, type_t* derived_class);
 
 LIBMCXX_EXTERN char is_pointer_to_void_type(type_t* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(type_t* t1);
-
-LIBMCXX_EXTERN char pointer_to_class_type_is_base(type_t* possible_pclass_base,
-        type_t* possible_pclass_derived);
-LIBMCXX_EXTERN char pointer_to_class_type_is_derived(type_t* possible_pclass_derived,
-        type_t* possible_pclass_base);
-LIBMCXX_EXTERN char pointer_to_class_type_is_base_strict(type_t* possible_pclass_base,
-        type_t* possible_pclass_derived);
-LIBMCXX_EXTERN char pointer_to_class_type_is_derived_strict(type_t* possible_pclass_derived,
-        type_t* possible_pclass_base);
 
 LIBMCXX_EXTERN char class_type_is_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_nearly_empty(type_t* t);
@@ -868,6 +869,9 @@ LIBMCXX_EXTERN const char* print_opencl_vector_type(
         void* print_symbol_data);
 
 LIBMCXX_EXTERN parameter_info_t get_parameter_info_for_type(type_t* t);
+
+// Used by cxx-typeorder.c
+void free_temporary_template_type(type_t* t);
 
 MCXX_END_DECLS
 #endif // CXX_TYPEUTILS_H
