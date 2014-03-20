@@ -3378,3 +3378,35 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
 
 #include "cxx-gccbuiltins-sse.h"
 }
+
+char is_intel_vector_struct_type(type_t* t, int *size)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+#define VECTOR_SIZE(n)  \
+    VECTOR_SIZE_(_, n) \
+    VECTOR_SIZE_(d_, n) \
+    VECTOR_SIZE_(i_, n)
+
+#define VECTOR_TESTS \
+            VECTOR_SIZE(128) \
+            VECTOR_SIZE(256) \
+            VECTOR_SIZE(512) \
+
+#define VECTOR_SIZE_(p, n) \
+    if (equivalent_types(t, get_m##n##p##struct_type())) \
+    { \
+        if (size != NULL) *size = n / 8; \
+        return 1; \
+    } else
+
+    VECTOR_TESTS
+    return 0;
+
+#undef VECTOR_SIZE_
+#undef VECTOR_SIZE
+#undef VECTOR_TESTS
+
+    return 0;
+}

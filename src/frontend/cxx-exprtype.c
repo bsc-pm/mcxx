@@ -43,6 +43,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
 #include "cxx-gccsupport.h"
+#include "cxx-gccbuiltins.h"
 #include "cxx-cuda.h"
 #include "cxx-entrylist.h"
 #include "cxx-limits.h"
@@ -9556,6 +9557,15 @@ static char conversion_is_valid_reinterpret_cast(
     if (is_vector_type(orig_type)
             && is_vector_type(dest_type))
         RETURN(1);
+
+    // Intel vectors
+    {
+        int orig_size = 0, dest_size = 0;
+        if (is_intel_vector_struct_type(orig_type, &orig_size)
+                && is_intel_vector_struct_type(dest_type, &dest_size)
+                && (dest_size == orig_size))
+            RETURN(1);
+    }
 
     // A pointer to function can be converted to another pointer to function type
     if (is_pointer_to_function_type(orig_type)
