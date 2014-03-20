@@ -3244,9 +3244,14 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             }
             else
             {
+                // We do not have locus
+                const locus_t* locus = make_locus("", 0, 0);
                 // Allow conversions here
                 standard_conversion_t scs;
-                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
+                all_arguments_matched = standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus);
             }
         }
 
@@ -3372,4 +3377,36 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
     }
 
 #include "cxx-gccbuiltins-sse.h"
+}
+
+char is_intel_vector_struct_type(type_t* t, int *size)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+#define VECTOR_SIZE(n)  \
+    VECTOR_SIZE_(_, n) \
+    VECTOR_SIZE_(d_, n) \
+    VECTOR_SIZE_(i_, n)
+
+#define VECTOR_TESTS \
+            VECTOR_SIZE(128) \
+            VECTOR_SIZE(256) \
+            VECTOR_SIZE(512) \
+
+#define VECTOR_SIZE_(p, n) \
+    if (equivalent_types(t, get_m##n##p##struct_type())) \
+    { \
+        if (size != NULL) *size = n / 8; \
+        return 1; \
+    } else
+
+    VECTOR_TESTS
+    return 0;
+
+#undef VECTOR_SIZE_
+#undef VECTOR_SIZE
+#undef VECTOR_TESTS
+
+    return 0;
 }

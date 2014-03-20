@@ -262,12 +262,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                 shape = "Mdiamond";
         }
 
-        // Print this only for non extended referenced nodes
-        if (parent_node != 0)
-        {
-            fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", parent_node, current_node, position);
-        }
-
         if (ASTType(a) == AST_NODE_LIST
                 && list_is_ok)
         {
@@ -294,7 +288,10 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 
                 ast_dump_graphviz_rec(item, f, /* current_node */ 0, /* position */ 0);
 
-                fprintf(f, "n%zd:i%d -> n%zd[layer=\"trees\"]\n", current_node, i, (size_t)item);
+                if (item != NULL)
+                {
+                    fprintf(f, "n%zd:i%d -> n%zd[layer=\"trees\"]\n", current_node, i, (size_t)item);
+                }
                 i++;
             }
         }
@@ -321,6 +318,13 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                 if (ASTChild(a, i) != NULL)
                 {
                     ast_dump_graphviz_rec(ASTChild(a, i), f, current_node, i);
+
+                    // Print this only for non extended referenced nodes
+                    if (ASTChild(a, i) != NULL)
+                    {
+                        fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", (size_t)a, (size_t)ASTChild(a, i), i);
+                    }
+
                 }
             }
         }
@@ -333,6 +337,8 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             for(i = 0; i < ast_get_num_ambiguities(a); i++)
             {
                 ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, current_node, i);
+
+                fprintf(f, "n%zd -> n%zd [layer=\"trees\",label=\"%d\"]\n", (size_t)a, (size_t)ast_get_ambiguity(a, i), i);
             }
         }
 
@@ -373,7 +379,7 @@ static int comp_vptr(const void* v1, const void *v2)
         return -1;
     else if (v1 > v2)
         return 1;
-    else 
+    else
         return 0;
 }
 

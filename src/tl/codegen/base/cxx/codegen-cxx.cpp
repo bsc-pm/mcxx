@@ -1030,9 +1030,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxMemberInit& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
-    TL::Type t = node.get_type();
+    TL::Type type = node.get_type();
 
-    *(file) << this->get_declaration(t, this->get_current_scope(),  "");
+    if (type.is_signed_short_int())
+    {
+        *(file) << "short";
+    }
+    else if (type.is_signed_long_int())
+    {
+        *(file) << "long";
+    }
+    else if (type.is_unsigned_int())
+    {
+        *(file) << "unsigned";
+    }
+    else
+    {
+        *(file) << this->get_declaration(type, this->get_current_scope(),  "");
+    }
 
     walk(node.get_init_list());
 }
@@ -3434,11 +3449,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
     int length = 0;
     const_value_string_unpack_to_int(v, &bytes, &length);
 
-    type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())));
-    char is_wchar = !is_unsigned_char_type(element_type)
-        && !is_signed_char_type(element_type);
+    type_t* base_type = get_unqualified_type(
+            array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())))
+            );
 
-    *(file) << quote_c_string(bytes, length, is_wchar);
+    std::string prefix;
+    if (is_signed_char_type(base_type) || is_unsigned_char_type(base_type))
+    {
+        // No prefix
+    }
+    else if (is_wchar_t_type(base_type))
+    {
+        prefix = "L";
+    }
+    else if (is_char16_t_type(base_type))
+    {
+        prefix = "u";
+    }
+    else if (is_char32_t_type(base_type))
+    {
+        prefix = "U";
+    }
+    else if (IS_C_LANGUAGE && is_integral_type(base_type))
+    {
+        prefix = "L";
+    }
+
+    *(file) << quote_c_string(bytes, length, prefix);
 
     ::xfree(bytes);
 }
@@ -3496,7 +3533,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             || structured_value_form == COMPOUND_LITERAL)
     {
         // ( type )
-        *(file) << "(" << this->get_declaration(type, this->get_current_scope(),  "") << ")";
+        *(file) << "(" << this->get_declaration(type, this->get_current_scope(), "") << ")";
     }
 
     if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
@@ -8151,13 +8188,10 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
     return rank_operand < rank_current;
 }
 
-std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
+std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefix)
 {
     std::string result;
-    if (is_wchar)
-    {
-        result += "L";
-    }
+    result += prefix;
 
     result += "\"";
 
@@ -8223,8 +8257,7 @@ std::string CxxBase::quote_c_string(int* c, int length, char is_wchar)
         else
         {
             std::stringstream ss;
-            if (!is_wchar
-                    || (current < 255))
+            if (current < 256)
             {
                 ss << "\\"
                     << std::oct << std::setw(3) << std::setfill('0')
@@ -8644,6 +8677,7 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     const char* result = NULL;
     if (IS_CXX_LANGUAGE
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
+            && !_this->symbol_is_nested_in_defined_classes(sym)
             && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM))
     {

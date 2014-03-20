@@ -1239,7 +1239,7 @@ char deduce_arguments_of_conversion(
                 && is_pointer_type(updated_type))
         {
             standard_conversion_t standard_conversion;
-            if (standard_conversion_between_types(&standard_conversion, (*argument_types), updated_type))
+            if (standard_conversion_between_types(&standard_conversion, (*argument_types), updated_type, locus))
             {
                 ok = 1;
             }
@@ -1658,7 +1658,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         && is_pointer_type(current_type))
                 {
                     standard_conversion_t standard_conversion;
-                    if (standard_conversion_between_types(&standard_conversion, argument_types[current_arg], current_type))
+                    if (standard_conversion_between_types(&standard_conversion, argument_types[current_arg], current_type, locus))
                     {
                         DEBUG_CODE()
                         {
@@ -1725,20 +1725,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         && is_template_specialized_type(get_actual_class_type(current_type))
                         && is_named_class_type(argument_types[current_arg]))
                 {
-                    if (is_named_class_type(no_ref(argument_types[current_arg])))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "TYPEDEDUC: Instantiating argument type know if it is derived or not\n");
-                        }
-                        scope_entry_t* symbol = named_type_get_symbol(no_ref(argument_types[current_arg]));
-                        instantiate_template_class_if_needed(symbol, decl_context, locus);
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");
-                        }
-                    }
-                    if (class_type_is_base(current_type, argument_types[current_arg]))
+                    if (class_type_is_base_instantiating(current_type, argument_types[current_arg], locus))
                     {
                         DEBUG_CODE()
                         {
