@@ -3410,3 +3410,41 @@ char is_intel_vector_struct_type(type_t* t, int *size)
 
     return 0;
 }
+
+char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    if (!is_vector_type(orig)
+            || is_vector_type(dest))
+        return 0;
+
+    int vector_size = vector_type_get_vector_size(no_ref(orig));
+    type_t* element_type = vector_type_get_element_type(no_ref(orig));
+    type_t* dest_struct = get_unqualified_type(no_ref(dest));
+
+    return (((vector_size == 16)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m128_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m128d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
+            || ((vector_size == 32)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m256_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m256d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
+            || ((vector_size == 64)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m512_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m512d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
+
+}
+
