@@ -9566,10 +9566,10 @@ static char conversion_is_valid_reinterpret_cast(
                 && (dest_size == orig_size))
             RETURN(1);
 
-        if (vector_type_to_intel_vector_struct_type(orig_type, dest_type))
+        if (vector_type_to_intel_vector_struct_reinterpret_type(orig_type, dest_type))
             RETURN(1);
 
-        if (vector_type_to_intel_vector_struct_type(dest_type, orig_type))
+        if (vector_type_to_intel_vector_struct_reinterpret_type(dest_type, orig_type))
             RETURN(1);
     }
 
