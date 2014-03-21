@@ -16782,6 +16782,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
                 if (nodecl_is_err_expr(current_nodecl))
                 {
                     *nodecl_output = current_nodecl;
+                    xfree(nodecl_list);
                     return;
                 }
 
@@ -16790,6 +16791,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
                 any_is_value_dependent = any_is_value_dependent ||
                     nodecl_expr_is_value_dependent(current_nodecl);
             }
+            xfree(nodecl_list);
         }
     }
 
@@ -17520,6 +17522,8 @@ void build_unary_builtin_operators(type_t* t1,
             }
         }
     }
+
+    xfree(accessibles_1);
 }
 
 static
@@ -17626,6 +17630,9 @@ void build_binary_builtin_operators(type_t* t1,
             }
         }
     }
+
+    xfree(accessibles_2);
+    xfree(accessibles_1);
 }
 
 // All this is just for conditional expressions (ternary 'operator ?')
@@ -17760,6 +17767,10 @@ void build_ternary_builtin_operators(type_t* t1,
             }
         }
     }
+
+    xfree(accessibles_3);
+    xfree(accessibles_2);
+    xfree(accessibles_1);
 }
 
 static void check_sizeof_type(type_t* t, 

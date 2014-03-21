@@ -1677,6 +1677,9 @@ static int compare_dependent_parts(const void *v1, const void *v2)
         }
     }
 
+    xfree(list1);
+    xfree(list2);
+
     return 0;
 }
 
@@ -8728,6 +8731,8 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                         if (is_local_typename)
                             break;
                     }
+
+                    xfree(list);
                 }
 
                 break;
