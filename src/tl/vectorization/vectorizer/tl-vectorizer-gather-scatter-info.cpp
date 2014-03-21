@@ -50,6 +50,12 @@ namespace Vectorization
         Nodecl::ArraySubscript array = Nodecl::Utils::linearize_array_subscript(
                 _access.as<Nodecl::ArraySubscript>());
 
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: GatherScatterInfo %s\n",
+                    array.prettyprint().c_str());
+        }
+
         Nodecl::NodeclBase subscripted = array.get_subscripted();
         Nodecl::NodeclBase subscript = Nodecl::Utils::advance_conversions(
                 array.get_subscripts().as<Nodecl::List>().front());
@@ -63,8 +69,8 @@ namespace Vectorization
         // Store stride
         _strides = splitted_stride_pair.second;
         ERROR_CONDITION(_strides.is_null(),
-                "VectorizerGatherScatterInfo: Stride null in a gather/scatter"\
-                "operaration", 0);
+                "VectorizerGatherScatterInfo: Strides null in a gather/scatter"\
+                " operaration", 0);
 
         // Store base
         if (splitted_stride_pair.first.is_null())
@@ -183,6 +189,12 @@ namespace Vectorization
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::BitwiseShl& n)
+    {
+        return walk(n.as<Nodecl::Mul>());
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::Mul& n)
     {
         stride_splitter_ret_t lhs_ret = walk(n.get_lhs());
@@ -193,6 +205,13 @@ namespace Vectorization
         // Strides
         Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
 
+        std::cerr << "Mul: [ "
+            << (lhs_ret.first.is_null() ? " - " : lhs_ret.first.prettyprint()) << " , "
+            << (lhs_ret.second.is_null() ? " - " : lhs_ret.second.prettyprint()) << " ] * [ "
+            << (rhs_ret.first.is_null() ? " - " : rhs_ret.first.prettyprint()) << " , "
+            << (rhs_ret.second.is_null() ? " - " : rhs_ret.second.prettyprint()) << " ]"
+            << std::endl;
+
         // Too complicated. Worst case. Base will be empty
         if (!lhs_ret.second.is_null())
         {
@@ -200,6 +219,8 @@ namespace Vectorization
             {
                 fprintf(stderr, "StrideSplitter: Split too complicated.\n");
             }
+
+            running_error("StrideSplitter: Too complicated");
 
             strides = n.shallow_copy();
         }
@@ -259,11 +280,13 @@ namespace Vectorization
         // TL::Symbol has vector type
         else if (n.get_symbol().get_type().is_vector())
         {
+            std::cerr << "has vector type " << n.prettyprint().c_str() << std::endl;
             // pair<null, n>
             return stride_splitter_ret_t(Nodecl::NodeclBase::null(), n);
         }
         else
         {
+            std::cerr << "Neither IV nor vector type " << n.prettyprint().c_str() << std::endl;
             // pair<n, null>
             return stride_splitter_ret_t(n, Nodecl::NodeclBase::null());
         }

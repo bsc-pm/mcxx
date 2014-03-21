@@ -30,7 +30,6 @@ config.h.in~
 *.a
 *.so
 *.txt
-a.out
 Makefile
 .deps/
 .libs/
@@ -151,8 +150,6 @@ tests/config/mercurium-serial-simd-mic
 tests/config/mercurium-opencl
 tests/test.log
 tests/test.log.xml
-intel-mcc_*
-imcc_*
 test.log
 test.log.xml
 config/10.config.intel-omp-base
