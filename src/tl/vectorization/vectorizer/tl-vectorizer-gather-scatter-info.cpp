@@ -105,7 +105,7 @@ namespace Vectorization
                     _base.prettyprint().c_str());
         }
 
-        return _base;
+        return _base.shallow_copy();
     }
 
     Nodecl::NodeclBase VectorizerGatherScatterInfo::get_strides(
@@ -123,7 +123,7 @@ namespace Vectorization
                     _strides.prettyprint().c_str());
         }
 
-        return _strides;
+        return _strides.shallow_copy();
     }
 
 

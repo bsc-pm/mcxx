@@ -765,10 +765,10 @@ namespace Vectorization
 
                 const Nodecl::VectorScatter vector_scatter =
                     Nodecl::VectorScatter::make(
-                            base.shallow_copy(),
-                            strides.shallow_copy(),
+                            base,
+                            strides,
                             rhs.shallow_copy(),
-                            mask,
+                            mask.shallow_copy(),
                             vector_type,
                             n.get_locus());
 
@@ -1084,9 +1084,9 @@ namespace Vectorization
 
             Nodecl::VectorGather vector_gather =
                 Nodecl::VectorGather::make(
-                        base.shallow_copy(),
-                        strides.shallow_copy(),
-                        mask,
+                        base,
+                        strides,
+                        mask.shallow_copy(),
                         vector_type,
                         n.get_locus());
 
