@@ -278,11 +278,11 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         {
             result->kind = ICSK_USER_DEFINED;
             // Silly way of getting the identity
-            standard_conversion_between_types(&result->first_sc, dest, dest);
+            standard_conversion_between_types(&result->first_sc, dest, dest, locus);
             result->conversor = constructor;
             // FIXME: This should be the "real" dest (including
             // cv-qualification, rvalue refs, etc)
-            standard_conversion_between_types(&result->second_sc, dest, dest);
+            standard_conversion_between_types(&result->second_sc, dest, dest, locus);
         }
     }
     else if (is_class_type(dest)
@@ -323,12 +323,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest);
+        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest);
+        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
     }
     else if (is_array_type(dest))
     {
@@ -354,12 +354,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest);
+        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest);
+        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
     }
     else if (!is_class_type(dest))
     {
@@ -457,9 +457,22 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     //
     // To compute that 'B&' can be converted to 'A&' requires testing if 'A' is a base of 'B'
     // so 'B' must be instantiated.
-    if (is_named_class_type(no_ref(orig)))
+    if (is_any_reference_to_class_type(orig)
+            && is_any_reference_to_class_type(dest)
+            && is_named_class_type(no_ref(orig)))
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
+
+        instantiate_template_class_if_possible(symbol, decl_context, locus);
+
+    }
+    // To compute that 'B*' can be converted to 'A*' requires testing if 'A' is a base of 'B'
+    // so 'B' must be instantiated.
+    if (is_pointer_to_class_type(no_ref(orig))
+            && is_pointer_to_class_type(no_ref(dest))
+            && is_named_class_type(pointer_type_get_pointee_type(no_ref(orig))))
+    {
+        scope_entry_t* symbol = named_type_get_symbol(pointer_type_get_pointee_type(no_ref(orig)));
 
         instantiate_template_class_if_possible(symbol, decl_context, locus);
 
@@ -476,7 +489,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (standard_conversion_between_types(&standard_conv, orig, dest))
+    if (standard_conversion_between_types(&standard_conv, orig, dest, locus))
     {
         DEBUG_CODE()
         {
@@ -705,7 +718,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             first_sc = ics_call.first_sc;
 
             if (ics_call.kind == ICSK_STANDARD 
-                    && standard_conversion_between_types(&second_sc, converted_type, dest))
+                    && standard_conversion_between_types(&second_sc, converted_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -870,7 +883,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             type_t* conversion_source_type = function_type_get_parameter_type_num(constructor->type_information, 0);
 
             standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type))
+            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type, locus))
             {
                 DEBUG_CODE()
                 {
@@ -911,7 +924,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (best_valid_constructor != NULL)
         {
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&second_sc, class_type, dest))
+            if (standard_conversion_between_types(&second_sc, class_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -1253,7 +1266,9 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             if (is_pointer_to_class_type(scs1.orig) // B* ->
                     && is_pointer_to_class_type(scs1.dest) // A*
 
-                    && pointer_to_class_type_is_derived(scs1.orig, scs1.dest) // B is derived from A
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs1.orig),
+                        pointer_type_get_pointee_type(scs1.dest)) // B is derived from A
 
                     /* && is_pointer_to_class_type(scs2.orig) */ // B* ->
                     && is_pointer_to_void_type(scs2.dest) // void*
@@ -1266,13 +1281,17 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
 
             if (is_pointer_to_class_type(scs1.orig) // C* ->
                     && is_pointer_to_class_type(scs1.dest) // B*
-                    && pointer_to_class_type_is_derived(scs1.orig, scs1.dest) // C is derived from B
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs1.orig),
+                        pointer_type_get_pointee_type(scs1.dest)) // C is derived from B
 
                     /* && is_pointer_to_class_type(scs2.orig) */ // C* ->
                     && is_pointer_to_class_type(scs2.dest) // A*
                     /* && pointer_to_class_type_is_derived(scs2.orig, scs2.dest) */ // C is derived from A
 
-                    && pointer_to_class_type_is_derived(scs1.dest, scs2.dest) // B is derived from A
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs1.dest),
+                        pointer_type_get_pointee_type(scs2.dest)) // B is derived from A
                )
             {
                 // If class C derives from B and B from A, conversion from C*
@@ -1341,7 +1360,9 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                     && is_pointer_to_class_type(scs2.orig) // B* ->
                     /* && is_pointer_to_void_type(scs2.dest) */ // void*
 
-                    && pointer_to_class_type_is_derived(scs2.orig, scs1.orig) // B is derived from A
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs2.orig),
+                        pointer_type_get_pointee_type(scs1.orig)) // B is derived from A
                )
             {
                 // If class B derives from A, conversion of A* to
@@ -1352,13 +1373,17 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             if (is_pointer_to_class_type(scs1.orig) // B* ->
                     && is_pointer_to_class_type(scs1.dest) // A*
 
-                    && pointer_to_class_type_is_derived(scs1.orig, scs1.dest) // B is derived from A
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs1.orig), 
+                        pointer_type_get_pointee_type(scs1.dest)) // B is derived from A
 
                     && is_pointer_to_class_type(scs2.orig) // C* -> 
                     && is_pointer_to_class_type(scs2.dest) // A* 
                     /* && pointer_to_class_type_is_derived(scs2.orig, scs2.dest) */ // C is derived from A
 
-                    && pointer_to_class_type_is_derived(scs2.orig, scs1.orig) // C is derived from B
+                    && class_type_is_derived(
+                        pointer_type_get_pointee_type(scs2.orig), 
+                        pointer_type_get_pointee_type(scs1.orig)) // C is derived from B
                )
             {
                 // If class C derives from B and B from A, B* -> A* is better
@@ -1408,12 +1433,8 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
         standard_conversion_t scs2)
 {
     if ((scs1.conv[0] == scs2.conv[0])
-            && (scs1.conv[1] == scs2.conv[1])
-            && (scs1.conv[2] == scs2.conv[2])
-            && is_pointer_conversion(scs1.conv[2]))
+            && is_pointer_conversion(scs1.conv[1]))
     {
-        // XXX - I think this branch is never executed
-
         // FIXME - What about the deprecated literal string conversion?
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
@@ -1653,7 +1674,8 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                     }
                     else
                     {
-                        // The (missing) implicit argument will not play any role in overload
+                        // Make sure we mark it is as invalid, lest we attempt anything with it
+                        P_LIST_ADD(ics_arguments, num_ics_arguments, invalid_ics);
                         continue;
                     }
                 }
@@ -1760,6 +1782,7 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     {
         implicit_conversion_sequence_t ics_to_f = ovl_f->ics_arguments[i];
         implicit_conversion_sequence_t ics_to_g = ovl_g->ics_arguments[i];
+
         DEBUG_CODE()
         {
             fprintf(stderr, "OVERLOAD: Comparing ICSs of argument %d\n", i);
@@ -1996,7 +2019,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             it = it->next;
         }
     }
-    
+
     // First get the viable functions
     overload_entry_list_t *viable_functions = compute_viable_functions(candidate_set, 
             decl_context, locus);
@@ -2202,7 +2225,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     {
         scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
         standard_conversion_t sc;
-        if (standard_conversion_between_types(&sc, item->type_information, target_type))
+        if (standard_conversion_between_types(&sc, item->type_information, target_type, locus))
         {
             return item;
         }

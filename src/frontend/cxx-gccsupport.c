@@ -737,27 +737,27 @@ void apply_gcc_attribute_to_type(AST a,
  * Type traits of g++
  */
 
-static char eval_type_trait__has_nothrow_assign(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_nothrow_constructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_nothrow_copy(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_assign(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_constructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_copy(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_trivial_destructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__has_virtual_destructor(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_abstract(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_base_of(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_standard_layout(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
-static char eval_type_trait__is_final(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_nothrow_assign(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_nothrow_constructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_nothrow_copy(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_assign(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_constructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_copy(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_trivial_destructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__has_virtual_destructor(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_abstract(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_base_of(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_literal_type(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_standard_layout(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_trivial(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t, const locus_t*);
+static char eval_type_trait__is_final(type_t*, type_t*, decl_context_t, const locus_t*);
 
 /*
    __has_nothrow_assign (type)
@@ -770,14 +770,14 @@ static char eval_type_trait__is_final(type_t*, type_t*, decl_context_t);
    bound, or is a void type. 
 
     */
-static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
     if (is_const_qualified_type(first_type)
             || is_lvalue_reference_type(first_type)
             || is_rvalue_reference_type(first_type))
         return 0;
 
-    if (eval_type_trait__has_trivial_assign(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_assign(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -819,9 +819,9 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
    unknown bound, or is a void type. 
 
 */
-static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__has_trivial_constructor(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_constructor(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -854,9 +854,9 @@ static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t*
    type. 
 
 */
-static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__has_trivial_copy(first_type, second_type, decl_context))
+    if (eval_type_trait__has_trivial_copy(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -896,14 +896,14 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
    array type of unknown bound, or is a void type. 
 
 */
-static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
     if (is_const_qualified_type(first_type)
             || is_lvalue_reference_type(first_type)
             || is_rvalue_reference_type(first_type))
         return 0;
 
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -941,9 +941,9 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
     shall be a complete type, an array type of unknown bound, or is a void
     type. 
 */
-static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -971,9 +971,9 @@ static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t*
    a void type. 
 
 */
-static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context)
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus)
             || is_rvalue_reference_type(first_type)
             || is_lvalue_reference_type(first_type))
         return 1;
@@ -1013,9 +1013,9 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
 
 */
 
-static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus)
 {
-    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context, locus))
         return 1;
 
     if (is_class_type(first_type))
@@ -1037,7 +1037,7 @@ static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* 
     trait is true, else it is false. Requires: type shall be a complete type,
     an array type of unknown bound, or is a void type. 
 */
-static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -1060,7 +1060,7 @@ static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* 
 */
 static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -1083,15 +1083,12 @@ static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER,
    complete type. Diagnostic is produced if this requirement is not met. 
 */
 
-static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus)
 {
     if (is_class_type(base_type)
             && is_class_type(derived_type))
     {
-        type_t* base_class_type = get_actual_class_type(base_type);
-        type_t* derived_class_type = get_actual_class_type(derived_type);
-
-        return class_type_is_base(base_class_type, derived_class_type);
+        return class_type_is_base_instantiating(base_type, derived_type, locus);
     }
     return 0;
 }
@@ -1102,7 +1099,7 @@ static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type,
    If type is a cv class type, and not a union type ([basic.compound]) the the trait is true, else it is false. 
 */
 static char eval_type_trait__is_class(type_t* first_type, type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_class_type(first_type)
         && !is_union_type(first_type);
@@ -1114,7 +1111,7 @@ static char eval_type_trait__is_class(type_t* first_type, type_t* second_type UN
  */
 static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMETER, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     WARNING_MESSAGE("Undocumented type trait '__is_convertible' used", 0);
     return 0;
@@ -1133,9 +1130,9 @@ static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMET
 */
 static char eval_type_trait__is_empty(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context)
+        decl_context_t decl_context, const locus_t* locus)
 {
-    if (!eval_type_trait__is_class(first_type, NULL, decl_context))
+    if (!eval_type_trait__is_class(first_type, NULL, decl_context, locus))
         return 0;
 
     if (is_class_type(first_type))
@@ -1150,7 +1147,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
    If type is a cv enumeration type ([basic.compound]) the the trait is true,
    else it is false. 
 */
-static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_enum_type(first_type));
 }
@@ -1161,7 +1158,7 @@ static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNU
     If type is a literal type ([basic.types]) the trait is true, else it is false.
     Requires: type shall be a complete type, (possibly cv-qualified) void, or an array of unknown bound. 
 */
-static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_literal_type(first_type));
 }
@@ -1175,7 +1172,7 @@ static char eval_type_trait__is_literal_type(type_t* first_type, type_t* second_
 */
 static char eval_type_trait__is_pod(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_pod_type(first_type);
 }
@@ -1190,7 +1187,7 @@ static char eval_type_trait__is_pod(type_t* first_type,
 */
 static char eval_type_trait__is_polymorphic(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_class_type(first_type))
     {
@@ -1215,7 +1212,7 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
 */
 static char eval_type_trait__is_standard_layout(type_t* first_type,
         type_t* second_type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_standard_layout_type(first_type);
 }
@@ -1230,7 +1227,7 @@ static char eval_type_trait__is_standard_layout(type_t* first_type,
 */
 static char eval_type_trait__is_trivial(type_t* first_type,
         type_t* second_type UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_trivial_type(first_type);
 }
@@ -1242,14 +1239,14 @@ static char eval_type_trait__is_trivial(type_t* first_type,
 */
 static char eval_type_trait__is_union(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_union_type(first_type);
 }
 
 static char eval_type_trait__is_final(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_named_class_type(first_type)
         && named_type_get_symbol(first_type)->entity_specs.is_final;
@@ -1260,7 +1257,7 @@ struct gxx_type_traits_fun_type_tag
 {
     const char* trait_name;
 
-    char (*trait_calculus)(type_t* first_type, type_t* second_type, decl_context_t decl_context);
+    char (*trait_calculus)(type_t* first_type, type_t* second_type, decl_context_t decl_context, const locus_t* locus);
 } gxx_type_traits_fun_type_t;
 
 gxx_type_traits_fun_type_t type_traits_fun_list[] =
@@ -1347,7 +1344,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
 
         const_value_t* val = NULL;
 
-        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context))
+        if ((type_traits_fun_list[i].trait_calculus)(lhs_type, rhs_type, decl_context, locus))
         {
             // true
             val = const_value_get_one(type_get_size(t), 0);

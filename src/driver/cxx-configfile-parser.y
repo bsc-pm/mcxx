@@ -27,6 +27,7 @@ struct flag_expr_tag
 };
 
 static flag_expr_t* flag_name(const char* name);
+static flag_expr_t* flag_is_defined(const char* name);
 static flag_expr_t* flag_not(flag_expr_t* op);
 static flag_expr_t* flag_and(flag_expr_t* op1, flag_expr_t* op2);
 static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2);
@@ -282,6 +283,10 @@ flag_atom : CONFIGFILE_NAME
 {
     $$ = flag_name($1);
 }
+| '?' CONFIGFILE_NAME
+{
+    $$ = flag_is_defined($2);
+}
 | '(' flag_expr ')'
 {
     $$ = $2;
@@ -309,13 +314,13 @@ static void register_implicit_names(flag_expr_t* flag_expr)
 {
     if (flag_expr != NULL)
     {
-        if (flag_expr->kind == FLAG_OP_NAME)
+        if (flag_expr->kind == FLAG_OP_NAME
+            || flag_expr->kind == FLAG_OP_IS_DEFINED)
         {
             struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
             new_parameter_flag->name = flag_expr->text;
-            // This is redundant because of xcalloc, but make it explicit here anyway
-            new_parameter_flag->value = 0;
+            new_parameter_flag->value = PFV_UNDEFINED;
 
             P_LIST_ADD(compilation_process.parameter_flags, 
                     compilation_process.num_parameter_flags,
@@ -340,6 +345,16 @@ static flag_expr_t* flag_name(const char* name)
     flag_expr_t* result = new_flag();
 
     result->kind = FLAG_OP_NAME;
+    result->text = name;
+
+    return result;
+}
+
+static flag_expr_t* flag_is_defined(const char* name)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_IS_DEFINED;
     result->text = name;
 
     return result;
@@ -419,10 +434,11 @@ char flag_expr_eval(flag_expr_t* flag_expr)
     switch (flag_expr->kind)
     {
         case FLAG_OP_NAME:
+        case FLAG_OP_IS_DEFINED:
             {
                 // Ugly and inefficient lookup
                 char found = 0;
-                char value_of_flag = 0;
+                parameter_flag_value_t value_of_flag = PFV_UNDEFINED;
                 int q;
                 for (q = 0; !found && q < compilation_process.num_parameter_flags; q++)
                 {
@@ -431,8 +447,19 @@ char flag_expr_eval(flag_expr_t* flag_expr)
                     value_of_flag = parameter_flag->value;
                 }
 
-                if (found)
-                    return !!value_of_flag;
+                if (flag_expr->kind == FLAG_OP_NAME)
+                {
+                    return (value_of_flag == PFV_TRUE);
+                }
+                else if (flag_expr->kind == FLAG_OP_IS_DEFINED)
+                {
+                    return (value_of_flag != PFV_UNDEFINED);
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+                break;
             }
         case FLAG_OP_NOT:
             {

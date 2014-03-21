@@ -539,7 +539,7 @@ then
       MIC_LIBS="${withval}"
    ],
    [
-      MIC_LIBS=$ICC/../../compiler/lib/mic/
+      MIC_LIBS=${ICC%icc}/../../compiler/lib/mic/
    ])
    
    if test x$nanox_include = x -o x$nanox_lib = x;
@@ -989,32 +989,35 @@ then
                          mpi_valid=no
             fi
           fi		
-          MPI_CNAME=mpicc
-          MPI_CXXNAME=mpicxx
-          MPI_FORTNAME=mpif90
-          if test -f $MPIPATH/$MPI_CNAME; then	
-               mpi_found=yes 
-               MPICC=$MPIPATH/$MPI_CNAME
-               MPICXX=$MPIPATH/$MPI_CXXNAME
-               MPIFORT=$MPIPATH/$MPI_FORTNAME                            
-               MPIMODULE=openmpi
-               DISABLEMPI_ICC="\#do not uncomment"
-          else
-               mpi_valid=no
-          fi
-          #search in the path without bin
-          if test x$mpi_found = xno; then		
-             mpi_found=no
-   			 if test -f $MPIPATH/bin/$MPI_CNAME; then           
-               mpi_found=yes 
-               MPICC=$MPIPATH/bin/$MPI_CNAME
-               MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-               MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-               MPIMODULE=openmpi
-               DISABLEMPI_ICC="\#do not uncomment"
-             else
-               mpi_valid=no
-             fi
+
+          if test x$mpi_found = xno; then
+            MPI_CNAME=mpicc
+            MPI_CXXNAME=mpicxx
+            MPI_FORTNAME=mpif90
+            if test -f $MPIPATH/$MPI_CNAME; then	
+                 mpi_found=yes 
+                 MPICC=$MPIPATH/$MPI_CNAME
+                 MPICXX=$MPIPATH/$MPI_CXXNAME
+                 MPIFORT=$MPIPATH/$MPI_FORTNAME                            
+                 MPIMODULE=openmpi
+                 DISABLEMPI_ICC="\#do not uncomment"
+            else
+                 mpi_valid=no
+            fi
+            #search in the path without bin
+            if test x$mpi_found = xno; then		
+               mpi_found=no
+               if test -f $MPIPATH/bin/$MPI_CNAME; then           
+                 mpi_found=yes 
+                 MPICC=$MPIPATH/bin/$MPI_CNAME
+                 MPICXX=$MPIPATH/bin/$MPI_CXXNAME
+                 MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
+                 MPIMODULE=openmpi
+                 DISABLEMPI_ICC="\#do not uncomment"
+               else
+                 mpi_valid=no
+               fi
+            fi
           fi
 
           if test x$mpi_found = xno; then

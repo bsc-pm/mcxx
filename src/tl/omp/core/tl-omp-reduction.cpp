@@ -863,7 +863,8 @@ namespace TL { namespace OpenMP {
                 entry_list = koenig_lookup(
                         1, argument_type_list,
                         decl_context,
-                        id_expression.get_internal_nodecl());
+                        id_expression.get_internal_nodecl(),
+                        id_expression.get_locus());
             }
         }
         else

@@ -843,7 +843,10 @@ void LoweringVisitor::visit_task(
             && outline_info.only_has_smp_or_mpi_implementations()
             && !inside_task_expression)
     {
-        new_construct = construct.shallow_copy();
+        // We create a new Node OpenMP::Task with the same childs as the
+        // original construct. Another solution is shallow copy all the
+        // construct (less efficient)
+        new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
         code
             << "{"

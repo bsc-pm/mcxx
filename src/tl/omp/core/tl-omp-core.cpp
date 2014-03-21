@@ -52,7 +52,8 @@ namespace TL
             _discard_unused_data_sharings(false),
             _allow_shared_without_copies(false),
             _allow_array_reductions(true),
-            _ompss_mode(false)
+            _ompss_mode(false),
+            _copy_deps_by_default(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "

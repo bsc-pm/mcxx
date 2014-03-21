@@ -2777,7 +2777,7 @@ OPERATOR_TABLE
         else if (dest_type.is_pointer()
                 && nest.get_type().is_any_reference()
                 && !nest.get_type().references_to().is_pointer()
-                && !is_literal_string_type(nest.get_type().get_internal_type()))
+                && !is_string_literal_type(nest.get_type().get_internal_type()))
         {
             // We need a LOC here
             *(file) << "LOC(";

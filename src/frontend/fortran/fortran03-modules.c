@@ -2061,17 +2061,21 @@ static int get_symbol(void *datum,
             for (i = 0; i < in_module->entity_specs.num_related_symbols; i++)
             {
                 scope_entry_t* member = in_module->entity_specs.related_symbols[i];
-
                 if (strcasecmp(member->symbol_name, name) == 0
                         && member->kind == (enum cxx_symbol_kind)symbol_kind
                         && member->entity_specs.from_module == from_module
                         && member->entity_specs.alias_to == alias_to
-                        // A name can be repeated if one of them is a generic
-                        // specifier, so the name and module coordenates will be the same
+                        // Generic specifiers can have the same name as a
+                        // specific interface in the same module. Unfortunately
+                        // they have the same kind too, so they are virtually
+                        // indistinguishable except for the fact that one is a
+                        // generic specifier and the other is not.
+                        //
+                        // This extra check is weird but is necessary for the
+                        // unusual cases when the specific interface is somehow
+                        // loaded before its generic specifier.
                         && member->entity_specs.is_generic_spec == entity_specs.is_generic_spec)
                 {
-                    //         oid,
-                    //         in_module->symbol_name, member->symbol_name);
                     (*result) = member;
                     insert_map_ptr(handle, oid, (*result));
                     return 0;

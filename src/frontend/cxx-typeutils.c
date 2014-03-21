@@ -45,6 +45,7 @@
 #include "cxx-codegen.h"
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-gccbuiltins.h"
+#include "cxx-instantiation.h"
 
 #include "fortran03-scope.h"
 
@@ -404,7 +405,7 @@ struct array_tag
     // Is a doped array (array with an in-memory descriptor)
     _Bool with_descriptor:1;
     // Is literal string type ?
-    _Bool is_literal_string:1;
+    _Bool is_string_literal:1;
     _Bool is_vla:1;
 } array_info_t;
 
@@ -1679,6 +1680,15 @@ static int compare_dependent_parts(const void *v1, const void *v2)
     return 0;
 }
 
+char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
+{
+    return entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+        || ((entry->kind == SK_CLASS
+                    || entry->kind == SK_FUNCTION)
+                && is_dependent_type(entry->type_information))
+        || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
+}
+
 // This function must always return a new type
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
@@ -1713,6 +1723,18 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
             dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
         }
     }
+
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        type_t* t = advance_over_typedefs(dependent_entry->type_information);
+        if (is_named_type(t))
+            dependent_entry = named_type_get_symbol(t);
+    }
+
+    ERROR_CONDITION(!is_valid_symbol_for_dependent_typename(dependent_entry),
+            "Invalid base symbol %s %s for dependent entry",
+            dependent_entry->symbol_name,
+            symbol_kind_name(dependent_entry));
 
     // Try to reuse an existing type
     static rb_red_blk_tree *_dependent_entries = NULL;
@@ -1766,69 +1788,6 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
 
     return result;
 }
-
-#if 0
-type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
-        nodecl_t dependent_parts)
-{
-    type_t* result = get_simple_type();
-    result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-
-    ERROR_CONDITION(!nodecl_is_null(dependent_parts) && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
-
-    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
-    {
-        // Flatten dependent typenames
-        type_t* indirect_dependent_type = dependent_entry->type_information;
-
-        result->type->dependent_entry = indirect_dependent_type->type->dependent_entry;
-
-        if (!nodecl_is_null(indirect_dependent_type->type->dependent_parts)
-                && !nodecl_is_null(dependent_parts))
-        {
-            result->type->dependent_parts = 
-                nodecl_make_cxx_dep_name_nested(
-                        nodecl_concat_lists(nodecl_shallow_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
-                            nodecl_shallow_copy(nodecl_get_child(dependent_parts, 0))), 
-                        nodecl_get_locus(indirect_dependent_type->type->dependent_parts));
-        }
-        else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
-        {
-            result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
-        }
-        else // nodecl_is_null(dependent_parts)
-        {
-            result->type->dependent_parts = nodecl_shallow_copy(indirect_dependent_type->type->dependent_parts);
-        }
-    }
-    else
-    {
-        result->type->dependent_entry = dependent_entry;
-        result->type->dependent_parts = nodecl_shallow_copy(dependent_parts);
-    }
-
-    // This is always dependent
-    result->info->is_dependent = 1;
-
-    return result;
-}
-#endif
-
-#if 0
-void dependent_typename_set_is_artificial(type_t* t, char is_artificial)
-{
-    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
-
-    t->type->is_artificial = is_artificial;
-}
-
-char dependent_typename_is_artificial(type_t* t)
-{
-    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename type", 0);
-
-    return t->type->is_artificial;
-}
-#endif
 
 char is_transparent_union(type_t* t)
 {
@@ -2150,6 +2109,35 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     return type_info;
 }
 
+void free_temporary_template_type(type_t* t)
+{
+    ERROR_CONDITION(t->kind != TK_DIRECT
+            || t->type->kind != STK_TEMPLATE_TYPE, "Invalid type", 0);
+
+    type_t* primary_specialization_type = t->type->primary_specialization;
+    scope_entry_t* primary_specialization = named_type_get_symbol(primary_specialization_type);
+
+    if (primary_specialization->type_information->kind == TK_FUNCTION)
+    {
+        xfree(primary_specialization->type_information->function->parameter_list);
+        xfree(primary_specialization->type_information->function);
+    }
+    else if (primary_specialization->type_information->kind == TK_DIRECT
+            && primary_specialization->type_information->type->kind == STK_CLASS)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    xfree(primary_specialization->type_information->info);
+
+    xfree(primary_specialization);
+    xfree(t->type);
+    xfree(t);
+}
 
 void set_as_template_specialized_type(type_t* type_to_specialize, 
         template_parameter_list_t * template_parameters, 
@@ -2251,7 +2239,8 @@ static char same_template_argument_list(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (!equivalent_types_in_context(targ_1->type,
+                    if (!equivalent_types_in_context(
+                                targ_1->type,
                                 targ_2->type, decl_context))
                     {
                         return 0;
@@ -2384,7 +2373,10 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
+static char types_are_almost_identical_in_template_argument(type_t* t1,
+        type_t* t2);
+
+static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_t n2)
 {
     if (nodecl_is_null(n1) && nodecl_is_null(n2))
         return 1;
@@ -2398,13 +2390,15 @@ static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
     if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
         return 0;
 
-    if (nodecl_get_type(n1) != nodecl_get_type(n2))
+    if (!types_are_almost_identical_in_template_argument(
+                nodecl_get_type(n1),
+                nodecl_get_type(n2)))
         return 0;
 
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        if (!nodecl_trees_are_identical(
+        if (!nodecl_trees_are_identical_in_template_argument(
                     nodecl_get_child(n1, i),
                     nodecl_get_child(n2, i)))
             return 0;
@@ -2412,6 +2406,42 @@ static char nodecl_trees_are_identical(nodecl_t n1, nodecl_t n2)
 
     return 1;
 }
+
+static char types_are_almost_identical_in_template_argument(type_t* t1,
+        type_t* t2)
+{
+    if ((t1 == NULL) != (t2 == NULL))
+        return 0;
+
+    if (t1 == NULL)
+        return 1;
+
+    if (equivalent_types(t1, t2))
+    {
+        if (is_named_type(t1))
+        {
+            if (named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+                return 1;
+        }
+
+        if (is_dependent_typename_type(t1)
+                && is_dependent_typename_type(t2))
+        {
+            return 1;
+        }
+
+        // This is very strict so above we checked some cases where this would be a problem
+        return t1 == t2;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 
 // This function compares types by pointers
 static char template_arguments_are_identical(
@@ -2438,14 +2468,14 @@ static char template_arguments_are_identical(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (targ_1->type != targ_2->type)
+                    if (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type))
                         return 0;
                     break;
                 }
             case TPK_NONTYPE:
                 {
-                    if (!nodecl_trees_are_identical(targ_1->value, targ_2->value)
-                            || (targ_1->type != targ_2->type))
+                    if (!nodecl_trees_are_identical_in_template_argument(targ_1->value, targ_2->value)
+                            || (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type)))
                         return 0;
                     break;
                 }
@@ -2544,9 +2574,9 @@ static type_t* template_type_get_specialized_type_(
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
-        // We will ignore nonidentical matches of existing specializations
-        // for functions
-        existing_spec = NULL;
+        // For template functions, nonidentical matches are OK
+        if (existing_spec != NULL)
+            return existing_spec;
 
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
@@ -2888,12 +2918,14 @@ static void init_qualification_hash(void)
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
         array_region_t** array_region,
-        char *with_descriptor);
+        char *with_descriptor,
+        char *is_string_literal);
 
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
         array_region_t* array_region,
-        char with_descriptor);
+        char with_descriptor,
+        char is_string_literal);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
@@ -2901,12 +2933,16 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
         nodecl_t lower_bound = nodecl_null();
         nodecl_t upper_bound = nodecl_null();
         char with_descriptor = 0;
+        char is_string_literal = 0;
         array_region_t* array_region = NULL;
 
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
-        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region, &with_descriptor);
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context,
+                &array_region,
+                &with_descriptor,
+                &is_string_literal);
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
@@ -2915,10 +2951,8 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 nodecl_shallow_copy(upper_bound), 
                 decl_context,
                 array_region,
-                with_descriptor);
-
-        // Keep this attribute
-        result->array->is_literal_string = array_type->array->is_literal_string;
+                with_descriptor,
+                is_string_literal);
 
         return result;
 }
@@ -3229,6 +3263,7 @@ typedef struct array_sized_hash
     _size_t lower_bound;
     _size_t upper_bound;
     char with_descriptor;
+    char is_string_literal;
     rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
@@ -3239,12 +3274,14 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
         _size_t whole_size,
         _size_t lower_bound,
         _size_t upper_bound,
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     array_sized_hash_elem->whole_size = whole_size;
     array_sized_hash_elem->lower_bound = lower_bound;
     array_sized_hash_elem->upper_bound = upper_bound;
     array_sized_hash_elem->with_descriptor = with_descriptor;
+    array_sized_hash_elem->is_string_literal = is_string_literal;
     array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
@@ -3313,19 +3350,25 @@ int array_hash_compar(const void* v1, const void* v2)
             return -1;
         else if (a1->with_descriptor > a2->with_descriptor)
             return 1;
-        else
-            return 0;
+
+        if (a1->is_string_literal < a2->is_string_literal)
+            return -1;
+        else if (a1->is_string_literal > a2->is_string_literal)
+            return 1;
     }
+    return 0;
 }
 
 static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound, 
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     array_sized_hash_t key = { 
         .whole_size = whole_size, 
         .lower_bound = lower_bound, 
         .upper_bound = upper_bound, 
-        .with_descriptor = with_descriptor 
+        .with_descriptor = with_descriptor,
+        .is_string_literal = is_string_literal
     };
 
     array_sized_hash_t* sized_hash = bsearch(&key, 
@@ -3338,7 +3381,7 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
         _array_sized_hash = xrealloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
         rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
-                whole_size, lower_bound, upper_bound, with_descriptor);
+                whole_size, lower_bound, upper_bound, with_descriptor, is_string_literal);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -3355,7 +3398,8 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
 static void _get_array_type_components(type_t* array_type, 
         nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
         array_region_t** array_region,
-        char *with_descriptor)
+        char *with_descriptor,
+        char *is_string_literal)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -3365,6 +3409,7 @@ static void _get_array_type_components(type_t* array_type,
     *decl_context = array_type->array->array_expr_decl_context;
     *array_region = array_type->array->region;
     *with_descriptor = array_type->array->with_descriptor;
+    *is_string_literal = array_type->array->is_string_literal;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
@@ -3372,7 +3417,8 @@ static void _get_array_type_components(type_t* array_type,
 static type_t* _get_array_type(type_t* element_type, 
         nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
         array_region_t* array_region, 
-        char with_descriptor)
+        char with_descriptor,
+        char is_string_literal)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -3447,11 +3493,11 @@ static type_t* _get_array_type(type_t* element_type,
         // Use the same strategy we use for pointers when all components (size,
         // lower, upper) of the array are null otherwise create a new array
         // every time (it is safer)
-        static rb_red_blk_tree *_undefined_array_types[2] = { NULL, NULL };
+        static rb_red_blk_tree *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
 
-        if (_undefined_array_types[!!with_descriptor] == NULL)
+        if (_undefined_array_types[!!with_descriptor][!!is_string_literal] == NULL)
         {
-            _undefined_array_types[!!with_descriptor] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+            _undefined_array_types[!!with_descriptor][!!is_string_literal] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = NULL;
@@ -3459,7 +3505,7 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor], element_type);
+            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type);
         }
         if (undefined_array_type == NULL)
         {
@@ -3476,6 +3522,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->upper_bound = upper_bound;
 
             result->array->with_descriptor = with_descriptor;
+            result->array->is_string_literal = is_string_literal;
 
             result->array->region = array_region;
 
@@ -3503,7 +3550,7 @@ static type_t* _get_array_type(type_t* element_type,
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                rb_tree_insert(_undefined_array_types[!!with_descriptor], element_type, result);
+                rb_tree_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type, result);
             }
         }
         else
@@ -3519,7 +3566,11 @@ static type_t* _get_array_type(type_t* element_type,
                 && upper_bound_is_constant
                 && array_region == NULL)
         {
-            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k, with_descriptor);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k,
+                    lower_bound_k,
+                    upper_bound_k,
+                    with_descriptor,
+                    is_string_literal);
 
             type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
@@ -3551,6 +3602,8 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->array_expr_decl_context = decl_context;
                 result->info->is_dependent = is_dependent_type(element_type);
 
+                result->array->is_string_literal = is_string_literal;
+
                 rb_tree_insert(array_sized_hash, element_type, result);
             }
             else
@@ -3573,6 +3626,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->region = array_region;
 
             result->array->with_descriptor = with_descriptor;
+            result->array->is_string_literal = is_string_literal;
 
             // In C This is a VLA
             if (IS_C_LANGUAGE)
@@ -3649,7 +3703,47 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, /* with_descriptor */ 0);
+            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 0);
+}
+
+static type_t* get_array_type_for_literal_string(type_t* element_type,
+        nodecl_t whole_size,
+        decl_context_t decl_context)
+{
+    nodecl_t lower_bound = nodecl_null();
+    nodecl_t upper_bound = nodecl_null();
+    if (!nodecl_is_null(whole_size))
+    {
+        lower_bound = get_zero_tree(nodecl_get_locus(whole_size));
+
+        if (nodecl_is_constant(whole_size))
+        {
+            // Compute the constant
+            const_value_t* c = const_value_sub(
+                    nodecl_get_constant(whole_size),
+                    const_value_get_one(/* bytes */ 4, /* signed */ 1));
+
+            upper_bound = const_value_to_nodecl(c);
+        }
+        else
+        {
+            nodecl_t temp = nodecl_shallow_copy(whole_size);
+
+            upper_bound = nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(temp, 
+                        nodecl_get_type(temp), 
+                        nodecl_get_locus(whole_size)),
+                    get_one_tree(nodecl_get_locus(whole_size)),
+                    get_signed_int_type(),
+                    nodecl_get_locus(whole_size));
+        }
+
+        nodecl_expr_set_is_value_dependent(upper_bound,
+                nodecl_expr_is_value_dependent(whole_size));
+    }
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
+            /* array_region */ NULL, /* with_descriptor */ 0, /* is_string_literal */ 1);
 }
 
 static nodecl_t compute_whole_size_given_bounds(
@@ -3705,7 +3799,7 @@ static type_t* get_array_type_bounds_common(type_t* element_type,
     nodecl_t whole_size = compute_whole_size_given_bounds(lower_bound, upper_bound);
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            /* array_region */ NULL, with_descriptor);
+            /* array_region */ NULL, with_descriptor, /* is_string_literal */ 0);
 }
 
 type_t* get_array_type_bounds(type_t* element_type,
@@ -3750,7 +3844,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->region_decl_context = region_decl_context;
     
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, 
-            array_region, /* with_descriptor */ 0);
+            array_region, /* with_descriptor */ 0, /* is_string_literal */ 0);
 }
 
 static rb_red_blk_tree* get_vector_sized_hash(unsigned int vector_size)
@@ -7573,18 +7667,10 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     if (equivalent_types(possible_base, possible_derived))
         return 1;
 
-    if (is_named_class_type(possible_base))
-    {
-        possible_base = named_type_get_symbol(possible_base)->type_information;
-    }
-    if (is_named_class_type(possible_derived))
-    {
-        ERROR_CONDITION(is_named_type(possible_derived)
-                && class_type_is_incomplete_independent(get_actual_class_type(possible_derived)),
-                "Cannot test if a class type is derived of another if "
-                "the potentially derived is independent incomplete\n", 0);
-        possible_derived = named_type_get_symbol(possible_derived)->type_information;
-    }
+    ERROR_CONDITION(
+            class_type_is_incomplete_independent(possible_derived),
+            "Cannot test if class type is derived of another if "
+            "the potentially derived is independent incomplete\n", 0);
 
     // Search in bases of the derived
     int i;
@@ -7627,6 +7713,30 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     return 0;
 }
 
+char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus)
+{
+    CXX_LANGUAGE()
+    {
+        if (class_type_is_incomplete_independent(possible_derived))
+        {
+            if (is_named_class_type(possible_derived))
+            {
+                instantiate_template_class_if_possible(
+                        named_type_get_symbol(possible_derived),
+                        named_type_get_symbol(possible_derived)->decl_context,
+                        locus);
+            }
+            else
+            {
+                internal_error("An unnamed incomplete template dependent type is not valid here", 0);
+            }
+        }
+    }
+
+    return class_type_is_base(possible_base, possible_derived);
+}
+
+
 char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived)
 {
     possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
@@ -7642,14 +7752,39 @@ char class_type_is_base_strict(type_t* possible_base, type_t* possible_derived)
     return class_type_is_base(possible_base, possible_derived);
 }
 
+char class_type_is_base_strict_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus)
+{
+    possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
+    possible_derived = get_unqualified_type(advance_over_typedefs(possible_derived));
+
+    ERROR_CONDITION(!is_class_type(possible_base)
+            || !is_class_type(possible_derived), 
+            "This function expects class types", 0);
+
+    if (equivalent_types(possible_base, possible_derived))
+        return 0;
+
+    return class_type_is_base_instantiating(possible_base, possible_derived, locus);
+}
+
 char class_type_is_derived(type_t* possible_derived, type_t* possible_base)
 {
     return class_type_is_base(possible_base, possible_derived);
 }
 
+char class_type_is_derived_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus)
+{
+    return class_type_is_base_instantiating(possible_base, possible_derived, locus);
+}
+
 char class_type_is_derived_strict(type_t* possible_derived, type_t* possible_base)
 {
     return class_type_is_base_strict(possible_base, possible_derived);
+}
+
+char class_type_is_derived_strict_instantiating(type_t* possible_derived, type_t* possible_base, const locus_t* locus)
+{
+    return class_type_is_base_strict_instantiating(possible_base, possible_derived, locus);
 }
 
 char is_pointer_to_void_type(type_t* t)
@@ -9830,15 +9965,8 @@ static const char* print_dimension_of_array(nodecl_t n, decl_context_t decl_cont
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
-    DEBUG_CODE()
-    {
-        if (printed_declarator == NULL)
-        {
-            return "<<NULL>>";
-        }
-    }
-
-    ERROR_CONDITION(printed_declarator == NULL, "This cannot be null", 0);
+    if (printed_declarator == NULL)
+        return "<<NULL>>";
 
     const char* tmp_result = "";
 
@@ -9857,6 +9985,9 @@ const char* print_declarator(type_t* printed_declarator)
         tmp_result = "< unresolved overload function type >";
         return tmp_result;
     }
+
+    char debug = CURRENT_CONFIGURATION->debug_options.enable_debug_code;
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = 0;
 
     do 
     {
@@ -10111,6 +10242,8 @@ const char* print_declarator(type_t* printed_declarator)
         }
     } while (printed_declarator != NULL);
 
+    CURRENT_CONFIGURATION->debug_options.enable_debug_code = debug;
+
     return tmp_result;
 }
 
@@ -10339,44 +10472,8 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest)
     return 1;
 }
 
-static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
-{
-    orig = no_ref(orig);
-    dest = no_ref(dest);
-
-    if (!is_vector_type(orig)
-                || is_vector_type(dest))
-        return 0;
-
-    int vector_size = vector_type_get_vector_size(no_ref(orig));
-    type_t* element_type = vector_type_get_element_type(no_ref(orig));
-    type_t* dest_struct = get_unqualified_type(no_ref(dest));
-
-    return (((vector_size == 16)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m128_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m128d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
-            || ((vector_size == 32)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m256_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m256d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
-            || ((vector_size == 64)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m512_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m512d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
-
-}
-
-char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
+char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest,
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -10448,7 +10545,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
@@ -10457,8 +10554,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
             }
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -10476,7 +10571,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)
+                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
@@ -10485,8 +10580,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a rvalue-reference\n");
             }
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                    (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
         else if (is_nullptr_type(ref_orig)
@@ -10499,8 +10592,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // std::nullptr_t&& -> null pointer value is already a rvalue
             // null pointer value -> c2 T2*&&
             (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
-            if (is_more_cv_qualified_type(ref_dest, ref_orig))
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             return 1;
         }
     }
@@ -10512,13 +10603,14 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
-        (*result) = identity_scs(no_ref(orig), get_unqualified_type(no_ref(dest)));
+        (*result) = identity_scs(orig, dest);
 
         char ok = 0;
         if (is_class_type(no_ref(orig))
                 && is_class_type(no_ref(dest))
-                && class_type_is_base(no_ref(dest),
-                    get_unqualified_type(no_ref(orig)))
+                && class_type_is_base_instantiating(no_ref(dest),
+                    get_unqualified_type(no_ref(orig)),
+                    locus)
                 && !class_type_is_ambiguous_base_of_derived_class(
                     no_ref(dest),
                     no_ref(orig)))
@@ -10527,7 +10619,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (standard_conversion_between_types(&conversion_among_lvalues,
                     no_ref(orig),
-                    get_unqualified_type(no_ref(dest))))
+                    get_unqualified_type(no_ref(dest)),
+                    locus))
         {
             (*result).conv[0] = conversion_among_lvalues.conv[0];
             (*result).conv[1] = conversion_among_lvalues.conv[1];
@@ -10563,11 +10656,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 fprintf(stderr, "SCS: This is a binding to %s by means of %s\n", bind_to, by_means_of);
             }
 
-            if (is_more_cv_qualified_type(no_ref(dest), no_ref(orig)))
-            {
-                (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
-            }
-
             return 1;
         }
     }
@@ -10586,7 +10674,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //
     // We remember whether the original was a string because we will lose this
     // information when we drop the array type
-    char is_literal_string = is_literal_string_type(orig);
+    char is_string_literal = is_string_literal_type(orig);
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
@@ -10935,7 +11023,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
-                && pointer_to_class_type_is_base_strict(dest, orig)
+                && class_type_is_base_strict_instantiating(
+                    pointer_type_get_pointee_type(dest),
+                    pointer_type_get_pointee_type(orig), locus)
                 && !class_type_is_ambiguous_base_of_derived_class(
                         pointer_type_get_pointee_type(dest),
                         pointer_type_get_pointee_type(orig)))
@@ -10957,7 +11047,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 && is_pointer_to_member_type(dest)
                 // Note: we will check that they are valid pointer-to-members later, in qualification conversion
                 // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-                && class_type_is_base_strict(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest))
+                && class_type_is_base_strict_instantiating(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest), locus)
                 && !class_type_is_ambiguous_base_of_derived_class(pointer_to_member_type_get_class_type(orig),
                     pointer_to_member_type_get_class_type(dest)))
         {
@@ -11099,8 +11189,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // Vector conversions
         // vector type -> struct __m128 / struct __m256 / struct __M512
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (vector_type_to_vector_struct_type(orig, dest)
-                    || vector_type_to_vector_struct_type(dest, orig)))
+                && (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
+                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig))))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible
@@ -11128,7 +11218,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (IS_CXX_LANGUAGE
-                && is_literal_string // We saved this before dropping the array
+                && is_string_literal // We saved this before dropping the array
                 && is_pointer_type(dest)
                 && is_char_type(pointer_type_get_pointee_type(dest))
                 && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
@@ -11141,7 +11231,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (IS_CXX_LANGUAGE
-                && is_literal_string // We saved this before dropping the array
+                && is_string_literal // We saved this before dropping the array
                 && is_pointer_type(dest)
                 && is_wchar_t_type(pointer_type_get_pointee_type(dest))
                 && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
@@ -11424,82 +11514,33 @@ char is_error_type(type_t* t)
 }
 
 
-static int _literal_string_set_num_elements = 0;
-static type_t** _literal_string_set = NULL;
-
-static int _literal_wide_string_set_num_elements = 0;
-static type_t** _literal_wide_string_set = NULL;
-
-type_t* get_literal_string_type(int length, char is_wchar)
+type_t* get_literal_string_type(int length, type_t* base_type)
 {
-    int *max_length = &_literal_string_set_num_elements;
-    type_t*** set = &_literal_string_set;
+    nodecl_t integer_literal = nodecl_make_integer_literal(
+            get_signed_int_type(),
+            const_value_get_unsigned_int(length),
+            make_locus("", 0, 0));
 
-    if (is_wchar)
-    {
-        max_length = &_literal_wide_string_set_num_elements;
-        set = &_literal_wide_string_set;
-    }
+    type_t* array_type = get_array_type_for_literal_string(
+            base_type,
+            integer_literal,
+            CURRENT_COMPILED_FILE->global_decl_context);
 
-    // Allocate exponentially
-    while ((*max_length) < length)
-    {
-        // The +1 is important or we will never grow
-        int previous_max_length = (*max_length);
-        (*max_length) = (*max_length) * 2 + 1;
+    type_t* literal_type = get_lvalue_reference_type(
+            array_type);
 
-        // +1 is because of zero position (never used)
-        (*set) = xrealloc(*set, sizeof(type_t*) * ((*max_length) + 1));
-
-        // Clear new slots
-        int i;
-        for (i = previous_max_length; i <= (*max_length); i++)
-        {
-            (*set)[i] = NULL;
-        }
-    }
-
-    if ((*set)[length] == NULL)
-    {
-
-        nodecl_t integer_literal = nodecl_make_integer_literal(
-                get_signed_int_type(),
-                const_value_get_unsigned_int(length),
-                make_locus("", 0, 0));
-
-        type_t* char_type = NULL;
-
-        if (!is_wchar)
-        {
-            char_type = get_char_type();
-        }
-        else
-        {
-            char_type = get_wchar_t_type();
-        }
-        CXX_LANGUAGE()
-        {
-            char_type = get_cv_qualified_type(char_type, CV_CONST);
-        }
-
-        /*
-         * FIXME - We need a decl context here 
-         */
-        decl_context_t decl_context;
-        memset(&decl_context, 0, sizeof(decl_context));
-
-        type_t* array_type = get_array_type(char_type, integer_literal, decl_context);
-
-        // Set that this array is actually a string literal
-        array_type->array->is_literal_string = 1;
-
-        (*set)[length] = get_lvalue_reference_type(array_type);
-    }
-
-    return (*set)[length];
+    return literal_type;
 }
 
-char is_literal_string_type(type_t* t)
+char array_type_is_string_literal(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "Invalid type", 0);
+    t = advance_over_typedefs(no_ref(t));
+
+    return t->array->is_string_literal;
+}
+
+char is_string_literal_type(type_t* t)
 {
     if (!is_lvalue_reference_type(t)
             || !is_array_type(no_ref(t)))
@@ -11507,9 +11548,7 @@ char is_literal_string_type(type_t* t)
         return 0;
     }
 
-    t = advance_over_typedefs(no_ref(t));
-
-    return t->array->is_literal_string;
+    return array_type_is_string_literal(no_ref(t));
 }
 
 static type_t* _ellipsis_type = NULL;
@@ -13187,8 +13226,14 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
         element_type = type_deep_copy_compute_maps(element_type, new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        // Use the constructor that affects the least to the array type
-        if ((IS_C_LANGUAGE
+        if (array_type_is_string_literal(orig))
+        {
+            nodecl_t array_size = array_type_get_array_size_expr(orig);
+            array_size = nodecl_deep_copy_compute_maps(array_size, new_decl_context, symbol_map,
+                    nodecl_deep_copy_map, symbol_deep_copy_map);
+            get_array_type_for_literal_string(element_type, array_size, new_decl_context);
+        }
+        else if ((IS_C_LANGUAGE
                     || IS_CXX_LANGUAGE)
                 && !array_type_has_region(orig))
         {
@@ -13969,10 +14014,16 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         {
             // Duplicate paths
             class_path[i].length = base_class_path->length;
+
             class_path[i].class_type = xcalloc(base_class_path->length,
                     sizeof(*(class_path[i].class_type)));
             memcpy(class_path[i].class_type, base_class_path->class_type,
                     sizeof(*(class_path[i].class_type)) * base_class_path->length);
+
+            class_path[i].is_virtual = xcalloc(base_class_path->length,
+                    sizeof(*(class_path[i].is_virtual)));
+            memcpy(class_path[i].is_virtual, base_class_path->is_virtual,
+                    sizeof(*(class_path[i].is_virtual)) * base_class_path->length);
         }
 
         char is_virtual = 0;
@@ -14004,12 +14055,14 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
         else
         {
             class_type_is_ambiguous_base_of_class_aux(
-                    current_base->type_information,
+                    get_user_defined_type(current_base),
                     base_class,
                     &(class_path[i]),
                     &found[i],
                     is_ambiguous);
         }
+
+        *base_found = *base_found || found[i];
     }
 
     // Note if already determined to be ambiguous, do nothing
@@ -14092,8 +14145,6 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
                                 class_path[last_found].class_type[i]);
                     }
                 }
-
-                *base_found = 1;
             }
         }
     }

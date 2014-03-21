@@ -43,7 +43,7 @@ struct scope_entry_list_node_tag
 
 struct scope_entry_list_tag
 {
-    unsigned short num_items_list;
+    int num_items_list;
     scope_entry_list_node_t* next;
 };
 

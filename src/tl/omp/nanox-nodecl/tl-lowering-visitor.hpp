@@ -238,7 +238,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase num_replicas,
                 Nodecl::NodeclBase if_condition,
                 const std::string& outline_name,
-                TL::Symbol structure_symbol);
+                TL::Symbol structure_symbol,
+                Nodecl::NodeclBase task_label);
 
         Source get_loop_distribution_source_worksharing(
                 const Nodecl::OpenMP::For &construct,
@@ -272,7 +273,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
-                TL::Symbol slicer_descriptor);
+                TL::Symbol slicer_descriptor,
+                Nodecl::NodeclBase task_label);
 
         Source get_loop_distribution_source_slicer(
                 const Nodecl::OpenMP::For &construct,
@@ -306,7 +308,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::RangeLoopControl& range,
                 const std::string& outline_name,
                 TL::Symbol structure_symbol,
-                TL::Symbol slicer_descriptor);
+                TL::Symbol slicer_descriptor,
+                Nodecl::NodeclBase task_label);
 
         static bool there_are_reductions(OutlineInfo& outline_info);
 

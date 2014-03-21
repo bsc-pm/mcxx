@@ -43,6 +43,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
 #include "cxx-gccsupport.h"
+#include "cxx-gccbuiltins.h"
 #include "cxx-cuda.h"
 #include "cxx-entrylist.h"
 #include "cxx-limits.h"
@@ -54,6 +55,9 @@
 
 #include <math.h>
 #include <errno.h>
+
+#include <iconv.h>
+
 
 #include "fortran/fortran03-exprtype.h"
 
@@ -95,22 +99,29 @@ struct check_expr_flags_tag
     char do_not_fold_into_dependent_typename:1;
 } check_expr_flags_t;
 
-static check_expr_flags_t check_expr_flags = {0};
+static check_expr_flags_t check_expr_flags =
+{
+    .do_not_evaluate = 0,
+    .is_non_executable = 0,
+    .do_not_fold_into_dependent_typename = 0
+};
 
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
-        char (*property)(type_t*),
-        type_t* (*result_type)(type_t**));
+        char (*property)(type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, const locus_t*),
+        const locus_t* locus);
 
 static
 void build_binary_builtin_operators(type_t* t1, 
         type_t* t2, 
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
-        char (*property)(type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**));
+        char (*property)(type_t*, type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, type_t**, const locus_t*),
+        const locus_t* locus);
 
 static
 void build_ternary_builtin_operators(type_t* t1, 
@@ -118,8 +129,9 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* t3, 
         builtin_operators_set_t *result,
         decl_context_t decl_context, char* operator_name, 
-        char (*property)(type_t*, type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**, type_t**));
+        char (*property)(type_t*, type_t*, type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
+        const locus_t* locus);
 
 scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_set_t* builtin_operators)
 {
@@ -1269,6 +1281,18 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     }
 }
 
+#define IS_OCTA_CHAR(_c) \
+(((_c) >= '0') \
+  && ((_c) <= '7'))
+
+#define IS_HEXA_CHAR(_c) \
+((((_c) >= '0') \
+  && ((_c) <= '9')) \
+ || (((_c) >= 'a') \
+     && ((_c) <= 'f')) \
+ || (((_c) >= 'A') \
+     && ((_c) <= 'F')))
+
 // Given a character literal computes the type due to its lexic form
 static void character_literal_type(AST expr, nodecl_t* nodecl_output)
 {
@@ -1280,6 +1304,26 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_wchar_t_type();
         literal++;
     }
+    else if (*literal == 'u')
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            warn_printf("%s: warning: char16_t literals are a C++11 feature\n",
+                    ast_location(expr));
+        }
+        result = get_char16_t_type();
+        literal++;
+    }
+    else if (*literal == 'U')
+    {
+        if (IS_CXX03_LANGUAGE)
+        {
+            warn_printf("%s: warning: char32_t literals are a C++11 feature\n",
+                    ast_location(expr));
+        }
+        result = get_char32_t_type();
+        literal++;
+    }
     else
     {
         result = get_char_type();
@@ -1289,6 +1333,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
     uint64_t value = 0;
     if (literal[1] != '\\')
     {
+        // Usual case: not an escape of any kind
         value = literal[1];
     }
     else
@@ -1330,9 +1375,12 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
-                                       prettyprint_in_buffer(expr));
+                               if (!checking_ambiguity())
+                               {
+                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                           ast_location(expr),
+                                           prettyprint_in_buffer(expr));
+                               }
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
@@ -1356,12 +1404,68 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                       ast_location(expr),
-                                       prettyprint_in_buffer(expr));
+                               if (!checking_ambiguity())
+                               {
+                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                           ast_location(expr),
+                                           prettyprint_in_buffer(expr));
+                               }
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
+                           break;
+                       }
+            case 'u' :
+            case 'U' :
+                       {
+                           // Universal names are followed by 4 hexa digits
+                           // or 8 depending on 'u' or 'U' respectively
+                           char remaining_hexa_digits = 8;
+                           if (literal[2] == 'u')
+                           {
+                               remaining_hexa_digits = 4;
+                           }
+
+                           unsigned int current_value = 0;
+
+                           int i = 3;
+                           while (remaining_hexa_digits > 0)
+                           {
+                               if (!IS_HEXA_CHAR(literal[i]))
+                               {
+                                   if (!checking_ambiguity())
+                                   {
+                                       char ill_literal[11];
+                                       strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                       error_printf("%s: error: invalid universal literal character name '%s'", 
+                                               ast_location(expr),
+                                               ill_literal);
+                                   }
+                                   *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                                   return;
+                               }
+
+                               current_value *= 16;
+                               char current_literal = tolower(literal[i]);
+                               if (('0' <= tolower(current_literal))
+                                       && (tolower(current_literal) <= '9'))
+                               {
+                                   current_value += current_literal - '0';
+                               }
+                               else if (('a' <= tolower(current_literal))
+                                       && (tolower(current_literal) <= 'f'))
+                               {
+                                   current_value += 10 + (tolower(current_literal) - 'a');
+                               }
+                               else
+                               {
+                                   internal_error("Code unreachable", 0);
+                               }
+
+                               remaining_hexa_digits--;
+                               i++;
+                           }
+
                            break;
                        }
             default: {
@@ -1563,47 +1667,85 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
     }
 }
 
-#define IS_OCTA_CHAR(_c) \
-(((_c) >= '0') \
-  && ((_c) <= '7'))
-
-#define IS_HEXA_CHAR(_c) \
-((((_c) >= '0') \
-  && ((_c) <= '9')) \
- || (((_c) >= 'a') \
-     && ((_c) <= 'f')) \
- || (((_c) >= 'A') \
-     && ((_c) <= 'F')))
-
-static void compute_length_of_literal_string(AST expr, int* length, char *is_wchar, int **real_literal)
+static void compute_length_of_literal_string(AST expr,
+        int *num_codepoints,
+        int **codepoints,
+        type_t** base_type)
 {
     // We allow the parser not to mix the two strings
     const char *literal = ASTText(expr);
 
-    int max_real_size = strlen(literal);
-    (*real_literal) = counted_xcalloc(max_real_size, sizeof(**real_literal), &_bytes_used_expr_check);
+    int capacity_codepoints = 16;
+    *num_codepoints = 0;
+
+    (*codepoints) = xcalloc(capacity_codepoints, sizeof(**codepoints));
+
+    *base_type = NULL;
 
     int num_of_strings_seen = 0;
 
-    *length = 0;
-    *is_wchar = 0;
+#define ADD_CODEPOINT(value) \
+        do { \
+            int v_ = (value); \
+            if (*num_codepoints == capacity_codepoints) \
+            { \
+                capacity_codepoints *= 2; \
+                (*codepoints) = xrealloc((*codepoints), capacity_codepoints * sizeof(**codepoints)); \
+            } \
+            (*codepoints)[*num_codepoints] = v_; \
+            (*num_codepoints)++; \
+        } while (0);
 
     // Beginning of a string
     while (*literal != '\0')
     {
-        // C99 says that "a" L"b" is L"ab"
-        // C++ says it is undefined
-        // 
-        // Do it like C99
+        // Check the prefix
+        type_t* current_base_type = NULL;
         if ((*literal) == 'L')
         {
-            (*is_wchar) = 1;
-            // Advance L
+            current_base_type = get_wchar_t_type();
+            CXX_LANGUAGE()
+            {
+                current_base_type = get_const_qualified_type(current_base_type);
+            }
             literal++;
+        }
+        else if ((*literal) == 'u' && (*(literal + 1) == '8'))
+        {
+            current_base_type = get_const_qualified_type(get_char_type());
+            literal += 2;
+        }
+        else if ((*literal) == 'u')
+        {
+            current_base_type = get_const_qualified_type(get_char16_t_type());
+            literal++;
+        }
+        else if ((*literal) == 'U')
+        {
+            current_base_type = get_const_qualified_type(get_char32_t_type());
+            literal++;
+        }
+        else
+        {
+            current_base_type = get_const_qualified_type(get_char_type());
+        }
+
+        if (*base_type == NULL)
+        {
+            *base_type = current_base_type;
+        }
+        else
+        {
+            // "a" U"b" -> U"a" U"b"
+            if (is_char_type(get_unqualified_type(*base_type))
+                    && !is_char_type(get_unqualified_type(current_base_type)))
+            {
+                *base_type = current_base_type;
+            }
         }
 
         ERROR_CONDITION(*literal != '"',
-                "Lexic problem in the literal '%s'\n", ASTText(expr));
+                "Lexical problem in the literal '%s'\n", ASTText(expr));
 
         // Advance the "
         literal++;
@@ -1622,18 +1764,18 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                         literal++;
                         switch (*literal)
                         {
-                            case '\'' : { (*real_literal)[(*length)]  = '\''; break; }
-                            case '"' : { (*real_literal)[(*length)]  = '"'; break; }
-                            case '?' : { (*real_literal)[(*length)]  = '\?'; break; }
-                            case '\\' : { (*real_literal)[(*length)]  = '\\'; break; }
-                            case 'a' : { (*real_literal)[(*length)]  = '\a'; break; }
-                            case 'b' : { (*real_literal)[(*length)]  = '\b'; break; }
-                            case 'f' : { (*real_literal)[(*length)]  = '\f'; break; }
-                            case 'n' : { (*real_literal)[(*length)]  = '\n'; break; }
-                            case 'r' : { (*real_literal)[(*length)]  = '\r'; break; }
-                            case 't' : { (*real_literal)[(*length)]  = '\t'; break; }
-                            case 'v' : { (*real_literal)[(*length)]  = '\v'; break; }
-                            case 'e' : { (*real_literal)[(*length)]  = '\033'; break; } // GNU Extension: A synonim for \033
+                            case '\'' : { ADD_CODEPOINT('\''); break; }
+                            case '"' : { ADD_CODEPOINT('"'); break; }
+                            case '?' : { ADD_CODEPOINT('\?'); break; }
+                            case '\\' : { ADD_CODEPOINT('\\'); break; }
+                            case 'a' : { ADD_CODEPOINT('\a'); break; }
+                            case 'b' : { ADD_CODEPOINT('\b'); break; }
+                            case 'f' : { ADD_CODEPOINT('\f'); break; }
+                            case 'n' : { ADD_CODEPOINT('\n'); break; }
+                            case 'r' : { ADD_CODEPOINT('\r'); break; }
+                            case 't' : { ADD_CODEPOINT('\t'); break; }
+                            case 'v' : { ADD_CODEPOINT('\v'); break; }
+                            case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
                             case '0' :
                             case '1' :
                             case '2' :
@@ -1664,7 +1806,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // escaped entity
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             case 'x' :
@@ -1701,7 +1843,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // escaped entity
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             case 'u' :
@@ -1729,7 +1871,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                             error_printf("%s: error: invalid universal literal name '%s'", 
                                                     ast_location(expr),
                                                     ill_literal);
-                                            *length = -1;
+                                            *num_codepoints = -1;
+                                            xfree(*codepoints);
                                             return;
                                         }
 
@@ -1757,7 +1900,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // Go backwards one
                                     literal--;
 
-                                    (*real_literal)[(*length)] = current_value;
+                                    ADD_CODEPOINT(current_value);
                                     break;
                                 }
                             default:
@@ -1768,7 +1911,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     error_printf("%s: error: invalid escape sequence '%s'\n",
                                             ast_location(expr),
                                             c);
-                                    *length = -1;
+                                    *num_codepoints = -1;
+                                    xfree(*codepoints);
                                     return;
                                 }
                         }
@@ -1776,19 +1920,17 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                     }
                 default:
                     {
-                        // A plain literal
-                        (*real_literal)[(*length)] = (*literal);
+                        // A plain codepoint
+                        ADD_CODEPOINT(*literal);
                         break;
                     }
             }
 
-            // Make 'literal' always point to the last thing that represents one char/wchar_t
+            // Make 'literal' always point to the last thing that represents one codepoint
             //
             // For instance, for "\n", "\002", "\uabcd" and "\U98abcdef" (*literal) should
             // be 'n', '2', 'd' and 'f' respectively.
             literal++;
-
-            (*length)++;
         }
 
         // Advance the "
@@ -1796,24 +1938,22 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
 
         num_of_strings_seen++;
     }
-    
-    // NULL
-    (*real_literal)[(*length)] = 0;
-    (*length)++;
+
+    // Final NULL value
+    ADD_CODEPOINT(0);
 
     ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
 }
 
 static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 {
-    char is_wchar = 0;
-    int length = 0;
+    int num_codepoints = 0;
+    int *codepoints = NULL;
 
-    const_value_t *value = NULL;
+    type_t* base_type = NULL;
 
-    int* real_literal = NULL;
-    compute_length_of_literal_string(expr, &length, &is_wchar, &real_literal);
-    if (length < 0)
+    compute_length_of_literal_string(expr, &num_codepoints, &codepoints, &base_type);
+    if (num_codepoints < 0)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
@@ -1821,30 +1961,116 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: String literal %s type is '%s[%d]'\n",
+        fprintf(stderr, "EXPRTYPE: String literal %s base type is '%s'. Number of codepoints %d'\n",
                 ASTText(expr),
-                !is_wchar ? "char" : "wchar_t",
-                length);
+                print_declarator(base_type),
+                num_codepoints);
     }
 
-    // Now we have an unsigned int[] with the values of the elements of the string, create one or other according to the type
-    if (!is_wchar)
+    // Note that the length represents the length of the array in memory and depending on the encoding it may
+    // be different to the number of codepoints
+    int length = 0;
+    const_value_t* value = NULL;
+
+    if (is_char_type(get_unqualified_type(base_type)))
     {
+        length = num_codepoints;
+
         char c[length];
         int i;
         for (i = 0; i < length; i++)
-            c[i] = real_literal[i];
+            c[i] = codepoints[i];
 
-        // -1 due to '\0' being added by compute_length_of_literal_string
         value = const_value_make_string(c, length - 1);
+    }
+    else if (is_wchar_t_type(get_unqualified_type(base_type)))
+    {
+        // FIXME - Should we perform a conversion as well?
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
+    }
+    else if (is_char16_t_type(get_unqualified_type(base_type)))
+    {
+        // Note that we should not care if UTF16LE or UTF16BE, we only want
+        // iconv not to emit a BOM
+        iconv_t cd = iconv_open("UTF16LE", "UTF32");
+
+        ERROR_CONDITION(cd == (iconv_t)-1,
+            "Cannot convert to UTF16LE from UTF32\n", 0);
+
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
+
+        // Usually there are no surrogates, so initially allocate the same number of codepoints
+        int capacity_out = num_codepoints;
+        uint16_t *output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+
+        char done = 0;
+        while (!done)
+        {
+            char* inbuff = (char*)codepoints;
+            size_t inbyteslefts = num_codepoints * sizeof(*codepoints);
+
+            size_t outbytesleft = capacity_out * sizeof(*output_buffer), outbytesbeginning = outbytesleft;
+            char *outbuff = (char*)output_buffer;
+
+            size_t conv_result = iconv(cd, &inbuff, &inbyteslefts, &outbuff, &outbytesleft);
+            if (conv_result == (size_t)-1)
+            {
+                // Our output buffer is too small, reallocate and try again
+                if (errno == E2BIG)
+                {
+                    capacity_out *= 2;
+                    xfree(output_buffer);
+                    output_buffer = xcalloc(capacity_out, sizeof(*output_buffer));
+
+                    // Reset the state of iconv
+                    iconv(cd, NULL, NULL, NULL, NULL);
+
+                    // Start again
+                    continue;
+                }
+                else if (errno == EINVAL || errno == EILSEQ)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: discarding invalid UTF-16 literal\n",
+                                ast_location(expr));
+                    }
+                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+                    xfree(output_buffer);
+                }
+                else
+                {
+                    internal_error("Unexpected error '%s' from 'iconv'\n",
+                            strerror(errno));
+                }
+            }
+            done = 1;
+
+            ERROR_CONDITION(inbyteslefts != 0, "There are still bytes left", 0);
+            ERROR_CONDITION(((outbytesleft - outbytesbeginning) % sizeof(uint16_t)) != 0,
+                    "The conversion has not generated an even number of bytes", 0);
+            ERROR_CONDITION(outbytesbeginning < outbytesleft,
+                    "There were less bytes at the beginning", 0);
+
+            length = (outbytesbeginning - outbytesleft) / sizeof(uint16_t);
+        }
+
+        xfree(output_buffer);
+        iconv_close(cd);
+    }
+    else if (is_char32_t_type(get_unqualified_type(base_type)))
+    {
+        length = num_codepoints;
+        value = const_value_make_wstring(codepoints, length - 1);
     }
     else
     {
-        // -1 due to '\0' being added by compute_length_of_literal_string
-        value = const_value_make_wstring(real_literal, length - 1);
+        internal_error("Code unreachable", 0);
     }
 
-    type_t* result = get_literal_string_type(length, is_wchar);
+    type_t* result = get_literal_string_type(length, base_type);
 
     *nodecl_output = nodecl_make_string_literal(result, value, ast_get_locus(expr));
 }
@@ -2023,47 +2249,47 @@ static type_t* promote_integral_type(type_t* t)
     }
 }
 
-static char operand_is_arithmetic_or_enum_type_noref(type_t* t)
+static char operand_is_arithmetic_or_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_arithmetic_type(no_ref(t))
             || is_enum_type(no_ref(t)));
 }
 
-static char operand_is_integral_or_enum_type(type_t* t)
+static char operand_is_integral_or_enum_type(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(t)
             || is_enum_type(t));
 }
 
-static char operand_is_integral_or_bool_or_enum_type_noref(type_t* t)
+static char operand_is_integral_or_bool_or_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(t)
             || is_enum_type(t));
 }
 
 static
-char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
+char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type, const locus_t* locus)
 {
-    return (operand_is_integral_or_enum_type(rhs_type)
-            && operand_is_integral_or_enum_type(lhs_type));
+    return (operand_is_integral_or_enum_type(rhs_type, locus)
+            && operand_is_integral_or_enum_type(lhs_type, locus));
 }
 
 static 
-char both_operands_are_integral_noref(type_t* lhs_type, type_t* rhs_type)
+char both_operands_are_integral_noref(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(no_ref(lhs_type)) || is_enum_type(no_ref(lhs_type)))
         && (is_integral_type(no_ref(rhs_type)) || is_enum_type(no_ref(rhs_type)));
 };
 
 static 
-char both_operands_are_arithmetic(type_t* lhs_type, type_t* rhs_type)
+char both_operands_are_arithmetic(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_arithmetic_type(lhs_type) || is_enum_type(lhs_type))
         && (is_arithmetic_type(rhs_type) || is_enum_type(rhs_type));
 }
 
 static 
-char both_operands_are_arithmetic_noref(type_t* lhs_type, type_t* rhs_type)
+char both_operands_are_arithmetic_noref(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_arithmetic_type(no_ref(lhs_type)) || is_enum_type(no_ref(lhs_type)))
         && (is_arithmetic_type(no_ref(rhs_type)) || is_enum_type(no_ref(rhs_type)));
@@ -2162,9 +2388,9 @@ static char long_long_int_can_represent_unsigned_long_int(void)
     return result;
 }
 
-static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
+static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type, const locus_t* locus)
 {
-    ERROR_CONDITION (!both_operands_are_arithmetic_noref(lhs_type, rhs_type),
+    ERROR_CONDITION (!both_operands_are_arithmetic_noref(lhs_type, rhs_type, locus),
             "Both should be arithmetic types", 0);
 
     if (is_enum_type(lhs_type))
@@ -2373,9 +2599,9 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
 }
 
 static
-type_t* compute_arithmetic_builtin_bin_op(type_t* lhs_type, type_t* rhs_type)
+type_t* compute_arithmetic_builtin_bin_op(type_t* lhs_type, type_t* rhs_type, const locus_t* locus)
 {
-    return usual_arithmetic_conversions(lhs_type, rhs_type);
+    return usual_arithmetic_conversions(lhs_type, rhs_type, locus);
 }
 
 static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_type)
@@ -2494,7 +2720,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         nodecl_make_cxx_dep_name_simple(get_operator_function_name(operator_name),
                 locus);
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, locus);
 
     nodecl_free(nodecl_op_name); // Not used anymore
 
@@ -2736,7 +2962,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                 locus);
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, locus);
 
     nodecl_free(nodecl_op_name); // Not used anymore
 
@@ -2862,7 +3088,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     return overloaded_type;
 }
 
-static char operator_bin_plus_builtin_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_plus_builtin_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // <arithmetic> + <arithmetic>
     return ((is_arithmetic_type(no_ref(lhs))
@@ -2875,7 +3101,7 @@ static char operator_bin_plus_builtin_pred(type_t* lhs, type_t* rhs)
                 && (is_pointer_type(no_ref(rhs)) || is_array_type(no_ref(rhs)))));
 }
 
-static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
     if (is_arithmetic_type(no_ref(*lhs))
         && is_arithmetic_type(no_ref(*rhs)))
@@ -2886,7 +3112,7 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
         if (is_promoteable_integral_type(no_ref(*rhs)))
             *rhs = promote_integral_type(no_ref(*rhs));
 
-        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
+        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
     }
     else if (is_pointer_arithmetic(no_ref(*lhs), no_ref(*rhs)))
     {
@@ -2932,14 +3158,15 @@ static void binary_record_conversion_to_result(type_t* result, nodecl_t* lhs, no
 }
 
 static
-type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs)
+type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs,
+        const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
-    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
-        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type), locus);
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -2989,13 +3216,13 @@ type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs)
     }
 }
 
-static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_arithmetic_type(no_ref(lhs))
             && is_arithmetic_type(no_ref(rhs)));
 }
 
-static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
     if (is_promoteable_integral_type(no_ref(*lhs)))
         *lhs = promote_integral_type(no_ref(*lhs));
@@ -3003,7 +3230,7 @@ static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs)
     if (is_promoteable_integral_type(no_ref(*rhs)))
         *rhs = promote_integral_type(no_ref(*rhs));
 
-    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
+    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
 }
 
 // Generic function for binary typechecking in C and C++
@@ -3017,10 +3244,10 @@ void compute_bin_operator_generic(
         char (*will_require_overload)(type_t*, type_t*),
         nodecl_t (*nodecl_bin_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus),
         const_value_t* (*const_value_bin_fun)(const_value_t*, const_value_t*),
-        type_t* (*compute_type_no_overload)(nodecl_t*, nodecl_t*),
-        char types_allow_constant_evaluation(type_t*, type_t*),
-        char (*overload_operator_predicate)(type_t*, type_t*),
-        type_t* (*overload_operator_result_types)(type_t**, type_t**),
+        type_t* (*compute_type_no_overload)(nodecl_t*, nodecl_t*, const locus_t* locus),
+        char types_allow_constant_evaluation(type_t*, type_t*, const locus_t* locus),
+        char (*overload_operator_predicate)(type_t*, type_t*, const locus_t* locus),
+        type_t* (*overload_operator_result_types)(type_t**, type_t**, const locus_t* locus),
         // Locus
         const locus_t* locus,
 
@@ -3086,7 +3313,7 @@ void compute_bin_operator_generic(
 
     if (!requires_overload)
     {
-        type_t* computed_type = compute_type_no_overload(lhs, rhs);
+        type_t* computed_type = compute_type_no_overload(lhs, rhs, locus);
 
         if (is_error_type(computed_type))
         {
@@ -3099,7 +3326,7 @@ void compute_bin_operator_generic(
 
         if (const_value_bin_fun != NULL
                 && !check_expr_flags.do_not_evaluate
-                && types_allow_constant_evaluation(lhs_type, rhs_type)
+                && types_allow_constant_evaluation(lhs_type, rhs_type, locus)
                 && nodecl_is_constant(*lhs)
                 && nodecl_is_constant(*rhs))
         {
@@ -3123,7 +3350,8 @@ void compute_bin_operator_generic(
             &builtin_set,
             decl_context, operator, 
             overload_operator_predicate,
-            overload_operator_result_types);
+            overload_operator_result_types,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -3143,7 +3371,7 @@ void compute_bin_operator_generic(
         {
             if (const_value_bin_fun != NULL
                     && !check_expr_flags.do_not_evaluate
-                    && types_allow_constant_evaluation(lhs_type, rhs_type)
+                    && types_allow_constant_evaluation(lhs_type, rhs_type, locus)
                     && nodecl_is_constant(*lhs)
                     && nodecl_is_constant(*rhs))
             {
@@ -3151,7 +3379,7 @@ void compute_bin_operator_generic(
                         nodecl_get_constant(*rhs));
             }
 
-            type_t* computed_type = compute_type_no_overload(lhs, rhs);
+            type_t* computed_type = compute_type_no_overload(lhs, rhs, locus);
 
             ERROR_CONDITION(is_error_type(computed_type), 
                     "Compute type no overload cannot deduce a type for a builtin solved overload lhs=%s rhs=%s\n",
@@ -3199,14 +3427,14 @@ void compute_bin_operator_generic(
 }
 
 static
-type_t* compute_type_no_overload_bin_arithmetic(nodecl_t *lhs, nodecl_t *rhs)
+type_t* compute_type_no_overload_bin_arithmetic(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
-    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
-        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type), locus);
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -3337,13 +3565,13 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             nodecl_output);
 }
 
-static char operator_bin_only_integer_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_only_integer_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integer_type(no_ref(lhs)) 
             && is_integer_type(no_ref(rhs)));
 }
 
-static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
     if (is_promoteable_integral_type(no_ref(*lhs)))
         *lhs = promote_integral_type(no_ref(*lhs));
@@ -3351,18 +3579,18 @@ static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs)
     if (is_promoteable_integral_type(no_ref(*rhs)))
         *rhs = promote_integral_type(no_ref(*rhs));
 
-    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
+    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
 }
 
 static 
-type_t* compute_type_no_overload_bin_only_integer(nodecl_t *lhs, nodecl_t *rhs)
+type_t* compute_type_no_overload_bin_only_integer(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
-    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
-        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type), locus);
 
         binary_record_conversion_to_result(result, lhs, rhs);
         
@@ -3430,7 +3658,7 @@ void compute_bin_operator_mod_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             locus, nodecl_output);
 }
 
-static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // <arithmetic> - <arithmetic>
     return ((is_arithmetic_type(no_ref(lhs))
@@ -3440,7 +3668,7 @@ static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
                 && is_arithmetic_type(no_ref(rhs))));
 }
 
-static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
     if (is_arithmetic_type(no_ref(*lhs))
         && is_arithmetic_type(no_ref(*rhs)))
@@ -3451,7 +3679,7 @@ static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
         if (is_promoteable_integral_type(no_ref(*rhs)))
             *rhs = promote_integral_type(no_ref(*rhs));
 
-        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs));
+        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
     }
     else if (((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*rhs)))
                 && is_arithmetic_type(no_ref(*rhs))))
@@ -3471,14 +3699,14 @@ static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
     return get_error_type();
 }
 
-static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs)
+static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
-    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
-        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* result = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type), locus);
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -3549,13 +3777,13 @@ void compute_bin_operator_sub_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
             nodecl_output);
 }
 
-static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(no_ref(lhs))
             && is_integral_type(no_ref(rhs)));
 }
 
-static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_promoteable_integral_type(no_ref(*lhs)))
     {
@@ -3573,12 +3801,12 @@ static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
     return (*lhs);
 }
 
-static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, nodecl_t *rhs)
+static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
-    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
         // Always the left one in this case
         type_t* result = get_unqualified_type(no_ref(lhs_type));
@@ -3700,6 +3928,7 @@ void compute_bin_operator_shr_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 
 static char operator_bin_arithmetic_pointer_or_enum_pred_flags(type_t* lhs,
         type_t* rhs,
+        const locus_t* locus,
         char allow_pointer_to_member)
 {
     // Two arithmetics or enum or pointer
@@ -3728,10 +3957,12 @@ static char operator_bin_arithmetic_pointer_or_enum_pred_flags(type_t* lhs,
                     || is_pointer_to_void_type(get_unqualified_type(no_ref(rhs)))
                     || standard_conversion_between_types(&dummy,
                         get_unqualified_type(get_unqualified_type(no_ref(lhs))),
-                        get_unqualified_type(get_unqualified_type(no_ref(rhs))))
+                        get_unqualified_type(get_unqualified_type(no_ref(rhs))),
+                        locus)
                     || standard_conversion_between_types(&dummy,
                         get_unqualified_type(get_unqualified_type(no_ref(rhs))),
-                        get_unqualified_type(get_unqualified_type(no_ref(lhs))))
+                        get_unqualified_type(get_unqualified_type(no_ref(lhs))),
+                        locus)
                    )
                )
             || (is_zero_type_or_nullptr_type(no_ref(lhs)) && rhs_is_ptr_like)
@@ -3742,17 +3973,20 @@ static char operator_bin_arithmetic_pointer_or_enum_pred_flags(type_t* lhs,
                 && equivalent_types(get_unqualified_type(no_ref(lhs)), get_unqualified_type(no_ref(rhs)))));
 }
 
-static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rhs, const locus_t* locus)
 {
-    return operator_bin_arithmetic_pointer_or_enum_pred_flags(lhs, rhs, /* allow pointer to member */0);
+    return operator_bin_arithmetic_pointer_or_enum_pred_flags(lhs, rhs, locus, /* allow pointer to member */0);
 }
 
-static char operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_pred(type_t* lhs, type_t* rhs, const locus_t* locus)
 {
-    return operator_bin_arithmetic_pointer_or_enum_pred_flags(lhs, rhs, /* allow pointer to member */1);
+    return operator_bin_arithmetic_pointer_or_enum_pred_flags(lhs, rhs, locus, /* allow pointer to member */1);
 }
 
-static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(type_t** lhs, type_t** rhs,
+static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(
+        type_t** lhs,
+        type_t** rhs,
+        const locus_t* locus,
         char allow_pointer_to_member)
 {
     standard_conversion_t scs;
@@ -3849,14 +4083,16 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*lhs)),
-                    get_unqualified_type(no_ref(*rhs))))
+                    get_unqualified_type(no_ref(*rhs)),
+                    locus))
         {
             *lhs = get_unqualified_type(no_ref(*rhs));
             *rhs = get_unqualified_type(no_ref(*rhs));
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*rhs)),
-                    get_unqualified_type(no_ref(*lhs))))
+                    get_unqualified_type(no_ref(*lhs)),
+                    locus))
         {
             *lhs = get_unqualified_type(no_ref(*lhs));
             *rhs = get_unqualified_type(no_ref(*lhs));
@@ -3885,14 +4121,16 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*lhs)),
-                    get_unqualified_type(no_ref(*rhs))))
+                    get_unqualified_type(no_ref(*rhs)),
+                    locus))
         {
             *lhs = get_unqualified_type(no_ref(*rhs));
             *rhs = get_unqualified_type(no_ref(*rhs));
         }
         else if (standard_conversion_between_types(&scs,
                     get_unqualified_type(no_ref(*rhs)),
-                    get_unqualified_type(no_ref(*lhs))))
+                    get_unqualified_type(no_ref(*lhs)),
+                    locus))
         {
             *rhs = get_unqualified_type(no_ref(*lhs));
             *lhs = get_unqualified_type(no_ref(*lhs));
@@ -3918,18 +4156,20 @@ static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_resu
     return get_error_type();
 }
 
-static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
-    return operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(lhs, rhs, /* allow_pointer_to_member */ 0);
+    return operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(lhs, rhs, locus, /* allow_pointer_to_member */ 0);
 }
 
-static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
-    return operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(lhs, rhs, /* allow_pointer_to_member */ 1);
+    return operator_bin_arithmetic_pointer_or_pointer_to_member_or_enum_result_flags(lhs, rhs, locus, /* allow_pointer_to_member */ 1);
 }
 
 static
-type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl_t *rhs, char allow_pointer_to_member)
+type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl_t *rhs,
+        const locus_t* locus,
+        char allow_pointer_to_member)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -3939,7 +4179,7 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
 
     standard_conversion_t scs;
 
-    if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type)
+    if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type, locus)
             || ((is_pointer_type(no_ref_lhs_type)
                     || is_array_type(no_ref_lhs_type)
                     || is_function_type(no_ref_lhs_type)
@@ -3956,10 +4196,12 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
                     || is_pointer_to_void_type(no_ref_rhs_type)
                     || standard_conversion_between_types(&scs,
                         get_unqualified_type(no_ref_lhs_type),
-                        get_unqualified_type(no_ref_rhs_type))
+                        get_unqualified_type(no_ref_rhs_type),
+                        locus)
                     || standard_conversion_between_types(&scs,
                         get_unqualified_type(no_ref_rhs_type),
-                        get_unqualified_type(no_ref_lhs_type)))))
+                        get_unqualified_type(no_ref_lhs_type),
+                        locus))))
     {
         type_t* result_type = NULL;
         C_LANGUAGE()
@@ -4009,7 +4251,7 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
 
             type_t* elem_lhs_type = vector_type_get_element_type(no_ref_lhs_type);
             type_t* elem_rhs_type = vector_type_get_element_type(no_ref_rhs_type);
-            if (!both_operands_are_arithmetic(elem_lhs_type, elem_rhs_type))
+            if (!both_operands_are_arithmetic(elem_lhs_type, elem_rhs_type, locus))
             {
                 // We cannot do a binary relational op on them
                 return get_error_type();
@@ -4037,15 +4279,15 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
 }
 
 static
-type_t* compute_type_no_overload_relational_operator(nodecl_t *lhs, nodecl_t *rhs)
+type_t* compute_type_no_overload_relational_operator(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus)
 {
-    return compute_type_no_overload_relational_operator_flags(lhs, rhs, /* allow_pointer_to_member */ 0);
+    return compute_type_no_overload_relational_operator_flags(lhs, rhs, locus, /* allow_pointer_to_member */ 0);
 }
 
 static
-type_t* compute_type_no_overload_relational_operator_eq_or_neq(nodecl_t *lhs, nodecl_t *rhs)
+type_t* compute_type_no_overload_relational_operator_eq_or_neq(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus)
 {
-    return compute_type_no_overload_relational_operator_flags(lhs, rhs, /* allow_pointer_to_member */ 1);
+    return compute_type_no_overload_relational_operator_flags(lhs, rhs, locus, /* allow_pointer_to_member */ 1);
 }
 
 static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST operator, decl_context_t decl_context,
@@ -4203,14 +4445,14 @@ static void compute_bin_operator_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_c
             nodecl_output);
 }
 
-static char operator_bin_logical_types_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_logical_types_pred(type_t* lhs, type_t* rhs, const locus_t* locus)
 {
     standard_conversion_t dummy;
-    return (standard_conversion_between_types(&dummy, no_ref(lhs), get_bool_type())
-            && standard_conversion_between_types(&dummy, no_ref(rhs), get_bool_type()));
+    return (standard_conversion_between_types(&dummy, no_ref(lhs), get_bool_type(), locus)
+            && standard_conversion_between_types(&dummy, no_ref(rhs), get_bool_type(), locus));
 }
 
-static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // We want the prototype of the builtin operation as 'bool operator#(bool, bool)' not
     // 'bool operator#(L, R)' with L and R convertible to bool
@@ -4220,7 +4462,7 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
     return get_bool_type();
 }
 
-static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs)
+static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs, const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -4254,8 +4496,8 @@ static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs)
 
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
-    if (standard_conversion_between_types(&lhs_to_bool, no_ref(lhs_type), conversion_type)
-            && standard_conversion_between_types(&rhs_to_bool, no_ref(rhs_type), conversion_type))
+    if (standard_conversion_between_types(&lhs_to_bool, no_ref(lhs_type), conversion_type, locus)
+            && standard_conversion_between_types(&rhs_to_bool, no_ref(rhs_type), conversion_type, locus))
     {
         if (is_vector_op)
         {
@@ -4391,7 +4633,7 @@ static void compute_bin_operator_bitwise_xor_type(nodecl_t* lhs, nodecl_t* rhs, 
             nodecl_output);
 }
 
-static char operator_bin_assign_only_integer_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_assign_only_integer_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && is_integral_type(reference_type_get_referenced_type(lhs))
@@ -4399,7 +4641,7 @@ static char operator_bin_assign_only_integer_pred(type_t* lhs, type_t* rhs)
             && is_integral_type(no_ref(rhs)));
 }
 
-static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* ref_type = reference_type_get_referenced_type(*lhs);
 
@@ -4415,7 +4657,7 @@ static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rh
     return result;
 }
 
-static type_t* compute_type_no_overload_assig_only_integral_type(nodecl_t* lhs, nodecl_t* rhs)
+static type_t* compute_type_no_overload_assig_only_integral_type(nodecl_t* lhs, nodecl_t* rhs, const locus_t* locus)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -4425,9 +4667,9 @@ static type_t* compute_type_no_overload_assig_only_integral_type(nodecl_t* lhs, 
             || is_array_type(no_ref(lhs_type)))
         return get_error_type();
 
-    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
-        type_t* common_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        type_t* common_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type), locus);
 
         unary_record_conversion_to_result(common_type, rhs);
 
@@ -4467,22 +4709,22 @@ static void compute_bin_operator_assig_only_integral_type(nodecl_t* lhs, nodecl_
             nodecl_output);
 }
 
-static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
-            && (both_operands_are_arithmetic(reference_type_get_referenced_type(lhs), no_ref(rhs))
+            && (both_operands_are_arithmetic(reference_type_get_referenced_type(lhs), no_ref(rhs), locus)
                 || is_pointer_arithmetic(reference_type_get_referenced_type(lhs), no_ref(rhs))));
 }
 
-static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* ref_type = reference_type_get_referenced_type(*lhs);
 
     cv_qualifier_t cv_qualif = CV_NONE;
     advance_over_typedefs_with_cv_qualif(ref_type, &cv_qualif);
 
-    if (both_operands_are_arithmetic(ref_type, no_ref(*rhs)))
+    if (both_operands_are_arithmetic(ref_type, no_ref(*rhs), locus))
     {
         if (is_promoteable_integral_type(*rhs))
             *rhs = promote_integral_type(*rhs);
@@ -4497,7 +4739,7 @@ static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, ty
     return get_error_type();
 }
 
-static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_t *lhs, nodecl_t *rhs)
+static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -4507,7 +4749,7 @@ static type_t* compute_type_no_overload_assig_arithmetic_or_pointer_type(nodecl_
             || is_array_type(no_ref(lhs_type)))
         return get_error_type();
 
-    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
+    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type), locus))
     {
         unary_record_conversion_to_result(no_ref(lhs_type), rhs);
 
@@ -4558,7 +4800,7 @@ static void compute_bin_operator_assig_arithmetic_or_pointer_type(nodecl_t* lhs,
             nodecl_output);
 }
 
-static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && is_arithmetic_type(reference_type_get_referenced_type(lhs))
@@ -4566,7 +4808,7 @@ static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs)
             && is_arithmetic_type(rhs));
 }
 
-static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_promoteable_integral_type(*rhs))
         *rhs = promote_integral_type(*rhs);
@@ -4709,7 +4951,7 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         standard_conversion_t sc;
         if (rhs_type == NULL
                 || is_error_type(rhs_type)
-                || !standard_conversion_between_types(&sc, no_ref(rhs_type), no_ref(lhs_type)))
+                || !standard_conversion_between_types(&sc, no_ref(rhs_type), no_ref(lhs_type), locus))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -4788,7 +5030,7 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
     }
 }
 
-static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs, nodecl_t *rhs)
+static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs, nodecl_t *rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
@@ -4798,7 +5040,7 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
             || is_array_type(no_ref(rhs_type)))
         return get_error_type();
 
-    if (both_operands_are_arithmetic(no_ref(rhs_type), no_ref(lhs_type)))
+    if (both_operands_are_arithmetic(no_ref(rhs_type), no_ref(lhs_type), locus))
     {
         unary_record_conversion_to_result(lhs_type, rhs);
 
@@ -5038,10 +5280,10 @@ static void compute_unary_operator_generic(
         char (*will_require_overload)(type_t*),
         nodecl_t (*nodecl_unary_fun)(nodecl_t, type_t*, const locus_t* locus),
         const_value_t* (*const_value_unary_fun)(const_value_t*),
-        type_t* (*compute_type_no_overload)(nodecl_t*, char* is_lvalue),
-        char types_allow_constant_evaluation(type_t*),
-        char (*overload_operator_predicate)(type_t*),
-        type_t* (*overload_operator_result_types)(type_t**),
+        type_t* (*compute_type_no_overload)(nodecl_t*, char* is_lvalue, const locus_t* locus),
+        char types_allow_constant_evaluation(type_t*, const locus_t* locus),
+        char (*overload_operator_predicate)(type_t*, const locus_t* locus),
+        type_t* (*overload_operator_result_types)(type_t**, const locus_t* locus),
         // Whether we have to record conversions
         char save_conversions,
         // Locus
@@ -5082,7 +5324,7 @@ static void compute_unary_operator_generic(
     if (!requires_overload)
     {
         char is_lvalue = 0;
-        type_t* computed_type = compute_type_no_overload(op, &is_lvalue);
+        type_t* computed_type = compute_type_no_overload(op, &is_lvalue, locus);
 
         if (is_error_type(computed_type))
         {
@@ -5094,7 +5336,7 @@ static void compute_unary_operator_generic(
 
         if (const_value_unary_fun != NULL
                 && !check_expr_flags.do_not_evaluate
-                && types_allow_constant_evaluation(op_type)
+                && types_allow_constant_evaluation(op_type, locus)
                 && nodecl_is_constant(*op))
         {
             val = const_value_unary_fun(nodecl_get_constant(*op));
@@ -5134,7 +5376,8 @@ static void compute_unary_operator_generic(
             &builtin_set,
             decl_context, operator,
             overload_operator_predicate,
-            overload_operator_result_types);
+            overload_operator_result_types,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -5156,7 +5399,7 @@ static void compute_unary_operator_generic(
 
             if (const_value_unary_fun != NULL
                     && !check_expr_flags.do_not_evaluate
-                    && types_allow_constant_evaluation(op_type)
+                    && types_allow_constant_evaluation(op_type, locus)
                     && nodecl_is_constant(*op))
             {
                 val = const_value_unary_fun(nodecl_get_constant(*op));
@@ -5197,7 +5440,7 @@ static void compute_unary_operator_generic(
     }
 }
 
-char operator_unary_derref_pred(type_t* op_type)
+char operator_unary_derref_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_pointer_type(no_ref(op_type)))
     {
@@ -5206,7 +5449,7 @@ char operator_unary_derref_pred(type_t* op_type)
     return 0;
 }
 
-type_t* operator_unary_derref_result(type_t** op_type)
+type_t* operator_unary_derref_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_pointer_type(no_ref(*op_type)))
     {
@@ -5215,7 +5458,7 @@ type_t* operator_unary_derref_result(type_t** op_type)
     return get_error_type();
 }
 
-type_t* compute_type_no_overload_derref(nodecl_t *nodecl_op, char *is_lvalue)
+type_t* compute_type_no_overload_derref(nodecl_t *nodecl_op, char *is_lvalue, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* op_type = nodecl_get_type(*nodecl_op);
 
@@ -5266,7 +5509,7 @@ static void compute_operator_derreference_type(
             nodecl_output);
 }
 
-static char operator_unary_plus_pred(type_t* op_type)
+static char operator_unary_plus_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_pointer_type(no_ref(op_type)))
     {
@@ -5279,7 +5522,7 @@ static char operator_unary_plus_pred(type_t* op_type)
     return 0;
 }
 
-static type_t* operator_unary_plus_result(type_t** op_type)
+static type_t* operator_unary_plus_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_pointer_type(no_ref(*op_type)))
     {
@@ -5297,7 +5540,7 @@ static type_t* operator_unary_plus_result(type_t** op_type)
     return get_error_type();
 }
 
-static type_t* compute_type_no_overload_plus(nodecl_t *op, char *is_lvalue)
+static type_t* compute_type_no_overload_plus(nodecl_t *op, char *is_lvalue, const locus_t* locus UNUSED_PARAMETER)
 {
     *is_lvalue = 0;
 
@@ -5355,7 +5598,7 @@ static void compute_operator_plus_type(nodecl_t* op,
             nodecl_output);
 }
 
-static char operator_unary_minus_pred(type_t* op_type)
+static char operator_unary_minus_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_arithmetic_type(no_ref(op_type)))
     {
@@ -5364,7 +5607,7 @@ static char operator_unary_minus_pred(type_t* op_type)
     return 0;
 }
 
-static type_t* operator_unary_minus_result(type_t** op_type)
+static type_t* operator_unary_minus_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_arithmetic_type(no_ref(*op_type)))
     {
@@ -5378,7 +5621,7 @@ static type_t* operator_unary_minus_result(type_t** op_type)
     return get_error_type();
 }
 
-static type_t* compute_type_no_overload_neg(nodecl_t *op, char *is_lvalue)
+static type_t* compute_type_no_overload_neg(nodecl_t *op, char *is_lvalue, const locus_t* locus UNUSED_PARAMETER)
 {
     *is_lvalue = 0;
 
@@ -5430,7 +5673,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
             nodecl_output);
 }
 
-static char operator_unary_complement_pred(type_t* op_type)
+static char operator_unary_complement_pred(type_t* op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_integral_type(no_ref(op_type)))
     {
@@ -5439,7 +5682,7 @@ static char operator_unary_complement_pred(type_t* op_type)
     return 0;
 }
 
-static type_t* operator_unary_complement_result(type_t** op_type)
+static type_t* operator_unary_complement_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_integral_type(no_ref(*op_type)))
     {
@@ -5453,9 +5696,9 @@ static type_t* operator_unary_complement_result(type_t** op_type)
     return get_error_type();
 }
 
-static type_t* compute_type_no_overload_complement(nodecl_t *op, char *is_lvalue)
+static type_t* compute_type_no_overload_complement(nodecl_t *op, char *is_lvalue, const locus_t* locus)
 {
-    return compute_type_no_overload_neg(op, is_lvalue);
+    return compute_type_no_overload_neg(op, is_lvalue, locus);
 }
 
 static void compute_operator_complement_type(nodecl_t* op, 
@@ -5484,19 +5727,19 @@ static void compute_operator_complement_type(nodecl_t* op,
             nodecl_output);
 }
 
-static char operator_unary_not_pred(type_t* op_type)
+static char operator_unary_not_pred(type_t* op_type, const locus_t* locus)
 {
     standard_conversion_t to_bool;
 
     if (standard_conversion_between_types(&to_bool,
-                no_ref(op_type), get_bool_type()))
+                no_ref(op_type), get_bool_type(), locus))
     {
         return 1;
     }
     return 0;
 }
 
-static type_t* operator_unary_not_result(type_t** op_type)
+static type_t* operator_unary_not_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     // We want the function to be 'bool operator!(bool)' not 'bool
     // operator!(L)' with L something that can be converted to bool
@@ -5505,7 +5748,7 @@ static type_t* operator_unary_not_result(type_t** op_type)
     return *op_type;
 }
 
-static type_t* compute_type_no_overload_logical_not(nodecl_t *op, char *is_lvalue)
+static type_t* compute_type_no_overload_logical_not(nodecl_t *op, char *is_lvalue, const locus_t* locus)
 {
     *is_lvalue = 0;
 
@@ -5514,7 +5757,7 @@ static type_t* compute_type_no_overload_logical_not(nodecl_t *op, char *is_lvalu
     standard_conversion_t to_bool;
 
     if (standard_conversion_between_types(&to_bool,
-                op_type, get_bool_type()))
+                op_type, get_bool_type(), locus))
     {
         C_LANGUAGE()
         {
@@ -5559,12 +5802,12 @@ static void compute_operator_not_type(nodecl_t* op,
             nodecl_output);
 }
 
-static char operator_unary_reference_pred(type_t* t)
+static char operator_unary_reference_pred(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return is_lvalue_reference_type(t);
 }
 
-static type_t* operator_unary_reference_result(type_t** op_type)
+static type_t* operator_unary_reference_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
     // T x, y;
     //
@@ -5591,7 +5834,7 @@ static type_t* operator_unary_reference_result(type_t** op_type)
     }
 }
 
-static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
+static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue, const locus_t* locus UNUSED_PARAMETER)
 {
     *is_lvalue = 0;
 
@@ -5914,7 +6157,8 @@ static void check_expression_eval_rhs_if_lhs_is_zero(
         check_expr_flags.do_not_evaluate = do_not_evaluate;
 
         if (nodecl_is_constant(lhs) // !const_value_is_zero(lhs)
-                && !nodecl_is_constant(*output))
+                && !nodecl_is_constant(*output)
+                && !nodecl_expr_is_value_dependent(*output))
         {
             // 1 || e2
             //
@@ -5950,7 +6194,8 @@ static void check_expression_eval_rhs_if_lhs_is_nonzero(
         check_expr_flags.do_not_evaluate = do_not_evaluate;
 
         if (nodecl_is_constant(lhs)
-                && !nodecl_is_constant(*output))
+                && !nodecl_is_constant(*output)
+                && !nodecl_expr_is_value_dependent(*output))
         {
             // 0 && e2
             //
@@ -6234,6 +6479,8 @@ static void check_unary_expression_(node_t node_kind,
                     get_operation_function_name(node_kind), 
                     codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
         }
+
+        nodecl_free(*op);
     }
 }
 
@@ -6267,6 +6514,9 @@ static void check_binary_expression_(node_t node_kind,
                     codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
                     codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
         }
+
+        nodecl_free(*nodecl_lhs);
+        nodecl_free(*nodecl_rhs);
     }
 }
 
@@ -6289,6 +6539,8 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -6312,6 +6564,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
     if (nodecl_is_err_expr(nodecl_op))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        nodecl_free(nodecl_op);
         return;
     }
 
@@ -6595,7 +6848,8 @@ static void cxx_compute_name_from_entry_list(
             }
 
             if (this_symbol != NULL
-                    && class_type_is_base(accessed_class->type_information, this_type))
+                    && class_type_is_base_instantiating(accessed_class->type_information, this_type,
+                        nodecl_get_locus(nodecl_name)))
             {
                 // Construct (*this).x
                 cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
@@ -6902,6 +7156,8 @@ static void check_nodecl_array_subscript_expression_c(
             || nodecl_is_err_expr(nodecl_subscript))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 
@@ -6939,6 +7195,8 @@ static void check_nodecl_array_subscript_expression_c(
                         print_type_str(get_ptrdiff_t_type(), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_subscripted);
+            nodecl_free(nodecl_subscript);
             return;
         }
         else
@@ -7008,6 +7266,8 @@ static void check_nodecl_array_subscript_expression_c(
                     print_type_str(no_ref(subscripted_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 }
@@ -7018,7 +7278,7 @@ static char pointer_type_and_integral_or_enum_type(type_t* t1, type_t* t2)
         && (is_integral_type(no_ref(t2)) || is_enum_type(no_ref(t2)));
 }
 
-static char array_subcript_types_pred(type_t* lhs, type_t* rhs)
+static char array_subcript_types_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // T& operator[](T*, ptrdiff_t)
     // T& operator[](ptrdiff_t, T*)
@@ -7026,7 +7286,7 @@ static char array_subcript_types_pred(type_t* lhs, type_t* rhs)
         || pointer_type_and_integral_or_enum_type(rhs, lhs);
 }
 
-static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs)
+static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     if (pointer_type_and_integral_or_enum_type(*lhs, *rhs))
     {
@@ -7070,6 +7330,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             || nodecl_is_err_expr(nodecl_subscript))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
         return;
     }
 
@@ -7142,6 +7404,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_subscripted);
+                nodecl_free(nodecl_subscript);
                 return;
             }
 
@@ -7158,6 +7422,8 @@ static void check_nodecl_array_subscript_expression_cxx(
                     if (function_has_been_deleted(decl_context, conversors[1], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_subscripted);
+                        nodecl_free(nodecl_subscript);
                         return;
                     }
 
@@ -7221,7 +7487,8 @@ static void check_nodecl_array_subscript_expression_cxx(
             &builtin_set, decl_context,
             operator_subscript_tree,
             array_subcript_types_pred,
-            array_subscript_types_result);
+            array_subscript_types_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -7259,6 +7526,8 @@ static void check_nodecl_array_subscript_expression_cxx(
                     print_type_str(subscripted_type, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_subscripted);
+        nodecl_free(nodecl_subscript);
     }
 }
 
@@ -7380,7 +7649,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
          * converted to the type 'reference of T2'
          */
         standard_conversion_t result;
-        if (standard_conversion_between_types(&result, from_t1, to_t2))
+        if (standard_conversion_between_types(&result, from_t1, to_t2, locus))
         {
             DEBUG_CODE()
             {
@@ -7403,7 +7672,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
          * converted to the type 'reference of T2'
          */
         standard_conversion_t result;
-        if (standard_conversion_between_types(&result, from_t1, to_t2))
+        if (standard_conversion_between_types(&result, from_t1, to_t2, locus))
         {
             DEBUG_CODE()
             {
@@ -7424,7 +7693,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         // Try a conversion between derived-to-base values
         if (is_class_type(no_ref(from_t1))
                 && is_class_type(no_ref(to_t2))
-                && class_type_is_base(no_ref(to_t2), no_ref(from_t1))
+                && class_type_is_base_instantiating(no_ref(to_t2), no_ref(from_t1), locus)
                 && is_more_or_equal_cv_qualified_type(no_ref(to_t2), no_ref(from_t1)))
         {
             DEBUG_CODE()
@@ -7443,7 +7712,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
         // Try an implicit conversion
         if (!is_class_type(no_ref(from_t1))
                 || !is_class_type(no_ref(to_t2))
-                || !class_type_is_base(no_ref(to_t2), no_ref(from_t1)))
+                || !class_type_is_base_instantiating(no_ref(to_t2), no_ref(from_t1), locus))
         {
             if (type_can_be_implicitly_converted_to(from_t1,
                         get_unqualified_type(no_ref(to_t2)),
@@ -7474,7 +7743,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
     return 0;
 }
 
-static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
+static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3, const locus_t* locus UNUSED_PARAMETER)
 {
     if (is_bool_type(no_ref(t1)))
     {
@@ -7515,7 +7784,8 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
 }
 
 static type_t* ternary_operator_result(type_t** t1 UNUSED_PARAMETER, 
-        type_t** t2, type_t** t3)
+        type_t** t2, type_t** t3,
+        const locus_t* locus)
 {
     if (is_arithmetic_type(no_ref(*t2))
             && is_arithmetic_type(no_ref(*t3)))
@@ -7526,7 +7796,7 @@ static type_t* ternary_operator_result(type_t** t1 UNUSED_PARAMETER,
         if (is_promoteable_integral_type(no_ref(*t3)))
             *t3 = promote_integral_type(no_ref(*t3));
 
-        return usual_arithmetic_conversions(no_ref(*t2), no_ref(*t3));
+        return usual_arithmetic_conversions(no_ref(*t2), no_ref(*t3), locus);
     }
     else
     {
@@ -7534,7 +7804,7 @@ static type_t* ternary_operator_result(type_t** t1 UNUSED_PARAMETER,
     }
 }
 
-static type_t* composite_pointer_to_member(type_t* p1, type_t* p2)
+static type_t* composite_pointer_to_member(type_t* p1, type_t* p2, const locus_t* locus)
 {
     if (equivalent_types(p1, p2))
         return p1;
@@ -7557,11 +7827,11 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2)
 
     standard_conversion_t sc;
     // This is not exact
-    if (standard_conversion_between_types(&sc, p1, p2))
+    if (standard_conversion_between_types(&sc, p1, p2, locus))
     {
         result = p2;
     }
-    else if (standard_conversion_between_types(&sc, p2, p1))
+    else if (standard_conversion_between_types(&sc, p2, p1, locus))
     {
         result = p1;
     }
@@ -7575,7 +7845,7 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2)
     return result;
 }
 
-static type_t* composite_pointer(type_t* p1, type_t* p2)
+static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
 {
     p1 = get_unqualified_type(p1);
     p2 = get_unqualified_type(p2);
@@ -7606,11 +7876,11 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
         result = get_pointer_type(get_void_type());
     }
     // This is not exact
-    else if (standard_conversion_between_types(&sc, p1, p2))
+    else if (standard_conversion_between_types(&sc, p1, p2, locus))
     {
         result = p2;
     }
-    else if (standard_conversion_between_types(&sc, p2, p1))
+    else if (standard_conversion_between_types(&sc, p2, p1, locus))
     {
         result = p1;
     }
@@ -7637,6 +7907,9 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -7696,9 +7969,12 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
     }
 
     standard_conversion_t sc;
-    if (!standard_conversion_between_types(&sc, no_ref(first_type), no_ref(converted_type)))
+    if (!standard_conversion_between_types(&sc, no_ref(first_type), no_ref(converted_type), locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -7740,9 +8016,9 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         {
             final_type = operand_types[0];
         }
-        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1]))
+        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1], locus))
         {
-            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1]);
+            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1], locus);
         }
         else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
         {
@@ -7751,11 +8027,14 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1]);
+            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
         }
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -7784,6 +8063,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
         return;
     }
 
@@ -7916,6 +8198,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                         " when agreeing second and third types\n");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -7924,6 +8209,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (second_to_third_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -7941,6 +8229,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (third_to_second_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -7987,7 +8278,8 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                     decl_context,
                     "operator ?",
                     ternary_operator_property,
-                    ternary_operator_result
+                    ternary_operator_result,
+                    locus
                     );
 
             scope_entry_list_t* builtins =
@@ -8034,6 +8326,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                 }
                 candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
             candidate_set_free(&candidate_set);
@@ -8041,6 +8336,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(first_op);
+                nodecl_free(second_op);
+                nodecl_free(third_op);
                 return;
             }
 
@@ -8052,6 +8350,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                     if (function_has_been_deleted(decl_context, conversors[k], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(first_op);
+                        nodecl_free(second_op);
+                        nodecl_free(third_op);
                         return;
                     }
 
@@ -8102,9 +8403,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         {
             final_type = operand_types[1];
         }
-        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1]))
+        else if (both_operands_are_arithmetic(operand_types[0], operand_types[1], locus))
         {
-            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1]);
+            final_type = usual_arithmetic_conversions(operand_types[0], operand_types[1], locus);
         }
         else if (both_operands_are_vector_types(operand_types[0], operand_types[1]))
         {
@@ -8113,17 +8414,20 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1]);
+            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
         }
         else if ((is_pointer_to_member_type(operand_types[0])
                     && is_pointer_to_member_type(operand_types[1]))
                 || is_pointer_to_member_and_zero)
         {
-            final_type = composite_pointer_to_member(operand_types[0], operand_types[1]);
+            final_type = composite_pointer_to_member(operand_types[0], operand_types[1], locus);
         }
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(first_op);
+            nodecl_free(second_op);
+            nodecl_free(third_op);
             return;
         }
 
@@ -8262,59 +8566,6 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
 
     check_conditional_expression_impl(expression, 
             first_op, second_op, third_op, decl_context, nodecl_output);
-}
-
-UNUSED_PARAMETER static void check_default_constructor(type_t* t, 
-        decl_context_t decl_context,
-        const locus_t* locus,
-        nodecl_t* nodecl_output)
-{
-    ERROR_CONDITION(!is_class_type(t), "Invalid type", 0);
-
-    int num_arguments = 0;
-    type_t** arguments = NULL;
-
-    scope_entry_list_t* candidates = NULL;
-    scope_entry_t* chosen_constructor = solve_constructor(t,
-            arguments, num_arguments,
-            /* is_explicit */ 1,
-            decl_context,
-            locus,
-            /* conversors */ NULL,
-            &candidates);
-
-    if (chosen_constructor == NULL)
-    {
-        if (entry_list_size(candidates) != 0)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: no default constructor for class type '%s'\n",
-                        locus_to_str(locus),
-                        print_type_str(t, decl_context));
-            }
-            *nodecl_output = nodecl_make_err_expr(locus);
-        }
-        entry_list_free(candidates);
-        return;
-    }
-    else
-    {
-        entry_list_free(candidates);
-        if (function_has_been_deleted(decl_context, chosen_constructor, locus))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(chosen_constructor, locus),
-                /* called name */ nodecl_null(),
-                /* args */ nodecl_null(),
-                nodecl_make_cxx_function_form_implicit(locus),
-                actual_type_of_conversor(chosen_constructor),
-                locus);
-    }
 }
 
 static void check_nodecl_initializer_clause(nodecl_t initializer_clause, 
@@ -8465,6 +8716,8 @@ static void check_new_expression_impl(
                     prettyprint_in_buffer(called_operation_new_tree));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
@@ -8532,12 +8785,16 @@ static void check_new_expression_impl(
             entry_list_free(operator_new_list);
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
     if (function_has_been_deleted(decl_context, chosen_operator_new, locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement_list);
+        nodecl_free(nodecl_initializer);
         return;
     }
 
@@ -8566,6 +8823,8 @@ static void check_new_expression_impl(
                     if (function_has_been_deleted(decl_context, conversors[j], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_placement_list);
+                        nodecl_free(nodecl_initializer);
                         return;
                     }
 
@@ -8695,6 +8954,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context, node
     if (is_error_type(dummy_type))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_placement);
         return;
     }
 
@@ -8783,6 +9043,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                         print_type_str(deleted_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_deleted_expr);
             return;
         }
 
@@ -8804,6 +9065,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                         is_array_delete ? "[]" : "");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_deleted_expr);
             return;
         }
     }
@@ -8865,7 +9127,8 @@ static const_value_t* cxx_nodecl_make_value_conversion(
     char there_is_a_scs = standard_conversion_between_types(
             &scs,
             get_unqualified_type(no_ref(orig_type)),
-            get_unqualified_type(no_ref(dest_type)));
+            get_unqualified_type(no_ref(dest_type)),
+            locus);
 
     if (!there_is_a_scs)
         return NULL;
@@ -9004,7 +9267,8 @@ static void compute_fake_types_cast_away_constness(type_t** fake_orig_type, type
     *fake_dest_type = get_cv_qualified_type(*fake_dest_type, get_cv_qualifier(dest_type));
 }
 
-static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type)
+static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type,
+        const locus_t* locus)
 {
     if ((is_pointer_type(orig_type)
                 && is_pointer_type(dest_type))
@@ -9021,7 +9285,7 @@ static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type
                 dest_type);
 
         standard_conversion_t scs;
-        if (!standard_conversion_between_types(&scs, fake_orig_type, fake_dest_type))
+        if (!standard_conversion_between_types(&scs, fake_orig_type, fake_dest_type, locus))
             return 1;
     }
     else if (is_lvalue_reference_type(orig_type)
@@ -9029,14 +9293,16 @@ static char conversion_casts_away_constness(type_t* orig_type, type_t* dest_type
     {
         return conversion_casts_away_constness(
                 get_pointer_type(no_ref(orig_type)),
-                get_pointer_type(no_ref(dest_type)));
+                get_pointer_type(no_ref(dest_type)),
+                locus);
     }
     else if (is_rvalue_reference_type(orig_type)
             && !is_any_reference_type(dest_type))
     {
         return conversion_casts_away_constness(
                 get_pointer_type(no_ref(orig_type)),
-                get_pointer_type(no_ref(dest_type)));
+                get_pointer_type(no_ref(dest_type)),
+                locus);
     }
 
     return 0;
@@ -9064,6 +9330,8 @@ static char conversion_is_valid_static_cast(
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
 
+    const locus_t* locus = nodecl_get_locus(*nodecl_expression);
+
     type_t* orig_type = nodecl_get_type(*nodecl_expression);
 
     // A lvalue of type cv1 B can be cast to reference to cv2 D. B = base, D = derived
@@ -9071,7 +9339,7 @@ static char conversion_is_valid_static_cast(
     if (is_lvalue_reference_to_class_type(orig_type)
             && (is_lvalue_reference_to_class_type(dest_type)
                 || is_rvalue_reference_to_class_type(dest_type))
-            && class_type_is_base(no_ref(orig_type), no_ref(dest_type))
+            && class_type_is_base_instantiating(no_ref(orig_type), no_ref(dest_type), locus)
             && !class_type_is_ambiguous_base_of_derived_class(no_ref(orig_type), no_ref(dest_type))
             && !class_type_is_virtual_base_or_base_of_virtual_base(no_ref(orig_type), no_ref(dest_type))
             && is_more_or_equal_cv_qualified_type(
@@ -9083,7 +9351,7 @@ static char conversion_is_valid_static_cast(
     // cv2 >= cv1
     if (is_class_type(orig_type)
             && is_rvalue_reference_to_class_type(dest_type)
-            && class_type_is_base(no_ref(orig_type), no_ref(dest_type))
+            && class_type_is_base_instantiating(no_ref(orig_type), no_ref(dest_type), locus)
             && !class_type_is_ambiguous_base_of_derived_class(no_ref(orig_type), no_ref(dest_type))
             && !class_type_is_virtual_base_or_base_of_virtual_base(no_ref(orig_type), no_ref(dest_type))
             && is_more_or_equal_cv_qualified_type(
@@ -9132,7 +9400,6 @@ static char conversion_is_valid_static_cast(
     {
         nodecl_free(nodecl_static_cast_output);
     }
-    nodecl_free(nodecl_parenthesized_init);
 
     // Any expression can be explicitly converted to cv void
     if (is_void_type(dest_type))
@@ -9142,7 +9409,7 @@ static char conversion_is_valid_static_cast(
     // lvalue-to-rvalue, array-to-pointer, function-to-pointer, null pointer,
     // null member pointer, boolean conversion
     standard_conversion_t scs;
-    char there_is_scs = standard_conversion_between_types(&scs, dest_type, orig_type);
+    char there_is_scs = standard_conversion_between_types(&scs, dest_type, orig_type, locus);
 
     if (there_is_scs
             && scs.conv[0] != SCI_LVALUE_TO_RVALUE
@@ -9177,9 +9444,10 @@ static char conversion_is_valid_static_cast(
     // A base pointer can be converted to derived type
     if (is_pointer_to_class_type(orig_type)
             && is_pointer_to_class_type(dest_type)
-            && class_type_is_base(
+            && class_type_is_base_instantiating(
                 pointer_type_get_pointee_type(orig_type),
-                pointer_type_get_pointee_type(dest_type))
+                pointer_type_get_pointee_type(dest_type),
+                locus)
             && !class_type_is_ambiguous_base_of_derived_class(
                 pointer_type_get_pointee_type(orig_type),
                 pointer_type_get_pointee_type(dest_type))
@@ -9196,15 +9464,17 @@ static char conversion_is_valid_static_cast(
     // cv1 T D::* -> cv2 T B::*
     if (is_pointer_to_member_type(orig_type)
             && is_pointer_to_member_type(dest_type)
-            && class_type_is_base(
+            && class_type_is_base_instantiating(
                 // B
                 pointer_to_member_type_get_class_type(dest_type),
                 // D
-                pointer_to_member_type_get_class_type(orig_type))
+                pointer_to_member_type_get_class_type(orig_type),
+                locus)
             //  T B::* -> T D::*
             && standard_conversion_between_types(&scs, 
                 get_unqualified_type(dest_type),
-                get_unqualified_type(orig_type))
+                get_unqualified_type(orig_type),
+                locus)
             // cv2 >= cv1
             && is_more_or_equal_cv_qualified_type(
                 pointer_type_get_pointee_type(dest_type),
@@ -9293,6 +9563,21 @@ static char conversion_is_valid_reinterpret_cast(
             && is_vector_type(dest_type))
         RETURN(1);
 
+    // Intel vectors
+    {
+        int orig_size = 0, dest_size = 0;
+        if (is_intel_vector_struct_type(orig_type, &orig_size)
+                && is_intel_vector_struct_type(dest_type, &dest_size)
+                && (dest_size == orig_size))
+            RETURN(1);
+
+        if (vector_type_to_intel_vector_struct_reinterpret_type(orig_type, dest_type))
+            RETURN(1);
+
+        if (vector_type_to_intel_vector_struct_reinterpret_type(dest_type, orig_type))
+            RETURN(1);
+    }
+
     // A pointer to function can be converted to another pointer to function type
     if (is_pointer_to_function_type(orig_type)
             && is_pointer_to_function_type(dest_type))
@@ -9339,6 +9624,8 @@ static char conversion_is_valid_dynamic_cast(
     RECURSION_PROTECTOR
 #define RETURN(ret_) RECURSION_RETURN(ret_)
 
+    const locus_t* locus = nodecl_get_locus(*nodecl_expression);
+
     if (!is_pointer_to_void_type(dest_type)
             && !is_pointer_to_class_type(dest_type)
             && !is_class_type(no_ref(dest_type)))
@@ -9379,9 +9666,10 @@ static char conversion_is_valid_dynamic_cast(
     if (is_pointer_to_class_type(dest_type)
             && is_pointer_to_class_type(no_ref(orig_type)))
     {
-        if (class_type_is_base(
+        if (class_type_is_base_instantiating(
                     pointer_type_get_pointee_type(dest_type),
-                    pointer_type_get_pointee_type(no_ref(orig_type))))
+                    pointer_type_get_pointee_type(no_ref(orig_type)),
+                    locus))
         {
             if (is_more_or_equal_cv_qualified_type(
                         pointer_type_get_pointee_type(dest_type),
@@ -9394,9 +9682,10 @@ static char conversion_is_valid_dynamic_cast(
     else if (is_any_reference_to_class_type(dest_type)
             && is_any_reference_to_class_type(orig_type))
     {
-        if (class_type_is_base(
+        if (class_type_is_base_instantiating(
                     no_ref(dest_type),
-                    no_ref(orig_type)))
+                    no_ref(orig_type),
+                    locus))
         {
             if (is_more_or_equal_cv_qualified_type(
                         no_ref(dest_type),
@@ -9601,6 +9890,7 @@ static void check_nodecl_cast_expr(
           } \
       } \
       *nodecl_output = nodecl_make_err_expr(locus); \
+      nodecl_free(nodecl_casted_expr); \
       return; \
     } while (0)
 
@@ -9674,6 +9964,7 @@ static void check_nodecl_cast_expr(
                 }
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_casted_expr);
 
             return;
         }
@@ -9688,7 +9979,7 @@ static void check_nodecl_cast_expr(
             CONVERSION_ERROR;
         }
 
-        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type, locus))
         {
             CONVERSION_ERROR;
         }
@@ -9703,7 +9994,7 @@ static void check_nodecl_cast_expr(
             CONVERSION_ERROR;
         }
 
-        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type, locus))
         {
             CONVERSION_ERROR;
         }
@@ -9718,7 +10009,7 @@ static void check_nodecl_cast_expr(
             CONVERSION_ERROR;
         }
 
-        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type))
+        if (conversion_casts_away_constness(nodecl_get_type(nodecl_casted_expr), declarator_type, locus))
         {
             CONVERSION_ERROR;
         }
@@ -9795,187 +10086,6 @@ static void check_nodecl_cast_expr(
 
 #undef CONVERSION_ERROR
 }
-
-#if 0
-static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr, 
-        decl_context_t decl_context, 
-        type_t* declarator_type,
-        const char* cast_kind,
-        const locus_t* locus,
-        nodecl_t* nodecl_output)
-{
-    if (is_dependent_type(declarator_type))
-    {
-        *nodecl_output = nodecl_make_cast(
-                nodecl_casted_expr,
-                declarator_type,
-                cast_kind,
-                locus);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
-    if (IS_CXX_LANGUAGE
-            && !nodecl_expr_is_type_dependent(nodecl_casted_expr)
-            && (strcmp(cast_kind, "C") == 0
-                || strcmp(cast_kind, "static_cast") == 0))
-    {
-        // FIXME - For a C cast we need to check the following cases (in this order!)
-        //
-        //   const_cast
-        //   static_cast
-        //   static_cast + const_cast
-        //   reinterpret_cast
-        //   reinterpret_cast + const_cast
-        // 
-        // We may be missing conversions in a C cast if a const_cast is required after a static_cast
-
-        // Shut up the compiler if things go wrong
-        enter_test_expression();
-        // Check if an initialization is possible
-        // If possible this will set a proper conversion call
-        nodecl_t nodecl_cast_output = nodecl_null();
-        nodecl_t nodecl_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(
-                nodecl_make_list_1(nodecl_shallow_copy(nodecl_casted_expr)),
-                nodecl_get_locus(nodecl_casted_expr));
-        // This actually checks T(e)
-        check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
-                decl_context, 
-                declarator_type, 
-                /* is_explicit */ 1,
-                /* is_explicit_type_cast */ 1,
-                /* emit_cast */ 1,
-                &nodecl_cast_output);
-        leave_test_expression();
-
-        // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
-        // unless this is a vector type where (T){1,2,3,4} is fine
-        if (nodecl_get_kind(nodecl_cast_output) == NODECL_STRUCTURED_VALUE
-                && !is_vector_type(no_ref(declarator_type)))
-        {
-            nodecl_cast_output = nodecl_list_head(nodecl_get_child(nodecl_cast_output, 0));
-        }
-
-        if (!nodecl_is_err_expr(nodecl_cast_output))
-        {
-            if (is_class_type(no_ref(declarator_type)))
-            {
-                // For classes there will be an explicit call to a constructor
-                // we cannot do an extra cast
-                *nodecl_output = nodecl_cast_output;
-                return;
-            }
-            else
-            {
-                nodecl_set_type(nodecl_cast_output,
-                        nodecl_get_type(nodecl_casted_expr));
-                nodecl_expr_set_is_value_dependent(nodecl_cast_output,
-                        nodecl_expr_is_value_dependent(nodecl_casted_expr));
-
-                nodecl_casted_expr = nodecl_cast_output;
-            }
-        }
-    }
-
-    *nodecl_output = nodecl_make_cast(
-            nodecl_casted_expr,
-            declarator_type,
-            cast_kind,
-            locus);
-
-    if (nodecl_is_constant(nodecl_casted_expr))
-    {
-        const_value_t * casted_value = nodecl_get_constant(nodecl_casted_expr);
-
-        const_value_t* converted_value = cxx_nodecl_make_value_conversion(
-                declarator_type,
-                nodecl_get_type(nodecl_casted_expr),
-                casted_value,
-                /* is_explicit_type_cast */ 1,
-                locus);
-
-        // Propagate zero types
-        if (converted_value != NULL)
-        {
-            if (is_zero_type(nodecl_get_type(nodecl_casted_expr))
-                    && const_value_is_zero(converted_value)
-                    && (is_integral_type(declarator_type)
-                        || is_bool_type(declarator_type)))
-            {
-                nodecl_set_type(*nodecl_output, get_zero_type(declarator_type));
-            }
-        }
-
-        nodecl_set_constant(*nodecl_output, converted_value);
-    }
-
-    if (nodecl_expr_is_value_dependent(nodecl_casted_expr))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-    }
-}
-#endif
-
-#if 0
-static void check_nodecl_explicit_type_conversion(type_t* type_info,
-        nodecl_t nodecl_expr_list, decl_context_t decl_context,
-        nodecl_t* nodecl_output,
-        const locus_t* locus)
-{
-    if (nodecl_list_length(nodecl_expr_list) == 1
-            && !is_dependent_type(type_info)
-            && !is_class_type(type_info))
-    {
-        // Use the same code as the (T)e syntax
-        check_nodecl_cast_expr(nodecl_list_head(nodecl_expr_list), decl_context, type_info, "C", locus, nodecl_output);
-    }
-    else
-    {
-        // Otherwise try a parenthesized initializer (which should do)
-        nodecl_t parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, locus);
-
-        int num_items = 0, i = 0;
-        char any_arg_is_type_dependent = 0;
-        nodecl_t* list = nodecl_unpack_list(nodecl_expr_list, &num_items);
-        while (i < num_items  && !any_arg_is_type_dependent)
-        {
-            any_arg_is_type_dependent = nodecl_expr_is_type_dependent(list[i]);
-            ++i;
-        }
-
-        if (any_arg_is_type_dependent)
-        {
-            *nodecl_output =
-                nodecl_make_cxx_explicit_type_cast(parenthesized_init, type_info, locus);
-            nodecl_set_type(*nodecl_output, type_info);
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-            return;
-        }
-
-        check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info,
-                /* is_explicit */ 1, /* is_explicit_type_cast */ 1, /* emit_cast */ 1, nodecl_output);
-
-        if (nodecl_is_err_expr(*nodecl_output))
-        {
-            *nodecl_output = nodecl_make_err_expr(locus);
-            return;
-        }
-
-        if (is_dependent_type(type_info))
-        {
-            *nodecl_output =
-                nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, locus);
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        }
-        if (is_dependent_type(type_info)
-                || nodecl_expr_is_value_dependent(*nodecl_output))
-        {
-            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        }
-    }
-}
-#endif
 
 static void check_nodecl_explicit_type_conversion(
         type_t* type_info,
@@ -10369,7 +10479,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
             num_arguments,
             argument_types,
             decl_context,
-            nodecl_simple_name);
+            nodecl_simple_name,
+            nodecl_get_locus(nodecl_simple_name));
 
     if (entry_list != NULL)
     {
@@ -10448,11 +10559,11 @@ struct check_arg_data_tag
 
 
 static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type, 
-        int num_parameter, nodecl_t *arg UNUSED_PARAMETER, check_arg_data_t *p)
+        int num_parameter, nodecl_t *arg, check_arg_data_t *p)
 {
     standard_conversion_t result;
     char found_a_conversion = 0;
-    found_a_conversion = standard_conversion_between_types(&result, arg_type, param_type);
+    found_a_conversion = standard_conversion_between_types(&result, arg_type, param_type, nodecl_get_locus(*arg));
     if (!found_a_conversion)
     {
         if (is_class_type(param_type))
@@ -10466,7 +10577,8 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
                 while (!found_a_conversion && !entry_list_iterator_end(it))
                 {
                     scope_entry_t* current_member = entry_list_iterator_current(it);
-                    found_a_conversion = standard_conversion_between_types(&result, arg_type, current_member->type_information);
+                    found_a_conversion = standard_conversion_between_types(&result, arg_type, current_member->type_information,
+                            nodecl_get_locus(*arg));
                     entry_list_iterator_next(it);
                 }
                 entry_list_free(list_of_members);
@@ -10926,6 +11038,7 @@ static void handle_computed_function_type(
         }
         *nodecl_called = nodecl_make_err_expr(locus);
         *called_type = get_error_type();
+        nodecl_free(nodecl_argument_list);
     }
     else
     {
@@ -10946,13 +11059,18 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
 
     if (is_computed_function_type(called_type))
     {
-        handle_computed_function_type(&nodecl_called, &called_type, nodecl_argument_list, decl_context, locus);
+        nodecl_t nodecl_called_sym = nodecl_shallow_copy(nodecl_called);
+        handle_computed_function_type(&nodecl_called_sym, &called_type, nodecl_argument_list, decl_context, locus);
 
-        if (nodecl_is_err_expr(nodecl_called))
+        if (nodecl_is_err_expr(nodecl_called_sym))
         {
-            *nodecl_output = nodecl_called;
+            *nodecl_output = nodecl_called_sym;
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
+
+        nodecl_called = nodecl_called_sym;
     }
 
     if (!is_function_type(called_type)
@@ -10965,6 +11083,8 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
                     codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -10985,6 +11105,8 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
                 &nodecl_argument_list_output))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11087,6 +11209,8 @@ static void check_nodecl_function_call_cxx(
                         codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_called));
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
         else if (candidates != NULL)
@@ -11199,6 +11323,8 @@ static void check_nodecl_function_call_cxx(
                         codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
         else if (is_function_type(no_ref(called_type))
@@ -11224,6 +11350,8 @@ static void check_nodecl_function_call_cxx(
                         &nodecl_argument_list_output))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_called);
+                nodecl_free(nodecl_argument_list);
                 return;
             }
 
@@ -11541,6 +11669,8 @@ static void check_nodecl_function_call_cxx(
         }
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -11598,6 +11728,8 @@ static void check_nodecl_function_call_cxx(
     if (function_has_been_deleted(decl_context, overloaded_call, locus))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11616,6 +11748,8 @@ static void check_nodecl_function_call_cxx(
                             get_qualified_symbol_name(overloaded_call, decl_context)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_called);
+            nodecl_free(nodecl_argument_list);
             return;
         }
     }
@@ -11692,6 +11826,8 @@ static void check_nodecl_function_call_cxx(
                         if (function_has_been_deleted(decl_context, conversors[arg_i], locus))
                         {
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(nodecl_called);
+                            nodecl_free(nodecl_argument_list);
                             return;
                         }
                         nodecl_t nodecl_conversor =
@@ -11721,6 +11857,8 @@ static void check_nodecl_function_call_cxx(
                     if (is_error_type(default_argument_promoted_type))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(nodecl_called);
+                        nodecl_free(nodecl_argument_list);
                         return;
                     }
                 }
@@ -11729,6 +11867,8 @@ static void check_nodecl_function_call_cxx(
             if (nodecl_is_err_expr(nodecl_arg))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_called);
+                nodecl_free(nodecl_argument_list);
                 return;
             }
 
@@ -11821,7 +11961,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
         // Although conversion function id's are technically subject to argument dependent lookup
         // they never receive arguments and they always will be members. The latter property makes
         // that argument dependent lookup is actually not applied to conversion functions!!!
-        else 
+        else
         {
             check_expression_impl_(called_expression, decl_context, &nodecl_called);
         }
@@ -11883,6 +12023,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     if (nodecl_is_err_expr(nodecl_called))
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+        nodecl_free(nodecl_called);
+        nodecl_free(nodecl_argument_list);
         return;
     }
 
@@ -11975,14 +12117,16 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
     if (nodecl_expr_is_type_dependent(nodecl_lhs)
             || nodecl_expr_is_type_dependent(nodecl_rhs))
     {
-        *nodecl_output = nodecl_make_comma(nodecl_lhs, 
-                nodecl_rhs, 
+        *nodecl_output = nodecl_make_comma(nodecl_lhs,
+                nodecl_rhs,
                 get_unknown_dependent_type(),
                 nodecl_get_locus(nodecl_lhs));
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
@@ -12021,7 +12165,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
         if (!is_error_type(computed_type))
         {
             ERROR_CONDITION(selected_operator == NULL, "Invalid operator", 0);
-            *nodecl_output = 
+            *nodecl_output =
                 cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, locus),
                         /* called name */ nodecl_null(),
@@ -12693,6 +12837,7 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
                     locus_to_str(locus));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(pack);
         return;
     }
 
@@ -13173,6 +13318,8 @@ static void check_nodecl_member_access(
     if (nodecl_is_err_expr(nodecl_accessed))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13255,6 +13402,8 @@ static void check_nodecl_member_access(
                             prettyprint_in_buffer(type_id));
                 }
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_accessed);
+                nodecl_free(nodecl_member);
                 return;
             }
 
@@ -13314,6 +13463,8 @@ static void check_nodecl_member_access(
                         print_type_str(no_ref(accessed_type), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13350,6 +13501,8 @@ static void check_nodecl_member_access(
                         print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13394,6 +13547,8 @@ static void check_nodecl_member_access(
             }
             candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
         candidate_set_free(&candidate_set);
@@ -13402,12 +13557,16 @@ static void check_nodecl_member_access(
                     nodecl_get_locus(nodecl_accessed)))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_accessed);
+            nodecl_free(nodecl_member);
             return;
         }
 
@@ -13454,6 +13613,8 @@ static void check_nodecl_member_access(
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13480,6 +13641,8 @@ static void check_nodecl_member_access(
                     print_type_str(no_ref(accessed_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
         return;
     }
 
@@ -13630,16 +13793,44 @@ static void check_nodecl_member_access(
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
+
             // Note that we do not store anything from the field_path as we
             // will have to reconstruct the accessed subobject when building the
             // function call
-            *nodecl_output = nodecl_make_class_member_access(
-                    nodecl_accessed_out,
-                    /* This symbol goes unused when we see that its type is already an overload */
-                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    /* member literal */ nodecl_shallow_copy(nodecl_member),
-                    t,
-                    nodecl_get_locus(nodecl_accessed));
+
+            if (last_template_args != NULL
+                    && has_dependent_template_parameters(last_template_args))
+            {
+                // A case like this
+                //
+                // struct A
+                // {
+                //    template <typename T>
+                //    void f()
+                //    {
+                //       this->template g<T>(3);
+                //    }
+                // };
+                //
+                // Nothing is dependent but the nodecl_member
+                *nodecl_output = nodecl_make_cxx_class_member_access(
+                        nodecl_accessed_out,
+                        nodecl_member,
+                        get_unknown_dependent_type(),
+                        locus);
+
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                *nodecl_output = nodecl_make_class_member_access(
+                        nodecl_accessed_out,
+                        /* This symbol goes unused when we see that its type is already an overload */
+                        nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
+                        /* member literal */ nodecl_shallow_copy(nodecl_member),
+                        t,
+                        nodecl_get_locus(nodecl_accessed));
+            }
 
             ok = 1;
         }
@@ -13650,6 +13841,8 @@ static void check_nodecl_member_access(
     if (!ok)
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_accessed);
+        nodecl_free(nodecl_member);
     }
 }
 
@@ -13732,7 +13925,7 @@ static void check_postoperator_user_defined(
                 get_operator_function_name(operator),
                 nodecl_get_locus(postoperated_expr));
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, nodecl_get_locus(postoperated_expr));
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, argument_types, num_arguments,
@@ -13779,6 +13972,7 @@ static void check_postoperator_user_defined(
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
         candidate_set_free(&candidate_set);
+        nodecl_free(postoperated_expr);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -13787,6 +13981,7 @@ static void check_postoperator_user_defined(
                 nodecl_get_locus(postoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+        nodecl_free(postoperated_expr);
         return;
     }
 
@@ -13806,6 +14001,7 @@ static void check_postoperator_user_defined(
                             nodecl_get_locus(postoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                    nodecl_free(postoperated_expr);
                     return;
                 }
 
@@ -13882,7 +14078,7 @@ static void check_preoperator_user_defined(AST operator,
                 get_operator_function_name(operator),
                 nodecl_get_locus(preoperated_expr));
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-            argument_types, decl_context, nodecl_op_name);
+            argument_types, decl_context, nodecl_op_name, nodecl_get_locus(preoperated_expr));
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, argument_types, num_arguments,
@@ -13927,6 +14123,7 @@ static void check_preoperator_user_defined(AST operator,
         }
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
     }
     candidate_set_free(&candidate_set);
@@ -13934,8 +14131,8 @@ static void check_preoperator_user_defined(AST operator,
     if (function_has_been_deleted(decl_context, overloaded_call, nodecl_get_locus(preoperated_expr)))
     {
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
-    
     }
 
     if (!overloaded_call->entity_specs.is_member)
@@ -13953,6 +14150,7 @@ static void check_preoperator_user_defined(AST operator,
                 if (function_has_been_deleted(decl_context, conversors[0], nodecl_get_locus(preoperated_expr)))
                 {
                     *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+                    nodecl_free(preoperated_expr);
                     return;
                 }
 
@@ -13989,7 +14187,7 @@ static void check_preoperator_user_defined(AST operator,
     return;
 }
 
-static char postoperator_incr_pred(type_t* lhs, type_t* rhs)
+static char postoperator_incr_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
@@ -13998,7 +14196,7 @@ static char postoperator_incr_pred(type_t* lhs, type_t* rhs)
             && is_zero_type_or_nullptr_type(rhs));
 }
 
-static char postoperator_decr_pred(type_t* lhs, type_t* rhs)
+static char postoperator_decr_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
@@ -14009,7 +14207,8 @@ static char postoperator_decr_pred(type_t* lhs, type_t* rhs)
 }
 
 static type_t* postoperator_result(type_t** lhs, 
-        type_t** rhs UNUSED_PARAMETER // This one holds a zero type
+        type_t** rhs UNUSED_PARAMETER, // This one holds a zero type
+        const locus_t* locus UNUSED_PARAMETER
         )
 {
     // a++ returns a value, not a reference
@@ -14023,10 +14222,12 @@ static void check_nodecl_postoperator(AST operator,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
+    const locus_t* locus = nodecl_get_locus(postoperated_expr);
     if (nodecl_is_err_expr(postoperated_expr))
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
+        nodecl_free(postoperated_expr);
         return;
     }
 
@@ -14067,6 +14268,7 @@ static void check_nodecl_postoperator(AST operator,
                             is_decrement ? "postdecrement" : "postincrement");
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                nodecl_free(postoperated_expr);
                 return;
             }
             if (is_const_qualified_type(no_ref(operated_type)))
@@ -14079,6 +14281,7 @@ static void check_nodecl_postoperator(AST operator,
                             is_decrement ? "postdecrement" : "postincrement");
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+                nodecl_free(postoperated_expr);
                 return;
             }
 
@@ -14099,11 +14302,12 @@ static void check_nodecl_postoperator(AST operator,
                         is_decrement ? "postdecrement" : "postincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
+            nodecl_free(postoperated_expr);
             return;
         }
     }
 
-    char (*postoperator_pred)(type_t*, type_t*);
+    char (*postoperator_pred)(type_t*, type_t*, const locus_t* locus);
     if (is_decrement)
     {
         postoperator_pred = postoperator_decr_pred;
@@ -14122,7 +14326,8 @@ static void check_nodecl_postoperator(AST operator,
             &builtin_set,
             decl_context, operator,
             postoperator_pred,
-            postoperator_result);
+            postoperator_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -14133,7 +14338,7 @@ static void check_nodecl_postoperator(AST operator,
     entry_list_free(builtins);
 }
 
-static char preoperator_incr_pred(type_t* lhs)
+static char preoperator_incr_pred(type_t* lhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
@@ -14141,7 +14346,7 @@ static char preoperator_incr_pred(type_t* lhs)
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs)));
 }
 
-static char preoperator_decr_pred(type_t* lhs)
+static char preoperator_decr_pred(type_t* lhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
@@ -14150,7 +14355,7 @@ static char preoperator_decr_pred(type_t* lhs)
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs)));
 }
 
-static type_t* preoperator_result(type_t** lhs)
+static type_t* preoperator_result(type_t** lhs, const locus_t* locus UNUSED_PARAMETER)
 {
     return *lhs;
 }
@@ -14160,10 +14365,12 @@ static void check_nodecl_preoperator(AST operator,
         char is_decrement, nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const locus_t*),
         nodecl_t* nodecl_output)
 {
+    const locus_t* locus = nodecl_get_locus(preoperated_expr);
     if (nodecl_is_err_expr(preoperated_expr))
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(preoperated_expr));
+        nodecl_free(preoperated_expr);
         return;
     }
 
@@ -14194,6 +14401,7 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
 
@@ -14207,6 +14415,7 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
 
@@ -14227,11 +14436,12 @@ static void check_nodecl_preoperator(AST operator,
                         is_decrement ? "predecrement" : "preincrement");
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
+            nodecl_free(preoperated_expr);
             return;
         }
     }
 
-    char (*preoperator_pred)(type_t*);
+    char (*preoperator_pred)(type_t*, const locus_t* locus);
     if (is_decrement)
     {
         preoperator_pred = preoperator_decr_pred;
@@ -14248,7 +14458,8 @@ static void check_nodecl_preoperator(AST operator,
             &builtin_set,
             decl_context, operator, 
             preoperator_pred,
-            preoperator_result);
+            preoperator_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -14561,6 +14772,7 @@ static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr,
     if (nodecl_is_err_expr(nodecl_typeid_expr))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_typeid_expr);
         return;
     }
 
@@ -14568,6 +14780,7 @@ static void check_nodecl_typeid_expr(nodecl_t nodecl_typeid_expr,
     if (typeid_type_class == NULL)
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_typeid_expr);
         return;
     }
 
@@ -14862,6 +15075,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_locus_to_str(braced_initializer));
                 }
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(braced_initializer);
                 return;
             }
 
@@ -14877,20 +15091,30 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         && (is_array_type(no_ref(type_element))
                             && (is_char_type(array_type_get_element_type(no_ref(type_element)))
                                 || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_char16_t_type(array_type_get_element_type(no_ref(type_element)))
+                                || is_char32_t_type(array_type_get_element_type(no_ref(type_element)))
                                )
                            )
                    )
                 {
                     // Attempt an interpretation like char a[] = "hello";
                     enter_test_expression();
-                    check_nodecl_expr_initializer(nodecl_get_child(nodecl_list_head(initializer_clause_list), 0),
+                    nodecl_t nodecl_tmp = nodecl_shallow_copy(
+                            nodecl_get_child(nodecl_list_head(initializer_clause_list), 0)
+                            );
+                    check_nodecl_expr_initializer(nodecl_tmp,
                             decl_context,
                             declared_type,
                             nodecl_output);
                     leave_test_expression();
 
                     if (!nodecl_is_err_expr(*nodecl_output))
+                    {
+                        // It succeeded
                         return;
+                    }
+                    nodecl_free(*nodecl_output);
+                    *nodecl_output = nodecl_null();
                 }
             }
 
@@ -14918,6 +15142,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                         nodecl_locus_to_str(braced_initializer));
                             }
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                         if (!nodecl_is_constant(array_type_get_array_size_expr(declared_type)))
@@ -14928,6 +15153,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                         nodecl_locus_to_str(braced_initializer));
                             }
                             *nodecl_output = nodecl_make_err_expr(locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                         type_stack[type_stack_idx].num_items =
@@ -15077,6 +15303,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
+                        nodecl_free(braced_initializer);
                         return;
                     }
 
@@ -15106,7 +15333,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     {
                         nodecl_t nodecl_init_output = nodecl_null();
                         enter_test_expression();
-                        check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context,
+                        nodecl_t nodecl_tmp = nodecl_shallow_copy(nodecl_initializer_clause);
+                        check_nodecl_initializer_clause(nodecl_tmp, decl_context,
                                 type_to_be_initialized, &nodecl_init_output);
                         leave_test_expression();
                         if (!nodecl_is_err_expr(nodecl_init_output))
@@ -15118,6 +15346,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             type_stack[type_stack_idx].item++;
                             continue;
                         }
+                        nodecl_free(nodecl_init_output);
                     }
 
                     // Now we have to initialize an aggregate but the syntax lacks braces, so we have to push this item
@@ -15259,6 +15488,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         print_type_str(declared_type, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(braced_initializer);
         }
         return;
     }
@@ -15352,6 +15582,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 xfree(nodecl_list);
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
+                nodecl_free(braced_initializer);
                 return;
             }
             else
@@ -15361,6 +15592,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 {
                     *nodecl_output = nodecl_make_err_expr(
                             locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
                 for (i = 0; i < num_args; i++)
@@ -15372,6 +15604,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         {
                             *nodecl_output = nodecl_make_err_expr(
                                     locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                     }
@@ -15469,6 +15702,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 }
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
+                nodecl_free(braced_initializer);
                 return;
             }
             else
@@ -15478,6 +15712,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 {
                     *nodecl_output = nodecl_make_err_expr(
                             locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
 
@@ -15491,6 +15726,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         {
                             *nodecl_output = nodecl_make_err_expr(
                                     locus);
+                            nodecl_free(braced_initializer);
                             return;
                         }
                     }
@@ -15553,8 +15789,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         error_printf("%s: error: brace initialization with more than one element is not valid here\n",
                                 nodecl_locus_to_str(braced_initializer));
                     }
-                    *nodecl_output = nodecl_make_err_expr(
-                            locus);
+                    *nodecl_output = nodecl_make_err_expr(locus);
+                    nodecl_free(braced_initializer);
                     return;
                 }
                 C_LANGUAGE()
@@ -15585,6 +15821,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             if (nodecl_is_err_expr(nodecl_expr_out))
             {
                 *nodecl_output = nodecl_expr_out;
+                nodecl_free(braced_initializer);
                 return;
             }
 
@@ -15750,6 +15987,7 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     {
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(nodecl_designation));
+        nodecl_free(nodecl_designation);
     }
 }
 
@@ -15823,6 +16061,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             entry_list_free(candidates);
 
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(direct_initializer);
             return;
         }
         else
@@ -15831,6 +16070,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             if (function_has_been_deleted(decl_context, chosen_constructor, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(direct_initializer);
                 return;
             }
 
@@ -15872,6 +16112,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     if (is_error_type(default_argument_promoted_type))
                     {
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
+                        nodecl_free(direct_initializer);
                         return;
                     }
                 }
@@ -15900,6 +16141,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             }
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
+            nodecl_free(direct_initializer);
         }
         else if (nodecl_list_length(nodecl_list) == 1)
         {
@@ -16000,12 +16242,12 @@ void check_initializer_clause(AST initializer, decl_context_t decl_context, type
 }
 
 
-static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs)
+static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs, const locus_t* locus)
 {
     if (is_pointer_to_class_type(no_ref(lhs))
             && is_pointer_to_member_type(no_ref(rhs))
-            && class_type_is_base(pointer_type_get_pointee_type(no_ref(lhs)), 
-                    pointer_to_member_type_get_class_type(no_ref(rhs))))
+            && class_type_is_base_instantiating(pointer_type_get_pointee_type(no_ref(lhs)), 
+                    pointer_to_member_type_get_class_type(no_ref(rhs)), locus))
     {
         return 1;
     }
@@ -16013,7 +16255,7 @@ static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs)
     return 0;
 }
 
-static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs)
+static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* c1 = pointer_type_get_pointee_type(no_ref(*lhs));
     // type_t* c2 = pointer_to_member_type_get_class_type(no_ref(*rhs));
@@ -16036,6 +16278,8 @@ static void check_nodecl_pointer_to_pointer_member(
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16074,6 +16318,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16085,6 +16331,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16097,9 +16345,10 @@ static void check_nodecl_pointer_to_pointer_member(
         if (!equivalent_types(
                     get_actual_class_type(pm_class_type),
                     get_actual_class_type(pointed_lhs_type))
-                && !class_type_is_base(
+                && !class_type_is_base_instantiating(
                     get_actual_class_type(pm_class_type),
-                    get_actual_class_type(pointed_lhs_type)))
+                    get_actual_class_type(pointed_lhs_type),
+                    locus))
         {
             if (!checking_ambiguity())
             {
@@ -16109,6 +16358,8 @@ static void check_nodecl_pointer_to_pointer_member(
                         print_type_str(no_ref(pointed_lhs_type), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_lhs);
+            nodecl_free(nodecl_rhs);
             return;
         }
 
@@ -16151,7 +16402,8 @@ static void check_nodecl_pointer_to_pointer_member(
             &builtin_set,
             decl_context, operation_tree, 
             operator_bin_pointer_to_pm_pred,
-            operator_bin_pointer_to_pm_result);
+            operator_bin_pointer_to_pm_result,
+            locus);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -16190,6 +16442,8 @@ static void check_nodecl_pointer_to_pointer_member(
     }
 
     *nodecl_output = nodecl_make_err_expr(locus);
+    nodecl_free(nodecl_lhs);
+    nodecl_free(nodecl_rhs);
 }
 
 static void check_pointer_to_pointer_to_member(AST expression, 
@@ -16223,6 +16477,8 @@ static void check_nodecl_pointer_to_member(
             || nodecl_is_err_expr(nodecl_rhs))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16249,6 +16505,8 @@ static void check_nodecl_pointer_to_member(
                     nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
     if (!is_pointer_to_member_type(no_ref(rhs_type)))
@@ -16259,6 +16517,8 @@ static void check_nodecl_pointer_to_member(
                     nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16267,9 +16527,10 @@ static void check_nodecl_pointer_to_member(
 
     if (!equivalent_types(get_actual_class_type(no_ref(pm_class_type)), 
                 get_actual_class_type(no_ref(lhs_type))) 
-            && !class_type_is_base(
+            && !class_type_is_base_instantiating(
                 get_actual_class_type(no_ref(pm_class_type)),
-                get_actual_class_type(no_ref(lhs_type))))
+                get_actual_class_type(no_ref(lhs_type)),
+                locus))
     {
         if (!checking_ambiguity())
         {
@@ -16278,6 +16539,8 @@ static void check_nodecl_pointer_to_member(
                     print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
         return;
     }
 
@@ -16589,6 +16852,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 print_declarator(nodecl_get_type(nodecl_expr)),
                 print_declarator(declared_type));
     }
+    const locus_t* locus = nodecl_get_locus(nodecl_expr);
     type_t* initializer_expr_type = nodecl_get_type(nodecl_expr);
     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
 
@@ -16614,20 +16878,21 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     C_LANGUAGE()
     {
         standard_conversion_t standard_conversion_sequence;
-        if (!standard_conversion_between_types(
+
+        char can_be_initialized = 
+            (is_string_literal_type(initializer_expr_type)
+             && is_array_type(declared_type_no_cv)
+             && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
+            || standard_conversion_between_types(
                     &standard_conversion_sequence,
                     initializer_expr_type,
-                    declared_type_no_cv)
-                && !(is_array_type(declared_type_no_cv)
-                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                && !(is_array_type(declared_type_no_cv)
-                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-           )
+                    declared_type_no_cv,
+                    locus);
+
+        if (!can_be_initialized)
         {
             if (!checking_ambiguity())
             {
@@ -16638,6 +16903,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -16651,21 +16917,26 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
     if (!is_class_type(declared_type_no_cv))
     {
-        if ((!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv,
+        char can_be_initialized = 
+            (is_string_literal_type(initializer_expr_type)
+             && is_array_type(declared_type_no_cv)
+             && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_character_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_char16_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_char16_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
+                 || (is_char32_t_type(array_type_get_element_type(declared_type_no_cv))
+                     && is_char32_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
+            || (type_can_be_implicitly_converted_to(
+                        initializer_expr_type, 
+                        declared_type_no_cv,
                         decl_context,
                         &ambiguous_conversion, &conversor,
                         nodecl_get_locus(nodecl_expr))
-                    || ambiguous_conversion)
-                & !(is_array_type(declared_type_no_cv)
-                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                && !(is_array_type(declared_type_no_cv)
-                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                    && is_literal_string_type(initializer_expr_type)
-                    )
-           )
+                    && !ambiguous_conversion);
+
+        if (!can_be_initialized)
         {
             if (!checking_ambiguity())
             {
@@ -16676,6 +16947,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -16764,6 +17036,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             entry_list_free(candidates);
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            nodecl_free(nodecl_expr);
             return;
         }
         else
@@ -16772,6 +17045,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             if (function_has_been_deleted(decl_context, chosen_constructor, nodecl_get_locus(nodecl_expr)))
             {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                nodecl_free(nodecl_expr);
                 return;
             }
 
@@ -16864,6 +17138,7 @@ void check_nodecl_initialization(
                             nodecl_locus_to_str(nodecl_initializer));
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+                nodecl_free(nodecl_initializer);
                 return;
             }
         }
@@ -16920,6 +17195,7 @@ void check_nodecl_initialization(
                         print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
+            nodecl_free(nodecl_initializer);
             return;
         }
     }
@@ -17105,7 +17381,8 @@ AST advance_expression_nest_flags(AST expr, char advance_parentheses)
     }
 }
 
-static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, decl_context_t decl_context)
+static void accessible_types_through_conversion(type_t* t, type_t ***result, int *num_types, decl_context_t decl_context,
+        const locus_t* locus)
 {
     ERROR_CONDITION(is_unresolved_overloaded_type(t), 
             "Do not invoke this function on unresolved overloaded types", 0);
@@ -17127,8 +17404,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
         {
             scope_entry_t* symbol = named_type_get_symbol(t);
             instantiate_template_class_if_needed(symbol, decl_context, 
-                    // FIXME - Locus was lost here!
-                    make_locus("", 0, 0));
+                    locus);
         }
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
@@ -17156,7 +17432,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 
                 standard_conversion_t first_sc;
                 if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
-                            implicit_parameter))
+                            implicit_parameter, locus))
                 {
                     P_LIST_ADD_ONCE(*result, *num_types, destination_type);
                 }
@@ -17171,15 +17447,16 @@ static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
-        char (*property)(type_t*),
-        type_t* (*result_type)(type_t**))
+        char (*property)(type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, const locus_t*),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         // Add ourselves because we might be things like 'int&'
         // or 'T*&'
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
@@ -17191,13 +17468,13 @@ void build_unary_builtin_operators(type_t* t1,
     for (i = 0; i < num_accessibles_1; i++)
     {
         type_t* accessible_from_t1 = accessibles_1[i];
-        if (property(accessible_from_t1))
+        if (property(accessible_from_t1, locus))
         {
             int num_parameters = 1;
 
             type_t* adjusted_t1 = accessible_from_t1;
 
-            type_t* function_result_type = result_type(&adjusted_t1);
+            type_t* function_result_type = result_type(&adjusted_t1, locus);
 
             ERROR_CONDITION(function_result_type == NULL 
                     || is_error_type(function_result_type), "This type cannot be NULL!", 0);
@@ -17250,8 +17527,9 @@ void build_binary_builtin_operators(type_t* t1,
         type_t* t2, 
         builtin_operators_set_t *result,
         decl_context_t decl_context, AST operator, 
-        char (*property)(type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**))
+        char (*property)(type_t*, type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, type_t**, const locus_t*),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
@@ -17261,13 +17539,13 @@ void build_binary_builtin_operators(type_t* t1,
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t2)))
     {
-        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context);
+        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context, locus);
         P_LIST_ADD(accessibles_2, num_accessibles_2, t2);
     }
 
@@ -17282,14 +17560,14 @@ void build_binary_builtin_operators(type_t* t1,
         {
             type_t* accessible_from_t2 = accessibles_2[j];
 
-            if (property(accessible_from_t1, accessible_from_t2))
+            if (property(accessible_from_t1, accessible_from_t2, locus))
             {
                 int num_parameters = 2;
 
                 type_t* adjusted_t1 = accessible_from_t1;
                 type_t* adjusted_t2 = accessible_from_t2;
 
-                type_t* function_result_type = result_type(&adjusted_t1, &adjusted_t2);
+                type_t* function_result_type = result_type(&adjusted_t1, &adjusted_t2, locus);
 
                 ERROR_CONDITION(function_result_type == NULL 
                         || is_error_type(function_result_type), "This type cannot be NULL!", 0);
@@ -17358,8 +17636,9 @@ void build_ternary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
         // Note that since no ternary operator actually exists we use a faked name
         decl_context_t decl_context, char* operator_name, 
-        char (*property)(type_t*, type_t*, type_t*),
-        type_t* (*result_type)(type_t**, type_t**, type_t**))
+        char (*property)(type_t*, type_t*, type_t*, const locus_t*),
+        type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
+        const locus_t* locus)
 {
     type_t** accessibles_1 = NULL;
     int num_accessibles_1 = 0;
@@ -17372,19 +17651,19 @@ void build_ternary_builtin_operators(type_t* t1,
 
     if (!is_unresolved_overloaded_type(no_ref(t1)))
     {
-        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context);
+        accessible_types_through_conversion(no_ref(t1), &accessibles_1, &num_accessibles_1, decl_context, locus);
         P_LIST_ADD(accessibles_1, num_accessibles_1, t1);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t2)))
     {
-        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context);
+        accessible_types_through_conversion(no_ref(t2), &accessibles_2, &num_accessibles_2, decl_context, locus);
         P_LIST_ADD(accessibles_2, num_accessibles_2, t2);
     }
 
     if (!is_unresolved_overloaded_type(no_ref(t3)))
     {
-        accessible_types_through_conversion(no_ref(t3), &accessibles_3, &num_accessibles_3, decl_context);
+        accessible_types_through_conversion(no_ref(t3), &accessibles_3, &num_accessibles_3, decl_context, locus);
         P_LIST_ADD(accessibles_3, num_accessibles_3, t3);
     }
 
@@ -17406,7 +17685,8 @@ void build_ternary_builtin_operators(type_t* t1,
 
                 if (property(accessible_from_t1, 
                             accessible_from_t2, 
-                            accessible_from_t3))
+                            accessible_from_t3,
+                            locus))
                 {
                     int num_parameters = 3;
 
@@ -17414,7 +17694,8 @@ void build_ternary_builtin_operators(type_t* t1,
                     type_t* adjusted_t2 = accessible_from_t2;
                     type_t* adjusted_t3 = accessible_from_t3;
 
-                    type_t* function_result_type = result_type(&adjusted_t1, &adjusted_t2, &adjusted_t3);
+                    type_t* function_result_type = result_type(&adjusted_t1, &adjusted_t2, &adjusted_t3,
+                            locus);
 
                     ERROR_CONDITION(function_result_type == NULL 
                             || is_error_type(function_result_type), "This type cannot be NULL!", 0);
@@ -17514,6 +17795,7 @@ static void check_sizeof_type(type_t* t,
                         print_type_str(t, decl_context));
             }
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -17913,6 +18195,7 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
             }
 
             *nodecl_output = nodecl_make_err_expr(locus);
+            nodecl_free(nodecl_expr);
             return;
         }
 
@@ -18013,6 +18296,7 @@ static void check_gcc_alignof_type(type_t* t,
                     print_type_str(t, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(locus);
+        nodecl_free(nodecl_expr);
         return;
     }
 
@@ -18553,7 +18837,10 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
         type_t *current_expr_type = nodecl_get_type(current_expr);
 
         standard_conversion_t scs;
-        if (!standard_conversion_between_types(&scs, no_ref(current_expr_type), get_signed_int_type()))
+        if (!standard_conversion_between_types(&scs,
+                    no_ref(current_expr_type),
+                    get_signed_int_type(),
+                    locus))
         {
             if (!checking_ambiguity())
             {
@@ -19085,7 +19372,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         {
             candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
-            if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
+            if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 return 0;
             }
@@ -19194,7 +19481,7 @@ char check_move_assignment_operator(scope_entry_t* entry,
         {
             candidate_set_free(&candidate_set);
             entry_list_free(operator_overload_set);
-            if (function_has_been_deleted(decl_context, overloaded_call, make_locus("", 0, 0)))
+            if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 return 0;
             }
@@ -20291,6 +20578,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
         }
 
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        nodecl_free(nodecl_expr);
         return 0;
     }
 
@@ -20304,6 +20592,7 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
                     codegen_to_str(nodecl_expr, decl_context));
         }
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+        nodecl_free(nodecl_expr);
         return 0;
     }
 
@@ -20407,13 +20696,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, de
 
 nodecl_t instantiate_expression(
         nodecl_t nodecl_expr, decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map,
+        instantiation_symbol_map_t* instantiation_symbol_map_,
         int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
-    v.instantiation_symbol_map = instantiation_symbol_map;
+    v.instantiation_symbol_map = instantiation_symbol_map_;
 
     char do_not_evaluate = check_expr_flags.do_not_evaluate;
     check_expr_flags.do_not_evaluate = 0;
@@ -20457,14 +20746,14 @@ static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodec
 }
 
 
-static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts)
+static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts, const locus_t* locus)
 {
     if (sym == NULL
             || sym->symbol_name == NULL)
         return;
     ERROR_CONDITION(sym->kind != SK_NAMESPACE, "Invalid symbol", 0);
 
-    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts);
+    add_namespaces_rec(sym->decl_context.current_scope->related_entry, nodecl_extended_parts, locus);
 
     if (strcmp(sym->symbol_name, "(unnamed)") == 0)
     {
@@ -20473,19 +20762,20 @@ static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_par
     else
     {
         *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, 
-                nodecl_make_cxx_dep_name_simple(sym->symbol_name, make_locus("", 0, 0)));
+                nodecl_make_cxx_dep_name_simple(sym->symbol_name, locus));
     }
 }
 
-static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context)
+static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts, decl_context_t decl_context,
+        const locus_t* locus)
 {
     scope_entry_t* class_sym = named_type_get_symbol(class_type);
     if (class_sym->entity_specs.is_member)
     {
-        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts, decl_context);
+        add_classes_rec(class_sym->entity_specs.class_type, nodecl_extended_parts, decl_context, locus);
     }
 
-    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, make_locus("", 0, 0));
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, locus);
     if (is_template_specialized_type(class_type))
     {
         nodecl_name = nodecl_make_cxx_dep_template_id(
@@ -20494,9 +20784,9 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(class_type),
-                    make_locus("", 0, 0),
+                    locus,
                     /* pack_index */ -1),
-                make_locus("", 0, 0));
+                locus);
     }
 
     *nodecl_extended_parts = nodecl_append_to_list(*nodecl_extended_parts, nodecl_name);
@@ -20534,7 +20824,8 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
         char dependent_entry_already_updated,
-        int pack_index)
+        int pack_index,
+        const locus_t* locus)
 {
     // This may be left null if the dependent_entry is not a SK_DEPENDENT_ENTITY
     nodecl_t nodecl_already_updated_extended_parts = nodecl_null();
@@ -20548,13 +20839,13 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 &nodecl_already_updated_extended_parts);
     }
 
-    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts);
+    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts, locus);
 
     if (dependent_entry->entity_specs.is_member)
-        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context);
+        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context, locus);
 
     // The dependent entry itself
-    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, make_locus("", 0, 0));
+    nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, locus);
     if (is_template_specialized_type(dependent_entry->type_information))
     {
         template_parameter_list_t* argument_list =
@@ -20566,14 +20857,14 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 update_template_argument_list(
                         decl_context,
                         template_specialized_type_get_template_arguments(dependent_entry->type_information),
-                        make_locus("", 0, 0),
+                        locus,
                         pack_index);
         }
 
         nodecl_name = nodecl_make_cxx_dep_template_id(nodecl_name,
                 /* template tag */ "",
                 argument_list,
-                make_locus("", 0, 0));
+                locus);
     }
 
     nodecl_extended_parts = nodecl_append_to_list(nodecl_extended_parts, nodecl_name);
@@ -20599,7 +20890,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                     update_template_argument_list(
                         decl_context,
                         nodecl_get_template_parameters(copied_part),
-                        make_locus("", 0, 0),
+                        locus,
                         pack_index));
         }
 
@@ -20620,7 +20911,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
     }
 
     nodecl_t result =
-        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, make_locus("", 0, 0));
+        nodecl_make_cxx_dep_fun_name(nodecl_extended_parts, locus);
 
     return result;
 }
@@ -20670,7 +20961,8 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
             list_of_dependent_parts,
             v->decl_context,
             dependent_entry_already_updated,
-            v->pack_index);
+            v->pack_index,
+            nodecl_get_locus(node));
 
     cxx_compute_name_from_entry_list(
             complete_nodecl_name,
@@ -20724,6 +21016,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         else
         {
             result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(node);
         }
     }
     else if (sym->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
@@ -20755,6 +21048,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             else
             {
                 result = nodecl_make_err_expr(nodecl_get_locus(node));
+                nodecl_free(node);
             }
         }
         else if (argument->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
@@ -20775,6 +21069,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         else
         {
             result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(node);
         }
     }
     else if (sym->kind == SK_VARIABLE
@@ -20942,6 +21237,8 @@ static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -20983,6 +21280,8 @@ static void instantiate_logical_and(nodecl_instantiate_expr_visitor_t* v, nodecl
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -21024,6 +21323,8 @@ static void instantiate_logical_or(nodecl_instantiate_expr_visitor_t* v, nodecl_
             || nodecl_is_err_expr(nodecl_rhs))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_lhs);
+        nodecl_free(nodecl_rhs);
     }
     else
     {
@@ -21047,6 +21348,7 @@ static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
     if (nodecl_is_err_expr(nodecl_op))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_op);
     }
     else
     {
@@ -21091,6 +21393,7 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
         if (nodecl_is_err_expr(nodecl_new_item))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(nodecl_new_item);
             return;
         }
 
@@ -21113,6 +21416,7 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     if (nodecl_is_err_expr(nodecl_op))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_op);
     }
     else if (nodecl_get_kind(nodecl_op) == NODECL_SYMBOL)
     {
@@ -21171,6 +21475,8 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
         if (nodecl_is_err_expr(current_arg))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(new_list);
+            nodecl_free(current_arg);
             return;
         }
 
@@ -21209,6 +21515,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     if (nodecl_is_err_expr(nodecl_called))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(nodecl_called);
         return;
     }
 
@@ -21227,6 +21534,8 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
         if (nodecl_is_err_expr(current_arg))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(new_list);
+            nodecl_free(current_arg);
             return;
         }
 
@@ -21285,6 +21594,7 @@ static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     if (nodecl_is_err_expr(lhs_type_inst))
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(lhs_type_inst);
         return;
     }
     type_t* instantiated_type_lhs = nodecl_get_type(lhs_type_inst);
@@ -21297,6 +21607,8 @@ static void instantiate_gxx_trait(nodecl_instantiate_expr_visitor_t* v, nodecl_t
         if (nodecl_is_err_expr(rhs_type_inst_opt))
         {
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(lhs_type_inst);
+            nodecl_free(rhs_type_inst_opt);
             return;
         }
     }
@@ -21324,6 +21636,7 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     if (nodecl_is_err_expr(expr))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expr);
     }
     else
     {
@@ -21371,6 +21684,7 @@ static void instantiate_dep_alignof_expr(nodecl_instantiate_expr_visitor_t* v, n
     if (nodecl_is_err_expr(expr))
     {
         result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expr);
     }
     else
     {
@@ -21750,6 +22064,8 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     if (len < 0)
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
+        nodecl_free(expansion);
+        nodecl_free(packed_expr);
         return;
     }
 

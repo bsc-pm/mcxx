@@ -70,6 +70,9 @@ namespace TL { namespace Nanox {
         Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
         OutlineInfo outline_info(environment,function_symbol);
 
+        Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::TaskLabel>();
+
         // Handle the special object 'this'
         if (IS_CXX_LANGUAGE
                 && !function_symbol.is_static()
@@ -134,7 +137,7 @@ namespace TL { namespace Nanox {
                 target_info,
                 /* original statements */ statements,
                 /* current task statements */ statements,
-                /* task_label */ Nodecl::NodeclBase::null(),
+                task_label,
                 structure_symbol,
                 called_task_dummy);
 
@@ -183,6 +186,12 @@ namespace TL { namespace Nanox {
         }
 
         // This function replaces the current construct
-        parallel_spawn(outline_info, construct, num_replicas, parallel_environment.if_condition, outline_name, structure_symbol);
+        parallel_spawn(outline_info,
+                construct,
+                num_replicas,
+                parallel_environment.if_condition,
+                outline_name,
+                structure_symbol,
+                task_label);
     }
 } }

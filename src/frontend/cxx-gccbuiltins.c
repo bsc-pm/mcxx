@@ -3244,9 +3244,14 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             }
             else
             {
+                // We do not have locus
+                const locus_t* locus = make_locus("", 0, 0);
                 // Allow conversions here
                 standard_conversion_t scs;
-                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
+                all_arguments_matched = standard_conversion_between_types(&scs,
+                        argument_type,
+                        parameter_type,
+                        locus);
             }
         }
 
@@ -3372,4 +3377,108 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
     }
 
 #include "cxx-gccbuiltins-sse.h"
+}
+
+char is_intel_vector_struct_type(type_t* t, int *size)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+#define VECTOR_SIZE(n)  \
+    VECTOR_SIZE_(_, n) \
+    VECTOR_SIZE_(d_, n) \
+    VECTOR_SIZE_(i_, n)
+
+#define VECTOR_TESTS \
+            VECTOR_SIZE(128) \
+            VECTOR_SIZE(256) \
+            VECTOR_SIZE(512) \
+
+#define VECTOR_SIZE_(p, n) \
+    if (equivalent_types(t, get_m##n##p##struct_type())) \
+    { \
+        if (size != NULL) *size = n / 8; \
+        return 1; \
+    } else
+
+    VECTOR_TESTS
+    return 0;
+
+#undef VECTOR_SIZE_
+#undef VECTOR_SIZE
+#undef VECTOR_TESTS
+
+    return 0;
+}
+
+// This function allows conversion between logically equivalent vector types
+// and Intel structs
+char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    if (!is_vector_type(orig)
+            || is_vector_type(dest))
+        return 0;
+
+    int vector_size = vector_type_get_vector_size(no_ref(orig));
+    type_t* element_type = vector_type_get_element_type(no_ref(orig));
+    type_t* dest_struct = get_unqualified_type(no_ref(dest));
+
+    return (((vector_size == 16)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m128_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m128d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
+            || ((vector_size == 32)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m256_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m256d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
+            || ((vector_size == 64)
+                && ((is_float_type(element_type)
+                        && equivalent_types(dest_struct, get_m512_struct_type()))
+                    || (is_double_type(element_type)
+                        && equivalent_types(dest_struct, get_m512d_struct_type()))
+                    || (is_integral_type(element_type)
+                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
+
+}
+
+// This function allows conversion between vector types of the same size as an Intel struct
+char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest)
+{
+    if (!CURRENT_CONFIGURATION->enable_intel_vector_types)
+        return 0;
+
+    if (!is_vector_type(orig)
+            || is_vector_type(dest))
+        return 0;
+
+    int vector_size = vector_type_get_vector_size(no_ref(orig));
+    // type_t* element_type = vector_type_get_element_type(no_ref(orig));
+    type_t* dest_struct = get_unqualified_type(no_ref(dest));
+
+    switch (vector_size)
+    {
+        case 16:
+            return (equivalent_types(dest_struct, get_m128_struct_type())
+                    || equivalent_types(dest_struct, get_m128d_struct_type())
+                    || equivalent_types(dest_struct, get_m128i_struct_type()));
+        case 32:
+            return (equivalent_types(dest_struct, get_m256_struct_type())
+                    || equivalent_types(dest_struct, get_m256d_struct_type())
+                    || equivalent_types(dest_struct, get_m256i_struct_type()));
+        case 64:
+            return (equivalent_types(dest_struct, get_m512_struct_type())
+                    || equivalent_types(dest_struct, get_m512d_struct_type())
+                    || equivalent_types(dest_struct, get_m512i_struct_type()));
+    }
+
+    return 0;
 }
