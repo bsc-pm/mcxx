@@ -285,7 +285,7 @@ flag_atom : CONFIGFILE_NAME
 }
 | '?' CONFIGFILE_NAME
 {
-    $$ = flag_is_defined($1);
+    $$ = flag_is_defined($2);
 }
 | '(' flag_expr ')'
 {
