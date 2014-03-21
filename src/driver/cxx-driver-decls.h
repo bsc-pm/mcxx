@@ -197,10 +197,18 @@ typedef struct pragma_directive_set_tag
 
 struct compilation_file_process_tag;
 
+typedef
+enum parameter_flag_value_tag
+{
+    PFV_UNDEFINED = 0,
+    PFV_FALSE = 1,
+    PFV_TRUE = 2,
+} parameter_flag_value_t;
+
 typedef struct parameter_flags_tag
 {
     const char *name;
-    char value;
+    parameter_flag_value_t value;
 } parameter_flags_t;
 
 typedef struct compilation_process_tag

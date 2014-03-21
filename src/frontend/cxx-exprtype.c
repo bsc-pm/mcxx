@@ -99,7 +99,12 @@ struct check_expr_flags_tag
     char do_not_fold_into_dependent_typename:1;
 } check_expr_flags_t;
 
-static check_expr_flags_t check_expr_flags = {0};
+static check_expr_flags_t check_expr_flags =
+{
+    .do_not_evaluate = 0,
+    .is_non_executable = 0,
+    .do_not_fold_into_dependent_typename = 0
+};
 
 static
 void build_unary_builtin_operators(type_t* t1,
@@ -13788,16 +13793,44 @@ static void check_nodecl_member_access(
 
             type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
+
             // Note that we do not store anything from the field_path as we
             // will have to reconstruct the accessed subobject when building the
             // function call
-            *nodecl_output = nodecl_make_class_member_access(
-                    nodecl_accessed_out,
-                    /* This symbol goes unused when we see that its type is already an overload */
-                    nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
-                    /* member literal */ nodecl_shallow_copy(nodecl_member),
-                    t,
-                    nodecl_get_locus(nodecl_accessed));
+
+            if (last_template_args != NULL
+                    && has_dependent_template_parameters(last_template_args))
+            {
+                // A case like this
+                //
+                // struct A
+                // {
+                //    template <typename T>
+                //    void f()
+                //    {
+                //       this->template g<T>(3);
+                //    }
+                // };
+                //
+                // Nothing is dependent but the nodecl_member
+                *nodecl_output = nodecl_make_cxx_class_member_access(
+                        nodecl_accessed_out,
+                        nodecl_member,
+                        get_unknown_dependent_type(),
+                        locus);
+
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            }
+            else
+            {
+                *nodecl_output = nodecl_make_class_member_access(
+                        nodecl_accessed_out,
+                        /* This symbol goes unused when we see that its type is already an overload */
+                        nodecl_make_symbol(orig_entry, nodecl_get_locus(nodecl_accessed)),
+                        /* member literal */ nodecl_shallow_copy(nodecl_member),
+                        t,
+                        nodecl_get_locus(nodecl_accessed));
+            }
 
             ok = 1;
         }
@@ -20663,13 +20696,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, de
 
 nodecl_t instantiate_expression(
         nodecl_t nodecl_expr, decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map,
+        instantiation_symbol_map_t* instantiation_symbol_map_,
         int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
-    v.instantiation_symbol_map = instantiation_symbol_map;
+    v.instantiation_symbol_map = instantiation_symbol_map_;
 
     char do_not_evaluate = check_expr_flags.do_not_evaluate;
     check_expr_flags.do_not_evaluate = 0;

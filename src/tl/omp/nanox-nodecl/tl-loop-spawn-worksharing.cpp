@@ -39,7 +39,8 @@ namespace TL { namespace Nanox {
             Nodecl::RangeLoopControl& range,
             const std::string& outline_name,
             TL::Symbol structure_symbol,
-            TL::Symbol slicer_descriptor)
+            TL::Symbol slicer_descriptor,
+            Nodecl::NodeclBase task_label)
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
@@ -127,13 +128,23 @@ namespace TL { namespace Nanox {
             <<         "nanos_handle_error(err);"
             ;
 
+        std::string wd_description;
+        if (!task_label.is_null())
+        {
+            wd_description = task_label.get_text();
+        }
+        else
+        {
+            wd_description = enclosing_function.get_name();
+        }
+
         Source const_wd_info;
         const_wd_info
             << fill_const_wd_info(struct_arg_type_name,
                     /* is_untied */ false,
                     /* mandatory_creation */ true,
                     /* is_function_task */ false,
-                    /* wd_description */ enclosing_function.get_name(),
+                    wd_description,
                     outline_info,
                     construct);
 

@@ -32,6 +32,8 @@ linker_name = @GCC@
 {simd, mmic} options = --variable=mic_enabled:1
 {cluster} options = --variable=nanos_main_enabled:1
 {ompss} options = --variable=ompss_mode:1
+{!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
+{?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 {openmp} compiler_phase = libtlnanox-nanosmain.so

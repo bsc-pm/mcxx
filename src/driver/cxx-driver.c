@@ -943,10 +943,10 @@ int parse_arguments(int argc, const char* argv[],
                                 found = 1;
                                 if (from_command_line
                                         // Still undefined
-                                        || (compilation_process.parameter_flags[i]->value == 2))
+                                        || (compilation_process.parameter_flags[i]->value == PFV_UNDEFINED))
                                 {
-                                    compilation_process.parameter_flags[i]->value = 
-                                        (parameter_info.value == OPTION_OPENMP);
+                                    compilation_process.parameter_flags[i]->value =
+                                        (parameter_info.value == OPTION_OPENMP) ? PFV_TRUE : PFV_FALSE;
                                 }
                             }
                         }
@@ -1745,11 +1745,11 @@ static int parse_implicit_parameter_flag(int * should_advance, const char *param
                     found = 1;
                     if (!negative_flag)
                     {
-                        parameter_flag->value = 1;
+                        parameter_flag->value = PFV_TRUE;
                     }
                     else
                     {
-                        parameter_flag->value = 0;
+                        parameter_flag->value = PFV_FALSE;
                     }
                 }
             }
@@ -2479,7 +2479,7 @@ static void initialize_default_values(void)
     struct parameter_flags_tag *new_parameter_flag = xcalloc(1, sizeof(*new_parameter_flag));
 
     new_parameter_flag->name = uniquestr("openmp");
-    new_parameter_flag->value = 2; // means UNDEFINED
+    new_parameter_flag->value = PFV_UNDEFINED;
 
     P_LIST_ADD(compilation_process.parameter_flags,
             compilation_process.num_parameter_flags,
@@ -2724,8 +2724,7 @@ static void finalize_committed_configuration(compilation_configuration_t* config
         if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
         {
             found = 1;
-            // We check 1 because this option may have values {0, 1, 2}
-            configuration->enable_openmp = (compilation_process.parameter_flags[i]->value == 1);
+            configuration->enable_openmp = (compilation_process.parameter_flags[i]->value == PFV_TRUE);
         }
     }
     if (!found)

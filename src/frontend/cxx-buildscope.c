@@ -18735,7 +18735,7 @@ static void instantiate_object_init(
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map,
+        instantiation_symbol_map_t* instantiation_symbol_map_,
         scope_entry_t* orig_function_instantiated,
         scope_entry_t* new_function_instantiated)
 {
@@ -18746,7 +18746,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     v->orig_decl_context = orig_decl_context;
     v->new_decl_context = new_decl_context;
 
-    v->instantiation_symbol_map = instantiation_symbol_map;
+    v->instantiation_symbol_map = instantiation_symbol_map_;
 
     v->orig_function_instantiated = orig_function_instantiated;
     v->new_function_instantiated = new_function_instantiated;
@@ -18769,13 +18769,13 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 nodecl_t instantiate_statement(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map)
+        instantiation_symbol_map_t* instantiation_symbol_map_)
 {
     nodecl_instantiate_stmt_visitor_t v;
     instantiate_stmt_init_visitor(&v,
             orig_decl_context,
             new_decl_context,
-            instantiation_symbol_map,
+            instantiation_symbol_map_,
             NULL, NULL);
 
     nodecl_t n = instantiate_stmt_walk(&v, orig_tree);
