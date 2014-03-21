@@ -139,6 +139,13 @@ namespace Utils {
                  && ( _type == rhs._type ) && ( _family == rhs._family ) );
     }
 
+    std::string InductionVariableData::print_iv_as_range() const
+    {
+        return ("[" + (_lb.is_null() ? "NULL" : _lb.prettyprint()) + 
+                ":" + (_ub.is_null() ? "NULL" : _ub.prettyprint()) + 
+                ":" + (_incr.is_null() ? "NULL" : _incr.prettyprint()) + "]");
+    }
+    
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 
@@ -152,21 +159,14 @@ namespace Utils {
         for( InductionVarsPerNode::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
         {
             InductionVariableData* iv = it->second;
-            nodecl_t var = iv->get_variable( ).get_nodecl( ).get_internal_nodecl( );
-            nodecl_t lb = iv->get_lb( ).get_internal_nodecl( );
-            nodecl_t ub = iv->get_ub( ).get_internal_nodecl( );
-            nodecl_t incr = iv->get_increment( ).get_internal_nodecl( );
-            std::string type = iv->get_type_as_string( );
-            nodecl_t family = iv->get_family( ).get_internal_nodecl( );
+            Nodecl::NodeclBase family = iv->get_family();
 
             std::cerr << "     * " << it->first
-                      << "  -->  " << codegen_to_str( var, nodecl_retrieve_context( var ) )
-                      << " [ "     << ( nodecl_is_null( lb ) ? "NULL" : codegen_to_str( lb, nodecl_retrieve_context( lb ) ) )
-                      << " : "     << ( nodecl_is_null( ub ) ? "NULL" : codegen_to_str( ub, nodecl_retrieve_context( ub ) ) )
-                      << " : "     << ( nodecl_is_null( incr ) ? "NULL" : codegen_to_str( incr, nodecl_retrieve_context( incr ) ) )
-                      << " ], ["   << type
-                      << ( nodecl_is_null( family ) ? "" : (": " + std::string( codegen_to_str( family, nodecl_retrieve_context( family ) ) ) ) )
-                      << " ]"      << std::endl;
+                      << "  -->  " << iv->get_variable( ).get_nodecl( ).prettyprint()
+                      << iv->print_iv_as_range()
+                      << ", [" << iv->get_type_as_string( )
+                      << ( family.is_null() ? "" : (": " + family.prettyprint()) )
+                      << "]"      << std::endl;
         }
     }
 

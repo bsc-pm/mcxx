@@ -42,6 +42,7 @@ namespace Analysis {
     typedef ObjectList<Edge*> Edge_list;
     
     static int id = 0;
+    static int control_id = 0;
     std::map<Node*, int> control_struct_node_to_id;
     
 namespace{
@@ -237,15 +238,178 @@ namespace{
         
         return condition;
     }
-}
- 
-     
     
+        
+    std::string transform_node_condition_into_json_expr(ControlStructure* cs_node, const Nodecl::NodeclBase& condition, 
+                                                        std::map<TL::Symbol, std::string>& var_id_to_values)
+    {
+        std::string result = condition.prettyprint();
+        
+        // Get the name of each symbol and 
+        // store a map that represents the position of the last replacement
+        ObjectList<std::string> sym_names;
+        std::map<std::string, int> symbol_position_map;
+        ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
+        for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+        {
+            std::string s_name = it->get_symbol().get_name();
+            sym_names.append(s_name);
+            symbol_position_map[s_name] = 0;
+        }
+        
+        // Transform the condition expression into the json expression
+        int i = 1;
+        for(ObjectList<std::string>::iterator it = sym_names.begin(); it != sym_names.end(); ++it, ++i)
+        {
+            // Find the position to be replaced
+            int pos = result.find(*it, symbol_position_map[*it]);
+            // Replace it
+            std::stringstream id_str; id_str << "$" << i;
+            result.replace(pos, it->size(), id_str.str());
+            // Modify the base position
+            symbol_position_map[*it] = pos + (id_str.str().size() - 1);
+        }
+        
+        // Get the values of the involved variables
+        for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+        {
+            if(cs_node->get_type() == Loop)
+            {
+                Node* cs_pcfg_node = cs_node->get_pcfg_node();
+                ObjectList<Utils::InductionVariableData*> ivs = cs_pcfg_node->get_induction_variables();
+                if(Utils::induction_variable_list_contains_variable(ivs, *it))
+                {
+                    Utils::InductionVariableData* iv = get_induction_variable_from_list(ivs, *it);
+                    var_id_to_values[it->get_symbol()] = iv->print_iv_as_range();
+                }
+            }
+            else
+            {
+                
+            }
+        }
+        
+        return result;
+    }
+    
+    struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> {
+        
+        // *** Class members *** //
+        TDG_Edge* _edge;
+        int _id;
+        std::map<TL::Symbol, std::string> _var_id_to_values;
+        
+        // *** Constructor *** //
+        ConditionVisitor(TDG_Edge* edge)
+            : _edge(edge), _id(0), _var_id_to_values()
+        {}
+        
+        std::map<TL::Symbol, std::string> get_var_id_to_values_map()
+        {
+            return _var_id_to_values;
+        }
+        
+        std::string transform_condition_part(int pcfg_node_id, Utils::ext_sym_map reach_defs, const Nodecl::NodeclBase& n)
+        {
+            // Get the names of all involved symbols on the LHS of the condition
+            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(n);
+            std::map<TL::Symbol, Nodecl::NodeclBase> sym_reach_def_map;
+            for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+            {
+                // Get the reaching definition of the symbol from the source node
+                Utils::ExtendedSymbol es(*it);
+                ERROR_CONDITION(reach_defs.find(es)==reach_defs.end(),
+                                "No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
+                                pcfg_node_id, it->get_symbol().get_name().c_str(), 
+                                n.prettyprint().c_str());
+                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> reach_defs_map = reach_defs.equal_range(es);
+                // Store the reaching definitions in the map that relates it with the corresponding symbol
+                Utils::ext_sym_map::iterator itt = reach_defs_map.first;
+                Nodecl::NodeclBase reach_def = itt->second;
+                ++itt;
+                for(; itt != reach_defs_map.second; ++itt)
+                    reach_def = Nodecl::LogicalOr::make(reach_def.shallow_copy(), itt->second, itt->second.get_type());
+                sym_reach_def_map[it->get_symbol()] = reach_def;
+            }
+            // Replace the names by the expression identifier and get the reaching definitions of each variable
+            std::map<std::string, int> sym_name_to_id;
+            std::string result = n.prettyprint();
+            for(std::map<TL::Symbol, Nodecl::NodeclBase>::iterator it = sym_reach_def_map.begin(); it != sym_reach_def_map.end(); ++it)
+            {
+                // First position to be replaced
+                std::string sym_name = it->first.get_name();
+                size_t pos = result.find(sym_name, 0);
+                if(sym_name_to_id.find(sym_name)==sym_name_to_id.end())
+                    sym_name_to_id[sym_name] = ++_id;
+                while((pos != std::string::npos) && (pos < result.size()))
+                {
+                    // Replace the symbol with the identifier
+                    std::stringstream id_str; id_str << "$" << sym_name_to_id[sym_name];
+                    result.replace(pos, sym_name.size(), id_str.str());
+                    // Modify the base position
+                    pos += id_str.str().size() - 1;
+                    // Store the reaching definition related with the identifier of the variable defined
+                    _var_id_to_values[it->first] = sym_reach_def_map[it->first].prettyprint();
+                    // Find the position to be replaced
+                    pos = result.find(sym_name, pos);
+                }
+            }
+            return result;
+        }
+        
+        std::string unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            internal_error( "Unhandled node of type '%s' while visiting TDG condition.\n '%s' ",
+            ast_print_node_type( n.get_kind( ) ), n.prettyprint( ).c_str( ) );
+            return "";
+        }
+        
+        std::string join_list( ObjectList<std::string>& list )
+        {
+            WARNING_MESSAGE("Called method join_list in ConditionVisitor. This is not yet implemented", 0);
+            return "";
+        }
+        
+        // The variables on the LHS correspond to the source of the 'edge'
+        // and the variables on the RHS correspond to the target of the 'edge'
+        std::string visit(const Nodecl::Equal& n)
+        {
+            Node* source = _edge->get_source()->get_pcfg_node();
+            std::string lhs_result = transform_condition_part(source->get_id(), source->get_reaching_definitions_out(), n.get_lhs());
+            Node* target = _edge->get_target()->get_pcfg_node();
+            std::string rhs_result = transform_condition_part(target->get_id(), target->get_reaching_definitions_in(), n.get_rhs());
+            return (lhs_result + " == " + rhs_result);
+        }
+        
+        std::string visit(const Nodecl::LogicalAnd& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return (lhs_result + " && " + rhs_result);
+        }
+    };
+
+    // This method returns a string corresponding to the prettyprinted version of a nodecl
+    // where each symbol occurrence is replaced by a $id
+    // Example:
+    //     The expression :         'i == j'
+    //     Will return the string:  '$1 == $2'
+    std::string transform_edge_condition_into_json_expr(TDG_Edge* edge, const Nodecl::NodeclBase& condition, 
+                                                        std::map<TL::Symbol, std::string>& var_id_to_values)
+    {
+        ConditionVisitor cv(edge);
+        std::string result = cv.walk(condition);
+        var_id_to_values = cv.get_var_id_to_values_map();
+        return result;
+    }
+}
+
     // ******************************************************************* //
     // ************ Task Dependency Graph Control Structures ************* //
     
-    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, const Nodecl::NodeclBase condition)
-        : _id(cs_id), _type(type), _condition(condition)
+    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, 
+                                       const Nodecl::NodeclBase condition, Node* pcfg_node)
+        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node)
     {}
     
     int ControlStructure::get_id()
@@ -263,6 +427,11 @@ namespace{
         return _condition;
     }
     
+    Node* ControlStructure::get_pcfg_node()
+    {
+        return _pcfg_node;
+    }
+    
     // ************ Task Dependency Graph Control Structures ************* //
     // ******************************************************************* //
     
@@ -273,6 +442,16 @@ namespace{
     TDG_Node::TDG_Node(Node* n, TDGNodeType type)
         : _id(++id), _pcfg_node(n), _type(type), _entries(), _exits(), _control_structures()
     {}
+    
+    unsigned int TDG_Node::get_id()
+    {
+        return _id;
+    }
+    
+    Node* TDG_Node::get_pcfg_node()
+    {
+        return _pcfg_node;
+    }
     
     void TDG_Node::add_control_structure(ControlStructure cs)
     {
@@ -467,10 +646,10 @@ namespace{
                     cs_id = control_struct_node_to_id[control_structure];
                 else
                 {
-                    cs_id = ++id;
+                    cs_id = ++control_id;
                     control_struct_node_to_id[control_structure] = cs_id;
                 }
-                ControlStructure cs(cs_id, cs_t, condition);
+                ControlStructure cs(cs_id, cs_t, condition, control_structure);
                 (*it)->add_control_structure(cs);
                 
                 // Prepare next iteration
@@ -598,9 +777,9 @@ namespace{
         // Print the control structures (subgraphs) where the node is enclosed in
         ObjectList<ControlStructure> control_structures = current->get_control_structures();
         std::string indent = "\t";
-        for(ObjectList<ControlStructure>::iterator it = control_structures.begin(); it != control_structures.end(); ++it)
+        for(ObjectList<ControlStructure>::reverse_iterator it = control_structures.rbegin(); it != control_structures.rend(); ++it)
         {
-            dot_tdg << indent << "subgraph cluster" << ++id << "{\n";
+            dot_tdg << indent << "subgraph cluster_" << ++id << "{\n";
             indent += "\t";
             dot_tdg << indent << "label=\"" << it->get_condition().prettyprint() << "\";\n";
             dot_tdg << indent << "color=\"" << (it->get_type()==Loop ? "deeppink" : "deepskyblue1" ) << "\";\n";
@@ -729,43 +908,6 @@ namespace{
         }
     }
     
-    // This method returns a string corresponding to the prettyprinted version of a nodecl
-    // where each symbol occurrence is replaced by a $id
-    // Example:
-    //     The expression :         'i == j'
-    //     Will return the string:  '$1 == $2'
-    static std::string transform_condition_into_json_expr(const Nodecl::NodeclBase& condition)
-    {
-        std::string result = condition.prettyprint();
-        
-        // Get the name of each symbol and 
-        // store a map that represents the position of the last replacement
-        ObjectList<std::string> sym_names;
-        std::map<std::string, int> symbol_position_map;
-        ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
-        for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
-        {
-            std::string s_name = it->get_symbol().get_name();
-            sym_names.append(s_name);
-            symbol_position_map[s_name] = 0;
-        }
-        
-        // Transform the condition expression into the json expression
-        int i = 1;
-        for(ObjectList<std::string>::iterator it = sym_names.begin(); it != sym_names.end(); ++it, ++i)
-        {
-            // Find the position to be replaced
-            int pos = result.find(*it, symbol_position_map[*it]);
-            // Replace it
-            std::stringstream id_str; id_str << "$" << i;
-            result.replace(pos, it->size(), id_str.str());
-            // Modify the base position
-            symbol_position_map[*it] = pos + (id_str.str().size() - 1);
-        }
-        
-        return result;
-    }
-    
     void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent)
     {
         json_tdg << indent << "\"expression\" : ";
@@ -774,39 +916,42 @@ namespace{
         {   
             // Get the condition
             Nodecl::NodeclBase condition;
+            std::map<TL::Symbol, std::string> var_id_to_values;
             if(node_cs != NULL)
+            {
                 condition = node_cs->get_condition();
+                json_tdg << "\"" << transform_node_condition_into_json_expr(node_cs, condition, var_id_to_values) << "\",\n";
+            }
             else
+            {
                 condition = edge->_condition;
-            ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
-            json_tdg << "\"" << transform_condition_into_json_expr(condition) << "\",\n";
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_id_to_values) << "\",\n";
+            }
             
             // Generate the list of involved variables
-            if(syms.size() > 1)
+            if(var_id_to_values.size() > 1)
                 json_tdg << indent << "\"vars\" : [\n";
             else
                 json_tdg << indent << "\"vars\" : \n";
-            for(ObjectList<Nodecl::Symbol>::iterator its = syms.begin(); its != syms.end();)
+            int i = 1;
+            for(std::map<TL::Symbol, std::string>::iterator its = var_id_to_values.begin(); its != var_id_to_values.end(); ++i)
             {
-                if(_syms.find(its->get_symbol()) == _syms.end())
+                if(_syms.find(its->first) == _syms.end())
                 {
                     internal_error("Variable %s, found in condition %s, "
                                    "has not been found during the phase of gathering the variables", 
-                                   its->prettyprint().c_str(), condition.prettyprint().c_str());
+                                   its->first.get_name().c_str(), condition.prettyprint().c_str());
                 }
                 json_tdg << indent << "\t{\n";
-                    json_tdg << indent << "\t\t\"id\" : " << _syms[its->get_symbol()] << ",\n";
-                    json_tdg << indent << "\t\t\"values\" : \"TODO\"\n";
-                    
-                    // TODO: values!
-                    
-                    ++its;
-                    if(its != syms.end())
-                        json_tdg << indent << "\t},\n";
-                    else
-                        json_tdg << indent << "\t}\n";
+                    json_tdg << indent << "\t\t\"id\" : " << i << ",\n";
+                    json_tdg << indent << "\t\t\"values\" : \""<< its->second << "\"\n";
+                ++its;
+                if(its != var_id_to_values.end())
+                    json_tdg << indent << "\t},\n";
+                else
+                    json_tdg << indent << "\t}\n";
             }
-            if(syms.size() > 1)
+            if(var_id_to_values.size() > 1)
                 json_tdg << indent << "]\n";
         }
         else    // There is no condition => TRUE

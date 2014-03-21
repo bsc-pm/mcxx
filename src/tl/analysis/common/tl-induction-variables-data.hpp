@@ -90,6 +90,8 @@ namespace Utils {
         bool is_basic( );
 
         bool operator==( const InductionVariableData& rhs ) const;
+        
+        std::string print_iv_as_range() const;
     };
 
     // *********************** END class representing and induction variable *********************** //

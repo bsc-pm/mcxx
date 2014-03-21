@@ -44,12 +44,17 @@ namespace Analysis {
         int _id;
         ControlStructureType _type;
         Nodecl::NodeclBase _condition;
+        Node* _pcfg_node;
         
-        ControlStructure(int id, ControlStructureType type, const Nodecl::NodeclBase condition);
+        // *** Constructor *** //
+        ControlStructure(int id, ControlStructureType type, 
+                         const Nodecl::NodeclBase condition, Node* pcfg_node);
         
+        // *** Getters and setters *** //
         int get_id();
         ControlStructureType get_type();
         Nodecl::NodeclBase get_condition();
+        Node* get_pcfg_node();
     };
     
     // ************ Task Dependency Graph Control Structures ************* //
@@ -75,13 +80,17 @@ namespace Analysis {
         ObjectList<TDG_Edge*> _exits;
         ObjectList<ControlStructure> _control_structures;
         
+        // *** Constructor *** //
         TDG_Node(Node* n, TDGNodeType type);
         
+        // *** Getters and setters *** //
+        unsigned int get_id();
+        Node* get_pcfg_node();
         void add_control_structure(ControlStructure cs);
         ObjectList<ControlStructure> get_control_structures();
         
-        friend class TDG_Edge;
-        friend class TaskDependencyGraph;
+    friend class TDG_Edge;
+    friend class TaskDependencyGraph;
     };
     
     enum TDGEdgeType {
@@ -99,12 +108,15 @@ namespace Analysis {
         ObjectList<Nodecl::NodeclBase> _target_clauses;
         Nodecl::NodeclBase _condition;
         
+        // *** Constructor *** //
         TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition);
+        
+        // *** Getters and setters *** //
         TDG_Node* get_source();
         TDG_Node* get_target();
         
-        friend class TDG_Node;
-        friend class TaskDependencyGraph;
+    friend class TDG_Node;
+    friend class TaskDependencyGraph;
     };
     
     // ************** Task Dependency Graph Edges and Nodes ************** //
