@@ -42,9 +42,11 @@ type : NODECL_TYPE() type
 
 function-code: regular-function-code
              | template-function-code
+             | vector-regular-function-code
 
 regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+vector-regular-function-code : NODECL_VECTOR_FUNCTION_CODE([function_code] regular-function-code)
 
 object-init : NODECL_OBJECT_INIT() symbol
 
