@@ -99,7 +99,12 @@ struct check_expr_flags_tag
     char do_not_fold_into_dependent_typename:1;
 } check_expr_flags_t;
 
-static check_expr_flags_t check_expr_flags = {0};
+static check_expr_flags_t check_expr_flags =
+{
+    .do_not_evaluate = 0,
+    .is_non_executable = 0,
+    .do_not_fold_into_dependent_typename = 0
+};
 
 static
 void build_unary_builtin_operators(type_t* t1,
@@ -20691,13 +20696,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, de
 
 nodecl_t instantiate_expression(
         nodecl_t nodecl_expr, decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map,
+        instantiation_symbol_map_t* instantiation_symbol_map_,
         int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
-    v.instantiation_symbol_map = instantiation_symbol_map;
+    v.instantiation_symbol_map = instantiation_symbol_map_;
 
     char do_not_evaluate = check_expr_flags.do_not_evaluate;
     check_expr_flags.do_not_evaluate = 0;
