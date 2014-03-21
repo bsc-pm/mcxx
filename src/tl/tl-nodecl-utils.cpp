@@ -362,6 +362,8 @@ namespace Nodecl
 
     static int cmp_trees_rec(nodecl_t n1, nodecl_t n2, bool skip_conversion_nodes)
     {
+        if(nodecl_get_ast(n1)==nodecl_get_ast(n2))
+            return 0;
         if (nodecl_is_null(n1) == nodecl_is_null(n2))
         {
             if (!nodecl_is_null(n1))
