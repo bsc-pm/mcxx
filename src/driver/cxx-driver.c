@@ -1745,11 +1745,11 @@ static int parse_implicit_parameter_flag(int * should_advance, const char *param
                     found = 1;
                     if (!negative_flag)
                     {
-                        parameter_flag->value = 1;
+                        parameter_flag->value = PFV_TRUE;
                     }
                     else
                     {
-                        parameter_flag->value = 0;
+                        parameter_flag->value = PFV_FALSE;
                     }
                 }
             }
