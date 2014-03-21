@@ -801,8 +801,6 @@ void LoweringVisitor::visit_task(
 
     walk(statements);
 
-    // Get the new statements
-    statements = construct.get_statements();
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
