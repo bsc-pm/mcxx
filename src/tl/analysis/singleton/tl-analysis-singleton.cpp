@@ -406,7 +406,7 @@ namespace Analysis {
     }
 
     ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                                 Nodecl::NodeclBase ast )
+                                                                                 const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs;
         if( !memento.is_pcfg_computed() )
@@ -471,7 +471,7 @@ namespace Analysis {
 
     // TODO
     void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
-                                                              Nodecl::NodeclBase ast )
+                                                              const Nodecl::NodeclBase& ast )
     {
         if( !memento.is_constants_propagation_computed( ) )
         {
@@ -492,7 +492,7 @@ namespace Analysis {
 
     // TODO
     void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento,
-                                                         Nodecl::NodeclBase ast )
+                                                         const Nodecl::NodeclBase& ast )
     {
 
     }
@@ -528,7 +528,8 @@ namespace Analysis {
         }
     }
     
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, 
+                                                             const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
 
@@ -545,7 +546,8 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, 
+                                                              const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = use_def( memento, ast );
 
@@ -565,7 +567,8 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions( PCFGAnalysis_memento& memento, 
+                                                                          const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
 
@@ -585,7 +588,8 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, 
+                                                                         const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions( memento, ast );
 
@@ -615,7 +619,8 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations( PCFGAnalysis_memento& memento, 
+                                                                                const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
         
@@ -636,7 +641,8 @@ namespace Analysis {
         return pcfgs;
     }
     
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento, 
+                                                                    const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
         
@@ -658,10 +664,11 @@ namespace Analysis {
         return pcfgs;
     }
     
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, 
+                                                                  const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
-
+        
         if( !memento.is_auto_scoping_computed( ) )
         {
             memento.set_auto_scoping_computed( );
@@ -679,11 +686,13 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph( PCFGAnalysis_memento& memento, 
+                                                                               const Nodecl::NodeclBase& ast )
     {
         ObjectList<TaskDependencyGraph*> tdgs;
         
-        ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
+        tune_task_synchronizations( memento, ast );
+        ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
         
         if( !memento.is_tdg_computed( ) )
         {
@@ -704,7 +713,8 @@ namespace Analysis {
         return tdgs;
     }
     
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast )
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento, 
+                                                                  const Nodecl::NodeclBase& ast )
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
         ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
