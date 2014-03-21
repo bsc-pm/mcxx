@@ -186,6 +186,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Source& result_src);
 
         void register_reductions(
+                Nodecl::NodeclBase ctr,
                 OutlineInfo& outline_info,
                 // out
                 Source& result_src);

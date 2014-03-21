@@ -433,7 +433,8 @@ void LoweringVisitor::emit_async_common(
            translation_function,
            const_wd_info,
            dynamic_wd_info,
-           dependences_info;
+           dependences_info,
+           register_reductions_opt;
 
     TL::Symbol xlate_function_symbol;
 
@@ -687,6 +688,7 @@ void LoweringVisitor::emit_async_common(
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
         <<     dependences_info
+        <<     register_reductions_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
@@ -756,6 +758,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     fill_dependences(construct, outline_info, dependences_info);
+    register_reductions(construct, outline_info, register_reductions_opt);
 
     FORTRAN_LANGUAGE()
     {

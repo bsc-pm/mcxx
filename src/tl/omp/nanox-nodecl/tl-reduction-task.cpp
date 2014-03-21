@@ -24,7 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
 #include "tl-nanos.hpp"
 #include "tl-counters.hpp"
 #include "tl-outline-info.hpp"
@@ -419,17 +418,229 @@ namespace TL { namespace Nanox {
         }
     };
 
-    void LoweringVisitor::handle_reductions_on_task(Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements)
+    class ReplaceReductionSymbols : public Nodecl::ExhaustiveVisitor<void>
     {
-        if (!Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
+        const std::map<TL::Symbol, Nodecl::NodeclBase>& _reduction_symbol_to_nodecl_map;
+
+        public:
+
+        ReplaceReductionSymbols(const std::map<TL::Symbol, Nodecl::NodeclBase>& reduction_symbol_to_nodecl_map)
+            : _reduction_symbol_to_nodecl_map(reduction_symbol_to_nodecl_map)
         {
-            std::cerr << "This version of Nanos++ does not have support to reductions on tasks." << std::endl;
-            return;
         }
 
-        bool there_are_reductions_on_task = false;
-        TL::Source new_statements_src, reductions_stuff;
-        std::map<TL::Symbol, std::string> reduction_symbols_map;
+        void visit(const Nodecl::ObjectInit& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            if (sym.get_value().is_null())
+                return;
+
+            walk(sym.get_value());
+        }
+
+        void visit(const Nodecl::Symbol& node)
+        {
+            TL::Symbol sym = node.get_symbol();
+            std::map<TL::Symbol, Nodecl::NodeclBase>::const_iterator it = _reduction_symbol_to_nodecl_map.find(sym);
+            if (it == _reduction_symbol_to_nodecl_map.end())
+                return;
+
+            node.replace(it->second.shallow_copy());
+        }
+
+    };
+
+    void LoweringVisitor::handle_reductions_on_task(Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements)
+    {
+        if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
+        {
+            bool there_are_reductions_on_task = false;
+            TL::Source new_statements_src, reductions_stuff;
+            std::map<TL::Symbol, std::string> reduction_symbols_map;
+
+            TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                    it != data_items.end();
+                    it++)
+            {
+                if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+                    continue;
+
+                TL::Symbol sym = (*it)->get_symbol();
+
+                there_are_reductions_on_task = true;
+
+                std::string storage_name = (*it)->get_field_name() + "_storage";
+
+                std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
+                TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
+                TL::Type reduction_type = red_info_pair.second;
+
+                TL::Symbol reduction_function;
+                TL::Nanox::create_reduction_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        reduction_function,
+                        _reduction_on_tasks_red_map);
+
+                TL::Symbol initializer_function;
+                create_initializer_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        initializer_function,
+                        _reduction_on_tasks_ini_map);
+
+                reductions_stuff
+                    << "nanos_TPRS_t* " << storage_name << ";"
+                    << "nanos_reduction_request_TPRS("
+                    <<      "(void *) &" << (*it)->get_field_name() << ","    // target
+                    <<      "sizeof(" << as_type(reduction_type) << "),"    // size
+                    <<      "sizeof(int),"      // element size
+                    <<      "sizeof(CL_int),"   // cache line size
+                    <<      "sizeof(EBL_int),"  // ebl_size
+                    <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
+                    <<      "(void (*)(void *)) & " << initializer_function.get_name() << ","         // initializer
+                    <<      "(void (*)(void *, void *, void*)) reduction_local_reduce,"    // ???
+                    <<      "(void (*)(void *, void *, void *)) 0," // ?????
+                    <<      "(void (*)(void *)) reduction_flush_int,"         // flush
+                    <<      "&(" << storage_name << "));" // storage
+                    ;
+
+                reduction_symbols_map[sym] = storage_name;
+            }
+
+            if (there_are_reductions_on_task)
+            {
+                Nodecl::NodeclBase placeholder;
+                new_statements_src
+                    << "{"
+                    <<      reductions_stuff
+                    <<      statement_placeholder(placeholder)
+                    << "}"
+                    ;
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::C;
+
+                Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::Current;
+
+                TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+
+                StatementVisitor visitor(reduction_symbols_map, new_scope);
+                Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                visitor.walk(copied_statements);
+
+                // Reset the counter of local variables
+                TL::Counter &local_redvar_num = TL::CounterManager::get_counter("nanos++-local-reduction-variables");
+                local_redvar_num = 0;
+
+                placeholder.replace(copied_statements);
+                statements.replace(new_statements);
+            }
+        }
+        else if(Nanos::Version::interface_is_at_least("task_reduction", 1000))
+        {
+            bool there_are_reductions_on_task = false;
+            TL::Source new_statements_src, reductions_stuff;
+            std::map<TL::Symbol, std::string> reduction_symbols_map;
+
+            TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+            for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                    it != data_items.end();
+                    it++)
+            {
+                if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+                    continue;
+
+                TL::Symbol sym = (*it)->get_symbol();
+
+                there_are_reductions_on_task = true;
+
+                std::string storage_name = (*it)->get_field_name() + "_storage";
+
+                std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
+                TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
+                TL::Type reduction_type = red_info_pair.second;
+
+                TL::Symbol reduction_function;
+                TL::Nanox::create_reduction_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        reduction_function,
+                        _reduction_on_tasks_red_map);
+
+                TL::Symbol initializer_function;
+                create_initializer_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        initializer_function,
+                        _reduction_on_tasks_ini_map);
+
+                reductions_stuff
+                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                    << "nanos_task_reduction_get_thread_storage("
+                    <<      "(void *) &"<< (*it)->get_field_name() << ","
+                    <<      "(void *) &" << storage_name << ");"
+                    ;
+
+                reduction_symbols_map[sym] = storage_name;
+            }
+
+            if (there_are_reductions_on_task)
+            {
+                Nodecl::NodeclBase placeholder;
+                new_statements_src
+                    << "{"
+                    <<      reductions_stuff
+                    <<      statement_placeholder(placeholder)
+                    << "}"
+                    ;
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::C;
+
+                Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                if (IS_FORTRAN_LANGUAGE)
+                    Source::source_language = SourceLanguage::Current;
+
+
+                 TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                 std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                 for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                         it != reduction_symbols_map.end();
+                         ++it)
+                 {
+                    TL::Symbol reduction_sym = it->first;
+                    std::string storage_name = it->second;
+                    TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
+                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
+
+                    Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
+                            storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
+                            storage_sym.get_type().points_to());
+
+                    reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
+                 }
+
+               ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+               Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+               visitor.walk(copied_statements);
+
+                placeholder.replace(copied_statements);
+                statements.replace(new_statements);
+
+            }
+        }
+    }
+
+    void LoweringVisitor::register_reductions(Nodecl::NodeclBase construct, OutlineInfo& outline_info, TL::Source& src)
+    {
+        if (!Nanos::Version::interface_is_at_least("task_reduction", 1000))
+            return;
 
         TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
         for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
@@ -439,15 +650,11 @@ namespace TL { namespace Nanox {
             if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
                 continue;
 
-            TL::Symbol sym = (*it)->get_symbol();
-
-            there_are_reductions_on_task = true;
-
-            std::string storage_name = (*it)->get_field_name() + "_storage";
-
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
             TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
             TL::Type reduction_type = red_info_pair.second;
+
+            TL::Symbol sym = (*it)->get_symbol();
 
             TL::Symbol reduction_function;
             TL::Nanox::create_reduction_function(reduction_info,
@@ -463,55 +670,14 @@ namespace TL { namespace Nanox {
                     initializer_function,
                     _reduction_on_tasks_ini_map);
 
-            reductions_stuff
-                << "nanos_TPRS_t* " << storage_name << ";"
-                << "nanos_reduction_request_TPRS("
+            src
+                << "err = nanos_task_reduction_register("
                 <<      "(void *) &" << (*it)->get_field_name() << ","    // target
                 <<      "sizeof(" << as_type(reduction_type) << "),"    // size
-                <<      "sizeof(int),"      // element size
-                <<      "sizeof(CL_int),"   // cache line size
-                <<      "sizeof(EBL_int),"  // ebl_size
-                <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
+                <<      "__alignof__(" << as_type(reduction_type) << "),"
                 <<      "(void (*)(void *)) & " << initializer_function.get_name() << ","         // initializer
-                <<      "(void (*)(void *, void *, void*)) reduction_local_reduce,"    // ???
-                <<      "(void (*)(void *, void *, void *)) 0," // ?????
-                <<      "(void (*)(void *)) reduction_flush_int,"         // flush
-                <<      "&(" << storage_name << "));" // storage
+                <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << ");" // reducer
                 ;
-
-            reduction_symbols_map[sym] = storage_name;
-        }
-
-        if (there_are_reductions_on_task)
-        {
-            Nodecl::NodeclBase placeholder;
-            new_statements_src
-                << "{"
-                <<      reductions_stuff
-                <<      statement_placeholder(placeholder)
-                << "}"
-                ;
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::C;
-
-            Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
-
-            if (IS_FORTRAN_LANGUAGE)
-                Source::source_language = SourceLanguage::Current;
-
-            TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
-
-            StatementVisitor visitor(reduction_symbols_map, new_scope);
-            Nodecl::NodeclBase copied_statements = statements.shallow_copy();
-            visitor.walk(copied_statements);
-
-            // Reset the counter of local variables
-            TL::Counter &local_redvar_num = TL::CounterManager::get_counter("nanos++-local-reduction-variables");
-            local_redvar_num = 0;
-
-            placeholder.replace(copied_statements);
-            statements.replace(new_statements);
         }
     }
 
