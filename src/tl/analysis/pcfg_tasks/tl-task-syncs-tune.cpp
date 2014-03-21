@@ -385,7 +385,7 @@ namespace {
                         // Transform the type of the edge from "maybe" to "static"
                         Edge* e = ExtensibleGraph::get_edge_between_nodes( source, target );
                         const char* s = "static";
-                        e->set_label( Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, /*is_wchar*/false )), 
+                        e->set_label( Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, get_char_type() )), 
                                                                    const_value_make_string(s, strlen(s)) ) );
                         // Remove any other "strict" synchronization, since now it is synchronized here for sure
                         ObjectList<Edge*> sexits = source->get_exit_edges( );

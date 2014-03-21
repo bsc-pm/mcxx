@@ -201,7 +201,7 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_induction_variable(
+            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope,
                         lhs))
             {
