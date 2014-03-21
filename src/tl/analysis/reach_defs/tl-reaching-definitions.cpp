@@ -186,6 +186,13 @@ namespace Analysis {
             {
                 graph_rdo = Utils::ext_sym_map_union( graph_rdo, ( *it )->get_reaching_definitions_out( ) );
             }
+            if(graph_rdo.empty())
+            {   // This may happen when no Reaching Defintion has been computed inside the graph or
+                // when there is no statement inside the task and the information has not been propagated 
+                // (Entry and Exit nodes do not contain any analysis information)
+                // In this case, we propagate the Reaching Definition Out from the parents
+                graph_rdo = graph_rdi;
+            }
             current->set_reaching_definitions_out( graph_rdo );
         }
     }
