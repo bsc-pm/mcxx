@@ -236,6 +236,8 @@ namespace TL { namespace Nanox {
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
+        Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::TaskLabel>();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -263,7 +265,7 @@ namespace TL { namespace Nanox {
                 target_info,
                 /* original task statements */ statements,
                 /* current task statements */ statements,
-                /* task_label */ Nodecl::NodeclBase::null(), structure_symbol, called_task_dummy);
+                task_label, structure_symbol, called_task_dummy);
 
         // List of device names
         TL::ObjectList<std::string> device_names = outline_info.get_device_names(enclosing_function);
@@ -338,7 +340,14 @@ namespace TL { namespace Nanox {
             delete symbol_map;
         }
 
-        loop_spawn_slicer(outline_info, construct, distribute_environment, range, outline_name, structure_symbol, slicer_descriptor);
+        loop_spawn_slicer(outline_info,
+                construct,
+                distribute_environment,
+                range,
+                outline_name,
+                structure_symbol,
+                slicer_descriptor,
+                task_label);
     }
 
     void LoweringVisitor::lower_for_slicer(const Nodecl::OpenMP::For& construct)
