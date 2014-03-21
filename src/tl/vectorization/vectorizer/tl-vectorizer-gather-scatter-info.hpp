@@ -69,6 +69,7 @@ namespace Vectorization
             StrideSplitterVisitor(const VectorizerEnvironment& environment);
 
             stride_splitter_ret_t visit(const Nodecl::Add& n);
+            stride_splitter_ret_t visit(const Nodecl::BitwiseShl& n);
             stride_splitter_ret_t visit(const Nodecl::Mul& n);
             stride_splitter_ret_t visit(const Nodecl::IntegerLiteral& n );
             stride_splitter_ret_t visit(const Nodecl::Symbol& n);
