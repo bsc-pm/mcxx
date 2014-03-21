@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  See AUTHORS file in the top level directory for information 
+
+  See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -40,10 +40,10 @@ test_generator=config/mercurium-serial-simd-mic
 /* Array declaration. */
 
 void __attribute__((noinline)) h264(
-        FLOAT_TYPE (* X)[32], 
-        FLOAT_TYPE (* H)[32], 
+        FLOAT_TYPE (* X)[32],
+        FLOAT_TYPE (* H)[32],
         FLOAT_TYPE (* K)[16],
-        FLOAT_TYPE (* Y)[16], 
+        FLOAT_TYPE (* Y)[16],
         FLOAT_TYPE (* output)[16])
 {
     int i, j;
@@ -78,7 +78,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-#pragma omp simd 
+#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             Y[i][j] = K[i][j] + H[i][j];
@@ -95,10 +95,10 @@ void __attribute__((noinline)) h264(
 }
 
 void __attribute__((noinline)) h264_sc(
-        FLOAT_TYPE (* X)[32], 
-        FLOAT_TYPE (* H)[32], 
+        FLOAT_TYPE (* X)[32],
+        FLOAT_TYPE (* H)[32],
         FLOAT_TYPE (* K)[16],
-        FLOAT_TYPE (* Y)[16], 
+        FLOAT_TYPE (* Y)[16],
         FLOAT_TYPE (* output)[16])
 {
     int i, j;
@@ -142,7 +142,7 @@ void __attribute__((noinline)) h264_sc(
             output[i][j] = Y[i][j];
         }
     }
-}   
+}
 
 int main ()
 {
@@ -168,7 +168,7 @@ int main ()
             X_sc[i][j] = 0.0f;
         }
     }
-   
+
     for (i=0; i<16; i++)
     {
         for(j=0; j<32; j++)
@@ -188,7 +188,7 @@ int main ()
             K_sc[i][j] = 0.0f;
             Y[i][j] = 0.0f;
             Y_sc[i][j] = 0.0f;
- 
+
         }
     }
 
@@ -206,7 +206,7 @@ int main ()
             }
         }
     }
-   
+
     for (i=0; i<16; i++)
     {
         for(j=0; j<32; j++)

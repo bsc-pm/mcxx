@@ -188,17 +188,14 @@ namespace Vectorization
         return stride_splitter_ret_t(base, strides);
     }
 
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::BitwiseShl& n)
+    template <class node>
+    stride_splitter_ret_t StrideSplitterVisitor::visit_non_distributive_binary_op(
+            const Nodecl::NodeclBase& n)
     {
-        return walk(n.as<Nodecl::Mul>());
-    }
+        Nodecl::Mul mul = n.as<Nodecl::Mul>();
 
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::Mul& n)
-    {
-        stride_splitter_ret_t lhs_ret = walk(n.get_lhs());
-        stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
+        stride_splitter_ret_t lhs_ret = walk(mul.get_lhs());
+        stride_splitter_ret_t rhs_ret = walk(mul.get_rhs());
 
         // Base
         Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
@@ -249,6 +246,18 @@ namespace Vectorization
 
         // pair<n, null>
         return stride_splitter_ret_t(base, strides);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::BitwiseShl& n)
+    {
+        return visit_non_distributive_binary_op<Nodecl::BitwiseShl>(n);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::Mul& n)
+    {
+        return visit_non_distributive_binary_op<Nodecl::Mul>(n);
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(

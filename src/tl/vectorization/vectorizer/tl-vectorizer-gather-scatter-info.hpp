@@ -65,6 +65,10 @@ namespace Vectorization
         private:
             const VectorizerEnvironment _environment;
 
+            template <class node>
+            stride_splitter_ret_t visit_non_distributive_binary_op(
+                    const Nodecl::NodeclBase& n);
+
         public:
             StrideSplitterVisitor(const VectorizerEnvironment& environment);
 
