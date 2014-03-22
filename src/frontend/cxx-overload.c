@@ -97,13 +97,18 @@ char is_better_function_flags(overload_entry_list_t* f,
         decl_context_t decl_context,
         const locus_t* locus);
 
+static char is_better_function_despite_equal_ics(scope_entry_t* f,
+        scope_entry_t* g,
+        decl_context_t decl_context,
+        const locus_t* locus);
+
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
         type_t* orig UNUSED_PARAMETER,
         type_t* dest UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
-        const locus_t* locus UNUSED_PARAMETER)
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
     // Note that an ICS has two SCS's so we lexicographically compare them
     // a:<SCS[0,0], SCS[0,0]> and b:<SCS[1,0], SCS[1,1]>
@@ -187,6 +192,9 @@ static char is_better_initialization_ics(
             return 1;
         }
     }
+
+    if (is_better_function_despite_equal_ics(ics_1.conversor, ics_2.conversor, decl_context, locus))
+        return 1;
 
     return 0;
 }
@@ -602,8 +610,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "ICS: Considering user defined conversion '%s' declared at '%s'\n",
+                fprintf(stderr, "ICS: Considering user defined conversion '%s' %p declared at '%s'\n",
                         conv_funct->symbol_name,
+                        conv_funct,
                         locus_to_str(conv_funct->locus));
             }
 
@@ -1741,6 +1750,68 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
     return result;
 }
 
+static char is_better_function_despite_equal_ics(scope_entry_t* f,
+        scope_entry_t* g,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // f not that, non-template functions are preferred over template
+    // functions
+    if (!is_template_specialized_type(f->type_information)
+            && is_template_specialized_type(g->type_information))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
+                    "the first is not a template-specialization and the second is\n",
+                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                    locus_to_str(f->locus),
+                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                    locus_to_str(g->locus));
+        }
+        return 1;
+    }
+
+    if (is_template_specialized_type(f->type_information)
+            && is_template_specialized_type(g->type_information))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
+                    "so we have to check which one is more specialized\n",
+                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                    locus_to_str(f->locus),
+                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                    locus_to_str(g->locus));
+        }
+        // if ¬(f <= g) then f > g
+        template_parameter_list_t* deduced_template_arguments = NULL;
+        if (!is_less_or_equal_specialized_template_function(
+                    // Why is it so convoluted to get the type of the primary specialization ?
+                    named_type_get_symbol(template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                    named_type_get_symbol(template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
+                    decl_context, &deduced_template_arguments, 
+                    /* explicit_template_parameters */ NULL,
+                    locus, /* is_conversion */ 0))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s] is more "
+                        "specialized than template-function [%s, %s]\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        locus_to_str(f->locus),
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        locus_to_str(g->locus));
+            }
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 // States whether f is better than g
 static
 char is_better_function_flags(overload_entry_list_t* ovl_f,
@@ -1826,60 +1897,8 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
             return 1;
         }
 
-
-        // or if not that, non-template functions are preferred over template
-        // functions
-        if (!is_template_specialized_type(f->type_information)
-                && is_template_specialized_type(g->type_information))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
-                        "the first is not a template-specialization and the second is\n",
-                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        locus_to_str(f->locus),
-                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        locus_to_str(g->locus));
-            }
+        if (is_better_function_despite_equal_ics(f, g, decl_context, locus))
             return 1;
-        }
-
-        if (is_template_specialized_type(f->type_information)
-                && is_template_specialized_type(g->type_information))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
-                        "so we have to check which one is more specialized\n",
-                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        locus_to_str(f->locus),
-                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        locus_to_str(g->locus));
-            }
-            // if ¬(f <= g) then f > g
-            template_parameter_list_t* deduced_template_arguments = NULL;
-            if (!is_less_or_equal_specialized_template_function(
-                        // Why is it so convoluted to get the type of the primary specialization ?
-                        named_type_get_symbol(template_type_get_primary_type(
-                                template_specialized_type_get_related_template_type(f->type_information)))->type_information,
-                        named_type_get_symbol(template_type_get_primary_type(
-                                template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                        decl_context, &deduced_template_arguments, 
-                        /* explicit_template_parameters */ NULL,
-                        locus, /* is_conversion */ 0))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s] is more "
-                            "specialized than template-function [%s, %s]\n",
-                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                            locus_to_str(f->locus),
-                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                            locus_to_str(g->locus));
-                }
-                return 1;
-            }
-        }
     }
 
     // It is not better (it might be equally good, though)
