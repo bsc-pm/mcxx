@@ -4026,9 +4026,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     locus_to_str(locus));
         }
 
-        xfree(result->arguments);
-        xfree(result);
-
         return NULL;
     }
 
@@ -4063,9 +4060,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         error_printf("%s: error: template argument number %d is missing and there is no default template argument for it\n",
                                 locus_to_str(locus), i);
                     }
-
-                    xfree(result->arguments);
-                    xfree(result);
 
                     return NULL;
                 }
@@ -4106,8 +4100,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
                     }
 
-                    xfree(result->arguments);
-                    xfree(result);
                     return NULL;
                 }
                 P_LIST_ADD(result->arguments, result->num_parameters, v);
@@ -4347,8 +4339,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                     error_printf("%s: error: cannot solve address of overload function in template argument number %d",
                                             locus_to_str(locus), i);
                                 }
-                                xfree(result->arguments);
-                                xfree(result);
                                 return NULL;
                             }
 
@@ -4380,8 +4370,6 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                                 i + 1,
                                                 print_type_str(parameter_type, template_name_context));
                                     }
-                                    xfree(result->arguments);
-                                    xfree(result);
                                     return NULL;
                                 }
                             }
