@@ -199,6 +199,45 @@ static char is_better_initialization_ics(
     return 0;
 }
 
+static char standard_conversion_between_types_for_overload(
+        standard_conversion_t *scs,
+        type_t* orig,
+        type_t* dest,
+        const locus_t* locus)
+{
+    if (is_class_type(orig)
+            && is_class_type(dest))
+    {
+        if (equivalent_types(orig, dest))
+        {
+            standard_conversion_t result = {
+                .orig = orig,
+                .dest = dest,
+                .conv = { SCI_IDENTITY, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+            };
+
+            *scs = result;
+            return 1;
+        }
+        else if (class_type_is_base_strict_instantiating(dest, orig, locus))
+        {
+            standard_conversion_t result = {
+                .orig = orig,
+                .dest = dest,
+                .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+            };
+
+            *scs = result;
+            return 1;
+        }
+    }
+
+    return standard_conversion_between_types(scs,
+            orig,
+            dest,
+            locus);
+}
+
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
@@ -286,11 +325,11 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         {
             result->kind = ICSK_USER_DEFINED;
             // Silly way of getting the identity
-            standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+            standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
             result->conversor = constructor;
             // FIXME: This should be the "real" dest (including
             // cv-qualification, rvalue refs, etc)
-            standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+            standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
         }
     }
     else if (is_class_type(dest)
@@ -331,12 +370,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
     }
     else if (is_array_type(dest))
     {
@@ -362,12 +401,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
     }
     else if (!is_class_type(dest))
     {
@@ -497,7 +536,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (standard_conversion_between_types(&standard_conv, orig, dest, locus))
+    if (standard_conversion_between_types_for_overload(&standard_conv, orig, dest, locus))
     {
         DEBUG_CODE()
         {
@@ -727,7 +766,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             first_sc = ics_call.first_sc;
 
             if (ics_call.kind == ICSK_STANDARD 
-                    && standard_conversion_between_types(&second_sc, converted_type, dest, locus))
+                    && standard_conversion_between_types_for_overload(&second_sc, converted_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -892,7 +931,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             type_t* conversion_source_type = function_type_get_parameter_type_num(constructor->type_information, 0);
 
             standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type, locus))
+            if (standard_conversion_between_types_for_overload(&first_sc, orig, conversion_source_type, locus))
             {
                 DEBUG_CODE()
                 {
@@ -933,7 +972,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (best_valid_constructor != NULL)
         {
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&second_sc, class_type, dest, locus))
+            if (standard_conversion_between_types_for_overload(&second_sc, class_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -1149,6 +1188,12 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
     if (scs.conv[0] == SCI_IDENTITY)
     {
         return SCR_EXACT_MATCH;
+    }
+
+    // Not a real conversion, used only for overload
+    if (scs.conv[0] == SCI_DERIVED_TO_BASE)
+    {
+        return SCR_CONVERSION;
     }
 
     if (scs.conv[0] == SCI_LVALUE_TO_RVALUE
@@ -2114,7 +2159,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                 DEBUG_CODE()
                 {
                     scope_entry_t* entry = entry_advance_aliases(current->candidate->entry);
-                    fprintf(stderr, "Ambiguous call to '%s'\n",
+                    fprintf(stderr, "OVERLOAD: Current function '%s' is better than the one we thought it was the best\n",
                             print_decl_type_str(
                                 entry->type_information,
                                 entry->decl_context,
@@ -2133,7 +2178,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         DEBUG_CODE()
         {
             scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
-            fprintf(stderr, "Ambiguous call to '%s'\n",
+            fprintf(stderr, "OVERLOAD: Best function so far '%s' is ambiguous\n",
                     print_decl_type_str(entry->type_information,
                         entry->decl_context,
                         entry->symbol_name
@@ -2244,7 +2289,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     {
         scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
         standard_conversion_t sc;
-        if (standard_conversion_between_types(&sc, item->type_information, target_type, locus))
+        if (standard_conversion_between_types_for_overload(&sc, item->type_information, target_type, locus))
         {
             return item;
         }
