@@ -14104,8 +14104,8 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
                     int path_j = class_path[j].length - 1;
 
                     char different_subobjects = 1;
-                    while (path_i > 0
-                            && path_j > 0)
+                    while (path_i >= 0
+                            && path_j >= 0)
                     {
                         if (equivalent_types(
                                     class_path[i].class_type[path_i],
