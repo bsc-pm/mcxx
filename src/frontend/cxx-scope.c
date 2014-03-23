@@ -114,18 +114,31 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
 
     template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
-    *result = *template_parameters;
-    result->arguments = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
+    result->num_parameters = template_parameters->num_parameters;
 
-    int i;
-    for (i = 0; i < result->num_parameters; i++)
-    {
-        // Copy pointers
-        result->arguments[i] = template_parameters->arguments[i];
-    }
+    result->parameters = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->parameters), &_bytes_used_scopes);
+    memcpy(result->parameters, template_parameters->parameters, sizeof(*(result->parameters)) * (result->num_parameters));
+
+    result->arguments = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
+    memcpy(result->arguments, template_parameters->arguments, sizeof(*(result->arguments)) * (result->num_parameters));
+
+    result->enclosing = template_parameters->enclosing;
+
     result->is_explicit_specialization = template_parameters->is_explicit_specialization;
 
     return result;
+}
+
+static void free_template_parameter_list(template_parameter_list_t* tpl)
+{
+    if (tpl == NULL)
+        return;
+
+    xfree(tpl->parameters);
+    tpl->parameters = NULL;
+    xfree(tpl->arguments);
+    tpl->arguments = NULL;
+    xfree(tpl);
 }
 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
@@ -2243,7 +2256,10 @@ template_parameter_list_t* update_template_argument_list(
                 pack_index);
 
         if (result->arguments[i] == NULL)
+        {
+            free_template_parameter_list(result);
             return NULL;
+        }
     }
 
     return result;
@@ -3765,17 +3781,6 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
     return NULL;
 }
 
-static void free_template_parameter_list(template_parameter_list_t* tpl)
-{
-    if (tpl == NULL)
-        return;
-    // Not yet implemented
-    xfree(tpl->parameters);
-    tpl->parameters = NULL;
-    xfree(tpl->arguments);
-    tpl->arguments = NULL;
-    xfree(tpl);
-}
 
 static void copy_template_parameter_list(template_parameter_list_t* dest, template_parameter_list_t* src)
 {
@@ -4026,6 +4031,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     locus_to_str(locus));
         }
 
+        free_template_parameter_list(result);
         return NULL;
     }
 
@@ -4061,6 +4067,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                 locus_to_str(locus), i);
                     }
 
+                    free_template_parameter_list(result);
                     return NULL;
                 }
                 else
@@ -4075,7 +4082,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                        template <typename ...T>
                        struct B
                        {
-                           A<T...> a; // Only one template parameter, but it could be extended by the template argument pack
+                       A<T...> a; // Only one template parameter, but it could be extended by the template argument pack
                        };
                      */
                     break;
@@ -4100,6 +4107,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
                     }
 
+                    free_template_parameter_list(result);
                     return NULL;
                 }
                 P_LIST_ADD(result->arguments, result->num_parameters, v);
@@ -4125,6 +4133,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             locus_to_str(locus), i + 1);
                 }
 
+                free_template_parameter_list(result);
                 return NULL;
             }
 
@@ -4185,6 +4194,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             error_printf("%s: error: cannot solve address of overload function in template argument number %d",
                                     locus_to_str(locus), i);
                         }
+                        free_template_parameter_list(result);
                         return NULL;
                     }
 
@@ -4216,6 +4226,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                         i + 1,
                                         print_type_str(dest_type, template_name_context));
                             }
+                            free_template_parameter_list(result);
                             return NULL;
                         }
                     }
@@ -4264,6 +4275,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     }
 
 
+                    free_template_parameter_list(result);
                     return NULL;
                 }
 
@@ -4308,6 +4320,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                         locus_to_str(locus));
                             }
 
+                            free_template_parameter_list(result);
                             return NULL;
                         }
 
@@ -4339,6 +4352,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                     error_printf("%s: error: cannot solve address of overload function in template argument number %d",
                                             locus_to_str(locus), i);
                                 }
+                                free_template_parameter_list(result);
                                 return NULL;
                             }
 
@@ -4370,6 +4384,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                                 i + 1,
                                                 print_type_str(parameter_type, template_name_context));
                                     }
+                                    free_template_parameter_list(result);
                                     return NULL;
                                 }
                             }
