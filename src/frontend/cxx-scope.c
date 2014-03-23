@@ -1792,7 +1792,7 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
         int j;
         for (j = 0; j < num_visited_namespaces && !found; j++)
         {
-            if (visited_namespaces[i] == used_namespace)
+            if (visited_namespaces[j] == used_namespace)
             {
                 found = 1;
             }
