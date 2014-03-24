@@ -96,7 +96,7 @@ namespace {
             std::stringstream ss; ss << get_next_id(lhs);
             std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
             Symbol s(n.retrieve_context().new_symbol(constr_name));
-            c = Utils::Constraint(s, lhs, rhs);
+            c = Utils::Constraint(s, rhs);
         }
         else 
         {
@@ -115,7 +115,7 @@ namespace {
                     std::stringstream ss; ss << get_next_id(lhs);
                     std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
                     Symbol s(n.retrieve_context().new_symbol(constr_name));
-                    c = Utils::Constraint(s, lhs, rhs);
+                    c = Utils::Constraint(s, rhs);
                 }
             }
         }
@@ -149,7 +149,7 @@ namespace {
             std::string constr_name = Utils::get_nodecl_base(lhs).get_symbol().get_name() + "_" + ss.str();
             Symbol s(n.retrieve_context().new_symbol(constr_name));
             Nodecl::NodeclBase val = Nodecl::Symbol::make(constraint.get_symbol());
-            c = Utils::Constraint(s, lhs, val);
+            c = Utils::Constraint(s, val);
             
             // Compute the constraint that corresponds to the true branch taken from this node
             std::stringstream ss_true; ss_true << get_next_id(lhs);
@@ -162,7 +162,7 @@ namespace {
                                                   const_value_to_nodecl(const_value_sub(rhs.get_constant(), const_value_get_one(/*num_bytes*/ 4, /*sign*/1))),
                                                   lhs.get_type()), 
                     lhs.get_type());
-            Utils::Constraint c_true = Utils::Constraint(s_true, lhs, val_true);
+            Utils::Constraint c_true = Utils::Constraint(s_true, val_true);
             _output_true_constraints[lhs] = c_true;
             
             // Compute the constraint that corresponds to the false branch taken from this node
@@ -176,7 +176,7 @@ namespace {
                                                   Nodecl::Analysis::PlusInfinity::make(),
                                                   lhs.get_type()), 
                     lhs.get_type());
-            Utils::Constraint c_false = Utils::Constraint(s_false, lhs, val_false);
+            Utils::Constraint c_false = Utils::Constraint(s_false, val_false);
             _output_false_constraints[lhs] = c_false;
         }
         else
@@ -214,12 +214,11 @@ namespace {
         Symbol s(n.retrieve_context().new_symbol(constr_name));
         
         Utils::Constraint constraint = _input_constraints[rhs];
-        Nodecl::NodeclBase val = 
-        Nodecl::Add::make(Nodecl::Symbol::make(constraint.get_symbol()), 
-                            const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)), 
-                            rhs.get_type());
+        Nodecl::NodeclBase val = Nodecl::Add::make(Nodecl::Symbol::make(constraint.get_symbol()), 
+                                                   const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)), 
+                                                   rhs.get_type());
         
-        c = Utils::Constraint(s, rhs, val);
+        c = Utils::Constraint(s, val);
         _input_constraints[rhs] = c;
         _output_constraints[rhs] = c;
         
@@ -285,8 +284,7 @@ namespace {
                             Nodecl::List expressions = Nodecl::List::make(constraint.shallow_copy(), itt->second.get_constraint().shallow_copy());
                             constraint = Nodecl::Analysis::Phi::make(expressions, itt->second.get_constraint().get_type());
                         }
-                        input_constraints[itt->first] = Utils::Constraint(input_constraints[itt->first].get_symbol(), 
-                                                                          input_constraints[itt->first].get_var(), constraint);
+                        input_constraints[itt->first] = Utils::Constraint(input_constraints[itt->first].get_symbol(), constraint);
                     }
                 }
             }
@@ -365,8 +363,7 @@ namespace {
                 Nodecl::List expressions = Nodecl::List::make(c1, c2);
                 Nodecl::NodeclBase c = Nodecl::Analysis::Phi::make(expressions, it->first.get_type());
                 // Set the new constraint
-                current_constraint_map[it->first] = Utils::Constraint(current_constraint_map[it->first].get_symbol(), 
-                                                                      current_constraint_map[it->first].get_var(), c);
+                current_constraint_map[it->first] = Utils::Constraint(current_constraint_map[it->first].get_symbol(), c);
             }
         }
         n->set_constraints(current_constraint_map);

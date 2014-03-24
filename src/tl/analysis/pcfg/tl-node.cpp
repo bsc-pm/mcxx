@@ -1667,7 +1667,7 @@ namespace Analysis {
             {
                 Nodecl::List c_values = Nodecl::List::make(constraints[it->first].get_constraint().shallow_copy(), it->second.get_constraint().shallow_copy());
                 Nodecl::Analysis::Phi new_constraint = Nodecl::Analysis::Phi::make(c_values, constraints[it->first].get_constraint().get_type());
-                constraints[it->first] = Utils::Constraint(constraints[it->first].get_symbol(), it->first, new_constraint);
+                constraints[it->first] = Utils::Constraint(constraints[it->first].get_symbol(), new_constraint);
             }
             else
             {   // When the variable did not have any constraint, just add it to the map

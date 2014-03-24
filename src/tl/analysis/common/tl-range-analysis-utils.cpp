@@ -236,22 +236,16 @@ namespace Utils {
     // ******************************* Range Analysis Constraints ******************************** //
     
     Constraint::Constraint()
-        : _constr_sym(Symbol()), _original_var(Nodecl::NodeclBase::null()), _constraint(Nodecl::NodeclBase::null())
+        : _constr_sym(Symbol()), _constraint(Nodecl::NodeclBase::null())
     {}
         
-    Constraint::Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& orig_var, 
-                const Nodecl::NodeclBase& constraint )
-        : _constr_sym( constr_sym ), _original_var( orig_var ), _constraint( constraint )
+    Constraint::Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& constraint )
+        : _constr_sym( constr_sym ), _constraint( constraint )
     {}
         
     TL::Symbol Constraint::get_symbol() const 
     {
         return _constr_sym;
-    }
-        
-    Nodecl::NodeclBase Constraint::get_var() const 
-    {
-        return _original_var;
     }
         
     Nodecl::NodeclBase Constraint::get_constraint() const 
@@ -261,9 +255,8 @@ namespace Utils {
         
     bool Constraint::operator!=(const Constraint& c) 
     {
-        return ((this->_constr_sym != c._constr_sym) || 
-        !Nodecl::Utils::equal_nodecls(this->_original_var, c._original_var, /*skip_conversion_nodes*/true) || 
-        !Nodecl::Utils::equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
+        return ((this->_constr_sym != c._constr_sym) ||
+                !Nodecl::Utils::equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
     }
     
     // ***************************** END Range Analysis Constraints ****************************** //
