@@ -251,7 +251,7 @@ namespace TL
             ObjectList<Symbol> enum_get_enumerators();
 
             //! Returns a pointer to the current type
-            Type get_pointer_to();
+            Type get_pointer_to() const;
 
             //! Returns a vector to the current type
             /*!

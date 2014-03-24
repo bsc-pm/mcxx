@@ -2,12 +2,6 @@
 
 # They do not work
 
-cat <<EOF
-test_ignore=yes
-EOF
-
-exit
-
 if [ -z "@NANOX_INCLUDES@" -o "@NANOX_SSE@" = "no" ];
 then
 
@@ -36,11 +30,11 @@ test_CXX_nanox_mercurium="\${MCXX}"
 if [ "$1" = "svml" ];
 then
 
-test_CFLAGS_nanox_mercurium="--simd --openmp --svml --fast-math  -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="--simd --openmp --fast-math ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math  -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp --fast-math ${COMMON_NANOX_CFLAGS}"
 else
-test_CFLAGS_nanox_mercurium="--simd --openmp -std=gnu99 ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_mercurium="--simd --openmp ${COMMON_NANOX_CFLAGS}"
+test_CFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_mercurium="-O0 --simd --debug-flags=vectorization_verbose --openmp ${COMMON_NANOX_CFLAGS}"
 fi
 
 test_LDFLAGS_nanox_mercurium="-L@abs_top_builddir@/lib -lperish"
@@ -57,13 +51,11 @@ test_CC_nanox_imcc="\${IMCC}"
 
 if [ "$1" = "svml" ];
 then
-test_CFLAGS_nanox_imcc="--simd --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="--simd --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-t
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --svml --fast-math -std=gnu99  --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 else
-test_CFLAGS_nanox_imcc="--simd --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="--simd --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-t
+test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp -std=gnu99 --Wn,-no-fast-transcendentals,-fp-model,precise --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
 fi
 
 test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib -lperish"
@@ -76,6 +68,3 @@ exec_versions="1thread"
 
 test_ENV_1thread="OMP_NUM_THREADS='1'"
 EOF
-
-
-

@@ -1,3 +1,4 @@
+.dirstamp
 Makefile.in
 INSTALL
 aclocal.m4
@@ -28,6 +29,7 @@ config.h.in~
 *.la
 *.a
 *.so
+*.txt
 Makefile
 .deps/
 .libs/
@@ -49,6 +51,7 @@ config/50.config.gpu
 config/50.config.ocl
 config/50.config.omp.fortran
 config/50.config.omp.mercurium
+config/55.config.omp.nvidia
 config/55.config.omp.intel
 config/55.config.omp.intel.fortran
 config/57.config.omp.smp
@@ -138,9 +141,11 @@ tests/config/mercurium-nanox
 tests/config/mercurium-omp
 tests/config/mercurium-ompss
 tests/config/mercurium-parallel-simd
+tests/config/mercurium-parallel-simd-avx2
 tests/config/mercurium-parallel-simd-mic
 tests/config/mercurium-run
 tests/config/mercurium-serial-simd
+tests/config/mercurium-serial-simd-avx2
 tests/config/mercurium-serial-simd-mic
 tests/config/mercurium-opencl
 tests/test.log

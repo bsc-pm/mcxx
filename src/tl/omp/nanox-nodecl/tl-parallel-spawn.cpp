@@ -37,7 +37,8 @@ namespace TL { namespace Nanox {
             Nodecl::NodeclBase num_replicas,
             Nodecl::NodeclBase if_condition,
             const std::string& outline_name,
-            TL::Symbol structure_symbol)
+            TL::Symbol structure_symbol,
+            Nodecl::NodeclBase task_label)
     {
         Source nanos_create_wd,
         nanos_create_wd_and_run,
@@ -108,12 +109,22 @@ namespace TL { namespace Nanox {
             <<       translation_fun_arg_name << ");"
             ;
 
+        std::string wd_description;
+        if (!task_label.is_null())
+        {
+            wd_description = task_label.get_text();
+        }
+        else
+        {
+            wd_description = current_function.get_name();
+        }
+
         Source const_wd_info;
         const_wd_info << fill_const_wd_info(struct_arg_type_name,
                 /* is_untied */ false,
                 /* mandatory_creation */ true,
                 /* is_function_task */ false,
-                /* wd_description */ current_function.get_name(),
+                wd_description,
                 outline_info,
                 construct);
 

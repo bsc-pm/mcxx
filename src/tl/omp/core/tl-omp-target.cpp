@@ -153,7 +153,8 @@ namespace TL
             if (!copy_deps.is_defined()
                     && !no_copy_deps.is_defined())
             {
-                if (this->in_ompss_mode())
+                if (this->in_ompss_mode()
+                        && this->copy_deps_by_default())
                 {
                     // Copy deps is true only if there is no copy_in, copy_out
                     // or copy_inout

@@ -175,6 +175,7 @@ namespace TL
                 bool _allow_shared_without_copies;
                 bool _allow_array_reductions;
                 bool _ompss_mode;
+                bool _copy_deps_by_default;
             public:
                 Core();
 
@@ -198,10 +199,15 @@ namespace TL
                 void set_allow_array_reductions(bool b) { _allow_array_reductions = b; }
 
                 void set_ompss_mode(bool b) { _ompss_mode = b; }
-
                 bool in_ompss_mode() const
                 {
                     return _ompss_mode;
+                }
+
+                void set_copy_deps_by_default(bool b) { _copy_deps_by_default = b; }
+                bool copy_deps_by_default() const
+                {
+                    return _copy_deps_by_default;
                 }
         };
 

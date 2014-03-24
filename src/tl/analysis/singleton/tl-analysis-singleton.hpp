@@ -96,10 +96,10 @@ namespace Analysis {
         ExtensibleGraph* get_pcfg( std::string name );
         void set_pcfg( std::string name, ExtensibleGraph* pcfg );
         ObjectList<ExtensibleGraph*> get_pcfgs( );
-        
+
         TaskDependencyGraph* get_tdg( std::string name );
         void set_tdg( std::string name, TaskDependencyGraph* tdg );
-        
+
         bool is_pcfg_computed() const;
         void set_pcfg_computed();
         bool is_constants_propagation_computed( ) const;
@@ -126,13 +126,13 @@ namespace Analysis {
         void set_auto_deps_computed( );
         bool is_tdg_computed( ) const;
         void set_tdg_computed( );
-        
+
         //! Returns the list of induction variables found in #n
         ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
 
         //! Returns the list of reduction symbols found in #n
         ObjectList<Symbol> get_reductions( const Nodecl::NodeclBase& n );
-        
+
         //! Returns a list of objects that are killed in #n
         Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
 
@@ -231,11 +231,11 @@ namespace Analysis {
         // ********************* Utils ******************** //
 
         void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
-        
+
         void print_all_pcfg( PCFGAnalysis_memento& memento );
-        
+
         void print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name );
-        
+
         void tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name );
     };
 

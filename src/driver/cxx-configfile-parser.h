@@ -51,6 +51,7 @@ enum flag_op
     FLAG_OP_AND,
     FLAG_OP_NOT,
     FLAG_OP_NAME,
+    FLAG_OP_IS_DEFINED,
 };
 
 

@@ -51,6 +51,9 @@ LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
 
 LIBMCXX_EXTERN char is_intel_vector_struct_type(type_t* t, int *size);
 
+LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest);
+LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest);
+
 MCXX_END_DECLS
 
 #endif // CXX_GCCBUILTINS_H

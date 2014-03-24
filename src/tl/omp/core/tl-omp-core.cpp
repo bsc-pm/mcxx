@@ -52,7 +52,8 @@ namespace TL
             _discard_unused_data_sharings(false),
             _allow_shared_without_copies(false),
             _allow_array_reductions(true),
-            _ompss_mode(false)
+            _ompss_mode(false),
+            _copy_deps_by_default(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -326,7 +327,10 @@ namespace TL
 
                 void operator()(ReductionSymbol red_sym)
                 {
-                    _data_sharing.set_reduction(red_sym);
+                    if(_data_attrib == DS_SIMD_REDUCTION)
+                        _data_sharing.set_simd_reduction(red_sym);
+                    else
+                        _data_sharing.set_reduction(red_sym);
                 }
         };
 
@@ -400,6 +404,12 @@ namespace TL
                     nonlocal_symbols, data_sharing, reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
+
+            ObjectList<OpenMP::ReductionSymbol> simd_reduction_references;
+            get_reduction_symbols(construct, construct.get_clause("simd_reduction"),
+                    nonlocal_symbols, data_sharing, simd_reduction_references);
+            std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(), 
+                    DataSharingEnvironmentSetterReduction(data_sharing, DS_SIMD_REDUCTION));
 
             ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols, copyin_references);

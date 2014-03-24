@@ -33,8 +33,11 @@ namespace TL
 {
     namespace Optimizations
     {
-        void strength_reduce(Nodecl::NodeclBase& node, bool fast_math);
-        void canonicalize_and_fold(Nodecl::NodeclBase& node, bool fast_math);
+        void strength_reduce(const Nodecl::NodeclBase& node, bool fast_math);
+        void strength_reduce(TL::ObjectList<Nodecl::NodeclBase>& list, bool fast_math);
+        void canonicalize_and_fold(const Nodecl::NodeclBase& node, bool fast_math);
+        void canonicalize_and_fold(const TL::ObjectList<Nodecl::NodeclBase>& list, bool fast_math);
+
     }
 }
 #endif // TL_OPTIMIZATIONS_HPP

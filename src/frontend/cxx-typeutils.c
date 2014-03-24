@@ -10472,43 +10472,6 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest)
     return 1;
 }
 
-static char vector_type_to_vector_struct_type(type_t* orig, type_t* dest)
-{
-    orig = no_ref(orig);
-    dest = no_ref(dest);
-
-    if (!is_vector_type(orig)
-                || is_vector_type(dest))
-        return 0;
-
-    int vector_size = vector_type_get_vector_size(no_ref(orig));
-    type_t* element_type = vector_type_get_element_type(no_ref(orig));
-    type_t* dest_struct = get_unqualified_type(no_ref(dest));
-
-    return (((vector_size == 16)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m128_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m128d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m128i_struct_type()))))
-            || ((vector_size == 32)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m256_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m256d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m256i_struct_type()))))
-            || ((vector_size == 64)
-                && ((is_float_type(element_type)
-                        && equivalent_types(dest_struct, get_m512_struct_type()))
-                    || (is_double_type(element_type)
-                        && equivalent_types(dest_struct, get_m512d_struct_type()))
-                    || (is_integral_type(element_type)
-                        && equivalent_types(dest_struct, get_m512i_struct_type())))));
-
-}
-
 char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest,
         const locus_t* locus)
 {
@@ -11226,8 +11189,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // Vector conversions
         // vector type -> struct __m128 / struct __m256 / struct __M512
         else if (CURRENT_CONFIGURATION->enable_intel_vector_types
-                && (vector_type_to_vector_struct_type(orig, dest)
-                    || vector_type_to_vector_struct_type(dest, orig)))
+                && (vector_type_to_intel_vector_struct_reinterpret_type(no_ref(orig), no_ref(dest))
+                    || vector_type_to_intel_vector_struct_reinterpret_type(no_ref(dest), no_ref(orig))))
         {
             // We do not account this as a conversion of any kind, we just let
             // these types be transparently compatible

@@ -41,24 +41,28 @@ int main()
     float e = 0.0f;
     float f = 0.0f;
 
-#pragma omp simd for reduction(+:s,t) 
-    for(i=0; i<100; i++)
+#pragma omp parallel
     {
-        s += (i+1);
-        f += (i+1.0f);
-    }
+#pragma omp simd for reduction(+:s,f) 
+        for(i=0; i<100; i++)
+        {
+            s += (i+1);
+            f += (i+1.0f);
+        }
 
 #pragma omp simd for reduction(-:d, e) 
-    for(i=0; i<100; i++)
-    {
-        d -= (i+1);
-        e -= (i+1.0f);
+        for(i=0; i<100; i++)
+        {
+            d -= (i+1);
+            e -= (i+1.0f);
+        }
     }
 
-    printf("%d %f %d %f\n", s, f, d, e);
+    printf("%d %f %d %f %d\n", s, f, d, e, t);
 
     if ((s != 5050) || (f != 5050.0f)
-            || (d != -5050) || (e != -5050.0f))
+            || (d != -5050) || (e != -5050.0f)
+            || (t != 0))
         return 1;
 
     return 0;

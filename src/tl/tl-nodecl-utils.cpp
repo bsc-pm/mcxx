@@ -642,12 +642,14 @@ namespace Nodecl
         nodecl_t n1_ = n1.get_internal_nodecl();
         nodecl_t n2_ = n2.get_internal_nodecl();
 
+        /*
         if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
         {
             std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
                       << " no lists inside. The method returns false but they can be the same tree" << std::endl;
             return false;
         }
+        */
 
         bool equals = equal_trees_rec(n1_, n2_, skip_conversion_nodecls);
         return equals;
@@ -1330,6 +1332,7 @@ namespace Nodecl
             }
             else
             {
+                /*
                 new_linearized_subscript = Nodecl::Add::make(
                         Nodecl::ParenthesizedExpression::make(
                             Nodecl::Mul::make(
@@ -1338,14 +1341,33 @@ namespace Nodecl
                                 get_ptrdiff_t_type()), get_ptrdiff_t_type()),
                         Nodecl::ParenthesizedExpression::make(it_indexes->shallow_copy(), it_indexes->get_type()),
                         get_ptrdiff_t_type());
+                 */
+                new_linearized_subscript = Nodecl::Add::make(
+                        Nodecl::Mul::make(
+                            it_sizes->shallow_copy(),
+                            new_linearized_subscript,
+                            get_ptrdiff_t_type()),
+                        it_indexes->shallow_copy(),
+                        get_ptrdiff_t_type());
             }
 
             it_indexes++;
             it_sizes++;
         }
 
+        // Subscripted
+        Nodecl::NodeclBase new_subscripted = n.get_subscripted().shallow_copy();
+
+        // Dereferencing subscripted for num_dimensions >= 2
+        for(int i=0; i < num_dimensions-1; i++)
+        {
+            new_subscripted = Nodecl::Dereference::make(
+                    new_subscripted.shallow_copy(),
+                    new_subscripted.get_type().points_to());
+        }
+
         Nodecl::ArraySubscript result_array =
-            ArraySubscript::make(n.get_subscripted().shallow_copy(),
+            ArraySubscript::make(new_subscripted,
                     Nodecl::List::make(new_linearized_subscript),
                     n.get_type(),
                     n.get_locus());

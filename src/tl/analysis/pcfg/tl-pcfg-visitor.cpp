@@ -389,6 +389,7 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, case_node );
         Edge* e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_node, __Case );
+
         // case_val is a list (FORTRAN)
         ERROR_CONDITION( case_val.size()>1, "Case statement '%s' with more than one value per case is not yet supported\n",
                          case_stmt.prettyprint().c_str() );
@@ -406,6 +407,7 @@ namespace Analysis {
         _utils->_break_nodes.pop( );
 
         exit_node->set_id( ++( _utils->_nid ) );
+
         _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
 
         // Set Case node as _last_nodes when it does not end with a break statement
@@ -2656,7 +2658,7 @@ namespace Analysis {
         _pcfg->_task_nodes_l.insert( task_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, task_creation );
         return ObjectList<Node*>( 1, task_creation );
-    }
+}
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {

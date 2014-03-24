@@ -615,11 +615,13 @@ namespace Analysis {
         {
             if( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
+
                 _ivs.insert( *it );
                 is_iv = true;
                 break;
             }
         }
+
         return is_iv;
     }
 

@@ -1435,50 +1435,72 @@ src_tl_analysis_constants_libconstants_folding_la_SOURCES = \
 endif
 
 # ##########################################################################
-# # src/tl/vectorizer
+# # src/tl/vectorization
 # ##########################################################################
 #
-if BUILD_VECTORIZER
-phases_LTLIBRARIES += src/tl/vectorizer/libtlvectorizer.la
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/libtlvectorization.la
 
-src_tl_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
+src_tl_vectorization_libtlvectorization_la_CFLAGS = $(tl_cflags)
 
-src_tl_vectorizer_libtlvectorizer_la_CXXFLAGS = $(phases_cflags) -Wall \
+src_tl_vectorization_libtlvectorization_la_CXXFLAGS = $(tl_cflags) \
+                              $(END)
+
+#src_tl_vectorization_libtlvectorization_la_CXXFLAGS = $(tl_cflags) \
+#                              -I $(top_srcdir)/src/tl/analysis/singleton/ \
+#                              -I $(top_srcdir)/src/tl/analysis/common/ \
+#                              -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+#                              -I $(top_srcdir)/src/tl/optimizations/ \
+#                              -I $(top_srcdir)/src/tl/omp/core \
+#                              $(END)
+
+src_tl_vectorization_libtlvectorization_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_libtlvectorization_la_LIBADD = $(tl_libadd)
+#
+#                          $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
+#                          $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
+#                          $(END)
+
+src_tl_vectorization_libtlvectorization_la_SOURCES = \
+                           src/tl/vectorization/tl-vectorization-common.hpp \
+                           src/tl/vectorization/tl-vectorization-utils.hpp \
+                           src/tl/vectorization/tl-vectorization-utils.cpp \
+                           $(END)
+endif
+
+# ##########################################################################
+# # src/tl/vectorization/vectorizer
+# ##########################################################################
+#
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vectorizer/libtlvectorizer.la
+
+src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
+
+src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
+                              -I $(top_srcdir)/src/tl/vectorization/ \
                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
                               -I $(top_srcdir)/src/tl/analysis/common/ \
                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                              -I $(top_srcdir)/src/tl/analysis/tdg \
                               -I $(top_srcdir)/src/tl/optimizations/ \
                               -I $(top_srcdir)/src/tl/omp/core \
                               $(END)
 
-src_tl_vectorizer_libtlvectorizer_la_LDFLAGS = $(phases_ldflags)
-src_tl_vectorizer_libtlvectorizer_la_LIBADD = $(phases_libadd) \
+src_tl_vectorization_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
+                          $(top_builddir)/src/tl/vectorization/libtlvectorization.la \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
                           $(END)
 
-src_tl_vectorizer_libtlvectorizer_la_SOURCES = \
-                           src/tl/vectorizer/tl-vectorizer-utils.hpp \
-                           src/tl/vectorizer/tl-vectorizer-utils.cpp \
-                           src/tl/vectorizer/tl-function-versioning.cpp \
-                           src/tl/vectorizer/tl-function-versioning.hpp \
-                           src/tl/vectorizer/tl-vectorizer.cpp \
-                           src/tl/vectorizer/tl-vectorizer.hpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-for.cpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-for.hpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-function.cpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-function.hpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-statement.cpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-statement.hpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-expression.cpp \
-                           src/tl/vectorizer/tl-vectorizer-visitor-expression.hpp \
-                           src/tl/vectorizer/tl-vectorizer-vector-reduction.hpp \
-                           src/tl/vectorizer/tl-vectorizer-vector-reduction.cpp \
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-analysis.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-analysis.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
@@ -1549,7 +1571,7 @@ phases_LTLIBRARIES += src/tl/omp/base/libtlomp-base.la
 
 src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
                           -I $(srcdir)/src/tl/omp/core \
-                          -I $(srcdir)/src/tl/vectorizer \
+                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                           -I $(srcdir)/src/tl/analysis/singleton\
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
@@ -1557,13 +1579,14 @@ src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
                           $(END)
 
 src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/src/tl/omp/core \
-                          -I $(srcdir)/src/tl/vectorizer \
-                          -I $(srcdir)/src/tl/analysis/singleton\
-                          -I $(srcdir)/src/tl/analysis/common \
-                          -I $(srcdir)/src/tl/analysis/pcfg \
-                          -I $(srcdir)/src/tl/analysis/tdg \
-                          $(END)
+                         -I $(srcdir)/src/tl/omp/core \
+                         -I $(srcdir)/src/tl/vectorization/ \
+                         -I $(srcdir)/src/tl/vectorization/vectorizer \
+                         -I $(srcdir)/src/tl/analysis/singleton\
+                         -I $(top_srcdir)/src/tl/analysis/common \
+                         -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(srcdir)/src/tl/analysis/tdg \
+                         $(END)
 
 src_tl_omp_base_libtlomp_base_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_base_libtlomp_base_la_LIBADD = $(phases_libadd) \
@@ -1574,8 +1597,8 @@ if BUILD_ANALYSIS
 src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la
 endif
 
-if BUILD_VECTORIZER
-src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la
+if BUILD_VECTORIZATION
+src_tl_omp_base_libtlomp_base_la_LIBADD += $(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la
 endif
 
 src_tl_omp_base_libtlomp_base_la_SOURCES = \
@@ -1626,32 +1649,28 @@ endif
 # src/tl/omp/simd
 ##########################################################################
 
-if BUILD_VECTORIZER
+if BUILD_VECTORIZATION
 
 phases_LTLIBRARIES += src/tl/omp/simd/libtlomp-simd.la
 
 src_tl_omp_simd_libtlomp_simd_la_CFLAGS = $(phases_cflags) \
-                          -I $(top_srcdir)/src/tl/optimizations \
-                          -I $(top_srcdir)/src/tl/vectorizer \
-                          -I $(top_srcdir)/src/tl/analysis/singleton \
-                          -I $(top_srcdir)/src/tl/analysis/common \
-                          -I $(top_srcdir)/src/tl/analysis/pcfg \
-                          -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/optimizations \
-                          -I $(top_srcdir)/src/tl/vectorizer \
+                          -I $(top_srcdir)/src/tl/vectorization \
+                          -I $(top_srcdir)/src/tl/vectorization/vectorizer \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_simd_libtlomp_simd_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_simd_libtlomp_simd_la_LIBADD = $(phases_libadd) \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
-                          $(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+                          $(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
                           $(top_builddir)/src/tl/omp/core/libtlomp-core.la \
                           $(END)
 
@@ -1981,7 +2000,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/01_basic_phase/libtl_example_basic.la
 
-src_tl_examples_01_basic_phase_libtl_example_basic_la_CXXFLAGS = -Wall $(phases_cflags)
+src_tl_examples_01_basic_phase_libtl_example_basic_la_CXXFLAGS = $(phases_cflags)
 src_tl_examples_01_basic_phase_libtl_example_basic_la_SOURCES = \
 						src/tl/examples/01_basic_phase/tl-example-basic.hpp \
 						src/tl/examples/01_basic_phase/tl-example-basic.cpp
@@ -2002,7 +2021,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/02_parameters/libtl_example_parameters.la
 
-src_tl_examples_02_parameters_libtl_example_parameters_la_CXXFLAGS = -Wall $(phases_cflags)
+src_tl_examples_02_parameters_libtl_example_parameters_la_CXXFLAGS = $(phases_cflags)
 
 src_tl_examples_02_parameters_libtl_example_parameters_la_SOURCES = \
 						src/tl/examples/02_parameters/tl-example-parameters.hpp \
@@ -2023,7 +2042,7 @@ if BUILD_TL_EXAMPLES
 
 phases_LTLIBRARIES += src/tl/examples/03_visitor/libtl_example_visitor.la
 
-src_tl_examples_03_visitor_libtl_example_visitor_la_CXXFLAGS = -Wall $(phases_cflags)
+src_tl_examples_03_visitor_libtl_example_visitor_la_CXXFLAGS = $(phases_cflags)
 
 src_tl_examples_03_visitor_libtl_example_visitor_la_SOURCES = \
 						src/tl/examples/03_visitor/tl-example-visitor.hpp \
@@ -2089,116 +2108,118 @@ src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
 endif
 
 ##########################################################################
-# src/tl/vector-lowering/sse
+# src/tl/vectorization/vector-lowering/sse
 ##########################################################################
 
-if BUILD_VECTORIZER
-phases_LTLIBRARIES += src/tl/vector-lowering/sse/libtlvector-lowering-sse.la
+vector_lowering_cflags = \
+                         -I $(srcdir)/src/tl/vectorization/ \
+                         -I $(srcdir)/src/tl/vectorization/vectorizer \
+                         -I $(srcdir)/src/tl/analysis/singleton\
+                         -I $(top_srcdir)/src/tl/analysis/common \
+                         -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(top_srcdir)/src/tl/omp/core \
+                         $(END)
 
-src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_CFLAGS = $(tl_cflags)
-src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_CXXFLAGS = $(tl_cflags)
-src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_LDFLAGS = $(tl_ldflags)
-src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD =
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/sse/libtlvector-lowering-sse.la
 
-src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
-	 src/tl/vector-lowering/sse/tl-vector-lowering-sse.hpp \
-	 src/tl/vector-lowering/sse/tl-vector-lowering-sse.cpp \
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_CFLAGS = $(tl_cflags)
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_CXXFLAGS = $(tl_cflags) \
+    $(vector_lowering_cflags) \
+    $(END)
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_LIBADD = $(END)
+
+src_tl_vectorization_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
+	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.hpp \
+	 src/tl/vectorization/vector-lowering/sse/tl-vector-lowering-sse.cpp \
   	 $(END)
 endif
 
 ##########################################################################
-# src/tl/vector-lowering/avx2
+# src/tl/vectorization/vector-lowering/avx2
 ##########################################################################
 
-if BUILD_VECTORIZER
-lib_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/avx2/libtlvector-lowering-avx2.la
 
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
+src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
 
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    -I $(top_srcdir)/src/tl/omp/core/ \
+src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
+    $(vector_lowering_cflags) \
     $(END)
 
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
-	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
+	$(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
 $(END)
 
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
-     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
-     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
-     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
-     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
+src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
+     src/tl/vectorization/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
+     src/tl/vectorization/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
+     src/tl/vectorization/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
      $(END)
 endif
 
 ##########################################################################
-# src/tl/vector-lowering/knc
+# src/tl/vectorization/vector-lowering/knc
 ##########################################################################
 
-if BUILD_VECTORIZER
-phases_LTLIBRARIES += src/tl/vector-lowering/knc/libtlvector-lowering-knc.la
+if BUILD_VECTORIZATION
+lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags)
+src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags)
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    -I $(top_srcdir)/src/tl/omp/core/ \
+src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
+    $(vector_lowering_cflags) \
     $(END)
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \
-	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \
+	$(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
 $(END)
 
-src_tl_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \
-     src/tl/vector-lowering/knc/tl-vector-lowering-knc.hpp \
-     src/tl/vector-lowering/knc/tl-vector-lowering-knc.cpp \
+src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \
+     src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.hpp \
+     src/tl/vectorization/vector-lowering/knc/legalization/tl-vector-legalization-knc.cpp \
+     src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.hpp \
+     src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc-extern.hpp \
+     src/tl/vectorization/vector-lowering/knc/backend/tl-vector-backend-knc.cpp \
      $(END)
 endif
 
 ##########################################################################
-# src/tl/vector-lowering
+# src/tl/vectorization/vector-lowering
 ##########################################################################
 
-if BUILD_VECTOR_LOWERING
-phases_LTLIBRARIES += src/tl/vector-lowering/libtlvector-lowering.la
+if BUILD_VECTORIZATION
+phases_LTLIBRARIES += src/tl/vectorization/vector-lowering/libtlvector-lowering.la
 
-src_tl_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_cflags)
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CFLAGS = $(phases_cflags)
 
-src_tl_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
-                               -I $(top_srcdir)/src/tl/vector-lowering/sse/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/avx2/backend \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/ \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/legalization \
-                               -I $(top_srcdir)/src/tl/vector-lowering/knc/backend \
-                               -I $(top_srcdir)/src/tl/vectorizer/ \
-                               -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                               -I $(top_srcdir)/src/tl/analysis/common/ \
-                               -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-                               -I $(top_srcdir)/src/tl/omp/core/ \
-                               $(END)
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_CXXFLAGS=$(phases_cflags)\
+                 $(vector_lowering_cflags) \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/sse/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/avx2/backend \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knc/ \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knc/legalization \
+                 -I $(top_srcdir)/src/tl/vectorization/vector-lowering/knc/backend \
+                 $(END)
 
-src_tl_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LDFLAGS = $(phases_ldflags)
 
-src_tl_vector_lowering_libtlvector_lowering_la_SOURCES = \
-    src/tl/vector-lowering/tl-vector-lowering.cpp \
-    src/tl/vector-lowering/tl-vector-lowering.hpp \
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_SOURCES = \
+    src/tl/vectorization/vector-lowering/tl-vector-lowering.cpp \
+    src/tl/vectorization/vector-lowering/tl-vector-lowering.hpp \
 	$(END)
 
-src_tl_vector_lowering_libtlvector_lowering_la_LIBADD = \
-    $(top_builddir)/src/tl/vector-lowering/sse/libtlvector-lowering-sse.la \
-    $(top_builddir)/src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la \
-    $(top_builddir)/src/tl/vector-lowering/knc/libtlvector-lowering-knc.la \
+src_tl_vectorization_vector_lowering_libtlvector_lowering_la_LIBADD = \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/sse/libtlvector-lowering-sse.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/avx2/libtlvector-lowering-avx2.la \
+    $(top_builddir)/src/tl/vectorization/vector-lowering/knc/libtlvector-lowering-knc.la \
     $(END)
 endif
 

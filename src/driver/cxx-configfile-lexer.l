@@ -103,6 +103,7 @@ location_t current_location = { NULL, NULL, 1, 1};
 "," { handle_token(yytext); return ','; }
 "}" { handle_token(yytext); BEGIN(maybe_comes_option_line); return '}'; }
 "!" { handle_token(yytext); return '!'; }
+"?" { handle_token(yytext); return '?'; }
 "&" { handle_token(yytext); return '&'; }
 "|" { handle_token(yytext); return '|'; }
 "(" { handle_token(yytext); return '('; }
