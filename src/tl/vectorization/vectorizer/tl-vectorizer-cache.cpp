@@ -256,7 +256,7 @@ namespace Vectorization
                 // Compare subscripts
                 Nodecl::NodeclBase subscript = n.get_subscripts().as<Nodecl::List>().front();
 
-                if (Nodecl::Utils::equal_nodecls(cache._lower_bound, subscript,
+                if (Nodecl::Utils::structurally_equal_nodecls(cache._lower_bound, subscript,
                             /* skip conversions */ true))
                 {
                     return cache._register_list[0].make_nodecl(true);

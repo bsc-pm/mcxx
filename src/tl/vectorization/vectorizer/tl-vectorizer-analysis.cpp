@@ -128,7 +128,7 @@ namespace Vectorization
     // Base destructor is called automatically
     VectorizerAnalysisStaticInfo::~VectorizerAnalysisStaticInfo()
     {}
-    
+
     Nodecl::FunctionCode VectorizerAnalysisStaticInfo::copy_function_code(
             const Nodecl::FunctionCode& n)
     {
@@ -304,7 +304,7 @@ namespace Vectorization
                 it != map.end();
                 it ++)
         {
-            if(Nodecl::Utils::equal_nodecls(n, it->first,
+            if(Nodecl::Utils::structurally_equal_nodecls(n, it->first,
                         false /*Do no skip conversions*/))
             {
                 return it;
