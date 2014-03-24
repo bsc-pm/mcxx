@@ -1658,6 +1658,25 @@ namespace Analysis {
         return var_constraint;
     }
     
+    void Node::add_constraints( Utils::ConstraintMap new_constraints )
+    {
+        Utils::ConstraintMap constraints = get_constraints();
+        for(Utils::ConstraintMap::iterator it = new_constraints.begin(); it != new_constraints.end(); ++it)
+        {
+            if(constraints.find(it->first) != constraints.end())
+            {
+                Nodecl::List c_values = Nodecl::List::make(constraints[it->first].get_constraint().shallow_copy(), it->second.get_constraint().shallow_copy());
+                Nodecl::Analysis::Phi new_constraint = Nodecl::Analysis::Phi::make(c_values, constraints[it->first].get_constraint().get_type());
+                constraints[it->first] = Utils::Constraint(constraints[it->first].get_symbol(), it->first, new_constraint);
+            }
+            else
+            {   // When the variable did not have any constraint, just add it to the map
+                constraints[it->first] = it->second;
+            }
+        }
+        set_data( _CONSTRAINTS, constraints );
+    }
+    
     void Node::set_constraints( Utils::ConstraintMap constraints )
     {
         set_data( _CONSTRAINTS, constraints );

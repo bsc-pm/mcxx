@@ -667,6 +667,9 @@ namespace Analysis {
             //! Returns the constraints associated to a given variable in the node
             Utils::Constraint get_constraint( const Nodecl::NodeclBase& var );
             
+            //! Adds a new set of constraints to the node
+            void add_constraints( Utils::ConstraintMap new_constraints );
+            
             //! Sets a new map of constraints to the node
             void set_constraints( Utils::ConstraintMap constraints );
             

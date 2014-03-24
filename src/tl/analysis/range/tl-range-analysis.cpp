@@ -126,7 +126,8 @@ namespace {
         return c;
     }
     
-    // x < c;    -->    X1 = X0 ∩ [-∞, c-1]
+    // x < c;    ---TRUE-->    X1 = X0 ∩ [-∞, c-1]
+    //           --FALSE-->    X1 = X0 ∩ [ c,  +∞]
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::LowerThan& n)
     {
         Utils::Constraint c;
@@ -306,22 +307,20 @@ namespace {
             // Set true/false output constraints to current children, if applies
             ObjectList<Edge*> exits = n->get_exit_edges();
             if(exits.size()==2 &&
-                ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())) )
+               ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
             {
-                Utils::ConstraintMap child_zero_constraints = exits[0]->get_target()->get_all_constraints();
-                Utils::ConstraintMap child_one_constraints = exits[1]->get_target()->get_all_constraints();
                 Utils::ConstraintMap out_true_constraints = cbv.get_output_true_constraints();
                 Utils::ConstraintMap out_false_constraints = cbv.get_output_false_constraints();
-                if(exits[0]->is_true_edge())
-                {
-                    exits[0]->get_target()->set_constraints(out_true_constraints);
-                    exits[1]->get_target()->set_constraints(out_false_constraints);
-                }
-                else
-                {
-                    exits[0]->get_target()->set_constraints(out_false_constraints);
-                    exits[1]->get_target()->set_constraints(out_true_constraints);
-                }
+                
+                Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
+                while(true_node->is_exit_node())
+                    true_node = true_node->get_outer_node()->get_children()[0];
+                Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
+                while(false_node->is_exit_node())
+                    false_node = false_node->get_outer_node()->get_children()[0];
+                
+                true_node->add_constraints(out_true_constraints);
+                false_node->add_constraints(out_false_constraints);
             }
         }
         
