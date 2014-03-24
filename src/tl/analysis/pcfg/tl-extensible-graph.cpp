@@ -841,62 +841,6 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
-    {
-        if( current->is_visited_aux( ) )
-        {
-            current->set_visited_aux( false );
-
-            if( current->is_entry_node( ) )
-                return;
-
-            if( current->is_graph_node( ) )
-                clear_visits_aux_backwards( current->get_graph_exit_node( ) );
-
-            ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-                clear_visits_aux_backwards( *it );
-        }
-    }
-
-    void ExtensibleGraph::clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
-    {
-        if( current->is_visited_aux( ) && current->node_is_enclosed_by( outer_node ) )
-        {
-            current->set_visited_aux( false );
-
-            if( current->is_entry_node( ) )
-                return;
-
-            if( current->is_graph_node( ) )
-                clear_visits_aux_backwards_in_level( current->get_graph_exit_node( ), outer_node );
-
-            ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-                clear_visits_aux_backwards_in_level( *it, outer_node );
-        }
-    }
-
-    void ExtensibleGraph::clear_visits_avoiding_branch( Node* current, Node* avoid_node )
-    {
-        if( ( current != avoid_node ) && current->is_visited( ) )
-        {
-            current->set_visited( false );
-
-            if( current->is_exit_node( ) )
-                return;
-
-            if( current->is_graph_node( ) )
-                clear_visits_avoiding_branch( current->get_graph_entry_node( ), avoid_node );
-
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                clear_visits_avoiding_branch( *it, avoid_node );
-            }
-        }
-    }
-
     std::string ExtensibleGraph::get_name( ) const
     {
         return _name;
