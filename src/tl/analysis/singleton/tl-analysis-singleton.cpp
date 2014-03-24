@@ -49,7 +49,7 @@ namespace Analysis {
     // *************** Class containing all analysis related to a given AST *************** //
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
-        : _pcfgs( ), _tdgs( ), 
+        : _pcfgs( ), _tdgs( ),
           _pcfg(false), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
           _tune_task_syncs( false ), _range( false ), _auto_scoping( false ), _auto_deps( false ), _tdg( false )
@@ -76,7 +76,7 @@ namespace Analysis {
             result.insert( it->second );
         return result;
     }
-    
+
     TaskDependencyGraph* PCFGAnalysis_memento::get_tdg( std::string name )
     {
         TaskDependencyGraph* tdg = NULL;
@@ -85,22 +85,22 @@ namespace Analysis {
             tdg = _tdgs[name];
         return tdg;
     }
-    
+
     void PCFGAnalysis_memento::set_tdg( std::string name, TaskDependencyGraph* tdg )
     {
         _tdgs[name] = tdg;
     }
-    
+
     bool PCFGAnalysis_memento::is_pcfg_computed() const
     {
         return _pcfg;
     }
-    
+
     void PCFGAnalysis_memento::set_pcfg_computed()
     {
         _pcfg = true;
     }
-    
+
     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
     {
         return _constants_propagation;
@@ -175,22 +175,22 @@ namespace Analysis {
     {
         return _tune_task_syncs;
     }
-    
+
     void PCFGAnalysis_memento::set_tune_task_synchronizations( )
     {
         _tune_task_syncs = true;
     }
-    
+
     bool PCFGAnalysis_memento::is_range_analysis_computed( ) const
     {
         return _range;
     }
-    
+
     void PCFGAnalysis_memento::set_range_analysis_computed( )
     {
         _range = true;
     }
-    
+
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
     {
         return _auto_scoping;
@@ -210,17 +210,17 @@ namespace Analysis {
     {
         _auto_deps = true;
     }
-    
+
     bool PCFGAnalysis_memento::is_tdg_computed( ) const
     {
         return _tdg;
     }
-    
+
     void PCFGAnalysis_memento::set_tdg_computed( )
     {
         _tdg = true;
     }
-    
+
     Node* PCFGAnalysis_memento::node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
@@ -237,7 +237,7 @@ namespace Analysis {
                 // When calling to analysis with a non-TopLevel node, both the EXTENSIBLE_GRAPH and
                 // the non-TopLevel node, have the same label, so we have to look for the one that
                 // is not the EXTENSIBLE_GRAPH node.
-                if( Nodecl::Utils::equal_nodecls( current->get_graph_related_ast( ), n, /* skip conversion nodes */ true )
+                if( Nodecl::Utils::structurally_equal_nodecls( current->get_graph_related_ast( ), n, /* skip conversion nodes */ true )
                     && ( n.is<Nodecl::FunctionCode>( )
                          || n.is<Nodecl::OpenMP::SimdFunction>( )
                          || ( !n.is<Nodecl::FunctionCode>() && !current->is_extended_graph_node( ) ) ) )
@@ -254,7 +254,7 @@ namespace Analysis {
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
-                    if( Nodecl::Utils::equal_nodecls( *it, n ) )
+                    if( Nodecl::Utils::structurally_equal_nodecls( *it, n ) )
                     {
                         result = current;
                         break;
@@ -319,7 +319,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     ObjectList<Symbol> PCFGAnalysis_memento::get_reductions( const Nodecl::NodeclBase& n )
     {
         ObjectList<Symbol> result;
@@ -329,13 +329,13 @@ namespace Analysis {
             if( pcfg_node != NULL )
             {
                 Node* pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_node );
-                while( pcfg_omp_node != NULL && 
-                       !pcfg_omp_node->is_omp_parallel_node( ) && !pcfg_omp_node->is_omp_loop_node( ) && 
+                while( pcfg_omp_node != NULL &&
+                       !pcfg_omp_node->is_omp_parallel_node( ) && !pcfg_omp_node->is_omp_loop_node( ) &&
                        !pcfg_omp_node->is_omp_sections_node( ) && !pcfg_omp_node->is_omp_simd_node( ) )
                 {
                     pcfg_omp_node = ExtensibleGraph::get_omp_enclosing_node( pcfg_omp_node );
                 }
-                
+
                 if( pcfg_omp_node != NULL )
                     result = pcfg_omp_node->get_reductions( );
             }
@@ -412,10 +412,10 @@ namespace Analysis {
         if( !memento.is_pcfg_computed() )
         {
             memento.set_pcfg_computed();
-            
+
             ObjectList<Nodecl::NodeclBase> unique_asts;
             std::map<Symbol, Nodecl::NodeclBase> asserted_funcs;
-            
+
             // Get all unique ASTs embedded in 'ast'
             if( !ast.is<Nodecl::TopLevel>( ) )
             {
@@ -429,13 +429,13 @@ namespace Analysis {
                 unique_asts = tlv.get_functions( );
                 asserted_funcs = tlv.get_asserted_funcs( );
             }
-            
+
             // Compute the PCFG corresponding to each AST
             for( ObjectList<Nodecl::NodeclBase>::iterator it = unique_asts.begin( ); it != unique_asts.end( ); ++it )
             {
                 // Generate the hashed name corresponding to the AST of the function
                 std::string pcfg_name = Utils::generate_hashed_name( *it );
-                
+
                 // Create the PCFG only if it has not been created previously
                 if( memento.get_pcfg( pcfg_name ) == NULL )
                 {
@@ -444,13 +444,13 @@ namespace Analysis {
                         printf( "Parallel Control Flow Graph '%s'\n", pcfg_name.c_str( ) );
                     PCFGVisitor v( pcfg_name, *it );
                     ExtensibleGraph* pcfg = v.parallel_control_flow_graph( *it, asserted_funcs );
-                    
+
                     // Synchronize the tasks, if applies
                     if( VERBOSE )
                         printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
                     TaskAnalysis::TaskSynchronizations task_sync_analysis( pcfg );
                     task_sync_analysis.compute_task_synchronizations( );
-                    
+
                     // Store the pcfg in the singleton
                     memento.set_pcfg( pcfg_name, pcfg );
                     pcfgs.append( pcfg );
@@ -465,7 +465,7 @@ namespace Analysis {
         {
             pcfgs = memento.get_pcfgs();
         }
-        
+
         return pcfgs;
     }
 
@@ -500,11 +500,11 @@ namespace Analysis {
     static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, ObjectList<ExtensibleGraph*>* pcfgs )
     {
         // Nothing to do if the we are analysing something that:
-        // - is not a function 
+        // - is not a function
         // - has already been analyzed
         if( !func_sym.is_valid( ) || ( visited_funcs.find( func_sym ) != visited_funcs.end( ) ) )
             return;
-        
+
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin( ); it != pcfgs->end( ); ++it )
         {
             Symbol it_func_sym( ( *it )->get_function_symbol( ) );
@@ -517,7 +517,7 @@ namespace Analysis {
                     ObjectList<Symbol> called_funcs = ( *it )->get_function_calls( );
                     for( ObjectList<Symbol>::iterator itf = called_funcs.begin( ); itf != called_funcs.end( ); ++itf )
                         use_def_rec( *itf, visited_funcs, pcfgs );
-                    
+
                     // Analyse the current graph
                     if( VERBOSE )
                         printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
@@ -527,8 +527,8 @@ namespace Analysis {
             }
         }
     }
-    
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento, 
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def( PCFGAnalysis_memento& memento,
                                                              const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
@@ -546,7 +546,7 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness( PCFGAnalysis_memento& memento, 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness( PCFGAnalysis_memento& memento,
                                                               const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = use_def( memento, ast );
@@ -567,7 +567,7 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions( PCFGAnalysis_memento& memento, 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions( PCFGAnalysis_memento& memento,
                                                                           const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
@@ -588,7 +588,7 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento, 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables( PCFGAnalysis_memento& memento,
                                                                          const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions( memento, ast );
@@ -619,56 +619,56 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations( PCFGAnalysis_memento& memento, 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations( PCFGAnalysis_memento& memento,
                                                                                 const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = liveness( memento, ast );
-        
+
         if( !memento.is_task_synchronizations_tuned( ) )
         {
             memento.set_tune_task_synchronizations( );
-            
+
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
                     printf( "Task synchronizations tunning of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                
+
                 TaskAnalysis::TaskSyncTunning tst( *it );
                 tst.tune_task_synchronizations( );
             }
         }
-        
+
         return pcfgs;
     }
-    
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento, 
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis( PCFGAnalysis_memento& memento,
                                                                     const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
-        
+
         if( !memento.is_range_analysis_computed( ) )
         {
             memento.set_range_analysis_computed( );
-            
+
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
                     printf( "Range Analysis of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                
+
                 // Compute the induction variables of all loops of each PCFG
                 RangeAnalysis ra( *it );
                 ra.compute_range_analysis( );
             }
         }
-        
+
         return pcfgs;
     }
-    
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento, 
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento,
                                                                   const Nodecl::NodeclBase& ast )
     {
         ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations( memento, ast );
-        
+
         if( !memento.is_auto_scoping_computed( ) )
         {
             memento.set_auto_scoping_computed( );
@@ -686,51 +686,51 @@ namespace Analysis {
         return pcfgs;
     }
 
-    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph( PCFGAnalysis_memento& memento, 
+    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph( PCFGAnalysis_memento& memento,
                                                                                const Nodecl::NodeclBase& ast )
     {
         ObjectList<TaskDependencyGraph*> tdgs;
-        
+
         tune_task_synchronizations( memento, ast );
         ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
-        
+
         if( !memento.is_tdg_computed( ) )
         {
             memento.set_tdg_computed( );
-            
+
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
             {
                 if( VERBOSE )
                     printf( "Task Dependency Graph of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                
+
                 TaskDependencyGraph* tdg = new TaskDependencyGraph( *it );
                 tdgs.insert( tdg );
                 memento.set_tdg( ( *it )->get_name( ), tdg );
             }
         }
-        
+
         return tdgs;
     }
-    
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento, 
+
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses( PCFGAnalysis_memento& memento,
                                                                   const Nodecl::NodeclBase& ast )
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
         ObjectList<ExtensibleGraph*> pcfgs = induction_variables( memento, ast );
-        
+
         // Now we apply auto-scope
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             if( VERBOSE )
                 printf( "Auto-Scoping of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-            
+
             AutoScoping as( *it );
             as.compute_auto_scoping( );
         }
-        
+
         return pcfgs;
     }
-    
+
     void AnalysisSingleton::print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name )
     {
         if( VERBOSE )
@@ -742,7 +742,7 @@ namespace Analysis {
                                   memento.is_range_analysis_computed( ),
                                   memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
     }
-    
+
     void AnalysisSingleton::print_all_pcfg( PCFGAnalysis_memento& memento )
     {
         ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs( );
@@ -757,7 +757,7 @@ namespace Analysis {
                                          memento.is_auto_scoping_computed( ), memento.is_auto_deps_computed( ) );
         }
     }
-    
+
     void AnalysisSingleton::print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name )
     {
         if( VERBOSE )
@@ -765,12 +765,12 @@ namespace Analysis {
         TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );
         tdg->print_tdg_to_dot( );
     }
-    
+
     void AnalysisSingleton::tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name )
     {
         if( VERBOSE )
             printf( "Printing TDG '%s' to JSON\n", tdg_name.c_str( ) );
-        TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );        
+        TaskDependencyGraph* tdg = memento.get_tdg( tdg_name );
         tdg->print_tdg_to_json( );
     }
 }
