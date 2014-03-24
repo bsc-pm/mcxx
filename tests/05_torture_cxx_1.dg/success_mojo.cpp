@@ -23,6 +23,9 @@ test_generator=05_torture_cxx_1.dg/mercurium
 </testinfo>
 */
 
+
+#if __GNUC__ == 4 && __GNUC_MINOR__ >= 7
+
 namespace mojo
 {
     template <class T>
@@ -26400,3 +26403,5 @@ int main()
     cout << ("cout << sizeof(X) << \" \"") << "\n"; cout << sizeof(X) << " " ; cout << '\n';;
     cout << ("cout << sizeof(TestPtr) << \"\\n\"") << "\n"; cout << sizeof(TestPtr) << "\n" ; cout << '\n';;
 }
+
+#endif
