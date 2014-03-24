@@ -169,10 +169,6 @@ namespace {
         {
             Utils::RangeValuesMap ranges_in_ = current->get_ranges_in( );
             Utils::RangeValuesMap ranges_out_ = current->get_ranges_out( );
-            if( current->get_id( ) == 9 )
-            {
-                std::cerr << "Node 9 has " << ranges_in_.size( ) << " ranges_in and " << ranges_out_.size( ) << " ranges_out" << std::endl;
-            }
             std::string ranges_in = prettyprint_range_values_map( current->get_ranges_in( ), /*dot*/ true );
             std::string ranges_out = prettyprint_range_values_map( current->get_ranges_out( ), /*dot*/ true );
             
