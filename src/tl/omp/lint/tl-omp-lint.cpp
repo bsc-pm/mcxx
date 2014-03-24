@@ -398,7 +398,7 @@ namespace OpenMP {
                 if( TL::Analysis::ExtensibleGraph::node_is_in_loop( task_creation ) )
                 {
                     TL::Analysis::Node* outer_node = task_creation->get_outer_node( );
-                    TL::Analysis::Node* most_outer_loop;
+                    TL::Analysis::Node* most_outer_loop = NULL;
                     while( outer_node != NULL )
                     {
                         if( outer_node->is_loop_node( ) )
