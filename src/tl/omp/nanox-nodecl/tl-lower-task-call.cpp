@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -456,7 +456,7 @@ namespace InputValueUtils
                     it != toplevel_lvalue_subexpressions.end() && create_new_outline_data_item;
                     it++)
             {
-                create_new_outline_data_item = !Nodecl::Utils::equal_nodecls(it->first, expr);
+                create_new_outline_data_item = !Nodecl::Utils::structurally_equal_nodecls(it->first, expr);
                 if (!create_new_outline_data_item)
                 {
                     new_symbol = it->second;
@@ -1340,7 +1340,7 @@ static TL::Symbol new_function_symbol_adapter(
     {
         scope_entry_t* param = it->get_internal_symbol();
 
-        symbol_set_as_parameter_of_function(param, new_function_sym, 
+        symbol_set_as_parameter_of_function(param, new_function_sym,
                 /* nesting */ 0,
                 /* position */ new_function_sym->entity_specs.num_related_symbols);
 

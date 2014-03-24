@@ -30,11 +30,11 @@ Cambridge, MA 02139, USA.
 
 namespace TL {
 namespace Analysis {
-    
+
 namespace
 {
     // TODO Complete this node, some cases are not properly handled
-    void combine_ranges( ObjectList<Utils::RangeValue_tag>& original, 
+    void combine_ranges( ObjectList<Utils::RangeValue_tag>& original,
                                 ObjectList<Utils::RangeValue_tag> new_values )
     {
         ObjectList<Utils::RangeValue_tag> elems_to_add;
@@ -48,7 +48,7 @@ namespace
                 {
                     if( !ito->n->is_null( ) )
                     {
-                        if( Nodecl::Utils::equal_nodecls( *it->n, *ito->n ) )
+                        if( Nodecl::Utils::structurally_equal_nodecls( *it->n, *ito->n ) )
                         {
                             needs_insertion = false;
                             break;
@@ -63,9 +63,9 @@ namespace
                     }
                     else
                     {
-                        if( Nodecl::Utils::equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
+                        if( Nodecl::Utils::structurally_equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
                         {
-                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n" 
+                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n"
                                              "Assuming values not overlapped", 0 );
                         }
                     }
@@ -80,26 +80,26 @@ namespace
                 {
                     if( !ito->n->is_null( ) )
                     {
-                        if( Nodecl::Utils::equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
+                        if( Nodecl::Utils::structurally_equal_nodecls( ito->iv->get_variable( ).get_nodecl( ), *ito->n ) )
                         {
-                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n" 
+                            WARNING_MESSAGE( "Combining ranges between an InductionVariableData and a Nodecl is not yet supported.\n"
                                              "Assuming values do not overlap", 0 );
                         }
                     }
                     else
                     {
-                        if( Nodecl::Utils::equal_nodecls( it->iv->get_variable( ).get_nodecl( ), 
-                            ito->iv->get_variable( ).get_nodecl( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_lb( ), ito->iv->get_lb( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_ub( ), ito->iv->get_ub( ), /*skip conversion nodes*/ true ) && 
-                            Nodecl::Utils::equal_nodecls( it->iv->get_increment( ), ito->iv->get_increment( ), /*skip conversion nodes*/ true ) && 
+                        if( Nodecl::Utils::structurally_equal_nodecls( it->iv->get_variable( ).get_nodecl( ),
+                            ito->iv->get_variable( ).get_nodecl( ), /*skip conversion nodes*/ true ) &&
+                            Nodecl::Utils::structurally_equal_nodecls( it->iv->get_lb( ), ito->iv->get_lb( ), /*skip conversion nodes*/ true ) &&
+                            Nodecl::Utils::structurally_equal_nodecls( it->iv->get_ub( ), ito->iv->get_ub( ), /*skip conversion nodes*/ true ) &&
+                            Nodecl::Utils::structurally_equal_nodecls( it->iv->get_increment( ), ito->iv->get_increment( ), /*skip conversion nodes*/ true ) &&
                             ( it->iv->is_basic( ) == ito->iv->is_basic( ) ) )
                         {
                             needs_insertion = false;
                         }
                         else
                         {
-                            WARNING_MESSAGE( "Combining ranges between two InductionVariableData is not yet supported.\n" 
+                            WARNING_MESSAGE( "Combining ranges between two InductionVariableData is not yet supported.\n"
                                              "Assuming values do not overlap", 0 );
                         }
                     }
@@ -108,9 +108,9 @@ namespace
                     elems_to_add.append( *it );
             }
         }
-        
+
         // Erase the elements of the original list that we don't want anymore
-        for( ObjectList<ObjectList<Utils::RangeValue_tag>::iterator>::iterator it = elems_to_erase.begin( ); 
+        for( ObjectList<ObjectList<Utils::RangeValue_tag>::iterator>::iterator it = elems_to_erase.begin( );
             it != elems_to_erase.end( ); ++it )
             {
                 original.erase( *it );
@@ -119,7 +119,7 @@ namespace
             for( ObjectList<Utils::RangeValue_tag>::iterator it = elems_to_add.begin( ); it != elems_to_add.end( ); ++it )
                 original.append( *it );
     }
-    
+
     bool equal_maps( const Utils::RangeValuesMap& m1, const Utils::RangeValuesMap& m2 )
     {
         // No predicate needed because there is operator== for pairs already.
@@ -127,24 +127,24 @@ namespace
         && std::equal( m1.begin( ), m1.end( ), m2.begin( ), Utils::map_pair_compare ) );
     }
 }
-    
-    
+
+
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
-    
+
     RangeAnalysis::RangeAnalysis( ExtensibleGraph* graph )
         : _graph( graph )
     {}
-    
+
     void RangeAnalysis::compute_range_analysis( )
     {
         bool changed = true;
         Node* entry = _graph->get_graph( )->get_graph_entry_node( );
-        
+
         // Initialize range values with information about the reaching definitions out and killed variables
         initialize_range_values( entry );
         ExtensibleGraph::clear_visits( entry );
-        
+
         // Iterate over the graph until no change is performed
 //         while( changed )
 //         {
@@ -153,13 +153,13 @@ namespace
 //             ExtensibleGraph::clear_visits( entry );
 //         }
     }
-    
+
     void RangeAnalysis::initialize_range_values( Node* current )
     {
         if( !current->is_visited( ) )
         {
             current->set_visited( true );
-            
+
             if( current->is_graph_node( ) )
             {
                 initialize_range_values( current->get_graph_entry_node( ) );
@@ -172,7 +172,7 @@ namespace
                 {
                     Nodecl::NodeclBase var = it->first.get_nodecl( );
                     ObjectList<Utils::RangeValue_tag> values;
-                    while( Nodecl::Utils::equal_nodecls( var, it->first.get_nodecl( ) ) )
+                    while( Nodecl::Utils::structurally_equal_nodecls( var, it->first.get_nodecl( ) ) )
                     {
                         Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
                         Utils::RangeValue_tag rv; rv.n = value;
@@ -188,7 +188,7 @@ namespace
                 {
                     Nodecl::NodeclBase var = it->first.get_nodecl( );
                     ObjectList<Utils::RangeValue_tag> values;
-                    while( Nodecl::Utils::equal_nodecls( var, it->first.get_nodecl( ) ) )
+                    while( Nodecl::Utils::structurally_equal_nodecls( var, it->first.get_nodecl( ) ) )
                     {
                         Nodecl::NodeclBase* value = new Nodecl::NodeclBase( it->second.get_internal_nodecl( ) );
 //                         dpv.walk( *value );
@@ -204,7 +204,7 @@ namespace
                     current->set_range_out( var, values );
                 }
             }
-            
+
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
@@ -212,7 +212,7 @@ namespace
             }
         }
     }
-    
+
     void RangeAnalysis::compute_node_range_analysis( Node* node, bool& changed )
     {
         // Get parents ranges
@@ -233,7 +233,7 @@ namespace
                 }
             }
         }
-        
+
         // Combine parents ranges with current range
         Utils::RangeValuesMap old_node_range_values = node->get_ranges_in( );
         Utils::RangeValuesMap new_node_range_values;
@@ -252,14 +252,14 @@ namespace
                 else
                 {   // Check whether the value is computed depending on ranges that are already computed
                     // TODO
-                    WARNING_MESSAGE( "Combining parents ranges with current non-constant value is not yet supported\n" 
+                    WARNING_MESSAGE( "Combining parents ranges with current non-constant value is not yet supported\n"
                                      "Assuming current value", 0 );
                     node->set_range_in( reaching_def_var, values );
                 }
             }
             else
             {
-                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> var_reach_defs = 
+                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> var_reach_defs =
                         out_reach_defs.equal_range( it->first );
                 ObjectList<Utils::RangeValue_tag> range_values;
                 while( var_reach_defs.first != var_reach_defs.second )
@@ -270,38 +270,38 @@ namespace
                 }
                 new_node_range_values.insert( Utils::RangeValuesMapEntry( reaching_def_var, range_values ) );
             }
-            
+
             // scape all reaching definitions corresponding to the same variable
             ++it;
-            while( Nodecl::Utils::equal_nodecls( it->first.get_nodecl( ), reaching_def_var ) )
+            while( Nodecl::Utils::structurally_equal_nodecls( it->first.get_nodecl( ), reaching_def_var ) )
                 ++it;
         }
-        
+
         if( !equal_maps( new_node_range_values, old_node_range_values ) )
             changed = true;
     }
-    
+
     void RangeAnalysis::compute_range_analysis_rec( Node* current, bool& changed )
     {
         if( !current->is_visited( ) )
         {
             current->set_visited( true );
-            
+
             // TODO
             if( current->is_graph_node( ) )
             {
                 if( current->is_loop_node( ) )
                 {   // Ranges are different depending on the node
-                    
+
                 }
-                
+
                 compute_range_analysis_rec( current->get_graph_entry_node( ), changed );
             }
             else
             {
                 compute_node_range_analysis( current, changed );
             }
-            
+
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             {
@@ -309,48 +309,48 @@ namespace
             }
         }
     }
-    
+
     // ****************************** End class implementing range analysis ******************************* //
     // **************************************************************************************************** //
-    
-    
-    
+
+
+
     // **************************************************************************************************** //
     // *************** Class implementing reaching definitions substitution and propagation *************** //
-    
+
     DefinitionsPropagationVisitor::DefinitionsPropagationVisitor( Utils::ext_sym_map reaching_defs )
         : _reaching_definitions( reaching_defs )
     {}
-    
+
     void DefinitionsPropagationVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
+            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  "
                       << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
             Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
         }
     }
-    
+
     void DefinitionsPropagationVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
         if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
+            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  "
                       << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
             Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
         }
     }
-    
+
     void DefinitionsPropagationVisitor::visit( const Nodecl::Symbol& n )
     {
         if( _reaching_definitions.find( n ) != _reaching_definitions.end( ) ) {
-            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  " 
+            std::cerr << "Replacing reach defs:  " << n.prettyprint( ) << "  ->  "
                       << _reaching_definitions.find( n )->second.prettyprint( ) << std::endl;
             Nodecl::Utils::replace( n, _reaching_definitions.find( n )->second );
         }
     }
-    
+
     // ************* END class implementing reaching definitions substitution and propagation ************* //
     // **************************************************************************************************** //
-    
+
 }
 }
