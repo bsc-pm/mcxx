@@ -42,9 +42,11 @@ type : NODECL_TYPE() type
 
 function-code: regular-function-code
              | template-function-code
+             | vector-regular-function-code
 
 regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+vector-regular-function-code : NODECL_VECTOR_FUNCTION_CODE([function_code] regular-function-code)
 
 object-init : NODECL_OBJECT_INIT() symbol
 
@@ -74,7 +76,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
-          | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
+          | NODECL_CASE_STATEMENT([case]expression-seq, [statement]statement-seq)
           | NODECL_BREAK_STATEMENT([construct_name]name-opt)
           | NODECL_CONTINUE_STATEMENT([construct_name]name-opt)
           | NODECL_GOTO_STATEMENT() symbol
@@ -89,8 +91,6 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | assert-construct
 
 compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
-
-case-expression : expression
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-seq-opt, [cond]expression-opt, [next]expression-opt)
             | range-loop-control

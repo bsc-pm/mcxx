@@ -511,7 +511,8 @@ namespace {
                         propagate_task_usage_to_task_creation_node(*it);
                 
                 // Propagate usage info from inner to outer nodes
-                ExtensibleGraph::clear_visits( current );
+                current->set_visited( false );
+                ExtensibleGraph::clear_visits_in_level( current->get_graph_entry_node(), current );
                 set_graph_node_use_def( current );
             }
             else

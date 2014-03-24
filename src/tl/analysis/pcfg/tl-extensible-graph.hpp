@@ -112,11 +112,6 @@ namespace Analysis {
         void concat_sequential_nodes( );
         void concat_sequential_nodes_recursive( Node* actual_node, ObjectList<Node*>& last_seq_nodes );
 
-        /*!Returns whether the source and the target of an edge belongs to the same outer node.
-         * If both the source and the target do not have an outer node, then true is returned.
-         */
-        static bool belongs_to_the_same_graph(Edge* edge);
-
         //! Method used during the copy method when the edges must be copied before connecting the nodes
         void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
 
@@ -342,10 +337,7 @@ namespace Analysis {
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
-        static void clear_visits_backwards_in_level( Node* node, Node* outer_node );
-        static void clear_visits_aux_backwards( Node* current );
-        static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
-        static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
+        static void clear_visits_backwards_in_level( Node* current, Node* outer_node );
         
         
         // *** DOT Graph *** //

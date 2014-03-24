@@ -125,12 +125,11 @@ LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
         scope_entry_t* class_symbol,
         scope_entry_list_t* member_list);
 
-LIBMCXX_EXTERN void introduce_using_entities(
+LIBMCXX_EXTERN void introduce_using_entities_in_class(
         nodecl_t nodecl_name,
         scope_entry_list_t* used_entities,
         decl_context_t decl_context,
         scope_entry_t* current_class,
-        char is_class_scope,
         access_specifier_t current_access,
         char is_typename,
         const locus_t* locus);

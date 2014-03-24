@@ -61,6 +61,7 @@ namespace Analysis {
         Name_to_pcfg_map _pcfgs;
         Name_to_tdg_map _tdgs;
 
+        bool _pcfg;                 //!<True when parallel control flow graph have bee build
         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
         bool _use_def;              //!<True when use-definition chains have been calculated
@@ -99,6 +100,8 @@ namespace Analysis {
         TaskDependencyGraph* get_tdg( std::string name );
         void set_tdg( std::string name, TaskDependencyGraph* tdg );
         
+        bool is_pcfg_computed() const;
+        void set_pcfg_computed();
         bool is_constants_propagation_computed( ) const;
         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
@@ -188,42 +191,42 @@ namespace Analysis {
          * \return A list of pointer to the created PCFGs
          */
         ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                  Nodecl::NodeclBase ast );
+                                                                  const Nodecl::NodeclBase& ast );
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
          * that takes conditional branches into account applying Unreachable Code Elimination.
          */
-        void conditional_constant_propagation( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        void conditional_constant_propagation( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
         void conditional_constant_propagation( );
 
-        void expression_canonicalization( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        void expression_canonicalization( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> use_def( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> use_def( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> liveness( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> liveness( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> reaching_definitions( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> reaching_definitions( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> tune_task_synchronizations( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> tune_task_synchronizations( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
-        ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
         
-        ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
         
-        ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, Nodecl::NodeclBase ast );
+        ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         // ********************* Utils ******************** //
 
