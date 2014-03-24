@@ -97,13 +97,18 @@ char is_better_function_flags(overload_entry_list_t* f,
         decl_context_t decl_context,
         const locus_t* locus);
 
+static char is_better_function_despite_equal_ics(scope_entry_t* f,
+        scope_entry_t* g,
+        decl_context_t decl_context,
+        const locus_t* locus);
+
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
         type_t* orig UNUSED_PARAMETER,
         type_t* dest UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER,
-        const locus_t* locus UNUSED_PARAMETER)
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
     // Note that an ICS has two SCS's so we lexicographically compare them
     // a:<SCS[0,0], SCS[0,0]> and b:<SCS[1,0], SCS[1,1]>
@@ -188,7 +193,49 @@ static char is_better_initialization_ics(
         }
     }
 
+    if (is_better_function_despite_equal_ics(ics_1.conversor, ics_2.conversor, decl_context, locus))
+        return 1;
+
     return 0;
+}
+
+static char standard_conversion_between_types_for_overload(
+        standard_conversion_t *scs,
+        type_t* orig,
+        type_t* dest,
+        const locus_t* locus)
+{
+    if (is_class_type(orig)
+            && is_class_type(dest))
+    {
+        if (equivalent_types(orig, dest))
+        {
+            standard_conversion_t result = {
+                .orig = orig,
+                .dest = dest,
+                .conv = { SCI_IDENTITY, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+            };
+
+            *scs = result;
+            return 1;
+        }
+        else if (class_type_is_base_strict_instantiating(dest, orig, locus))
+        {
+            standard_conversion_t result = {
+                .orig = orig,
+                .dest = dest,
+                .conv = { SCI_DERIVED_TO_BASE, SCI_NO_CONVERSION, SCI_NO_CONVERSION }
+            };
+
+            *scs = result;
+            return 1;
+        }
+    }
+
+    return standard_conversion_between_types(scs,
+            orig,
+            dest,
+            locus);
 }
 
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -278,11 +325,11 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         {
             result->kind = ICSK_USER_DEFINED;
             // Silly way of getting the identity
-            standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+            standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
             result->conversor = constructor;
             // FIXME: This should be the "real" dest (including
             // cv-qualification, rvalue refs, etc)
-            standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+            standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
         }
     }
     else if (is_class_type(dest)
@@ -323,12 +370,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
     }
     else if (is_array_type(dest))
     {
@@ -354,12 +401,12 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
-        standard_conversion_between_types(&result->first_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
         // FIXME: Which constructor??? Do aggregates have a special constructor???
         result->conversor = NULL;
         // FIXME: This should be the "real" dest (including
         // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types(&result->second_sc, dest, dest, locus);
+        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
     }
     else if (!is_class_type(dest))
     {
@@ -489,7 +536,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (standard_conversion_between_types(&standard_conv, orig, dest, locus))
+    if (standard_conversion_between_types_for_overload(&standard_conv, orig, dest, locus))
     {
         DEBUG_CODE()
         {
@@ -602,8 +649,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "ICS: Considering user defined conversion '%s' declared at '%s'\n",
+                fprintf(stderr, "ICS: Considering user defined conversion '%s' %p declared at '%s'\n",
                         conv_funct->symbol_name,
+                        conv_funct,
                         locus_to_str(conv_funct->locus));
             }
 
@@ -718,7 +766,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             first_sc = ics_call.first_sc;
 
             if (ics_call.kind == ICSK_STANDARD 
-                    && standard_conversion_between_types(&second_sc, converted_type, dest, locus))
+                    && standard_conversion_between_types_for_overload(&second_sc, converted_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -883,7 +931,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             type_t* conversion_source_type = function_type_get_parameter_type_num(constructor->type_information, 0);
 
             standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type, locus))
+            if (standard_conversion_between_types_for_overload(&first_sc, orig, conversion_source_type, locus))
             {
                 DEBUG_CODE()
                 {
@@ -924,7 +972,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (best_valid_constructor != NULL)
         {
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&second_sc, class_type, dest, locus))
+            if (standard_conversion_between_types_for_overload(&second_sc, class_type, dest, locus))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -1140,6 +1188,12 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
     if (scs.conv[0] == SCI_IDENTITY)
     {
         return SCR_EXACT_MATCH;
+    }
+
+    // Not a real conversion, used only for overload
+    if (scs.conv[0] == SCI_DERIVED_TO_BASE)
+    {
+        return SCR_CONVERSION;
     }
 
     if (scs.conv[0] == SCI_LVALUE_TO_RVALUE
@@ -1741,6 +1795,68 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
     return result;
 }
 
+static char is_better_function_despite_equal_ics(scope_entry_t* f,
+        scope_entry_t* g,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // f not that, non-template functions are preferred over template
+    // functions
+    if (!is_template_specialized_type(f->type_information)
+            && is_template_specialized_type(g->type_information))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
+                    "the first is not a template-specialization and the second is\n",
+                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                    locus_to_str(f->locus),
+                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                    locus_to_str(g->locus));
+        }
+        return 1;
+    }
+
+    if (is_template_specialized_type(f->type_information)
+            && is_template_specialized_type(g->type_information))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
+                    "so we have to check which one is more specialized\n",
+                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                    locus_to_str(f->locus),
+                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                    locus_to_str(g->locus));
+        }
+        // if ¬(f <= g) then f > g
+        template_parameter_list_t* deduced_template_arguments = NULL;
+        if (!is_less_or_equal_specialized_template_function(
+                    // Why is it so convoluted to get the type of the primary specialization ?
+                    named_type_get_symbol(template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                    named_type_get_symbol(template_type_get_primary_type(
+                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
+                    decl_context, &deduced_template_arguments, 
+                    /* explicit_template_parameters */ NULL,
+                    locus, /* is_conversion */ 0))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s] is more "
+                        "specialized than template-function [%s, %s]\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        locus_to_str(f->locus),
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        locus_to_str(g->locus));
+            }
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 // States whether f is better than g
 static
 char is_better_function_flags(overload_entry_list_t* ovl_f,
@@ -1826,60 +1942,8 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
             return 1;
         }
 
-
-        // or if not that, non-template functions are preferred over template
-        // functions
-        if (!is_template_specialized_type(f->type_information)
-                && is_template_specialized_type(g->type_information))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
-                        "the first is not a template-specialization and the second is\n",
-                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        locus_to_str(f->locus),
-                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        locus_to_str(g->locus));
-            }
+        if (is_better_function_despite_equal_ics(f, g, decl_context, locus))
             return 1;
-        }
-
-        if (is_template_specialized_type(f->type_information)
-                && is_template_specialized_type(g->type_information))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
-                        "so we have to check which one is more specialized\n",
-                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                        locus_to_str(f->locus),
-                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                        locus_to_str(g->locus));
-            }
-            // if ¬(f <= g) then f > g
-            template_parameter_list_t* deduced_template_arguments = NULL;
-            if (!is_less_or_equal_specialized_template_function(
-                        // Why is it so convoluted to get the type of the primary specialization ?
-                        named_type_get_symbol(template_type_get_primary_type(
-                                template_specialized_type_get_related_template_type(f->type_information)))->type_information,
-                        named_type_get_symbol(template_type_get_primary_type(
-                                template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                        decl_context, &deduced_template_arguments, 
-                        /* explicit_template_parameters */ NULL,
-                        locus, /* is_conversion */ 0))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s] is more "
-                            "specialized than template-function [%s, %s]\n",
-                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                            locus_to_str(f->locus),
-                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                            locus_to_str(g->locus));
-                }
-                return 1;
-            }
-        }
     }
 
     // It is not better (it might be equally good, though)
@@ -2095,7 +2159,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                 DEBUG_CODE()
                 {
                     scope_entry_t* entry = entry_advance_aliases(current->candidate->entry);
-                    fprintf(stderr, "Ambiguous call to '%s'\n",
+                    fprintf(stderr, "OVERLOAD: Current function '%s' is better than the one we thought it was the best\n",
                             print_decl_type_str(
                                 entry->type_information,
                                 entry->decl_context,
@@ -2114,7 +2178,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         DEBUG_CODE()
         {
             scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
-            fprintf(stderr, "Ambiguous call to '%s'\n",
+            fprintf(stderr, "OVERLOAD: Best function so far '%s' is ambiguous\n",
                     print_decl_type_str(entry->type_information,
                         entry->decl_context,
                         entry->symbol_name
@@ -2225,7 +2289,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     {
         scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
         standard_conversion_t sc;
-        if (standard_conversion_between_types(&sc, item->type_information, target_type, locus))
+        if (standard_conversion_between_types_for_overload(&sc, item->type_information, target_type, locus))
         {
             return item;
         }

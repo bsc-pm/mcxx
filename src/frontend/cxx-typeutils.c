@@ -1677,6 +1677,9 @@ static int compare_dependent_parts(const void *v1, const void *v2)
         }
     }
 
+    xfree(list1);
+    xfree(list2);
+
     return 0;
 }
 
@@ -8728,6 +8731,8 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
                         if (is_local_typename)
                             break;
                     }
+
+                    xfree(list);
                 }
 
                 break;
@@ -14099,8 +14104,8 @@ static void class_type_is_ambiguous_base_of_class_aux(type_t* derived_class,
                     int path_j = class_path[j].length - 1;
 
                     char different_subobjects = 1;
-                    while (path_i > 0
-                            && path_j > 0)
+                    while (path_i >= 0
+                            && path_j >= 0)
                     {
                         if (equivalent_types(
                                     class_path[i].class_type[path_i],

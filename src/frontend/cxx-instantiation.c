@@ -1469,7 +1469,12 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
                 if (is_error_type(new_type))
+                {
+                    xfree(template_map);
+                    xfree(enum_map);
+                    xfree(anonymous_unions_map);
                     return;
+                }
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1516,6 +1521,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated_sym,
                 /* is_definition */ 1);
     }
+
+    xfree(template_map);
+    xfree(enum_map);
+    xfree(anonymous_unions_map);
 
     DEBUG_CODE()
     {

@@ -802,10 +802,10 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    walk(statements);
+    // This copied_statements will be used when we are generating the code for the 'final' clause
+    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
 
-    // Get the new statements
-    statements = construct.get_statements();
+    walk(statements);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
@@ -848,6 +848,12 @@ void LoweringVisitor::visit_task(
         // construct (less efficient)
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
+
+        RemoveOpenMPTasks visitor;
+        visitor.walk(copied_statements);
+
+        walk(copied_statements);
+
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
@@ -855,7 +861,7 @@ void LoweringVisitor::visit_task(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(statements.shallow_copy())
+            <<          as_statement(copied_statements)
             <<      "}"
             <<      "else"
             <<      "{"
