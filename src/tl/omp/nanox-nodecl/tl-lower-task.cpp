@@ -845,6 +845,12 @@ void LoweringVisitor::visit_task(
         // construct (less efficient)
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
+
+        RemoveOpenMPTasks visitor;
+        visitor.walk(copied_statements);
+
+        walk(copied_statements);
+
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
