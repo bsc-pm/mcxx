@@ -50,7 +50,6 @@ namespace TL {
                     _simd_enabled_str,
                     "0").connect(functor(&Simd::set_simd, *this));
 
-
             register_parameter("svml_enabled",
                     "If set to '1' enables svml math library, otherwise it is disabled",
                     _svml_enabled_str,

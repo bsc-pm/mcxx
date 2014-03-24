@@ -1,4 +1,4 @@
-# OpenMP + Nanos 
+# OpenMP + Nanos
 [omp-base-common]
 options = --openmp
 {omp-dry-run|openmp-dry-run} options = --variable=omp_dry_run:1
@@ -39,6 +39,8 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlnanox-nanosmain.so
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
+{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
+{optimize-gather-scatter-strides} options = --variable=optimize_gather_scatter_strides:1
 
 [omp-base : omp-base-common]
 linker_options = -Xlinker --add-needed
@@ -58,9 +60,6 @@ linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {openmp,!(omp-dry-run|openmp-dry-run),ompss} linker_options = @CUDA_RPATH@ -Xlinker --no-as-needed -lnanox-ss -lnanox-omp -lnanox-c -lnanox -lpthread -lrt
 {(openmp|ompss),!(omp-dry-run|openmp-dry-run)} linker_options = @NANOX_GNU_LDFLAGS@
-#simd
-{prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
-{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
 
 [omp-base-ibm : omp-base-common]
 linker_options = -Wl,--add-needed
