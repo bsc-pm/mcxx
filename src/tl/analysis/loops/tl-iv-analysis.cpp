@@ -53,16 +53,18 @@ namespace {
 
             Nodecl::NodeclBase lhs_rhs, rhs_rhs;
             if( rhs.is<Nodecl::Add>( ) )
-            {   // Expression accepted: iv = x + iv; iv = -x + iv;
+            {   // Expression accepted: iv = c + iv; iv = iv + x; iv = -c + iv; iv = iv - x;
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
                 
-                if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
-                    && ( !lhs.is<Nodecl::ArraySubscript>( )
-                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+                if( ( ( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /*skip_onversion_node*/ true ) &&
+                        ExtensibleGraph::is_constant_in_context( loop, lhs_rhs ) ) || 
+                      ( Nodecl::Utils::equal_nodecls( lhs, lhs_rhs, /*skip_conversion_node*/ true ) &&
+                        ExtensibleGraph::is_constant_in_context( loop, rhs_rhs ) ) ) && 
+                    ( !lhs.is<Nodecl::ArraySubscript>( ) ||
+                      ( lhs.is<Nodecl::ArraySubscript>( ) && 
+                        ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
