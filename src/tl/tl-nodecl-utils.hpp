@@ -69,14 +69,21 @@ namespace Utils {
     bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
     bool structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
                                     const bool skip_conversion_nodecls = false);
+    
     int structurally_cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
                                  bool skip_conversion_nodecls = false);
     struct Nodecl_hash {
         size_t operator() (const Nodecl::NodeclBase& n) const;
     };
-    struct Nodecl_structural_comp {
+    
+    struct Nodecl_structural_equal {
         bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
     };
+    
+    struct Nodecl_structural_less {
+        bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
+    };
+    
 
     // Basic replacement
     //
@@ -368,7 +375,7 @@ namespace Utils {
     };
 
     typedef ExprFinderVisitor<std::equal_to<Nodecl::NodeclBase> > ExprPointerFinderVisitor;
-    typedef ExprFinderVisitor<Nodecl_structural_comp> ExprStructuralFinderVisitor;
+    typedef ExprFinderVisitor<Nodecl_structural_equal> ExprStructuralFinderVisitor;
 }
 }
 
