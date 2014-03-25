@@ -45,12 +45,15 @@ namespace TL { namespace OpenMP {
 
             // This information is computed by the TransformNonVoidFunctionCalls visitor
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _funct_call_to_enclosing_stmt_map;
+            const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& _enclosing_stmt_to_original_stmt_map;
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& _enclosing_stmt_to_return_vars_map;
+
 
             std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_stmt_to_task_calls_map;
         public:
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
+                    const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
                     const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map);
 
             virtual void visit(const Nodecl::FunctionCall& call);
@@ -75,11 +78,6 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call);
 
             Nodecl::OpenMP::Task generate_join_task(const Nodecl::NodeclBase& enclosing_stmt);
-
-            Nodecl::List generate_sequential_code(
-                    const Nodecl::NodeclBase& enclosing_stmt,
-                    const TL::ObjectList<Nodecl::NodeclBase>& task_calls,
-                    const Nodecl::NodeclBase& join_task);
     };
 
     //  This visitor creates, for every nonvoid function task called in the
@@ -154,6 +152,7 @@ namespace TL { namespace OpenMP {
             TL::ObjectList<Nodecl::NodeclBase> _enclosing_stmts_with_more_than_one_task;
 
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _funct_call_to_enclosing_stmt_map;
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> _enclosing_stmt_to_original_stmt;
             std::map<Nodecl::NodeclBase, std::set<TL::Symbol> > _enclosing_stmt_to_return_vars_map;
 
         public:
@@ -165,6 +164,7 @@ namespace TL { namespace OpenMP {
             virtual void visit(const Nodecl::FunctionCall& func_call);
 
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_function_call_to_enclosing_stmt_map();
+            std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& get_enclosing_stmt_to_original_stmt_map();
             std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& get_enclosing_stmt_to_return_variables_map();
 
             void remove_nonvoid_function_tasks_from_function_task_set();
