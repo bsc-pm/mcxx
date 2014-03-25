@@ -4,21 +4,20 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-namespace Foo
+template <typename T>
+struct A
 {
-    template <typename T>
-        struct B
-        {
-            void foo();
-        };
+    struct dummy
+    {
+        void nonnull();
+    };
+    typedef void (dummy::*safe_bool)();
+};
 
-}
-
-void f(void)
+void f()
 {
-    typedef int const S;
-    typedef volatile S M;
+    A<int>::dummy b;
+    A<int>::safe_bool c;
 
-    typedef Foo::B<M> T2;
-    typedef Foo::B<volatile const int> T2;
+    (b.*c)();
 }

@@ -2828,7 +2828,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         *lhs = nodecl_make_pointer_to_member(solved_function, 
                                 get_lvalue_reference_type(
                                     get_pointer_to_member_type(solved_function->type_information,
-                                        named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                        solved_function->entity_specs.class_type)),
                                 nodecl_get_locus(*lhs));
                     }
                 }
@@ -2900,7 +2900,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     *rhs = nodecl_make_pointer_to_member(solved_function, 
                             get_lvalue_reference_type(
                                 get_pointer_to_member_type(solved_function->type_information,
-                                    named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                    solved_function->entity_specs.class_type)),
                             nodecl_get_locus(*rhs));
                 }
             }
@@ -3078,7 +3078,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                         *op = nodecl_make_pointer_to_member(solved_function, 
                                 get_lvalue_reference_type(
                                     get_pointer_to_member_type(solved_function->type_information,
-                                        named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                        solved_function->entity_specs.class_type)),
                                 nodecl_get_locus(*op));
                     }
                 }
@@ -4958,7 +4958,7 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
             {
                 rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
                             solved_function->type_information,
-                            named_type_get_symbol(solved_function->entity_specs.class_type)));
+                            solved_function->entity_specs.class_type));
 
                 *rhs = nodecl_make_pointer_to_member(solved_function, 
                         rhs_type,
@@ -6075,7 +6075,7 @@ static void compute_operator_reference_type(nodecl_t* op,
             *nodecl_output = nodecl_make_pointer_to_member(entry, 
                     get_lvalue_reference_type(
                         get_pointer_to_member_type(entry->type_information,
-                            named_type_get_symbol(entry->entity_specs.class_type))),
+                            entry->entity_specs.class_type)),
                     locus);
         }
         else if (entry->kind == SK_FUNCTION)
@@ -7485,7 +7485,7 @@ static void check_nodecl_array_subscript_expression_cxx(
                             nodecl_make_pointer_to_member(solved_function,
                                     get_lvalue_reference_type(
                                         get_pointer_to_member_type(solved_function->type_information,
-                                            named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                            solved_function->entity_specs.class_type)),
                                     nodecl_get_locus(nodecl_subscript));
                     }
                 }
@@ -8896,7 +8896,7 @@ static void check_new_expression_impl(
                             nodecl_make_pointer_to_member(solved_function, 
                                     get_lvalue_reference_type(
                                         get_pointer_to_member_type(solved_function->type_information,
-                                            named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                            solved_function->entity_specs.class_type)),
                                     nodecl_get_locus(nodecl_expr));
                     }
                 }
@@ -10486,7 +10486,7 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                     {
                         argument_type = get_lvalue_reference_type(
                                 get_pointer_to_member_type(entry->type_information,
-                                    named_type_get_symbol(entry->entity_specs.class_type)));
+                                    entry->entity_specs.class_type));
                         nodecl_argument = nodecl_make_pointer_to_member(entry, 
                                 argument_type,
                                 nodecl_get_locus(nodecl_arg));
@@ -11853,7 +11853,7 @@ static void check_nodecl_function_call_cxx(
                                 nodecl_make_pointer_to_member(solved_function,
                                         get_lvalue_reference_type(
                                             get_pointer_to_member_type(solved_function->type_information,
-                                                named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                                solved_function->entity_specs.class_type)),
                                         nodecl_get_locus(nodecl_arg));
                         }
                     }
@@ -17027,7 +17027,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         nodecl_make_pointer_to_member(solved_function, 
                                 get_lvalue_reference_type(
                                     get_pointer_to_member_type(solved_function->type_information,
-                                        named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                        solved_function->entity_specs.class_type)),
                                 nodecl_get_locus(nodecl_expr));
                 }
             }
@@ -21474,7 +21474,7 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
                 v->nodecl_result = nodecl_make_pointer_to_member(sym, 
                         get_lvalue_reference_type(
                             get_pointer_to_member_type(sym->type_information,
-                                named_type_get_symbol(sym->entity_specs.class_type))),
+                                sym->entity_specs.class_type)),
                         nodecl_get_locus(node));
             }
             else // SK_FUNCTION

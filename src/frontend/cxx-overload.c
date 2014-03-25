@@ -489,7 +489,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             {
                 orig = get_lvalue_reference_type(get_pointer_to_member_type(
                             solved_function->type_information,
-                            named_type_get_symbol(solved_function->entity_specs.class_type)));
+                            solved_function->entity_specs.class_type));
             }
             // And proceed evaluating this ICS
         }
@@ -530,9 +530,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     // so 'B' must be instantiated.
     if (is_pointer_to_member_type(no_ref(dest)))
     {
-        scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
+        type_t* class_type = advance_over_typedefs(pointer_to_member_type_get_class_type(no_ref(dest)));
 
-        instantiate_template_class_if_possible(class_symbol, decl_context, locus);
+        if (is_named_class_type(class_type))
+        {
+            instantiate_template_class_if_possible(named_type_get_symbol(class_type),
+                    decl_context, locus);
+        }
     }
 
     standard_conversion_t standard_conv;
@@ -2305,7 +2309,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     }
 
     type_t* functional_type = NULL;
-    scope_entry_t *class_type = NULL;
+    type_t *class_type = NULL;
 
     if (is_pointer_to_function_type(target_type))
     {
@@ -2314,7 +2318,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     else if (is_pointer_to_member_type(target_type))
     {
         functional_type = pointer_type_get_pointee_type(target_type);
-        class_type = pointer_to_member_type_get_class(target_type);
+        class_type = pointer_to_member_type_get_class_type(target_type);
     }
     else if (is_lvalue_reference_type(target_type))
     {
@@ -2364,9 +2368,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     && !current_fun->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
                     && (equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
-                            get_actual_class_type(class_type->type_information))
+                            get_actual_class_type(class_type))
                         || class_type_is_base(get_actual_class_type(current_fun->entity_specs.class_type),
-                            get_actual_class_type(class_type->type_information))
+                            get_actual_class_type(class_type))
                        )
                )
             {
@@ -2433,9 +2437,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     && !primary_symbol->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
                     && (equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                            get_actual_class_type(class_type->type_information))
+                            get_actual_class_type(class_type))
                         || class_type_is_base(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                            get_actual_class_type(class_type->type_information))
+                            get_actual_class_type(class_type))
                        )
                )
             {

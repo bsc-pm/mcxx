@@ -3046,12 +3046,32 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else if (orig_symbol->kind == SK_TYPEDEF)
         {
-            cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-            return get_cv_qualified_type(
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            type_t* new_type = 
                     update_type_aux_(orig_symbol->type_information,
                         decl_context,
-                        locus, instantiation_symbol_map_, pack_index),
-                    cv_qualif);
+                        locus, instantiation_symbol_map_, pack_index);
+
+            cv_qualifier_t cv_qualif_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
+
+            return get_cv_qualified_type(new_type, cv_qualif_orig | cv_qualif_new);
+        }
+        else if (orig_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            type_t* new_type = update_type_aux_(orig_symbol->type_information,
+                    decl_context,
+                    locus, instantiation_symbol_map_, pack_index);
+
+            cv_qualifier_t cv_qualif_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
+
+            return get_cv_qualified_type(new_type, cv_qualif_orig | cv_qualif_new);
         }
         else
         {
@@ -3135,10 +3155,8 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
-        if (!is_named_class_type(pointee_class)
-                && (!is_named_type(pointee_class)
-                    // if it is a named type it must be a template type parameter
-                    || named_type_get_symbol(pointee_class)->kind != SK_TEMPLATE_TYPE_PARAMETER) )
+        if (!is_dependent_type(pointee_class)
+                && !is_named_class_type(pointee_class))
         {
             DEBUG_CODE()
             {
@@ -3148,7 +3166,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* result_type = get_pointer_to_member_type(updated_pointee,
-                named_type_get_symbol(pointee_class));
+                pointee_class);
 
         result_type = get_cv_qualified_type(result_type, cv_qualifier);
 

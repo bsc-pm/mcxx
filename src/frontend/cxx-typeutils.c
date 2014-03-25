@@ -355,7 +355,7 @@ struct pointer_tag
 
     // If the type was a TK_POINTER_TO_MEMBER
     // the pointee class
-    scope_entry_t* pointee_class;
+    type_t* pointee_class_type;
 } pointer_info_t;
 
 typedef
@@ -3196,7 +3196,7 @@ type_t* get_rebindable_reference_type(type_t* t)
     return get_internal_reference_type(t, TK_REBINDABLE_REFERENCE);
 }
 
-type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
+type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
 {
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
 
@@ -3209,7 +3209,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     // First lookup using the class symbol
     rb_red_blk_tree * class_type_hash = NULL;
-    rb_red_blk_node * n = rb_tree_query(_class_types, class_entry);
+    rb_red_blk_node * n = rb_tree_query(_class_types, class_type);
     if (n != NULL)
     {
         class_type_hash = rb_node_get_info(n);
@@ -3219,7 +3219,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
     {
         class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
-        rb_tree_insert(_class_types, class_entry, class_type_hash);
+        rb_tree_insert(_class_types, class_type, class_type_hash);
     }
 
     type_t* pointer_to_member = rb_tree_query_type(class_type_hash, t);
@@ -3232,7 +3232,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         pointer_to_member->unqualified_type = pointer_to_member;
         pointer_to_member->pointer = counted_xcalloc(1, sizeof(*pointer_to_member->pointer), &_bytes_due_to_type_system);
         pointer_to_member->pointer->pointee = t;
-        pointer_to_member->pointer->pointee_class = class_entry;
+        pointer_to_member->pointer->pointee_class_type = class_type;
 
         if (is_function_type(t))
         {
@@ -3252,8 +3252,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         pointer_to_member->info->valid_size = 1;
 
         pointer_to_member->info->is_dependent = is_dependent_type(t) 
-            || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
-            || is_dependent_type(class_entry->type_information);
+            || is_dependent_type(class_type);
 
         rb_tree_insert(class_type_hash, t, pointer_to_member);
     }
@@ -5848,8 +5847,8 @@ static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2, decl_conte
 {
     return equivalent_pointer_type(t1->pointer, 
             t2->pointer, decl_context)
-        && equivalent_types_in_context(get_user_defined_type(t1->pointer->pointee_class), 
-                get_user_defined_type(t2->pointer->pointee_class), decl_context);
+        && equivalent_types_in_context(t1->pointer->pointee_class_type, 
+                t2->pointer->pointee_class_type, decl_context);
 }
 
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, decl_context_t decl_context)
@@ -7174,20 +7173,12 @@ type_t* pointer_type_get_pointee_type(type_t *t)
     return t->pointer->pointee;
 }
 
-scope_entry_t* pointer_to_member_type_get_class(type_t *t)
+type_t* pointer_to_member_type_get_class_type(type_t *t)
 {
     ERROR_CONDITION(!is_pointer_to_member_type(t), "This is not a pointer to member type", 0);
     t = advance_over_typedefs(t);
 
-    return t->pointer->pointee_class;
-}
-
-type_t* pointer_to_member_type_get_class_type(type_t *t)
-{
-    ERROR_CONDITION(!is_pointer_to_member_type(t), "This is not a pointer to member type", 0);
-    scope_entry_t* entry = pointer_to_member_type_get_class(t);
-
-    return get_user_defined_type(entry);
+    return t->pointer->pointee_class_type;
 }
 
 type_t* array_type_get_element_type(type_t* t)
@@ -9189,7 +9180,9 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                         num_parameter_names, parameter_names, parameter_attributes, is_parameter, print_symbol_fun, print_symbol_data);
 
                 const char* class_name =
-                        get_qualified_symbol_name(type_info->pointer->pointee_class, decl_context);
+                        get_qualified_symbol_name(
+                                named_type_get_symbol(type_info->pointer->pointee_class_type),
+                                decl_context);
 
                 char needs_parentheses = declarator_needs_parentheses(type_info)
                     || (class_name != NULL && class_name[0] == ':');
@@ -10079,10 +10072,10 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_POINTER_TO_MEMBER :
                 tmp_result = strappend(tmp_result, "pointer to member of ");
-                if (printed_declarator->pointer->pointee_class != NULL)
+                if (printed_declarator->pointer->pointee_class_type != NULL)
                 {
                     tmp_result = strappend(tmp_result, 
-                            get_named_simple_type_name(printed_declarator->pointer->pointee_class));
+                            print_declarator(printed_declarator->pointer->pointee_class_type));
                 }
                 else
                 {
@@ -11068,7 +11061,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Given dest as 'cv1 T (A::* cv2)' we will set orig to 'T (A::*)'
             orig = get_pointer_to_member_type(
                     get_unqualified_type(pointer_type_get_pointee_type(dest)), // This gives us 'T'
-                    pointer_to_member_type_get_class(dest) // This is 'A'
+                    pointer_to_member_type_get_class_type(dest) // This is 'A'
                     );
         }
         // _Complex cases
@@ -13183,10 +13176,11 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
         pointee = type_deep_copy_compute_maps(pointee, new_decl_context, symbol_map,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        scope_entry_t* class_symbol = pointer_to_member_type_get_class(orig);
-        class_symbol = symbol_map->map(symbol_map, class_symbol);
+        type_t* class_type = pointer_to_member_type_get_class_type(orig);
+        class_type = type_deep_copy_compute_maps(class_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
 
-        result = get_pointer_to_member_type(pointee, class_symbol);
+        result = get_pointer_to_member_type(pointee, class_type);
     }
     else if (is_lvalue_reference_type(orig))
     {
@@ -14274,12 +14268,10 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
             type_t* pointee = pointer_type_get_pointee_type(orig);
             pointee = rewrite_block_scope_typedefs(pointee);
 
-            scope_entry_t* class_symbol = pointer_to_member_type_get_class(orig);
-            class_symbol = named_type_get_symbol(
-                    rewrite_block_scope_typedefs(get_user_defined_type(class_symbol))
-                    );
+            type_t* class_type = pointer_to_member_type_get_class_type(orig);
+            class_type = rewrite_block_scope_typedefs(class_type);
 
-            result = get_pointer_to_member_type(pointee, class_symbol);
+            result = get_pointer_to_member_type(pointee, class_type);
         }
         else if (is_lvalue_reference_type(orig))
         {
