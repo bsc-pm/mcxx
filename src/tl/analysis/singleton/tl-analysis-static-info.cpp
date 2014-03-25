@@ -305,7 +305,7 @@ namespace Analysis {
         return result;
     }
     
-    Utils::InductionVariableData* get_nested_induction_variable(Node* scope_node, Node* node, const Nodecl::NodeclBase& n)
+    Utils::InductionVariableData* NodeclStaticInfo::get_nested_induction_variable(Node* scope_node, Node* node, const Nodecl::NodeclBase& n)
     {
         Utils::InductionVariableData* iv = NULL;
         

@@ -668,9 +668,14 @@ namespace Nodecl
         return nodecl_hash_table(n.get_internal_nodecl());
     }
 
-    bool Utils::Nodecl_structural_comp::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
+    bool Utils::Nodecl_structural_equal::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
         return structurally_equal_nodecls(n1, n2);
+    }
+
+    bool Utils::Nodecl_structural_less::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
+    {
+        return (cmp_trees_rec(n1.get_internal_nodecl(), n2.get_internal_nodecl(), /*skip_conversion_nodes*/true) < 0);
     }
 
     Nodecl::List Utils::get_all_list_from_list_node(Nodecl::List n)

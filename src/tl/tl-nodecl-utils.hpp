@@ -75,9 +75,15 @@ namespace Utils
     struct Nodecl_hash {
         size_t operator() (const Nodecl::NodeclBase& n) const;
     };
-    struct Nodecl_structural_comp {
+    
+    struct Nodecl_structural_equal {
         bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
     };
+    
+    struct Nodecl_structural_less {
+        bool operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const;
+    };
+    
 
     // Basic replacement
     //
@@ -369,7 +375,7 @@ namespace Utils
     };
 
     typedef ExprFinderVisitor<std::equal_to<Nodecl::NodeclBase> > ExprPointerFinderVisitor;
-    typedef ExprFinderVisitor<Nodecl_structural_comp> ExprStructuralFinderVisitor;
+    typedef ExprFinderVisitor<Nodecl_structural_equal> ExprStructuralFinderVisitor;
 }
 }
 
