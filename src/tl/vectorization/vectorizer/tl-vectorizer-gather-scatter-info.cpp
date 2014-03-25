@@ -201,14 +201,14 @@ namespace Vectorization
         Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
         // Strides
         Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
-
+        /*
         std::cerr << "Mul: [ "
             << (lhs_ret.first.is_null() ? " - " : lhs_ret.first.prettyprint()) << " , "
             << (lhs_ret.second.is_null() ? " - " : lhs_ret.second.prettyprint()) << " ] * [ "
             << (rhs_ret.first.is_null() ? " - " : rhs_ret.first.prettyprint()) << " , "
             << (rhs_ret.second.is_null() ? " - " : rhs_ret.second.prettyprint()) << " ]"
             << std::endl;
-
+        */
         // Too complicated. Worst case. Base will be empty
         if (!lhs_ret.second.is_null())
         {
@@ -226,14 +226,12 @@ namespace Vectorization
         {
             if (!rhs_ret.first.is_null())
             {
-                printf("Base Mul %s\n", rhs_ret.first.prettyprint().c_str());
                 base = Nodecl::Mul::make(lhs_ret.first.shallow_copy(),
                         rhs_ret.first.shallow_copy(),
                         n.get_type());
             }
             if (!rhs_ret.second.is_null())
             {
-                printf("Stride Mul\n");
                 strides = Nodecl::Mul::make(lhs_ret.first.shallow_copy(),
                         rhs_ret.second.shallow_copy(),
                         n.get_type());
@@ -275,7 +273,6 @@ namespace Vectorization
                 is_non_reduction_basic_induction_variable(
                     _environment._analysis_simd_scope, n))
         {
-            std::cerr << "is IV " << n.prettyprint().c_str() << std::endl;
             // pair<n, lane_id * step>
             Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::
                 _vectorizer_analysis->get_induction_variable_increment(
@@ -289,13 +286,11 @@ namespace Vectorization
         // TL::Symbol has vector type
         else if (n.get_symbol().get_type().is_vector())
         {
-            std::cerr << "has vector type " << n.prettyprint().c_str() << std::endl;
             // pair<null, n>
             return stride_splitter_ret_t(Nodecl::NodeclBase::null(), n);
         }
         else
         {
-            std::cerr << "Neither IV nor vector type " << n.prettyprint().c_str() << std::endl;
             // pair<n, null>
             return stride_splitter_ret_t(n, Nodecl::NodeclBase::null());
         }

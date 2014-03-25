@@ -52,14 +52,14 @@ namespace TL
                 KNCVectorLegalization(bool prefer_gather_scatter,
                         bool prefer_mask_gather_scatter);
 
-                virtual void visit(const Nodecl::ObjectInit& node);
+                virtual void visit(const Nodecl::ObjectInit& n);
 
-                virtual void visit(const Nodecl::VectorConversion& node);
+                virtual void visit(const Nodecl::VectorConversion& n);
 
-                virtual void visit(const Nodecl::UnalignedVectorLoad& node);
-                virtual void visit(const Nodecl::UnalignedVectorStore& node);
-                virtual void visit(const Nodecl::VectorGather& node);
-                virtual void visit(const Nodecl::VectorScatter& node);
+                virtual void visit(const Nodecl::UnalignedVectorLoad& n);
+                virtual void visit(const Nodecl::UnalignedVectorStore& n);
+                virtual void visit(const Nodecl::VectorGather& n);
+                virtual void visit(const Nodecl::VectorScatter& n);
 
                 virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };
@@ -71,7 +71,7 @@ namespace TL
 
             public:
                 KNCStrideVisitorConv(unsigned int vector_num_elements);
-        //        virtual void visit(const Nodecl::VectorConversion& node);
+        //        virtual void visit(const Nodecl::VectorConversion& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
 
