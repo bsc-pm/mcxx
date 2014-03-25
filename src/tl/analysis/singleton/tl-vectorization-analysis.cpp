@@ -918,7 +918,7 @@ namespace Analysis {
     {
         return _is_adjacent_access;
     }
-    
+
     bool ExpressionEvolutionVisitor::depends_on_induction_vars( )
     {
         return !_ivs.empty( );
@@ -936,7 +936,7 @@ namespace Analysis {
         internal_error("ExpressionEvolutionVisitor call join_list. We do not have an implementation for this.\n", 0);
         _is_adjacent_access = false;
         _has_constant_evolution = false;
-        
+
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -957,10 +957,14 @@ namespace Analysis {
         bool rhs_is_const = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
 
+        std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_const
+            << " and rhs is constant " << rhs_is_const << std::endl;
+
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access )
                            || ( lhs_is_adjacent_access && rhs_is_adjacent_access );
+                                // 2 adjacent won't generate an adjacent access
 
         return ( rhs_is_const && lhs_is_const );
     }
@@ -1254,6 +1258,8 @@ namespace Analysis {
         // Collect information about the induction variables contained in the node
         bool n_is_iv = variable_is_iv( n );
 
+        std::cerr << "Studying " << n.prettyprint() << std::endl;
+
         bool reach_def_is_adjacent = false;
         if(!n_is_iv && (_n_node!=NULL))
         {
@@ -1280,9 +1286,12 @@ namespace Analysis {
                         eev.walk(current_def);
                         reach_def_is_adjacent = eev.is_adjacent_access();
                     }
+                    std::cerr << "current_def " << current_def.prettyprint() << " is " << reach_def_is_adjacent << std::endl;
                 }
             }
         }
+
+        std::cerr << "Reach def of " << n.prettyprint() << " are adjac: " << reach_def_is_adjacent << std::endl;
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) ) || reach_def_is_adjacent;
 
@@ -1295,14 +1304,14 @@ namespace Analysis {
             if(lb.is<Nodecl::Symbol>())
                 _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(lb.as<Nodecl::Symbol>());
             else if(!lb.is_constant())
-                internal_error("Induction variable has lb %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n", 
+                internal_error("Induction variable has lb %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n",
                                lb.prettyprint().c_str());
             // check the increment of the induction variable
             Nodecl::NodeclBase increment = iv->get_increment();
             if(increment.is<Nodecl::Symbol>())
                 _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(increment.as<Nodecl::Symbol>());
             else if(!increment.is_constant())
-                internal_error("Induction variable has increment %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n", 
+                internal_error("Induction variable has increment %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n",
                                increment.prettyprint().c_str());
         }
         else
@@ -1310,6 +1319,9 @@ namespace Analysis {
             _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed ) ||
                 ((iv==NULL) && !var_is_iv_dependent_in_scope( n ));
         }
+
+        std::cerr << n.prettyprint() << " is adjac: " << _is_adjacent_access << std::endl;
+
         return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
     }
 
