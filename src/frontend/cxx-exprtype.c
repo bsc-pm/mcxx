@@ -7933,9 +7933,6 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
-        nodecl_free(first_op);
-        nodecl_free(second_op);
-        nodecl_free(third_op);
         return;
     }
 
@@ -8058,9 +8055,6 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(first_op);
-            nodecl_free(second_op);
-            nodecl_free(third_op);
             return;
         }
 
@@ -8089,9 +8083,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             || nodecl_is_err_expr(third_op))
     {
         *nodecl_output = nodecl_make_err_expr(locus);
-        nodecl_free(first_op);
-        nodecl_free(second_op);
-        nodecl_free(third_op);
         return;
     }
 
@@ -8224,9 +8215,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                         " when agreeing second and third types\n");
             }
             *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(first_op);
-            nodecl_free(second_op);
-            nodecl_free(third_op);
             return;
         }
 
@@ -8235,9 +8223,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (second_to_third_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
-                nodecl_free(first_op);
-                nodecl_free(second_op);
-                nodecl_free(third_op);
                 return;
             }
 
@@ -8255,9 +8240,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (third_to_second_is_ambig)
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
-                nodecl_free(first_op);
-                nodecl_free(second_op);
-                nodecl_free(third_op);
                 return;
             }
 
@@ -8352,9 +8334,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                 }
                 candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
-                nodecl_free(first_op);
-                nodecl_free(second_op);
-                nodecl_free(third_op);
                 return;
             }
             candidate_set_free(&candidate_set);
@@ -8362,9 +8341,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (function_has_been_deleted(decl_context, overloaded_call, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
-                nodecl_free(first_op);
-                nodecl_free(second_op);
-                nodecl_free(third_op);
                 return;
             }
 
@@ -8376,9 +8352,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                     if (function_has_been_deleted(decl_context, conversors[k], locus))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
-                        nodecl_free(first_op);
-                        nodecl_free(second_op);
-                        nodecl_free(third_op);
                         return;
                     }
 
@@ -8451,9 +8424,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         else
         {
             *nodecl_output = nodecl_make_err_expr(locus);
-            nodecl_free(first_op);
-            nodecl_free(second_op);
-            nodecl_free(third_op);
             return;
         }
 
@@ -8510,6 +8480,10 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
                     codegen_to_str(second_op, nodecl_retrieve_context(second_op)), print_type_str(second_type, decl_context),
                     codegen_to_str(third_op, nodecl_retrieve_context(third_op)), print_type_str(third_type, decl_context));
         }
+
+        nodecl_free(first_op);
+        nodecl_free(second_op);
+        nodecl_free(third_op);
     }
     else
     {
