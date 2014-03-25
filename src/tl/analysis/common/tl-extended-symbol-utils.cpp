@@ -113,7 +113,7 @@ namespace Utils {
             std::pair<ext_sym_map::iterator, ext_sym_map::iterator> current_key_in_result = result.equal_range( it->first );
             for( ext_sym_map::iterator itt = current_key_in_result.first; itt != current_key_in_result.second; ++itt )
             {
-                if( Nodecl::Utils::equal_nodecls( itt->second, it->second ) )
+                if( Nodecl::Utils::structurally_equal_nodecls( itt->second, it->second ) )
                 {
                     pair_already_in_map = true;
                     break;
@@ -127,7 +127,7 @@ namespace Utils {
 
         return result;
     }
-    
+
     ext_sym_set ext_sym_set_difference( ext_sym_set c1, ext_sym_set c2 )
     {
         ext_sym_set result;
@@ -173,8 +173,8 @@ namespace Utils {
             ext_sym_map::iterator it2 = c2.begin( );
             for( ; it1 != c1.end( ); ++it1, ++it2 )
             {
-                if( !Nodecl::Utils::equal_nodecls( it1->first.get_nodecl( ), it2->first.get_nodecl( ), /* skip Conversion nodes */ true ) ||
-                    !Nodecl::Utils::equal_nodecls( it1->second, it2->second, /* skip Conversion nodes */ true ) )
+                if( !Nodecl::Utils::structurally_equal_nodecls( it1->first.get_nodecl( ), it2->first.get_nodecl( ), /* skip Conversion nodes */ true ) ||
+                    !Nodecl::Utils::structurally_equal_nodecls( it1->second, it2->second, /* skip Conversion nodes */ true ) )
                 {
                     result = false;
                     break;
@@ -203,7 +203,7 @@ namespace Utils {
             while( current.is<Nodecl::Conversion>( ) )
                 current = current.as<Nodecl::Conversion>( ).get_nest( );
 
-            if( Nodecl::Utils::equal_nodecls( nodecl, current ) )
+            if( Nodecl::Utils::structurally_equal_nodecls( nodecl, current ) )
                 return true;
         }
 

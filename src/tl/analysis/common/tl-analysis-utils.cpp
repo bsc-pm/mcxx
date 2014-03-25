@@ -42,7 +42,7 @@ namespace Utils {
     std::string generate_hashed_name(Nodecl::NodeclBase ast)
     {
         std::string result;
-        
+
         std::string date_str;
         {
             time_t t = time(NULL);
@@ -55,11 +55,11 @@ namespace Utils {
             outstr[199] = '\0';
             date_str = outstr;
         }
-        
+
         std::string filename = ::give_basename(ast.get_filename().c_str());
         int line = ast.get_line();
         std::stringstream ss; ss << line;
-        
+
         result = filename + "_" + ss.str() + "_" + date_str;
 
         return result;
@@ -96,9 +96,9 @@ namespace Utils {
 
     std::map<Symbol, Nodecl::NodeclBase> TopLevelVisitor::get_asserted_funcs( ) const
     {
-        return _analysis_asserted_funcs;    
+        return _analysis_asserted_funcs;
     }
-    
+
     void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
     {
         _filename = n.get_filename( );
@@ -112,20 +112,20 @@ namespace Utils {
                          codegen_to_str( intern_n, nodecl_retrieve_context( intern_n ) ),
                          ast_print_node_type( n.get_kind( ) ) );
     }
-    
+
     void TopLevelVisitor::visit( const Nodecl::AsmDefinition& n ) {}
 
-    void TopLevelVisitor::visit( const Nodecl::Analysis::AssertDecl& n ) 
+    void TopLevelVisitor::visit( const Nodecl::Analysis::AssertDecl& n )
     {
         Symbol s = n.get_symbol( );
-        ERROR_CONDITION( !s.is_valid( ), "The symbol associated to the declaration assertion '%s' is not valid.", 
+        ERROR_CONDITION( !s.is_valid( ), "The symbol associated to the declaration assertion '%s' is not valid.",
                             n.prettyprint( ).c_str( ) );
-        ERROR_CONDITION( _analysis_asserted_funcs.find( s ) != _analysis_asserted_funcs.end( ), 
-                            "Function %s has more than one '#pragma analysis_checker assert' associated. Only one is allowed", 
+        ERROR_CONDITION( _analysis_asserted_funcs.find( s ) != _analysis_asserted_funcs.end( ),
+                            "Function %s has more than one '#pragma analysis_checker assert' associated. Only one is allowed",
                             s.get_name( ).c_str( ) );
         _analysis_asserted_funcs[s] = n.get_environment( );
     }
-    
+
     void TopLevelVisitor::visit( const Nodecl::GccAsmDefinition& n ) {}
 
     void TopLevelVisitor::visit( const Nodecl::GccAsmSpec& n ) {}
@@ -162,7 +162,7 @@ namespace Utils {
     void TopLevelVisitor::visit( const Nodecl::GxxTrait& n ) {}
 
     void TopLevelVisitor::visit( const Nodecl::ObjectInit& n ) {}
-    
+
     void TopLevelVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
         if( _filename == n.get_filename( ) )
@@ -170,7 +170,7 @@ namespace Utils {
             _functions.append( n );
         }
     }
-    
+
     void TopLevelVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
         if( _filename == n.get_filename( ) )
@@ -178,7 +178,7 @@ namespace Utils {
             _functions.append( n );
         }
     }
-    
+
     void TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
 
     void TopLevelVisitor::visit( const Nodecl::PragmaCustomDirective& n ) {}
@@ -197,19 +197,19 @@ namespace Utils {
 
     // **************************** END visitor for Top Level nodes ****************************** //
     // ******************************************************************************************* //
-    
-    
-    
+
+
+
     // ******************************************************************************************* //
     // ************************ Class defining the range analysis values ************************* //
-    
-    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1, 
+
+    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1,
                            std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 )
     {
         bool result = false;
-        
+
         // Check the keys
-        if( Nodecl::Utils::equal_nodecls( pair1.first, pair2.first ) )
+        if( Nodecl::Utils::structurally_equal_nodecls( pair1.first, pair2.first ) )
         {
             // Check the values
             if( pair1.second.size( ) == pair2.second.size( ) )
@@ -221,7 +221,7 @@ namespace Utils {
                 {
                     if( !it1->n->is_null( ) && !it2->n->is_null( ) )
                     {
-                        if( !Nodecl::Utils::equal_nodecls( *it1->n, *it2->n ) )
+                        if( !Nodecl::Utils::structurally_equal_nodecls( *it1->n, *it2->n ) )
                         {
                             result = false;
                             break;
@@ -229,11 +229,11 @@ namespace Utils {
                     }
                     else
                     {
-                        if( !Nodecl::Utils::equal_nodecls( it1->iv->get_variable( ).get_nodecl( ), 
-                                                           it2->iv->get_variable( ).get_nodecl( ) ) || 
-                            !Nodecl::Utils::equal_nodecls( it1->iv->get_lb( ), it2->iv->get_lb( ) ) || 
-                            !Nodecl::Utils::equal_nodecls( it1->iv->get_ub( ), it2->iv->get_ub( ) ) || 
-                            !Nodecl::Utils::equal_nodecls( it1->iv->get_increment( ), it2->iv->get_increment( ) ) || 
+                        if( !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_variable( ).get_nodecl( ),
+                                                           it2->iv->get_variable( ).get_nodecl( ) ) ||
+                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_lb( ), it2->iv->get_lb( ) ) ||
+                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_ub( ), it2->iv->get_ub( ) ) ||
+                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_increment( ), it2->iv->get_increment( ) ) ||
                             ( it1->iv->is_basic( ) == it2->iv->is_basic( ) ) )
                         {
                             result = false;
@@ -243,18 +243,18 @@ namespace Utils {
                 }
             }
         }
-        
+
         return result;
     }
-    
+
     // ********************** END class defining the range analysis values *********************** //
     // ******************************************************************************************* //
-    
-    
-    
+
+
+
     // ******************************************************************************************* //
     // ************************************ Printing methods ************************************* //
-    
+
     void makeup_dot_block( std::string& str )
     {
         int pos;
@@ -322,9 +322,9 @@ namespace Utils {
             str.replace ( pos, 2, "\\n" );
             pos += 2;
         }
-        
+
     }
-    
+
     std::string prettyprint_ext_sym_set( ext_sym_set s, bool print_in_dot )
     {
         std::string result = "";
@@ -343,17 +343,17 @@ namespace Utils {
             if( line_size > 100 )
                 result += "$$";
         }
-        
+
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
             if( print_in_dot )
                 makeup_dot_block( result );
         }
-        
+
         return result;
     }
-    
+
     std::string prettyprint_ext_sym_map( ext_sym_map s, bool print_in_dot )
     {
         std::string result = "";
@@ -389,17 +389,17 @@ namespace Utils {
                     result += "$$";
             }
         }
-        
+
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
             if( print_in_dot )
                 makeup_dot_block(result);
         }
-        
+
         return result;
     }
-    
+
     std::string prettyprint_range_values_map( Utils::RangeValuesMap s, bool print_in_dot  )
     {
         std::string result = "";
@@ -417,19 +417,19 @@ namespace Utils {
                         Nodecl::NodeclBase lb = itv->iv->get_lb( );
                         Nodecl::NodeclBase ub = itv->iv->get_ub( );
                         Nodecl::NodeclBase incr = itv->iv->get_increment( );
-                        
+
                         it_str += "[ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
                                 + ":"  + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
                                 + ":"  + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
                                 + ":"   + itv->iv->get_type_as_string( ) + " ]";
                     }
-                    
+
                     ++itv;
                     if( itv != values.end( ) )
                         it_str += ", ";
                 }
                 it_str += "}; ";
-                
+
                 if( line_size + it_str.size( ) > 100 )
                 {
                     result += "$$";
@@ -441,17 +441,17 @@ namespace Utils {
                 if( line_size > 100 )
                     result += "$$";
         }
-        
+
         if( !result.empty( ) )
         {
             result = result.substr( 0, result.size( ) - 2 );
             if( print_in_dot )
                 makeup_dot_block(result);
         }
-        
+
         return result;
     }
-    
+
     // ********************************** END printing methods *********************************** //
     // ******************************************************************************************* //
 }

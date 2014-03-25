@@ -98,12 +98,12 @@ namespace Utils {
     {
         return _incrs;
     }
-    
+
     void InductionVariableData::set_increment_list( ObjectList<Nodecl::NodeclBase> incr_list )
     {
         _incrs.insert( incr_list );
     }
-    
+
     bool InductionVariableData::is_basic( )
     {
         return ( _type == BASIC_IV );
@@ -129,13 +129,13 @@ namespace Utils {
     {
         return _family;
     }
-    
+
     bool InductionVariableData::operator==( const InductionVariableData& rhs ) const
     {
-        return ( Nodecl::Utils::equal_nodecls( _var.get_nodecl( ), rhs._var.get_nodecl( ) )
-                 && Nodecl::Utils::equal_nodecls( _lb, rhs._lb )
-                 && Nodecl::Utils::equal_nodecls( _ub, rhs._ub )
-                 && Nodecl::Utils::equal_nodecls( _incr, rhs._incr )
+        return ( Nodecl::Utils::structurally_equal_nodecls( _var.get_nodecl( ), rhs._var.get_nodecl( ) )
+                 && Nodecl::Utils::structurally_equal_nodecls( _lb, rhs._lb )
+                 && Nodecl::Utils::structurally_equal_nodecls( _ub, rhs._ub )
+                 && Nodecl::Utils::structurally_equal_nodecls( _incr, rhs._incr )
                  && ( _type == rhs._type ) && ( _family == rhs._family ) );
     }
 
@@ -174,28 +174,28 @@ namespace Utils {
     {
         std::string result = "";
         int i = 0, total = iv_list.size( );
-        for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); 
+        for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( );
              it != iv_list.end( ); ++it, ++i )
         {
             InductionVariableData* iv = *it;
-            result += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+            result += iv->get_variable( ).get_nodecl( ).prettyprint( )
                     + ":" + iv->get_lb( ).prettyprint( )
                     + ":" + iv->get_ub( ).prettyprint( )
                     + ":" + iv->get_increment( ).prettyprint( );
-            
+
             if( i < total - 1 )
                 result += " ; ";
         }
         return result;
     }
-    
+
     bool induction_variable_list_contains_variable( ObjectList<InductionVariableData*> iv_list,
                                                     Nodecl::NodeclBase var )
     {
         bool result = false;
         for( ObjectList<InductionVariableData*>::iterator it = iv_list.begin( ); it != iv_list.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
+            if( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
                                               /* skip conversion nodes */ true ) )
             {
                 result = true;
@@ -210,20 +210,20 @@ namespace Utils {
                                                              Nodecl::NodeclBase var )
     {
         InductionVariableData* result = NULL;
-        
+
         for( ObjectList<InductionVariableData*>::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
+            if( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), var,
                                               /* skip conversion nodes */ true ) )
             {
                 result = *it;
                 break;
             }
         }
-        
+
         return result;
     }
-    
+
     InductionVariableData* get_induction_variable_from_list( Utils::InductionVarsPerNode ivs,
                                                              Nodecl::NodeclBase var )
     {
@@ -231,7 +231,7 @@ namespace Utils {
 
         for( InductionVarsPerNode::iterator it = ivs.begin( ); it != ivs.end( ); ++it )
         {
-            if( Nodecl::Utils::equal_nodecls( it->second->get_variable( ).get_nodecl( ), var,
+            if( Nodecl::Utils::structurally_equal_nodecls( it->second->get_variable( ).get_nodecl( ), var,
                                               /* skip conversion nodes */ true ) )
             {
                 result = it->second;
