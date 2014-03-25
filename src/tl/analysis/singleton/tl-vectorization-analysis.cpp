@@ -66,7 +66,7 @@ namespace Analysis {
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
 
-                    ExtensibleGraph* pcfg = find_extensible_graph_from_nodecl(s);
+                    ExtensibleGraph* pcfg = find_extensible_graph_from_nodecl_pointer(s);
                     ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n", s.prettyprint().c_str());
                     ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, n_node, pcfg );
                     iv_v.walk( s );
@@ -604,7 +604,7 @@ namespace Analysis {
                                                             Utils::ext_sym_set killed, Node* scope, Node* n_node, ExtensibleGraph* pcfg )
             : _induction_variables( ivs ), _killed( killed ),
               _pcfg( pcfg ), _scope_node( scope ), _n_node( n_node ),
-              _ivs( ), _is_adjacent_access( false )
+              _ivs( ), _is_adjacent_access( false ), _has_constant_evolution( false )
     {}
 
     bool ExpressionEvolutionVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
@@ -916,7 +916,7 @@ namespace Analysis {
     {
         return _is_adjacent_access;
     }
-
+    
     bool ExpressionEvolutionVisitor::depends_on_induction_vars( )
     {
         return !_ivs.empty( );
@@ -931,8 +931,10 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::join_list( ObjectList<bool>& list )
     {
+        internal_error("ExpressionEvolutionVisitor call join_list. We do not have an implementation for this.\n", 0);
         _is_adjacent_access = false;
-
+        _has_constant_evolution = false;
+        
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -1282,8 +1284,31 @@ namespace Analysis {
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) ) || reach_def_is_adjacent;
 
-        bool is_constant = !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
-        return is_constant;
+        Utils::InductionVariableData* iv = NodeclStaticInfo::get_nested_induction_variable(_scope_node, _n_node, n);
+        if(iv!=NULL)
+        {
+            _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+            // check the lower boun of the induction variable
+            Nodecl::NodeclBase lb = iv->get_lb();
+            if(lb.is<Nodecl::Symbol>())
+                _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(lb.as<Nodecl::Symbol>());
+            else if(!lb.is_constant())
+                internal_error("Induction variable has lb %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n", 
+                               lb.prettyprint().c_str());
+            // check the increment of the induction variable
+            Nodecl::NodeclBase increment = iv->get_increment();
+            if(increment.is<Nodecl::Symbol>())
+                _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(increment.as<Nodecl::Symbol>());
+            else if(!increment.is_constant())
+                internal_error("Induction variable has increment %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n", 
+                               increment.prettyprint().c_str());
+        }
+        else
+        {
+            _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed ) ||
+                ((iv==NULL) && !var_is_iv_dependent_in_scope( n ));
+        }
+        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
     }
 
     // ***************** END visitor retrieving array accesses info within a loop ****************** //
