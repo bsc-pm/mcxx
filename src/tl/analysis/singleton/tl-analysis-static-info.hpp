@@ -412,14 +412,14 @@ namespace Analysis {
         bool node_uses_iv( Node* node );
         bool node_stmts_depend_on_iv( Node* node, int recursion_level,
                                       std::map<Node*, std::set<int> >& visits,
-                                      std::set<Nodecl::Symbol>& visited_syms );
+                                      std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
         bool var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
                 int recursion_level, std::map<Node*, std::set<int> >& visits,
-                std::set<Nodecl::Symbol>& visited_syms );
+                std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
                 int recursion_level, std::map<Node*, std::set<int> >& visits,
-                std::set<Nodecl::Symbol>& visited_syms );
+                std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
 

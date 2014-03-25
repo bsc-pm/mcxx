@@ -637,7 +637,7 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::node_stmts_depend_on_iv( Node* node, int recursion_level,
                                                           std::map<Node*, std::set<int> >& visits,
-                                                          std::set<Nodecl::Symbol>& visited_syms )
+                                                          std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms )
     {
         bool result = false;
         ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
@@ -678,7 +678,7 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
             int recursion_level, std::map<Node*, std::set<int> >& visits,
-            std::set<Nodecl::Symbol>& visited_syms )
+            std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms )
     {
         bool result = false;
         visited_syms.insert( n );
@@ -775,7 +775,7 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
             int recursion_level, std::map<Node*, std::set<int> >& visits,
-            std::set<Nodecl::Symbol>& visited_syms )
+            std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms )
     {
         bool result = false;
         visited_syms.insert( n );
@@ -872,7 +872,7 @@ namespace Analysis {
     bool ExpressionEvolutionVisitor::var_is_iv_dependent_in_scope( const Nodecl::Symbol& n )
     {
         std::map<Node*, std::set<int> > visits;
-        std::set<Nodecl::Symbol> visited_syms;
+        std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less> visited_syms;
         Node* init = ((_n_node==NULL) ? _scope_node->get_graph_entry_node() : _n_node);
         bool result = false;
         if(_n_node == NULL)
