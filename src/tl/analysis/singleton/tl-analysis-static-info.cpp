@@ -121,12 +121,12 @@ namespace Analysis {
         return result;
     }
 
-    ExtensibleGraph* NodeclStaticInfo::find_extensible_graph_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const
+    ExtensibleGraph* NodeclStaticInfo::find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const
     {
         ExtensibleGraph* result = NULL;
         for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
-            if( ( *it )->find_nodecl_pointer( n ) != NULL )
+            if( ( *it )->find_nodecl( n ) != NULL )
             {
                 result = *it;
                 break;

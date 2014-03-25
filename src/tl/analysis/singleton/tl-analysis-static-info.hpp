@@ -97,7 +97,7 @@ namespace Analysis {
             Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
             Node* find_node_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
             Node* find_node_from_nodecl_in_scope( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& scope ) const;
-            ExtensibleGraph* find_extensible_graph_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
+            ExtensibleGraph* find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const;
 
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
@@ -127,7 +127,7 @@ namespace Analysis {
             // This kind of usage of the analysis should be implemented in a different interface
             static bool is_nested_induction_variable( Node* scope_node, Node* node, const Nodecl::NodeclBase& n );
             static Utils::InductionVariableData* get_nested_induction_variable( Node* scope_node, Node* node, const Nodecl::NodeclBase& n );
-            
+
             Nodecl::NodeclBase get_induction_variable_lower_bound( const Nodecl::NodeclBase& n ) const;
 
             Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
@@ -429,6 +429,7 @@ namespace Analysis {
                                 Utils::ext_sym_set killed, Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
 
         // *** Consultants *** //
+        bool has_constant_evolution( );
         bool is_adjacent_access( );
         bool depends_on_induction_vars( );
         bool var_is_iv_dependent_in_scope( const Nodecl::Symbol& n );

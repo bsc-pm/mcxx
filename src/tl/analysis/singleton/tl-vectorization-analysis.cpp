@@ -66,7 +66,7 @@ namespace Analysis {
                     Nodecl::NodeclBase s = it->shallow_copy( );
                     v.walk( s );
 
-                    ExtensibleGraph* pcfg = find_extensible_graph_from_nodecl_pointer(s);
+                    ExtensibleGraph* pcfg = find_extensible_graph_from_nodecl(s);
                     ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n", s.prettyprint().c_str());
                     ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, n_node, pcfg );
                     iv_v.walk( s );
@@ -914,6 +914,11 @@ namespace Analysis {
         return res;
     }
 
+    bool ExpressionEvolutionVisitor::has_constant_evolution( )
+    {
+        return _has_constant_evolution;
+    }
+
     bool ExpressionEvolutionVisitor::is_adjacent_access( )
     {
         return _is_adjacent_access;
@@ -933,10 +938,6 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::join_list( ObjectList<bool>& list )
     {
-        internal_error("ExpressionEvolutionVisitor call join_list. We do not have an implementation for this.\n", 0);
-        _is_adjacent_access = false;
-        _has_constant_evolution = false;
-
         bool result = true;
         for( ObjectList<bool>::iterator it = list.begin( ); it != list.end( ); ++it )
         {
@@ -951,11 +952,13 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_const
             << " and rhs is constant " << rhs_is_const << std::endl;
@@ -963,8 +966,10 @@ namespace Analysis {
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access )
-                           || ( lhs_is_adjacent_access && rhs_is_adjacent_access );
-                                // 2 adjacent won't generate an adjacent access
+                           || ( lhs_is_adjacent_access && rhs_has_constant_evolution )
+                           || ( lhs_has_constant_evolution && rhs_is_adjacent_access );
+
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( rhs_is_const && lhs_is_const );
     }
@@ -1001,6 +1006,7 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
@@ -1008,9 +1014,13 @@ namespace Analysis {
         bool rhs_is_zero = false;
         if( rhs_is_const )
             rhs_is_zero = nodecl_is_zero( rhs );
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( lhs_is_const && rhs_is_const );
     }
@@ -1021,6 +1031,7 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
@@ -1028,15 +1039,20 @@ namespace Analysis {
         bool rhs_is_zero = false;
         if( rhs_is_const )
             rhs_is_zero = nodecl_is_zero( rhs );
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( lhs_is_const && rhs_is_const );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BooleanLiteral& n )
     {
+        _has_constant_evolution = true;
         return true;
     }
 
@@ -1047,6 +1063,7 @@ namespace Analysis {
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ComplexLiteral& n )
     {
+        _has_constant_evolution = true;
         return true;
     }
 
@@ -1061,6 +1078,7 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
@@ -1068,15 +1086,20 @@ namespace Analysis {
         bool rhs_is_one = false;
         if( rhs_is_const )
             rhs_is_one = nodecl_is_one( rhs );
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_one;
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( lhs_is_const && rhs_is_const );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::FloatingLiteral& n )
     {
+        _has_constant_evolution = true;
         return true;
     }
 
@@ -1085,13 +1108,15 @@ namespace Analysis {
         // Traverse arguments to find induction variables
         walk( n.get_arguments( ) );
 
-        _is_adjacent_access = false;    // Reset this value
+        _is_adjacent_access = false;      // Reset this value
+        _has_constant_evolution = false;  // Reset this value
 
         return false; // Conservatively assume the result of the function call is not constant
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
+        _has_constant_evolution = true;
         return true;
     }
 
@@ -1100,14 +1125,18 @@ namespace Analysis {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
-        // Compute adjacency info
-        // Is this applicable here?
+        // Adjacency is not applicable
         _is_adjacent_access = false;
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( rhs_is_const && lhs_is_const );
     }
@@ -1123,15 +1152,20 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
         bool rhs_is_const = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
                            || ( lhs_is_const && rhs_is_adjacent_access );
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( rhs_is_const && lhs_is_const );
     }
@@ -1145,6 +1179,7 @@ namespace Analysis {
         if( lhs_is_const )
             lhs_is_one = nodecl_is_one( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
@@ -1153,10 +1188,14 @@ namespace Analysis {
         if( rhs_is_const )
             rhs_is_one = nodecl_is_one( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_one )
                            || ( rhs_is_adjacent_access && lhs_is_one );
+
+         // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( lhs_is_const && rhs_is_const );
     }
@@ -1173,6 +1212,9 @@ namespace Analysis {
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) );
 
+        // TODO: Compute evolution info
+        //_has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
+
         return !Utils::ext_sym_set_contains_nodecl( n, _killed );
     }
 
@@ -1182,6 +1224,8 @@ namespace Analysis {
         walk( n.get_rhs( ) );
 
         _is_adjacent_access = false;
+        //TODO: return true? evolution true?
+        _has_constant_evolution = false;
 
         return false;
     }
@@ -1192,6 +1236,8 @@ namespace Analysis {
         walk( n.get_rhs( ) );
 
         _is_adjacent_access = false;
+        //TODO: return true? evolution true?
+        _has_constant_evolution = false;
 
         return false;
     }
@@ -1202,6 +1248,7 @@ namespace Analysis {
         Nodecl::NodeclBase lhs = n.get_lhs( );
         bool lhs_is_const = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
+        bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
@@ -1209,9 +1256,13 @@ namespace Analysis {
         bool rhs_is_one = false;
         if( rhs_is_const )
             rhs_is_one = nodecl_is_one( rhs );
+        bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_const && rhs_is_one;
+
+        // Compute evolution info
+        _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
         return ( lhs_is_const && rhs_is_const );
     }
@@ -1221,6 +1272,8 @@ namespace Analysis {
         walk( n.get_rhs( ) );
 
         _is_adjacent_access = false;
+        //TODO: return true? evolution true?
+        _has_constant_evolution = false;
 
         return false;
     }
@@ -1230,6 +1283,8 @@ namespace Analysis {
         walk( n.get_rhs( ) );
 
         _is_adjacent_access = false;
+        //TODO: return true? evolution true?
+        _has_constant_evolution = false;
 
         return false;
     }
@@ -1244,6 +1299,8 @@ namespace Analysis {
         bool n_is_const = walk( n.get_expr( ) );
 
         _is_adjacent_access = false;
+        //TODO: evolution true?
+        _has_constant_evolution = false;
 
         return n_is_const;
     }
@@ -1260,7 +1317,10 @@ namespace Analysis {
 
         std::cerr << "Studying " << n.prettyprint() << std::endl;
 
+        bool is_constant = false;
         bool reach_def_is_adjacent = false;
+        bool reach_def_has_constant_evolution = false;
+
         if(!n_is_iv && (_n_node!=NULL))
         {
             Utils::ext_sym_map reach_def_in = _n_node->get_reaching_definitions_in( );
@@ -1284,43 +1344,79 @@ namespace Analysis {
                     {
                         ExpressionEvolutionVisitor eev(_induction_variables, _killed, _scope_node, reach_def_node, _pcfg);
                         eev.walk(current_def);
-                        reach_def_is_adjacent = eev.is_adjacent_access();
+                        reach_def_is_adjacent |= eev.is_adjacent_access();
+
+                        // NEW Constant evolution
+                        reach_def_has_constant_evolution |= eev.has_constant_evolution();
+
+                        std::cerr << current_def.prettyprint() << " has constant ev " << reach_def_has_constant_evolution << std::endl;
                     }
-                    std::cerr << "current_def " << current_def.prettyprint() << " is " << reach_def_is_adjacent << std::endl;
                 }
             }
-        }
 
-        std::cerr << "Reach def of " << n.prettyprint() << " are adjac: " << reach_def_is_adjacent << std::endl;
+            // OLD Constant evolution
+            /*
+            Utils::InductionVariableData* iv = NodeclStaticInfo::get_nested_induction_variable(_scope_node, _n_node, n);
+            if(iv!=NULL)
+            {
+                std::cerr << "is nested IV" << std::endl;
+
+                _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed );
+                // check the lower boun of the induction variable
+                Nodecl::NodeclBase lb = iv->get_lb();
+                if(lb.is<Nodecl::Symbol>())
+                {
+                    _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(lb.as<Nodecl::Symbol>());
+                }
+                else if(lb.is_constant())
+                {
+                    _has_constant_evolution = true;
+                }
+                else
+                {
+                    internal_error("Induction variable has lb %s. Required a symbol to call method "\
+                            "var_is_iv_dependent_in_scope. We have to implement this case.\n",
+                            lb.prettyprint().c_str());
+                }
+
+                std::cerr << "LB _has_constant_evolution " << _has_constant_evolution << std::endl;
+
+                // check the increment of the induction variable
+                Nodecl::NodeclBase increment = iv->get_increment();
+                if(increment.is<Nodecl::Symbol>())
+                {
+                    _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(increment.as<Nodecl::Symbol>());
+                    std::cerr << "Increment _has_constant_evolution " << _has_constant_evolution << std::endl;
+                }
+                else if(increment.is_constant())
+                {
+                    _has_constant_evolution = true;
+                }
+                else
+                {
+                    internal_error("Induction variable has increment %s. Required a symbol to call method "\
+                            "var_is_iv_dependent_in_scope. We have to implement this case.\n",
+                            increment.prettyprint().c_str());
+                }
+
+                std::cerr << "Increment _has_constant_evolution " << _has_constant_evolution << std::endl;
+            }
+            else
+            {
+                _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed ) ||
+                    ((iv==NULL) && !var_is_iv_dependent_in_scope( n ));
+            }
+            */
+        }
 
         _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) ) || reach_def_is_adjacent;
+        _has_constant_evolution = reach_def_has_constant_evolution;
+        is_constant = !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
 
-        Utils::InductionVariableData* iv = NodeclStaticInfo::get_nested_induction_variable(_scope_node, _n_node, n);
-        if(iv!=NULL)
-        {
-            _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed );
-            // check the lower boun of the induction variable
-            Nodecl::NodeclBase lb = iv->get_lb();
-            if(lb.is<Nodecl::Symbol>())
-                _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(lb.as<Nodecl::Symbol>());
-            else if(!lb.is_constant())
-                internal_error("Induction variable has lb %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n",
-                               lb.prettyprint().c_str());
-            // check the increment of the induction variable
-            Nodecl::NodeclBase increment = iv->get_increment();
-            if(increment.is<Nodecl::Symbol>())
-                _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(increment.as<Nodecl::Symbol>());
-            else if(!increment.is_constant())
-                internal_error("Induction variable has increment %s. Required a symbol to call method var_is_iv_dependent_in_scope. We have to implement this case.\n",
-                               increment.prettyprint().c_str());
-        }
-        else
-        {
-            _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed ) ||
-                ((iv==NULL) && !var_is_iv_dependent_in_scope( n ));
-        }
+        std::cerr << n.prettyprint() << ": is adj " << _is_adjacent_access << ", has constant evolution " 
+            << _has_constant_evolution << ", is constant " << is_constant << std::endl;
 
-        return !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
+        return is_constant;
     }
 
     // ***************** END visitor retrieving array accesses info within a loop ****************** //
