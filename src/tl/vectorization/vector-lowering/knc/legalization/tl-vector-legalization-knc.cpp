@@ -127,8 +127,8 @@ namespace Vectorization
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "KNC Legalization: Turn unaligned load into "\
-                        "adjacent gather '%s'\n", rhs.prettyprint().c_str());
+                fprintf(stderr, "KNC Legalization: Turn unaligned load '%s' into "\
+                        "adjacent gather\n", rhs.prettyprint().c_str());
             }
 
             Nodecl::VectorGather vector_gather = n.get_flags().
@@ -142,10 +142,10 @@ namespace Vectorization
 
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "    Gather '%s' "\
-                        "(base: %s strides: %s\n", n.prettyprint().c_str(),
-                        vector_gather.get_base().prettyprint().c_str(),
-                        vector_gather.get_strides().prettyprint().c_str());
+//                fprintf(stderr, "    Gather '%s' "\
+//                        "(base: %s strides: %s\n", n.prettyprint().c_str(),
+//                        vector_gather.get_base().prettyprint().c_str(),
+//                        vector_gather.get_strides().prettyprint().c_str());
             }
 
             n.replace(vector_gather);
@@ -168,8 +168,8 @@ namespace Vectorization
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "KNC Legalization: Turn unaligned store "\
-                        "into adjacent scatter '%s'\n",
+                fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
+                        "into adjacent scatter\n",
                         lhs.prettyprint().c_str());
             }
 
@@ -184,11 +184,11 @@ namespace Vectorization
 
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "    Scatter '%s' "\
-                        "(base: %s strides: %s\n",
-                        lhs.prettyprint().c_str(),
-                        vector_scatter.get_base().prettyprint().c_str(),
-                        vector_scatter.get_strides().prettyprint().c_str());
+//                fprintf(stderr, "    Scatter '%s' "\
+//                        "(base: %s strides: %s\n",
+//                        lhs.prettyprint().c_str(),
+//                        vector_scatter.get_base().prettyprint().c_str(),
+//                        vector_scatter.get_strides().prettyprint().c_str());
             }
 
             n.replace(vector_scatter);
