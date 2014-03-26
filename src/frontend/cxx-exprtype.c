@@ -18148,6 +18148,18 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         nodecl_t* nodecl_output,
         const locus_t* locus)
 {
+    if (is_dependent_type(accessed_type))
+    {
+        *nodecl_output = nodecl_make_offsetof(
+                nodecl_make_type(accessed_type, locus),
+                nodecl_designator, 
+                get_signed_int_type(), 
+                locus);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
+
     if (!is_complete_type(accessed_type))
     {
         error_printf("%s: error: invalid use of incomplete type '%s'\n",
@@ -18211,18 +18223,6 @@ static void check_gcc_builtin_offsetof(AST expression,
     nodecl_t nodecl_designator = nodecl_null();
     compute_nodecl_gcc_offset_designation(member_designator, decl_context, &nodecl_designator);
     
-    if (is_dependent_type(accessed_type))
-    {
-        *nodecl_output = nodecl_make_offsetof(
-                nodecl_make_type(accessed_type, locus),
-                nodecl_designator, 
-                get_signed_int_type(), 
-                locus);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
     // Check the designator and synthesize an offset value
     check_gcc_offset_designation(nodecl_designator, decl_context, accessed_type, nodecl_output, 
             locus);
@@ -21923,7 +21923,14 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
 static void instantiate_offsetof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_accessed_type = nodecl_get_child(node, 0);
+
     type_t* accessed_type = nodecl_get_type(nodecl_accessed_type);
+    accessed_type = update_type_for_instantiation(accessed_type,
+            v->decl_context,
+            nodecl_get_locus(node),
+            v->instantiation_symbol_map,
+            v->pack_index);
+
     nodecl_t nodecl_designator = nodecl_get_child(node, 1);
 
     check_gcc_offset_designation(nodecl_designator,
