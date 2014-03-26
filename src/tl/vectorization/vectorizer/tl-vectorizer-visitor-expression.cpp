@@ -943,7 +943,11 @@ namespace Vectorization
         else if (lhs.is<Nodecl::Symbol>())
         {
             Nodecl::Symbol sym = lhs.as<Nodecl::Symbol>();
-            symbol_type_promotion(sym); // walk(lhs)
+            
+            walk(lhs); // This only works because lhs is a symbol.
+                       // walk is only to visit RHS but in this
+                       // case LHS and RHS visits seems to be
+                       // equivalent
 
             TL::Type tl_lhs_sym_type = sym.get_symbol().get_type();
 
@@ -1435,25 +1439,32 @@ namespace Vectorization
             {
                 symbol_type_promotion(n);
             }
-            // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            else if(tl_sym_type.is_vector())
+            // Is a reduction symbol
+            else if(_environment._reduction_list != NULL &&
+                    _environment._reduction_list->contains(tl_sym))
             {
+                // If symbol is in the map
+                Nodecl::Symbol new_red_symbol;
+
+                std::map<TL::Symbol, TL::Symbol>::iterator it =
+                    _environment._new_external_vector_symbol_map->
+                    find(tl_sym);
+
+                new_red_symbol = it->second.make_nodecl(
+                        true, n.get_locus());
+
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr,"VECTORIZER: '%s' is a scalar NON-LOCAL "\
-                            "Nodecl::Symbol whose TL::Symbol has vector type. "\
-                            "Its Nodecl TYPE will be vectorized\n",
+                    fprintf(stderr,"VECTORIZER: Reduction symbol '%s'\n",
                             n.prettyprint().c_str());
                 }
 
-                //Nodecl::Symbol
-                Nodecl::Symbol new_sym =
-                    Nodecl::Symbol::make(tl_sym,
-                            n.get_locus());
-
-                new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
-
-                n.replace(new_sym);
+                n.replace(new_red_symbol);
+            }
+            // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
+            else if(tl_sym_type.is_vector())
+            {
+                symbol_type_promotion(n);
             }
             // Vectorize constants
             else if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
@@ -1481,29 +1492,6 @@ namespace Vectorization
                                 encapsulated_symbol.get_constant()));
 
                 encapsulated_symbol.replace(vector_prom);
-            }
-            else if(_environment._reduction_list != NULL)
-            {
-                if(_environment._reduction_list->contains(tl_sym))
-                {
-                    // If symbol is in the map
-                    Nodecl::Symbol new_red_symbol;
-
-                    std::map<TL::Symbol, TL::Symbol>::iterator it =
-                        _environment._new_external_vector_symbol_map->
-                        find(tl_sym);
-
-                    new_red_symbol = it->second.make_nodecl(
-                            true, n.get_locus());
-
-                    VECTORIZATION_DEBUG()
-                    {
-                        fprintf(stderr,"VECTORIZER: Reduction symbol '%s'\n",
-                                n.prettyprint().c_str());
-                    }
-
-                    n.replace(new_red_symbol);
-                }
             }
             else
             {
