@@ -13309,7 +13309,7 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
         }
         else
         {
-            int i, N = function_type_get_num_parameters(orig);
+            int i, N = function_type_get_num_parameters(orig), P = N;
 
             parameter_info_t param_info[N+1];
             memset(param_info, 0, sizeof(param_info));
@@ -13319,10 +13319,10 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
                 param_info[N-1].is_ellipsis = 1;
                 param_info[N-1].type_info = get_ellipsis_type();
                 param_info[N-1].nonadjusted_type_info = NULL;
-                N = N - 1;
+                P = N - 1;
             }
 
-            for (i = 0; i < N; i++)
+            for (i = 0; i < P; i++)
             {
                 param_info[i].type_info = type_deep_copy_compute_maps(function_type_get_parameter_type_num(orig, i),
                         new_decl_context, symbol_map,
@@ -14375,7 +14375,7 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
             }
             else
             {
-                int i, N = function_type_get_num_parameters(orig);
+                int i, N = function_type_get_num_parameters(orig), P = N;
 
                 parameter_info_t param_info[N+1];
                 memset(param_info, 0, sizeof(param_info));
@@ -14385,10 +14385,10 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
                     param_info[N-1].is_ellipsis = 1;
                     param_info[N-1].type_info = get_ellipsis_type();
                     param_info[N-1].nonadjusted_type_info = NULL;
-                    N = N - 1;
+                    P = N - 1;
                 }
 
-                for (i = 0; i < N; i++)
+                for (i = 0; i < P; i++)
                 {
                     param_info[i].type_info = rewrite_block_scope_typedefs(function_type_get_parameter_type_num(orig, i));
                 }
@@ -14414,7 +14414,9 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
 
     result = get_cv_qualified_type(result, cv_qualif_orig | cv_qualif_result);
 
-    ERROR_CONDITION(!equivalent_types(result, orig), "The new type is not equivalent!", 0);
+    ERROR_CONDITION(!equivalent_types(result, orig), "The new type (%s) is not equivalent to the original (%s)!",
+            print_declarator(result),
+            print_declarator(orig));
 
     return result;
 }
