@@ -16580,7 +16580,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
                 if (conversor != NULL)
                 {
-                    ERROR_CONDITION((conversor->entity_specs.is_conversion),
+                    ERROR_CONDITION(!conversor->entity_specs.is_conversion,
                             "I expected a conversion function!", 0);
                     *nodecl_output = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversor, ast_get_locus(initializer)),
