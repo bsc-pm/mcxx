@@ -66,12 +66,6 @@ namespace Vectorization
         StrideSplitterVisitor::Ret splitted_stride_pair =
             splitting_visitor.walk(subscript);
 
-        // Store stride
-        _strides = splitted_stride_pair.second;
-        ERROR_CONDITION(_strides.is_null(),
-                "VectorizerGatherScatterInfo: Strides null in a gather/scatter"\
-                " operaration", 0);
-
         // Store base
         if (splitted_stride_pair.first.is_null())
         {
@@ -88,6 +82,12 @@ namespace Vectorization
                         array.get_type()),
                     array.get_type().get_pointer_to());
         }
+
+        // Store stride
+        _strides = splitted_stride_pair.second;
+        ERROR_CONDITION(_strides.is_null(),
+                "VectorizerGatherScatterInfo: Strides null in a gather/scatter"\
+                " operaration", 0);
     }
 
     Nodecl::NodeclBase VectorizerGatherScatterInfo::get_base(

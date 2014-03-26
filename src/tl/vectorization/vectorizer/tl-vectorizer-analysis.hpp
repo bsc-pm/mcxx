@@ -98,7 +98,7 @@ namespace Vectorization
             ~VectorizerAnalysisStaticInfo();
 
             virtual bool is_constant(const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n);
+                    const Nodecl::NodeclBase& n) __attribute__((deprecated));
             virtual bool has_been_defined( const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& s );

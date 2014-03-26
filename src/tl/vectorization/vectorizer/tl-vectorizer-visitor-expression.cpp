@@ -44,6 +44,36 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorExpression::symbol_type_promotion(
+            const Nodecl::Symbol& n)
+    {
+        TL::Symbol tl_sym = n.get_symbol();
+        TL::Type tl_sym_type = tl_sym.get_type().no_ref();
+
+        //TL::Symbol
+        if (tl_sym_type.is_scalar_type())
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: Type promotion '%s'\n",
+                        n.prettyprint().c_str());
+            }
+
+            tl_sym.set_type(Utils::get_qualified_vector_to(tl_sym_type,
+                        _environment._unroll_factor));
+            tl_sym_type = tl_sym.get_type();
+        }
+
+        //Nodecl::Symbol
+        Nodecl::Symbol new_sym =
+            Nodecl::Symbol::make(tl_sym,
+                    n.get_locus());
+
+        new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
+
+        n.replace(new_sym);
+    }
+
     bool VectorizerVisitorExpression::process_fmul_op(
             const Nodecl::NodeclBase&  n)
     {
@@ -678,8 +708,11 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     lhs))
         {
-            std::cerr << "Vectorizing IV update: " << lhs.prettyprint()
-                << std::endl;
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Vectorizing IV update '%s'\n",
+                        lhs.prettyprint().c_str());
+            }
 
             Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::
                 _vectorizer_analysis->get_induction_variable_increment(
@@ -907,21 +940,39 @@ namespace Vectorization
                 }
             }
         }
-        else // Register
+        else if (lhs.is<Nodecl::Symbol>())
         {
-            walk(lhs);
-            walk(rhs);
+            Nodecl::Symbol sym = lhs.as<Nodecl::Symbol>();
+            symbol_type_promotion(sym); // walk(lhs)
 
-            const Nodecl::VectorAssignment vector_assignment =
-                Nodecl::VectorAssignment::make(
-                        lhs.shallow_copy(),
-                        rhs.shallow_copy(),
-                        mask,
-                        vector_type,
-                        n.get_locus());
+            TL::Type tl_lhs_sym_type = sym.get_symbol().get_type();
 
-            n.replace(vector_assignment);
+            if (tl_lhs_sym_type.is_vector())  // Register
+            {
+                walk(rhs);
+
+                const Nodecl::VectorAssignment vector_assignment =
+                    Nodecl::VectorAssignment::make(
+                            lhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            mask,
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_assignment);
+            }
+            else
+            {
+                internal_error("Vectorizer: Unsupported assignment on %s at %s,"\
+                       " which is has no vector type.\n",
+                        lhs.prettyprint().c_str(), n.get_locus());
+            }
         }
+        else
+        {
+            internal_error("Vectorizer: Unsupported assignment on %s at %s.\n",
+                    lhs.prettyprint().c_str(), n.get_locus());
+        } 
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
@@ -1157,7 +1208,7 @@ namespace Vectorization
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr, "VECTORIZER: Gather '%s' "\
-                            "(base: %s strides: %s\n", n.prettyprint().c_str(),
+                            "(base: %s strides: %s)\n", n.prettyprint().c_str(),
                             base.prettyprint().c_str(),
                             strides.prettyprint().c_str());
                 }
@@ -1382,31 +1433,7 @@ namespace Vectorization
                         n.get_symbol().get_scope().get_decl_context().
                         current_scope))
             {
-                //std::cerr << "NS scalar_type: " << n.prettyprint() << std::endl;
-
-                //TL::Symbol
-                if (tl_sym_type.is_scalar_type())
-                {
-                    VECTORIZATION_DEBUG()
-                    {
-                        fprintf(stderr,"VECTORIZER: Type promotion '%s'\n",
-                                n.prettyprint().c_str());
-                    }
-
-                    //std::cerr << "TS scalar_type: " << n.prettyprint() << std::endl;
-                    tl_sym.set_type(Utils::get_qualified_vector_to(tl_sym_type,
-                                _environment._unroll_factor));
-                    tl_sym_type = tl_sym.get_type();
-                }
-
-                //Nodecl::Symbol
-                Nodecl::Symbol new_sym =
-                    Nodecl::Symbol::make(tl_sym,
-                            n.get_locus());
-
-                new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
-
-                n.replace(new_sym);
+                symbol_type_promotion(n);
             }
             // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
             else if(tl_sym_type.is_vector())
@@ -1468,6 +1495,12 @@ namespace Vectorization
 
                     new_red_symbol = it->second.make_nodecl(
                             true, n.get_locus());
+
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr,"VECTORIZER: Reduction symbol '%s'\n",
+                                n.prettyprint().c_str());
+                    }
 
                     n.replace(new_red_symbol);
                 }

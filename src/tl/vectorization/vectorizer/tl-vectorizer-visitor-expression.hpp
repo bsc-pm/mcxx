@@ -42,6 +42,7 @@ namespace TL
                 const bool _cache_enabled;
 
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
+                void symbol_type_promotion(const Nodecl::Symbol& n);
 
             public:
                 VectorizerVisitorExpression(VectorizerEnvironment& environment,
