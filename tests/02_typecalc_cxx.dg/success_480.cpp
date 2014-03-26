@@ -4,21 +4,19 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-namespace Foo
+enum E { a = 0, b = 1, c = 2, d = 3 };
+
+template <E e>
+struct A { };
+
+void f(A<c>& c_);
+
+void g()
 {
-    template <typename T>
-        struct B
-        {
-            void foo();
-        };
+    A<a> a_;
+    A<b> b_;
 
-}
+    A<E(2)> c_;
 
-void f(void)
-{
-    typedef int const S;
-    typedef volatile S M;
-
-    typedef Foo::B<M> T2;
-    typedef Foo::B<volatile const int> T2;
+    f(c_);
 }

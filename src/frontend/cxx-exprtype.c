@@ -9245,6 +9245,7 @@ static const_value_t* cxx_nodecl_make_value_conversion(
         type_t* orig_type,
         const_value_t* val, 
         char is_explicit_cast,
+        char allow_enum_to_int,
         const locus_t* locus)
 {
     ERROR_CONDITION(is_dependent_type(orig_type),
@@ -9261,6 +9262,18 @@ static const_value_t* cxx_nodecl_make_value_conversion(
             get_unqualified_type(no_ref(orig_type)),
             get_unqualified_type(no_ref(dest_type)),
             locus);
+
+    // Try again with enums
+    if (!there_is_a_scs
+            && allow_enum_to_int
+            && is_enum_type(no_ref(dest_type)))
+    {
+        there_is_a_scs = standard_conversion_between_types(
+                &scs,
+                get_unqualified_type(no_ref(orig_type)),
+                get_unqualified_type(enum_type_get_underlying_type(no_ref(dest_type))),
+                locus);
+    }
 
     if (!there_is_a_scs)
         return NULL;
@@ -10055,6 +10068,7 @@ static void check_nodecl_cast_expr(
             NULL
         };
 
+
         int i = 0;
         while (conversion_funs[i] != NULL)
         {
@@ -10070,6 +10084,19 @@ static void check_nodecl_cast_expr(
                 // Use the first one that works for us
                 nodecl_free(nodecl_casted_expr);
                 nodecl_casted_expr = nodecl_copy;
+
+                DEBUG_CODE()
+                {
+                    const char* cast_name = "<<unknown_cast>>";
+                    if (conversion_funs[i] == conversion_is_valid_const_cast)
+                        cast_name = "const_cast";
+                    else if (conversion_funs[i] == conversion_is_valid_static_cast)
+                        cast_name = "static_cast";
+                    else if (conversion_funs[i] == conversion_is_valid_reinterpret_cast)
+                        cast_name = "reinterpret_cast";
+
+                    fprintf(stderr, "EXPRTYPE: '%s' allows this C-style cast\n", cast_name);
+                }
                 break;
             }
 
@@ -10202,6 +10229,7 @@ static void check_nodecl_cast_expr(
                 nodecl_get_type(nodecl_casted_expr),
                 casted_value,
                 /* is_explicit_type_cast */ 1,
+                /* allow_enum_to_int */ 1,
                 locus);
 
         // Propagate zero types
@@ -19807,7 +19835,9 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
     const_value_t* val = cxx_nodecl_make_value_conversion(dest_type,
             nodecl_get_type(expr),
             nodecl_get_constant(expr),
-            /* is_explicit_cast */ 0, locus);
+            /* is_explicit_cast */ 0,
+            /* allow_enum_to_int */ 0,
+            locus);
 
     // Propagate zero types
     if (val != NULL)
