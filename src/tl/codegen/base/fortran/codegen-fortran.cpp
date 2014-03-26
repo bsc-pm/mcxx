@@ -677,17 +677,17 @@ namespace Codegen
 #define OPERATOR_TABLE \
     PREFIX_UNARY_EXPRESSION(Plus, " +") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
-    BINARY_EXPRESSION(Mul, " * ") \
-    BINARY_EXPRESSION(Div, " / ") \
-    BINARY_EXPRESSION(Add, " + ") \
-    BINARY_EXPRESSION(Minus, " - ") \
+    BINARY_EXPRESSION_ARITH(Mul, " * ") \
+    BINARY_EXPRESSION_ARITH(Div, " / ") \
+    BINARY_EXPRESSION_ARITH(Add, " + ") \
+    BINARY_EXPRESSION_ARITH(Minus, " - ") \
+    BINARY_EXPRESSION_ARITH(Power, " ** ") \
     BINARY_EXPRESSION(LowerThan, " < ") \
     BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
     BINARY_EXPRESSION(GreaterThan, " > ") \
     BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
     BINARY_EXPRESSION(LogicalAnd, " .AND. ") \
     BINARY_EXPRESSION(LogicalOr, " .OR. ") \
-    BINARY_EXPRESSION(Power, " ** ") \
     BINARY_EXPRESSION(Concat, " // ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " * ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " / ") \
@@ -709,6 +709,22 @@ namespace Codegen
         walk(lhs); \
         *(file) << _operand; \
         walk(rhs); \
+    }
+#define BINARY_EXPRESSION_ARITH(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        *(file) << _operand; \
+        const_value_t* cval = NULL; \
+        bool needs_parentheses = (rhs.is_constant() \
+                && (const_value_is_integer((cval = rhs.get_constant())) \
+                    || const_value_is_floating(cval)) \
+               && const_value_is_negative(cval)); \
+        if (needs_parentheses) (*file) << "("; \
+        walk(rhs); \
+        if (needs_parentheses) (*file) << ")"; \
     }
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \
