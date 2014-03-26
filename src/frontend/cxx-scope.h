@@ -149,7 +149,9 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Specific query for C++ conversion functions like 'operator T'
-LIBMCXX_EXTERN scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context,
+        type_t* t,
+        const locus_t* locus);
 
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
@@ -251,7 +253,8 @@ LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op,
 LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
-        const char* name);
+        const char* name,
+        const locus_t* locus);
 
 // C++ names
 LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);

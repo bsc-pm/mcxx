@@ -7727,7 +7727,8 @@ static void check_conversion_function_id_expression(AST expression, decl_context
         return;
     }
 
-    scope_entry_list_t* entry_list = query_conversion_function_info(decl_context, conversion_type);
+    scope_entry_list_t* entry_list = query_conversion_function_info(decl_context, conversion_type,
+            ast_get_locus(expression));
 
     if (entry_list == NULL)
     {
@@ -21889,6 +21890,19 @@ static void instantiate_nondep_alignof(nodecl_instantiate_expr_visitor_t* v, nod
     v->nodecl_result = result;
 }
 
+static void instantiate_offsetof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_accessed_type = nodecl_get_child(node, 0);
+    type_t* accessed_type = nodecl_get_type(nodecl_accessed_type);
+    nodecl_t nodecl_designator = nodecl_get_child(node, 1);
+
+    check_gcc_offset_designation(nodecl_designator,
+            v->decl_context,
+            accessed_type,
+            &v->nodecl_result,
+            nodecl_get_locus(node));
+}
+
 static void instantiate_noexcept(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t dep_expr = nodecl_get_child(node, 0);
@@ -22329,6 +22343,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     // Alignof
     NODECL_VISITOR(v)->visit_alignof = instantiate_expr_visitor_fun(instantiate_nondep_alignof);
     NODECL_VISITOR(v)->visit_cxx_alignof = instantiate_expr_visitor_fun(instantiate_dep_alignof_expr);
+
+    // Offsetoff
+    NODECL_VISITOR(v)->visit_offsetof = instantiate_expr_visitor_fun(instantiate_offsetof);
 
     // noexcept
     NODECL_VISITOR(v)->visit_cxx_noexcept = instantiate_expr_visitor_fun(instantiate_noexcept);

@@ -580,13 +580,15 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_CUDA_SHARED, simple_text_handler, "__shared__"),
     NODE_HANDLER(AST_CUDA_KERNEL_CALL, cuda_kernel_call_handler, NULL),
     NODE_HANDLER(AST_CUDA_KERNEL_ARGUMENTS, cuda_kernel_arguments_handler, NULL),
-    //OPENCL    
+    //OPENCL
     NODE_HANDLER(AST_OPENCL_KERNEL, simple_text_handler, "__kernel"),
     NODE_HANDLER(AST_OPENCL_CONSTANT, simple_text_handler, "__constant"),
     NODE_HANDLER(AST_OPENCL_GLOBAL, simple_text_handler, "__global"),
     NODE_HANDLER(AST_OPENCL_LOCAL, simple_text_handler, "__local"),
     // IBM XL
     NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
+    // Nodecl nodes that may reach prettyprint due to diagnostics
+    NODE_HANDLER(NODECL_CXX_DEP_NAME_SIMPLE, simple_text_handler, NULL),
 };
 
 static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx);
