@@ -3430,14 +3430,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
+    // This is not very precise but should do most of the time
+    if (is_non_language_reference_type(t))
+        t = t.no_ref();
+
     *(file) << "sizeof(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
-    TL::Type t = node.get_align_type().get_type();
-    *(file) << "__alignof__(";
-    walk(node.get_align_type());
+    Nodecl::NodeclBase align = node.get_align_type();
+
+    if (IS_CXX11_LANGUAGE)
+    {
+        *(file) << "alignof(";
+    }
+    else
+    {
+        *(file) << "__alignof__(";
+    }
+
+    if (align.is<Nodecl::Type>())
+    {
+        TL::Type t = align.get_type();
+
+        // This is not very precise but should do most of the time
+        if (is_non_language_reference_type(t))
+            t = t.no_ref();
+
+        *(file) << this->get_declaration(t, this->get_current_scope(),  "");
+    }
+    else
+    {
+        walk(node.get_align_type());
+    }
     *(file) << ")";
 }
 
