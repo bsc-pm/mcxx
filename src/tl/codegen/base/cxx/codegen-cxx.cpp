@@ -297,12 +297,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -353,12 +354,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_ASSIG_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -6698,9 +6700,21 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_namespace())
     {
+        TL::Symbol aliased_namespace = symbol.get_related_scope().get_related_symbol();
         move_to_namespace_of_symbol(symbol);
-        indent();
-        *(file) << "namespace " << symbol.get_name() << " { }\n";
+
+        if (aliased_namespace != symbol)
+        {
+            // This is a namespace alias
+            indent();
+            (*file) << "namespace " << symbol.get_name() << " = " << this->get_qualified_name(aliased_namespace) << ";\n";
+        }
+        else
+        {
+            indent();
+            *(file) << "namespace " << symbol.get_name() << " { }\n";
+        }
+
     }
     else if (symbol.is_template_parameter())
     {

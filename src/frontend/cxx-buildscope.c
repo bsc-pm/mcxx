@@ -102,7 +102,7 @@ static scope_entry_t* build_scope_function_definition(
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 
-static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
+static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t *nodecl_output);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
@@ -766,7 +766,7 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
             }
         case AST_NAMESPACE_ALIAS :
             {
-                build_scope_namespace_alias(a, decl_context);
+                build_scope_namespace_alias(a, decl_context, nodecl_output);
                 break;
             }
         case AST_FUNCTION_DEFINITION :
@@ -13448,7 +13448,7 @@ static void build_scope_nontype_template_parameter(AST a,
             default_argument);
 }
 
-static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
+static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
     {
@@ -13487,6 +13487,15 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     alias_entry->locus = ast_get_locus(alias_ident);
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_decl_context = entry->related_decl_context;
+    alias_entry->defined = 1;
+    alias_entry->entity_specs.is_user_declared = 1;
+
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_cxx_def(
+                    nodecl_null(),
+                    alias_entry,
+                    ast_get_locus(a)));
 }
 
 /*
