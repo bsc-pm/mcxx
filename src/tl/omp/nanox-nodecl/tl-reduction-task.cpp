@@ -191,11 +191,20 @@ namespace TL { namespace Nanox {
             fun_name = ss.str();
         }
 
-        Nodecl::NodeclBase initializer = red->get_initializer();
+        Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
+        if (initializer.is<Nodecl::StructuredValue>())
+        {
+            Nodecl::StructuredValue structured_value = initializer.as<Nodecl::StructuredValue>();
+            if (structured_value.get_form().is<Nodecl::StructuredValueBraced>())
+            {
+                structured_value.set_form(Nodecl::StructuredValueCompoundLiteral::make());
+            }
+        }
+
         Source src;
-        src << "void " << fun_name << "(" << as_type(red->get_type()) << "* omp_out)"
+        src << "void " << fun_name << "(" << as_type(red->get_type()) << "* omp_priv)"
             << "{"
-            <<      "*omp_out = " << as_expression(initializer.shallow_copy()) << ";"
+            <<      "*omp_priv = " << as_expression(initializer) << ";"
             << "}"
             ;
 
