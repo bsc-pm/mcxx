@@ -145,7 +145,9 @@ namespace TL { namespace Nanox {
 
        reduction_map[red] = function_sym;
 
-        Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+        // As the reduction function is needed during the instantiation of
+        // the task, this function should be inserted before the construct
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, function_code);
 
         return function_sym;
     }
@@ -204,7 +206,11 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
 
         initializer_map[red] = function_sym;
-        Nodecl::Utils::append_to_enclosing_top_level_location(construct, function_code);
+
+        // As the initializer function is needed during the instantiation of
+        // the task, this function should be inserted before the construct
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct,
+                function_code);
 
         return function_sym;
     }
