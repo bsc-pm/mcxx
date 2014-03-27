@@ -144,14 +144,20 @@ namespace TL { namespace OpenMP {
         TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
+
         const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map =
             transform_nonvoid_task_calls.get_function_call_to_enclosing_stmt_map();
+
+        const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map =
+            transform_nonvoid_task_calls.get_enclosing_stmt_to_original_stmt_map();
+
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map =
             transform_nonvoid_task_calls.get_enclosing_stmt_to_return_variables_map();
 
         FunctionCallVisitor function_call_visitor(
                 function_task_set,
                 funct_call_to_enclosing_stmt_map,
+                enclosing_stmt_to_original_stmt_map,
                 enclosing_stmt_to_return_vars_map);
 
         function_call_visitor.walk(translation_unit);

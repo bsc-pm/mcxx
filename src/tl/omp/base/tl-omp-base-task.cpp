@@ -160,10 +160,12 @@ namespace TL { namespace OpenMP {
 
     FunctionCallVisitor::FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
+            const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map)
         :
             _function_task_set(function_task_set),
             _funct_call_to_enclosing_stmt_map(funct_call_to_enclosing_stmt_map),
+            _enclosing_stmt_to_original_stmt_map(enclosing_stmt_to_original_stmt_map),
             _enclosing_stmt_to_return_vars_map(enclosing_stmt_to_return_vars_map),
             _enclosing_stmt_to_task_calls_map()
     {
@@ -301,6 +303,7 @@ namespace TL { namespace OpenMP {
         {
             Nodecl::NodeclBase enclosing_stmt = it->first;
             TL::ObjectList<Nodecl::NodeclBase> task_calls = it->second;
+            Nodecl::NodeclBase sequential_code = _enclosing_stmt_to_original_stmt_map.find(enclosing_stmt)->second;
             std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
 
             ERROR_CONDITION(!enclosing_stmt.is<Nodecl::ExpressionStatement>(),
@@ -325,8 +328,6 @@ namespace TL { namespace OpenMP {
             }
 
             // This code will be executed if the current task is in a final context
-            Nodecl::List sequential_code = generate_sequential_code(enclosing_stmt, task_calls, join_task);
-
             Nodecl::NodeclBase task_expr = Nodecl::ExpressionStatement::make(
                     Nodecl::OpenMP::TaskExpression::make(
                         join_task,
@@ -979,104 +980,6 @@ namespace TL { namespace OpenMP {
         return join_task;
     }
 
-    Nodecl::List FunctionCallVisitor::generate_sequential_code(
-            const Nodecl::NodeclBase& enclosing_stmt,
-            const TL::ObjectList<Nodecl::NodeclBase>& task_calls,
-            const Nodecl::NodeclBase& join_task)
-    {
-        Nodecl::List sequential_code;
-        // Allocate the return arguments of every Nonvoid function task call involved in the current expression
-        Scope scope = enclosing_stmt.retrieve_context();
-        std::set<TL::Symbol> return_arguments = _enclosing_stmt_to_return_vars_map.find(enclosing_stmt)->second;
-        for (std::set<TL::Symbol>::iterator it2 = return_arguments.begin();
-                it2 != return_arguments.end();
-                ++it2)
-        {
-            TL::Symbol current_ret_arg = *it2;
-
-            Nodecl::NodeclBase current_ret_arg_ref = Nodecl::Symbol::make(current_ret_arg);
-            current_ret_arg_ref.set_type(lvalue_ref(current_ret_arg.get_type().get_internal_type()));
-
-            TL::Symbol alloca_sym = scope.get_symbol_from_name("__builtin_alloca");
-            ERROR_CONDITION(!alloca_sym.is_valid(), "__builtin_alloca not found", 0);
-
-            Nodecl::NodeclBase called_entity_alloca = Nodecl::Symbol::make(
-                    alloca_sym,
-                    make_locus("", 0, 0));
-
-            called_entity_alloca.set_type(lvalue_ref(alloca_sym.get_type().get_internal_type()));
-
-            Nodecl::List arguments_alloca;
-            int bytes_to_allocate = current_ret_arg.get_type().points_to().get_size();
-            arguments_alloca.append(
-                    Nodecl::IntegerLiteral::make(::get_signed_int_type(),
-                        const_value_get_signed_int(bytes_to_allocate),
-                        make_locus("", 0, 0)));
-
-            Nodecl::NodeclBase alloca_function_call = Nodecl::FunctionCall::make(
-                    called_entity_alloca,
-                    arguments_alloca,
-                    /* alternate_name */ nodecl_null(),
-                    /* function_form */ nodecl_null(),
-                    TL::Type::get_void_type(),
-                    make_locus("", 0, 0));
-
-            Nodecl::NodeclBase cast_alloca = Nodecl::Cast::make(
-                    alloca_function_call,
-                    current_ret_arg.get_type(),
-                    "C",
-                    make_locus("", 0, 0));
-
-            sequential_code.append(
-                    Nodecl::ExpressionStatement::make(
-                        Nodecl::Assignment::make(current_ret_arg_ref,
-                            cast_alloca, current_ret_arg.get_type(),
-                            make_locus("", 0, 0))));
-        }
-
-        for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it2 = task_calls.begin();
-                it2 != task_calls.end();
-                ++it2)
-        {
-            Nodecl::ExpressionStatement current_expr_stmt = it2->as<Nodecl::ExpressionStatement>();
-            Nodecl::OpenMP::TaskCall current_task_call = current_expr_stmt.get_nest().as<Nodecl::OpenMP::TaskCall>();
-            sequential_code.append(Nodecl::ExpressionStatement::make(current_task_call.get_call().shallow_copy()));
-        }
-
-        class RemoveTasks : public Nodecl::NodeclVisitor<void>
-        {
-            void visit(const Nodecl::ExpressionStatement & expr_stmt)
-            {
-                walk(expr_stmt.get_nest());
-            }
-
-            void visit(const Nodecl::OpenMP::TaskCall& task)
-            {
-                Nodecl::NodeclBase stmt = task.get_call();
-                task.replace(stmt);
-            }
-
-            void visit(const Nodecl::OpenMP::Atomic& node)
-            {
-                Nodecl::NodeclBase stmt = node.get_statements();
-                walk(stmt);
-                node.replace(stmt);
-            }
-        };
-
-        Nodecl::NodeclBase join_task_stmt;
-        if(join_task.is<Nodecl::OpenMP::Task>())
-            join_task_stmt = join_task.as<Nodecl::OpenMP::Task>().get_statements().shallow_copy();
-        else
-            join_task_stmt = join_task.shallow_copy();
-
-        RemoveTasks visitor;
-        visitor.walk(join_task_stmt);
-        sequential_code.append(join_task_stmt);
-
-        return sequential_code;
-    }
-
     TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled)
         :
             _task_expr_optim_disabled(task_expr_optim_disabled),
@@ -1088,6 +991,7 @@ namespace TL { namespace OpenMP {
             _ignore_these_function_calls(),
             _enclosing_stmts_with_more_than_one_task(),
             _funct_call_to_enclosing_stmt_map(),
+            _enclosing_stmt_to_original_stmt(),
             _enclosing_stmt_to_return_vars_map()
     {
     }
@@ -1152,6 +1056,11 @@ namespace TL { namespace OpenMP {
         {
             transform_return_statement(enclosing_stmt, func_call.get_locus());
         }
+
+
+        if (_enclosing_stmt_to_original_stmt.find(enclosing_stmt) == _enclosing_stmt_to_original_stmt.end())
+            _enclosing_stmt_to_original_stmt.insert(std::make_pair(enclosing_stmt, enclosing_stmt.shallow_copy()));
+
         Scope scope = enclosing_stmt.retrieve_context();
 
         // Optimization: Do not create two tasks if there is only a task
@@ -1358,6 +1267,11 @@ namespace TL { namespace OpenMP {
     std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& TransformNonVoidFunctionCalls::get_function_call_to_enclosing_stmt_map()
     {
         return _funct_call_to_enclosing_stmt_map;
+    }
+
+    std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& TransformNonVoidFunctionCalls::get_enclosing_stmt_to_original_stmt_map()
+    {
+        return _enclosing_stmt_to_original_stmt;
     }
 
     std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& TransformNonVoidFunctionCalls::get_enclosing_stmt_to_return_variables_map()
