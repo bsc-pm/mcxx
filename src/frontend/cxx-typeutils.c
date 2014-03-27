@@ -7648,8 +7648,9 @@ char is_named_class_type(type_t* possible_class)
             && possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS);
 }
 
-
-char class_type_is_base(type_t* possible_base, type_t* possible_derived)
+static char class_type_is_base_(type_t* possible_base,
+        type_t* possible_derived,
+        char allow_incomplete_independent)
 {
     possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
     possible_derived = get_unqualified_type(advance_over_typedefs(possible_derived));
@@ -7665,7 +7666,8 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
         return 1;
 
     ERROR_CONDITION(
-            class_type_is_incomplete_independent(possible_derived),
+            !allow_incomplete_independent
+            && class_type_is_incomplete_independent(possible_derived),
             "Cannot test if class type is derived of another if "
             "the potentially derived is independent incomplete\n", 0);
 
@@ -7702,12 +7704,18 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
         if (is_dependent)
             continue;
 
-        if (class_type_is_base(possible_base, current_base))
+        if (class_type_is_base_(possible_base, current_base, /* allow_incomplete_independent */ 0))
             return 1;
     }
 
     // Not found
     return 0;
+}
+
+char class_type_is_base(type_t* possible_base, type_t* possible_derived)
+{
+    // Not found
+    return class_type_is_base_(possible_base, possible_derived, /* allow_incomplete_independent */ 0);
 }
 
 char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_derived, const locus_t* locus)
@@ -7730,7 +7738,7 @@ char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_de
         }
     }
 
-    return class_type_is_base(possible_base, possible_derived);
+    return class_type_is_base_(possible_base, possible_derived, /* allow_incomplete_independent */ 1);
 }
 
 
