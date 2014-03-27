@@ -36,19 +36,40 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
     
+    class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        ObjectList<Symbol> _params;
+        Utils::ConstraintMap _constraints;
+        
+    public:
+        // *** Constructor *** //
+        ConstraintReplacement(ObjectList<Symbol> params, Utils::ConstraintMap constraints);
+        
+        // *** Visiting methods *** //
+        Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::ClassMemberAccess& n);
+        Ret visit(const Nodecl::Symbol& n);
+    };
+    
     class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<Utils::Constraint>
     {
     private:
         // map containing the constraints arriving at the nodecl being visited
+        ObjectList<Symbol> _params;                     // List of parameters of the function being analyzed
+                                                        // Necessary because we won't have reaching definitions for this variables
         Utils::ConstraintMap _input_constraints;        // Constraints coming from the parents or from previous statements in the current node
         Utils::ConstraintMap _output_constraints;       // Constraints computed so far for the current node
         Utils::ConstraintMap _output_true_constraints;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::ConstraintMap _output_false_constraints; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
         
+        Ret visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
+        
     public:
         
         // *** Constructor *** //
-        ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
+        ConstraintBuilderVisitor(const ObjectList<Symbol>& params, 
+                                 Utils::ConstraintMap input_constraints, 
                                  Utils::ConstraintMap current_constraints );
         
         // *** Modifiers *** //
@@ -64,8 +85,10 @@ namespace Analysis {
         
         // *** Visiting methods *** //
         Ret join_list(TL::ObjectList<Utils::Constraint>& list);
+        Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::Preincrement& n);
     };
     
@@ -73,6 +96,7 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
+        ObjectList<TL::Symbol> _params;
         
         void compute_initial_constraints(Node* n);
         
