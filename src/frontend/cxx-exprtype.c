@@ -5827,24 +5827,24 @@ static char operator_unary_reference_pred(type_t* t, const locus_t* locus UNUSED
 
 static type_t* operator_unary_reference_result(type_t** op_type, const locus_t* locus UNUSED_PARAMETER)
 {
-    // T x, y;
-    //
-    // &x -> T*
-    // &y -> T*
-    if (is_lvalue_reference_type(*op_type))
-    {
-        return get_pointer_type(no_ref(*op_type));
-    }
     // Mercurium extension
     //
     // T  @reb-ref@ z;
     //
     // &z -> T *&     [a lvalue reference to a pointer type]
-    else if (is_rebindable_reference_type(*op_type))
+    if (is_rebindable_reference_type(*op_type))
     {
         return get_lvalue_reference_type(
                 get_pointer_type(no_ref(*op_type))
                 );
+    }
+    // T x, &y;
+    //
+    // &x -> T*
+    // &y -> T*
+    else if (is_lvalue_reference_type(*op_type))
+    {
+        return get_pointer_type(no_ref(*op_type));
     }
     else
     {

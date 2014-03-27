@@ -3632,7 +3632,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->is_string_literal = is_string_literal;
 
             // In C This is a VLA
-            if (IS_C_LANGUAGE)
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
                 result->array->is_vla = 1;
             }
@@ -12515,13 +12515,7 @@ char is_standard_layout_type(type_t* t)
 
 char type_is_runtime_sized(type_t* t)
 {
-    // This function is only valid in C but we could relax it a bit for C++
-    CXX_LANGUAGE()
-    {
-        // No type is runtime sized in C++ actually, at least no VLAs since it
-        // would break all template stuff
-        return 0;
-    }
+    t = no_ref(t);
 
     if (is_array_type(t))
     {
@@ -12560,14 +12554,6 @@ struct type_set_t
 
 static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t* type_set)
 {
-    // This function is only valid in C but we could relax it a bit for C++
-    CXX_LANGUAGE()
-    {
-        // No type is runtime sized in C++ actually, at least no VLAs since it
-        // would break all template stuff
-        return 0;
-    }
-
     // Avoid infinite recursion
     struct type_set_t* it_type = type_set;
     while (it_type != NULL)
@@ -12606,7 +12592,7 @@ static char type_depends_on_nonconstant_values_rec(type_t* t, struct type_set_t*
     }
     else if (is_any_reference_type(t))
     {
-        return type_depends_on_nonconstant_values_rec(get_lvalue_reference_type(t), &new_type_set);
+        return type_depends_on_nonconstant_values_rec(no_ref(t), &new_type_set);
     }
     else if (is_pointer_type(t))
     {
