@@ -540,6 +540,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     Source dynamic_size;
+
     struct_size << "sizeof(imm_args)" << dynamic_size;
 
     allocate_immediate_structure(
@@ -971,16 +972,53 @@ void LoweringVisitor::fill_arguments(
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
 
-                            fill_outline_arguments
-                                << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                << ", &" << as_symbol((*it)->get_symbol()) 
-                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                ;
-                            fill_immediate_arguments
-                                << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                << ", &" << as_symbol((*it)->get_symbol()) 
-                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                ;
+                            if (IS_CXX_LANGUAGE
+                                    && !sym_type.is_pod())
+                            {
+                                TL::Type base_type = sym_type;
+                                while (base_type.is_array())
+                                    base_type = base_type.array_element();
+
+                                base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                // Non pod vla-arrays
+                                Source array_copy;
+                                array_copy
+                                    << "while (__orig < ((" << as_type(base_type) << ")(&(" << as_symbol((*it)->get_symbol()) << ") + 1)))"
+                                    << "{"
+                                    << " new (__dest) " << as_type(base_type.points_to()) << ";"
+                                    << " *__dest = *__orig; __dest++; __orig++; "
+                                    << "}"
+                                    ;
+
+                                fill_outline_arguments
+                                    << "{"
+                                    << as_type(base_type) << " __dest = (" << as_type(base_type) << ") ol_args->" << (*it)->get_field_name() << ";"
+                                    << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                    << array_copy
+                                    << "}"
+                                    ;
+                                fill_immediate_arguments
+                                    << "{"
+                                    << as_type(base_type) << " __dest = (" << as_type(base_type) << ") imm_args." << (*it)->get_field_name() << ";"
+                                    << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                    << array_copy
+                                    << "}"
+                                    ;
+                            }
+                            else
+                            {
+                                fill_outline_arguments
+                                    << "__builtin_memcpy(ol_args->" << (*it)->get_field_name() 
+                                    << ", &" << as_symbol((*it)->get_symbol()) 
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                    ;
+                                fill_immediate_arguments
+                                    << "__builtin_memcpy(imm_args." << (*it)->get_field_name() 
+                                    << ", &" << as_symbol((*it)->get_symbol()) 
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                    ;
+                            }
                         }
                         else
                         {
@@ -991,16 +1029,53 @@ void LoweringVisitor::fill_arguments(
 
                             if (sym_type.is_array())
                             {
-                                fill_outline_arguments
-                                    << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                    << ", &" << as_symbol((*it)->get_symbol())
-                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                    ;
-                                fill_immediate_arguments
-                                    << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                    << ", &" << as_symbol((*it)->get_symbol())
-                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                    ;
+                                if (IS_CXX_LANGUAGE
+                                        && !sym_type.is_pod())
+                                {
+                                    TL::Type base_type = sym_type;
+                                    while (base_type.is_array())
+                                        base_type = base_type.array_element();
+
+                                    base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                    // Non pod fixed-length arrays
+                                    Source array_copy;
+                                    array_copy
+                                        << "while (__orig < ((" << as_type(base_type) << ")(&(" << as_symbol((*it)->get_symbol()) << ") + 1)))"
+                                        << "{"
+                                        << " new (__dest) " << as_type(base_type.points_to()) << ";"
+                                        << " *__dest = *__orig; __dest++; __orig++; "
+                                        << "}"
+                                        ;
+
+                                    fill_outline_arguments
+                                        << "{"
+                                        << as_type(base_type) << " __dest = (" << as_type(base_type) << ") ol_args->" << (*it)->get_field_name() << ";"
+                                        << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                        << array_copy
+                                        << "}"
+                                        ;
+                                    fill_immediate_arguments
+                                        << "{"
+                                        << as_type(base_type) << " __dest = (" << as_type(base_type) << ") imm_args." << (*it)->get_field_name() << ";"
+                                        << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                        << array_copy
+                                        << "}"
+                                        ;
+                                }
+                                else
+                                {
+                                    fill_outline_arguments
+                                        << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
+                                        << ", &" << as_symbol((*it)->get_symbol())
+                                        << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                        ;
+                                    fill_immediate_arguments
+                                        << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
+                                        << ", &" << as_symbol((*it)->get_symbol())
+                                        << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                        ;
+                                }
                             }
                             else
                             {
