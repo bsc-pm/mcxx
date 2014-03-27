@@ -738,7 +738,14 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
     if (hnd == NULL)
     {
-        error_printf("Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
+        if (CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+        {
+            fprintf(f, "<<<%s:%p>>>", ast_node_names[ASTType(a)], a);
+        }
+        else
+        {
+            error_printf("Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
+        }
         return;
     }
     else
