@@ -592,7 +592,7 @@ namespace TL { namespace Nanox {
                     << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
                     << "nanos_task_reduction_get_thread_storage("
                     <<      "(void *) &"<< (*it)->get_field_name() << ","
-                    <<      "(void *) &" << storage_name << ");"
+                    <<      "(void **) &" << storage_name << ");"
                     ;
             }
             else
