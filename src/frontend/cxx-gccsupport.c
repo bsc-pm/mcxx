@@ -1303,7 +1303,7 @@ void common_check_gxx_type_traits(type_t* lhs_type,
         nodecl_t nodecl_lhs_type = nodecl_make_type(lhs_type, locus);
         nodecl_t nodecl_rhs_type_opt =
             (rhs_type == NULL) ?
-            nodecl_null() : nodecl_make_type(lhs_type, locus);
+            nodecl_null() : nodecl_make_type(rhs_type, locus);
 
         *nodecl_output = nodecl_make_gxx_trait(
                 nodecl_lhs_type,
