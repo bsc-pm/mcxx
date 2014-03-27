@@ -188,6 +188,33 @@ namespace Vectorization
         return stride_splitter_ret_t(base, strides);
     }
 
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::Neg& n)
+    {
+        stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
+
+        // Base
+        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
+
+        if (!rhs_ret.first.is_null())
+        {
+            base = Nodecl::Neg::make(rhs_ret.first.shallow_copy(),
+                    n.get_type());
+        }
+
+        // Strides
+        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
+
+        if (!rhs_ret.second.is_null())
+        {
+            strides = Nodecl::Neg::make(rhs_ret.second.shallow_copy(),
+                    n.get_type());
+        }
+
+        // pair<n, null>
+        return stride_splitter_ret_t(base, strides);
+    }
+ 
     template <class node>
     stride_splitter_ret_t StrideSplitterVisitor::visit_non_distributive_binary_op(
             const Nodecl::NodeclBase& n)

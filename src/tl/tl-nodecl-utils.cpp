@@ -1337,20 +1337,10 @@ namespace Nodecl
             }
             else
             {
-                /*
-                new_linearized_subscript = Nodecl::Add::make(
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Mul::make(
-                                Nodecl::ParenthesizedExpression::make(it_sizes->shallow_copy(), it_sizes->get_type()),
-                                Nodecl::ParenthesizedExpression::make(new_linearized_subscript, new_linearized_subscript.get_type()),
-                                get_ptrdiff_t_type()), get_ptrdiff_t_type()),
-                        Nodecl::ParenthesizedExpression::make(it_indexes->shallow_copy(), it_indexes->get_type()),
-                        get_ptrdiff_t_type());
-                 */
                 new_linearized_subscript = Nodecl::Add::make(
                         Nodecl::Mul::make(
                             it_sizes->shallow_copy(),
-                            new_linearized_subscript,
+                            new_linearized_subscript.shallow_copy(),
                             get_ptrdiff_t_type()),
                         it_indexes->shallow_copy(),
                         get_ptrdiff_t_type());
@@ -1372,8 +1362,8 @@ namespace Nodecl
         }
 
         Nodecl::ArraySubscript result_array =
-            ArraySubscript::make(new_subscripted,
-                    Nodecl::List::make(new_linearized_subscript),
+            ArraySubscript::make(new_subscripted.shallow_copy(),
+                    Nodecl::List::make(new_linearized_subscript.shallow_copy()),
                     n.get_type(),
                     n.get_locus());
 

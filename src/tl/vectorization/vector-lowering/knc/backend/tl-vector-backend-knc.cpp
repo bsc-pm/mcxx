@@ -125,7 +125,9 @@ namespace Vectorization
         }
         else
         {
-            running_error("KNC Backend: undef intrinsic not supported");
+            running_error("KNC Backend: undef intrinsic not supported for type '%s'",
+                    type.get_simple_declaration(
+                        CURRENT_COMPILED_FILE->global_decl_context, "").c_str());
         }
 
         return result.str();
@@ -1643,7 +1645,10 @@ namespace Vectorization
         // Stream store with mask is not supported
         // Emit store with hint instead
         if(!mask.is_null())
+        {
             visit_vector_store(node.as<Nodecl::VectorStore>(), _MM_HINT_NT);
+            return;
+        }
 
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();

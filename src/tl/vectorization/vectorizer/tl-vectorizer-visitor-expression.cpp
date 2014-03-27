@@ -848,8 +848,9 @@ namespace Vectorization
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         rhs.shallow_copy(),
-                                        mask,
-                                        Nodecl::List::make(nontemporal_it->second),
+                                        mask.shallow_copy(),
+                                        Nodecl::List::make(
+                                            nontemporal_it->second).shallow_copy(),
                                         vector_type,
                                         n.get_locus());
 
@@ -870,7 +871,7 @@ namespace Vectorization
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         rhs.shallow_copy(),
-                                        mask,
+                                        mask.shallow_copy(),
                                         vector_type,
                                         n.get_locus());
 
@@ -894,8 +895,9 @@ namespace Vectorization
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         rhs.shallow_copy(),
-                                        mask,
-                                        Nodecl::List::make(nontemporal_it->second),
+                                        mask.shallow_copy(),
+                                        Nodecl::List::make(
+                                            nontemporal_it->second).shallow_copy(),
                                         vector_type,
                                         n.get_locus());
 
@@ -916,7 +918,7 @@ namespace Vectorization
                                             basic_type.get_pointer_to(),
                                             n.get_locus()),
                                         rhs.shallow_copy(),
-                                        mask,
+                                        mask.shallow_copy(),
                                         Nodecl::List::make(vector_scatter),
                                         vector_type,
                                         n.get_locus());
@@ -959,7 +961,7 @@ namespace Vectorization
                     Nodecl::VectorAssignment::make(
                             lhs.shallow_copy(),
                             rhs.shallow_copy(),
-                            mask,
+                            mask.shallow_copy(),
                             vector_type,
                             n.get_locus());
 
