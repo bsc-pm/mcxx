@@ -4784,6 +4784,39 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     {
         result = uniquestr(unmangle_symbol_name(entry));
 
+        if (entry->entity_specs.is_member
+                // Lambda classes are unnamed by definition
+                && !class_type_is_lambda(entry->entity_specs.class_type))
+        {
+            // We need the qualification of the class
+            ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
+
+            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+
+            (*max_qualif_level)++;
+
+            char prev_is_dependent = 0;
+            const char* class_qualification =
+                get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
+                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
+
+            if (!class_symbol->entity_specs.is_anonymous_union)
+            {
+                class_qualification = strappend(class_qualification, "::");
+            }
+
+            if (prev_is_dependent
+                    && current_has_template_parameters
+                    && !do_not_emit_template_keywords)
+            {
+                class_qualification = strappend(class_qualification, "template ");
+            }
+
+            (*is_dependent) |= prev_is_dependent;
+
+            result = strappend(class_qualification, result);
+        }
+
         if (!no_templates
                 && entry->type_information != NULL
                 && is_template_specialized_type(entry->type_information)
