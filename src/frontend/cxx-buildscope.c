@@ -9379,6 +9379,12 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     {
                         scope_entry_t* entry = entry_list_head(entry_list);
 
+                        if (entry->entity_specs.is_injected_class_name)
+                        {
+                            // Advance this case as it will lead to a simpler type-id
+                            entry = named_type_get_symbol(entry->entity_specs.class_type);
+                        }
+
                         if (symbol_is_member_of_dependent_class(entry)
                                     || symbol_is_local_of_dependent_function(entry))
                         {
