@@ -4064,13 +4064,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
 
     if (context.is_namespace_scope())
     {
-        // We define de namespace if it has not been defined yet.
-        // C++ only allows the definition of a namespace inside an other
-        // namespace or in the global scope
-        define_or_declare_if_complete(sym,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
-
         move_to_namespace(context.get_related_symbol());
     }
 
