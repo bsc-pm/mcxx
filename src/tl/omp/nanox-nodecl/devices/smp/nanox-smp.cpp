@@ -375,29 +375,44 @@ namespace TL { namespace Nanox {
                                  ((*it)->get_sharing() == OutlineDataItem::SHARING_SHARED)
                                     && !(IS_CXX_LANGUAGE && (*it)->get_symbol().get_name() == "this"))
                             {
-                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                                 {
                                     argument << "*(args." << (*it)->get_field_name() << ")";
                                 }
                                 else
                                 {
-                                    TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
-                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
-
-                                    argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                    C_LANGUAGE()
+                                    {
+                                        TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                        argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                    }
+                                    CXX_LANGUAGE()
+                                    {
+                                        // No VLAs in C++ means that we have to pass a void*. It will have to be reshaped again in the outline
+                                        argument << "args." << (*it)->get_field_name();
+                                    }
                                 }
                             }
                             // Any other parameter is bound to the storage of the struct
                             else
                             {
-                                if (!param_type.no_ref().depends_on_nonconstant_values())
+                                if (!((*it)->get_symbol().get_type().depends_on_nonconstant_values()))
                                 {
                                     argument << "args." << (*it)->get_field_name();
                                 }
                                 else
                                 {
-                                    TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                    argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                    C_LANGUAGE()
+                                    {
+                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                        argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                    }
+                                    CXX_LANGUAGE()
+                                    {
+                                        // No VLAs in C++ means that we have to pass a void*. It will have to be reshaped again in the outline
+                                        argument << "args." << (*it)->get_field_name();
+                                    }
                                 }
                             }
                         }

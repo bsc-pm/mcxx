@@ -1557,7 +1557,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         else
                         {
                             argument_types[current_arg] = get_pointer_to_member_type(solved_function->type_information,
-                                    named_type_get_symbol(solved_function->entity_specs.class_type));
+                                    solved_function->entity_specs.class_type);
                         }
                     }
                     else

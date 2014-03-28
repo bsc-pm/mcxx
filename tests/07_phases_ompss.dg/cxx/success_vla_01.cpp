@@ -26,34 +26,63 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+#include <stdlib.h>
 
-#ifndef CXX_GCCBUILTINS_H
-#define CXX_GCCBUILTINS_H
+void f(int n)
+{
+    if (n <= 0)
+        return;
 
-#include "libmcxx-common.h"
-#include "cxx-buildscope-decls.h"
+    int x[n][n];
+    int y[n][n];
 
-MCXX_BEGIN_DECLS
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            x[i][j] = j - i;
+            y[i][j] = j - i;
+        }
+    }
 
-LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
+#pragma omp task shared(x) firstprivate(y) no_copy_deps
+    {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
+                x[i][j] *= 2;
+                y[i][j] *= 2;
+            }
+        }
+    }
 
-LIBMCXX_EXTERN type_t* get_m128_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m128i_struct_type(void);
+#pragma omp taskwait
 
-LIBMCXX_EXTERN type_t* get_m256_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m256i_struct_type(void);
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            if (x[i][j] != (2*(j - i)))
+            {
+                abort();
+            }
+            if (y[i][j] != (j - i))
+            {
+                abort();
+            }
+        }
+    }
+}
 
-LIBMCXX_EXTERN type_t* get_m512_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512d_struct_type(void);
-LIBMCXX_EXTERN type_t* get_m512i_struct_type(void);
+int main(int argc, char *argv[])
+{
+    f(10);
 
-LIBMCXX_EXTERN char is_intel_vector_struct_type(type_t* t, int *size);
-
-LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_type(type_t* orig, type_t* dest);
-LIBMCXX_EXTERN char vector_type_to_intel_vector_struct_reinterpret_type(type_t* orig, type_t* dest);
-
-MCXX_END_DECLS
-
-#endif // CXX_GCCBUILTINS_H
+    return 0;
+}

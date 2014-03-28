@@ -258,6 +258,8 @@ namespace TL { namespace Nanox {
     {
         Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
 
+        Nodecl::NodeclBase task_label = construct.get_environment().as<Nodecl::List>()
+            .find_first<Nodecl::OpenMP::TaskLabel>();
 
         OutlineDataItem &wsd_data_item = outline_info.prepend_field(slicer_descriptor);
         if (IS_FORTRAN_LANGUAGE)
@@ -284,7 +286,7 @@ namespace TL { namespace Nanox {
         CreateOutlineInfo info(outline_name, outline_info.get_data_items(), target_info,
                 /* original task statements */ statements,
                 /* current task statements */ statements,
-                /* task_label */ Nodecl::NodeclBase::null(),
+                task_label,
                 structure_symbol,
                 called_task_dummy);
 
@@ -366,7 +368,13 @@ namespace TL { namespace Nanox {
             delete symbol_map;
         }
 
-        loop_spawn_worksharing(outline_info, construct, distribute_environment, range, outline_name, structure_symbol, slicer_descriptor);
+        loop_spawn_worksharing(outline_info, construct,
+                distribute_environment,
+                range,
+                outline_name,
+                structure_symbol,
+                slicer_descriptor,
+                task_label);
     }
 
     void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
