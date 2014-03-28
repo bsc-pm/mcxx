@@ -6694,16 +6694,22 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     else if (symbol.is_namespace())
     {
         TL::Symbol aliased_namespace = symbol.get_related_scope().get_related_symbol();
-        move_to_namespace_of_symbol(symbol);
 
         if (aliased_namespace != symbol)
         {
+            // Make sure the target namespace has been defined
+            do_define_symbol(aliased_namespace,
+                    decl_sym_fun,
+                    def_sym_fun);
+
+            move_to_namespace_of_symbol(symbol);
             // This is a namespace alias
             indent();
             (*file) << "namespace " << symbol.get_name() << " = " << this->get_qualified_name(aliased_namespace) << ";\n";
         }
         else
         {
+            move_to_namespace_of_symbol(symbol);
             indent();
             *(file) << "namespace " << symbol.get_name() << " { }\n";
         }

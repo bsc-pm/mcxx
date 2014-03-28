@@ -16595,7 +16595,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             nodecl_make_symbol(conversor, ast_get_locus(initializer)),
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(*nodecl_output),
-                            /* function_form */ nodecl_null(),
+                            /* function_form */ nodecl_make_cxx_function_form_implicit(ast_get_locus(initializer)),
                             function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));
                 }
             }
