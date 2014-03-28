@@ -614,8 +614,8 @@ namespace TL { namespace Nanox {
                     <<      "(void *) &" << (*it)->get_field_name() << ","    // target
                     <<      "sizeof(" << as_type(reduction_type) << "),"    // size
                     <<      "sizeof(int),"      // element size
-                    <<      "sizeof(CL_int),"   // cache line size
-                    <<      "sizeof(EBL_int),"  // ebl_size
+                    <<      "0"   // cache line size
+                    <<      "0,"  // ebl_size
                     <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
                     <<      "(void (*)(void *)) & " << initializer_function.get_name() << ","         // initializer
                     <<      "(void (*)(void *, void *, void*)) reduction_local_reduce,"    // ???
