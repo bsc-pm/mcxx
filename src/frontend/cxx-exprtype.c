@@ -10435,54 +10435,7 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
 void check_function_arguments(AST arguments, decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
-    *nodecl_output = nodecl_null();
-
-    int i = 0;
-    if (arguments != NULL)
-    {
-        if (ASTType(arguments) == AST_AMBIGUITY)
-        {
-            char result = solve_ambiguous_list_of_expressions(arguments, decl_context, /* nodecl_output */ NULL);
-            if (result == 0)
-            {
-                internal_error("Ambiguity not solved %s", ast_location(arguments));
-            }
-        }
-
-        AST list = arguments;
-        AST iter;
-
-        for_each_element(list, iter)
-        {
-            if (ASTType(iter) == AST_AMBIGUITY)
-            {
-                char result = solve_ambiguous_list_of_expressions(iter, decl_context, /* nodecl_output */ NULL);
-                if (result == 0)
-                {
-                    internal_error("Ambiguity not solved %s", ast_location(iter));
-                }
-            }
-
-            AST parameter_expr = ASTSon1(iter);
-
-            nodecl_t nodecl_expr = nodecl_null();
-            check_expression_impl_(parameter_expr, decl_context, &nodecl_expr);
-
-            if (nodecl_is_err_expr(nodecl_expr))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: When checking function call, argument %d '%s' could not be checked\n",
-                            i, prettyprint_in_buffer(parameter_expr));
-                }
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(parameter_expr));
-                return;
-            }
-            i++;
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
-        }
-    }
+    check_list_of_expressions(arguments, decl_context, nodecl_output);
 }
 
 static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name, 
