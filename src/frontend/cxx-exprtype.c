@@ -18113,6 +18113,15 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         return;
     }
 
+    CXX_LANGUAGE()
+    {
+        if (is_named_class_type(accessed_type))
+        {
+            scope_entry_t* named_type = named_type_get_symbol(accessed_type);
+            instantiate_template_class_if_needed(named_type, decl_context, locus);
+        }
+    }
+
     if (!is_complete_type(accessed_type))
     {
         error_printf("%s: error: invalid use of incomplete type '%s'\n",
