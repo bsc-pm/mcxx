@@ -4725,8 +4725,9 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     // If this is a member of a dependent class or a local entity of a template
     // function craft a dependent typename for it
-    if (symbol_is_member_of_dependent_class(entry)
-            || symbol_is_local_of_dependent_function(entry))
+    if (is_dependent_type(entry->type_information)
+            && (symbol_is_member_of_dependent_class(entry)
+                || symbol_is_local_of_dependent_function(entry)))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -9385,8 +9386,9 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                             entry = named_type_get_symbol(entry->entity_specs.class_type);
                         }
 
-                        if (symbol_is_member_of_dependent_class(entry)
-                                    || symbol_is_local_of_dependent_function(entry))
+                        if (is_dependent_type(entry->type_information)
+                                &&  (symbol_is_member_of_dependent_class(entry)
+                                    || symbol_is_local_of_dependent_function(entry)))
                         {
                             // Craft a nodecl name for it
                             nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
