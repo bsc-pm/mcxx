@@ -801,7 +801,7 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase statements = construct.get_statements();
 
     // This copied_statements will be used when we are generating the code for the 'final' clause
-    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+    Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, construct);
 
     walk(statements);
 
