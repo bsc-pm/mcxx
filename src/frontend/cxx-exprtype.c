@@ -2229,7 +2229,7 @@ static char is_promoteable_integral_type(type_t* t)
 static type_t* promote_integral_type(type_t* t)
 {
     ERROR_CONDITION(!is_promoteable_integral_type(t), 
-            "This type cannot be promoted!", 0);
+            "This type (%s) cannot be promoted!", print_declarator(t));
 
     if (is_enum_type(t))
     {
@@ -3124,33 +3124,42 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs, cons
     if (is_arithmetic_type(no_ref(*lhs))
         && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(no_ref(*lhs)))
-            *lhs = promote_integral_type(no_ref(*lhs));
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
 
-        if (is_promoteable_integral_type(no_ref(*rhs)))
-            *rhs = promote_integral_type(no_ref(*rhs));
+        if (is_promoteable_integral_type(*lhs))
+            *lhs = promote_integral_type(*lhs);
 
-        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
+        if (is_promoteable_integral_type(*rhs))
+            *rhs = promote_integral_type(*rhs);
+
+        return usual_arithmetic_conversions(*lhs, *rhs, locus);
     }
     else if (is_pointer_arithmetic(no_ref(*lhs), no_ref(*rhs)))
     {
+        *lhs = no_ref(*lhs);
+        *rhs = no_ref(*rhs);
+
         type_t** pointer_type = NULL;
-        if (is_pointer_type(no_ref(*lhs))
-                || is_array_type(no_ref(*lhs)))
+        type_t** index_type = NULL;
+        if (is_pointer_type(*lhs)
+                || is_array_type(*lhs))
         {
             pointer_type = lhs;
+            index_type = rhs;
         }
         else
         {
             pointer_type = rhs;
+            index_type = lhs;
         }
 
-        *pointer_type = no_ref(*pointer_type);
-
-        if (is_array_type(no_ref(*pointer_type)))
+        if (is_array_type(*pointer_type))
         {
-            *pointer_type = get_pointer_type(array_type_get_element_type(no_ref(*pointer_type)));
+            *pointer_type = get_pointer_type(array_type_get_element_type(*pointer_type));
         }
+
+        *index_type = get_ptrdiff_t_type();
 
         return *pointer_type;
     }
@@ -3242,13 +3251,15 @@ static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs, const lo
 
 static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
-    if (is_promoteable_integral_type(no_ref(*lhs)))
-        *lhs = promote_integral_type(no_ref(*lhs));
+    *lhs = get_unqualified_type(no_ref(*lhs));
+    if (is_promoteable_integral_type(*lhs))
+        *lhs = promote_integral_type(*lhs);
 
-    if (is_promoteable_integral_type(no_ref(*rhs)))
-        *rhs = promote_integral_type(no_ref(*rhs));
+    *rhs = get_unqualified_type(no_ref(*rhs));
+    if (is_promoteable_integral_type(*rhs))
+        *rhs = promote_integral_type(*rhs);
 
-    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
+    return usual_arithmetic_conversions(*lhs, *rhs, locus);
 }
 
 static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, decl_context_t decl_context)
@@ -3462,9 +3473,10 @@ void compute_bin_operator_generic(
                     print_declarator(nodecl_get_type(*rhs)));
 
             ERROR_CONDITION(!equivalent_types(result, computed_type), 
-                "Mismatch between the types of builtin functions (%s) and result of no overload type (%s)\n",
+                "Mismatch between the types of builtin functions (%s) and result of no overload type (%s) at %s\n",
                 print_declarator(result),
-                print_declarator(computed_type));
+                print_declarator(computed_type),
+                locus_to_str(locus));
 
             *nodecl_output = 
                 nodecl_bin_fun(
@@ -3648,13 +3660,15 @@ static char operator_bin_only_integer_pred(type_t* lhs, type_t* rhs, const locus
 
 static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs, const locus_t* locus)
 {
-    if (is_promoteable_integral_type(no_ref(*lhs)))
-        *lhs = promote_integral_type(no_ref(*lhs));
+    *lhs = get_unqualified_type(no_ref(*lhs));
+    if (is_promoteable_integral_type(*lhs))
+        *lhs = promote_integral_type(*lhs);
 
-    if (is_promoteable_integral_type(no_ref(*rhs)))
-        *rhs = promote_integral_type(no_ref(*rhs));
+    *rhs = get_unqualified_type(no_ref(*rhs));
+    if (is_promoteable_integral_type(*rhs))
+        *rhs = promote_integral_type(*rhs);
 
-    return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
+    return usual_arithmetic_conversions(*lhs, *rhs, locus);
 }
 
 static 
@@ -3748,20 +3762,37 @@ static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs, const
     if (is_arithmetic_type(no_ref(*lhs))
         && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(no_ref(*lhs)))
-            *lhs = promote_integral_type(no_ref(*lhs));
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        *rhs = get_unqualified_type(no_ref(*rhs));
 
-        if (is_promoteable_integral_type(no_ref(*rhs)))
-            *rhs = promote_integral_type(no_ref(*rhs));
+        if (is_promoteable_integral_type(*lhs))
+            *lhs = promote_integral_type(*lhs);
 
-        return usual_arithmetic_conversions(no_ref(*lhs), no_ref(*rhs), locus);
+        if (is_promoteable_integral_type(*rhs))
+            *rhs = promote_integral_type(*rhs);
+
+        return usual_arithmetic_conversions(*lhs, *rhs, locus);
     }
-    else if (((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*rhs)))
-                && is_arithmetic_type(no_ref(*rhs))))
+    else if ((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*lhs)))
+            || (is_pointer_type(no_ref(*rhs)) || is_array_type(no_ref(*rhs))))
     {
-        type_t** pointer_type = lhs;
+        *lhs = get_unqualified_type(no_ref(*lhs));
+        if (is_array_type(*lhs))
+            *lhs = get_pointer_type(array_type_get_element_type(*lhs));
 
-        *pointer_type = no_ref(*pointer_type);
+        *rhs = get_unqualified_type(no_ref(*rhs));
+        if (is_array_type(*rhs))
+            *rhs = get_pointer_type(array_type_get_element_type(*rhs));
+
+        return get_ptrdiff_t_type();
+    }
+    else if (is_pointer_type(no_ref(*lhs))
+                && is_arithmetic_type(no_ref(*rhs)))
+    {
+        *lhs = no_ref(*lhs);
+        *rhs = get_ptrdiff_t_type();
+
+        type_t** pointer_type = lhs;
 
         if (is_array_type(*pointer_type))
         {
@@ -3860,18 +3891,17 @@ static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* 
 
 static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
-    if (is_promoteable_integral_type(no_ref(*lhs)))
-    {
-        *lhs = promote_integral_type(no_ref(*lhs));
-    }
-
-    if (is_promoteable_integral_type(no_ref(*rhs)))
-    {
-        *rhs = promote_integral_type(no_ref(*rhs));
-    }
-
     *lhs = get_unqualified_type(no_ref(*lhs));
+    if (is_promoteable_integral_type(*lhs))
+    {
+        *lhs = promote_integral_type(*lhs);
+    }
+
     *rhs = get_unqualified_type(no_ref(*rhs));
+    if (is_promoteable_integral_type(*rhs))
+    {
+        *rhs = promote_integral_type(*rhs);
+    }
 
     return (*lhs);
 }
@@ -3889,6 +3919,9 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
         {
             result = enum_type_get_underlying_type(result);
         }
+
+        if (is_promoteable_integral_type(result))
+            result = promote_integral_type(result);
 
         binary_record_conversion_to_result(result, lhs, rhs);
 
@@ -4745,6 +4778,7 @@ static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rh
     cv_qualifier_t cv_qualif = CV_NONE;
     advance_over_typedefs_with_cv_qualif(ref_type, &cv_qualif);
 
+    *rhs = get_unqualified_type(no_ref(*rhs));
     if (is_promoteable_integral_type(*rhs))
         *rhs = promote_integral_type(*rhs);
 
@@ -4823,13 +4857,17 @@ static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, ty
 
     if (both_operands_are_arithmetic(ref_type, no_ref(*rhs), locus))
     {
+        *rhs = get_unqualified_type(no_ref(*rhs));
+
         if (is_promoteable_integral_type(*rhs))
             *rhs = promote_integral_type(*rhs);
 
         return *lhs;
     }
-    else if (is_pointer_arithmetic(*lhs, *rhs))
+    else if (is_pointer_arithmetic(no_ref(*lhs), no_ref(*rhs)))
     {
+        *rhs = get_unqualified_type(no_ref(*rhs));
+
         return *lhs;
     }
 
@@ -4907,6 +4945,8 @@ static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs, c
 
 static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
+    *rhs = get_unqualified_type(no_ref(*rhs));
+
     if (is_promoteable_integral_type(*rhs))
         *rhs = promote_integral_type(*rhs);
 
@@ -5558,7 +5598,9 @@ type_t* operator_unary_derref_result(type_t** op_type, const locus_t* locus UNUS
 {
     if (is_pointer_type(no_ref(*op_type)))
     {
-        return get_lvalue_reference_type(pointer_type_get_pointee_type(no_ref(*op_type)));
+        *op_type = no_ref(*op_type);
+
+        return get_lvalue_reference_type(pointer_type_get_pointee_type(*op_type));
     }
     return get_error_type();
 }
@@ -5631,16 +5673,18 @@ static type_t* operator_unary_plus_result(type_t** op_type, const locus_t* locus
 {
     if (is_pointer_type(no_ref(*op_type)))
     {
-        return no_ref(*op_type);
+        *op_type = get_unqualified_type(no_ref(*op_type));
+        return (*op_type);
     }
     else if (is_arithmetic_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(no_ref(*op_type)))
+        *op_type = get_unqualified_type(no_ref(*op_type));
+        if (is_promoteable_integral_type(*op_type))
         {
-            *op_type = promote_integral_type(no_ref(*op_type));
+            *op_type = promote_integral_type(*op_type);
         }
 
-        return no_ref(*op_type);
+        return (*op_type);
     }
     return get_error_type();
 }
@@ -5716,12 +5760,13 @@ static type_t* operator_unary_minus_result(type_t** op_type, const locus_t* locu
 {
     if (is_arithmetic_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(no_ref(*op_type)))
+        *op_type = get_unqualified_type(no_ref(*op_type));
+        if (is_promoteable_integral_type(*op_type))
         {
-            *op_type = promote_integral_type(no_ref(*op_type));
+            *op_type = promote_integral_type(*op_type);
         }
 
-        return no_ref(*op_type);
+        return (*op_type);
     }
     return get_error_type();
 }
@@ -5791,12 +5836,13 @@ static type_t* operator_unary_complement_result(type_t** op_type, const locus_t*
 {
     if (is_integral_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(no_ref(*op_type)))
+        *op_type = get_unqualified_type(no_ref(*op_type));
+        if (is_promoteable_integral_type(*op_type))
         {
-            *op_type = promote_integral_type(no_ref(*op_type));
+            *op_type = promote_integral_type(*op_type);
         }
 
-        return no_ref(*op_type);
+        return (*op_type);
     }
     return get_error_type();
 }
@@ -7911,17 +7957,21 @@ static type_t* ternary_operator_result(type_t** t1 UNUSED_PARAMETER,
     if (is_arithmetic_type(no_ref(*t2))
             && is_arithmetic_type(no_ref(*t3)))
     {
-        if (is_promoteable_integral_type(no_ref(*t2)))
-            *t2 = promote_integral_type(no_ref(*t2));
+        *t2 = no_ref(*t2);
+        *t3 = no_ref(*t3);
 
-        if (is_promoteable_integral_type(no_ref(*t3)))
-            *t3 = promote_integral_type(no_ref(*t3));
+        if (is_promoteable_integral_type(*t2))
+            *t2 = promote_integral_type(*t2);
 
-        return usual_arithmetic_conversions(no_ref(*t2), no_ref(*t3), locus);
+        if (is_promoteable_integral_type(*t3))
+            *t3 = promote_integral_type(*t3);
+
+        return usual_arithmetic_conversions(*t2, *t3, locus);
     }
     else
     {
-        return no_ref(*t2);
+        *t2 = no_ref(*t2);
+        return (*t2);
     }
 }
 
@@ -16379,8 +16429,9 @@ static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs, const locu
 static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     type_t* c1 = pointer_type_get_pointee_type(no_ref(*lhs));
-    // type_t* c2 = pointer_to_member_type_get_class_type(no_ref(*rhs));
+    *lhs = no_ref(*lhs);
     type_t* t = pointer_type_get_pointee_type(no_ref(*rhs));
+    *rhs = no_ref(*rhs);
 
     // Union of both CV qualifiers
     cv_qualifier_t result_cv = (get_cv_qualifier(c1) | get_cv_qualifier(t));
