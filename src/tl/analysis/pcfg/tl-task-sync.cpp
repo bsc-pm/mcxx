@@ -306,6 +306,12 @@ namespace {
         return result;
     }
 
+    bool is_only_input_dependence(Nodecl::NodeclBase n)
+    {
+        return n.is<Nodecl::OpenMP::DepIn>()
+            || n.is<Nodecl::OpenMP::DepInAlloca>();
+    }
+
     tribool compute_taskwait_sync_relationship(Node* source, Node* target)
     {
         // Source (task)
@@ -343,6 +349,7 @@ namespace {
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
+        Nodecl::NodeclBase source_dep_in_alloca;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -353,6 +360,8 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
+            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
+                source_dep_in_alloca = *it;
         }
 
         // Target (taskwait)
@@ -386,9 +395,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
+        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout };
+        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -399,11 +408,15 @@ namespace {
                         || targets[n_target].is_null())
                     continue;
 
-                // XXX: Note that we (ab)use the fact that DepIn/DepOut/DepInOut
-                // all have the same physical layout. Make it nicer
-                may_have_dep = may_have_dep || may_have_dependence_list(
-                        sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-                        targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
+                may_have_dep = may_have_dep || 
+                    // At least one of the dependences is not only an input
+                    ((!is_only_input_dependence(sources[n_source])
+                      || !is_only_input_dependence(targets[n_target]))
+                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
+                     // same physical layout
+                     && may_have_dependence_list(
+                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
             }
         }
 
@@ -516,9 +529,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_out, source_dep_inout };
+        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_in_alloca, target_dep_out };
+        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -529,11 +542,15 @@ namespace {
                         || targets[n_target].is_null())
                     continue;
 
-                // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
-                // same physical layout
-                may_have_dep = may_have_dep || may_have_dependence_list(
-                        sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
-                        targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>());
+                may_have_dep = may_have_dep || 
+                    // At least one of the dependences is not only an input
+                    ((!is_only_input_dependence(sources[n_source])
+                      || !is_only_input_dependence(targets[n_target]))
+                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
+                     // same physical layout
+                     && may_have_dependence_list(
+                         sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
+                         targets[n_target].as<Nodecl::OpenMP::DepIn>().get_in_deps().as<Nodecl::List>()));
             }
         }
 
