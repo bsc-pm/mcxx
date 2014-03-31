@@ -297,12 +297,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -353,12 +354,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_ASSIG_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -3430,14 +3432,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
+    // This is not very precise but should do most of the time
+    if (is_non_language_reference_type(t))
+        t = t.no_ref();
+
     *(file) << "sizeof(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
-    TL::Type t = node.get_align_type().get_type();
-    *(file) << "__alignof__(";
-    walk(node.get_align_type());
+    Nodecl::NodeclBase align = node.get_align_type();
+
+    if (IS_CXX11_LANGUAGE)
+    {
+        *(file) << "alignof(";
+    }
+    else
+    {
+        *(file) << "__alignof__(";
+    }
+
+    if (align.is<Nodecl::Type>())
+    {
+        TL::Type t = align.get_type();
+
+        // This is not very precise but should do most of the time
+        if (is_non_language_reference_type(t))
+            t = t.no_ref();
+
+        *(file) << this->get_declaration(t, this->get_current_scope(),  "");
+    }
+    else
+    {
+        walk(node.get_align_type());
+    }
     *(file) << ")";
 }
 
@@ -4036,13 +4064,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
 
     if (context.is_namespace_scope())
     {
-        // We define de namespace if it has not been defined yet.
-        // C++ only allows the definition of a namespace inside an other
-        // namespace or in the global scope
-        define_or_declare_if_complete(sym,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
-
         move_to_namespace(context.get_related_symbol());
     }
 
@@ -6672,9 +6693,27 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_namespace())
     {
-        move_to_namespace_of_symbol(symbol);
-        indent();
-        *(file) << "namespace " << symbol.get_name() << " { }\n";
+        TL::Symbol aliased_namespace = symbol.get_related_scope().get_related_symbol();
+
+        if (aliased_namespace != symbol)
+        {
+            // Make sure the target namespace has been defined
+            do_define_symbol(aliased_namespace,
+                    decl_sym_fun,
+                    def_sym_fun);
+
+            move_to_namespace_of_symbol(symbol);
+            // This is a namespace alias
+            indent();
+            (*file) << "namespace " << symbol.get_name() << " = " << this->get_qualified_name(aliased_namespace) << ";\n";
+        }
+        else
+        {
+            move_to_namespace_of_symbol(symbol);
+            indent();
+            *(file) << "namespace " << symbol.get_name() << " { }\n";
+        }
+
     }
     else if (symbol.is_template_parameter())
     {

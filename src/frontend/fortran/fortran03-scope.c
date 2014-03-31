@@ -300,10 +300,11 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
     return new_entry;
 }
 
-scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
+scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name,
+        const locus_t* locus)
 {
     scope_entry_t* entry = NULL;
-    scope_entry_list_t* entry_list = class_context_lookup(class_context, NULL, DF_NONE, strtolower(name));
+    scope_entry_list_t* entry_list = class_context_lookup(class_context, NULL, DF_NONE, strtolower(name), locus);
     if (entry_list != NULL)
     {
         entry = entry_list_head(entry_list);

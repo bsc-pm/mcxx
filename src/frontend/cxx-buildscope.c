@@ -102,7 +102,7 @@ static scope_entry_t* build_scope_function_definition(
         scope_entry_list_t** declared_symbols,
         gather_decl_spec_list_t* gather_decl_spec_list);
 
-static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
+static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t *nodecl_output);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
@@ -766,7 +766,7 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
             }
         case AST_NAMESPACE_ALIAS :
             {
-                build_scope_namespace_alias(a, decl_context);
+                build_scope_namespace_alias(a, decl_context, nodecl_output);
                 break;
             }
         case AST_FUNCTION_DEFINITION :
@@ -2987,7 +2987,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         {
                             computed_type = get_pointer_to_member_type(
                                     entry->type_information,
-                                    named_type_get_symbol(entry->entity_specs.class_type));
+                                    entry->entity_specs.class_type);
                         }
                     }
 
@@ -3099,7 +3099,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                             {
                                 computed_type = get_pointer_to_member_type(
                                         entry->type_information,
-                                        named_type_get_symbol(entry->entity_specs.class_type));
+                                        entry->entity_specs.class_type);
                             }
                         }
                         else if (nodecl_expr_is_type_dependent(nodecl_expr))
@@ -9377,8 +9377,50 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 
                     if (entry_list != NULL)
                     {
-                        *declarator_type = get_pointer_to_member_type(pointee_type, 
-                                entry_list_head(entry_list));
+                        scope_entry_t* entry = entry_list_head(entry_list);
+
+                        if (entry->entity_specs.is_injected_class_name)
+                        {
+                            // Advance this case as it will lead to a simpler type-id
+                            entry = named_type_get_symbol(entry->entity_specs.class_type);
+                        }
+
+                        if (symbol_is_member_of_dependent_class(entry)
+                                    || symbol_is_local_of_dependent_function(entry))
+                        {
+                            // Craft a nodecl name for it
+                            nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
+                                    entry->symbol_name,
+                                    ast_get_locus(id_type_expr));
+
+                            nodecl_t nodecl_name = nodecl_simple_name;
+
+                            if (is_template_specialized_type(entry->type_information))
+                            {
+                                nodecl_name = nodecl_make_cxx_dep_template_id(
+                                        nodecl_name,
+                                        // If our enclosing class is dependent
+                                        // this template id will require a 'template '
+                                        "template ",
+                                        template_specialized_type_get_template_arguments(entry->type_information),
+                                        ast_get_locus(id_type_expr));
+                            }
+
+                            // Craft a dependent typename since we will need it later for proper updates
+                            type_t* dependent_typename = build_dependent_typename_for_entry(
+                                    get_function_or_class_where_symbol_depends(entry),
+                                    nodecl_name,
+                                    ast_get_locus(id_type_expr));
+
+                            entry = xcalloc(1, sizeof(*entry));
+                            entry->kind = SK_DEPENDENT_ENTITY;
+                            entry->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
+                            entry->decl_context = decl_context;
+                            entry->type_information = dependent_typename;
+                            entry->locus = ast_get_locus(id_type_expr);
+                        }
+
+                        *declarator_type = get_pointer_to_member_type(pointee_type, get_user_defined_type(entry));
                     }
                     else
                     {
@@ -13412,7 +13454,7 @@ static void build_scope_nontype_template_parameter(AST a,
             default_argument);
 }
 
-static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
+static void build_scope_namespace_alias(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
     {
@@ -13451,6 +13493,15 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     alias_entry->locus = ast_get_locus(alias_ident);
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_decl_context = entry->related_decl_context;
+    alias_entry->defined = 1;
+    alias_entry->entity_specs.is_user_declared = 1;
+
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_cxx_def(
+                    nodecl_null(),
+                    alias_entry,
+                    ast_get_locus(a)));
 }
 
 /*
@@ -16544,13 +16595,13 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
                 if (conversor != NULL)
                 {
-                    ERROR_CONDITION((conversor->entity_specs.is_conversion),
+                    ERROR_CONDITION(!conversor->entity_specs.is_conversion,
                             "I expected a conversion function!", 0);
                     *nodecl_output = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversor, ast_get_locus(initializer)),
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(*nodecl_output),
-                            /* function_form */ nodecl_null(),
+                            /* function_form */ nodecl_make_cxx_function_form_implicit(ast_get_locus(initializer)),
                             function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));
                 }
             }

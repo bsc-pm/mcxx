@@ -452,7 +452,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->symbol_name,
                             print_type_str(new_member->type_information, context_of_being_instantiated));
                 }
-                ERROR_CONDITION(is_dependent_type(new_member->type_information), "Invalid type", 0);
+                ERROR_CONDITION(is_dependent_type(new_member->type_information),
+                        "Invalid type '%s' (was '%s')",
+                        print_declarator(new_member->type_information),
+                        print_declarator(member_of_template->type_information));
 
                 break;
             }

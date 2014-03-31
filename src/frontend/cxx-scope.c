@@ -771,6 +771,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
         const char* name,
         field_path_t* field_path,
         decl_flags_t decl_flags,
+        type_t* type_of_conversion,
         const locus_t* locus);
 
 static void build_dependent_parts_for_symbol_rec(
@@ -989,9 +990,7 @@ static char can_be_inherited(scope_entry_t* entry, void* p UNUSED_PARAMETER)
 {
     ERROR_CONDITION(entry == NULL, "Error, entry can't be null", 0);
 
-    if (entry->entity_specs.is_conversion
-            || entry->entity_specs.is_constructor
-            /* || entry->entity_specs.is_injected_class_name*/ )
+    if (entry->entity_specs.is_constructor)
     {
         return 0;
     }
@@ -1026,8 +1025,41 @@ static scope_entry_list_t* filter_injected_class_name(scope_entry_list_t* list)
 }
 #endif
 
+typedef
+struct same_type_conversion_info_tag
+{
+    type_t* t;
+    decl_context_t decl_context;
+} same_type_conversion_t;
+
+static char same_type_conversion(scope_entry_t* entry, void *p)
+{
+    if (entry->kind == SK_FUNCTION)
+    {
+        struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
+        type_t* t = same_info->t;
+        decl_context_t decl_context = same_info->decl_context;
+
+        type_t* conversion_type = function_type_get_return_type(entry->type_information);
+        return equivalent_types_in_context(conversion_type, t, decl_context);
+    }
+    else if (entry->kind == SK_TEMPLATE)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+
 void class_scope_lookup_rec(scope_t* current_class_scope, const char* name, 
-        class_scope_lookup_t* derived, char is_virtual, char initial_lookup, decl_flags_t decl_flags,
+        class_scope_lookup_t* derived,
+        char is_virtual,
+        char initial_lookup,
+        decl_flags_t decl_flags,
+        type_t* type_of_conversion,
         const locus_t* locus)
 {
     int i;
@@ -1051,6 +1083,17 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     {
         scope_entry_list_t* old_entry_list = entry_list;
         entry_list = filter_not_inherited_entities(old_entry_list);
+        entry_list_free(old_entry_list);
+    }
+
+    if (type_of_conversion != NULL)
+    {
+        scope_entry_list_t* old_entry_list = entry_list;
+        struct same_type_conversion_info_tag same_info;
+        same_info.t = type_of_conversion;
+        same_info.decl_context = class_type_get_inner_context(current_class_scope->related_entry->type_information);
+
+        entry_list = filter_symbol_using_predicate(entry_list, same_type_conversion, &same_info);
         entry_list_free(old_entry_list);
     }
 
@@ -1132,7 +1175,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                 // Lookup in the base
                 class_scope_lookup_rec(base_class_scope, name, &current_base_info,
                         current_base_is_virtual, /* initial_lookup */ 0, decl_flags,
-                        locus);
+                        type_of_conversion, locus);
 
                 // If the result is valid, add it
                 if (current_base_info.entry_list != NULL)
@@ -1506,12 +1549,13 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
         const char* name,
         field_path_t* field_path UNUSED_PARAMETER,
         decl_flags_t decl_flags,
+        type_t* type_of_conversion, // Only used for conversions
         const locus_t* locus)
 {
     class_scope_lookup_t result;
     memset(&result, 0, sizeof(result));
 
-    class_scope_lookup_rec(current_class_scope, name, &result, 0, /* initial_lookup */ 1, decl_flags, locus);
+    class_scope_lookup_rec(current_class_scope, name, &result, 0, /* initial_lookup */ 1, decl_flags, type_of_conversion, locus);
 
     if (result.entry_list != NULL)
     {
@@ -1972,7 +2016,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             {
                 result = query_in_class(current_scope, name,
                         field_path,
-                        decl_flags, 
+                        decl_flags,
+                        NULL,
                         locus);
             }
             else
@@ -3046,12 +3091,32 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else if (orig_symbol->kind == SK_TYPEDEF)
         {
-            cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-            return get_cv_qualified_type(
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            type_t* new_type = 
                     update_type_aux_(orig_symbol->type_information,
                         decl_context,
-                        locus, instantiation_symbol_map_, pack_index),
-                    cv_qualif);
+                        locus, instantiation_symbol_map_, pack_index);
+
+            cv_qualifier_t cv_qualif_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
+
+            return get_cv_qualified_type(new_type, cv_qualif_orig | cv_qualif_new);
+        }
+        else if (orig_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            type_t* new_type = update_type_aux_(orig_symbol->type_information,
+                    decl_context,
+                    locus, instantiation_symbol_map_, pack_index);
+
+            cv_qualifier_t cv_qualif_new = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
+
+            return get_cv_qualified_type(new_type, cv_qualif_orig | cv_qualif_new);
         }
         else
         {
@@ -3135,10 +3200,8 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
-        if (!is_named_class_type(pointee_class)
-                && (!is_named_type(pointee_class)
-                    // if it is a named type it must be a template type parameter
-                    || named_type_get_symbol(pointee_class)->kind != SK_TEMPLATE_TYPE_PARAMETER) )
+        if (!is_dependent_type(pointee_class)
+                && !is_named_class_type(pointee_class))
         {
             DEBUG_CODE()
             {
@@ -3148,7 +3211,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* result_type = get_pointer_to_member_type(updated_pointee,
-                named_type_get_symbol(pointee_class));
+                pointee_class);
 
         result_type = get_cv_qualified_type(result_type, cv_qualifier);
 
@@ -4784,6 +4847,39 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     {
         result = uniquestr(unmangle_symbol_name(entry));
 
+        if (entry->entity_specs.is_member
+                // Lambda classes are unnamed by definition
+                && !class_type_is_lambda(entry->entity_specs.class_type))
+        {
+            // We need the qualification of the class
+            ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
+
+            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+
+            (*max_qualif_level)++;
+
+            char prev_is_dependent = 0;
+            const char* class_qualification =
+                get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
+                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
+
+            if (!class_symbol->entity_specs.is_anonymous_union)
+            {
+                class_qualification = strappend(class_qualification, "::");
+            }
+
+            if (prev_is_dependent
+                    && current_has_template_parameters
+                    && !do_not_emit_template_keywords)
+            {
+                class_qualification = strappend(class_qualification, "template ");
+            }
+
+            (*is_dependent) |= prev_is_dependent;
+
+            result = strappend(class_qualification, result);
+        }
+
         if (!no_templates
                 && entry->type_information != NULL
                 && is_template_specialized_type(entry->type_information)
@@ -5593,6 +5689,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
                 name,
                 field_path,
                 decl_flags,
+                NULL,
                 locus);
 
         // Second: lookup in the global context
@@ -5648,6 +5745,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             name,
             field_path,
             decl_flags,
+            NULL,
             locus);
 }
 
@@ -5853,52 +5951,15 @@ scope_entry_list_t* query_nodecl_template_id(
     }
 }
 
-typedef
-struct same_type_conversion_info_tag
-{
-    type_t* t;
-    decl_context_t decl_context;
-} same_type_conversion_t;
-
-static char same_type_conversion(scope_entry_t* entry, void *p)
-{
-    if (entry->kind == SK_FUNCTION)
-    {
-        struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
-        type_t* t = same_info->t;
-        decl_context_t decl_context = same_info->decl_context;
-
-        type_t* conversion_type = function_type_get_return_type(entry->type_information);
-        return equivalent_types_in_context(conversion_type, t, decl_context);
-    }
-    else if (entry->kind == SK_TEMPLATE)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* t)
+scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* conversion_type, const locus_t* locus)
 {
     ERROR_CONDITION(decl_context.class_scope == NULL, "We need a class scope here", 0);
     decl_context_t class_context = decl_context;
     class_context.current_scope = class_context.class_scope;
 
-    struct same_type_conversion_info_tag same_info;
-    same_info.t = t;
-    // I guess the appropiate one is the class context!
-    same_info.decl_context = class_context;
+    scope_entry_list_t* entry_list = query_in_class(decl_context.class_scope, "$.operator", NULL, DF_NONE, conversion_type, locus);
 
-    scope_entry_list_t* entry_list = query_name_in_scope(class_context.class_scope, "$.operator");
-
-    scope_entry_list_t* result = filter_symbol_using_predicate(entry_list, same_type_conversion, &same_info);
-
-    entry_list_free(entry_list);
-
-    return result;
+    return entry_list;
 }
 
 static scope_entry_list_t* query_nodecl_conversion_name(
@@ -6017,7 +6078,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(
             nodecl_name, 1,
             nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
 
-    scope_entry_list_t* result = query_conversion_function_info(class_context, t);
+    scope_entry_list_t* result = query_conversion_function_info(class_context, t, nodecl_get_locus(nodecl_name));
 
     return result;
 }
@@ -7181,11 +7242,12 @@ void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t de
 scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
-        const char* name)
+        const char* name,
+        const locus_t* locus)
 {
     ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE, "This is not a class scope", 0);
 
-    return query_in_class(decl_context.current_scope, name, field_path, decl_flags, make_locus("", 0, 0));
+    return query_in_class(decl_context.current_scope, name, field_path, decl_flags, NULL, locus);
 }
 
 scope_entry_list_t* query_dependent_entity_in_context(
