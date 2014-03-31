@@ -1725,7 +1725,6 @@ bool CxxBase::is_assignment_operator(const std::string& operator_name)
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
-
     Nodecl::NodeclBase called_entity = node.get_called();
 
     if (is_implicit_function_call(node))
@@ -1909,7 +1908,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
-                *(file) << this->get_qualified_name(class_symbol);
+                *(file) << this->get_qualified_name(class_symbol, this->get_current_scope());
                 ignore_n_first_arguments = 0;
                 break;
             }
@@ -2063,7 +2062,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
-
 
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
