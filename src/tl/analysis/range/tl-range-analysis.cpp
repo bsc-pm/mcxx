@@ -51,8 +51,8 @@ namespace Analysis {
         }
     }
     
-    ConstraintReplacement::ConstraintReplacement(ObjectList<Symbol> params, Utils::ConstraintMap constraints)
-        : _params(params), _constraints(constraints)
+    ConstraintReplacement::ConstraintReplacement(Utils::ConstraintMap constraints)
+        : _constraints(constraints)
     {}
     
     void ConstraintReplacement::visit(const Nodecl::ArraySubscript& n)
@@ -79,23 +79,17 @@ namespace Analysis {
     
     void ConstraintReplacement::visit(const Nodecl::Symbol& n)
     {
-        if(_constraints.find(n) == _constraints.end())
-        {
-            if(_params.contains(n.get_symbol()))
-                return;
-            
-            internal_error("No constraints found for symbol %s in locus %s. "
-                           "We should replace the variable with the corresponding constraint.", 
-                           n.prettyprint().c_str(), n.get_locus_str().c_str());
-        }
+        ERROR_CONDITION(_constraints.find(n) == _constraints.end(),
+                        "No constraints found for symbol %s in locus %s. "
+                        "We should replace the variable with the corresponding constraint.", 
+                        n.prettyprint().c_str(), n.get_locus_str().c_str());
         
         n.replace(Nodecl::Symbol::make(_constraints[n].get_symbol()));
     }
     
-    ConstraintBuilderVisitor::ConstraintBuilderVisitor(const ObjectList<Symbol>& params, 
-                                                       Utils::ConstraintMap input_constraints, 
+    ConstraintBuilderVisitor::ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
                                                        Utils::ConstraintMap current_constraints)
-        : _params(params), _input_constraints(input_constraints), _output_constraints(current_constraints), 
+        : _input_constraints(input_constraints), _output_constraints(current_constraints), 
           _output_true_constraints(), _output_false_constraints()
     {}
     
@@ -142,7 +136,7 @@ namespace Analysis {
             val = rhs;
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-            ConstraintReplacement cr(_params, _input_constraints);
+            ConstraintReplacement cr(_input_constraints);
             val = rhs.shallow_copy();
             cr.walk(val);
         }
@@ -176,23 +170,15 @@ namespace Analysis {
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::LowerThan& n)
     {
         Utils::Constraint c;
+        Nodecl::NodeclBase val;
         
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
-        if(_input_constraints.find(lhs) == _input_constraints.end())
-        {
-            while(lhs.is<Nodecl::Conversion>())
-                lhs = lhs.as<Nodecl::Conversion>().get_nest();
-            Symbol s(lhs.get_symbol());
-            ERROR_CONDITION(!s.is_valid(), "LowerThan nodecl with LHS %s not yet implemented. Required symbol.\n", lhs.prettyprint().c_str());
-            if(!_params.contains(s))
-            {
-                internal_error("Some input constraint required for the LHS when parsing a %s nodecl", 
-                               ast_print_node_type(n.get_kind()));
-            }
-        }
+        ERROR_CONDITION(_input_constraints.find(lhs) == _input_constraints.end(),
+                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
 
         // Get a new symbol for the new constraint
         std::stringstream ss; ss << get_next_id(lhs);
@@ -201,71 +187,66 @@ namespace Analysis {
         Symbol s(n.retrieve_context().new_symbol(constr_name));
         s.set_type(orig_s.get_type());
         
-        if(rhs.is_constant()) 
-        {   // x = c;    -->    X1 = c            
-            // Compute the constraint that corresponds to the current node
-            Nodecl::NodeclBase val;
-            if(_input_constraints.find(lhs) == _input_constraints.end())
-                val = lhs;
-            else
-            {
-                Symbol val_sym(_input_constraints[lhs].get_symbol());
-                val = Nodecl::Symbol::make(val_sym);
-                val.set_type(val_sym.get_type());
-            }
-            c = Utils::Constraint(s, val);
-            
-            // Compute the constraint that corresponds to the true branch taken from this node
-            std::stringstream ss_true; ss_true << get_next_id(lhs);
-            Symbol orig_s_true(Utils::get_nodecl_base(lhs).get_symbol());
-            std::string constr_name_true = orig_s_true.get_name() + "_" + ss_true.str();
-            Symbol s_true(n.retrieve_context().new_symbol(constr_name_true));
-            s_true.set_type(orig_s_true.get_type());
-            Nodecl::NodeclBase val_true = 
-                Nodecl::Analysis::RangeIntersection::make(
-                    Nodecl::Symbol::make(s), 
-                    Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(),  
-                                                  const_value_to_nodecl(const_value_sub(rhs.get_constant(), const_value_get_one(/*num_bytes*/ 4, /*sign*/1))),
-                                                  lhs.get_type()), 
-                    lhs.get_type());
-            Utils::Constraint c_true = Utils::Constraint(s_true, val_true);
-            _output_true_constraints[lhs] = c_true;
-            
-            // Compute the constraint that corresponds to the false branch taken from this node
-            std::stringstream ss_false; ss_false << get_next_id(lhs);
-            Symbol orig_s_false(Utils::get_nodecl_base(lhs).get_symbol());
-            std::string constr_name_false = orig_s_false.get_name() + "_" + ss_false.str();
-            Symbol s_false(n.retrieve_context().new_symbol(constr_name_false));
-            s_false.set_type(orig_s_false.get_type());
-            Nodecl::NodeclBase val_false = 
-                Nodecl::Analysis::RangeIntersection::make(
-                    Nodecl::Symbol::make(s), 
-                    Nodecl::Analysis::Range::make(rhs.shallow_copy(),
-                                                  Nodecl::Analysis::PlusInfinity::make(),
-                                                  lhs.get_type()), 
-                    lhs.get_type());
-            Utils::Constraint c_false = Utils::Constraint(s_false, val_false);
-            _output_false_constraints[lhs] = c_false;
-        }
-        else
-        {
-            ObjectList<Nodecl::NodeclBase> rhs_mem_access = Nodecl::Utils::get_all_memory_accesses(rhs);
-            for(ObjectList<Nodecl::NodeclBase>::iterator it = rhs_mem_access.begin(); it != rhs_mem_access.end(); ++it)
-            {
-                ERROR_CONDITION((_input_constraints.find(*it) == _input_constraints.end()) && !_params.contains(lhs.get_symbol()), 
-                                "Some input constraint required for the memory accesses in %s nodecl", 
-                                ast_print_node_type(it->get_kind()));
-                
-                // Replace all the memory accesses by the symbols of the constraints arriving to the current node
-                ConstraintReplacement cr(_params, _input_constraints);
-                Nodecl::NodeclBase val = rhs.shallow_copy();
-                cr.walk(val);
-                c = Utils::Constraint(s, val);
-            }
-        }
-        
+        // Compute the constraint that corresponds to the current node
+        // x < c;    -->    X1 = x0
+        Symbol val_sym(_input_constraints[lhs].get_symbol());
+        val = Nodecl::Symbol::make(val_sym);
+        val.set_type(val_sym.get_type());
+        val = Nodecl::Analysis::RangeIntersection::make(val.shallow_copy(), 
+                                                        Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), 
+                                                                                      rhs.shallow_copy(), lhs.get_type()),
+                                                        lhs.get_type());
+        c = Utils::Constraint(s, val);
         _input_constraints[lhs] = c;
         _output_constraints[lhs] = c;
+        
+        // Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
+        val = rhs.shallow_copy();
+        if(!rhs.is_constant())
+        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
+            ConstraintReplacement cr(_input_constraints);
+            cr.walk(val);
+        }
+        // 1.- Compute the constraint that corresponds to the true branch taken from this node
+        // x < x;       --TRUE-->       X1 = X0 ∩ [-∞, x-1]
+        // 1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(lhs);
+        Symbol orig_s_true(Utils::get_nodecl_base(lhs).get_symbol());
+        std::string constr_name_true = orig_s_true.get_name() + "_" + ss_true.str();
+        Symbol s_true(n.retrieve_context().new_symbol(constr_name_true));
+        s_true.set_type(orig_s_true.get_type());
+        // 1.2.- Build the TRUE constraint value
+        const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
+        Nodecl::NodeclBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
+                                                   : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), lhs.get_type()));
+        Nodecl::NodeclBase val_true = 
+            Nodecl::Analysis::RangeIntersection::make(
+                Nodecl::Symbol::make(s), 
+                Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), ub, lhs.get_type()),
+                lhs.get_type());
+        // 1.3.- Build the TRUE constraint and store it
+        Utils::Constraint c_true = Utils::Constraint(s_true, val_true);
+        _output_true_constraints[lhs] = c_true;
+        
+        // 2.- Compute the constraint that corresponds to the false branch taken from this node
+        // x < c;       --FALSE-->      X1 = X0 ∩ [ c, +∞]
+        // 2.1.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(lhs);
+        Symbol orig_s_false(Utils::get_nodecl_base(lhs).get_symbol());
+        std::string constr_name_false = orig_s_false.get_name() + "_" + ss_false.str();
+        Symbol s_false(n.retrieve_context().new_symbol(constr_name_false));
+        s_false.set_type(orig_s_false.get_type());
+        // 2.2.- Build the FALSE constraint value
+        Nodecl::NodeclBase val_false = 
+            Nodecl::Analysis::RangeIntersection::make(
+                Nodecl::Symbol::make(s), 
+                Nodecl::Analysis::Range::make(val.shallow_copy(),
+                                              Nodecl::Analysis::PlusInfinity::make(),
+                                              lhs.get_type()), 
+                lhs.get_type());
+        // 2.3.- Build the FALSE constraint and store it
+        Utils::Constraint c_false = Utils::Constraint(s_false, val_false);
+        _output_false_constraints[lhs] = c_false;
         
         return c;
     }
@@ -283,11 +264,10 @@ namespace Analysis {
         Utils::Constraint c;
         
         Nodecl::NodeclBase rhs = n.get_rhs();
-        ERROR_CONDITION((_input_constraints.find(rhs) == _input_constraints.end()) && !_params.contains(rhs.get_symbol()), 
+        ERROR_CONDITION(_input_constraints.find(rhs) == _input_constraints.end(), 
                         "Some input constraint required for the RHS when parsing a %s nodecl", 
                         ast_print_node_type(n.get_kind()));
         
-        // TODO Check whether we have more than one input constraint for RHS
         // Build a symbol for the new constraint based on the name of the original variable
         std::stringstream ss; ss << get_next_id(rhs);
         Symbol orig_s(Utils::get_nodecl_base(rhs).get_symbol());
@@ -316,114 +296,187 @@ namespace Analysis {
     // ******************************** Class implementing range analysis ********************************* //
     
     RangeAnalysis::RangeAnalysis(ExtensibleGraph* graph)
-        : _graph(graph), _params()
-    {
-        Nodecl::NodeclBase n = graph->get_nodecl();
-        if(!n.is_null() && n.is<Nodecl::FunctionCode>())
-        {
-            Symbol func_sym(n.as<Nodecl::FunctionCode>().get_symbol());
-            _params = func_sym.get_function_parameters();
-        }
-    }
+        : _graph(graph)
+    {}
     
     void RangeAnalysis::compute_range_analysis()
-    {
-        // Compute the constraints of the current graph
+    {   // Compute the constraints of the current graph
+        
+        set_parameters_constraints();
+        
         Node* entry = _graph->get_graph()->get_graph_entry_node();
         compute_initial_constraints(entry);
         ExtensibleGraph::clear_visits(entry);
+        
         propagate_constraints_from_backwards_edges(entry);
         ExtensibleGraph::clear_visits(entry);
     }
     
-    void RangeAnalysis::compute_initial_constraints(Node* n)
+    // Set an constraint to the graph entry node for each parameter of the function
+    void RangeAnalysis::set_parameters_constraints()
     {
-        if(n->is_visited())
+        Symbol func_sym = _graph->get_function_symbol();
+        if(!func_sym.is_valid())    // The PCFG have been built for something other than a FunctionCode
             return;
         
-        n->set_visited(true);
-        
-        // Treat the current node
-        if(n->is_graph_node())
+        Node* entry = _graph->get_graph()->get_graph_entry_node();
+        Utils::ConstraintMap constraints;
+        const ObjectList<Symbol> params = func_sym.get_function_parameters();
+        for(ObjectList<Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
         {
-            // recursively compute the constraints for the inner nodes
-            compute_initial_constraints(n->get_graph_entry_node());
+            // Get the value for the constraint (that is the value of the parameter)
+            Nodecl::Symbol val = Nodecl::Symbol::make(*it);
             
-            // propagate constraint from the inner nodes (summarized in the exit node) to the graph node
-            n->set_propagated_constraints(n->get_graph_exit_node()->get_propagated_constraints());
+            // Build a symbol for the new constraint based on the name of the original variable
+            std::stringstream ss; ss << get_next_id(val);
+            std::string constr_name = it->get_name() + "_" + ss.str();
+            Symbol s(it->get_scope().new_symbol(constr_name));
+            s.set_type(it->get_type());
+            
+            // Build the constraint and insert it in the constraints map
+            Utils::Constraint c = Utils::Constraint(s, val);
+            constraints[val] = c;
         }
-        else
+        // Attach the constraints to the entry node of the graph
+        entry->set_constraints(constraints);
+    }
+    
+    // This is a breadth-first search because for a given node we need all its parents 
+    // (except from those that come from back edges, for they will be recalculated later 'propagate_constraints_from_backwards_edges')
+    // to be computed before propagating their information to the node
+    void RangeAnalysis::compute_initial_constraints(Node* entry)
+    {
+        ERROR_CONDITION(!entry->is_entry_node(), 
+                        "Expected ENTRY node but found %s node.", entry->get_type_as_string().c_str());
+        
+        ObjectList<Node*> currents(1, entry);
+        while(!currents.empty())
         {
-            // Collect the constraints computed from all the parents
-            Utils::ConstraintMap input_constraints;
-            ObjectList<Node*> parents = (n->is_entry_node() ? n->get_outer_node()->get_parents() : n->get_parents());
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            ObjectList<Node*>::iterator it = currents.begin();
+            while(it != currents.end())
             {
-                Utils::ConstraintMap it_constraints = (*it)->get_all_constraints();
-                for(Utils::ConstraintMap::iterator itt = it_constraints.begin(); itt != it_constraints.end(); ++itt)
+                Node* c = *it;
+                if((*it)->is_visited())
                 {
-                    if(input_constraints.find(itt->first)==input_constraints.end())
-                    {   // No constraints already found for variable itt->first
-                        input_constraints[itt->first] = itt->second;
+                    currents.erase(it);
+                    continue;
+                }
+                else
+                {
+                    (*it)->set_visited(true);
+                    ++it;
+                }
+                
+                if(c->is_graph_node())
+                {
+                    // recursively compute the constraints for the inner nodes
+                    compute_initial_constraints(c->get_graph_entry_node());
+                    // propagate constraint from the inner nodes (summarized in the exit node) to the graph node
+                    c->set_propagated_constraints(c->get_graph_exit_node()->get_propagated_constraints());
+                }
+                else
+                {
+                    // Collect the constraints computed from all the parents
+                    Utils::ConstraintMap input_constraints;
+                    ObjectList<Node*> parents = (c->is_entry_node() ? c->get_outer_node()->get_parents() : c->get_parents());
+                    for(ObjectList<Node*>::iterator itt = parents.begin(); itt != parents.end(); ++itt)
+                    {
+                        Utils::ConstraintMap it_constraints = (*itt)->get_all_constraints();
+                        for(Utils::ConstraintMap::iterator ittt = it_constraints.begin(); ittt != it_constraints.end(); ++ittt)
+                        {
+                            if(input_constraints.find(ittt->first)==input_constraints.end())
+                            {   // No constraints already found for variable ittt->first
+                                input_constraints[ittt->first] = ittt->second;
+                            }
+                            else
+                            {   // Merge the constraint that already existed with the new one
+                                Nodecl::NodeclBase old_constraint = input_constraints[ittt->first].get_constraint();
+                                Nodecl::NodeclBase current_constraint = ittt->second.get_constraint();
+                                TL::Symbol current_symbol = ittt->second.get_symbol();
+                                Nodecl::NodeclBase new_constraint;
+                                if(!Nodecl::Utils::structurally_equal_nodecls(old_constraint, current_constraint, /*skip_conversion_nodes*/true))
+                                {   // Build a new constraint
+                                    if(old_constraint.is<Nodecl::Analysis::Phi>())
+                                    {   // Attach a new element to the list inside the node Phi
+                                        Nodecl::List expressions = old_constraint.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
+                                        expressions.append(ittt->first);
+                                        new_constraint = Nodecl::Analysis::Phi::make(expressions, ittt->first.get_type());
+                                    }
+                                    else
+                                    {   // Create a new node Phi with the combination of the old constraint and the new one
+                                        Symbol tmp_s1(input_constraints[ittt->first].get_symbol());
+                                        Nodecl::Symbol tmp1 = Nodecl::Symbol::make(tmp_s1);
+                                        tmp1.set_type(tmp_s1.get_type());
+                                        
+                                        Symbol tmp_s2(ittt->second.get_symbol());
+                                        Nodecl::Symbol tmp2 = Nodecl::Symbol::make(tmp_s2);
+                                        tmp2.set_type(tmp_s2.get_type());
+                                        
+                                        Nodecl::List expressions = Nodecl::List::make(tmp1, tmp2);
+                                        new_constraint = Nodecl::Analysis::Phi::make(expressions, ittt->second.get_constraint().get_type());
+                                    }
+                                    // Get a new symbol for the new constraint
+                                    Nodecl::NodeclBase lhs = ittt->first;
+                                    std::stringstream ss; ss << get_next_id(lhs);
+                                    Symbol orig_s(lhs.get_symbol());
+                                    std::string constr_name = orig_s.get_name() + "_" + ss.str();
+                                    Symbol s(lhs.retrieve_context().new_symbol(constr_name));
+                                    s.set_type(orig_s.get_type());
+                                    input_constraints[ittt->first] = Utils::Constraint(s, new_constraint);
+                                }
+                                else
+                                {   // Propagate the already existing constraint
+                                    input_constraints[ittt->first] = ittt->second;
+                                }
+                            }
+                        }
                     }
-                    else
-                    {   // Merge the constraint that already existed with the new one
-                        Nodecl::NodeclBase constraint = input_constraints[itt->first].get_constraint();
-                        if(constraint.is<Nodecl::Analysis::Phi>())
-                        {   // Attach a new element to the list inside the node Phi
-                            Nodecl::List expressions = constraint.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
-                            expressions.append(itt->second.get_constraint());
-                            constraint.as<Nodecl::Analysis::Phi>().set_expressions(expressions);
-                        }
-                        else
-                        {   // Create a new node Phi with the combination of the old constraint and the new one
-                            Nodecl::List expressions = Nodecl::List::make(constraint.shallow_copy(), itt->second.get_constraint().shallow_copy());
-                            
-                            constraint = Nodecl::Analysis::Phi::make(expressions, itt->second.get_constraint().get_type());
-                        }
-                        input_constraints[itt->first] = Utils::Constraint(input_constraints[itt->first].get_symbol(), constraint);
+                    
+                    // Propagate constraints from parent nodes to the current node
+                    c->set_propagated_constraints(input_constraints);
+                    
+                    // Compute the constraints of the current node
+                    // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
+                    Utils::ConstraintMap current_constraints = c->get_constraints();
+                    ConstraintBuilderVisitor cbv(input_constraints, current_constraints);
+                    ObjectList<Nodecl::NodeclBase> stmts = c->get_statements();
+                    for(ObjectList<Nodecl::NodeclBase>::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
+                        cbv.compute_constraints(*itt);
+                    c->set_constraints(cbv.get_output_constraints());
+                    Utils::ConstraintMap out_constraints = cbv.get_output_constraints();
+                    
+                    // Set true/false output constraints to current children, if applies
+                    ObjectList<Edge*> exits = c->get_exit_edges();
+                    if(exits.size()==2 &&
+                       ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
+                    {
+                        Utils::ConstraintMap out_true_constraints = cbv.get_output_true_constraints();
+                        Utils::ConstraintMap out_false_constraints = cbv.get_output_false_constraints();
+                        
+                        // Distinguish here if_else conditionals and loop conditionals
+                        Node* n_outer = c->get_outer_node();
+                        // We always propagate to the TRUE edge
+                        Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
+                        while(true_node->is_exit_node())
+                            true_node = true_node->get_outer_node()->get_children()[0];
+                        // For the if_else cases, we only propagate to the FALSE edge when it contains statements ('else' statements)
+                        Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
+                        if(!n_outer->is_ifelse_statement())
+                            while(false_node->is_exit_node())
+                                false_node = false_node->get_outer_node()->get_children()[0];
+                        
+                        true_node->add_constraints(out_true_constraints);
+                        if(!false_node->is_exit_node())
+                            false_node->add_constraints(out_false_constraints);
                     }
                 }
             }
             
-            // Propagate constraints from parent nodes to the current node
-            n->set_propagated_constraints(input_constraints);
-            
-            // Compute the constraints of the current node
-            // Note: take into account the constraints the node may already has (if it is the TRUE or FALSE child of a conditional)
-            Utils::ConstraintMap current_constraints = n->get_constraints();
-            ConstraintBuilderVisitor cbv(_params, input_constraints, current_constraints);
-            ObjectList<Nodecl::NodeclBase> stmts = n->get_statements();
-            for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
-                cbv.compute_constraints(*it);
-            n->set_constraints(cbv.get_output_constraints());
-            Utils::ConstraintMap out_constraints = cbv.get_output_constraints();
-            
-            // Set true/false output constraints to current children, if applies
-            ObjectList<Edge*> exits = n->get_exit_edges();
-            if(exits.size()==2 &&
-               ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
-            {
-                Utils::ConstraintMap out_true_constraints = cbv.get_output_true_constraints();
-                Utils::ConstraintMap out_false_constraints = cbv.get_output_false_constraints();
-                
-                Node* n_outer = n->get_outer_node();
-                Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
-                while(true_node->is_exit_node())
-                    true_node = true_node->get_outer_node()->get_children()[0];
-                Node* false_node = (exits[0]->is_true_edge() ? exits[1]->get_target() : exits[0]->get_target());
-                while(false_node->is_exit_node())
-                    false_node = false_node->get_outer_node()->get_children()[0];
-                
-                true_node->add_constraints(out_true_constraints);
-                false_node->add_constraints(out_false_constraints);
-            }
+            ObjectList<Node*> next_currents;
+            for(ObjectList<Node*>::iterator itt = currents.begin(); itt != currents.end(); ++itt)
+                next_currents.append((*itt)->get_children());
+            currents = next_currents;
         }
-        
-        // Treat the children
-        ObjectList<Node*> children = n->get_children();
-        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-            compute_initial_constraints(*it);
     }
     
     void RangeAnalysis::propagate_constraints_from_backwards_edges(Node* n)

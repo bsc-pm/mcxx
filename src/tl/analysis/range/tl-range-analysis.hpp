@@ -39,12 +39,11 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        ObjectList<Symbol> _params;
         Utils::ConstraintMap _constraints;
         
     public:
         // *** Constructor *** //
-        ConstraintReplacement(ObjectList<Symbol> params, Utils::ConstraintMap constraints);
+        ConstraintReplacement(Utils::ConstraintMap constraints);
         
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
@@ -56,8 +55,6 @@ namespace Analysis {
     {
     private:
         // map containing the constraints arriving at the nodecl being visited
-        ObjectList<Symbol> _params;                     // List of parameters of the function being analyzed
-                                                        // Necessary because we won't have reaching definitions for this variables
         Utils::ConstraintMap _input_constraints;        // Constraints coming from the parents or from previous statements in the current node
         Utils::ConstraintMap _output_constraints;       // Constraints computed so far for the current node
         Utils::ConstraintMap _output_true_constraints;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
@@ -68,8 +65,7 @@ namespace Analysis {
     public:
         
         // *** Constructor *** //
-        ConstraintBuilderVisitor(const ObjectList<Symbol>& params, 
-                                 Utils::ConstraintMap input_constraints, 
+        ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
                                  Utils::ConstraintMap current_constraints );
         
         // *** Modifiers *** //
@@ -96,10 +92,9 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
-        ObjectList<TL::Symbol> _params;
         
-        void compute_initial_constraints(Node* n);
-        
+        void compute_initial_constraints(Node* entry);
+        void set_parameters_constraints();
         
     public:
         //! Constructor
