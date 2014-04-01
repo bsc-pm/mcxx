@@ -8249,6 +8249,16 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
+static char is_relational_operator(node_t n)
+{
+    return n == NODECL_EQUAL
+        || n == NODECL_DIFFERENT
+        || n == NODECL_LOWER_THAN
+        || n == NODECL_LOWER_OR_EQUAL_THAN
+        || n == NODECL_GREATER_THAN
+        || n == NODECL_GREATER_OR_EQUAL_THAN;
+}
+
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
     current_operator = current_operator.no_conv();
@@ -8282,6 +8292,8 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
             || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
             // a + b & c -> (a + b) & c
             || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            // a #1 b #2 c -> (a #1 b) #2 c     [where #1 and #2 are ==, <, <=, >=, >, !=]
+            || (is_relational_operator(current_kind) && is_relational_operator(operand_kind))
             )
     {
         return 1;
