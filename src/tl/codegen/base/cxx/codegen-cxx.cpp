@@ -6291,6 +6291,13 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // [extra blanks added for clarity in the example above]
                         walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
                     }
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    {
+                        // Same reason above
+                        *file << "(";
+                        walk(init);
+                        *file << ")";
+                    }
                     else
                     {
                         walk(init);
@@ -8376,6 +8383,13 @@ std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefi
     return result;
 }
 
+bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase node)
+{
+    return node.is<Nodecl::CxxExplicitTypeCast>()
+        && !node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is_null()
+        && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
     node = node.no_conv();
@@ -8396,6 +8410,7 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
         return (called_sym.is_valid()
                 && called_sym.is_constructor());
     }
+
     return 0;
 }
 
