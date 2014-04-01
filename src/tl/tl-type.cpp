@@ -458,6 +458,11 @@ namespace TL
         return (::is_mask_type(_type_info));
     }
 
+    int Type::get_mask_num_elements() const
+    {
+        return mask_type_get_num_bits(_type_info);
+    }
+
     bool Type::is_generic_vector() const
     {
         return (is_generic_vector_type(_type_info));

@@ -436,8 +436,33 @@ namespace Vectorization
     {
         TL::Symbol sym = n.get_symbol();
 
+        TL::Type scalar_type = sym.get_type();
+        TL::Type vector_type;
+
+        // Boolean type is treated as mask type
+        if (scalar_type.is_bool())
+        {
+            vector_type = TL::Type::get_mask_type(_environment._unroll_factor);
+        }
+        else
+        {
+            vector_type = Utils::get_qualified_vector_to(scalar_type,
+                    _environment._unroll_factor);
+        }
+
         // Vectorizing symbol type
-        sym.set_type(Utils::get_qualified_vector_to(sym.get_type(), _environment._unroll_factor));
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type vectorization "\
+                    "from '%s' to '%s'\n",
+                    sym.make_nodecl().prettyprint().c_str(),
+                    scalar_type.get_simple_declaration(
+                        n.retrieve_context(), "").c_str(),
+                    vector_type.get_simple_declaration(
+                        n.retrieve_context(), "").c_str());
+        }
+
+        sym.set_type(vector_type);
 
         // Vectorizing initialization
         Nodecl::NodeclBase init = sym.get_value();

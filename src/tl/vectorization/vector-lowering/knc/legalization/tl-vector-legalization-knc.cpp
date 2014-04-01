@@ -142,11 +142,11 @@ namespace Vectorization
 
             VECTORIZATION_DEBUG()
             {
-//                fprintf(stderr, "    Gather '%s' "\
+/*                fprintf(stderr, "    Gather '%s' "
 //                        "(base: %s strides: %s\n", n.prettyprint().c_str(),
 //                        vector_gather.get_base().prettyprint().c_str(),
-//                        vector_gather.get_strides().prettyprint().c_str());
-            }
+                        vector_gather.get_strides().prettyprint().c_str());
+*/          }
 
             n.replace(vector_gather);
         }
@@ -184,12 +184,12 @@ namespace Vectorization
 
             VECTORIZATION_DEBUG()
             {
-//                fprintf(stderr, "    Scatter '%s' "\
-//                        "(base: %s strides: %s\n",
-//                        lhs.prettyprint().c_str(),
-//                        vector_scatter.get_base().prettyprint().c_str(),
-//                        vector_scatter.get_strides().prettyprint().c_str());
-            }
+/*                fprintf(stderr, "    Scatter '%s' "\
+                        "(base: %s strides: %s\n",
+                        lhs.prettyprint().c_str(),
+                        vector_scatter.get_base().prettyprint().c_str(),
+                        vector_scatter.get_strides().prettyprint().c_str());
+*/          }
 
             n.replace(vector_scatter);
         }

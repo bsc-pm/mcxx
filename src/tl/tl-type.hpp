@@ -621,6 +621,8 @@ namespace TL
             bool is_vector() const;
             //! States whether current type is a mask-type
             bool is_mask() const;
+            //! Returns the size of a mask type
+            int get_mask_num_elements() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type

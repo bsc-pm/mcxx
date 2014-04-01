@@ -49,26 +49,41 @@ namespace Vectorization
     {
         TL::Symbol tl_sym = n.get_symbol();
         TL::Type tl_sym_type = tl_sym.get_type().no_ref();
+        TL::Type vector_type;
 
         //TL::Symbol
-        if (tl_sym_type.is_scalar_type())
+        if (tl_sym_type.is_mask())
         {
+            vector_type = tl_sym_type;
+
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr,"VECTORIZER: Type promotion '%s'\n",
-                        n.prettyprint().c_str());
+                fprintf(stderr,"VECTORIZER: '%s' mask type vectorization "\
+                        "(size %d)\n", n.prettyprint().c_str(),
+                       vector_type.get_mask_num_elements());
+            }
+        }
+        else if (tl_sym_type.is_scalar_type())
+        {
+            vector_type = Utils::get_qualified_vector_to(tl_sym_type,
+                    _environment._unroll_factor);
+
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: Type promotion '%s' from '%s'"\
+                       " to '%s'\n", n.prettyprint().c_str(),
+                       tl_sym_type.get_simple_declaration(
+                           n.retrieve_context(), "").c_str(),
+                       vector_type.get_simple_declaration(
+                           n.retrieve_context(), "").c_str());
             }
 
-            tl_sym.set_type(Utils::get_qualified_vector_to(tl_sym_type,
-                        _environment._unroll_factor));
+            tl_sym.set_type(vector_type);
             tl_sym_type = tl_sym.get_type();
         }
 
         //Nodecl::Symbol
-        Nodecl::Symbol new_sym =
-            Nodecl::Symbol::make(tl_sym,
-                    n.get_locus());
-
+        Nodecl::Symbol new_sym = Nodecl::Symbol::make(tl_sym, n.get_locus());
         new_sym.set_type(tl_sym_type.get_lvalue_reference_to());
 
         n.replace(new_sym);
@@ -872,6 +887,7 @@ namespace Vectorization
                                             n.get_locus()),
                                         rhs.shallow_copy(),
                                         mask.shallow_copy(),
+                                        Nodecl::List::make(vector_scatter),
                                         vector_type,
                                         n.get_locus());
 
@@ -967,11 +983,84 @@ namespace Vectorization
 
                 n.replace(vector_assignment);
             }
+            else if (tl_lhs_sym_type.is_mask())
+            {
+                walk(rhs);
+
+                const Nodecl::VectorMaskAssignment vector_mask_assignment =
+                    Nodecl::VectorMaskAssignment::make(
+                            lhs.shallow_copy(),
+                            rhs.shallow_copy(),
+                            vector_type,
+                            n.get_locus());
+
+                n.replace(vector_mask_assignment);
+            }
             else
             {
                 internal_error("Vectorizer: Unsupported assignment on %s at %s,"\
                        " which is has no vector type.\n",
                         lhs.prettyprint().c_str(), n.get_locus());
+            }
+        }
+        else if (lhs.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess cma = lhs.as<Nodecl::ClassMemberAccess>();
+
+            Nodecl::NodeclBase class_object = cma.get_lhs();
+            Nodecl::NodeclBase member = cma.get_member();
+
+            ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
+                    "Member is not a Symbol. Unsupported case", 0);
+            ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
+                    "Lhs is not an array. Unsupported case", 0);
+
+            int access_size = cma.get_type().no_ref().get_size();
+            int class_size = class_object.get_type().no_ref().get_size();
+            int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
+
+            //TODO a.x[i] = 
+
+            // a[i].x --> Scatter
+
+            // Remove CMA and visit again
+            lhs.replace(class_object.shallow_copy());
+
+            walk(n);
+
+            // Update lhs
+            lhs = n.get_lhs();
+
+            if(lhs.is<Nodecl::VectorStore>() ||
+                    lhs.is<Nodecl::UnalignedVectorStore>())
+            {
+                Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
+
+                Nodecl::VectorScatter vector_scatter = vstore.get_flags().
+                    as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+
+                // Add member to strides
+                Nodecl::NodeclBase strides = vector_scatter.get_strides();
+
+                strides.replace(Nodecl::Add::make(
+                            Nodecl::Mul::make(strides.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        class_size/access_size)),
+                                strides.get_type()),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(
+                                    member_offset/access_size)),
+                            strides.get_type()));
+
+                n.replace(vector_scatter);
+            }
+            else
+            {
+                running_error("Vectorizer: ClassMemberAccess type is not "\
+                        "supported yet: '%s'", n.prettyprint().c_str());
             }
         }
         else
@@ -1178,6 +1267,7 @@ namespace Vectorization
                                     basic_type.get_pointer_to(),
                                     n.get_locus()),
                                 mask,
+                                Nodecl::List::make(vector_gather),
                                 vector_type,
                                 n.get_locus());
 
@@ -1385,7 +1475,7 @@ namespace Vectorization
 
         //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
-        if (!sym_type.is_vector())
+        if (!sym_type.is_vector() && !sym_type.is_mask())
         {
             // Vectorize BASIC induction variable
             if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
@@ -1502,6 +1592,97 @@ namespace Vectorization
                         "is not IV, Constant, Local, Reduction or LastPrivate.",
                         n.get_symbol().get_name().c_str());
             }
+        }
+        else
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: '%s' already has vector type\n",
+                        n.prettyprint().c_str());
+            }
+        }
+    }
+
+    void VectorizerVisitorExpression::visit(const Nodecl::ClassMemberAccess& n)
+    {
+        Nodecl::NodeclBase n_original = n.shallow_copy();
+        Nodecl::NodeclBase class_object = n.get_lhs();
+        Nodecl::NodeclBase member = n.get_member();
+        Nodecl::NodeclBase mask = Utils::get_proper_mask(
+                _environment._mask_list.back());
+
+        ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
+                "Member is not a Symbol. Unsupported case", 0);
+        ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
+                "Lhs is not an array. Unsupported case", 0);
+
+        int access_size = n.get_type().no_ref().get_size();
+        int class_size = class_object.get_type().no_ref().get_size();
+        int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
+
+        //TODO a.x[i]
+
+        // a[i].x --> Gather
+
+        walk(class_object);
+
+        // Gather
+        if(class_object.is<Nodecl::VectorLoad>() ||
+                class_object.is<Nodecl::UnalignedVectorLoad>())
+        {
+            Nodecl::VectorLoad vload = class_object.as<Nodecl::VectorLoad>();
+
+            Nodecl::VectorGather vector_gather = vload.get_flags().
+                as<Nodecl::List>().find_first<Nodecl::VectorGather>();
+
+            // Add pointer casting to base --> (float *) &a[i].fp
+            Nodecl::NodeclBase base = vector_gather.get_base();
+
+            base.replace(Nodecl::Cast::make(base.shallow_copy(),
+                        n_original.get_type().no_ref().get_pointer_to(), ""));
+
+            // Add member to strides
+            Nodecl::NodeclBase strides = vector_gather.get_strides();
+
+            strides.replace(Nodecl::Add::make(
+                        Nodecl::Mul::make(strides.shallow_copy(),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(
+                                    class_size/access_size)),
+                            strides.get_type()),
+                        Nodecl::IntegerLiteral::make(
+                            TL::Type::get_int_type(),
+                            const_value_get_signed_int(
+                                member_offset/access_size)),
+                        strides.get_type()));
+
+            // Set new type
+            vector_gather.set_type(Utils::get_qualified_vector_to(
+                        n_original.get_type(),
+                        _environment._unroll_factor));
+
+            n.replace(vector_gather);
+        }
+        // Vector Promotion
+        else if (class_object.is<Nodecl::VectorPromotion>())
+        {
+            Nodecl::VectorPromotion vprom = class_object.
+                as<Nodecl::VectorPromotion>();
+
+            vprom.get_rhs().replace(n_original.shallow_copy());
+            
+            // Set new type
+            vprom.set_type(Utils::get_qualified_vector_to(
+                        n_original.get_type(),
+                        _environment._unroll_factor));
+
+            n.replace(vprom);
+        }
+        else
+        {
+                running_error("Vectorizer: ClassMemberAccess type is not "\
+                        "supported yet: '%s'", n.prettyprint().c_str());
         }
     }
 

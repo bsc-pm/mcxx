@@ -320,6 +320,7 @@ namespace Utils
             Ret visit( const Nodecl::BitwiseXorAssignment& n );
             Ret visit( const Nodecl::Cast& n );
             Ret visit( const Nodecl::ClassMemberAccess& n );
+            Ret visit( const Nodecl::ConditionalExpression& n );
             Ret visit( const Nodecl::Conversion& n );
             Ret visit( const Nodecl::Dereference& n );
             Ret visit( const Nodecl::Different& n );
@@ -367,7 +368,6 @@ namespace Utils
             Ret visit( const Nodecl::VectorLowerThan& n );
             Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
             Ret visit( const Nodecl::VectorMul& n );
-            Ret visit( const Nodecl::VectorMaskAssignment& n );
             Ret visit( const Nodecl::VectorPromotion& n );
             Ret visit( const Nodecl::VectorReductionAdd& n );
             Ret visit( const Nodecl::VectorScatter& n );

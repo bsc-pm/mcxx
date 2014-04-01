@@ -76,6 +76,7 @@ namespace TL
                 virtual void visit(const Nodecl::ArraySubscript& n);
                 virtual void visit(const Nodecl::FunctionCall& n);
                 virtual void visit(const Nodecl::Symbol& n);
+                virtual void visit(const Nodecl::ClassMemberAccess& n);
                 virtual void visit(const Nodecl::IntegerLiteral& n);
                 virtual void visit(const Nodecl::FloatingLiteral& n);
 
