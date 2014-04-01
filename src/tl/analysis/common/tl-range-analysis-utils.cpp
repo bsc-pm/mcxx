@@ -253,10 +253,16 @@ namespace Utils {
         return _constraint;
     }
         
-    bool Constraint::operator!=(const Constraint& c) 
+    bool Constraint::operator!=(const Constraint& c) const
     {
         return ((this->_constr_sym != c._constr_sym) ||
                 !Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
+    }
+    
+    bool Constraint::operator==(const Constraint& c) const
+    {
+        return ((this->_constr_sym == c._constr_sym) &&
+                Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
     }
     
     // ***************************** END Range Analysis Constraints ****************************** //

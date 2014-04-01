@@ -73,7 +73,8 @@ namespace Utils {
         Nodecl::NodeclBase get_constraint() const;
         
         // *** Comparators *** //
-        bool operator!=(const Constraint& c);
+        bool operator!=(const Constraint& c) const;
+        bool operator==(const Constraint& c) const;
     };
     
     typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;

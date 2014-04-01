@@ -167,8 +167,8 @@ namespace {
         std::string ranges = "";
         if( _ranges )
         {
-            Utils::ConstraintMap constraints = current->get_constraints( );
-            for(Utils::ConstraintMap::iterator it = constraints.begin(); it != constraints.end(); ++it)
+            Utils::ConstraintMap constraints_map = current->get_constraints_map( );
+            for(Utils::ConstraintMap::iterator it = constraints_map.begin(); it != constraints_map.end(); ++it)
                 ranges += it->second.get_symbol().get_name() + " = " + it->second.get_constraint().prettyprint() + "\\n";
             
             int l_size = ranges.size( );
@@ -176,6 +176,22 @@ namespace {
                 ranges = ranges.substr( 0, l_size - 2 );
         }
         return ranges;
+    }
+    
+    std::string print_node_ranges_propagated_str( Node* current )
+    {
+        std::string propagated_ranges = "";
+        if( _ranges )
+        {
+            Utils::ConstraintMap propagated_constraints_map = current->get_propagated_constraints_map( );
+            for(Utils::ConstraintMap::iterator it = propagated_constraints_map.begin(); it != propagated_constraints_map.end(); ++it)
+                propagated_ranges += it->second.get_symbol().get_name() + " = " + it->second.get_constraint().prettyprint() + "\\n";
+            
+            int l_size = propagated_ranges.size( );
+            if( ( l_size > 3 ) && ( propagated_ranges.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+                propagated_ranges = propagated_ranges.substr( 0, l_size - 2 );
+        }
+        return propagated_ranges;
     }
     
     std::string print_node_data_sharing( Node* current )
@@ -488,11 +504,15 @@ namespace {
             case __Entry:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
+                if(_ranges)
+                    print_node_analysis_info( current, graph_analysis_info, /*cluster name*/ "" );
                 break;
             }
             case __Exit:
             {
                 dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
+                if(_ranges)
+                    print_node_analysis_info( current, graph_analysis_info, /*cluster name*/ "" );
                 break;
             }
             case __UnclassifiedNode:
@@ -570,13 +590,7 @@ namespace {
                 dot_graph += indent + ss.str( ) + "[label=\"{[" + ss.str( ) + "] " + basic_block + "}\", shape=record, "
                            + basic_attrs + "];\n";
 
-                bool induction_vars = _induction_vars;  _induction_vars = false;
-                bool auto_scoping = _auto_scoping;      _auto_scoping = false;
-                bool auto_deps = _auto_deps;            _auto_deps = false;
                 print_node_analysis_info( current, graph_analysis_info, /*cluster name*/ "" );
-                _induction_vars = induction_vars;
-                _auto_scoping = auto_scoping;
-                _auto_deps = auto_deps;
                 break;
             }
             default:
@@ -733,6 +747,7 @@ namespace {
         std::string liveness_str = print_node_liveness( current );
         std::string reach_defs_str = print_node_reaching_defs( current );
         std::string ranges_str = print_node_ranges( current );
+        std::string ranges_propagated_str/* = print_node_ranges_propagated_str( current )*/;
         std::string induction_vars_str = print_node_induction_variables( current );
         std::string color;
         std::string common_attrs = "style=dashed";
@@ -796,9 +811,24 @@ namespace {
                 dot_analysis_info += ";\n";
             }
         }
-        if( !induction_vars_str.empty( ) )
+        if( !ranges_propagated_str.empty( ) )
         {
             std::string id = "-000000" + node_id.str( );
+            color = "darkslateblue";
+            dot_analysis_info += "\t" + id + "[label=\"" + ranges_propagated_str + " \", shape=box, color=" + color + "];\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
+                if( !cluster_name.empty() )
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
+            }
+        }
+        if( !induction_vars_str.empty( ) )
+        {
+            std::string id = "-0000000" + node_id.str( );
             color = "orange2";
             dot_analysis_info += "\t" + id + "[label=\"" + induction_vars_str + " \", shape=box, color=" + color + "];\n";
             if( !current->is_extended_graph_node( ) )
@@ -816,7 +846,7 @@ namespace {
             std::string auto_scope_str = print_node_data_sharing( current );
             if( !auto_scope_str.empty() )
             {
-                std::string id = "-0000000" + node_id.str( );
+                std::string id = "-00000000" + node_id.str( );
                 color = "darkgoldenrod1";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_scope_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )
@@ -833,7 +863,7 @@ namespace {
             std::string auto_deps_str = print_node_deps( current );
             if( !auto_deps_str.empty() )
             {
-                std::string id = "-00000000" + node_id.str( );
+                std::string id = "-000000000" + node_id.str( );
                 color = "skyblue3";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_deps_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )

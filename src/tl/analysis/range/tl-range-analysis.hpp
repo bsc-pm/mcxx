@@ -39,11 +39,11 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        Utils::ConstraintMap _constraints;
+        Utils::ConstraintMap _constraints_map;
         
     public:
         // *** Constructor *** //
-        ConstraintReplacement(Utils::ConstraintMap constraints);
+        ConstraintReplacement(Utils::ConstraintMap constraints_map);
         
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
@@ -55,10 +55,10 @@ namespace Analysis {
     {
     private:
         // map containing the constraints arriving at the nodecl being visited
-        Utils::ConstraintMap _input_constraints;        // Constraints coming from the parents or from previous statements in the current node
-        Utils::ConstraintMap _output_constraints;       // Constraints computed so far for the current node
-        Utils::ConstraintMap _output_true_constraints;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
-        Utils::ConstraintMap _output_false_constraints; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        Utils::ConstraintMap _input_constraints_map;        // Constraints coming from the parents or from previous statements in the current node
+        Utils::ConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
+        Utils::ConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
+        Utils::ConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
         
         Ret visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
         
@@ -72,9 +72,9 @@ namespace Analysis {
         void compute_constraints(const Nodecl::NodeclBase& n);
         
         // *** Getters and setters *** //
-        Utils::ConstraintMap get_output_constraints();
-        Utils::ConstraintMap get_output_true_constraints();
-        Utils::ConstraintMap get_output_false_constraints();
+        Utils::ConstraintMap get_output_constraints_map();
+        Utils::ConstraintMap get_output_true_constraints_map();
+        Utils::ConstraintMap get_output_false_constraints_map();
         
         // *** Consultants *** //
         bool new_constraint_is_repeated(const Utils::Constraint& c);
@@ -84,6 +84,7 @@ namespace Analysis {
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::Mod& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::Preincrement& n);
     };
