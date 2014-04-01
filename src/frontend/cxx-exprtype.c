@@ -10095,6 +10095,8 @@ static void check_nodecl_cast_expr(
       return; \
     } while (0)
 
+    char is_dynamic_cast = 0;
+
     if (strcmp(cast_kind, "C") == 0)
     {
         //   const_cast
@@ -10199,7 +10201,7 @@ static void check_nodecl_cast_expr(
             CONVERSION_ERROR;
         }
     }
-    else if (strcmp(cast_kind, "dynamic_cast") == 0)
+    else if ((is_dynamic_cast = (strcmp(cast_kind, "dynamic_cast") == 0)))
     {
         if (!conversion_is_valid_dynamic_cast(
                     &nodecl_casted_expr,
@@ -10297,8 +10299,22 @@ static void check_nodecl_cast_expr(
         nodecl_set_constant(*nodecl_output, converted_value);
     }
 
-    nodecl_expr_set_is_value_dependent(*nodecl_output,
-            nodecl_expr_is_value_dependent(nodecl_casted_expr));
+
+    if (!is_dynamic_cast)
+    {
+        // Expressions of the following form are value-dependent if either the
+        // type-id or simple-type-specifier is dependent or the expression or
+        // cast-expression is value-dependent:
+        //
+        // static_cast < type-id > ( expression )
+        // const_cast < type-id > ( expression )
+        // reinterpret_cast < type-id > ( expression )
+        // ( type-id ) ( expression )
+
+        nodecl_expr_set_is_value_dependent(*nodecl_output,
+                nodecl_expr_is_value_dependent(nodecl_casted_expr)
+                || is_dependent_type(declarator_type));
+    }
 
 #undef CONVERSION_ERROR
 }
@@ -10379,8 +10395,15 @@ static void check_nodecl_explicit_type_conversion(
             nodecl_make_cxx_explicit_type_cast(nodecl_initializer, type_info, locus);
         nodecl_expr_set_is_type_dependent(*nodecl_output,
                 is_dependent_type(type_info));
+
+        // Expressions of the following form are value-dependent if either the
+        // type-id or simple-type-specifier is dependent or the expression or
+        // cast-expression is value-dependent:
+        //
+        // simple-type-specifier ( expression-list[opt] )
         nodecl_expr_set_is_value_dependent(*nodecl_output,
-                nodecl_expr_is_value_dependent(nodecl_initializer));
+                nodecl_expr_is_value_dependent(nodecl_initializer)
+                || is_dependent_type(type_info));
     }
     else
     {
