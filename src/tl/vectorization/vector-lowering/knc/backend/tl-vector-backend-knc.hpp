@@ -99,75 +99,75 @@ namespace TL
 
                 KNCVectorBackend();
 
-                virtual void visit(const Nodecl::ObjectInit& node);
+                virtual void visit(const Nodecl::ObjectInit& n);
 
-                virtual void visit(const Nodecl::VectorAdd& node);
-                virtual void visit(const Nodecl::VectorMinus& node);
-                virtual void visit(const Nodecl::VectorMul& node);
-                virtual void visit(const Nodecl::VectorDiv& node);
-                virtual void visit(const Nodecl::VectorMod& node);
-                virtual void visit(const Nodecl::VectorSqrt& node);
-                virtual void visit(const Nodecl::VectorRsqrt& node);
+                virtual void visit(const Nodecl::VectorAdd& n);
+                virtual void visit(const Nodecl::VectorMinus& n);
+                virtual void visit(const Nodecl::VectorMul& n);
+                virtual void visit(const Nodecl::VectorDiv& n);
+                virtual void visit(const Nodecl::VectorMod& n);
+                virtual void visit(const Nodecl::VectorSqrt& n);
+                virtual void visit(const Nodecl::VectorRsqrt& n);
 
-                virtual void visit(const Nodecl::VectorFmadd& node);
+                virtual void visit(const Nodecl::VectorFmadd& n);
 
-                virtual void visit(const Nodecl::VectorNeg& node);
+                virtual void visit(const Nodecl::VectorNeg& n);
 
-                virtual void visit(const Nodecl::VectorLowerThan& node);
-                virtual void visit(const Nodecl::VectorLowerOrEqualThan& node);
-                virtual void visit(const Nodecl::VectorGreaterThan& node);
-                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& node);
-                virtual void visit(const Nodecl::VectorEqual& node);
-                virtual void visit(const Nodecl::VectorDifferent& node);
+                virtual void visit(const Nodecl::VectorLowerThan& n);
+                virtual void visit(const Nodecl::VectorLowerOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorGreaterThan& n);
+                virtual void visit(const Nodecl::VectorGreaterOrEqualThan& n);
+                virtual void visit(const Nodecl::VectorEqual& n);
+                virtual void visit(const Nodecl::VectorDifferent& n);
 
-                virtual void visit(const Nodecl::VectorBitwiseAnd& node);
-                virtual void visit(const Nodecl::VectorBitwiseOr& node);
-                virtual void visit(const Nodecl::VectorBitwiseXor& node);
-                virtual void visit(const Nodecl::VectorLogicalOr& node);
-                virtual void visit(const Nodecl::VectorBitwiseShl& node);
-                virtual void visit(const Nodecl::VectorArithmeticShr& node);
-                virtual void visit(const Nodecl::VectorBitwiseShr& node);
-                virtual void visit(const Nodecl::VectorAlignRight& node);
+                virtual void visit(const Nodecl::VectorBitwiseAnd& n);
+                virtual void visit(const Nodecl::VectorBitwiseOr& n);
+                virtual void visit(const Nodecl::VectorBitwiseXor& n);
+                virtual void visit(const Nodecl::VectorLogicalOr& n);
+                virtual void visit(const Nodecl::VectorBitwiseShl& n);
+                virtual void visit(const Nodecl::VectorArithmeticShr& n);
+                virtual void visit(const Nodecl::VectorBitwiseShr& n);
+                virtual void visit(const Nodecl::VectorAlignRight& n);
 
-                virtual void visit(const Nodecl::VectorConversion& node);
-                virtual void visit(const Nodecl::VectorCast& node);
-                virtual void visit(const Nodecl::VectorConditionalExpression& node);
-                virtual void visit(const Nodecl::VectorPromotion& node);
-                virtual void visit(const Nodecl::VectorLiteral& node);
-                virtual void visit(const Nodecl::VectorAssignment& node);
-                virtual void visit(const Nodecl::VectorLoad& node);
-                virtual void visit(const Nodecl::UnalignedVectorLoad& node);
+                virtual void visit(const Nodecl::VectorConversion& n);
+                virtual void visit(const Nodecl::VectorCast& n);
+                virtual void visit(const Nodecl::VectorConditionalExpression& n);
+                virtual void visit(const Nodecl::VectorPromotion& n);
+                virtual void visit(const Nodecl::VectorLiteral& n);
+                virtual void visit(const Nodecl::VectorAssignment& n);
+                virtual void visit(const Nodecl::VectorLoad& n);
+                virtual void visit(const Nodecl::UnalignedVectorLoad& n);
                 virtual void visit_vector_store(const Nodecl::VectorStore& node,
                         const int hint);
-                virtual void visit(const Nodecl::VectorStore& node);
-                virtual void visit(const Nodecl::VectorStreamStore& node);
+                virtual void visit(const Nodecl::VectorStore& n);
+                virtual void visit(const Nodecl::VectorStreamStore& n);
                 virtual void visit_unaligned_vector_store(
                         const Nodecl::UnalignedVectorStore& node,
                         const int hint);
-                virtual void visit(const Nodecl::UnalignedVectorStore& node);
-                virtual void visit(const Nodecl::UnalignedVectorStreamStore& node);
-                virtual void visit(const Nodecl::VectorGather& node);
-                virtual void visit(const Nodecl::VectorScatter& node);
+                virtual void visit(const Nodecl::UnalignedVectorStore& n);
+                virtual void visit(const Nodecl::UnalignedVectorStreamStore& n);
+                virtual void visit(const Nodecl::VectorGather& n);
+                virtual void visit(const Nodecl::VectorScatter& n);
 
-                virtual void visit(const Nodecl::VectorFunctionCall& node);
-                virtual void visit(const Nodecl::VectorFabs& node);
-                virtual void visit(const Nodecl::VectorSincos& node);
+                virtual void visit(const Nodecl::VectorFunctionCall& n);
+                virtual void visit(const Nodecl::VectorFabs& n);
+                virtual void visit(const Nodecl::VectorSincos& n);
 
-                virtual void visit(const Nodecl::ParenthesizedExpression& node);
+                virtual void visit(const Nodecl::ParenthesizedExpression& n);
 
-                virtual void visit(const Nodecl::VectorReductionAdd& node);
-                virtual void visit(const Nodecl::VectorReductionMinus& node);
+                virtual void visit(const Nodecl::VectorReductionAdd& n);
+                virtual void visit(const Nodecl::VectorReductionMinus& n);
 
-                virtual void visit(const Nodecl::VectorMaskAssignment& node);
-                virtual void visit(const Nodecl::VectorMaskConversion& node);
-                virtual void visit(const Nodecl::VectorMaskOr& node);
-                virtual void visit(const Nodecl::VectorMaskAnd& node);
-                virtual void visit(const Nodecl::VectorMaskNot& node);
-                virtual void visit(const Nodecl::VectorMaskAnd1Not& node);
-                virtual void visit(const Nodecl::VectorMaskAnd2Not& node);
-                virtual void visit(const Nodecl::VectorMaskXor& node);
+                virtual void visit(const Nodecl::VectorMaskAssignment& n);
+                virtual void visit(const Nodecl::VectorMaskConversion& n);
+                virtual void visit(const Nodecl::VectorMaskOr& n);
+                virtual void visit(const Nodecl::VectorMaskAnd& n);
+                virtual void visit(const Nodecl::VectorMaskNot& n);
+                virtual void visit(const Nodecl::VectorMaskAnd1Not& n);
+                virtual void visit(const Nodecl::VectorMaskAnd2Not& n);
+                virtual void visit(const Nodecl::VectorMaskXor& n);
 
-                virtual void visit(const Nodecl::MaskLiteral& node);
+                virtual void visit(const Nodecl::MaskLiteral& n);
 
                 virtual Nodecl::ExhaustiveVisitor<void>::Ret unhandled_node(
                         const Nodecl::NodeclBase& n);

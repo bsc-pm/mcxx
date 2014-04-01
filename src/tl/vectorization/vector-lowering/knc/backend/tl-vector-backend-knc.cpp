@@ -198,13 +198,13 @@ namespace Vectorization
         }
     }
 
-    void KNCVectorBackend::visit(const Nodecl::ObjectInit& node)
+    void KNCVectorBackend::visit(const Nodecl::ObjectInit& n)
     {
         TL::Source intrin_src;
 
-        if(node.has_symbol())
+        if(n.has_symbol())
         {
-            TL::Symbol sym = node.get_symbol();
+            TL::Symbol sym = n.get_symbol();
 
             // Vectorizing initialization
             Nodecl::NodeclBase init = sym.get_value();
@@ -215,10 +215,10 @@ namespace Vectorization
         }
     }
 
-    void KNCVectorBackend::common_binary_op_lowering(const Nodecl::NodeclBase& node,
+    void KNCVectorBackend::common_binary_op_lowering(const Nodecl::NodeclBase& n,
             const std::string& intrin_op_name)
     {
-        const Nodecl::VectorAdd& binary_node = node.as<Nodecl::VectorAdd>();
+        const Nodecl::VectorAdd& binary_node = n.as<Nodecl::VectorAdd>();
 
         const Nodecl::NodeclBase lhs = binary_node.get_lhs();
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
@@ -263,7 +263,7 @@ namespace Vectorization
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
                     ast_print_node_type(binary_node.get_kind()),
                     locus_to_str(binary_node.get_locus()),
-                    type.get_simple_declaration(node.retrieve_context(), "").c_str());
+                    type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         walk(lhs);
@@ -276,15 +276,15 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::common_unary_op_lowering(const Nodecl::NodeclBase& node,
+    void KNCVectorBackend::common_unary_op_lowering(const Nodecl::NodeclBase& n,
             const std::string& intrin_op_name)
     {
-        const Nodecl::VectorRsqrt& unary_node = node.as<Nodecl::VectorRsqrt>();
+        const Nodecl::VectorRsqrt& unary_node = n.as<Nodecl::VectorRsqrt>();
 
         const Nodecl::NodeclBase rhs = unary_node.get_rhs();
         const Nodecl::NodeclBase mask = unary_node.get_mask();
@@ -328,7 +328,7 @@ namespace Vectorization
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
                     ast_print_node_type(unary_node.get_kind()),
                     locus_to_str(unary_node.get_locus()),
-                    type.get_simple_declaration(node.retrieve_context(), "").c_str());
+                    type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         walk(rhs);
@@ -338,59 +338,59 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorAdd& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorAdd& n)
     {
-        common_binary_op_lowering(node, "add");
+        common_binary_op_lowering(n, "add");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMinus& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMinus& n)
     {
-        common_binary_op_lowering(node, "sub");
+        common_binary_op_lowering(n, "sub");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMul& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMul& n)
     {
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         if (type.is_integral_type())
-            common_binary_op_lowering(node, "mullo");
+            common_binary_op_lowering(n, "mullo");
         else
-            common_binary_op_lowering(node, "mul");
+            common_binary_op_lowering(n, "mul");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorDiv& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorDiv& n)
     {
-        common_binary_op_lowering(node, "div");
+        common_binary_op_lowering(n, "div");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMod& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMod& n)
     {
-        common_binary_op_lowering(node, "rem");
+        common_binary_op_lowering(n, "rem");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorSqrt& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorSqrt& n)
     {
-        common_unary_op_lowering(node, "sqrt");
+        common_unary_op_lowering(n, "sqrt");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorRsqrt& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorRsqrt& n)
     {
-        common_unary_op_lowering(node, "invsqrt");
+        common_unary_op_lowering(n, "invsqrt");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorFmadd& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorFmadd& n)
     {
-        const Nodecl::NodeclBase first_op = node.get_first_op();
-        const Nodecl::NodeclBase second_op = node.get_second_op();
-        const Nodecl::NodeclBase third_op = node.get_third_op();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase first_op = n.get_first_op();
+        const Nodecl::NodeclBase second_op = n.get_second_op();
+        const Nodecl::NodeclBase third_op = n.get_third_op();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix,
             mask_prefix, args, mask_args;
@@ -428,8 +428,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(first_op);
@@ -447,17 +447,17 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
     void KNCVectorBackend::common_comparison_op_lowering(
-            const Nodecl::NodeclBase& node,
+            const Nodecl::NodeclBase& n,
             const int float_cmp_flavor,
             const _MM_CMPINT_ENUM int_cmp_flavor)
     {
-        Nodecl::VectorLowerThan cmp_node = node.as<Nodecl::VectorLowerThan>();
+        Nodecl::VectorLowerThan cmp_node = n.as<Nodecl::VectorLowerThan>();
 
         const Nodecl::NodeclBase lhs = cmp_node.get_lhs();
         const Nodecl::NodeclBase rhs = cmp_node.get_rhs();
@@ -497,8 +497,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -517,40 +517,40 @@ namespace Vectorization
         cmp_node.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
-        common_comparison_op_lowering(node, _CMP_LT_OS, _MM_CMPINT_LT);
+        common_comparison_op_lowering(n, _CMP_LT_OS, _MM_CMPINT_LT);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
-        common_comparison_op_lowering(node, _CMP_LE_OS, _MM_CMPINT_LE);
+        common_comparison_op_lowering(n, _CMP_LE_OS, _MM_CMPINT_LE);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
-        common_comparison_op_lowering(node, _CMP_GT_OS, _MM_CMPINT_NLE);
+        common_comparison_op_lowering(n, _CMP_GT_OS, _MM_CMPINT_NLE);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
-        common_comparison_op_lowering(node, _CMP_GE_OS, _MM_CMPINT_NLT);
+        common_comparison_op_lowering(n, _CMP_GE_OS, _MM_CMPINT_NLT);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorEqual& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
-        common_comparison_op_lowering(node, _CMP_EQ_OQ, _MM_CMPINT_EQ);
+        common_comparison_op_lowering(n, _CMP_EQ_OQ, _MM_CMPINT_EQ);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorDifferent& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
-        common_comparison_op_lowering(node, _CMP_NEQ_UQ, _MM_CMPINT_NE);
+        common_comparison_op_lowering(n, _CMP_NEQ_UQ, _MM_CMPINT_NE);
     }
 
-    void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& node,
+    void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& n,
             const std::string& intrin_op_name)
     {
-        const Nodecl::VectorBitwiseAnd& binary_node = node.as<Nodecl::VectorBitwiseAnd>();
+        const Nodecl::VectorBitwiseAnd& binary_node = n.as<Nodecl::VectorBitwiseAnd>();
 
         const Nodecl::NodeclBase lhs = binary_node.get_lhs();
         const Nodecl::NodeclBase rhs = binary_node.get_rhs();
@@ -609,33 +609,33 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseAnd& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseAnd& n)
     {
-        bitwise_binary_op_lowering(node, "and");
+        bitwise_binary_op_lowering(n, "and");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseOr& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseOr& n)
     {
-        bitwise_binary_op_lowering(node, "or");
+        bitwise_binary_op_lowering(n, "or");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseXor& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseXor& n)
     {
-        bitwise_binary_op_lowering(node, "xor");
+        bitwise_binary_op_lowering(n, "xor");
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseShl& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseShl& n)
     {
-        const Nodecl::NodeclBase lhs = node.get_lhs();
-        const Nodecl::NodeclBase rhs = node.get_rhs();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase lhs = n.get_lhs();
+        const Nodecl::NodeclBase rhs = n.get_rhs();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args, rhs_expression;
@@ -666,8 +666,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -692,18 +692,18 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorArithmeticShr& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorArithmeticShr& n)
     {
-        const Nodecl::NodeclBase lhs = node.get_lhs();
-        const Nodecl::NodeclBase rhs = node.get_rhs();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase lhs = n.get_lhs();
+        const Nodecl::NodeclBase rhs = n.get_rhs();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args, rhs_expression;
@@ -734,8 +734,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -761,19 +761,19 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
 
-    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseShr& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorBitwiseShr& n)
     {
-        const Nodecl::NodeclBase lhs = node.get_lhs();
-        const Nodecl::NodeclBase rhs = node.get_rhs();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase lhs = n.get_lhs();
+        const Nodecl::NodeclBase rhs = n.get_rhs();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args, rhs_expression;
@@ -804,8 +804,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -831,26 +831,26 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorLogicalOr& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorLogicalOr& n)
     {
         running_error("KNC Backend %s: 'logical or' operation (i.e., operator '||') is not "\
                 "supported in KNC. Try using 'bitwise or' operations (i.e., operator '|') instead if possible.",
-                locus_to_str(node.get_locus()));
+                locus_to_str(n.get_locus()));
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorAlignRight& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorAlignRight& n)
     {
-        const Nodecl::NodeclBase left_vector = node.get_left_vector();
-        const Nodecl::NodeclBase right_vector = node.get_right_vector();
-        const Nodecl::NodeclBase num_elements = node.get_num_elements();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase left_vector = n.get_left_vector();
+        const Nodecl::NodeclBase right_vector = n.get_right_vector();
+        const Nodecl::NodeclBase num_elements = n.get_num_elements();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args, rhs_expression;
@@ -890,17 +890,17 @@ namespace Vectorization
         //#warning
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorNeg& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorNeg& n)
     {
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, neg_op;
 
@@ -983,23 +983,23 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorConversion& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorConversion& n)
     {
-        const Nodecl::NodeclBase nest = node.get_nest();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase nest = n.get_nest();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
         const TL::Type& src_vector_type = nest.get_type().get_unqualified_type().no_ref();
-        const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
+        const TL::Type& dst_vector_type = n.get_type().get_unqualified_type().no_ref();
         const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
         const int src_type_size = src_type.get_size();
@@ -1035,7 +1035,7 @@ namespace Vectorization
 
         if (src_type.is_same_type(dst_type))
         {
-            node.replace(nest);
+            n.replace(nest);
             return;
         }
         else if ((src_type.is_signed_int() && dst_type.is_unsigned_int()) ||
@@ -1051,7 +1051,7 @@ namespace Vectorization
                 (src_type.is_signed_short_int() && dst_type.is_unsigned_short_int()) ||
                 (dst_type.is_signed_short_int() && src_type.is_unsigned_short_int()))
         {
-            node.replace(nest);
+            n.replace(nest);
             return;
         }
         // SIZE_DST == SIZE_SRC
@@ -1112,9 +1112,9 @@ namespace Vectorization
         if (intrin_op_name.empty())
         {
             fprintf(stderr, "KNC Backend: Masked conversion from '%s' to '%s' at '%s' is not supported yet: %s\n",
-                    src_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    dst_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
-                    locus_to_str(node.get_locus()),
+                    src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    locus_to_str(n.get_locus()),
                     nest.prettyprint().c_str());
         }
 
@@ -1124,16 +1124,16 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorCast& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorCast& n)
     {
-        const Nodecl::NodeclBase rhs = node.get_rhs();
+        const Nodecl::NodeclBase rhs = n.get_rhs();
 
-        const TL::Type& dst_vector_type = node.get_type().get_unqualified_type().no_ref();
+        const TL::Type& dst_vector_type = n.get_type().get_unqualified_type().no_ref();
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
         const TL::Type& src_type = rhs.get_type().basic_type().get_unqualified_type();
 
@@ -1149,14 +1149,14 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorPromotion& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorPromotion& n)
     {
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src;
 
@@ -1178,26 +1178,29 @@ namespace Vectorization
         }
         else
         {
-            internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+            std::cerr << n.prettyprint() << std::endl;
+
+            internal_error("KNC Backend: Node %s at %s has an unsupported type: %s",
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()),
+                    type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
-        walk(node.get_rhs());
+        walk(n.get_rhs());
 
         intrin_src << "(";
-        intrin_src << as_expression(node.get_rhs());
+        intrin_src << as_expression(n.get_rhs());
         intrin_src << ")";
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorLiteral& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorLiteral& n)
     {
-        TL::Type vector_type = node.get_type();
+        TL::Type vector_type = n.get_type();
         TL::Type scalar_type = vector_type.basic_type();
 
         TL::Source intrin_src, intrin_name, undefined_value, values;
@@ -1230,13 +1233,13 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported scalar_type (%s).",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()),
-                    scalar_type.get_simple_declaration(node.retrieve_context(), "").c_str());
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()),
+                    scalar_type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         Nodecl::List scalar_values =
-            node.get_scalar_values().as<Nodecl::List>();
+            n.get_scalar_values().as<Nodecl::List>();
 
 
         unsigned int num_undefined_values =
@@ -1256,20 +1259,20 @@ namespace Vectorization
         }
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorConditionalExpression& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorConditionalExpression& n)
     {
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, swizzle;
 
-        Nodecl::NodeclBase true_node = node.get_true();
-        Nodecl::NodeclBase false_node = node.get_false();
-        Nodecl::NodeclBase condition_node = node.get_condition();
+        Nodecl::NodeclBase true_node = n.get_true();
+        Nodecl::NodeclBase false_node = n.get_false();
+        Nodecl::NodeclBase condition_node = n.get_condition();
 
         TL::Type true_type = true_node.get_type().basic_type();
         TL::Type false_type = false_node.get_type().basic_type();
@@ -1278,30 +1281,33 @@ namespace Vectorization
         if (true_type.is_float()
                 && false_type.is_float())
         {
-            intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_ps";
+//            intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_ps";
+            intrin_src << KNC_INTRIN_PREFIX << "_mask_blend_ps";
         }
         else if (true_type.is_double()
                 && false_type.is_double())
         {
-            intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_pd";
+//            intrin_src << KNC_INTRIN_PREFIX << "_mask_mov_pd";
+            intrin_src << KNC_INTRIN_PREFIX << "_mask_blend_pd";
         }
         else if (true_type.is_integral_type()
                 && false_type.is_integral_type())
         {
-            intrin_src << KNC_INTRIN_PREFIX << "_mask_swizzle_epi32";
-            swizzle << ", _MM_SWIZ_REG_NONE";
+            intrin_src << KNC_INTRIN_PREFIX << "_mask_blend_epi32";
+//            intrin_src << KNC_INTRIN_PREFIX << "_mask_swizzle_epi32";
+//            swizzle << ", _MM_SWIZ_REG_NONE";
         }
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(false_node);
         walk(true_node);
         walk(condition_node);
-
+/*
         intrin_src << "("
             << as_expression(false_node) // False first!
             << ", "
@@ -1310,20 +1316,29 @@ namespace Vectorization
             << as_expression(true_node)
             << swizzle
             << ")";
+*/
+        intrin_src << "("
+            << as_expression(condition_node)
+            << ", "
+            << as_expression(false_node) // False first!
+            << ", "
+            << as_expression(true_node)
+            << ")";
+
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorAssignment& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorAssignment& n)
     {
-        Nodecl::NodeclBase lhs = node.get_lhs();
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args;
@@ -1359,7 +1374,7 @@ namespace Vectorization
                     internal_error("KNC Backend: Different old value and lhs in assignment with blend. LHS node '%s'. Old '%s'. At %s",
                             lhs.prettyprint().c_str(),
                             _old_m512.back().prettyprint().c_str(),
-                            locus_to_str(node.get_locus()));
+                            locus_to_str(n.get_locus()));
                 }
 
                 process_mask_component(mask, mask_prefix, mask_args, type,
@@ -1402,17 +1417,17 @@ namespace Vectorization
         }
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorLoad& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
     {
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
             mask_prefix, args, mask_args, extra_args;
@@ -1450,8 +1465,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(rhs);
@@ -1462,17 +1477,17 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorLoad& node)
+    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorLoad& n)
     {
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
             mask_prefix, mask_args, args_lo, args_hi, extra_args;
@@ -1525,8 +1540,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         args_lo << mask_args
@@ -1550,19 +1565,19 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit_vector_store(const Nodecl::VectorStore& node,
+    void KNCVectorBackend::visit_vector_store(const Nodecl::VectorStore& n,
             const int hint)
     {
-        Nodecl::NodeclBase lhs = node.get_lhs();
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_lhs().get_type().basic_type();
+        TL::Type type = n.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_op_name, args,
             intrin_type_suffix, mask_prefix, mask_args, casting_args,
@@ -1607,8 +1622,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -1628,35 +1643,35 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorStore& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
     {
-        visit_vector_store(node, _MM_HINT_NONE);
+        visit_vector_store(n, _MM_HINT_NONE);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorStreamStore& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorStreamStore& n)
     {
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase mask = n.get_mask();
 
         // Stream store with mask is not supported
         // Emit store with hint instead
         if(!mask.is_null())
         {
-            visit_vector_store(node.as<Nodecl::VectorStore>(), _MM_HINT_NT);
+            visit_vector_store(n.as<Nodecl::VectorStore>(), _MM_HINT_NT);
             return;
         }
 
-        Nodecl::NodeclBase lhs = node.get_lhs();
-        Nodecl::NodeclBase rhs = node.get_rhs();
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
 
-        TL::Type type = node.get_lhs().get_type().basic_type();
+        TL::Type type = n.get_lhs().get_type().basic_type();
 
         TL::ObjectList<Nodecl::NodeclBase> ss_flags =
-            node.get_flags().as<Nodecl::List>().to_object_list();
+            n.get_flags().as<Nodecl::List>().to_object_list();
 
         bool relaxed_store = Nodecl::Utils::list_contains_nodecl(
                 ss_flags, Nodecl::RelaxedFlag::make());
@@ -1711,8 +1726,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -1737,19 +1752,19 @@ namespace Vectorization
         }
 
         Nodecl::NodeclBase function_call =
-            stream_store_src.parse_expression(node.retrieve_context());
+            stream_store_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
     void KNCVectorBackend::visit_unaligned_vector_store(const Nodecl::UnalignedVectorStore&
-            node, const int hint)
+            n, const int hint)
     {
-        Nodecl::NodeclBase lhs = node.get_lhs();
-        Nodecl::NodeclBase rhs = node.get_rhs();
-        Nodecl::NodeclBase mask = node.get_mask();
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_lhs().get_type().basic_type();
+        TL::Type type = n.get_lhs().get_type().basic_type();
 
         TL::Source intrin_src, intrin_name_hi, intrin_name_lo, intrin_type_suffix,
             mask_prefix, mask_args, args_lo, args_hi, extra_args, tmp_var,
@@ -1809,8 +1824,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(lhs);
@@ -1845,28 +1860,28 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStore& node)
+    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStore& n)
     {
-        visit_unaligned_vector_store(node, _MM_HINT_NONE);
+        visit_unaligned_vector_store(n, _MM_HINT_NONE);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStreamStore& node)
+    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStreamStore& n)
     {
-        visit_unaligned_vector_store(node.as<Nodecl::UnalignedVectorStore>(), _MM_HINT_NT);
+        visit_unaligned_vector_store(n.as<Nodecl::UnalignedVectorStore>(), _MM_HINT_NT);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorGather& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorGather& n)
     {
-        const Nodecl::NodeclBase base = node.get_base();
-        const Nodecl::NodeclBase strides = node.get_strides();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase base = n.get_base();
+        const Nodecl::NodeclBase strides = n.get_strides();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
         TL::Type index_type = strides.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_op_name, intrin_type_suffix,
@@ -1903,18 +1918,21 @@ namespace Vectorization
         }
         else
         {
-            internal_error("KNC Backend: Node %s at %s has an unsupported source type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+            std::cerr << n.prettyprint() << std::endl;
+
+            internal_error("KNC Backend: Node %s at %s has an unsupported source type: %s",
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()),
+                    type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         if ((!index_type.is_signed_int()) && (!index_type.is_unsigned_int()))
         {
             internal_error("KNC Backend: Node %s (%s) at %s has an unsupported index type: %s",
                     base.prettyprint().c_str(),
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()),
-                    index_type.get_simple_declaration(node.retrieve_context(), "").c_str());
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()),
+                    index_type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         walk(base);
@@ -1933,17 +1951,17 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorScatter& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorScatter& n)
     {
-        const Nodecl::NodeclBase base = node.get_base();
-        const Nodecl::NodeclBase strides = node.get_strides();
-        const Nodecl::NodeclBase source = node.get_source();
-        const Nodecl::NodeclBase mask = node.get_mask();
+        const Nodecl::NodeclBase base = n.get_base();
+        const Nodecl::NodeclBase strides = n.get_strides();
+        const Nodecl::NodeclBase source = n.get_source();
+        const Nodecl::NodeclBase mask = n.get_mask();
 
         TL::Type type = source.get_type().basic_type();
         TL::Type index_type = strides.get_type().basic_type();
@@ -1976,8 +1994,8 @@ namespace Vectorization
                 (!index_type.is_signed_long_int()) && (!index_type.is_unsigned_long_int()))
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported index type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         // Source
@@ -1994,8 +2012,8 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported source type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         walk(base);
@@ -2017,25 +2035,25 @@ namespace Vectorization
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorFunctionCall& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorFunctionCall& n)
     {
         Nodecl::FunctionCall function_call =
-            node.get_function_call().as<Nodecl::FunctionCall>();
+            n.get_function_call().as<Nodecl::FunctionCall>();
 
-        const Nodecl::NodeclBase mask = node.get_mask();
-        TL::Type vector_type = node.get_type();
+        const Nodecl::NodeclBase mask = n.get_mask();
+        TL::Type vector_type = n.get_type();
         TL::Type scalar_type = vector_type.basic_type();
         Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
 
         if (mask.is_null()) // UNMASKED FUNCTION CALLS
         {
             walk(arguments);
-            node.replace(function_call);
+            n.replace(function_call);
         }
         else // MASKED FUNCTION CALLS
         {
@@ -2053,7 +2071,7 @@ namespace Vectorization
                 as<Nodecl::Symbol>().get_symbol().get_name();
 
             TL::Symbol scalar_sym =
-                node.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
+                n.get_scalar_symbol().as<Nodecl::Symbol>().get_symbol();
 
             // Use scalar symbol to look up
             if(_vectorizer.is_svml_function(scalar_sym.get_name(),
@@ -2076,9 +2094,9 @@ namespace Vectorization
                 }
 
                 Nodecl::NodeclBase intrin_function_call =
-                    intrin_src.parse_expression(node.retrieve_context());
+                    intrin_src.parse_expression(n.retrieve_context());
 
-                node.replace(intrin_function_call);
+                n.replace(intrin_function_call);
             }
             else // Compound Expression to avoid infinite recursion
             {
@@ -2115,19 +2133,19 @@ namespace Vectorization
                 conditional_exp <<  intrin_src;
 
                 Nodecl::NodeclBase conditional_exp_node =
-                    conditional_exp.parse_expression(node.retrieve_context());
+                    conditional_exp.parse_expression(n.retrieve_context());
 
-                node.replace(conditional_exp_node);
+                n.replace(conditional_exp_node);
             }
         }
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorFabs& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorFabs& n)
     {
-        const Nodecl::NodeclBase mask = node.get_mask();
-        const Nodecl::NodeclBase argument = node.get_argument();
+        const Nodecl::NodeclBase mask = n.get_mask();
+        const Nodecl::NodeclBase argument = n.get_argument();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, mask_prefix, mask_args;
 
@@ -2158,24 +2176,24 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorSincos& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorSincos& n)
     {
-        const Nodecl::NodeclBase mask = node.get_mask();
-        const Nodecl::NodeclBase source = node.get_source();
-        const Nodecl::NodeclBase sin_pointer = node.get_sin_pointer();
-        const Nodecl::NodeclBase cos_pointer = node.get_cos_pointer();
+        const Nodecl::NodeclBase mask = n.get_mask();
+        const Nodecl::NodeclBase source = n.get_source();
+        const Nodecl::NodeclBase sin_pointer = n.get_sin_pointer();
+        const Nodecl::NodeclBase cos_pointer = n.get_cos_pointer();
 
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, mask_prefix, mask_args;
 
@@ -2216,29 +2234,29 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type: %s.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()),
-                    type.get_simple_declaration(node.retrieve_context(), "").c_str());
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()),
+                    type.get_simple_declaration(n.retrieve_context(), "").c_str());
         }
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::ParenthesizedExpression& node)
+    void KNCVectorBackend::visit(const Nodecl::ParenthesizedExpression& n)
     {
-        walk(node.get_nest());
+        walk(n.get_nest());
 
-        Nodecl::NodeclBase n(node.shallow_copy());
-        n.set_type(node.get_nest().get_type());
-        node.replace(n);
+        Nodecl::NodeclBase new_n(n.shallow_copy());
+        new_n.set_type(n.get_nest().get_type());
+        n.replace(new_n);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorReductionAdd& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorReductionAdd& n)
     {
-        TL::Type type = node.get_type().basic_type();
+        TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name;
 
@@ -2260,196 +2278,196 @@ namespace Vectorization
         else
         {
             internal_error("KNC Backend: Node %s at %s has an unsupported type.",
-                    ast_print_node_type(node.get_kind()),
-                    locus_to_str(node.get_locus()));
+                    ast_print_node_type(n.get_kind()),
+                    locus_to_str(n.get_locus()));
         }
 
-        walk(node.get_scalar_dst());
-        walk(node.get_vector_src());
+        walk(n.get_scalar_dst());
+        walk(n.get_vector_src());
 
-        intrin_src << as_expression(node.get_scalar_dst())
+        intrin_src << as_expression(n.get_scalar_dst())
             << " += "
             << intrin_name
             << "("
-            << as_expression(node.get_vector_src())
+            << as_expression(n.get_vector_src())
             << ")";
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorReductionMinus& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorReductionMinus& n)
     {
         // OpenMP defines reduction(-:a) in the same way as reduction(+:a)
-        visit(node.as<Nodecl::VectorReductionAdd>());
+        visit(n.as<Nodecl::VectorReductionAdd>());
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskAssignment& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskAssignment& n)
     {
         TL::Source intrin_src, mask_cast;
 
-        TL::Type rhs_type = node.get_rhs().get_type();
+        TL::Type rhs_type = n.get_rhs().get_type();
 
         if(rhs_type.is_integral_type())
-            mask_cast << "(" << node.get_lhs().get_type().no_ref().
-                get_simple_declaration(node.retrieve_context(), "") << ")";
+            mask_cast << "(" << n.get_lhs().get_type().no_ref().
+                get_simple_declaration(n.retrieve_context(), "") << ")";
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
-        intrin_src << as_expression(node.get_lhs())
+        intrin_src << as_expression(n.get_lhs())
             << " = "
             << "("
             << mask_cast
             << "("
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << "))"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
     //TODO
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskConversion& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskConversion& n)
     {
-        walk(node.get_nest());
+        walk(n.get_nest());
 
-        node.get_nest().set_type(node.get_type());
+        n.get_nest().set_type(n.get_type());
 
-        node.replace(node.get_nest());
+        n.replace(n.get_nest());
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskNot& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskNot& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_rhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_knot("
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_kand("
-            << as_expression(node.get_lhs())
+            << as_expression(n.get_lhs())
             << ", "
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskOr& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskOr& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_kor("
-            << as_expression(node.get_lhs())
+            << as_expression(n.get_lhs())
             << ", "
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd1Not& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd1Not& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_kandn("
-            << as_expression(node.get_lhs())
+            << as_expression(n.get_lhs())
             << ", "
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd2Not& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskAnd2Not& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_kandnr("
-            << as_expression(node.get_lhs())
+            << as_expression(n.get_lhs())
             << ", "
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorMaskXor& node)
+    void KNCVectorBackend::visit(const Nodecl::VectorMaskXor& n)
     {
         TL::Source intrin_src;
 
-        walk(node.get_lhs());
-        walk(node.get_rhs());
+        walk(n.get_lhs());
+        walk(n.get_rhs());
 
         intrin_src << KNC_INTRIN_PREFIX << "_kxor("
-            << as_expression(node.get_lhs())
+            << as_expression(n.get_lhs())
             << ", "
-            << as_expression(node.get_rhs())
+            << as_expression(n.get_rhs())
             << ")"
             ;
 
         Nodecl::NodeclBase function_call =
-            intrin_src.parse_expression(node.retrieve_context());
+            intrin_src.parse_expression(n.retrieve_context());
 
-        node.replace(function_call);
+        n.replace(function_call);
     }
 
 
-    void KNCVectorBackend::visit(const Nodecl::MaskLiteral& node)
+    void KNCVectorBackend::visit(const Nodecl::MaskLiteral& n)
     {
         Nodecl::IntegerLiteral int_mask =
             Nodecl::IntegerLiteral::make(
                     TL::Type::get_short_int_type(),
-                    node.get_constant());
+                    n.get_constant());
 
-        node.replace(int_mask);
+        n.replace(int_mask);
     }
 
     Nodecl::NodeclVisitor<void>::Ret KNCVectorBackend::unhandled_node(const Nodecl::NodeclBase& n)
