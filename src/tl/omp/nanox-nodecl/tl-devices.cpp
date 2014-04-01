@@ -937,6 +937,12 @@ namespace TL { namespace Nanox {
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
 
+            if (current_function.is_member())
+            {
+                new_template_sym->entity_specs.is_member = 1;
+                new_template_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            }
+
             // The new function is the primary template specialization
             new_function_sym = named_type_get_symbol(
                     template_type_get_primary_type(
