@@ -298,10 +298,11 @@ namespace{
         TDG_Edge* _edge;
         int _id;
         std::map<TL::Symbol, std::string> _var_id_to_values;
+        ObjectList<TL::Symbol> _params;
         
         // *** Constructor *** //
-        ConditionVisitor(TDG_Edge* edge)
-            : _edge(edge), _id(0), _var_id_to_values()
+        ConditionVisitor(TDG_Edge* edge, ObjectList<TL::Symbol> params)
+            : _edge(edge), _id(0), _var_id_to_values(), _params(params)
         {}
         
         std::map<TL::Symbol, std::string> get_var_id_to_values_map()
@@ -318,17 +319,26 @@ namespace{
             {
                 // Get the reaching definition of the symbol from the source node
                 Utils::ExtendedSymbol es(*it);
-                ERROR_CONDITION(reach_defs.find(es)==reach_defs.end(),
-                                "No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
-                                pcfg_node_id, it->get_symbol().get_name().c_str(), 
-                                n.prettyprint().c_str());
-                std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> reach_defs_map = reach_defs.equal_range(es);
-                // Store the reaching definitions in the map that relates it with the corresponding symbol
-                Utils::ext_sym_map::iterator itt = reach_defs_map.first;
-                Nodecl::NodeclBase reach_def = itt->second;
-                ++itt;
-                for(; itt != reach_defs_map.second; ++itt)
-                    reach_def = Nodecl::LogicalOr::make(reach_def.shallow_copy(), itt->second, itt->second.get_type());
+                if((reach_defs.find(es)==reach_defs.end()) && !_params.contains(it->get_symbol()))
+                {
+                    internal_error("No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
+                                   pcfg_node_id, it->get_symbol().get_name().c_str(), 
+                                   n.prettyprint().c_str());
+                }
+                
+                Nodecl::NodeclBase reach_def;
+                if(reach_defs.find(es)!=reach_defs.end())
+                {
+                    std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> reach_defs_map = reach_defs.equal_range(es);
+                    // Store the reaching definitions in the map that relates it with the corresponding symbol
+                    Utils::ext_sym_map::iterator itt = reach_defs_map.first;
+                    reach_def = itt->second;
+                    ++itt;
+                    for(; itt != reach_defs_map.second; ++itt)
+                        reach_def = Nodecl::LogicalOr::make(reach_def.shallow_copy(), itt->second, itt->second.get_type());
+                }
+                else
+                    reach_def = it->shallow_copy();
                 sym_reach_def_map[it->get_symbol()] = reach_def;
             }
             // Replace the names by the expression identifier and get the reaching definitions of each variable
@@ -395,9 +405,10 @@ namespace{
     //     The expression :         'i == j'
     //     Will return the string:  '$1 == $2'
     std::string transform_edge_condition_into_json_expr(TDG_Edge* edge, const Nodecl::NodeclBase& condition, 
-                                                        std::map<TL::Symbol, std::string>& var_id_to_values)
+                                                        std::map<TL::Symbol, std::string>& var_id_to_values, 
+                                                        const ObjectList<TL::Symbol>& params)
     {
-        ConditionVisitor cv(edge);
+        ConditionVisitor cv(edge, params);
         std::string result = cv.walk(condition);
         var_id_to_values = cv.get_var_id_to_values_map();
         return result;
@@ -925,7 +936,11 @@ namespace{
             else
             {
                 condition = edge->_condition;
-                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_id_to_values) << "\",\n";
+                ObjectList<TL::Symbol> params;
+                TL::Symbol func_sym = _pcfg->get_function_symbol();
+                if(func_sym.is_valid())
+                    params = func_sym.get_function_parameters();
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_id_to_values, params) << "\",\n";
             }
             
             // Generate the list of involved variables
