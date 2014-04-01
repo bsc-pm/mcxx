@@ -944,10 +944,7 @@ namespace{
             }
             
             // Generate the list of involved variables
-            if(var_id_to_values.size() > 1)
-                json_tdg << indent << "\"vars\" : [\n";
-            else
-                json_tdg << indent << "\"vars\" : \n";
+            json_tdg << indent << "\"vars\" : [\n";
             int i = 1;
             for(std::map<TL::Symbol, std::string>::iterator its = var_id_to_values.begin(); its != var_id_to_values.end(); ++i)
             {
@@ -966,8 +963,7 @@ namespace{
                 else
                     json_tdg << indent << "\t}\n";
             }
-            if(var_id_to_values.size() > 1)
-                json_tdg << indent << "]\n";
+            json_tdg << indent << "]\n";
         }
         else    // There is no condition => TRUE
             json_tdg << "true\n";
