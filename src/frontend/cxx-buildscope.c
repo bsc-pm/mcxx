@@ -18751,6 +18751,16 @@ static scope_entry_t* instantiate_declaration_common(
 
                     break;
                 }
+            case SK_TYPEDEF:
+                {
+                    new_entry->type_information = update_type_for_instantiation(
+                            orig_entry->type_information,
+                            v->new_decl_context,
+                            nodecl_get_locus(node),
+                            v->instantiation_symbol_map,
+                            /* pack */ -1);
+                    break;
+                }
             default:
                 internal_error("Not yet implemented for symbol kind %s\n", symbol_kind_name(orig_entry));
         }
