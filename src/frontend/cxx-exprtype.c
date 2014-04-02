@@ -8636,7 +8636,10 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
 
     if (nodecl_is_err_expr(*nodecl_output))
     {
-        if (!checking_ambiguity())
+        if (!checking_ambiguity()
+                && !nodecl_is_err_expr(first_op)
+                && !nodecl_is_err_expr(second_op)
+                && !nodecl_is_err_expr(third_op))
         {
             type_t* first_type = nodecl_get_type(first_op);
             type_t* second_type = nodecl_get_type(second_op);
