@@ -79,6 +79,7 @@ struct member_declaration_info_tag
     SCI_CONVERSION_ID(SCI_INVALID) \
     SCI_CONVERSION_ID(SCI_NO_CONVERSION) \
     SCI_CONVERSION_ID(SCI_IDENTITY) /* Special value for identities */ \
+    SCI_CONVERSION_ID(SCI_DERIVED_TO_BASE) /* Not a real conversion, used only in overloads */ \
     /* One or more of these */ \
     SCI_CONVERSION_ID(SCI_LVALUE_TO_RVALUE) \
     SCI_CONVERSION_ID(SCI_ARRAY_TO_POINTER)  \

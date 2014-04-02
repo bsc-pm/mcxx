@@ -1,7 +1,7 @@
 @DISABLEMPI_ICC@[mpimcc : imcc]
 @DISABLEMPI_GCC@[mpimcc : mcc]
 language = C
-options= --variable=allow_shared_without_copies:1 --variable=nanos_main_enabled:1
+options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICC@
 {!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DX86_ARCH
 {mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMIC_ARCH
@@ -16,7 +16,7 @@ compiler_phase = libtlnanox-mpi.so
 @DISABLEMPI_ICC@[mpimcxx : imcxx]
 @DISABLEMPI_GCC@[mpimcxx : mcxx]
 language = C++
-options= --variable=allow_shared_without_copies:1 --variable=nanos_main_enabled:1
+options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICXX@
 {!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DX86_ARCH -DMPICH_IGNORE_CXX_SEEK
 {mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMIC_ARCH -DMPICH_IGNORE_CXX_SEEK
@@ -30,7 +30,7 @@ compiler_phase = libtlnanox-mpi.so
 @DISABLEMPI_ICC@[mpimfc : imfc]
 @DISABLEMPI_GCC@[mpimfc : mfc]
 language = Fortran
-options = --variable=allow_shared_without_copies:1 --variable=nanos_main_enabled:1
+options = --variable=nanos_main_enabled:1
 preprocessor_name = @MPICC@
 {!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
 {mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH

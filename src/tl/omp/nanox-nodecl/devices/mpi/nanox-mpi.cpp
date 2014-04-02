@@ -861,9 +861,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 << data_input_global
                 << instrument_before_dev
                 << unpacked_function_call
-                << instrument_after_dev
                 << data_output_global
                 << code_device_post
+                << instrument_after_dev
                 << "}"
                 ;
         

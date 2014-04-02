@@ -1392,16 +1392,13 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
                             decl_context, locus);
 
-                    if (solved_function == NULL)
-                    {
-                        current_argument_type = get_pointer_type(current_argument_type);
-                    }
-                    else
+                    if (solved_function != NULL
+                            && (!solved_function->entity_specs.is_member
+                                || solved_function->entity_specs.is_static))
                     {
                         current_argument_type = get_pointer_type(solved_function->type_information);
                     }
                 }
-
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
             else
@@ -1557,7 +1554,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         else
                         {
                             argument_types[current_arg] = get_pointer_to_member_type(solved_function->type_information,
-                                    named_type_get_symbol(solved_function->entity_specs.class_type));
+                                    solved_function->entity_specs.class_type);
                         }
                     }
                     else

@@ -483,6 +483,7 @@ namespace TL { namespace Nanox {
         // Create all the symbols and an appropiate mapping
         TL::ObjectList<TL::Symbol> parameter_symbols,
             private_symbols,
+            vla_private_symbols,
             reduction_private_symbols,
             reduction_vector_symbols;
 
@@ -584,12 +585,104 @@ namespace TL { namespace Nanox {
 
                         parameter_symbols.append(private_sym);
 
+                        scope_entry_t* vla_private_sym = NULL;
                         if (IS_CXX_LANGUAGE
-                                && (*it)->get_allocation_policy() == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                                && (*it)->get_symbol().get_type().depends_on_nonconstant_values())
                         {
-                            TL::Type t = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
-                            ERROR_CONDITION(!t.is_named_class(), "This should be a named class type", 0);
-                            final_statements << as_symbol(private_sym) << ".~" << t.get_symbol().get_name() << "();";
+                            // Shape VLA
+                            vla_private_sym = ::new_symbol(function_context, function_context.current_scope,
+                                    ("vla_p_" + name).c_str());
+
+                            vla_private_sym->kind = SK_VARIABLE;
+                            vla_private_sym->type_information = (*it)->get_symbol().get_type().no_ref().get_internal_type();
+                            if (is_array_type(vla_private_sym->type_information))
+                            {
+                                vla_private_sym->type_information = get_pointer_type(array_type_get_element_type(vla_private_sym->type_information));
+                            }
+                            vla_private_sym->defined = vla_private_sym->entity_specs.is_user_declared = 1;
+
+                            initial_statements << as_statement(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(),
+                                        vla_private_sym));
+
+                            TL::Type updated_vla_type = type_deep_copy(vla_private_sym->type_information,
+                                function_context,
+                                symbol_map->get_symbol_map());
+
+                            initial_statements << as_statement(
+                                    Nodecl::ExpressionStatement::make(
+                                        Nodecl::Assignment::make(
+                                            TL::Symbol(vla_private_sym).make_nodecl(true),
+                                            Nodecl::Cast::make(
+                                                TL::Symbol(private_sym).make_nodecl(true), updated_vla_type, "C"),
+                                            lvalue_ref(updated_vla_type.get_internal_type()))));
+
+                            symbol_map->add_map(sym, vla_private_sym);
+                        }
+
+                        if (IS_CXX_LANGUAGE
+                                && ((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY) == OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY)
+                        {
+                            if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED) == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                            {
+                                ERROR_CONDITION(vla_private_sym == NULL, "This should be a VLA", 0);
+
+                                TL::Type base_type = (*it)->get_symbol().get_type();
+                                TL::Type updated_vla_type = type_deep_copy((*it)->get_symbol().get_type().no_ref().get_internal_type(),
+                                        function_context,
+                                        symbol_map->get_symbol_map());
+                                updated_vla_type = updated_vla_type.no_ref().get_pointer_to();
+
+                                while (base_type.is_array())
+                                    base_type = base_type.array_element();
+
+                                TL::Type class_type = base_type.get_unqualified_type();
+                                ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)", print_declarator(class_type.get_internal_type()));
+                                
+                                base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                final_statements
+                                    << "{"
+                                    << as_type(updated_vla_type) << "__orig = (" << as_type(updated_vla_type) << ")" << as_symbol(private_sym) << ";"
+                                    << as_type(base_type) << "__dest = (" << as_type(base_type) << ")" << as_symbol(vla_private_sym) << ";"
+                                    << "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
+                                    << "{"
+                                    << "(*__dest).~" << class_type.get_symbol().get_name() << "();"
+                                    << "__dest++;"
+                                    << "}"
+                                    << "}"
+                                    ;
+                            }
+                            else
+                            {
+                                TL::Type class_type = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
+                                if (class_type.is_array())
+                                {
+                                    TL::Type base_type = (*it)->get_symbol().get_type().no_ref();
+
+                                    while (base_type.is_array())
+                                        base_type = base_type.array_element();
+
+                                    base_type = base_type.get_unqualified_type().get_pointer_to();
+                                    ERROR_CONDITION(!base_type.points_to().is_named_class(), "This should be a named class type (%s)",
+                                            print_declarator(base_type.points_to().get_internal_type()));
+
+                                    final_statements
+                                        << "{"
+                                        << as_type(base_type) << "__dest = (" << as_type(base_type) << ")" << as_symbol(private_sym) << ";"
+                                        << "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
+                                        << "{"
+                                        << "(*__dest).~" << base_type.points_to().get_symbol().get_name() << "();"
+                                        << "__dest++;"
+                                        << "}"
+                                        << "}"
+                                        ;
+                                }
+                                else
+                                {
+                                    ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)", print_declarator(class_type.get_internal_type()));
+                                    final_statements << as_symbol(private_sym) << ".~" << class_type.get_symbol().get_name() << "();";
+                                }
+                            }
                         }
                         break;
                     }
@@ -789,6 +882,9 @@ namespace TL { namespace Nanox {
         // Update types of privates (this is needed by VLAs)
         update_vla.update(private_symbols);
 
+        // VLAs in C++
+        update_vla.update(vla_private_symbols);
+
         // Update types of reduction symbols (this is needed by VLAs)
         update_vla.update(reduction_private_symbols);
         update_vla.update(reduction_vector_symbols);
@@ -840,6 +936,12 @@ namespace TL { namespace Nanox {
                     decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            if (current_function.is_member())
+            {
+                new_template_sym->entity_specs.is_member = 1;
+                new_template_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            }
 
             // The new function is the primary template specialization
             new_function_sym = named_type_get_symbol(

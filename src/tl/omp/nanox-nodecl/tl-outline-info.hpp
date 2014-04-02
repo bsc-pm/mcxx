@@ -450,6 +450,16 @@ namespace TL
                 }
         };
 
+        inline OutlineDataItem::AllocationPolicyFlags operator|(OutlineDataItem::AllocationPolicyFlags a, OutlineDataItem::AllocationPolicyFlags b)
+        {
+            return OutlineDataItem::AllocationPolicyFlags(unsigned(a) | unsigned(b));
+        }
+
+        inline OutlineDataItem::AllocationPolicyFlags operator&(OutlineDataItem::AllocationPolicyFlags a, OutlineDataItem::AllocationPolicyFlags b)
+        {
+            return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
+        }
+
         //Symbold::invalid it's theorically used when the outline has no symbol
         //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo

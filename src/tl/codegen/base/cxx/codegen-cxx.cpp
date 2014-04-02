@@ -297,12 +297,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -353,12 +354,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define BINARY_EXPRESSION_ASSIG_EX(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
-        if (state.nontype_template_argument_needs_parentheses) \
+        bool need_parentheses = state.nontype_template_argument_needs_parentheses; \
+        if (need_parentheses) \
         {\
             *(file) << "("; \
         }\
         BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
-        if (state.nontype_template_argument_needs_parentheses) \
+        if (need_parentheses) \
         {\
             *(file) << ")"; \
         }\
@@ -1723,7 +1725,6 @@ bool CxxBase::is_assignment_operator(const std::string& operator_name)
 template <typename Node>
 CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call)
 {
-
     Nodecl::NodeclBase called_entity = node.get_called();
 
     if (is_implicit_function_call(node))
@@ -1844,14 +1845,6 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (is_non_language_ref)
         *(file) << "(*(";
 
-    bool old_visiting_called_entity_of_function_call =
-        state.visiting_called_entity_of_function_call;
-
-    // We are going to visit the called entity of the current function call.
-    // The template arguments of this function (if any) will be printed by the
-    // function 'visit_function_call_form_template_id' and not by the visitor
-    // of the symbol
-    state.visiting_called_entity_of_function_call = true;
 
     int ignore_n_first_arguments;
     switch (kind)
@@ -1863,7 +1856,17 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
                 if (needs_parentheses)
                     *(file) << "(";
+
+                // We are going to visit the called entity of the current function call.
+                // The template arguments of this function (if any) will be printed by the
+                // function 'visit_function_call_form_template_id' and not by the visitor
+                // of the symbol
+                bool old_visiting_called_entity_of_function_call =
+                    state.visiting_called_entity_of_function_call;
+                state.visiting_called_entity_of_function_call = called_entity.is<Nodecl::Symbol>();
                 walk(called_entity);
+                state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
+
                 if (needs_parentheses)
                     *(file) << ")";
 
@@ -1877,7 +1880,9 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 bool needs_parentheses = (get_rank(arguments[0]) < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, ""));
                 if (needs_parentheses)
                     *(file) << "(";
+
                 walk(arguments[0]);
+
                 if (needs_parentheses)
                     *(file) << ")";
 
@@ -1890,7 +1895,11 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 }
                 else
                 {
+                    bool old_visiting_called_entity_of_function_call =
+                        state.visiting_called_entity_of_function_call;
+                    state.visiting_called_entity_of_function_call = true;
                     walk(called_entity);
+                    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
                 }
 
                 ignore_n_first_arguments = 1;
@@ -1899,15 +1908,13 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case CONSTRUCTOR_INITIALIZATION:
             {
                 TL::Symbol class_symbol = called_symbol.get_class_type().get_symbol();
-                *(file) << this->get_qualified_name(class_symbol);
+                *(file) << this->get_qualified_name(class_symbol, this->get_current_scope());
                 ignore_n_first_arguments = 0;
                 break;
             }
         case UNARY_PREFIX_OPERATOR:
             {
                 std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
-                state.visiting_called_entity_of_function_call =
-                    old_visiting_called_entity_of_function_call;
 
                 // We need this to avoid - - 1 to become --1
                 *(file) << " " << called_operator;
@@ -1927,8 +1934,6 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case UNARY_POSTFIX_OPERATOR:
             {
                 std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
-                state.visiting_called_entity_of_function_call =
-                    old_visiting_called_entity_of_function_call;
 
                 bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (needs_parentheses)
@@ -1949,8 +1954,6 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         case BINARY_INFIX_OPERATOR:
             {
                 std::string called_operator = called_symbol.get_name().substr(std::string("operator ").size());
-                state.visiting_called_entity_of_function_call =
-                    old_visiting_called_entity_of_function_call;
 
                 bool assignment_operator = is_assignment_operator(called_operator);
 
@@ -1995,8 +1998,6 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     visit_function_call_form_template_id(node);
 
     *(file) << "(";
-
-    state.visiting_called_entity_of_function_call = old_visiting_called_entity_of_function_call;
 
     codegen_function_call_arguments(arguments.begin(), arguments.end(), function_type, ignore_n_first_arguments);
 
@@ -2061,7 +2062,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
 
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
-
 
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
@@ -3430,14 +3430,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Sizeof& node)
 {
     TL::Type t = node.get_size_type().get_type();
 
+    // This is not very precise but should do most of the time
+    if (is_non_language_reference_type(t))
+        t = t.no_ref();
+
     *(file) << "sizeof(" << this->get_declaration(t, this->get_current_scope(),  "") << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
 {
-    TL::Type t = node.get_align_type().get_type();
-    *(file) << "__alignof__(";
-    walk(node.get_align_type());
+    Nodecl::NodeclBase align = node.get_align_type();
+
+    if (IS_CXX11_LANGUAGE)
+    {
+        *(file) << "alignof(";
+    }
+    else
+    {
+        *(file) << "__alignof__(";
+    }
+
+    if (align.is<Nodecl::Type>())
+    {
+        TL::Type t = align.get_type();
+
+        // This is not very precise but should do most of the time
+        if (is_non_language_reference_type(t))
+            t = t.no_ref();
+
+        *(file) << this->get_declaration(t, this->get_current_scope(),  "");
+    }
+    else
+    {
+        walk(node.get_align_type());
+    }
     *(file) << ")";
 }
 
@@ -4090,13 +4116,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxUsingDecl& node)
 
     if (context.is_namespace_scope())
     {
-        // We define de namespace if it has not been defined yet.
-        // C++ only allows the definition of a namespace inside an other
-        // namespace or in the global scope
-        define_or_declare_if_complete(sym,
-                &CxxBase::declare_symbol_always,
-                &CxxBase::define_symbol_always);
-
         move_to_namespace(context.get_related_symbol());
     }
 
@@ -6726,9 +6745,27 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     }
     else if (symbol.is_namespace())
     {
-        move_to_namespace_of_symbol(symbol);
-        indent();
-        *(file) << "namespace " << symbol.get_name() << " { }\n";
+        TL::Symbol aliased_namespace = symbol.get_related_scope().get_related_symbol();
+
+        if (aliased_namespace != symbol)
+        {
+            // Make sure the target namespace has been defined
+            do_define_symbol(aliased_namespace,
+                    decl_sym_fun,
+                    def_sym_fun);
+
+            move_to_namespace_of_symbol(symbol);
+            // This is a namespace alias
+            indent();
+            (*file) << "namespace " << symbol.get_name() << " = " << this->get_qualified_name(aliased_namespace) << ";\n";
+        }
+        else
+        {
+            move_to_namespace_of_symbol(symbol);
+            indent();
+            *(file) << "namespace " << symbol.get_name() << " { }\n";
+        }
+
     }
     else if (symbol.is_template_parameter())
     {

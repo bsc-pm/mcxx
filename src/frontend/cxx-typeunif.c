@@ -1614,7 +1614,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                 && !entry->entity_specs.is_static)
         {
             function_type = get_pointer_to_member_type(function_type,
-                    named_type_get_symbol(entry->entity_specs.class_type));
+                    entry->entity_specs.class_type);
         }
 
         DEBUG_CODE()
