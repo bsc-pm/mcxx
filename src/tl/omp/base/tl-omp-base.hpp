@@ -62,8 +62,12 @@ namespace TL
                 std::string _ompss_mode_str;
                 bool _ompss_mode;
                 void set_ompss_mode(const std::string &str);
-
                 bool in_ompss_mode() const;
+
+                std::string _copy_deps_str;
+                bool _copy_deps_by_default;
+                void set_copy_deps_by_default(const std::string& str);
+                bool copy_deps_by_default() const;
 
                 std::string _allow_shared_without_copies_str;
                 void set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str);

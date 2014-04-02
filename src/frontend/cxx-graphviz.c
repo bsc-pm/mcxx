@@ -231,6 +231,12 @@ static char list_tree_is_ok(AST a)
     if (ASTType(ASTSon0(a)) != AST_NODE_LIST)
         return 0;
 
+    if (ASTSon0(a) != NULL && ASTParent(ASTSon0(a)) != a)
+        return 0;
+
+    if (ASTParent(ASTSon1(a)) != a)
+        return 0;
+
     return list_tree_is_ok(ASTSon0(a));
 }
 

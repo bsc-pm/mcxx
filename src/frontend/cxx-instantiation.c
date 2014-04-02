@@ -452,7 +452,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->symbol_name,
                             print_type_str(new_member->type_information, context_of_being_instantiated));
                 }
-                ERROR_CONDITION(is_dependent_type(new_member->type_information), "Invalid type", 0);
+                ERROR_CONDITION(is_dependent_type(new_member->type_information),
+                        "Invalid type '%s' (was '%s')",
+                        print_declarator(new_member->type_information),
+                        print_declarator(member_of_template->type_information));
 
                 break;
             }
@@ -1469,7 +1472,12 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         /* instantiation_symbol_map */ NULL,
                         /* pack_index */ -1);
                 if (is_error_type(new_type))
+                {
+                    xfree(template_map);
+                    xfree(enum_map);
+                    xfree(anonymous_unions_map);
                     return;
+                }
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1516,6 +1524,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated_sym,
                 /* is_definition */ 1);
     }
+
+    xfree(template_map);
+    xfree(enum_map);
+    xfree(anonymous_unions_map);
 
     DEBUG_CODE()
     {

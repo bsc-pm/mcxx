@@ -213,7 +213,7 @@ LIBMCXX_EXTERN type_t* get_restrict_qualified_type(type_t* t);
 /* Type constructors: derived types */
 LIBMCXX_EXTERN type_t* get_pointer_type(type_t*);
 
-LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, scope_entry_t* class_entry);
+LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, type_t* class_entry);
 
 LIBMCXX_EXTERN type_t* get_lvalue_reference_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_rvalue_reference_type(type_t* t);
@@ -509,7 +509,6 @@ LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_
 LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
 
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
-LIBMCXX_EXTERN scope_entry_t* pointer_to_member_type_get_class(type_t *t);
 LIBMCXX_EXTERN type_t* pointer_to_member_type_get_class_type(type_t *t);
 
 LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t);

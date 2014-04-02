@@ -37,5 +37,6 @@ void f()
 
     enum E { V };
 
-    const int K = N - V;
+    const int K1 = N - V;
+    const int K2 = N + V;
 }
