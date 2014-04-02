@@ -1016,7 +1016,7 @@ namespace{
                     else
                         json_tdg << "\t\t\t\t\t}\n";
                 }
-                json_tdg << "\t\t\t\t]\n";
+                json_tdg << "\t\t\t\t]";
             }
             
             // node control structures
@@ -1029,7 +1029,7 @@ namespace{
                 {
                     json_tdg << "\t\t\t\t\t{\n";
                     json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
-                    json_tdg << "\t\t\t\t\t\t\"id\" : \"" << itt->get_id() << "\",\n";
+                    json_tdg << "\t\t\t\t\t\t\"id\" : " << itt->get_id() << ",\n";
                     json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
                     print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t");
                     json_tdg << "\t\t\t\t\t\t}\n";
