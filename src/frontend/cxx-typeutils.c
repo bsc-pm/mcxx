@@ -4940,6 +4940,13 @@ scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
     return result;
 }
 
+static char is_same_member_declaration(member_declaration_info_t mdi1,
+        member_declaration_info_t mdi2)
+{
+    return (mdi1.entry == mdi2.entry)
+        && (mdi1.is_definition == mdi2.is_definition);
+}
+
 void class_type_add_member(type_t* class_type,
         scope_entry_t* entry,
         char is_definition)
@@ -4952,9 +4959,9 @@ void class_type_add_member(type_t* class_type,
 
     // Keep the declaration list
     member_declaration_info_t mdi = { entry, is_definition };
-    P_LIST_ADD(class_type->type->class_info->member_declarations,
+    P_LIST_ADD_ONCE_FUN(class_type->type->class_info->member_declarations,
         class_type->type->class_info->num_member_declarations,
-        mdi);
+        mdi, is_same_member_declaration);
 }
 
 void class_type_add_member_after(

@@ -4725,8 +4725,9 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     // If this is a member of a dependent class or a local entity of a template
     // function craft a dependent typename for it
-    if (symbol_is_member_of_dependent_class(entry)
-            || symbol_is_local_of_dependent_function(entry))
+    if (is_dependent_type(entry->type_information)
+            && (symbol_is_member_of_dependent_class(entry)
+                || symbol_is_local_of_dependent_function(entry)))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -4795,16 +4796,16 @@ static type_t* compute_underlying_type_enum(
     struct checked_types_t
     {
         type_t *signed_type;
-        type_t *unsigned_type;
+        /* type_t *unsigned_type ; */
     }
     checked_types[] =
     {
-        { get_signed_char_type(),          get_unsigned_char_type() },
-        { get_signed_short_int_type(),     get_unsigned_short_int_type() },
-        { get_signed_int_type(),           get_unsigned_int_type() },
-        { get_signed_long_int_type(),      get_unsigned_long_int_type() },
-        { get_signed_long_long_int_type(), get_unsigned_long_long_int_type() },
-        { NULL, NULL }
+        { get_signed_char_type(),          /* get_unsigned_char_type() */ },
+        { get_signed_short_int_type(),     /* get_unsigned_short_int_type() */  },
+        { get_signed_int_type(),           /* get_unsigned_int_type() */ },
+        { get_signed_long_int_type(),      /* get_unsigned_long_int_type() */ },
+        { get_signed_long_long_int_type(), /* get_unsigned_long_long_int_type() */ },
+        { NULL /* , NULL */ }
     };
 
 #define B_(x) const_value_is_nonzero(x)
@@ -4821,40 +4822,50 @@ static type_t* compute_underlying_type_enum(
 
     while (result->signed_type != NULL)
     {
-        // Try first unsigned
+        const_value_t* min_int = NULL;
+        const_value_t* max_int = NULL;
+#if 0
+        min_int = integer_type_get_minimum(result->unsigned_type);
+        max_int = integer_type_get_maximum(result->unsigned_type);
+
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->unsigned_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->unsigned_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    print_declarator(result->unsigned_type));
-        }
-
-        if (B_(const_value_lte(integer_type_get_minimum(result->unsigned_type), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(result->unsigned_type))))
-        {
-            return result->unsigned_type;
-        }
-
-        // Try second signed
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
-                    codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(result->signed_type)),
-                        CURRENT_COMPILED_FILE->global_decl_context),
+                    const_value_to_str(min_value),
+                    const_value_to_str(max_value),
+                    const_value_to_str(min_int),
+                    const_value_to_str(max_int),
                     print_declarator(result->signed_type));
         }
 
-        if (B_(const_value_lte(integer_type_get_minimum(result->signed_type), min_value))
-                && B_(const_value_lte(max_value, integer_type_get_maximum(result->signed_type))))
+        if (B_(const_value_lte(min_int,
+                        const_value_cast_as_another(min_value, min_int)))
+                && B_(const_value_lte(
+                        const_value_cast_as_another(max_value, max_int),
+                        max_int)))
+        {
+            return result->unsigned_type;
+        }
+#endif
+
+        min_int = integer_type_get_minimum(result->signed_type);
+        max_int = integer_type_get_maximum(result->signed_type);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    const_value_to_str(min_value),
+                    const_value_to_str(max_value),
+                    const_value_to_str(min_int),
+                    const_value_to_str(max_int),
+                    print_declarator(result->signed_type));
+        }
+
+        if (B_(const_value_lte(min_int,
+                        const_value_cast_as_another(min_value, min_int)))
+                && B_(const_value_lte(
+                        const_value_cast_as_another(max_value, max_int),
+                        max_int)))
         {
             return result->signed_type;
         }
@@ -4863,8 +4874,8 @@ static type_t* compute_underlying_type_enum(
 
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
-            codegen_to_str(const_value_to_nodecl(min_value), CURRENT_COMPILED_FILE->global_decl_context),
-            codegen_to_str(const_value_to_nodecl(max_value), CURRENT_COMPILED_FILE->global_decl_context));
+            const_value_to_str(min_value),
+            const_value_to_str(max_value));
 }
 
 /*
@@ -9379,8 +9390,15 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     {
                         scope_entry_t* entry = entry_list_head(entry_list);
 
-                        if (symbol_is_member_of_dependent_class(entry)
-                                    || symbol_is_local_of_dependent_function(entry))
+                        if (entry->entity_specs.is_injected_class_name)
+                        {
+                            // Advance this case as it will lead to a simpler type-id
+                            entry = named_type_get_symbol(entry->entity_specs.class_type);
+                        }
+
+                        if (is_dependent_type(entry->type_information)
+                                &&  (symbol_is_member_of_dependent_class(entry)
+                                    || symbol_is_local_of_dependent_function(entry)))
                         {
                             // Craft a nodecl name for it
                             nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -10881,9 +10899,14 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                     error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n", 
                             ast_location(declarator_id), 
                             prettyprint_in_buffer(declarator_id));
-                    info_printf("%s: info: previous declaration of '%s'\n",
+                    info_printf("%s: info: current declaration of '%s' (with type '%s')\n",
+                            ast_location(declarator_id), 
+                            prettyprint_in_buffer(declarator_id),
+                            print_type_str(declarator_type, decl_context));
+                    info_printf("%s: info: previous declaration of '%s' (with type '%s')\n",
                             locus_to_str(entry->locus),
-                            entry->symbol_name);
+                            entry->symbol_name,
+                            print_type_str(entry->type_information, entry->decl_context));
                 }
                 return NULL;
             }
