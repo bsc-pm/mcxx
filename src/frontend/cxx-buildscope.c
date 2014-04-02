@@ -1308,7 +1308,8 @@ void introduce_using_entities_in_class(
         if (entry->kind != SK_DEPENDENT_ENTITY)
         {
             if (!entry->entity_specs.is_member
-                    || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
+                    || !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                        get_user_defined_type(current_class), locus))
             {
                 if (!checking_ambiguity())
                 {
