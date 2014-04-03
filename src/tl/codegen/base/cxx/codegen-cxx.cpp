@@ -1443,7 +1443,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            actual_arg = Nodecl::Utils::advance_conversions(actual_arg);
+            actual_arg = actual_arg.no_conv();
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -6129,8 +6129,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
-        Nodecl::NodeclBase init = symbol.get_value();
-        init = Nodecl::Utils::advance_conversions(init);
+        Nodecl::NodeclBase init = symbol.get_value().no_conv();
 
         if (is_definition)
         {
@@ -8137,7 +8136,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = Nodecl::Utils::advance_conversions(n);
+    n = n.no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8186,8 +8185,8 @@ static char is_additive_bin_operator(node_t n)
 
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8198,8 +8197,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8320,7 +8319,7 @@ std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefi
 
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
 
@@ -8329,7 +8328,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
 
 bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     if (node.is<Nodecl::FunctionCall>())
     {
@@ -8343,7 +8342,7 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 
 bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     return (nodecl_calls_to_constructor(node, t)
             && nodecl_calls_to_constructor_get_arguments(node).empty());

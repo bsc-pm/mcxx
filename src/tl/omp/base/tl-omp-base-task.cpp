@@ -692,12 +692,7 @@ namespace TL { namespace OpenMP {
                 arg = *it;
             }
 
-            while (arg.is<Nodecl::Conversion>())
-            {
-                arg = arg.as<Nodecl::Conversion>().get_nest();
-            }
-
-            param_to_arg_expr[parameter_sym] = arg;
+            param_to_arg_expr[parameter_sym] = arg.no_conv();
         }
     }
 

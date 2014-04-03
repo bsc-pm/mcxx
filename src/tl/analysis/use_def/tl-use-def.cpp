@@ -815,14 +815,9 @@ namespace Analysis {
                     UsageVisitor uv( _node, _pcfg, _pcfgs, _global_vars, _reference_params );
                     for( Nodecl::List::const_iterator it = arguments.begin( ); it != arguments.end( ); ++it )
                     {
-                        Nodecl::NodeclBase it_nodecl = *it;
-                        while( it_nodecl.is<Nodecl::Cast>( ) || it_nodecl.is<Nodecl::Conversion>( ) )
-                        {
-                            if( it_nodecl.is<Nodecl::Cast>( ) )
-                                it_nodecl = it_nodecl.as<Nodecl::Cast>( ).get_rhs( );
-                            else
-                                it_nodecl = it_nodecl.as<Nodecl::Conversion>( ).get_nest( );
-                        }
+                        Nodecl::NodeclBase it_nodecl = it->no_conv();
+                        while( it_nodecl.is<Nodecl::Cast>( ) )
+                            it_nodecl = it_nodecl.as<Nodecl::Cast>( ).get_rhs( );
                         if( !it_nodecl.is<Nodecl::Symbol>( ) || 
                             !it_nodecl.get_symbol( ).is_valid( ) || 
                             !it_nodecl.get_symbol( ).is_function( ) )
