@@ -1054,8 +1054,8 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
                 << device_outline_name << "_args.outline = (void(*)(void*))&" << device_outline_name << "_host;"
                 << device_outline_name << "_args.assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_args.assignedRank = " << assignedRank << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;"
+                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_fortran_factory;"
+                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;" 
                 ;
         }
     } else {
