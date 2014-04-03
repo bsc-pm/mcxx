@@ -2096,6 +2096,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 static nodecl_t update_nodecl_template_argument_expression(
         nodecl_t nodecl,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
     DEBUG_CODE()
@@ -2107,7 +2108,7 @@ static nodecl_t update_nodecl_template_argument_expression(
     nodecl_t nodecl_output = nodecl_null();
 
     nodecl_t nodecl_inst = instantiate_expression(nodecl, decl_context,
-            /* instantiation_symbol_map */ NULL, /* pack_index */ pack_index);
+            instantiation_symbol_map, /* pack_index */ pack_index);
 
     if (nodecl_is_list(nodecl_inst))
     {
@@ -2144,7 +2145,7 @@ static nodecl_t update_nodecl_template_argument_expression(
 
 static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
         decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
     DEBUG_CODE()
@@ -2154,7 +2155,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     }
 
     nodecl = instantiate_expression(nodecl, decl_context,
-            instantiation_symbol_map_, pack_index);
+            instantiation_symbol_map, pack_index);
 
     if (!nodecl_is_constant(nodecl)
             && !nodecl_expr_is_value_dependent(nodecl))
@@ -2189,13 +2190,14 @@ char template_argument_is_pack(template_parameter_value_t* value)
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
         const locus_t* locus,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
 static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
         decl_context_t decl_context,
         char is_template_class,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
@@ -2204,7 +2206,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     result->is_default = 0;
 
     type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
-            /* instantiation_symbol_map */ NULL, pack_index);
+            instantiation_symbol_map, pack_index);
     if (updated_type == NULL)
     {
         return NULL;
@@ -2230,7 +2232,9 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 for (i = 0; i < num_items; list++)
                 {
                     nodecl_t updated_expr =
-                        update_nodecl_template_argument_expression(v->value, decl_context, pack_index);
+                        update_nodecl_template_argument_expression(v->value, decl_context,
+                                instantiation_symbol_map,
+                                pack_index);
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
@@ -2250,7 +2254,8 @@ static template_parameter_value_t* update_template_parameter_value_aux(
             else
             {
                 result->value =
-                    update_nodecl_template_argument_expression(v->value, decl_context, pack_index);
+                    update_nodecl_template_argument_expression(v->value, decl_context,
+                            instantiation_symbol_map, pack_index);
 
                 if (nodecl_is_err_expr(result->value))
                 {
@@ -2268,24 +2273,29 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 template_parameter_value_t* update_template_parameter_value_of_template_class(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
-    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 1, locus, pack_index);
+    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 1,
+            instantiation_symbol_map, locus, pack_index);
 }
 
 template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
-    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 0, locus, pack_index);
+    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 0,
+            instantiation_symbol_map, locus, pack_index);
 }
 
 template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
@@ -2297,6 +2307,7 @@ template_parameter_list_t* update_template_argument_list(
         result->arguments[i] = update_template_parameter_value(
                 result->arguments[i],
                 decl_context,
+                instantiation_symbol_map,
                 locus,
                 pack_index);
 
@@ -2313,6 +2324,7 @@ template_parameter_list_t* update_template_argument_list(
 static nodecl_t update_dependent_typename_dependent_parts(
         nodecl_t dependent_parts,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
@@ -2332,6 +2344,7 @@ static nodecl_t update_dependent_typename_dependent_parts(
             template_parameter_list_t* new_template_arguments
                 = update_template_argument_list(decl_context,
                         template_arguments,
+                        instantiation_symbol_map,
                         locus,
                         pack_index);
 
@@ -2351,6 +2364,7 @@ static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         nodecl_t dependent_parts,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index)
 {
@@ -2389,8 +2403,8 @@ static type_t* update_dependent_typename(
     if (!possible)
         return NULL;
 
-    nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context, locus,
-            pack_index);
+    nodecl_t new_dependent_parts = update_dependent_typename_dependent_parts(dependent_parts, decl_context,
+            instantiation_symbol_map, locus, pack_index);
 
     field_path_t field_path;
     field_path_init(&field_path);
@@ -2640,7 +2654,10 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
 }
 
 
-static type_t* update_pack_type(type_t* pack_type, decl_context_t decl_context, const locus_t* locus)
+static type_t* update_pack_type(type_t* pack_type,
+        decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        const locus_t* locus)
 {
     int len = get_length_of_pack_expansion_from_type(pack_type, decl_context, locus);
     if (len < 0)
@@ -2648,7 +2665,7 @@ static type_t* update_pack_type(type_t* pack_type, decl_context_t decl_context, 
         // Simply update the packed type
         type_t* packed_type = pack_type_get_packed_type(pack_type);
         type_t* updated_packed_type = update_type_aux_(packed_type, decl_context, locus,
-                /* instantiation_symbol_map */ NULL,
+                instantiation_symbol_map,
                 /* index_pack */ -1);
 
         if (updated_packed_type == NULL)
@@ -2676,7 +2693,7 @@ static type_t* update_pack_type(type_t* pack_type, decl_context_t decl_context, 
                 pack_type_get_packed_type(pack_type),
                 decl_context,
                 locus,
-                /* instantiation_symbol_map */ NULL,
+                instantiation_symbol_map,
                 i);
         if (types[i] != NULL)
             types[i] = get_cv_qualified_type(types[i],
@@ -2711,7 +2728,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         decl_context_t decl_context,
         const locus_t* locus,
         // may be null
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         // -1 if not expanding any pack
         int pack_index)
 {
@@ -2902,8 +2919,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else if (orig_symbol->kind == SK_TEMPLATE)
         {
-            // A template-name return ummodified
-            return orig_type;
+            return get_user_defined_type(instantiation_symbol_try_to_map(instantiation_symbol_map, orig_symbol));
         }
         else if (is_template_specialized_type(orig_symbol->type_information))
         {
@@ -2914,13 +2930,13 @@ static type_t* update_type_aux_(type_t* orig_type,
             // {
             // };
 
-            type_t* template_type = 
+            type_t* template_type =
                 template_specialized_type_get_related_template_type(orig_symbol->type_information);
             scope_entry_t* template_related_symbol =
                 template_type_get_related_symbol(template_type);
+            ERROR_CONDITION(template_related_symbol == NULL, "Invalid related template type", 0);
 
-            if (template_related_symbol != NULL
-                    && template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
                 // This specialized template type comes after a template template parameter,
                 // so we have to update it using the template arguments
@@ -2934,6 +2950,14 @@ static type_t* update_type_aux_(type_t* orig_type,
 
                 // Now update the template_type with the new one
                 template_type = argument->type_information;
+            }
+            else
+            {
+                template_related_symbol = instantiation_symbol_try_to_map(
+                        instantiation_symbol_map,
+                        template_related_symbol);
+
+                template_type = template_related_symbol->type_information;
             }
 
             cv_qualifier_t cv_qualif = CV_NONE;
@@ -2957,8 +2981,9 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 updated_parameter_values[i] = update_template_parameter_value_of_template_class(
                         current_template_arguments->arguments[i],
-                        decl_context, locus,
-                        pack_index);
+                        decl_context,
+                        instantiation_symbol_map,
+                        locus, pack_index);
 
                 if (updated_parameter_values[i] == NULL)
                 {
@@ -3097,7 +3122,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             type_t* new_type = 
                     update_type_aux_(orig_symbol->type_information,
                         decl_context,
-                        locus, instantiation_symbol_map_, pack_index);
+                        locus, instantiation_symbol_map, pack_index);
 
             cv_qualifier_t cv_qualif_new = CV_NONE;
             advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
@@ -3111,19 +3136,39 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             type_t* new_type = update_type_aux_(orig_symbol->type_information,
                     decl_context,
-                    locus, instantiation_symbol_map_, pack_index);
+                    locus, instantiation_symbol_map, pack_index);
 
             cv_qualifier_t cv_qualif_new = CV_NONE;
             advance_over_typedefs_with_cv_qualif(new_type, &cv_qualif_new);
 
             return get_cv_qualified_type(new_type, cv_qualif_orig | cv_qualif_new);
         }
+        else if (orig_symbol->kind == SK_CLASS)
+        {
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            return get_cv_qualified_type(
+                    get_user_defined_type(
+                        instantiation_symbol_try_to_map(instantiation_symbol_map, orig_symbol)),
+                    cv_qualif_orig);
+        }
+        else if (orig_symbol->kind == SK_ENUM)
+        {
+            cv_qualifier_t cv_qualif_orig = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif_orig);
+
+            return get_cv_qualified_type(
+                    get_user_defined_type(
+                        instantiation_symbol_try_to_map(instantiation_symbol_map, orig_symbol)),
+                    cv_qualif_orig);
+        }
         else
         {
             // Return it unmodified
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Not updating type '%s'\n", print_declarator(orig_type));
+                fprintf(stderr, "SCOPE: Not updating named type '%s'\n", print_declarator(orig_type));
             }
             return orig_type;
         }
@@ -3133,7 +3178,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
         type_t* updated_referenced = update_type_aux_(referenced, decl_context,
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -3149,7 +3194,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
         type_t* updated_referenced = update_type_aux_(referenced, decl_context,
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -3172,7 +3217,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
         type_t* updated_pointee = update_type_aux_(pointee, decl_context,
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -3189,14 +3234,14 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
         type_t* updated_pointee = update_type_aux_(pointee, decl_context, 
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
         pointee_class = update_type_aux_(pointee_class, decl_context, 
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -3225,7 +3270,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (return_type != NULL)
         {
             return_type = update_type_aux_(return_type, decl_context, 
-                    locus, instantiation_symbol_map_, pack_index);
+                    locus, instantiation_symbol_map, pack_index);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -3247,7 +3292,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
             param_orig_type = update_type_aux_(param_orig_type, decl_context, 
-                    locus, instantiation_symbol_map_, pack_index);
+                    locus, instantiation_symbol_map, pack_index);
 
             if (param_orig_type == NULL)
                 return NULL;
@@ -3329,7 +3374,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (!nodecl_is_null(array_size))
         {
             array_size = update_nodecl_constant_expression(array_size, decl_context,
-                    instantiation_symbol_map_, pack_index);
+                    instantiation_symbol_map, pack_index);
 
             if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
             {
@@ -3346,7 +3391,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* element_type = array_type_get_element_type(orig_type);
         element_type = update_type_aux_(element_type, decl_context, 
-                locus, instantiation_symbol_map_, pack_index);
+                locus, instantiation_symbol_map, pack_index);
 
         if (element_type == NULL)
             return NULL;
@@ -3380,7 +3425,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 get_user_defined_type(dependent_entry),
                 decl_context,
                 locus,
-                instantiation_symbol_map_,
+                instantiation_symbol_map,
                 pack_index);
 
         if (fixed_type == NULL)
@@ -3465,7 +3510,8 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_type =
-            update_dependent_typename(fixed_type, dependent_parts, decl_context, locus, pack_index);
+            update_dependent_typename(fixed_type, dependent_parts, decl_context,
+                    instantiation_symbol_map, locus, pack_index);
 
         if (updated_type != NULL)
         {
@@ -3487,7 +3533,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         enter_test_expression();
         nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context,
-                instantiation_symbol_map_, /* pack_index */ -1);
+                instantiation_symbol_map, /* pack_index */ -1);
         leave_test_expression();
 
         if (nodecl_is_err_expr(nodecl_new_expr))
@@ -3510,7 +3556,7 @@ static type_t* update_type_aux_(type_t* orig_type,
     }
     else if (is_pack_type(orig_type))
     {
-        return update_pack_type(orig_type, decl_context, locus);
+        return update_pack_type(orig_type, decl_context, instantiation_symbol_map, locus);
     }
     else if (is_sequence_of_types(orig_type))
     {
@@ -3520,7 +3566,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         for (i = 0; i < num_types; i++)
         {
             types[i] = update_type_aux_(sequence_of_types_get_type_num(orig_type, i), decl_context, locus,
-                    instantiation_symbol_map_, pack_index);
+                    instantiation_symbol_map, pack_index);
             if (types[i] == NULL)
                 return NULL;
         }
@@ -3532,7 +3578,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* orig_underlying_type = gxx_underlying_type_get_underlying_type(orig_type);
 
         type_t* updated_underlying_type = update_type_aux_(orig_underlying_type,
-                decl_context, locus, instantiation_symbol_map_, pack_index);
+                decl_context, locus, instantiation_symbol_map, pack_index);
         if (updated_underlying_type == NULL)
             return NULL;
 
@@ -3565,7 +3611,7 @@ static type_t* update_type_aux_(type_t* orig_type,
     return NULL;
 }
 
-type_t* update_type(type_t* orig_type, 
+type_t* update_type(type_t* orig_type,
         decl_context_t decl_context,
         const locus_t* locus)
 {
@@ -3575,7 +3621,7 @@ type_t* update_type(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, decl_context, locus,
-            /* instantiation_symbol_map_t */ NULL,
+            /* instantiation_symbol_map */ NULL,
             /* pack_index */ -1);
 
     DEBUG_CODE()
@@ -3596,7 +3642,7 @@ type_t* update_type(type_t* orig_type,
 static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
         decl_context_t context_of_being_instantiated,
         const locus_t* locus,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index UNUSED_PARAMETER)
 {
     int num_gcc_attributes = 0;
@@ -3615,7 +3661,7 @@ static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
             nodecl_t aligned_attribute = instantiate_expression(
                     nodecl_list_head(new_gcc_attr.expression_list),
                     context_of_being_instantiated,
-                    instantiation_symbol_map_, /* pack_index */ -1);
+                    instantiation_symbol_map, /* pack_index */ -1);
             if (nodecl_is_err_expr(aligned_attribute))
             {
                 result = NULL;
@@ -3646,7 +3692,7 @@ static type_t* update_gcc_type_attributes(type_t* orig_type, type_t* result,
 type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const locus_t* locus,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
     DEBUG_CODE()
@@ -3657,11 +3703,11 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     type_t* result = update_type_aux_(orig_type,
             context_of_being_instantiated,
             locus,
-            instantiation_symbol_map_,
+            instantiation_symbol_map,
             pack_index);
 
     result = update_gcc_type_attributes(orig_type, result, context_of_being_instantiated, locus,
-            instantiation_symbol_map_, pack_index);
+            instantiation_symbol_map, pack_index);
 
     if (result == NULL)
     {
@@ -4161,6 +4207,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 template_parameter_value_t* v = update_template_parameter_value_of_template_class(
                         primary_template_parameters->arguments[i],
                         new_template_context,
+                        /* instantiation_symbol_map */ NULL,
                         locus, /* pack_index */ -1);
 
                 if (v == NULL)
@@ -7255,6 +7302,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
         scope_entry_t* dependent_entity,
         int pack_index,
         field_path_t* field_path,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus)
 {
     ERROR_CONDITION(dependent_entity->kind != SK_DEPENDENT_ENTITY, "Invalid symbol", 0);
@@ -7273,7 +7321,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                 type_t* new_class_type = update_type_for_instantiation(
                         get_user_defined_type(dependent_entry),
                         decl_context, locus,
-                        /* instantiation_symbol_map */ NULL,
+                        instantiation_symbol_map,
                         pack_index);
 
                 if (is_dependent_typename_type(new_class_type))
@@ -7371,6 +7419,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         nodecl_t update_dependent_parts = update_dependent_typename_dependent_parts(
                                 dependent_parts,
                                 decl_context,
+                                instantiation_symbol_map,
                                 locus, pack_index);
 
                         ERROR_CONDITION(nodecl_get_kind(update_dependent_parts) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED,

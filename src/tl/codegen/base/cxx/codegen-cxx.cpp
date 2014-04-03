@@ -209,6 +209,26 @@ void CxxBase::visit(const Nodecl::Reference &node)
     Nodecl::NodeclBase rhs = node.get_rhs();
     char needs_parentheses = operand_has_lower_priority(node, rhs);
 
+    CXX_LANGUAGE()
+    {
+        // struct A
+        // {
+        //    int x;
+        //    void f(int *);
+        //    void g();
+        // };
+        //
+        // void A::g()
+        // {
+        //    f(&x);
+        //    // Emitting f(&A::x) is wrong but f(&(A::x)) is fine...
+        // }
+
+        needs_parentheses = (rhs.is<Nodecl::Symbol>()
+                && rhs.get_symbol().is_member()
+                && !node.get_type().is_pointer_to_member());
+    }
+
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
     if (rhs.get_type().is_rebindable_reference())

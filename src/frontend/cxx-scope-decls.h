@@ -39,6 +39,7 @@
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-locus.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"

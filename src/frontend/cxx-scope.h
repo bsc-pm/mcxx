@@ -170,6 +170,7 @@ LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
 LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index);
 
@@ -207,6 +208,7 @@ LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        instantiation_symbol_map_t *instantiation_symbol_map,
         const locus_t* locus,
         int pack_index);
 
@@ -271,6 +273,7 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(
         scope_entry_t* dependent_entity,
         int pack_index,
         field_path_t* field_path,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus);
 
 // Utils

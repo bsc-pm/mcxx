@@ -1828,7 +1828,7 @@ void dependent_typename_get_components(type_t* t,
     *dependent_parts = t->type->dependent_parts;
 }
 
-type_t* get_new_enum_type(decl_context_t decl_context)
+type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped)
 {
     _enum_type_counter++;
 
@@ -1837,6 +1837,8 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     type_info->type->enum_info = (enum_info_t*) counted_xcalloc(1, sizeof(*type_info->type->enum_info), &_bytes_due_to_type_system);
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
+
+    type_info->type->enum_info->is_scoped = is_scoped;
 
     // This is incomplete by default
     type_info->info->is_incomplete = 1;
@@ -2378,7 +2380,7 @@ static type_t* template_type_get_matching_specialized_type(type_t* t,
     return NULL;
 }
 
-static char types_are_almost_identical_in_template_argument(type_t* t1,
+static char types_are_identical_in_template_argument(type_t* t1,
         type_t* t2);
 
 static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_t n2)
@@ -2395,7 +2397,7 @@ static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_
     if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
         return 0;
 
-    if (!types_are_almost_identical_in_template_argument(
+    if (!types_are_identical_in_template_argument(
                 nodecl_get_type(n1),
                 nodecl_get_type(n2)))
         return 0;
@@ -2412,39 +2414,10 @@ static char nodecl_trees_are_identical_in_template_argument(nodecl_t n1, nodecl_
     return 1;
 }
 
-static char types_are_almost_identical_in_template_argument(type_t* t1,
+static char types_are_identical_in_template_argument(type_t* t1,
         type_t* t2)
 {
-    if ((t1 == NULL) != (t2 == NULL))
-        return 0;
-
-    if (t1 == NULL)
-        return 1;
-
-    if (equivalent_types(t1, t2))
-    {
-        if (is_named_type(t1))
-        {
-            if (named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-                    || named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
-                return 1;
-        }
-
-        if (is_dependent_typename_type(t1)
-                && is_dependent_typename_type(t2))
-        {
-            return 1;
-        }
-
-        // This is very strict so above we checked some cases where this would be a problem
-        return t1 == t2;
-    }
-    else
-    {
-        return 0;
-    }
+    return t1 == t2;
 }
 
 static char template_arguments_are_identical(
@@ -2471,14 +2444,14 @@ static char template_arguments_are_identical(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type))
+                    if (!types_are_identical_in_template_argument(targ_1->type, targ_2->type))
                         return 0;
                     break;
                 }
             case TPK_NONTYPE:
                 {
                     if (!nodecl_trees_are_identical_in_template_argument(targ_1->value, targ_2->value)
-                            || (!types_are_almost_identical_in_template_argument(targ_1->type, targ_2->type)))
+                            || (!types_are_identical_in_template_argument(targ_1->type, targ_2->type)))
                         return 0;
                     break;
                 }
@@ -2560,7 +2533,9 @@ static type_t* template_type_get_specialized_type_(
             decl_context_t updated_context = primary_symbol->decl_context;
             updated_context.template_parameters = template_arguments;
 
-            specialized_type = update_type(primary_symbol->type_information, updated_context, locus);
+            specialized_type = update_type(primary_symbol->type_information,
+                    updated_context,
+                    locus);
 
             // If we cannot update the type, give up, something is probably wrong
             if (specialized_type == NULL)
@@ -2585,7 +2560,8 @@ static type_t* template_type_get_specialized_type_(
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
-        type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, locus);
+        type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context,
+                locus);
 
         // If we cannot update the type, give up, as probably this is SFINAE
         if (updated_function_type == NULL)
@@ -2697,7 +2673,8 @@ static type_t* template_type_get_specialized_type_(
         for (i = 0; i < primary_symbol->entity_specs.num_exceptions; i++)
         {
            type_t* exception_type = primary_symbol->entity_specs.exceptions[i];
-           type_t* updated_exception_type = update_type(exception_type, updated_context, locus);
+           type_t* updated_exception_type = update_type(exception_type, updated_context,
+                   locus);
 
            P_LIST_ADD(specialized_symbol->entity_specs.exceptions, 
                    specialized_symbol->entity_specs.num_exceptions,
