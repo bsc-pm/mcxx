@@ -50,6 +50,18 @@ namespace Nodecl
         }
     }
 
+    Nodecl::NodeclBase NodeclBase::no_conv()
+    {
+        if (is_null())
+            return *this;
+        Nodecl::NodeclBase result = *this;
+        while (result.is<Nodecl::Conversion>() || result.is<Nodecl::VectorConversion>())
+        {
+            result = result.as<Nodecl::Conversion>().get_nest();
+        }
+        return result;
+    }
+    
     std::string NodeclBase::prettyprint() const
     {
         const char* result = NULL;

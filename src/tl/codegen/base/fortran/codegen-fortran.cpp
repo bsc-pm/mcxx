@@ -5416,7 +5416,7 @@ OPERATOR_TABLE
                 || t.is_integral_type()
                 || t.is_floating_type()
                 || t.is_complex()
-                || t.is_class()
+                || (t.is_class() && !t.is_incomplete())
                 || t.is_enum()
                 || t.is_array()
                 // Fortran 2003
