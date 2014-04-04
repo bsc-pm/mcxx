@@ -1392,7 +1392,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             locus
             );
 
-    if (!being_instantiated_sym->entity_specs.is_anonymous_union)
+    if (!being_instantiated_sym->entity_specs.is_unnamed)
     {
         // Inject the class name
         scope_entry_t* injected_symbol = new_symbol(inner_decl_context,
