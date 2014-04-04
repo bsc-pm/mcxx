@@ -2205,21 +2205,25 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     result->kind = v->kind;
     result->is_default = 0;
 
-    type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
-            instantiation_symbol_map, pack_index);
-    if (updated_type == NULL)
+    if (result->kind == TPK_TYPE
+            || result->kind == TPK_TEMPLATE)
     {
-        return NULL;
+        type_t* updated_type = update_type_aux_(v->type, decl_context, locus,
+                instantiation_symbol_map, pack_index);
+        if (updated_type == NULL)
+        {
+            xfree(result);
+            return NULL;
+        }
+
+        if (is_template_class)
+        {
+            updated_type = advance_over_typedefs(updated_type);
+        }
+
+        result->type = updated_type;
     }
-
-    if (is_template_class)
-    {
-        updated_type = advance_over_typedefs(updated_type);
-    }
-
-    result->type = updated_type;
-
-    if (result->kind == TPK_NONTYPE)
+    else if (result->kind == TPK_NONTYPE)
     {
         if (!nodecl_is_null(v->value))
         {
@@ -2229,6 +2233,10 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 nodecl_t* list = nodecl_unpack_list(v->value, &num_items);
                 int i;
                 nodecl_t updated_list = nodecl_null();
+
+                type_t** type_list = NULL;
+                int num_types = 0;
+
                 for (i = 0; i < num_items; list++)
                 {
                     nodecl_t updated_expr =
@@ -2238,18 +2246,18 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
+                        xfree(result);
+                        xfree(type_list);
                         return NULL;
                     }
 
-                    // Force, if possible the type of the expression
-                    if (is_sequence_of_types(result->type)
-                            && sequence_of_types_get_num_types(result->type) > i)
-                    {
-                        nodecl_set_type(updated_list, sequence_of_types_get_type_num(result->type, i));
-                    }
-
                     updated_list = nodecl_append_to_list(updated_list, updated_expr);
+
+                    P_LIST_ADD(type_list, num_types, nodecl_get_type(updated_expr));
                 }
+
+                result->type = get_sequence_of_types(num_types, type_list);
+                xfree(type_list);
             }
             else
             {
@@ -2259,10 +2267,11 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
                 if (nodecl_is_err_expr(result->value))
                 {
+                    xfree(result);
                     return NULL;
                 }
-                // Force the type of the expression
-                nodecl_set_type(result->value, result->type);
+
+                result->type = nodecl_get_type(result->value);
             }
         }
     }
