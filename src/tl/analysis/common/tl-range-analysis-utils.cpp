@@ -262,8 +262,8 @@ namespace Utils {
     bool Constraint::operator!=(const Constraint& c) 
     {
         return ((this->_constr_sym != c._constr_sym) || 
-        !Nodecl::Utils::equal_nodecls(this->_original_var, c._original_var, /*skip_conversion_nodes*/true) || 
-        !Nodecl::Utils::equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
+        !Nodecl::Utils::structurally_equal_nodecls(this->_original_var, c._original_var, /*skip_conversion_nodes*/true) || 
+        !Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
     }
     
     // ***************************** END Range Analysis Constraints ****************************** //

@@ -79,7 +79,7 @@ namespace Utils {
         bool operator!=(const Constraint& c);
     };
     
-    typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::NodeclLess> ConstraintMap;
+    typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;
     
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
