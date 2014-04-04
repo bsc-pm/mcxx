@@ -157,6 +157,7 @@ namespace Analysis {
         void print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent);
         void print_tdg_syms_to_json(std::ofstream& json_tdg);
         void print_tdg_nodes_to_json(std::ofstream& json_tdg);
+        void print_tdg_edges_to_json(std::ofstream& json_tdg);
         
     public:
         // *** Constructor *** //

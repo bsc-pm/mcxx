@@ -995,30 +995,6 @@ namespace{
                     json_tdg << "\t\t\t\t\"type\" : \"Barrier\"";
             }
             
-            // node exit edges
-            if(!n->_exits.empty())
-            {
-                json_tdg << ",\n";
-                json_tdg << "\t\t\t\t\"edges\" : [\n";
-                for(ObjectList<TDG_Edge*>::iterator ite = n->_exits.begin(); ite != n->_exits.end();)
-                {
-                    json_tdg << "\t\t\t\t\t{\n";
-                    // The target node
-                    json_tdg << "\t\t\t\t\t\t\"node\" : " << (*ite)->_target->_id << ",\n";
-                    // The condition
-                    json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
-                    print_condition(*ite, NULL, json_tdg, "\t\t\t\t\t\t\t");
-                    json_tdg << "\t\t\t\t\t\t}\n";
-                        
-                    ++ite;
-                    if(ite != n->_exits.end())
-                        json_tdg << "\t\t\t\t\t},\n";
-                    else
-                        json_tdg << "\t\t\t\t\t}\n";
-                }
-                json_tdg << "\t\t\t\t]";
-            }
-            
             // node control structures
             ObjectList<ControlStructure> control_structures = n->get_control_structures();
             if(!control_structures.empty())
@@ -1046,7 +1022,39 @@ namespace{
             else
                 json_tdg << "\t\t\t}\n";
         }
-        json_tdg << "\t\t]\n";
+        json_tdg << "\t\t]";
+    }
+    
+    void TaskDependencyGraph::print_tdg_edges_to_json(std::ofstream& json_tdg)
+    {
+        // Get all edges in the graph
+        TDG_Edge_list edges;
+        for(TDG_Node_list::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+            edges.append((*it)->_exits);
+        
+        // Print the edges into the dot file
+        if(!edges.empty())
+        {
+            json_tdg << ",\n";
+            json_tdg << "\t\t\"dependecies\" : [\n";
+            for(TDG_Edge_list::iterator it = edges.begin(); it != edges.end(); )
+            {
+                json_tdg << "\t\t\t{\n";
+                    json_tdg << "\t\t\t\t\"source\" : " << (*it)->_source->_id << ",\n";
+                    json_tdg << "\t\t\t\t\"target\" : " << (*it)->_target->_id << ",\n";
+                    json_tdg << "\t\t\t\t\"when\" : {\n";
+                        print_condition(*it, NULL, json_tdg, "\t\t\t\t\t");
+                    json_tdg << "\t\t\t\t}\n";
+                ++it;
+                if(it != edges.end())
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
+            }
+            json_tdg << "\t\t]\n";
+        }
+        else
+            json_tdg << "\n";
     }
     
     void TaskDependencyGraph::print_tdg_to_json()
@@ -1083,6 +1091,7 @@ namespace{
                 json_tdg << "\t\t\"locus\" : \"" << _pcfg->get_nodecl().get_locus_str() << "\",\n";
                 print_tdg_syms_to_json(json_tdg);
                 print_tdg_nodes_to_json(json_tdg);
+                print_tdg_edges_to_json(json_tdg);
             json_tdg << "\t}\n";
         json_tdg << "}\n";
         json_tdg.close();
