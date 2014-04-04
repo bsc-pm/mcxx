@@ -154,7 +154,9 @@ namespace Analysis {
         void create_tdg(Node* current);
         
         void print_tdg_node_to_dot(TDG_Node* current, std::ofstream& dot_tdg);
-        void print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent);
+        void print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
+                             std::ofstream& json_tdg, std::string indent, 
+                             Nodecl::NodeclBase& dependency_size);
         void print_tdg_syms_to_json(std::ofstream& json_tdg);
         void print_tdg_nodes_to_json(std::ofstream& json_tdg);
         void print_tdg_edges_to_json(std::ofstream& json_tdg);

@@ -299,15 +299,21 @@ namespace{
         int _id;
         std::map<TL::Symbol, std::string> _var_id_to_values;
         ObjectList<TL::Symbol> _params;
+        Nodecl::NodeclBase _dependecy_size;
         
         // *** Constructor *** //
         ConditionVisitor(TDG_Edge* edge, ObjectList<TL::Symbol> params)
-            : _edge(edge), _id(0), _var_id_to_values(), _params(params)
+            : _edge(edge), _id(0), _var_id_to_values(), _params(params), _dependecy_size(Nodecl::NodeclBase::null())
         {}
         
-        std::map<TL::Symbol, std::string> get_var_id_to_values_map()
+        std::map<TL::Symbol, std::string> get_var_id_to_values_map() const
         {
             return _var_id_to_values;
+        }
+        
+        Nodecl::NodeclBase get_dependency_size() const
+        {
+            return _dependecy_size;
         }
         
         std::string transform_condition_part(int pcfg_node_id, Utils::ext_sym_map reach_defs, const Nodecl::NodeclBase& n)
@@ -384,8 +390,17 @@ namespace{
         // and the variables on the RHS correspond to the target of the 'edge'
         std::string visit(const Nodecl::Equal& n)
         {
+            Nodecl::NodeclBase lhs = n.get_lhs();
+            // Get the size of the data flow
+            Nodecl::NodeclBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type()), Nodecl::NodeclBase::null(), lhs.get_type());
+            if(_dependecy_size.is_null())
+                _dependecy_size = current_size;
+            else
+                _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, lhs.get_type());
+            
+            // Transform the variables of the equally into its corresponding identifiers
             Node* source = _edge->get_source()->get_pcfg_node();
-            std::string lhs_result = transform_condition_part(source->get_id(), source->get_reaching_definitions_out(), n.get_lhs());
+            std::string lhs_result = transform_condition_part(source->get_id(), source->get_reaching_definitions_out(), lhs);
             Node* target = _edge->get_target()->get_pcfg_node();
             std::string rhs_result = transform_condition_part(target->get_id(), target->get_reaching_definitions_in(), n.get_rhs());
             return (lhs_result + " == " + rhs_result);
@@ -405,12 +420,14 @@ namespace{
     //     The expression :         'i == j'
     //     Will return the string:  '$1 == $2'
     std::string transform_edge_condition_into_json_expr(TDG_Edge* edge, const Nodecl::NodeclBase& condition, 
-                                                        std::map<TL::Symbol, std::string>& var_id_to_values, 
-                                                        const ObjectList<TL::Symbol>& params)
+                                                        std::map<TL::Symbol, std::string>& var_id_to_values,
+                                                        const ObjectList<TL::Symbol>& params, 
+                                                        Nodecl::NodeclBase& dependency_size)
     {
         ConditionVisitor cv(edge, params);
         std::string result = cv.walk(condition);
         var_id_to_values = cv.get_var_id_to_values_map();
+        dependency_size = cv.get_dependency_size();
         return result;
     }
 }
@@ -919,7 +936,9 @@ namespace{
         }
     }
     
-    void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, std::ofstream& json_tdg, std::string indent)
+    void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
+                                              std::ofstream& json_tdg, std::string indent, 
+                                              Nodecl::NodeclBase& dependency_size)
     {
         json_tdg << indent << "\"expression\" : ";
         assert(edge!=NULL || node_cs!=NULL);
@@ -940,7 +959,7 @@ namespace{
                 TL::Symbol func_sym = _pcfg->get_function_symbol();
                 if(func_sym.is_valid())
                     params = func_sym.get_function_parameters();
-                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_id_to_values, params) << "\",\n";
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_id_to_values, params, dependency_size) << "\",\n";
             }
             
             // Generate the list of involved variables
@@ -999,6 +1018,7 @@ namespace{
             ObjectList<ControlStructure> control_structures = n->get_control_structures();
             if(!control_structures.empty())
             {
+                Nodecl::NodeclBase dependency_size;
                 json_tdg << ",\n";
                 json_tdg << "\t\t\t\t\"control\" : [\n";
                 for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); ++itt)
@@ -1007,7 +1027,8 @@ namespace{
                     json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
                     json_tdg << "\t\t\t\t\t\t\"id\" : " << itt->get_id() << ",\n";
                     json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
-                    print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t");
+                    print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t", 
+                                    /*this param is unnecessary when computin a control structure condition*/dependency_size);
                     json_tdg << "\t\t\t\t\t\t}\n";
                     json_tdg << "\t\t\t\t\t}\n";
                 }
@@ -1043,8 +1064,16 @@ namespace{
                     json_tdg << "\t\t\t\t\"source\" : " << (*it)->_source->_id << ",\n";
                     json_tdg << "\t\t\t\t\"target\" : " << (*it)->_target->_id << ",\n";
                     json_tdg << "\t\t\t\t\"when\" : {\n";
-                        print_condition(*it, NULL, json_tdg, "\t\t\t\t\t");
-                    json_tdg << "\t\t\t\t}\n";
+                        Nodecl::NodeclBase dependency_size;
+                        print_condition(*it, NULL, json_tdg, "\t\t\t\t\t", dependency_size);
+                    json_tdg << "\t\t\t\t}";
+                    if(!dependency_size.is_null())
+                    {
+                        json_tdg << ",\n";
+                        json_tdg << "\t\t\t\t\"size\" : " << dependency_size.prettyprint() << ",\n";
+                    }
+                    else
+                        json_tdg << "\n";
                 ++it;
                 if(it != edges.end())
                     json_tdg << "\t\t\t},\n";
