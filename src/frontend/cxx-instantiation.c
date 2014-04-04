@@ -123,33 +123,7 @@ struct translation_info_tag
     decl_context_t context_of_template;
     decl_context_t context_of_being_instantiated;
 } translation_info_t;
-#if 0
-static decl_context_t translation_function(decl_context_t decl_context, void *d)
-{
-    translation_info_t * p = (translation_info_t*)d;
 
-    decl_context_t result = decl_context;
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Translating context %p (template = %p || being instantiated = %p)\n", 
-                result.class_scope, 
-                p->context_of_template.class_scope, 
-                p->context_of_being_instantiated.class_scope);
-    }
-
-    if (result.class_scope == p->context_of_template.class_scope)
-    {
-        result.class_scope = p->context_of_being_instantiated.class_scope;
-    }
-    if (result.current_scope == p->context_of_template.current_scope)
-    {
-        result.current_scope = p->context_of_being_instantiated.class_scope;
-    }
-
-    return result;
-}
-#endif
 static scope_entry_t* instantiate_template_type_member(type_t* template_type, 
         decl_context_t context_of_being_instantiated,
         scope_entry_t *member_of_template,
