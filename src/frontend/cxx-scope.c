@@ -129,7 +129,7 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
     return result;
 }
 
-static void free_template_parameter_list(template_parameter_list_t* tpl)
+void free_template_parameter_list(template_parameter_list_t* tpl)
 {
     if (tpl == NULL)
         return;

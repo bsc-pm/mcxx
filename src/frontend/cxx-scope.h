@@ -196,6 +196,7 @@ LIBMCXX_EXTERN template_parameter_list_t* get_template_arguments_from_syntax(
         decl_context_t template_parameters_context);
 
 LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
+LIBMCXX_EXTERN void free_template_parameter_list(template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context);

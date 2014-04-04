@@ -2538,6 +2538,7 @@ static type_t* template_type_get_specialized_type_(
                     print_type_str(exact_match,
                         named_type_get_symbol(exact_match)->decl_context));
         }
+        free_template_parameter_list(template_arguments);
         return exact_match;
     }
 
@@ -2593,7 +2594,10 @@ static type_t* template_type_get_specialized_type_(
 
             // If we cannot update the type, give up, something is probably wrong
             if (specialized_type == NULL)
+            {
+                free_template_parameter_list(template_arguments);
                 return NULL;
+            }
         }
         else
         {
@@ -2609,7 +2613,15 @@ static type_t* template_type_get_specialized_type_(
     {
         // For template functions, nonidentical matches are OK
         if (equivalent_match != NULL)
+        {
+            free_template_parameter_list(template_arguments);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Using equivalent specialization: %s\n",
+                        print_type_str(equivalent_match, named_type_get_symbol(equivalent_match)->decl_context));
+            }
             return equivalent_match;
+        }
 
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
@@ -2619,7 +2631,10 @@ static type_t* template_type_get_specialized_type_(
 
         // If we cannot update the type, give up, as probably this is SFINAE
         if (updated_function_type == NULL)
+        {
+            free_template_parameter_list(template_arguments);
             return NULL;
+        }
 
         // This will give us a new function type
         specialized_type = _get_duplicated_function_type(updated_function_type);
