@@ -13197,6 +13197,14 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
 
         result = get_pointer_to_member_type(pointee, class_type);
     }
+    else if (is_rebindable_reference_type(orig))
+    {
+        type_t* ref_type = reference_type_get_referenced_type(orig);
+        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
+                nodecl_deep_copy_map, symbol_deep_copy_map);
+
+        result = get_rebindable_reference_type(ref_type);
+    }
     else if (is_lvalue_reference_type(orig))
     {
         type_t* ref_type = reference_type_get_referenced_type(orig);
@@ -13212,14 +13220,6 @@ type_t* type_deep_copy_compute_maps(type_t* orig,
                 nodecl_deep_copy_map, symbol_deep_copy_map);
 
         result = get_rvalue_reference_type(ref_type);
-    }
-    else if (is_rebindable_reference_type(orig))
-    {
-        type_t* ref_type = reference_type_get_referenced_type(orig);
-        ref_type = type_deep_copy_compute_maps(ref_type, new_decl_context, symbol_map,
-                nodecl_deep_copy_map, symbol_deep_copy_map);
-
-        result = get_rebindable_reference_type(ref_type);
     }
     else if (is_array_type(orig))
     {
@@ -14288,6 +14288,13 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
 
             result = get_pointer_to_member_type(pointee, class_type);
         }
+        else if (is_rebindable_reference_type(orig))
+        {
+            type_t* ref_type = reference_type_get_referenced_type(orig);
+            ref_type = rewrite_block_scope_typedefs(ref_type);
+
+            result = get_rebindable_reference_type(ref_type);
+        }
         else if (is_lvalue_reference_type(orig))
         {
             type_t* ref_type = reference_type_get_referenced_type(orig);
@@ -14301,13 +14308,6 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
             ref_type = rewrite_block_scope_typedefs(ref_type);
 
             result = get_rvalue_reference_type(ref_type);
-        }
-        else if (is_rebindable_reference_type(orig))
-        {
-            type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_block_scope_typedefs(ref_type);
-
-            result = get_rebindable_reference_type(ref_type);
         }
         else if (is_array_type(orig))
         {
