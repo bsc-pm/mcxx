@@ -97,7 +97,7 @@ namespace Analysis {
             Node* find_node_from_nodecl( const Nodecl::NodeclBase& n ) const;
             Node* find_node_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
             Node* find_node_from_nodecl_in_scope( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& scope ) const;
-            ExtensibleGraph* find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const;
+            ExtensibleGraph* find_extensible_graph_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const;
 
         public:
             NodeclStaticInfo( ObjectList<Utils::InductionVariableData*> induction_variables,
@@ -123,6 +123,11 @@ namespace Analysis {
 
             bool is_non_reduction_basic_induction_variable( const Nodecl::NodeclBase& n ) const;
 
+            // This methods traverse the PCFG to analyze, so we do not need the static info.
+            // This kind of usage of the analysis should be implemented in a different interface
+            static bool is_nested_induction_variable( Node* scope_node, Node* node, const Nodecl::NodeclBase& n );
+            static Utils::InductionVariableData* get_nested_induction_variable( Node* scope_node, Node* node, const Nodecl::NodeclBase& n );
+            
             Nodecl::NodeclBase get_induction_variable_lower_bound( const Nodecl::NodeclBase& n ) const;
 
             Nodecl::NodeclBase get_induction_variable_increment( const Nodecl::NodeclBase& n ) const;
@@ -401,19 +406,20 @@ namespace Analysis {
         Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
         ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
         bool _is_adjacent_access;
+        bool _has_constant_evolution;
 
         bool variable_is_iv( const Nodecl::NodeclBase& n );
         bool node_uses_iv( Node* node );
         bool node_stmts_depend_on_iv( Node* node, int recursion_level,
                                       std::map<Node*, std::set<int> >& visits,
-                                      std::set<Nodecl::Symbol>& visited_syms );
+                                      std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool definition_depends_on_iv( const Nodecl::NodeclBase& n, Node* node );
         bool var_is_iv_dependent_in_scope_backwards( const Nodecl::Symbol& n, Node* current,
                 int recursion_level, std::map<Node*, std::set<int> >& visits,
-                std::set<Nodecl::Symbol>& visited_syms );
+                std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool var_is_iv_dependent_in_scope_forward( const Nodecl::Symbol& n, Node* current,
                 int recursion_level, std::map<Node*, std::set<int> >& visits,
-                std::set<Nodecl::Symbol>& visited_syms );
+                std::set<Nodecl::Symbol, Nodecl::Utils::Nodecl_structural_less>& visited_syms );
         bool visit_binary_node( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
         bool visit_unary_node( const Nodecl::NodeclBase& rhs );
 

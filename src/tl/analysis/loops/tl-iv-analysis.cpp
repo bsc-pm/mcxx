@@ -53,16 +53,18 @@ namespace {
 
             Nodecl::NodeclBase lhs_rhs, rhs_rhs;
             if( rhs.is<Nodecl::Add>( ) )
-            {   // Expression accepted: iv = x + iv; iv = -x + iv;
+            {   // Expression accepted: iv = c + iv; iv = iv + x; iv = -c + iv; iv = iv - x;
                 Nodecl::Add _rhs = rhs.as<Nodecl::Add>( );
                 lhs_rhs = _rhs.get_lhs( );
                 rhs_rhs = _rhs.get_rhs( );
-                
-                if( Nodecl::Utils::equal_nodecls( lhs, rhs_rhs, /* Skip Conversion node */ true )
-                    && ExtensibleGraph::is_constant_in_context( loop, lhs_rhs )
-                    && ( !lhs.is<Nodecl::ArraySubscript>( )
-                         || ( lhs.is<Nodecl::ArraySubscript>( )
-                              && ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
+
+                if( ( ( Nodecl::Utils::structurally_equal_nodecls( lhs, rhs_rhs, /*skip_onversion_node*/ true ) &&
+                        ExtensibleGraph::is_constant_in_context( loop, lhs_rhs ) ) ||
+                      ( Nodecl::Utils::structurally_equal_nodecls( lhs, lhs_rhs, /*skip_conversion_node*/ true ) &&
+                        ExtensibleGraph::is_constant_in_context( loop, rhs_rhs ) ) ) &&
+                    ( !lhs.is<Nodecl::ArraySubscript>( ) ||
+                      ( lhs.is<Nodecl::ArraySubscript>( ) &&
+                        ExtensibleGraph::is_constant_in_context( loop, lhs.as<Nodecl::ArraySubscript>( ).get_subscripts( ) ) ) ) )
                 {
                     iv = lhs;
                     incr = lhs_rhs;
@@ -176,7 +178,7 @@ namespace {
                 {   //Propagate induction variables from the inner loop to the omp loop node
                     Node* loop_entry_node = current->get_graph_entry_node( )->get_children( )[0];
                     Node* loop_node = loop_entry_node->get_children( )[0];
-                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs = 
+                    std::pair<Utils::InductionVarsPerNode::iterator, Utils::InductionVarsPerNode::iterator> loop_ivs =
                     _induction_vars.equal_range( loop_node->get_id( ) );
                     for( Utils::InductionVarsPerNode::iterator it = loop_ivs.first; it != loop_ivs.second; ++it )
                     {
@@ -361,14 +363,14 @@ namespace {
         // Check whether the variable is modified in other places inside the loop
         bool res = check_undesired_modifications( iv, incr, incr_list, stmt, loop->get_graph_entry_node( ), loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        
+
         // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
         res = !res && check_constant_memory_access( iv, loop );
         ExtensibleGraph::clear_visits_aux( loop );
-        
+
         return res;
     }
-    
+
     bool InductionVariableAnalysis::check_undesired_modifications( const Nodecl::NodeclBase& iv, Nodecl::NodeclBase& incr,
                                                                    ObjectList<Nodecl::NodeclBase>& incr_list,
                                                                    const Nodecl::NodeclBase& stmt, Node* node, Node* loop )
@@ -384,7 +386,7 @@ namespace {
             for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
             {
                 // Check the statement only if it is not the statement where the potential IV was found
-                if( !Nodecl::Utils::equal_nodecls( stmt, *it, /* skip conversion nodes */ true ) )
+                if( !Nodecl::Utils::structurally_equal_nodecls( stmt, *it, /* skip conversion nodes */ true ) )
                 {
                     FalseInductionVariablesVisitor v( iv, &incr, &incr_list, loop );
                     v.walk( *it );
@@ -413,11 +415,11 @@ namespace {
 
         return result;
     }
-    
+
     bool InductionVariableAnalysis::check_constant_memory_access( const Nodecl::NodeclBase& iv, Node* loop )
     {
         bool res = true;
-        
+
         if( iv.is<Nodecl::Symbol>( ) || iv.is<Nodecl::ClassMemberAccess>( ) )
         {}      // Nothing to be done: this will always be the same memory location
         else if( iv.is<Nodecl::ArraySubscript>( ) )
@@ -438,10 +440,10 @@ namespace {
         {
             WARNING_MESSAGE( "Unexpected type of node '%s' as Induction Variable\n", ast_print_node_type( iv.get_kind( ) ) );
         }
-        
+
         return res;
     }
-    
+
     Utils::InductionVarsPerNode InductionVariableAnalysis::get_all_induction_vars( ) const
     {
         return _induction_vars;
@@ -455,9 +457,9 @@ namespace {
     // ********************************************************************************************* //
     // ****************** Visitor that checks whether a potential IV is a real IV ****************** //
 
-    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr, 
+    FalseInductionVariablesVisitor::FalseInductionVariablesVisitor( Nodecl::NodeclBase iv, Nodecl::NodeclBase* incr,
                                                                     ObjectList<Nodecl::NodeclBase>* incr_list, Node* loop )
-        : _iv( iv ), _incr( incr ), _incr_list( incr_list ),  _loop( loop ), 
+        : _iv( iv ), _incr( incr ), _incr_list( incr_list ),  _loop( loop ),
           _is_induction_var( true ), _n_nested_conditionals( 0 ), _calc( )
     {}
 
@@ -484,7 +486,7 @@ namespace {
                                      nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
                   << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
     }
-    
+
     void FalseInductionVariablesVisitor::visit( const Nodecl::AddAssignment& n )
     {
         if( Nodecl::Utils::nodecl_contains_nodecl( n.get_lhs( ), _iv ) ||

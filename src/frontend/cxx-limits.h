@@ -64,9 +64,6 @@ enum
     // GCC attributes
     MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL = 256,
 
-    // C++ associated scopes during ADL
-    MCXX_MAX_KOENIG_ASSOCIATED_SCOPES = 256,
-
     // C++ associated namespaces during lookup
     MCXX_MAX_ASSOCIATED_NAMESPACES = 256,
 

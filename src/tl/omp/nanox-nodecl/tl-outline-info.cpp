@@ -475,9 +475,16 @@ namespace TL { namespace Nanox {
                     && t.array_is_vla())
             {
                 outline_data_item->set_allocation_policy(
+                        outline_data_item->get_allocation_policy() |
                         OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED);
                 outline_data_item->set_field_type(
                         TL::Type::get_void_type().get_pointer_to());
+
+                CXX_LANGUAGE()
+                {
+                    // C++ does not quite support VLAs
+                    res = TL::Type::get_void_type().get_pointer_to();
+                }
             }
         }
         else
@@ -486,6 +493,12 @@ namespace TL { namespace Nanox {
             {
                 outline_data_item->set_field_type(
                         TL::Type::get_void_type().get_pointer_to());
+
+                CXX_LANGUAGE()
+                {
+                    // C++ does not quite support VLAs
+                    res = TL::Type::get_void_type().get_pointer_to();
+                }
             }
         }
         return res;
@@ -758,7 +771,9 @@ namespace TL { namespace Nanox {
             {
                 if (outline_data_item->get_sharing() == OutlineDataItem::SHARING_CAPTURE)
                 {
-                    outline_data_item->set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
+                    outline_data_item->set_allocation_policy(
+                            outline_data_item->get_allocation_policy() |
+                            OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DEALLOCATE_ALLOCATABLE);
                     outline_data_item->set_field_type(
                             ::fortran_get_n_ranked_type_with_descriptor(
                                 ::fortran_get_rank0_type(t.get_internal_type()),
@@ -882,14 +897,15 @@ namespace TL { namespace Nanox {
             }
             else
             {
-                outline_info.set_in_outline_type(t.get_lvalue_reference_to());
+                outline_info.set_in_outline_type(in_outline_type);
             }
 
             if (IS_CXX_LANGUAGE
-                    && t.is_class()
                     && !t.is_pod())
             {
-                outline_info.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
+                outline_info.set_allocation_policy(
+                        outline_info.get_allocation_policy() |
+                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
             }
 
             _outline_info.move_at_end(outline_info);
@@ -926,10 +942,11 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
 
             if (IS_CXX_LANGUAGE
-                    && t.is_class()
                     && !t.is_pod())
             {
-                outline_info.set_allocation_policy(OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
+                outline_info.set_allocation_policy(
+                        outline_info.get_allocation_policy() |
+                        OutlineDataItem::ALLOCATION_POLICY_TASK_MUST_DESTROY);
             }
         }
 

@@ -248,8 +248,7 @@ namespace Utils {
 
     bool ExtendedSymbol::operator==( const ExtendedSymbol& es ) const
     {
-        bool equals = Nodecl::Utils::equal_nodecls( _n, es._n, /* skip conversion nodes */ true );
-        return equals;
+        return Nodecl::Utils::structurally_equal_nodecls( _n, es._n, /*skip_conversion_nodes*/ true );
     }
 
     /*! Applied rules:
@@ -258,9 +257,7 @@ namespace Utils {
      */
     bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
-        bool result;
-        result = (Nodecl::Utils::cmp_nodecls(_n, es._n, /* skip conversion nodes */ true) == -1);
-        return result;
+        return (Nodecl::Utils::structurally_cmp_nodecls(_n, es._n, /*skip_conversion_nodes*/ true) == -1);
     }
 }
 }

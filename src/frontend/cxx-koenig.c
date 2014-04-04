@@ -44,12 +44,14 @@ typedef
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t* associated_scopes[MCXX_MAX_KOENIG_ASSOCIATED_SCOPES];
+    scope_t** associated_scopes;
     int num_associated_classes;
-    scope_entry_t* associated_classes[MCXX_MAX_KOENIG_ASSOCIATED_SCOPES];
+    scope_entry_t** associated_classes;
 } koenig_lookup_info_t;
 
-static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list,
+static void compute_associated_scopes(
+        koenig_lookup_info_t* koenig_lookup_info,
+        int num_arguments, type_t** argument_type_list,
         const locus_t* locus);
 
 scope_entry_list_t* koenig_lookup(
@@ -78,7 +80,7 @@ scope_entry_list_t* koenig_lookup(
     }
 
     koenig_lookup_info_t koenig_info;
-    koenig_info = compute_associated_scopes(num_arguments, argument_type_list, locus);
+    compute_associated_scopes(&koenig_info, num_arguments, argument_type_list, locus);
 
     DEBUG_CODE()
     {
@@ -176,7 +178,10 @@ scope_entry_list_t* koenig_lookup(
     {
         fprintf(stderr, "KOENIG: Argument dependent lookup ended\n");
     }
-    
+
+    xfree(koenig_info.associated_scopes);
+    xfree(koenig_info.associated_classes);
+
     return result;
 }
 
@@ -188,15 +193,14 @@ static void compute_associated_scopes_rec(koenig_lookup_info_t* koenig_info,
         type_t* argument_type,
         const locus_t* locus);
 
-static koenig_lookup_info_t compute_associated_scopes(int num_arguments, type_t** argument_type_list,
+static void compute_associated_scopes(
+        koenig_lookup_info_t* result,
+        int num_arguments, type_t** argument_type_list,
         const locus_t* locus)
 {
-    koenig_lookup_info_t result;
-    memset(&result, 0, sizeof(result));
+    memset(result, 0, sizeof(*result));
 
-    compute_associated_scopes_aux(&result, num_arguments, argument_type_list, locus);
-
-    return result;
+    compute_associated_scopes_aux(result, num_arguments, argument_type_list, locus);
 }
 
 static void compute_associated_scopes_aux(koenig_lookup_info_t* koenig_info, 
@@ -216,22 +220,10 @@ static void compute_set_of_associated_classes_scope(type_t* type_info, koenig_lo
 
 static void add_associated_scope(koenig_lookup_info_t* koenig_info, scope_t* sc)
 {
-    ERROR_CONDITION(koenig_info->num_associated_scopes >= MCXX_MAX_KOENIG_ASSOCIATED_SCOPES,
-            "Too many associated scopes", 0);
-    
     ERROR_CONDITION(sc->kind != NAMESPACE_SCOPE, 
             "Associated scopes by means of Koenig only can be namespace scopes", 0);
 
-    int i;
-    for (i = 0; i < koenig_info->num_associated_scopes; i++)
-    {
-        // Do not add if already there
-        if (koenig_info->associated_scopes[i] == sc)
-            return;
-    }
-
-    koenig_info->associated_scopes[koenig_info->num_associated_scopes] = sc;
-    koenig_info->num_associated_scopes++;
+    P_LIST_ADD_ONCE(koenig_info->associated_scopes, koenig_info->num_associated_scopes, sc);
 
     // If this scope is an inline one, add the enclosing scope as well
     if (sc->related_entry != NULL
@@ -243,9 +235,6 @@ static void add_associated_scope(koenig_lookup_info_t* koenig_info, scope_t* sc)
 
 static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_t* class_symbol)
 {
-    ERROR_CONDITION(koenig_info->num_associated_classes >= MCXX_MAX_KOENIG_ASSOCIATED_SCOPES,
-            "Too many associated classes", 0);
-
     if (class_symbol->kind == SK_TYPEDEF)
     {
         type_t* advanced_type = advance_over_typedefs(class_symbol->type_information);
@@ -264,12 +253,13 @@ static void add_associated_class(koenig_lookup_info_t* koenig_info, scope_entry_
     for (i = 0; i < koenig_info->num_associated_classes; i++)
     {
         // Do not add if already there
-        if (koenig_info->associated_classes[i] == class_symbol)
+        if (equivalent_types(
+                    koenig_info->associated_classes[i]->type_information,
+                    class_symbol->type_information))
             return;
     }
 
-    koenig_info->associated_classes[koenig_info->num_associated_classes] = class_symbol;
-    koenig_info->num_associated_classes++;
+    P_LIST_ADD(koenig_info->associated_classes, koenig_info->num_associated_classes, class_symbol);
 }
 
 static void compute_associated_scopes_rec(

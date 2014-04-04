@@ -80,7 +80,7 @@ namespace Analysis {
 
     NodeclStaticInfo::~NodeclStaticInfo()
     {}
-    
+
     Node* NodeclStaticInfo::find_node_from_nodecl( const Nodecl::NodeclBase& n ) const
     {
         Node* result = NULL;
@@ -121,12 +121,12 @@ namespace Analysis {
         return result;
     }
     
-    ExtensibleGraph* NodeclStaticInfo::find_extensible_graph_from_nodecl( const Nodecl::NodeclBase& n ) const
+    ExtensibleGraph* NodeclStaticInfo::find_extensible_graph_from_nodecl_pointer( const Nodecl::NodeclBase& n ) const
     {
         ExtensibleGraph* result = NULL;
         for( ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin( ); it != _pcfgs.end( ); ++it )
         {
-            if( ( *it )->find_nodecl( n ) != NULL )
+            if( ( *it )->find_nodecl_pointer( n ) != NULL )
             {
                 result = *it;
                 break;
@@ -180,7 +180,7 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                          it != stmts.end( ); ++it )
                     {
-                        if( !Nodecl::Utils::equal_nodecls( n, *it ) )
+                        if( !Nodecl::Utils::structurally_equal_nodecls( n, *it ) )
                         {
                             Node* fake_node = new Node( );
                             UsageVisitor uv( fake_node );
@@ -228,7 +228,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = true;
                 break;
@@ -245,7 +245,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
             it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->is_basic( );
                 break;
@@ -270,7 +270,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = non_reduction_induction_variables.begin( );
              it != non_reduction_induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->is_basic( );
                 break;
@@ -280,6 +280,56 @@ namespace Analysis {
         return result;
     }
 
+    bool NodeclStaticInfo::is_nested_induction_variable( Node* scope_node, Node* node, const Nodecl::NodeclBase& n )
+    {
+        bool result = false;
+        
+        Node* outer_node = node;
+        while(((outer_node!=scope_node) || (outer_node!=NULL)) && !result )
+        {
+            if(outer_node->is_loop_node())
+            {
+                ObjectList<Utils::InductionVariableData*> loop_ivs = outer_node->get_induction_variables();
+                for(ObjectList<Utils::InductionVariableData*>::const_iterator it = loop_ivs.begin( ); it != loop_ivs.end( ); ++it)
+                {
+                    if(Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable().get_nodecl(), n, /*skip_conversion_nodes*/ true))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+            outer_node = outer_node->get_outer_node();
+        }
+        
+        return result;
+    }
+    
+    Utils::InductionVariableData* NodeclStaticInfo::get_nested_induction_variable(Node* scope_node, Node* node, const Nodecl::NodeclBase& n)
+    {
+        Utils::InductionVariableData* iv = NULL;
+        
+        Node* outer_node = node;
+        while(((outer_node!=scope_node) || (outer_node!=NULL)) && (iv==NULL) )
+        {
+            if(outer_node->is_loop_node())
+            {
+                ObjectList<Utils::InductionVariableData*> loop_ivs = outer_node->get_induction_variables();
+                for(ObjectList<Utils::InductionVariableData*>::const_iterator it = loop_ivs.begin( ); it != loop_ivs.end( ); ++it)
+                {
+                    if(Nodecl::Utils::structurally_equal_nodecls((*it)->get_variable().get_nodecl(), n, /*skip_conversion_nodes*/ true))
+                    {
+                        iv = *it;
+                        break;
+                    }
+                }
+            }
+            outer_node = outer_node->get_outer_node();
+        }
+        
+        return iv;
+    }
+    
     Nodecl::NodeclBase NodeclStaticInfo::get_induction_variable_lower_bound( const Nodecl::NodeclBase& n ) const
     {
         Nodecl::NodeclBase result;
@@ -288,7 +338,7 @@ namespace Analysis {
         for( it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_lb( );
                 break;
@@ -312,7 +362,7 @@ namespace Analysis {
         for( it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_ub( );
                 break;
@@ -336,7 +386,7 @@ namespace Analysis {
         for( it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_increment( );
                 break;
@@ -359,7 +409,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_increment_list( );
                 break;
@@ -382,7 +432,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->is_increment_one( );
                 break;
@@ -399,7 +449,7 @@ namespace Analysis {
         for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
             it != _induction_variables.end( ); ++it )
         {
-            if ( Nodecl::Utils::equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
+            if ( Nodecl::Utils::structurally_equal_nodecls( ( *it )->get_variable( ).get_nodecl( ), n, /* skip conversion nodes */ true ) )
             {
                 iv = *it;
                 break;
@@ -480,7 +530,7 @@ namespace Analysis {
         {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
-        
+
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             analysis.print_all_pcfg( analysis_state );
 
@@ -493,7 +543,7 @@ namespace Analysis {
 
     AnalysisStaticInfo::~AnalysisStaticInfo()
     {}
-    
+
     static_info_map_t AnalysisStaticInfo::get_static_info_map( ) const
     {
         return _static_info_map;
@@ -790,7 +840,7 @@ namespace Analysis {
             return false;
 
         // Check the current node
-        if( Nodecl::Utils::equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
+        if( Nodecl::Utils::structurally_equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
             return true;
 
         // Check the children

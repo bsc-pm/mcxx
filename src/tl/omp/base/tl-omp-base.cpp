@@ -39,7 +39,11 @@
 namespace TL { namespace OpenMP {
 
     Base::Base()
-        : PragmaCustomCompilerPhase("omp"), _core(), _simd_enabled(false)
+        : PragmaCustomCompilerPhase("omp"),
+        _core(),
+        _simd_enabled(false),
+        _ompss_mode(false),
+        _copy_deps_by_default(true)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -74,6 +78,11 @@ namespace TL { namespace OpenMP {
                 "Enables OmpSs semantics instead of OpenMP semantics",
                 _ompss_mode_str,
                 "0").connect(functor(&Base::set_ompss_mode, *this));
+
+        register_parameter("copy_deps_by_default",
+                "Enables copy_deps by default",
+                _copy_deps_str,
+                "1").connect(functor(&Base::set_copy_deps_by_default, *this));
 
         register_parameter("disable_task_expression_optimization",
                 "Disables some optimizations applied to task expressions",
@@ -135,14 +144,20 @@ namespace TL { namespace OpenMP {
         TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
+
         const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map =
             transform_nonvoid_task_calls.get_function_call_to_enclosing_stmt_map();
+
+        const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map =
+            transform_nonvoid_task_calls.get_enclosing_stmt_to_original_stmt_map();
+
         const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map =
             transform_nonvoid_task_calls.get_enclosing_stmt_to_return_variables_map();
 
         FunctionCallVisitor function_call_visitor(
                 function_task_set,
                 funct_call_to_enclosing_stmt_map,
+                enclosing_stmt_to_original_stmt_map,
                 enclosing_stmt_to_return_vars_map);
 
         function_call_visitor.walk(translation_unit);
@@ -225,6 +240,17 @@ namespace TL { namespace OpenMP {
     bool Base::in_ompss_mode() const
     {
         return _ompss_mode;
+    }
+
+    void Base::set_copy_deps_by_default(const std::string& str)
+    {
+        parse_boolean_option("copy_deps", str, _copy_deps_by_default, "Assuming true.");
+        _core.set_copy_deps_by_default(_copy_deps_by_default);
+    }
+
+    bool Base::copy_deps_by_default() const
+    {
+        return _copy_deps_by_default;
     }
 
     void Base::set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str)
@@ -539,6 +565,26 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in 'parallel' construct\n",
+                        directive.get_locus_str().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_locus()));
+            }
+        }
+
+
         Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
         if (clause.is_defined())
@@ -742,6 +788,25 @@ namespace TL { namespace OpenMP {
         OpenMP::DataSharingEnvironment &ds = _core.get_openmp_info()->get_data_sharing(directive);
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
+
+        PragmaCustomClause label_clause = pragma_line.get_clause("label");
+        if (label_clause.is_defined())
+        {
+            TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
+
+            if (str_list.size() != 1)
+            {
+                warn_printf("%s: warning: ignoring invalid 'label' clause in loop construct\n",
+                        directive.get_locus_str().c_str());
+            }
+            else
+            {
+                execution_environment.append(
+                        Nodecl::OpenMP::TaskLabel::make(
+                            str_list[0],
+                            directive.get_locus()));
+            }
+        }
 
         if (pragma_line.get_clause("schedule").is_defined())
         {

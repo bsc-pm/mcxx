@@ -42,9 +42,11 @@ type : NODECL_TYPE() type
 
 function-code: regular-function-code
              | template-function-code
+             | vector-regular-function-code
 
 regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+vector-regular-function-code : NODECL_VECTOR_FUNCTION_CODE([function_code] regular-function-code)
 
 object-init : NODECL_OBJECT_INIT() symbol
 
@@ -509,7 +511,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression, [site_environment]exec-environment-seq-opt)
 
 # task expression
-task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement-seq)
+task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement)
 
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 

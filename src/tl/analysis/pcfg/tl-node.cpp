@@ -267,10 +267,9 @@ namespace Analysis {
     Edge* Node::get_exit_edge( Node* target )
     {
         Edge* result = NULL;
-        int id = target->get_id( );
         for( ObjectList<Edge*>::iterator it = _exit_edges.begin( ); it != _exit_edges.end( ); ++it )
         {
-            if( ( *it )->get_target( )->get_id( ) == id )
+            if( ( *it )->get_target( ) == target )
             {
                 result = *it;
                 break;
@@ -412,7 +411,7 @@ namespace Analysis {
 
     bool Node::is_loop_stride( Node* loop )
     {
-        return ( loop->get_stride_node( )->get_id( ) == _id );
+        return ( loop->get_stride_node( ) == this );
     }
 
     bool Node::is_normal_node( )

@@ -889,7 +889,7 @@ namespace{
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())
-            internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str());
+            internal_error ("Unable to close the file '%s' where TDG has been stored.", dot_file_name.c_str());
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
     

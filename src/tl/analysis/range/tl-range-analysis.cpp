@@ -35,7 +35,7 @@ namespace Analysis {
     
     //! This maps stores the relationship between each variable in a given node and 
     //! the last identifier used to create a constraint for that variable
-    std::map<Nodecl::NodeclBase, unsigned int, Nodecl::Utils::NodeclLess> var_to_last_constraint_id;
+    std::map<Nodecl::NodeclBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
     
     // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
@@ -375,6 +375,5 @@ namespace {
     
     // ****************************** End class implementing range analysis ******************************* //
     // **************************************************************************************************** //
-
 }
 }

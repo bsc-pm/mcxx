@@ -540,6 +540,7 @@ void LoweringVisitor::emit_async_common(
     }
 
     Source dynamic_size;
+
     struct_size << "sizeof(imm_args)" << dynamic_size;
 
     allocate_immediate_structure(
@@ -799,10 +800,10 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    walk(statements);
+    // This copied_statements will be used when we are generating the code for the 'final' clause
+    Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, construct);
 
-    // Get the new statements
-    statements = construct.get_statements();
+    walk(statements);
 
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(environment);
@@ -845,6 +846,12 @@ void LoweringVisitor::visit_task(
         // construct (less efficient)
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
+
+        RemoveOpenMPTasks visitor;
+        visitor.walk(copied_statements);
+
+        walk(copied_statements);
+
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
@@ -852,7 +859,7 @@ void LoweringVisitor::visit_task(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(statements.shallow_copy())
+            <<          as_statement(copied_statements)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -965,16 +972,53 @@ void LoweringVisitor::fill_arguments(
                                 << overallocation_mask << ") & (~" << overallocation_mask << "))"
                                 ;
 
-                            fill_outline_arguments
-                                << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                << ", &" << as_symbol((*it)->get_symbol()) 
-                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                ;
-                            fill_immediate_arguments
-                                << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                << ", &" << as_symbol((*it)->get_symbol()) 
-                                << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                ;
+                            if (IS_CXX_LANGUAGE
+                                    && !sym_type.is_pod())
+                            {
+                                TL::Type base_type = sym_type;
+                                while (base_type.is_array())
+                                    base_type = base_type.array_element();
+
+                                base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                // Non pod vla-arrays
+                                Source array_copy;
+                                array_copy
+                                    << "while (__orig < ((" << as_type(base_type) << ")(&(" << as_symbol((*it)->get_symbol()) << ") + 1)))"
+                                    << "{"
+                                    << " new (__dest) " << as_type(base_type.points_to()) << ";"
+                                    << " *__dest = *__orig; __dest++; __orig++; "
+                                    << "}"
+                                    ;
+
+                                fill_outline_arguments
+                                    << "{"
+                                    << as_type(base_type) << " __dest = (" << as_type(base_type) << ") ol_args->" << (*it)->get_field_name() << ";"
+                                    << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                    << array_copy
+                                    << "}"
+                                    ;
+                                fill_immediate_arguments
+                                    << "{"
+                                    << as_type(base_type) << " __dest = (" << as_type(base_type) << ") imm_args." << (*it)->get_field_name() << ";"
+                                    << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                    << array_copy
+                                    << "}"
+                                    ;
+                            }
+                            else
+                            {
+                                fill_outline_arguments
+                                    << "__builtin_memcpy(ol_args->" << (*it)->get_field_name() 
+                                    << ", &" << as_symbol((*it)->get_symbol()) 
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                    ;
+                                fill_immediate_arguments
+                                    << "__builtin_memcpy(imm_args." << (*it)->get_field_name() 
+                                    << ", &" << as_symbol((*it)->get_symbol()) 
+                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                    ;
+                            }
                         }
                         else
                         {
@@ -985,16 +1029,53 @@ void LoweringVisitor::fill_arguments(
 
                             if (sym_type.is_array())
                             {
-                                fill_outline_arguments
-                                    << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
-                                    << ", &" << as_symbol((*it)->get_symbol())
-                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                    ;
-                                fill_immediate_arguments
-                                    << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
-                                    << ", &" << as_symbol((*it)->get_symbol())
-                                    << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
-                                    ;
+                                if (IS_CXX_LANGUAGE
+                                        && !sym_type.is_pod())
+                                {
+                                    TL::Type base_type = sym_type;
+                                    while (base_type.is_array())
+                                        base_type = base_type.array_element();
+
+                                    base_type = base_type.get_unqualified_type().get_pointer_to();
+
+                                    // Non pod fixed-length arrays
+                                    Source array_copy;
+                                    array_copy
+                                        << "while (__orig < ((" << as_type(base_type) << ")(&(" << as_symbol((*it)->get_symbol()) << ") + 1)))"
+                                        << "{"
+                                        << " new (__dest) " << as_type(base_type.points_to()) << ";"
+                                        << " *__dest = *__orig; __dest++; __orig++; "
+                                        << "}"
+                                        ;
+
+                                    fill_outline_arguments
+                                        << "{"
+                                        << as_type(base_type) << " __dest = (" << as_type(base_type) << ") ol_args->" << (*it)->get_field_name() << ";"
+                                        << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                        << array_copy
+                                        << "}"
+                                        ;
+                                    fill_immediate_arguments
+                                        << "{"
+                                        << as_type(base_type) << " __dest = (" << as_type(base_type) << ") imm_args." << (*it)->get_field_name() << ";"
+                                        << as_type(base_type) << " __orig = (" << as_type(base_type) << ") " <<  as_symbol((*it)->get_symbol()) << ";"
+                                        << array_copy
+                                        << "}"
+                                        ;
+                                }
+                                else
+                                {
+                                    fill_outline_arguments
+                                        << "__builtin_memcpy(&ol_args->" << (*it)->get_field_name() 
+                                        << ", &" << as_symbol((*it)->get_symbol())
+                                        << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                        ;
+                                    fill_immediate_arguments
+                                        << "__builtin_memcpy(&imm_args." << (*it)->get_field_name() 
+                                        << ", &" << as_symbol((*it)->get_symbol())
+                                        << ", sizeof(" << as_symbol((*it)->get_symbol()) << "));"
+                                        ;
+                                }
                             }
                             else
                             {
