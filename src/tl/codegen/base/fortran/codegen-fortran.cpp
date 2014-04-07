@@ -2871,7 +2871,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Alignof& node)
     {
-        *(file) << node.get_type().get_alignment_of();
+        const_value_t* cval = const_value_get_integer(
+                node.get_type().get_alignment_of(),
+                node.get_type().get_size(),
+                /* sign */ 0);
+        emit_integer_constant(cval, node.get_type());
     }
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
