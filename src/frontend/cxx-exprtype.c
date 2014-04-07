@@ -15158,6 +15158,59 @@ static char update_stack_to_designator(type_t* declared_type,
     return 1;
 }
 
+// This function creates a designator for non designated initializers
+static void nodecl_craft_designator(
+        nodecl_t nodecl_init,
+        struct type_init_stack_t* type_stack,
+        int type_stack_idx,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_result = nodecl_init;
+
+    while (type_stack_idx >= 0)
+    {
+        type_t* current_type = type_stack[type_stack_idx].type;
+        int item = type_stack[type_stack_idx].item;
+
+        const_value_t* cval = nodecl_get_constant(nodecl_result);
+
+        if (is_array_type(current_type))
+        {
+            nodecl_result = nodecl_make_index_designator(
+                    const_value_to_nodecl(const_value_get_signed_int(item)),
+                    nodecl_result,
+                    array_type_get_element_type(current_type),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else if (is_vector_type(current_type))
+        {
+            // Do nothing with this case as it cannot be designated actually
+        }
+        else if (is_class_type(current_type))
+        {
+            scope_entry_t* field = type_stack[type_stack_idx].fields[item];
+
+            nodecl_result = nodecl_make_field_designator(
+                    nodecl_make_symbol(field, locus),
+                    nodecl_result,
+                    get_unqualified_type(field->type_information),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        type_stack_idx--;
+    }
+
+    *nodecl_output = nodecl_result;
+}
+
+
 static void nodecl_make_designator_rec(nodecl_t *nodecl_output, 
         type_t* designated_type, 
         nodecl_t *designators,
@@ -15167,7 +15220,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     if (current_designator >= num_designators)
         return;
 
-    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const locus_t* locus);
+    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus);
 
     nodecl_t child_0 = nodecl_null();
 
@@ -15210,6 +15263,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     *nodecl_output = (nodecl_ptr_fun)(
             child_0,
             *nodecl_output,
+            designated_type,
             nodecl_get_locus(*nodecl_output));
 }
 
@@ -15518,12 +15572,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         return;
                     }
 
-                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER
-                            && designator_is_ok)
+                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER)
                     {
-                        // Keep the designator
-                        nodecl_t designator = nodecl_get_child(list[i], 0);
-                        nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        if (designator_is_ok)
+                        {
+                            // Keep the designator
+                            nodecl_t designator = nodecl_get_child(list[i], 0);
+                            nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        }
+                    }
+                    else
+                    {
+                        nodecl_craft_designator(nodecl_init_output,
+                                type_stack,
+                                type_stack_idx,
+                                nodecl_get_locus(list[i]),
+                                &nodecl_init_output);
                     }
 
                     init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
