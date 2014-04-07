@@ -392,7 +392,7 @@ namespace{
         {
             Nodecl::NodeclBase lhs = n.get_lhs();
             // Get the size of the data flow
-            Nodecl::NodeclBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type()), Nodecl::NodeclBase::null(), lhs.get_type());
+            Nodecl::NodeclBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), Nodecl::NodeclBase::null(), lhs.get_type());
             if(_dependecy_size.is_null())
                 _dependecy_size = current_size;
             else
@@ -1028,7 +1028,7 @@ namespace{
                     json_tdg << "\t\t\t\t\t\t\"id\" : " << itt->get_id() << ",\n";
                     json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
                     print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t", 
-                                    /*this param is unnecessary when computin a control structure condition*/dependency_size);
+                                    /*this param is unnecessary when computing a control structure condition*/dependency_size);
                     json_tdg << "\t\t\t\t\t\t}\n";
                     json_tdg << "\t\t\t\t\t}\n";
                 }
@@ -1057,7 +1057,7 @@ namespace{
         if(!edges.empty())
         {
             json_tdg << ",\n";
-            json_tdg << "\t\t\"dependecies\" : [\n";
+            json_tdg << "\t\t\"dependencies\" : [\n";
             for(TDG_Edge_list::iterator it = edges.begin(); it != edges.end(); )
             {
                 json_tdg << "\t\t\t{\n";
@@ -1070,7 +1070,7 @@ namespace{
                     if(!dependency_size.is_null())
                     {
                         json_tdg << ",\n";
-                        json_tdg << "\t\t\t\t\"size\" : " << dependency_size.prettyprint() << ",\n";
+                        json_tdg << "\t\t\t\t\"size\" : \"" << dependency_size.prettyprint() << "\"\n";
                     }
                     else
                         json_tdg << "\n";
