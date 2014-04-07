@@ -3467,6 +3467,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::EmptyRange& node)
+{
+    *(file) << "∅";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::MinusInfinity& node)
 {
     *(file) << "-∞";

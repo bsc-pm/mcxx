@@ -56,6 +56,7 @@ namespace Codegen
             Ret visit(const Nodecl::Alignof &);
             Ret visit(const Nodecl::Analysis::PlusInfinity &);
             Ret visit(const Nodecl::Analysis::MinusInfinity &);
+            Ret visit(const Nodecl::Analysis::EmptyRange& node);
             Ret visit(const Nodecl::Analysis::Phi &);
             Ret visit(const Nodecl::Analysis::Range &);
             Ret visit(const Nodecl::Analysis::RangeIntersection &);
