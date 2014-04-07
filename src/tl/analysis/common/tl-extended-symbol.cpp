@@ -259,6 +259,11 @@ namespace Utils {
     {
         return (Nodecl::Utils::structurally_cmp_nodecls(_n, es._n, /*skip_conversion_nodes*/ true) == -1);
     }
+    
+    bool ExtendedSymbol_structural_less::operator() (const ExtendedSymbol& e1, const ExtendedSymbol& e2) const
+    {
+        return (Nodecl::Utils::structurally_cmp_nodecls(e1.get_nodecl(), e2.get_nodecl(), /*skip_conversion_nodes*/true) < 0);
+    }
 }
 }
 }
