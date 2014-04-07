@@ -273,19 +273,42 @@ namespace{
         // Get the values of the involved variables
         for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
         {
+            Node* cs_pcfg_node = cs_node->get_pcfg_node();
             if(cs_node->get_type() == Loop)
             {
-                Node* cs_pcfg_node = cs_node->get_pcfg_node();
                 ObjectList<Utils::InductionVariableData*> ivs = cs_pcfg_node->get_induction_variables();
                 if(Utils::induction_variable_list_contains_variable(ivs, *it))
                 {
                     Utils::InductionVariableData* iv = get_induction_variable_from_list(ivs, *it);
                     var_id_to_values[it->get_symbol()] = iv->print_iv_as_range();
                 }
+                else
+                {
+                    WARNING_MESSAGE("Variable %s is used in a Loop Control Structure %d and it is not an induction variable.\n"
+                                    "This case is not yet supported.\n", it->prettyprint().c_str(), cs_pcfg_node->get_id());
+                }
             }
             else
             {
-                
+                Utils::ext_sym_map reach_def_in = cs_pcfg_node->get_reaching_definitions_in();
+                if(reach_def_in.find(*it) != reach_def_in.end())
+                {
+                    std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds = reach_def_in.equal_range(*it);
+                    Utils::ext_sym_map::iterator itt = bounds.first;
+                    std::string values = itt->second.prettyprint();
+                    ++itt;
+                    while(itt != bounds.second)
+                    {
+                        values += ", " + itt->second.prettyprint();
+                        ++itt;
+                    }
+                    var_id_to_values[it->get_symbol()] = values;
+                }
+                else
+                {
+                    WARNING_MESSAGE("Variable %s is used in a Conditional Control Structure %d and no reaching definition arrives here for it.\n"
+                                    "This case is not yet supported.\n", it->prettyprint().c_str(), cs_pcfg_node->get_id());
+                }
             }
         }
         
@@ -386,19 +409,59 @@ namespace{
             return "";
         }
         
+        // The only supported expression is Range1 ∩ Range2 != ∅
+        std::string visit(const Nodecl::Different& n)
+        {
+            Nodecl::NodeclBase lhs = n.get_lhs();
+            Nodecl::NodeclBase rhs = n.get_rhs();
+            ERROR_CONDITION(!lhs.is<Nodecl::Analysis::RangeIntersection>(), 
+                            "RangeIntersection expected but %s '%s' found.\n", 
+                            ast_print_node_type(lhs.get_kind()), lhs.prettyprint().c_str());
+            ERROR_CONDITION(!rhs.is<Nodecl::Analysis::EmptyRange>(), 
+                            "EmptyRange expected but %s '%s' found.\n", 
+                            ast_print_node_type(rhs.get_kind()), rhs.prettyprint().c_str());
+            
+            // Get the size of the data flow
+            Type t = lhs.get_type();
+            Nodecl::Analysis::RangeIntersection intersec = lhs.as<Nodecl::Analysis::RangeIntersection>();
+            Nodecl::Analysis::Range r1 = intersec.get_lhs().as<Nodecl::Analysis::Range>();
+            Nodecl::Analysis::Range r2 = intersec.get_rhs().as<Nodecl::Analysis::Range>();
+            Nodecl::NodeclBase current_size = 
+                Nodecl::Mul::make(
+                    Nodecl::Minus::make(
+                        Nodecl::Analysis::Maximum::make(Nodecl::List::make(r1.get_lower(), r2.get_lower()), t),
+                        Nodecl::Analysis::Minimum::make(Nodecl::List::make(r1.get_upper(), r2.get_upper()), t),
+                        t
+                    ),
+                    Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), 
+                                         Nodecl::NodeclBase::null(), t),
+                    t
+                );
+            if(_dependecy_size.is_null())
+                _dependecy_size = current_size;
+            else
+                _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, t);
+            
+            // Transform the variables of the inequality into its corresponding identifiers
+            Node* source = _edge->get_source()->get_pcfg_node();
+            std::string lhs_result = transform_condition_part(source->get_id(), source->get_reaching_definitions_out(), lhs);
+            return (lhs_result + " != ∅");
+        }
+        
         // The variables on the LHS correspond to the source of the 'edge'
         // and the variables on the RHS correspond to the target of the 'edge'
         std::string visit(const Nodecl::Equal& n)
         {
             Nodecl::NodeclBase lhs = n.get_lhs();
             // Get the size of the data flow
-            Nodecl::NodeclBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), Nodecl::NodeclBase::null(), lhs.get_type());
+            Nodecl::NodeclBase current_size = Nodecl::Sizeof::make(Nodecl::Type::make(lhs.no_conv().get_type().no_ref()), 
+                                                                   Nodecl::NodeclBase::null(), lhs.get_type());
             if(_dependecy_size.is_null())
                 _dependecy_size = current_size;
             else
                 _dependecy_size = Nodecl::Add::make(_dependecy_size.shallow_copy(), current_size, lhs.get_type());
             
-            // Transform the variables of the equally into its corresponding identifiers
+            // Transform the variables of the equality into its corresponding identifiers
             Node* source = _edge->get_source()->get_pcfg_node();
             std::string lhs_result = transform_condition_part(source->get_id(), source->get_reaching_definitions_out(), lhs);
             Node* target = _edge->get_target()->get_pcfg_node();
@@ -411,6 +474,13 @@ namespace{
             std::string lhs_result = walk(n.get_lhs());
             std::string rhs_result = walk(n.get_rhs());
             return (lhs_result + " && " + rhs_result);
+        }
+        
+        std::string visit(const Nodecl::Analysis::RangeIntersection& n)
+        {
+            std::string lhs_result = walk(n.get_lhs());
+            std::string rhs_result = walk(n.get_rhs());
+            return ("[" + lhs_result + "] ∩ [" + rhs_result + "]");
         }
     };
 
@@ -655,7 +725,6 @@ namespace{
                     
                     // Build the condition depending on the branch where the task is created
                     condition = get_switch_condition_from_path(control_structure, node);
-                    std::cerr << "Condition of switch to node " << node->get_id() << " is " << condition.prettyprint() << std::endl;
                 }
                 else
                 {
@@ -964,8 +1033,7 @@ namespace{
             
             // Generate the list of involved variables
             json_tdg << indent << "\"vars\" : [\n";
-            int i = 1;
-            for(std::map<TL::Symbol, std::string>::iterator its = var_id_to_values.begin(); its != var_id_to_values.end(); ++i)
+            for(std::map<TL::Symbol, std::string>::iterator its = var_id_to_values.begin(); its != var_id_to_values.end(); )
             {
                 if(_syms.find(its->first) == _syms.end())
                 {
@@ -974,7 +1042,7 @@ namespace{
                                    its->first.get_name().c_str(), condition.prettyprint().c_str());
                 }
                 json_tdg << indent << "\t{\n";
-                    json_tdg << indent << "\t\t\"id\" : " << i << ",\n";
+                    json_tdg << indent << "\t\t\"id\" : " << _syms[its->first] << ",\n";
                     json_tdg << indent << "\t\t\"values\" : \""<< its->second << "\"\n";
                 ++its;
                 if(its != var_id_to_values.end())
