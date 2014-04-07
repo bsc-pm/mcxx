@@ -43,12 +43,54 @@ namespace {
     void compute_condition_for_unmatched_values( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& m,
                                                  Nodecl::NodeclBase& condition )
     {
-        if( condition.is_null( ) )
-            condition = Nodecl::Equal::make( n.shallow_copy( ), m.shallow_copy( ), n.get_type( ) );
+        // Get the condition for the two values
+        Nodecl::NodeclBase cond_part;
+        Type t = n.get_type();
+        if(n.is<Nodecl::Range>())
+        {
+            if(m.is<Nodecl::Range>())
+            {   // n=[lb1, ub1], m=[lb2, ub2]
+                cond_part = Nodecl::Different::make(
+                    Nodecl::Analysis::RangeIntersection::make(
+                        // Transform this ranges to analysis ranges, for they do not follow the loop range syntax anymore
+                        Nodecl::Analysis::Range::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), n.as<Nodecl::Range>().get_upper().shallow_copy(), t),
+                        Nodecl::Analysis::Range::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), m.as<Nodecl::Range>().get_upper().shallow_copy(), t),
+                        t
+                    ),
+                    Nodecl::Analysis::EmptyRange::make(),
+                    t
+                );
+            }
+            else
+            {   // n=[lb1, ub1], m=[v]
+                cond_part = Nodecl::LogicalAnd::make(
+                    Nodecl::LowerOrEqualThan::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), m.shallow_copy(), t), 
+                    Nodecl::LowerOrEqualThan::make(m.shallow_copy(), n.as<Nodecl::Range>().get_lower().shallow_copy(), t),
+                    t
+                );
+            }
+        }
         else
-            condition = Nodecl::LogicalAnd::make( condition.shallow_copy( ),
-                                                  Nodecl::Equal::make( n.shallow_copy( ), m.shallow_copy( ), n.get_type( ) ),
-                                                  condition.get_type( ) );
+        {
+            if(m.is<Nodecl::Range>())
+            {   // n=[v], m=[lb1, ub1]
+                cond_part = Nodecl::LogicalAnd::make(
+                    Nodecl::LowerOrEqualThan::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), n.shallow_copy(), t), 
+                    Nodecl::LowerOrEqualThan::make(n.shallow_copy(), m.as<Nodecl::Range>().get_lower().shallow_copy(), t),
+                    t
+                );
+            }
+            else
+            {   // n=[v1], m=[v2]
+                cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+            }
+        }
+        
+        // Rebuild the condition composing the old condition and the new computed part
+        if( condition.is_null( ) )
+            condition = cond_part;
+        else
+            condition = Nodecl::LogicalAnd::make( condition.shallow_copy( ), cond_part, condition.get_type( ) );
     }
 
     SyncModification match_constant_values( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& m,
