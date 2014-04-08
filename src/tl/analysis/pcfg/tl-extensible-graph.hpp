@@ -403,6 +403,7 @@ namespace Analysis {
         static bool task_encloses_task( Node* container, Node* contained );
         static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
         static Node* get_enclosing_control_structure( Node* node );
+        bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

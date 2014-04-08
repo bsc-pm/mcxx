@@ -33,13 +33,16 @@ namespace Analysis {
     // ************************** Class implementing reaching definition analysis ************************* //
 
     ReachingDefinitions::ReachingDefinitions( ExtensibleGraph* graph )
-            : _graph( graph )
+        : _graph( graph ), _params_reach_defs()
     {}
 
     void ReachingDefinitions::compute_reaching_definitions( )
     {
         Node* graph = _graph->get_graph( );
 
+        // Set a fictitious reaching definition for each parameter 
+        generate_parameters_reaching_definitions( );
+        
         // Compute initial info (liveness only regarding the current node)
         gather_reaching_definitions_initial_information( graph );
         ExtensibleGraph::clear_visits( graph );
@@ -49,6 +52,22 @@ namespace Analysis {
         ExtensibleGraph::clear_visits( graph );
     }
 
+    void ReachingDefinitions::generate_parameters_reaching_definitions( )
+    {
+        Symbol func_sym = _graph->get_function_symbol();
+        if(!func_sym.is_valid())
+            return;
+        
+        ObjectList<Symbol> params = func_sym.get_function_parameters();
+        for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it)
+        {
+            Nodecl::Symbol s = Nodecl::Symbol::make(*it);
+            s.set_type(it->get_type());
+            Utils::ExtendedSymbol es(s);
+            _params_reach_defs.insert(std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(es, s));
+        }
+    }
+    
     void ReachingDefinitions::gather_reaching_definitions_initial_information( Node* current )
     {
         if( !current->is_visited( ) )
@@ -141,6 +160,8 @@ namespace Analysis {
                             pred_rd_out = ( *it )->get_reaching_definitions_out( );
                         }
                         rd_in = Utils::ext_sym_map_union( rd_in, pred_rd_out );
+                        if(_graph->is_first_statement_node(current))
+                            rd_in = Utils::ext_sym_map_union( rd_in, _params_reach_defs );
                     }
 
                     // Computing Reach Defs Out
