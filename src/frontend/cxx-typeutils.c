@@ -1874,12 +1874,12 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
-static type_t* rewrite_block_scope_typedefs(type_t* orig);
+static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)
 {
     // We remove nonlocal typedefs from everywhere in the type
-    return rewrite_block_scope_typedefs(t);
+    return rewrite_redundant_typedefs(t);
 }
 
 static template_parameter_list_t* simplify_template_arguments(template_parameter_list_t* template_arguments)
@@ -14299,7 +14299,7 @@ char type_is_reference_compatible_to(type_t* t1, type_t* t2)
         && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
 }
 
-static type_t* rewrite_block_scope_typedefs(type_t* orig)
+static type_t* rewrite_redundant_typedefs(type_t* orig)
 {
     if (orig == NULL)
         return NULL;
@@ -14315,7 +14315,14 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
                 && named_type_get_symbol(orig)->decl_context.current_scope != NULL
                 && named_type_get_symbol(orig)->decl_context.current_scope->kind == BLOCK_SCOPE)
         {
-            result = rewrite_block_scope_typedefs(named_type_get_symbol(orig)->type_information);
+            // typedefs declared inside functions are always advanced
+            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
+        }
+        else if (named_type_get_symbol(orig)->kind == SK_TYPEDEF
+                && !is_dependent_type(named_type_get_symbol(orig)->type_information))
+        {
+            // typedefs that are not local but are not dependent either
+            result = rewrite_redundant_typedefs(named_type_get_symbol(orig)->type_information);
         }
         else
         {
@@ -14328,44 +14335,44 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
         if (is_pointer_type(orig))
         {
             type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_block_scope_typedefs(pointee);
+            pointee = rewrite_redundant_typedefs(pointee);
             result = get_pointer_type(pointee);
         }
         else if (is_pointer_to_member_type(orig))
         {
             type_t* pointee = pointer_type_get_pointee_type(orig);
-            pointee = rewrite_block_scope_typedefs(pointee);
+            pointee = rewrite_redundant_typedefs(pointee);
 
             type_t* class_type = pointer_to_member_type_get_class_type(orig);
-            class_type = rewrite_block_scope_typedefs(class_type);
+            class_type = rewrite_redundant_typedefs(class_type);
 
             result = get_pointer_to_member_type(pointee, class_type);
         }
         else if (is_rebindable_reference_type(orig))
         {
             type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_block_scope_typedefs(ref_type);
+            ref_type = rewrite_redundant_typedefs(ref_type);
 
             result = get_rebindable_reference_type(ref_type);
         }
         else if (is_lvalue_reference_type(orig))
         {
             type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_block_scope_typedefs(ref_type);
+            ref_type = rewrite_redundant_typedefs(ref_type);
 
             result = get_lvalue_reference_type(ref_type);
         }
         else if (is_rvalue_reference_type(orig))
         {
             type_t* ref_type = reference_type_get_referenced_type(orig);
-            ref_type = rewrite_block_scope_typedefs(ref_type);
+            ref_type = rewrite_redundant_typedefs(ref_type);
 
             result = get_rvalue_reference_type(ref_type);
         }
         else if (is_array_type(orig))
         {
             type_t* element_type = array_type_get_element_type(orig);
-            element_type = rewrite_block_scope_typedefs(element_type);
+            element_type = rewrite_redundant_typedefs(element_type);
 
             if (array_type_is_string_literal(orig))
             {
@@ -14434,7 +14441,7 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
         else if (is_function_type(orig))
         {
             type_t* return_type = function_type_get_return_type(orig);
-            return_type = rewrite_block_scope_typedefs(return_type);
+            return_type = rewrite_redundant_typedefs(return_type);
 
             if (function_type_get_lacking_prototype(orig))
             {
@@ -14458,7 +14465,7 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
 
                 for (i = 0; i < P; i++)
                 {
-                    param_info[i].type_info = rewrite_block_scope_typedefs(function_type_get_parameter_type_num(orig, i));
+                    param_info[i].type_info = rewrite_redundant_typedefs(function_type_get_parameter_type_num(orig, i));
                 }
 
                 result = get_new_function_type(return_type, param_info, N, function_type_get_ref_qualifier(orig));
@@ -14467,7 +14474,7 @@ static type_t* rewrite_block_scope_typedefs(type_t* orig)
         else if (is_vector_type(orig))
         {
             type_t * element_type = vector_type_get_element_type(orig);
-            element_type = rewrite_block_scope_typedefs(element_type);
+            element_type = rewrite_redundant_typedefs(element_type);
 
             result = get_vector_type(
                     element_type,
