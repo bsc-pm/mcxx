@@ -246,7 +246,12 @@ namespace OpenMP {
             }
             if( task_pragma_info.has_clause( TL::Analysis::__in ) )
             {
-                Nodecl::List in = task_pragma_info.get_clause( TL::Analysis::__in ).get_args( );
+                Nodecl::List in_alloca = task_pragma_info.get_clause( TL::Analysis::__in ).get_args( );
+                result = result || any_data_ref_is_local( in_alloca, local_vars );
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
+            {
+                Nodecl::List in = task_pragma_info.get_clause( TL::Analysis::__in_alloca ).get_args( );
                 result = result || any_data_ref_is_local( in, local_vars );
             }
             if( task_pragma_info.has_clause( TL::Analysis::__out ) )
@@ -376,6 +381,11 @@ namespace OpenMP {
             {
                 Nodecl::List in = task_pragma_info.get_clause( TL::Analysis::__in ).get_args( );
                 task_shared_variables.append( in );
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
+            {
+                Nodecl::List in_alloca = task_pragma_info.get_clause( TL::Analysis::__in_alloca ).get_args( );
+                task_shared_variables.append( in_alloca );
             }
             if( task_pragma_info.has_clause( TL::Analysis::__out ) )
             {
@@ -627,6 +637,21 @@ namespace OpenMP {
             return result;
         }
         
+        static bool list_elements_contain_nodecl(const Nodecl::List& list, const Nodecl::NodeclBase& n)
+        {
+            bool result = false;
+            for(Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
+            {
+                if(Nodecl::Utils::structurally_equal_nodecls(n, *it, /*skip_conversion_nodes*/true) || 
+                   Nodecl::Utils::stmtexpr_contains_nodecl_structurally(*it, n))
+                {
+                    result = true;
+                    break;
+                }
+            }
+            return result;
+        }
+        
         void check_task_incoherent_data_sharing( TL::Analysis::Node *task, std::string task_locus )
         {
             // Collect all symbols/data references appearing in data-sharing clauses
@@ -638,13 +663,13 @@ namespace OpenMP {
                 all_private_vars.append( firstprivate_vars );
                 task_scoped_vars.append( firstprivate_vars );
             } 
-            else if( task_pragma_info.has_clause( TL::Analysis::__private ) )
+            if( task_pragma_info.has_clause( TL::Analysis::__private ) )
             {
                 private_vars = task_pragma_info.get_clause( TL::Analysis::__private ).get_args( );
                 all_private_vars.append( private_vars );
                 task_scoped_vars.append( private_vars );
             } 
-            else if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+            if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
             {
                 Nodecl::List shared_vars = task_pragma_info.get_clause( TL::Analysis::__shared ).get_args( );
                 task_scoped_vars.append( shared_vars );
@@ -659,8 +684,26 @@ namespace OpenMP {
             TL::Analysis::Utils::ext_sym_set private_killed_vars = task->get_private_killed_vars( );
             TL::Analysis::Utils::ext_sym_set private_undef_vars = task->get_private_undefined_behaviour_vars( );
             
+            TL::Analysis::Utils::ext_sym_set all_vars = ue_vars;
+            all_vars.insert(killed_vars.begin(), killed_vars.end());
+            all_vars.insert(undef_vars.begin(), undef_vars.end());
+            all_vars.insert(private_ue_vars.begin(), private_ue_vars.end());
+            all_vars.insert(private_killed_vars.begin(), private_killed_vars.end());
+            all_vars.insert(private_undef_vars.begin(), private_undef_vars.end());
+            
+            // Collect dependency clauses, for these may use variables that need to be scoped (shape expressions, array subscripts)
+            Nodecl::List dependency_vars;
+            if( task_pragma_info.has_clause( TL::Analysis::__in ) )
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in).get_args());
+            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in_alloca).get_args());
+            if( task_pragma_info.has_clause( TL::Analysis::__out ) )
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__out).get_args());
+            if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_args());
+            
             // Case1: No variable should be scoped if it is not used at all inside the task 
-            Nodecl::List unnecessarily_scoped_vars;
+            std::string unnecessarily_scoped_vars;
             for( Nodecl::List::iterator it = task_scoped_vars.begin( ); it != task_scoped_vars.end( ); ++it )
             {
                 if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
@@ -668,72 +711,79 @@ namespace OpenMP {
                     !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, undef_vars ) && 
                     !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
                     !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_killed_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_undef_vars ) )
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_undef_vars ) && 
+                    !list_elements_contain_nodecl(dependency_vars, *it) )
                 {
-                    unnecessarily_scoped_vars.append( *it );
+                    unnecessarily_scoped_vars += it->prettyprint() + ", ";
                 }
             }
             if( !unnecessarily_scoped_vars.empty( ) ) 
             {
+                unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
                 warn_printf( "%s: warning: OpenMP task defines the scope of the variables '%s' "
                              "which are not used at all within the task\n",
-                             task_locus.c_str(), unnecessarily_scoped_vars.prettyprint().c_str() );
+                             task_locus.c_str(), unnecessarily_scoped_vars.c_str() );
             }
             
             // Case2: Any private|firstprivate variable defined within the task must use that definition.
             // Otherwise the variable should be shared or the statement can be removed because it produces dead code
-            Nodecl::List dead_code_vars;
+            std::string dead_code_vars;
             for( Nodecl::List::iterator it = all_private_vars.begin( ); it != all_private_vars.end( ); ++it )
             {
                 if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, killed_vars ) || 
                     TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_killed_vars ) )
                 {
                     if( !var_is_used_in_task_after_definition( *it, task ) )
-                        dead_code_vars.append( *it );
+                        dead_code_vars += it->prettyprint() + ", ";
                 }
             }
             if( !dead_code_vars.empty( ) )
             {
+                dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as (first)private the variables '%s' "
                              "and these variables are written inside the task, but never used.\n" 
                              "%sConsider defining them as shared or "
                              "removing the statement writing them because it is dead code.\n",
-                             task_locus.c_str(), dead_code_vars.prettyprint().c_str(), tabulation.c_str() );
+                             task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
             }
             
             // Case3: Private variables must never be read before they are written
-            Nodecl::List incoherent_private_vars;
+            std::string incoherent_private_vars;
             for( Nodecl::List::iterator it = private_vars.begin( ); it != private_vars.end( ); ++it )
             {
                 if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) || 
                     TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) )
-                    incoherent_private_vars.append( *it );
+                    incoherent_private_vars += it->prettyprint() + ", ";
             }
             if( !incoherent_private_vars.empty( ) )
             {
+                incoherent_private_vars = incoherent_private_vars.substr(0, incoherent_private_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as private the variables '%s' "
                              "but those variables are upwards exposed.\n"
                              "%sConsider defining them as firstprivate instead.\n",
-                             task_locus.c_str(), incoherent_private_vars.prettyprint().c_str(), tabulation.c_str() );
+                             task_locus.c_str(), incoherent_private_vars.c_str(), tabulation.c_str() );
             }
             
             // Case4: Firstprivate variables must never be written before they are read
-            Nodecl::List incoherent_firstprivate_vars;
+            // unless they only appear in the directive within a shape expression or an array subscript
+            std::string incoherent_firstprivate_vars;
             for( Nodecl::List::iterator it = firstprivate_vars.begin( ); it != firstprivate_vars.end( ); ++it )
             {
                 if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) )
-                    incoherent_firstprivate_vars.append( *it );
+                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
+                    !list_elements_contain_nodecl(dependency_vars, *it) )
+                    incoherent_firstprivate_vars += it->prettyprint() + ", ";
             }
             if( !incoherent_firstprivate_vars.empty( ) )
             {
+                incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as firstprivate the variables '%s' "
                              "but those variables are not upwards exposed.\n"
                              "%sConsider defining them as private instead.\n",
-                             task_locus.c_str(), incoherent_firstprivate_vars.prettyprint().c_str(), tabulation.c_str() );
+                             task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
             }
         }
     };
