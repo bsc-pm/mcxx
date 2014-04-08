@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -32,6 +32,7 @@
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-analysis-static-info.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -740,7 +741,7 @@ namespace TL { namespace OpenMP {
             return false;
 
         if (expr.get_kind() == subexpr.get_kind()
-                && Nodecl::Utils::equal_nodecls(expr, subexpr))
+                && Nodecl::Utils::structurally_equal_nodecls(expr, subexpr))
             return true;
 
         bool found = false;
@@ -765,26 +766,31 @@ namespace TL { namespace OpenMP {
         return found;
     }
 
-    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr)
+    bool expression_stmt_is_a_reduction(Nodecl::NodeclBase expr, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
 
-        // FIXME: How to know if a expression is a reduction will be implemented by
-        // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
-        Nodecl::NodeclBase lhs_expr, rhs_expr;
-        decompose_expression_statement(expr, lhs_expr, rhs_expr);
+        TL::Analysis::AnalysisStaticInfo a;
+        bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
+        std::cerr << "expr: " << expr.prettyprint() << " is_reduction? " << is_reduc << std::endl;
+        return is_reduc;
 
-        // If the expression does not have a left-hand-side expression, this is not a reduction
-        if (lhs_expr.is_null())
-            return false;
+        // // FIXME: How to know if a expression is a reduction will be implemented by
+        // // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873
+        // Nodecl::NodeclBase lhs_expr, rhs_expr;
+        // decompose_expression_statement(expr, lhs_expr, rhs_expr);
 
-        // If the expression is a compound assignment, this is a reduction
-        if (expression_stmt_is_compound_assignment(expr))
-            return true;
+        // // If the expression does not have a left-hand-side expression, this is not a reduction
+        // if (lhs_expr.is_null())
+        //     return false;
 
-        // Detect this kind of reductions: x = foo(i) + x;
-        return is_a_subexpression_of(lhs_expr, rhs_expr);
+        // // If the expression is a compound assignment, this is a reduction
+        // if (expression_stmt_is_compound_assignment(expr))
+        //     return true;
+
+        // // Detect this kind of reductions: x = foo(i) + x;
+        // return is_a_subexpression_of(lhs_expr, rhs_expr);
     }
 
     Nodecl::OpenMP::Task FunctionCallVisitor::generate_join_task(const Nodecl::NodeclBase& enclosing_stmt)
@@ -800,7 +806,7 @@ namespace TL { namespace OpenMP {
         decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
 
         // Create the output depedence if needed
-        bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt);
+        bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set);
         if (!lhs_expr.is_null())
         {
             if (is_reduction)
@@ -1061,7 +1067,7 @@ namespace TL { namespace OpenMP {
         // Optimization: Do not create two tasks if there is only a task
         // involved in the task expression
         if ( !_task_expr_optim_disabled
-                && expression_stmt_is_a_reduction(enclosing_stmt)
+                && expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set)
                 && only_one_task_is_involved_in_this_stmt(enclosing_stmt))
         {
             std::cerr << locus_to_str(enclosing_stmt.get_locus())
@@ -1640,7 +1646,7 @@ namespace TL { namespace OpenMP {
 
         if (!lhs_expr.is_null()
                 && node.get_kind() == lhs_expr.get_kind()
-                && Nodecl::Utils::equal_nodecls(node, lhs_expr))
+                && Nodecl::Utils::structurally_equal_nodecls(node, lhs_expr))
             return;
 
         if (node.is<Nodecl::Symbol>())
@@ -1925,7 +1931,7 @@ namespace TL { namespace OpenMP {
 
         if (!lhs_expr.is_null()
                 && node.get_kind() == lhs_expr.get_kind()
-                && Nodecl::Utils::equal_nodecls(node, lhs_expr))
+                && Nodecl::Utils::structurally_equal_nodecls(node, lhs_expr))
         {
             int new_funct_num_related_symbols = new_funct_related_symbols.size();
 

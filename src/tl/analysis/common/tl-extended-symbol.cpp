@@ -44,7 +44,7 @@ namespace Utils {
         _n = n;
     }
 
-    ObjectList<Nodecl::NodeclBase> ExtendedSymbol::get_nodecls_base( const Nodecl::NodeclBase& n )
+    ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n )
     {
         if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
         {
@@ -131,7 +131,7 @@ namespace Utils {
         return Nodecl::Utils::get_all_symbols( _n );
     }
 
-    Nodecl::NodeclBase ExtendedSymbol::get_nodecl_base( const Nodecl::NodeclBase& n )
+    Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n )
     {
         Nodecl::NodeclBase nodecl;
         if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::PointerToMember>( ) || n.is<Nodecl::ObjectInit>( ) )
@@ -248,8 +248,7 @@ namespace Utils {
 
     bool ExtendedSymbol::operator==( const ExtendedSymbol& es ) const
     {
-        bool equals = Nodecl::Utils::equal_nodecls( _n, es._n, /* skip conversion nodes */ true );
-        return equals;
+        return Nodecl::Utils::structurally_equal_nodecls( _n, es._n, /*skip_conversion_nodes*/ true );
     }
 
     /*! Applied rules:
@@ -258,9 +257,12 @@ namespace Utils {
      */
     bool ExtendedSymbol::operator<( const ExtendedSymbol& es ) const
     {
-        bool result;
-        result = (Nodecl::Utils::cmp_nodecls(_n, es._n, /* skip conversion nodes */ true) == -1);
-        return result;
+        return (Nodecl::Utils::structurally_cmp_nodecls(_n, es._n, /*skip_conversion_nodes*/ true) == -1);
+    }
+    
+    bool ExtendedSymbol_structural_less::operator() (const ExtendedSymbol& e1, const ExtendedSymbol& e2) const
+    {
+        return (Nodecl::Utils::structurally_cmp_nodecls(e1.get_nodecl(), e2.get_nodecl(), /*skip_conversion_nodes*/true) < 0);
     }
 }
 }

@@ -42,9 +42,11 @@ type : NODECL_TYPE() type
 
 function-code: regular-function-code
              | template-function-code
+             | vector-regular-function-code
 
 regular-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
 template-function-code: NODECL_TEMPLATE_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt) symbol
+vector-regular-function-code : NODECL_VECTOR_FUNCTION_CODE([function_code] regular-function-code)
 
 object-init : NODECL_OBJECT_INIT() symbol
 
@@ -527,7 +529,6 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
                  | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
@@ -549,6 +550,8 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*FLUSH_AT_EXIT()
                  | NODECL_OPEN_M_P*TASK_LABEL() text
                  | NODECL_OPEN_M_P*NO_FLUSH()
+                 | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+# Used for simd
                  | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
@@ -558,7 +561,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] stream-store-flags-seq-opt)
                  | NODECL_OPEN_M_P*MASK()
                  | NODECL_OPEN_M_P*NO_MASK()
-                 | NODECL_OPEN_M_P*FUNCTION_TASK_PARSING_CONTEXT([context]pragma-context)
+                 | NODECL_OPEN_M_P*SIMD_REDUCTION([reductions]reduction-item-seq)
 
 target-item : NODECL_OPEN_M_P*COPY_IN([input_copies]expression-seq)
                  | NODECL_OPEN_M_P*COPY_OUT([output_copies]expression-seq)
@@ -603,7 +606,9 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
-# SIMD
+##############################
+# SIMD                       #
+##############################
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
@@ -624,24 +629,19 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
-interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
-                    | NODECL_ANALYSIS*PLUS_INFINITY()
-                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*EMPTY_RANGE()
-                    | expression
 
-constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
-                      | interval_expression
-
-constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
-
-constraint : constraint_expression
-           | constraint_operation
-
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY()
+                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                      
+expression : constraint_expression
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

@@ -38,6 +38,12 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
+    //! Returns all nodecl bases of a given nodecl
+    ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
+    
+    //!Returns the nodecl base of a nodecl when it only has one (a nodecl base has always a related symbol)
+    Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
+    
     /*!This class is used to store l-values
         * It can express:
         * - the accessed member of an structure.
@@ -77,12 +83,6 @@ namespace Utils {
             //! Returns the nodecl associated with the wrapped symbol.
             Nodecl::NodeclBase get_nodecl( ) const;
 
-            //! Returns all nodecl bases of a given nodecl
-            static ObjectList<Nodecl::NodeclBase> get_nodecls_base( const Nodecl::NodeclBase& n );
-
-            //!Returns the nodecl base of a nodecl when it only has one ( a nodecl base has always a related symbol)
-            static Nodecl::NodeclBase get_nodecl_base( const Nodecl::NodeclBase& n );
-
             //! Returns true when the extensible symbol contains a symbols which do not represents
             //! neither an array access nor a member access, but a symbol.
             bool is_simple_symbol( ) const;
@@ -96,9 +96,13 @@ namespace Utils {
             bool operator<( const ExtendedSymbol &es ) const;
     };
 
+    struct ExtendedSymbol_structural_less {
+        bool operator() (const ExtendedSymbol& n1, const ExtendedSymbol& n2) const;
+    };
+    
     typedef std::set<ExtendedSymbol> ext_sym_set;
-    typedef std::set<Nodecl::NodeclBase> nodecl_set;
-    typedef std::multimap<ExtendedSymbol, Nodecl::NodeclBase> ext_sym_map;
+    typedef std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> nodecl_set;
+    typedef std::multimap<ExtendedSymbol, Nodecl::NodeclBase, ExtendedSymbol_structural_less> ext_sym_map;
 
 }
 }

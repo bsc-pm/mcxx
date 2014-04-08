@@ -54,6 +54,14 @@ namespace Codegen
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
+            Ret visit(const Nodecl::Analysis::PlusInfinity &);
+            Ret visit(const Nodecl::Analysis::MinusInfinity &);
+            Ret visit(const Nodecl::Analysis::EmptyRange& node);
+            Ret visit(const Nodecl::Analysis::Phi &);
+            Ret visit(const Nodecl::Analysis::Range &);
+            Ret visit(const Nodecl::Analysis::RangeIntersection &);
+            Ret visit(const Nodecl::Analysis::RangeSub &);
+            Ret visit(const Nodecl::Analysis::RangeUnion &);
             Ret visit(const Nodecl::ArraySubscript &);
             Ret visit(const Nodecl::Assignment &);
             Ret visit(const Nodecl::BitwiseAnd &);

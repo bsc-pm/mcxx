@@ -3467,6 +3467,65 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Alignof& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::EmptyRange& node)
+{
+    *(file) << "∅";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::MinusInfinity& node)
+{
+    *(file) << "-∞";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::PlusInfinity& node)
+{
+    *(file) << "+∞";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
+{
+    *(file) << "Φ(";
+    Nodecl::List expressions = node.get_expressions().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = expressions.begin(); it != expressions.end(); )
+    {
+        walk(*it);
+        ++it;
+        if(it != expressions.end())
+            *(file) << ", ";
+    }
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Range& node)
+{
+    *(file) << "[";
+    walk(node.get_lower());
+    *(file) << ":";
+    walk(node.get_upper());
+    *(file) << "]";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeIntersection& node)
+{
+    walk(node.get_lhs());
+    *(file) << " ∩ ";
+    walk(node.get_rhs());
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeSub& node)
+{
+    walk(node.get_lhs());
+    *(file) << " - ";
+    walk(node.get_rhs());
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeUnion& node)
+{
+    walk(node.get_lhs());
+    *(file) << " ∪ ";
+    walk(node.get_rhs());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 {
     const_value_t* v = nodecl_get_constant(node.get_internal_nodecl());

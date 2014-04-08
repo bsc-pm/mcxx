@@ -31,6 +31,7 @@
 
 #include <map>
 
+#include "tl-analysis-utils.hpp"
 #include "tl-builtin.hpp"
 #include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
@@ -172,7 +173,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_entry_edge_types( );
 
             //! Returns the list of entry edges labels of the node.
-            ObjectList<std::string> get_entry_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> get_entry_edge_labels( );
 
             //! Returns the list parent nodes of the node.
             ObjectList<Node*> get_parents( );
@@ -187,7 +188,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_exit_edge_types( );
 
             //! Returns the list of exit edges labels of the node.
-            ObjectList<std::string> get_exit_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> get_exit_edge_labels( );
 
             //! Returns the edge between the node and a target node, if exists
             Edge* get_exit_edge( Node* target );
@@ -231,6 +232,9 @@ namespace Analysis {
             //! Returns true when the node is a SWITCH node
             bool is_switch_statement( );
 
+            //! Returns true when the node is a CASE|DEFAULT node
+            bool is_switch_case_node( );
+            
             //! Returns true when the node is a composed node because the statement it contains has been split
             bool is_split_statement( );
 
@@ -487,47 +491,77 @@ namespace Analysis {
             
             bool uses_var( const Nodecl::NodeclBase& n );
             
-            //! Returns the list of upper exposed variables of the node
+            //! Returns the list of upward exposed variables of the node
             Utils::ext_sym_set get_ue_vars( );
 
-            //! Adds a new upper exposed variable to the node
-            void set_ue_var( Utils::ExtendedSymbol new_ue_var );
+            //! Adds a new upward exposed variable to the node
+            void add_ue_var( Utils::ExtendedSymbol new_ue_var );
 
-            //! Adds a new set of upper exposed variable to the node
+            //! Adds a new set of upward exposed variable to the node
+            void add_ue_var( Utils::ext_sym_set new_ue_vars );
+
+            //! Sets a new set of upward exposed variables to the node
             void set_ue_var( Utils::ext_sym_set new_ue_vars );
+            
+            //! Deletes an old upward exposed variable from the node
+            void remove_ue_var( Utils::ExtendedSymbol old_ue_var );
 
-            //! Deletes an old upper exposed variable from the node
-            void unset_ue_var( Utils::ExtendedSymbol old_ue_var );
-
+            //! Returns the list of private upward exposed variables of the node
+            Utils::ext_sym_set get_private_ue_vars( );
+            
+            //! Adds a new set of private upward exposed variable to the node
+            void add_private_ue_var( Utils::ext_sym_set new_private_ue_vars );
+            
             //! Returns the list of killed variables of the node
             Utils::ext_sym_set get_killed_vars( );
 
             //! Adds a new killed variable to the node
-            void set_killed_var( Utils::ExtendedSymbol new_killed_var );
+            void add_killed_var( Utils::ExtendedSymbol new_killed_var );
 
             //! Adds a new set of killed variables to the node
+            void add_killed_var( Utils::ext_sym_set new_killed_vars );
+
+            //! Sets a new set of killed variables to the node
             void set_killed_var( Utils::ext_sym_set new_killed_vars );
-
+            
             //! Deletes an old killed variable from the node
-            void unset_killed_var( Utils::ExtendedSymbol old_killed_var );
+            void remove_killed_var( Utils::ExtendedSymbol old_killed_var );
 
+            //! Returns the list of private killed variables of the node
+            Utils::ext_sym_set get_private_killed_vars( );
+            
+            //! Adds a new private killed variable to the node
+            void add_private_killed_var( Utils::ext_sym_set new_private_killed_vars );
+            
             //! Returns the list of undefined behaviour variables of the node
             Utils::ext_sym_set get_undefined_behaviour_vars( );
 
             //! Adds a new undefined behaviour variable to the node
-            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
+            void add_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
 
             //! Adds a set of undefined behaviour variables to the node
-            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            void add_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
 
             //! Adds a new undefined behaviour variable and deletes this variable from them
-            //! upper exposed and killed sets of the node
-            void set_undefined_behaviour_var_and_recompute_use_and_killed_sets(
+            //! upward exposed and killed sets of the node
+            void add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
                     Utils::ExtendedSymbol new_undef_var );
 
+            //! Sets a new undefined behaviour variable to the node
+            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
+            
+            //! Sets a new set of undefined behaviour variables to the node
+            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            
             //! Deletes an old undefined behaviour variable from the node
-            void unset_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
+            void remove_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
 
+            //! Returns the list of private undefined behaviour variables of the node
+            Utils::ext_sym_set get_private_undefined_behaviour_vars( );
+            
+            //! Adds a new private undefined behaviour variable to the node
+            void add_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars );
+            
             // ************* END getters and setters for use-definition analysis ************ //
             // ****************************************************************************** //
 
@@ -604,14 +638,45 @@ namespace Analysis {
             //! Set a new induction variable in a loop graph node
             void set_induction_variable( Utils::InductionVariableData* iv );
 
+            Node* get_condition_node( );
+            void set_condition_node( Node* cond );
+            
             Node* get_stride_node( );
-
             void set_stride_node( Node* stride );
 
             bool is_stride_node( );
             bool is_stride_node( Node* loop );
 
             // ***************** END getters and setters for loops analysis ***************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
+            // ******************* Getters and setters for range analysis ******************* //
+            
+            //! Returns the constraints associated to a given variable in the node
+            ObjectList<Utils::Constraint> get_constraints( const Nodecl::NodeclBase& var );
+            
+            //! Returns the map of variables and their range values associated 
+            //! at the entry point of the node
+            Utils::RangeValuesMap get_ranges_in( );
+            
+            //! Set a pair of variable and range value to the RangeValue map 
+            //! related to the entry point of the node
+            void set_range_in( const Nodecl::NodeclBase& var, 
+                               const ObjectList<Utils::RangeValue_tag>& values );
+            
+            //! Returns the map of variables and their range values associated 
+            //! at the exit point of the node
+            Utils::RangeValuesMap get_ranges_out( );
+            
+            //! Set a pair of variable and range value to the RangeValue map 
+            //! related to the exit point of the node
+            void set_range_out( const Nodecl::NodeclBase& var, 
+                                const ObjectList<Utils::RangeValue_tag>& values );            
+            
+            // ***************** END getters and setters for range analysis ***************** //
             // ****************************************************************************** //
 
 
