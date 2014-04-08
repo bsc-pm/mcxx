@@ -2705,6 +2705,13 @@ namespace Analysis {
         return walk( n.get_join_task( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskLabel& n )
+    {
+        PCFGClause current_clause( __task_label, Nodecl::Text::make(n.get_text(), n.get_locus()));
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
     {
         return visit_taskwait( n );
