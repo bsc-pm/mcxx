@@ -178,10 +178,6 @@ namespace Analysis {
         SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
-        // Remove me!
-        printf("ALIGNMENT align %d uf %d: %d\n", alignment, unroll_factor, subscript_alignment);
-        printf("SUITABLE LIST: ");
-
         for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions.begin();
                 it != suitable_expressions.end();
                 it ++)
@@ -553,32 +549,16 @@ namespace Analysis {
         else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
         {
             Utils::InductionVariableData* iv = Utils::get_induction_variable_from_list( _induction_variables, n );
-            Optimizations::ReduceExpressionVisitor v;
+            //Optimizations::ReduceExpressionVisitor v;
 
-            Nodecl::NodeclBase lb = iv->get_lb( ).shallow_copy( );
-            v.walk( lb );
-            if( lb.is_constant( ) )
-            {
-                Nodecl::NodeclBase incr = iv->get_increment( ).shallow_copy( );
-                v.walk( incr );
-                if( incr.is_constant( ) )
-                {
-                    return (const_value_cast_to_signed_int( lb.get_constant( ) )
-                                  + ( const_value_cast_to_signed_int( incr.get_constant( ) )
-                                      * _unroll_factor)) * _type_size;
-                }
-            }
-            else if ( is_suitable_expression( lb ) )
-            {
-                Nodecl::NodeclBase incr = iv->get_increment( ).shallow_copy( );
-                v.walk( incr );
-                if( incr.is_constant( ) )
-                {
-                    return ( ( 0 /* assuming lb = 0 since it's suitable */ )
-                                  + ( const_value_cast_to_signed_int( incr.get_constant( ) )
-                                      * _unroll_factor)) * _type_size;
-                }
-            }
+            Nodecl::NodeclBase lb = iv->get_lb(); //.shallow_copy( );
+            Nodecl::NodeclBase incr = iv->get_increment();
+
+            int lb_mod = walk(lb);
+            int incr_mod = walk(incr);
+
+            if (lb_mod != -1 && incr_mod != -1)
+                return lb_mod + incr_mod * _unroll_factor;
         }
 
         return -1;
@@ -960,8 +940,8 @@ namespace Analysis {
         bool rhs_is_adjacent_access = _is_adjacent_access;
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
-        std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_const
-            << " and rhs is constant " << rhs_is_const << std::endl;
+        //std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_const
+        //    << " and rhs is constant " << rhs_is_const << std::endl;
 
         // Compute adjacency info
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
@@ -1315,7 +1295,7 @@ namespace Analysis {
         // Collect information about the induction variables contained in the node
         bool n_is_iv = variable_is_iv( n );
 
-        std::cerr << "Studying " << n.prettyprint() << std::endl;
+        //std::cerr << "Studying " << n.prettyprint() << std::endl;
 
         bool is_constant = false;
         bool reach_def_is_adjacent = false;
@@ -1349,7 +1329,7 @@ namespace Analysis {
                         // NEW Constant evolution
                         reach_def_has_constant_evolution |= eev.has_constant_evolution();
 
-                        std::cerr << current_def.prettyprint() << " has constant ev " << reach_def_has_constant_evolution << std::endl;
+                        //std::cerr << current_def.prettyprint() << " has constant ev " << reach_def_has_constant_evolution << std::endl;
                     }
                 }
             }
@@ -1413,8 +1393,8 @@ namespace Analysis {
         _has_constant_evolution = reach_def_has_constant_evolution;
         is_constant = !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
 
-        std::cerr << n.prettyprint() << ": is adj " << _is_adjacent_access << ", has constant evolution " 
-            << _has_constant_evolution << ", is constant " << is_constant << std::endl;
+        //std::cerr << n.prettyprint() << ": is adj " << _is_adjacent_access << ", has constant evolution " 
+        //    << _has_constant_evolution << ", is constant " << is_constant << std::endl;
 
         return is_constant;
     }

@@ -85,20 +85,19 @@ namespace TL
                     virtual void visit(const Nodecl::ReturnStatement& n);
             };
 
-            Nodecl::NodeclBase get_new_mask_symbol(TL::Scope scope,
+            Nodecl::NodeclBase get_new_mask_symbol(const Nodecl::NodeclBase& n,
                     const int masks_size,
                     const bool ref_type);
-            Nodecl::NodeclBase emit_disjunction_mask(
+            Nodecl::NodeclBase get_disjunction_mask(
                     const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
                     Nodecl::List& output_stmt_list,
-                    TL::Scope& scope,
+                    const Nodecl::NodeclBase& scope,
                     const int masks_size);
 
-            bool is_declared_in_scope(const scope_t *const  target_scope,
-                    const scope_t *const symbol_scope);
-            bool is_declared_in_inner_scope(const scope_t *const  target_scope,
-                    const scope_t *const current_scope,
-                    const scope_t *const symbol_scope);
+//            bool is_declared_in_scope(const scope_t *const  target_scope,
+//                    const scope_t *const symbol_scope);
+            bool is_declared_in_inner_scope(const Nodecl::NodeclBase& target_node,
+                    const TL::Symbol& tl_symbol); 
 
             bool is_all_one_mask(const Nodecl::NodeclBase& n);
 
@@ -106,16 +105,21 @@ namespace TL
 
             Nodecl::NodeclBase get_null_mask();
 
-            TL::Type get_qualified_vector_to(TL::Type src_type, const unsigned int size);
+            TL::Type get_qualified_vector_to(TL::Type src_type,
+                    const unsigned int size);
             std::string get_var_counter();
 
-            Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(const Nodecl::NodeclBase& mask,
+            Nodecl::NodeclBase get_if_mask_is_not_zero_nodecl(
+                    const Nodecl::NodeclBase& mask,
                     const Nodecl::NodeclBase& then);
 
-            Nodecl::MaskLiteral get_contiguous_mask_literal(const int size, const int num_active_lanes);
-            Nodecl::List get_vector_offset_list(const int start_value, const int increment,
+            Nodecl::MaskLiteral get_contiguous_mask_literal(
+                    const int size, const int num_active_lanes);
+            Nodecl::List get_vector_offset_list(
+                    const int start_value, const int increment,
                     const int vector_size);
-            const_value_t * get_vector_const_value(const TL::ObjectList<Nodecl::NodeclBase>& list);
+            const_value_t * get_vector_const_value(
+                    const TL::ObjectList<Nodecl::NodeclBase>& list);
 
             Nodecl::NodeclBase get_denormalize_ub(Nodecl::ForStatement for_statement);
         }

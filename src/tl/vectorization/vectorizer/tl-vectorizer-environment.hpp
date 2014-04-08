@@ -55,8 +55,6 @@ namespace TL
                 const objlist_tlsymbol_t* _reduction_list;
                 std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
-                TL::Scope _external_scope;                      // Enclosing scope of the SIMD region (to add reduction symbols)
-                stdlist_scope_t _local_scope_list;              // TL::Scopes used to determine if a variable is locally declared
                 stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
                 Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
 
@@ -82,7 +80,7 @@ namespace TL
 
                 ~VectorizerEnvironment();
 
-                void load_environment(const Nodecl::ForStatement& for_statement);
+                void load_environment(const Nodecl::NodeclBase& for_statement);
                 void unload_environment();
 
                 friend class Vectorizer;

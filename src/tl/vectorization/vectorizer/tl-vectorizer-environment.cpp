@@ -65,18 +65,11 @@ namespace Vectorization
     }
 
     void VectorizerEnvironment::load_environment(
-            const Nodecl::ForStatement& for_statement)
+            const Nodecl::NodeclBase& n)
     {
-        // Set up scopes
-        _external_scope =
-            for_statement.retrieve_context();
-        _local_scope_list.push_back(
-                for_statement.get_statement().
-                as<Nodecl::List>().front().retrieve_context());
-
-        // Push ForStatement as scope for analysis
-        _analysis_simd_scope = for_statement;
-        _analysis_scopes.push_back(for_statement);
+        // Push FunctionCode as scope for analysis
+        _analysis_simd_scope = n;
+        _analysis_scopes.push_back(n);
 
         // Add MaskLiteral to mask_list
         Nodecl::MaskLiteral all_one_mask =
@@ -88,13 +81,10 @@ namespace Vectorization
 
     void VectorizerEnvironment::unload_environment()
     {
-        // Cleaning stacks and nullifying scopes
-        _external_scope = TL::Scope();
         _analysis_simd_scope = Nodecl::NodeclBase::null();
 
-        _mask_list.pop_back();
-        _analysis_scopes.pop_back();
-        _local_scope_list.pop_back();
+        _mask_list.clear();
+        _analysis_scopes.clear();
     }
 
     VectorizerEnvironment::~VectorizerEnvironment()

@@ -134,10 +134,10 @@ namespace Vectorization
             }
 
             // New condition: while((mask = cmp) != 0) do
-            Nodecl::NodeclBase mask_condition_symbol = Utils::get_new_mask_symbol(
-                    // To be improved
-                    n.get_parent().get_parent().get_parent().get_parent().
-                    retrieve_context(), _environment._unroll_factor, true /*ref_type*/);
+            Nodecl::NodeclBase mask_condition_symbol = 
+                Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
+                        _environment._unroll_factor,
+                        true /*ref_type*/);
 
             Nodecl::NodeclBase condition = loop_control.get_cond();
 
@@ -164,13 +164,9 @@ namespace Vectorization
         }
 
 
-        _environment._local_scope_list.push_back(n.get_statement().
-                as<Nodecl::List>().front().retrieve_context());
-
         walk(n.get_statement());
 
         _environment._analysis_scopes.pop_back();
-        _environment._local_scope_list.pop_back();
 
 
         if(condition_depends_on_simd_iv) // Remove mask pushed by loop control
@@ -196,7 +192,6 @@ namespace Vectorization
             Utils::MaskCheckCostEstimation mask_check_cost_visitor;
 
             Nodecl::List list;
-            TL::Scope scope = _environment._local_scope_list.front();
             bool has_else = !n.get_else().is_null();
             unsigned int prev_mask_cost = _environment._mask_check_bb_cost.back();
 
@@ -211,8 +206,10 @@ namespace Vectorization
             // *******
 
             // Condition mask
-            Nodecl::NodeclBase mask_condition_symbol = Utils::get_new_mask_symbol(
-                    scope, _environment._unroll_factor, true /*ref_type*/);
+            Nodecl::NodeclBase mask_condition_symbol = 
+                Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
+                        _environment._unroll_factor,
+                        true /*ref_type*/);
 
             Nodecl::ExpressionStatement mask_condition_exp =
                 Nodecl::ExpressionStatement::make(
@@ -224,8 +221,10 @@ namespace Vectorization
             list.append(mask_condition_exp);
 
             // If mask symbol
-            Nodecl::NodeclBase if_mask_symbol = Utils::get_new_mask_symbol(
-                    scope, _environment._unroll_factor, true /*ref_type*/);
+            Nodecl::NodeclBase if_mask_symbol = 
+                Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
+                        _environment._unroll_factor,
+                        true /*ref_type*/);
 
             // Mask value
             Nodecl::NodeclBase if_mask_value;
@@ -267,8 +266,10 @@ namespace Vectorization
             // "Else" Mask: It will always exists! With or without real 'else statement'
             // ***********
             // New symbol mask
-            Nodecl::NodeclBase else_mask_nodecl = Utils::get_new_mask_symbol(
-                    scope, _environment._unroll_factor, true);
+            Nodecl::NodeclBase else_mask_nodecl = 
+                Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
+                        _environment._unroll_factor,
+                        true);
 
             // Mask value
             Nodecl::NodeclBase else_mask_value;
@@ -311,8 +312,6 @@ namespace Vectorization
 
             _environment._inside_inner_masked_bb.push_back(true);
             _environment._mask_list.push_back(if_mask_symbol);
-            _environment._local_scope_list.push_back(n.get_then().as<Nodecl::List>().
-                    front().retrieve_context());
             _environment._mask_check_bb_cost.push_back(mask_check_cost_if);
 
             walk(n.get_then());
@@ -340,7 +339,6 @@ namespace Vectorization
             }
 
             _environment._mask_check_bb_cost.pop_back();
-            _environment._local_scope_list.pop_back();
             // Update if_mask after visiting. It could have changed.
             if_mask_symbol = _environment._mask_list.back();
 
@@ -360,7 +358,6 @@ namespace Vectorization
                             prev_mask_cost, MASK_CHECK_THRESHOLD);
 
                 _environment._mask_list.push_back(else_mask_nodecl);
-                _environment._local_scope_list.push_back(n.get_else().as<Nodecl::List>().front().retrieve_context());
                 _environment._mask_check_bb_cost.push_back(mask_check_cost_else);
 
                 walk(n.get_else());
@@ -376,8 +373,8 @@ namespace Vectorization
                 {
                     // Create IF to check if else_mask is all zero
                     Nodecl::NodeclBase else_check =
-                        Vectorization::Utils::get_if_mask_is_not_zero_nodecl(else_mask_nodecl,
-                                n.get_else().shallow_copy());
+                        Vectorization::Utils::get_if_mask_is_not_zero_nodecl(
+                                else_mask_nodecl, n.get_else().shallow_copy());
 
                     list.append(else_check);
                 }
@@ -388,7 +385,6 @@ namespace Vectorization
                 }
 
                 _environment._mask_check_bb_cost.pop_back();
-                _environment._local_scope_list.pop_back();
                 // Update else_mask after visiting. It could have changed.
                 else_mask_nodecl = _environment._mask_list.back();
                 _environment._mask_list.pop_back();
@@ -407,8 +403,10 @@ namespace Vectorization
                 bb_predecessor_masks.push_back(if_mask_symbol);
                 bb_predecessor_masks.push_back(else_mask_nodecl);
 
-                Nodecl::NodeclBase new_exit_mask = Utils::emit_disjunction_mask(bb_predecessor_masks,
-                        list, scope, _environment._unroll_factor);
+                Nodecl::NodeclBase new_exit_mask = Utils::get_disjunction_mask(
+                        bb_predecessor_masks, list, 
+                        _environment._analysis_simd_scope,
+                        _environment._unroll_factor);
 
                 _environment._mask_list.push_back(new_exit_mask);
             }
@@ -488,7 +486,8 @@ namespace Vectorization
                 (!mask.is_null()))
         {
             // New return special symbol
-            _environment._function_return = _environment._local_scope_list.front().new_symbol("__function_return");
+            _environment._function_return = Nodecl::Utils::get_enclosing_function(n).
+                get_function_code().retrieve_context().new_symbol("__function_return");
             _environment._function_return.get_internal_symbol()->kind = SK_VARIABLE;
             _environment._function_return.get_internal_symbol()->entity_specs.is_user_declared = 1;
 

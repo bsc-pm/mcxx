@@ -46,16 +46,6 @@ namespace TL
 
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
-            // Set up enviroment
-            _environment._external_scope =
-                function_code.retrieve_context();
-            _environment._local_scope_list.push_back(
-                    function_code.get_statements().retrieve_context());
-
-            // Push FunctionCode as scope for analysis
-            _environment._analysis_simd_scope = function_code;
-            _environment._analysis_scopes.push_back(function_code);
-
             //Vectorize function type and parameters
             TL::Symbol vect_func_sym = function_code.get_symbol();
             TL::Type func_type = vect_func_sym.get_type();
@@ -71,7 +61,8 @@ namespace TL
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
-                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type), _environment._unroll_factor);
+                TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
+                        _environment._unroll_factor);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
@@ -120,16 +111,6 @@ namespace TL
 
                 _environment._mask_list.push_back(mask_nodecl_sym);
             }
-            else // Add MaskLiteral to mask_list
-            {
-                Nodecl::MaskLiteral all_one_mask =
-                    Nodecl::MaskLiteral::make(
-                            TL::Type::get_mask_type(_environment._unroll_factor),
-                            const_value_get_minus_one(_environment._unroll_factor, 1),
-                            make_locus("", 0, 0));
-
-                _environment._mask_list.push_back(all_one_mask);
-            }
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
                         _environment._unroll_factor).get_function_returning(parameters_vector_type));
@@ -152,14 +133,16 @@ namespace TL
                 Nodecl::ReturnStatement return_stmt =
                     Nodecl::ReturnStatement::make(return_value, function_code.get_locus());
 
-                function_code.get_statements().as<Nodecl::Context>().get_in_context().as<Nodecl::List>()
+                function_code.get_statements().as<Nodecl::Context>()
+                    .get_in_context().as<Nodecl::List>()
                     .front().as<Nodecl::CompoundStatement>().get_statements()
                     .as<Nodecl::List>().append(return_stmt);
             }
 
-            _environment._analysis_scopes.pop_back();
-            _environment._mask_list.pop_back();
-            _environment._local_scope_list.pop_back();
+            // Remove mask of masked version
+            if(_masked_version)
+                _environment._mask_list.pop_back();
+
             _environment._function_return = TL::Symbol();
         }
 

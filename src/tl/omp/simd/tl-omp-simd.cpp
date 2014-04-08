@@ -272,13 +272,13 @@ namespace TL {
 
             _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
+            // Add scopes, default masks, etc.
+            for_environment.load_environment(for_statement);
+
             // Get epilog information
             bool only_epilog;
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement,
                     for_environment, only_epilog);
-
-            // Add scopes, default masks, etc.
-            for_environment.load_environment(for_statement);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
@@ -355,7 +355,8 @@ namespace TL {
             if (epilog_iterations != 0)
             {
                 Nodecl::NodeclBase net_epilog_node;
-                Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.get_statement().as<Nodecl::ForStatement>();
+                Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.
+                    get_statement().as<Nodecl::ForStatement>();
 
                 // Load environment epilog
                 for_environment.load_environment(for_stmt_epilog);
@@ -501,13 +502,13 @@ namespace TL {
 
             _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
+            // Add scopes, default masks, etc.
+            for_environment.load_environment(for_statement);
+
             // Get epilog information
             bool only_epilog;
             int epilog_iterations = _vectorizer.get_epilog_info(for_statement,
                     for_environment, only_epilog);
-
-            // Add scopes, default masks, etc.
-            for_environment.load_environment(for_statement);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
@@ -729,7 +730,7 @@ namespace TL {
                     NULL,
                     NULL);
 
-            // Mask Version
+           // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
                 common_simd_function(simd_node,
@@ -800,7 +801,12 @@ namespace TL {
             // Initialize analysis info
             _vectorizer.initialize_analysis(vector_func_code);
 
+            // Add scopes, default masks, etc.
+            function_environment.load_environment(vector_func_code);
+ 
             _vectorizer.vectorize(vector_func_code, function_environment, masked_version);
+
+            function_environment.unload_environment();
 
             // Free analysis
             _vectorizer.finalize_analysis();

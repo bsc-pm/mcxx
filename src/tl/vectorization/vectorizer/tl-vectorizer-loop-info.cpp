@@ -161,7 +161,7 @@ namespace Vectorization
             else
             {
                 // Push ForStatement as scope for analysis
-                environment._analysis_simd_scope = for_statement;
+                //environment._analysis_simd_scope = for_statement;
                 environment._analysis_scopes.push_back(for_statement);
 
                 // Suitable LB
@@ -203,7 +203,7 @@ namespace Vectorization
             else
             {
                 // Push ForStatement as scope for analysis
-                environment._analysis_simd_scope = for_statement;
+                //environment._analysis_simd_scope = for_statement;
                 environment._analysis_scopes.push_back(for_statement);
 
                 // Suitable UB
@@ -276,7 +276,6 @@ namespace Vectorization
         {
             fprintf(stderr, "\n");
         }
-
 
         return remain_its;
     }

@@ -179,16 +179,19 @@ namespace Vectorization
         visit_condition(node);
     }
 
-    void VectorizerVisitorLoopCond::visit_condition(const Nodecl::NodeclBase& node)
+    void VectorizerVisitorLoopCond::visit_condition(
+            const Nodecl::NodeclBase& node)
     {
         Nodecl::Equal condition = node.as<Nodecl::Equal>();
         Nodecl::NodeclBase lhs = condition.get_lhs();
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
-        bool lhs_const_flag = VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_constant(
-                _environment._analysis_simd_scope, lhs);
-        bool rhs_const_flag = VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_constant(
-                _environment._analysis_simd_scope, rhs);
+        bool lhs_const_flag = VectorizerAnalysisStaticInfo::
+            _vectorizer_analysis->is_constant(
+                    _environment._analysis_simd_scope, lhs);
+        bool rhs_const_flag = VectorizerAnalysisStaticInfo::
+            _vectorizer_analysis->is_constant(
+                    _environment._analysis_simd_scope, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
 
@@ -428,22 +431,13 @@ namespace Vectorization
 
     }
 
-    void VectorizerVisitorForEpilog::visit_vector_epilog(const Nodecl::ForStatement& for_statement,
+    void VectorizerVisitorForEpilog::visit_vector_epilog(
+            const Nodecl::ForStatement& for_statement,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        // Set up enviroment
-        _environment._external_scope =
-            for_statement.retrieve_context();
-        _environment._local_scope_list.push_back(
-                for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
-
         Nodecl::CompoundStatement comp_statement = for_statement.get_statement().as<Nodecl::List>().
             front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
             as<Nodecl::CompoundStatement>();
-
-        // Push ForStatement as scope for analysis
-        _environment._analysis_simd_scope = for_statement;
-        _environment._analysis_scopes.push_back(for_statement);
 
         // Get mask for epilog instructions
         Nodecl::NodeclBase mask_value;
@@ -474,7 +468,7 @@ namespace Vectorization
 
 
         Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
-                for_statement.retrieve_context(),
+                _environment._analysis_simd_scope,
                 _environment._unroll_factor, true);
 
 
@@ -571,19 +565,11 @@ namespace Vectorization
 
         // Output reference to just the epilog code
         net_epilog_node = for_inner_statement;
-
-        _environment._analysis_scopes.pop_back();
-        _environment._local_scope_list.pop_back();
     }
 
     void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
             Nodecl::NodeclBase& net_epilog_code)
     {
-        // Set up environment
-        _environment._external_scope = for_statement.retrieve_context();
-        _environment._local_scope_list.push_back(
-                for_statement.get_statement().as<Nodecl::List>().front().retrieve_context());
-
         // Set new IV init
         Nodecl::NodeclBase new_iv_init;
         Nodecl::NodeclBase iv;
@@ -610,8 +596,6 @@ namespace Vectorization
         loop_control.set_init(new_iv_init);
 
         net_epilog_code = for_statement;
-
-        _environment._local_scope_list.pop_back();
     }
 
     void VectorizerVisitorForEpilog::get_updated_iv_init_for_epilog(
