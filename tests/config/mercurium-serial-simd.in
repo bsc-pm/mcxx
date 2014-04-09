@@ -1,8 +1,6 @@
 #!@BASH@
 
-# They do not work
-
-if [ -z "@NANOX_INCLUDES@" -o "@NANOX_SSE@" = "no" ];
+if [ -z "@NANOX_INCLUDES@" -o "@NANOX_SSE@" == "no" ];
 then
 
 cat <<EOF

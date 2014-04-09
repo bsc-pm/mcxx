@@ -42,6 +42,8 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-serial-simd
 	chmod +x config/mercurium-parallel-simd
+	chmod +x config/mercurium-serial-simd-avx2
+	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-serial-simd-mic
 	chmod +x config/mercurium-parallel-simd-mic
 	chmod +x config/mercurium-serial-simd-avx2
