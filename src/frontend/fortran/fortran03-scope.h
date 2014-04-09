@@ -68,7 +68,7 @@ LIBMF03_EXTERN scope_entry_t* fortran_get_variable_with_locus(decl_context_t, AS
 
 // Query of derived type. 
 // class_context should have a current_scope->kind ==  CLASS_SCOPE
-LIBMF03_EXTERN scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name);
+LIBMF03_EXTERN scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name, const locus_t* locus);
 
 // IMPLICIT info functions
 LIBMF03_EXTERN void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type);

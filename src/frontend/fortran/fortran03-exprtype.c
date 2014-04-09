@@ -1833,7 +1833,7 @@ static void check_component_ref_(AST expr,
     }
 
     const char* field = ASTText(name);
-    scope_entry_t* component_symbol = query_name_in_class(class_context, field);
+    scope_entry_t* component_symbol = query_name_in_class(class_context, field, ast_get_locus(name));
 
     if (component_symbol == NULL)
     {
@@ -2150,7 +2150,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(entry->type_information));
 
                 const char* field = ASTText(component_name);
-                member = query_name_in_class(class_context, field);
+                member = query_name_in_class(class_context, field, ast_get_locus(component_name));
                 if (member == NULL)
                 {
                     if (!checking_ambiguity())
@@ -2257,6 +2257,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 nodecl_make_field_designator(
                     nodecl_make_symbol(member, ast_get_locus(expr)),
                     initialization_expressions[i],
+                    no_ref(member->type_information),
                     ast_get_locus(expr)));
     }
     entry_list_iterator_free(iter);

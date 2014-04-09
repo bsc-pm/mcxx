@@ -173,9 +173,18 @@ namespace Analysis {
             // RDI(graph) = U RDO (Y), for all Y predecessors of X
             Utils::ext_sym_map graph_rdi;
             ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); )
             {
-                graph_rdi = Utils::ext_sym_map_union( graph_rdi, ( *it )->get_reaching_definitions_out( ) );
+                Node* c_it = *it;
+                while(c_it->is_entry_node())
+                {
+                    if(c_it->get_outer_node()->get_id() != 0)
+                        c_it = c_it->get_outer_node()->get_parents()[0];
+                    else
+                        goto iterate;
+                }
+                graph_rdi = Utils::ext_sym_map_union( graph_rdi, c_it->get_reaching_definitions_out( ) );
+iterate:        ++it;
             }
             current->set_reaching_definitions_in( graph_rdi );
 

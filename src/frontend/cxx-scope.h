@@ -149,7 +149,9 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Specific query for C++ conversion functions like 'operator T'
-LIBMCXX_EXTERN scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context,
+        type_t* t,
+        const locus_t* locus);
 
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
@@ -168,6 +170,7 @@ LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
 LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus,
         int pack_index);
 
@@ -193,6 +196,7 @@ LIBMCXX_EXTERN template_parameter_list_t* get_template_arguments_from_syntax(
         decl_context_t template_parameters_context);
 
 LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
+LIBMCXX_EXTERN void free_template_parameter_list(template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context);
@@ -205,6 +209,7 @@ LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        instantiation_symbol_map_t *instantiation_symbol_map,
         const locus_t* locus,
         int pack_index);
 
@@ -251,7 +256,8 @@ LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op,
 LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
         field_path_t* field_path,
         decl_flags_t decl_flags,
-        const char* name);
+        const char* name,
+        const locus_t* locus);
 
 // C++ names
 LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);
@@ -268,6 +274,7 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(
         scope_entry_t* dependent_entity,
         int pack_index,
         field_path_t* field_path,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus);
 
 // Utils

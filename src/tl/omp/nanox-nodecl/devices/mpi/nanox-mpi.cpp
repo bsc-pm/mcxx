@@ -150,8 +150,7 @@ void DeviceMPI::generate_additional_mpi_code(
     new_dev_info.append(UNKOWN_RANKSRCDST);
 
 
-    code_host << "MPI_Status ompss___status; "
-            << "int offload_err; ";
+    code_host << "int offload_err; ";
     
     Source struct_arg_type_name;
     struct_arg_type_name
@@ -163,8 +162,7 @@ void DeviceMPI::generate_additional_mpi_code(
     code_device_pre << struct_arg_type_name.get_source() << " args;"
             << "int offload_err; "            
             << "MPI_Comm ompss_parent_comp; "            
-            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);"
-            << "MPI_Status ompss___status; ";
+            << "offload_err= nanos_mpi_get_parent(&ompss_parent_comp);";
 
     Source typelist_src, blocklen_src, displ_src;
     //Source parameter_call;
@@ -183,12 +181,12 @@ void DeviceMPI::generate_additional_mpi_code(
 				<< curr_function.get_qualified_name();
 
         host_call << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
-        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        host_call << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         host_call << " offload_err=nanos_mpi_send_datastruct( (void *) &args, 1,  ompss___datatype," + new_dev_info[1] + "," + new_dev_info[0] + ");";
         //host_call << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
 
         //Recv datastruct from parent (rank will be ignored by nanox)
-        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp, &ompss___status); ";
+        device_call << " offload_err=nanos_mpi_recv_datastruct(&args, 1, ompss___datatype, 0, ompss_parent_comp); ";
 
         for (int i = 0; i < num_params; ++i) { 
             std::string ompss_mpi_type = get_ompss_mpi_type(parameters_called[i].get_type());
@@ -200,7 +198,7 @@ void DeviceMPI::generate_additional_mpi_code(
             
             displ_src.append_with_separator("(( (char *)&(args." + parameters_called[i].get_name() + ") - (char *)&args ))", ",");
             if (parameters_called[i].get_type().is_pointer()) {
-                typelist_src.append_with_separator(ompss_get_mpi_type  + "(\"__mpitype_ompss_unsigned_long_long\")", ",");
+                typelist_src.append_with_separator(ompss_get_mpi_type  + "(mpitype_ompss_unsigned_long_long)", ",");
 
                 blocklen_src.append_with_separator("1", ",");
             } else {
@@ -234,7 +232,7 @@ void DeviceMPI::generate_additional_mpi_code(
 				<< curr_function.get_qualified_name();
 
         code_host << " int id_func_ompss=" << "ompss_mpi_get_function_index_host(" << type_name << ")" << ";";
-        code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
+        code_host << " offload_err=nanos_mpi_send_taskinit(&id_func_ompss, 1," + new_dev_info[1] + " , " + new_dev_info[0] + ");";
         //code_host << " offload_err=nanos_mpi_recv_taskend(&id_func_ompss, 1,  " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\")," + new_dev_info[1] + " , " + new_dev_info[0] + ",&ompss___status);";
     }
     
@@ -298,7 +296,7 @@ void DeviceMPI::generate_additional_mpi_code(
                      << "  } ";
     code_device_post << "int ompss_id_func=" << _currTaskId << ";";
     //Send taskEnd to parent (rank will be ignored by nanox)
-    code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, " << ompss_get_mpi_type  << "(\"__mpitype_ompss_signed_int\"), 0, ompss_parent_comp);";
+    code_device_post << "offload_err= nanos_mpi_send_taskend(&ompss_id_func, 1, 0, ompss_parent_comp);";
 
 
 }
@@ -861,9 +859,9 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
                 << data_input_global
                 << instrument_before_dev
                 << unpacked_function_call
-                << instrument_after_dev
                 << data_output_global
                 << code_device_post
+                << instrument_after_dev
                 << "}"
                 ;
         
@@ -980,13 +978,20 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
         ObjectList<Nodecl::NodeclBase> onto_clause = target_information.get_onto();
         Nodecl::Utils::SimpleSymbolMap param_to_args_map = info._target_info.get_param_arg_map();
         
-        //Set rank and comm, 0 and -95 means undefined so
+        //Set rank and comm, -95 and 0 means undefined so
         //runtime can pick any FREE spawned node
         //(user can specify any rank and any comm using onto clause)
-        std::string assignedComm = "0";
+        std::string assignedComm = "(MPI_Comm)0";
         std::string assignedRank = UNKOWN_RANKSRCDST;
         if (onto_clause.size() >= 1) {
-            assignedComm = as_symbol(param_to_args_map.map(onto_clause.at(0).get_symbol()));
+            const TL::Symbol& called_task = info._called_task;
+            bool is_function_task = called_task.is_valid();
+            if (is_function_task) {
+               Nodecl::NodeclBase base=Nodecl::Utils::deep_copy(onto_clause[0], onto_clause[0], param_to_args_map);
+               assignedComm = as_expression(base);
+            } else {
+               assignedComm = as_expression(onto_clause.at(0));
+            }
         }
         if (onto_clause.size() >= 2) {
             const TL::Symbol& called_task = info._called_task;
@@ -1049,8 +1054,8 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
                 << device_outline_name << "_args.outline = (void(*)(void*))&" << device_outline_name << "_host;"
                 << device_outline_name << "_args.assignedComm = " << assignedComm << ";"
                 << device_outline_name << "_args.assignedRank = " << assignedRank << ";"
-                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_factory;"
-                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;"
+                << "nanos_wd_const_data.devices[0].factory = &nanos_mpi_fortran_factory;"
+                << "nanos_wd_const_data.devices[0].arg = &" << device_outline_name << "_args;" 
                 ;
         }
     } else {
@@ -1223,7 +1228,7 @@ void DeviceMPI::run(DTO& dto) {
 }
 
 std::string DeviceMPI::get_ompss_mpi_type(Type type) {
-    std::string result = "ompss_get_mpi_type(\"__mpitype_ompss_";
+    std::string result = "ompss_get_mpi_type(mpitype_ompss_";
     type=type.basic_type();
     if (type.is_char()) {
         result += "char";
@@ -1256,7 +1261,7 @@ std::string DeviceMPI::get_ompss_mpi_type(Type type) {
     } else {
         result += "byte";
     }
-    result += "\")";
+    result += ")";
     return result;
 }
 

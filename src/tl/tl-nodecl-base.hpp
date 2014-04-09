@@ -113,6 +113,9 @@ namespace Nodecl {
                 ::nodecl_set_constant(get_internal_nodecl(), cval);
             }
 
+            // Convenience function to skip conversion nodes
+            Nodecl::NodeclBase no_conv();
+            
             // Prettyprint
             std::string prettyprint() const;
 

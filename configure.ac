@@ -971,7 +971,7 @@ then
          MPI_CXXNAME=mpiicpc
          MPI_FORTNAME=mpiifort
          if test -f $MPIPATH/$MPI_CNAME; then
-                       mpi_found=yes 
+                       mpi_found=yes
                        MPICC=$MPIPATH/$MPI_CNAME
                        MPICXX=$MPIPATH/$MPI_CXXNAME
                        MPIFORT=$MPIPATH/$MPI_FORTNAME
@@ -983,8 +983,8 @@ then
          #search in the path without bin
          if test x$mpi_found = xno; then		
             mpi_found=no
-   			if test -f $MPIPATH/bin/$MPI_CNAME; then 
-                         mpi_found=yes 
+            if test -f $MPIPATH/bin/$MPI_CNAME; then 
+                         mpi_found=yes
                          MPICC=$MPIPATH/bin/$MPI_CNAME
                          MPICXX=$MPIPATH/bin/$MPI_CXXNAME
                          MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
@@ -993,9 +993,9 @@ then
             else
                          mpi_valid=no
             fi
-          fi		
+         fi		
 
-          if test x$mpi_found = xno; then
+         if test x$mpi_found = xno; then
             MPI_CNAME=mpicc
             MPI_CXXNAME=mpicxx
             MPI_FORTNAME=mpif90

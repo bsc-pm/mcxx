@@ -246,8 +246,8 @@ structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
       | NODECL_STRUCTURED_VALUE_BRACED()
       | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
-initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
+initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
+          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
           | expression
           | fortran-implied-do
 
@@ -517,7 +517,7 @@ task-construct : NODECL_OPEN_M_P*TASK([environment]exec-environment-seq-opt, [st
 task-call : NODECL_OPEN_M_P*TASK_CALL([environment]exec-environment-seq-opt, [call]expression, [site_environment]exec-environment-seq-opt)
 
 # task expression
-task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement-seq)
+task-expression : NODECL_OPEN_M_P*TASK_EXPRESSION([join_task] statement, [task_calls] statement-seq, [sequential_code] statement)
 
 target-declaration : NODECL_OPEN_M_P*TARGET_DECLARATION([devices] text-seq, [symbols] name-seq)
 
@@ -635,23 +635,19 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
-interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
-                    | NODECL_ANALYSIS*PLUS_INFINITY()
-                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*EMPTY_RANGE()
-                    | expression
 
-constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
-                      | interval_expression
-
-constraint_operation : NODECL_ANALYSIS*PHY( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_UNION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_INTERSECTION( [lhs] constraint_expression, [rhs] constraint_expression ) type
-                     | NODECL_ANALYSIS*RANGE_SUB( [lhs] constraint_expression, [rhs] constraint_expression ) type
-
-constraint : constraint_expression
-           | constraint_operation
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY()
+                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                      
+expression : constraint_expression
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

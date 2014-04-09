@@ -226,6 +226,11 @@ namespace TL { namespace Nanox {
             new_class_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier = 
                 related_symbol.get_internal_symbol()->entity_specs.is_defined_inside_class_specifier;
 
+            if (is_dependent_type(related_symbol.get_class_type().get_internal_type()))
+            {
+                set_is_dependent_type(new_class_symbol.get_type().get_internal_type(), 1);
+            }
+
             ::class_type_add_member_before(
                     related_symbol.get_class_type().get_internal_type(), 
                     related_symbol.get_internal_symbol(),

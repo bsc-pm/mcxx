@@ -677,17 +677,17 @@ namespace Codegen
 #define OPERATOR_TABLE \
     PREFIX_UNARY_EXPRESSION(Plus, " +") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
-    BINARY_EXPRESSION(Mul, " * ") \
-    BINARY_EXPRESSION(Div, " / ") \
-    BINARY_EXPRESSION(Add, " + ") \
-    BINARY_EXPRESSION(Minus, " - ") \
+    BINARY_EXPRESSION_ARITH(Mul, " * ") \
+    BINARY_EXPRESSION_ARITH(Div, " / ") \
+    BINARY_EXPRESSION_ARITH(Add, " + ") \
+    BINARY_EXPRESSION_ARITH(Minus, " - ") \
+    BINARY_EXPRESSION_ARITH(Power, " ** ") \
     BINARY_EXPRESSION(LowerThan, " < ") \
     BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
     BINARY_EXPRESSION(GreaterThan, " > ") \
     BINARY_EXPRESSION(GreaterOrEqualThan, " >= ") \
     BINARY_EXPRESSION(LogicalAnd, " .AND. ") \
     BINARY_EXPRESSION(LogicalOr, " .OR. ") \
-    BINARY_EXPRESSION(Power, " ** ") \
     BINARY_EXPRESSION(Concat, " // ") \
     BINARY_EXPRESSION_ASSIG(MulAssignment, " * ") \
     BINARY_EXPRESSION_ASSIG(DivAssignment, " / ") \
@@ -709,6 +709,22 @@ namespace Codegen
         walk(lhs); \
         *(file) << _operand; \
         walk(rhs); \
+    }
+#define BINARY_EXPRESSION_ARITH(_name, _operand) \
+    void FortranBase::visit(const Nodecl::_name &node) \
+    { \
+        Nodecl::NodeclBase lhs = node.get_lhs(); \
+        Nodecl::NodeclBase rhs = node.get_rhs(); \
+        walk(lhs); \
+        *(file) << _operand; \
+        const_value_t* cval = NULL; \
+        bool needs_parentheses = (rhs.is_constant() \
+                && (const_value_is_integer((cval = rhs.get_constant())) \
+                    || const_value_is_floating(cval)) \
+               && const_value_is_negative(cval)); \
+        if (needs_parentheses) (*file) << "("; \
+        walk(rhs); \
+        if (needs_parentheses) (*file) << ")"; \
     }
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \
@@ -2587,6 +2603,15 @@ OPERATOR_TABLE
         walk(initializer);
     }
 
+    void FortranBase::visit(const Nodecl::IndexDesignator& node)
+    {
+        // Nodecl::NodeclBase name = node.get_name();
+        Nodecl::NodeclBase initializer = node.get_next();
+        // This is Fortran 2003
+        // walk(name);
+        walk(initializer);
+    }
+
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
         codegen_casting(
@@ -2855,7 +2880,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Alignof& node)
     {
-        *(file) << node.get_type().get_alignment_of();
+        const_value_t* cval = const_value_get_integer(
+                node.get_type().get_alignment_of(),
+                node.get_type().get_size(),
+                /* sign */ 0);
+        emit_integer_constant(cval, node.get_type());
     }
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
@@ -5400,7 +5429,7 @@ OPERATOR_TABLE
                 || t.is_integral_type()
                 || t.is_floating_type()
                 || t.is_complex()
-                || t.is_class()
+                || (t.is_class() && !t.is_incomplete())
                 || t.is_enum()
                 || t.is_array()
                 // Fortran 2003
@@ -5976,7 +6005,8 @@ OPERATOR_TABLE
     {
         TL::Symbol symbol = node.get_member().get_symbol();
 
-        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(),
+                "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
 
         Nodecl::NodeclBase lhs = node.get_lhs();
 

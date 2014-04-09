@@ -138,7 +138,7 @@ LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_arti
 LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
 #endif
 
-LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
@@ -213,7 +213,7 @@ LIBMCXX_EXTERN type_t* get_restrict_qualified_type(type_t* t);
 /* Type constructors: derived types */
 LIBMCXX_EXTERN type_t* get_pointer_type(type_t*);
 
-LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, scope_entry_t* class_entry);
+LIBMCXX_EXTERN type_t* get_pointer_to_member_type(type_t*, type_t* class_entry);
 
 LIBMCXX_EXTERN type_t* get_lvalue_reference_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_rvalue_reference_type(type_t* t);
@@ -509,7 +509,6 @@ LIBMCXX_EXTERN type_t* function_type_replace_return_type(type_t* t, type_t* new_
 LIBMCXX_EXTERN type_t* function_type_replace_return_type_with_trailing_return(type_t* t, type_t* new_return);
 
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
-LIBMCXX_EXTERN scope_entry_t* pointer_to_member_type_get_class(type_t *t);
 LIBMCXX_EXTERN type_t* pointer_to_member_type_get_class_type(type_t *t);
 
 LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t);

@@ -54,6 +54,14 @@ namespace Codegen
             Ret visit(const Nodecl::Add &);
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
+            Ret visit(const Nodecl::Analysis::PlusInfinity &);
+            Ret visit(const Nodecl::Analysis::MinusInfinity &);
+            Ret visit(const Nodecl::Analysis::EmptyRange& node);
+            Ret visit(const Nodecl::Analysis::Phi &);
+            Ret visit(const Nodecl::Analysis::Range &);
+            Ret visit(const Nodecl::Analysis::RangeIntersection &);
+            Ret visit(const Nodecl::Analysis::RangeSub &);
+            Ret visit(const Nodecl::Analysis::RangeUnion &);
             Ret visit(const Nodecl::ArraySubscript &);
             Ret visit(const Nodecl::Assignment &);
             Ret visit(const Nodecl::BitwiseAnd &);
@@ -458,6 +466,7 @@ namespace Codegen
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, const std::string& prefix);
             static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
+            static bool nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
             static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
 
