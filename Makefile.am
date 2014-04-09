@@ -1474,33 +1474,6 @@ src_tl_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorizer/tl-vectorizer-visitor-expression.hpp \
                            src/tl/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorizer/tl-vectorizer-vector-reduction.cpp \
-src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-analysis.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-analysis.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
-                           src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-environment.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-for.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-for.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
                            $(END)
 endif
 
@@ -2106,35 +2079,35 @@ src_tl_vector_lowering_sse_libtlvector_lowering_sse_la_SOURCES = \
   	 $(END)
 endif
 
-##########################################################################
-# src/tl/vector-lowering/avx2
-##########################################################################
-
-if BUILD_VECTORIZER
-lib_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
-
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
-
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
-    -I $(top_srcdir)/src/tl/analysis/singleton/ \
-    -I $(top_srcdir)/src/tl/analysis/common/ \
-    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-    -I $(top_srcdir)/src/tl/vectorizer/ \
-    -I $(top_srcdir)/src/tl/omp/core/ \
-    $(END)
-
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
-	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
-$(END)
-
-src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
-     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
-     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
-     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
-     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
-     $(END)
-endif
+###########################################################################
+## src/tl/vector-lowering/avx2
+###########################################################################
+#
+#if BUILD_VECTORIZER
+#lib_LTLIBRARIES += src/tl/vector-lowering/avx2/libtlvector-lowering-avx2.la
+#
+#src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CFLAGS = $(tl_cflags)
+#
+#src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS = $(tl_cflags) \
+#    -I $(top_srcdir)/src/tl/analysis/singleton/ \
+#    -I $(top_srcdir)/src/tl/analysis/common/ \
+#    -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+#    -I $(top_srcdir)/src/tl/vectorizer/ \
+#    -I $(top_srcdir)/src/tl/omp/core/ \
+#    $(END)
+#
+#src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
+#src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
+#	$(top_builddir)/src/tl/vectorizer/libtlvectorizer.la \
+#$(END)
+#
+#src_tl_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
+#     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.hpp \
+#     src/tl/vector-lowering/avx2/legalization/tl-vector-legalization-avx2.cpp \
+#     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.hpp \
+#     src/tl/vector-lowering/avx2/backend/tl-vector-backend-avx2.cpp \
+#     $(END)
+#endif
 
 ##########################################################################
 # src/tl/vector-lowering/knc
