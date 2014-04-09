@@ -11465,6 +11465,8 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     }
     else
     {
+        // These are shared, so do not free them
+        template_arguments->arguments = NULL;
         free_template_parameter_list(template_arguments);
         return NULL;
     }
