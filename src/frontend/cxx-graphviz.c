@@ -34,6 +34,7 @@
 #include "cxx-graphviz.h"
 #include "cxx-ast.h"
 #include "cxx-exprtype.h"
+#include "cxx-cexpr.h"
 #include "cxx-tltype.h"
 #include "cxx-utils.h"
 
@@ -123,6 +124,17 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
                 (size_t)nodecl_get_ast(entry->value));
     }
 
+}
+
+static void cval_dump_graphviz(FILE* f, const_value_t* cval)
+{
+    if (rb_tree_query(pointer_set, cval) != NULL)
+        return;
+    rb_tree_insert(pointer_set, cval, cval);
+
+    fprintf(f, "const_%zd[fontcolor=\"/dark28/5\",color=\"/dark28/5\", shape=rectangle,label=\"%s\"]\n",
+            (size_t)cval,
+            quote_protect(const_value_to_str(cval)));
 }
 
 static void scope_t_dump_graphviz(FILE* f, scope_t* scope)
@@ -359,7 +371,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         }
 
         scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
-
         if (entry != NULL)
         {
             symbol_dump_graphviz(f, entry);
@@ -367,6 +378,16 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                     current_node,
                     (size_t)entry,
                     "sym");
+        }
+
+        const_value_t* cval = nodecl_get_constant(_nodecl_wrap(a));
+        if (cval != NULL)
+        {
+            cval_dump_graphviz(f, cval);
+            fprintf(f, "n%zd -> const_%zd [layer=\"constants\",label=\"%s\",fontcolor=\"/dark28/5\",color=\"/dark28/5\"]\n",
+                    current_node,
+                    (size_t)cval,
+                    "const");
         }
     }
     else

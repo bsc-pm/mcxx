@@ -2603,6 +2603,15 @@ OPERATOR_TABLE
         walk(initializer);
     }
 
+    void FortranBase::visit(const Nodecl::IndexDesignator& node)
+    {
+        // Nodecl::NodeclBase name = node.get_name();
+        Nodecl::NodeclBase initializer = node.get_next();
+        // This is Fortran 2003
+        // walk(name);
+        walk(initializer);
+    }
+
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
         codegen_casting(
@@ -2871,7 +2880,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Alignof& node)
     {
-        *(file) << node.get_type().get_alignment_of();
+        const_value_t* cval = const_value_get_integer(
+                node.get_type().get_alignment_of(),
+                node.get_type().get_size(),
+                /* sign */ 0);
+        emit_integer_constant(cval, node.get_type());
     }
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
@@ -5416,7 +5429,7 @@ OPERATOR_TABLE
                 || t.is_integral_type()
                 || t.is_floating_type()
                 || t.is_complex()
-                || t.is_class()
+                || (t.is_class() && !t.is_incomplete())
                 || t.is_enum()
                 || t.is_array()
                 // Fortran 2003
@@ -5992,7 +6005,8 @@ OPERATOR_TABLE
     {
         TL::Symbol symbol = node.get_member().get_symbol();
 
-        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(),
+                "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
 
         Nodecl::NodeclBase lhs = node.get_lhs();
 

@@ -1308,7 +1308,8 @@ void introduce_using_entities_in_class(
         if (entry->kind != SK_DEPENDENT_ENTITY)
         {
             if (!entry->entity_specs.is_member
-                    || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
+                    || !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                        get_user_defined_type(current_class), locus))
             {
                 if (!checking_ambiguity())
                 {
@@ -4296,9 +4297,11 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
 
     gather_cxx11_attributes(enum_attribute_specifier, gather_info);
 
+    char enum_is_scoped = ASTType(enum_key) == AST_SCOPED_ENUM_KEY;
+
     if( !checking_ambiguity()
             && IS_CXX03_LANGUAGE
-            && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+            && enum_is_scoped)
     {
         warn_printf("%s: warning: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
     }
@@ -4385,7 +4388,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             return;
         }
     }
-    else if (ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    else if (enum_is_scoped)
     {
         underlying_type = get_signed_int_type();
     }
@@ -4443,7 +4446,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
             scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context.current_scope, enum_name);
             new_enum->locus = ast_get_locus(id_expression);
             new_enum->kind = SK_ENUM;
-            new_enum->type_information = get_new_enum_type(decl_context);
+            new_enum->type_information = get_new_enum_type(decl_context, enum_is_scoped);
 
             new_enum->entity_specs.is_user_declared = 1;
 
@@ -4723,11 +4726,11 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
 
     entry_list_free(query_results);
 
+#if 0
     // If this is a member of a dependent class or a local entity of a template
     // function craft a dependent typename for it
     if (is_dependent_type(entry->type_information)
-            && (symbol_is_member_of_dependent_class(entry)
-                || symbol_is_local_of_dependent_function(entry)))
+            && symbol_is_member_of_dependent_class(entry))
     {
         // Craft a nodecl name for it
         nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -4754,6 +4757,7 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 ast_get_locus(a));
     }
     else
+#endif
     {
         (*type_info) = get_user_defined_type(entry);
     }
@@ -4783,7 +4787,7 @@ static void nodecl_gather_type_spec_from_simple_type_specifier(nodecl_t a, type_
     common_gather_type_spec_from_simple_type_specifier(nodecl_get_ast(a), decl_context, type_info, gather_info, entry_list);
 }
 
-static type_t* compute_underlying_type_enum(
+type_t* compute_underlying_type_enum(
         const_value_t* min_value,
         const_value_t* max_value,
         type_t* underlying_type,
@@ -4895,6 +4899,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     AST enum_name = ASTSon2(enum_head);
     AST enum_base = ASTSon3(enum_head);
 
+    char enum_is_scoped = ASTType(enum_key) == AST_SCOPED_ENUM_KEY;
+
+    if( !checking_ambiguity()
+            && IS_CXX03_LANGUAGE
+            && enum_is_scoped)
+    {
+        warn_printf("%s: warning: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
+    }
+
     gather_cxx11_attributes(enum_attribute_specifier, gather_info);
 
     scope_entry_t* new_enum = NULL;
@@ -4935,7 +4948,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_enum = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
             new_enum->locus = ast_get_locus(enum_name);
             new_enum->kind = SK_ENUM;
-            new_enum->type_information = get_new_enum_type(decl_context);
+            new_enum->type_information = get_new_enum_type(decl_context, enum_is_scoped);
             new_enum->entity_specs.is_user_declared = 1;
         }
 
@@ -4962,7 +4975,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         new_enum->locus = ast_get_locus(a);
         new_enum->kind = SK_ENUM;
-        new_enum->type_information = get_new_enum_type(decl_context);
+        new_enum->type_information = get_new_enum_type(decl_context, enum_is_scoped);
 
         new_enum->entity_specs.is_unnamed = 1;
         new_enum->entity_specs.is_user_declared = 1;
@@ -4992,13 +5005,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     type_t* underlying_type = get_signed_int_type();
     char underlying_type_is_fixed = 0;
 
-    if( !checking_ambiguity()
-            && IS_CXX03_LANGUAGE
-            && ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
-    {
-        warn_printf("%s: warning: scoped enumerators are only valid in C++11\n", ast_location(enum_key));
-    }
-
     if (enum_base != NULL)
     {
         if (IS_CXX03_LANGUAGE)
@@ -5019,7 +5025,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             return;
         }
     }
-    else if (ASTType(enum_key) == AST_SCOPED_ENUM_KEY)
+    else if (enum_is_scoped)
     {
         underlying_type = get_signed_int_type();
         underlying_type_is_fixed = 1;
@@ -5474,11 +5480,13 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
             }
             is_dependent = 1;
 
+#if 0
             scope_entry_t* enclosing_class = NULL;
             if (class_entry->decl_context.current_scope->kind == CLASS_SCOPE)
             {
                 enclosing_class = class_entry->decl_context.current_scope->related_entry;
             }
+
             if (result->kind != SK_DEPENDENT_ENTITY
                     && enclosing_class != NULL
                     && symbol_is_member_of_dependent_class(result))
@@ -5514,6 +5522,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 
                 result = new_sym;
             }
+#endif
         }
         else
         {
@@ -9396,9 +9405,9 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                             entry = named_type_get_symbol(entry->entity_specs.class_type);
                         }
 
+#if 0
                         if (is_dependent_type(entry->type_information)
-                                &&  (symbol_is_member_of_dependent_class(entry)
-                                    || symbol_is_local_of_dependent_function(entry)))
+                                &&  symbol_is_member_of_dependent_class(entry))
                         {
                             // Craft a nodecl name for it
                             nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
@@ -9431,6 +9440,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                             entry->type_information = dependent_typename;
                             entry->locus = ast_get_locus(id_type_expr);
                         }
+#endif
 
                         *declarator_type = get_pointer_to_member_type(pointee_type, get_user_defined_type(entry));
                     }
@@ -18721,7 +18731,7 @@ static scope_entry_t* instantiate_declaration_common(
 
     char is_definition = !(nodecl_get_kind(node) == NODECL_CXX_DECL);
 
-    scope_entry_t* new_entry = instantiation_symbol_map(v->instantiation_symbol_map, orig_entry);
+    scope_entry_t* new_entry = instantiation_symbol_do_map(v->instantiation_symbol_map, orig_entry);
     if (new_entry == NULL)
     {
         new_entry = new_symbol(v->new_decl_context, v->new_decl_context.current_scope, orig_entry->symbol_name);
@@ -18748,6 +18758,16 @@ static scope_entry_t* instantiate_declaration_common(
                             v->instantiation_symbol_map,
                             /* pack_index */ -1);
 
+                    break;
+                }
+            case SK_TYPEDEF:
+                {
+                    new_entry->type_information = update_type_for_instantiation(
+                            orig_entry->type_information,
+                            v->new_decl_context,
+                            nodecl_get_locus(node),
+                            v->instantiation_symbol_map,
+                            /* pack */ -1);
                     break;
                 }
             default:
@@ -18803,7 +18823,7 @@ static void instantiate_object_init(
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         scope_entry_t* orig_function_instantiated,
         scope_entry_t* new_function_instantiated)
 {
@@ -18814,7 +18834,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     v->orig_decl_context = orig_decl_context;
     v->new_decl_context = new_decl_context;
 
-    v->instantiation_symbol_map = instantiation_symbol_map_;
+    v->instantiation_symbol_map = instantiation_symbol_map;
 
     v->orig_function_instantiated = orig_function_instantiated;
     v->new_function_instantiated = new_function_instantiated;
@@ -18837,13 +18857,13 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 nodecl_t instantiate_statement(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map_)
+        instantiation_symbol_map_t* instantiation_symbol_map)
 {
     nodecl_instantiate_stmt_visitor_t v;
     instantiate_stmt_init_visitor(&v,
             orig_decl_context,
             new_decl_context,
-            instantiation_symbol_map_,
+            instantiation_symbol_map,
             NULL, NULL);
 
     nodecl_t n = instantiate_stmt_walk(&v, orig_tree);

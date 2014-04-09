@@ -209,6 +209,26 @@ void CxxBase::visit(const Nodecl::Reference &node)
     Nodecl::NodeclBase rhs = node.get_rhs();
     char needs_parentheses = operand_has_lower_priority(node, rhs);
 
+    CXX_LANGUAGE()
+    {
+        // struct A
+        // {
+        //    int x;
+        //    void f(int *);
+        //    void g();
+        // };
+        //
+        // void A::g()
+        // {
+        //    f(&x);
+        //    // Emitting f(&A::x) is wrong but f(&(A::x)) is fine...
+        // }
+
+        needs_parentheses = (rhs.is<Nodecl::Symbol>()
+                && rhs.get_symbol().is_member()
+                && !node.get_type().is_pointer_to_member());
+    }
+
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
     if (rhs.get_type().is_rebindable_reference())
@@ -1034,6 +1054,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type type = node.get_type();
 
+    bool add_parentheses = false;
+
     if (type.is_signed_short_int())
     {
         *(file) << "short";
@@ -1048,10 +1070,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
     }
     else
     {
+        if (type.is_named()
+                && ::symbol_is_member_of_dependent_class(type.get_symbol().get_internal_symbol()))
+        {
+            // It will be started by a 'typename' so wrap it inside a
+            // parentheses for 'syntactic' security
+            *(file) << "(";
+            add_parentheses = true;
+        }
+
         *(file) << this->get_declaration(type, this->get_current_scope(),  "");
     }
 
     walk(node.get_init_list());
+
+    if (add_parentheses)
+        *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
@@ -1443,7 +1477,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            actual_arg = Nodecl::Utils::advance_conversions(actual_arg);
+            actual_arg = actual_arg.no_conv();
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -6188,8 +6222,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
-        Nodecl::NodeclBase init = symbol.get_value();
-        init = Nodecl::Utils::advance_conversions(init);
+        Nodecl::NodeclBase init = symbol.get_value().no_conv();
 
         if (is_definition)
         {
@@ -6291,6 +6324,13 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // "function (pointer to function() returning A) returning A"
                         // [extra blanks added for clarity in the example above]
                         walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+                    }
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    {
+                        // Same reason above
+                        *file << "(";
+                        walk(init);
+                        *file << ")";
                     }
                     else
                     {
@@ -8196,7 +8236,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = Nodecl::Utils::advance_conversions(n);
+    n = n.no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8243,10 +8283,20 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
+static char is_relational_operator(node_t n)
+{
+    return n == NODECL_EQUAL
+        || n == NODECL_DIFFERENT
+        || n == NODECL_LOWER_THAN
+        || n == NODECL_LOWER_OR_EQUAL_THAN
+        || n == NODECL_GREATER_THAN
+        || n == NODECL_GREATER_OR_EQUAL_THAN;
+}
+
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8257,8 +8307,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8276,6 +8326,8 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
             || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
             // a + b & c -> (a + b) & c
             || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            // a #1 b #2 c -> (a #1 b) #2 c     [where #1 and #2 are ==, <, <=, >=, >, !=]
+            || (is_relational_operator(current_kind) && is_relational_operator(operand_kind))
             )
     {
         return 1;
@@ -8377,9 +8429,16 @@ std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefi
     return result;
 }
 
+bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase node)
+{
+    return node.is<Nodecl::CxxExplicitTypeCast>()
+        && !node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is_null()
+        && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
 
@@ -8388,7 +8447,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
 
 bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     if (node.is<Nodecl::FunctionCall>())
     {
@@ -8397,12 +8456,13 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
         return (called_sym.is_valid()
                 && called_sym.is_constructor());
     }
+
     return 0;
 }
 
 bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     return (nodecl_calls_to_constructor(node, t)
             && nodecl_calls_to_constructor_get_arguments(node).empty());

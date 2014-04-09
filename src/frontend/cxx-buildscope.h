@@ -176,6 +176,12 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
         scope_entry_t* orig_function_instantiated,
         scope_entry_t* new_function_instantiated);
 
+type_t* compute_underlying_type_enum(
+        const_value_t* min_value,
+        const_value_t* max_value,
+        type_t* underlying_type,
+        char short_enums);
+
 // Only to be called from cxx-exprtype.c
 char check_constexpr_function(scope_entry_t* entry,
         const locus_t* locus,
@@ -183,6 +189,7 @@ char check_constexpr_function(scope_entry_t* entry,
 char check_constexpr_function_code(scope_entry_t* entry,
         nodecl_t nodecl_body,
         char emit_error);
+
 
 MCXX_END_DECLS
 

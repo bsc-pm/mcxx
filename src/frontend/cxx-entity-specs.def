@@ -128,3 +128,4 @@ nodecl|fortran|bind_info|Information of a BIND(lang, X)
 nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function
 typeof(pfortran_modules_data_set_t)|fortran|*module_extra_info|Extra info used by fortran modules shared between the FE and TL
+typeof(instantiation_symbol_map_t*)|all|*instantiation_symbol_map|Instantiation map for template classes and functions

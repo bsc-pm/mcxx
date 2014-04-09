@@ -6940,26 +6940,6 @@ static void cxx_compute_name_from_entry_list(
         return;
     }
 
-    if (!check_expr_flags.do_not_fold_into_dependent_typename
-            && entry->entity_specs.is_member
-            && !entry->entity_specs.is_injected_class_name
-            && is_dependent_type(entry->entity_specs.class_type)
-            && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
-                || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID))
-    {
-        type_t* dependent_typename =
-           build_dependent_typename_for_entry(
-                named_type_get_symbol(entry->entity_specs.class_type),
-                nodecl_name,
-                nodecl_get_locus(nodecl_name));
-
-        *nodecl_output = nodecl_shallow_copy(nodecl_name);
-        nodecl_set_type(*nodecl_output, dependent_typename);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
@@ -6976,9 +6956,17 @@ static void cxx_compute_name_from_entry_list(
 
         if (!accessing_symbol->entity_specs.is_member
                 || accessing_symbol->entity_specs.is_static
-                || check_expr_flags.is_non_executable)
+                || check_expr_flags.is_non_executable
+                || symbol_is_member_of_dependent_class(entry))
         {
             *nodecl_output = nodecl_access_to_symbol;
+
+            if (symbol_is_member_of_dependent_class(entry))
+            {
+                // This is like this->x
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -10045,7 +10033,7 @@ static void check_nodecl_cast_expr(
         return;
     }
 
-    if (is_dependent_type(nodecl_get_type(nodecl_casted_expr)))
+    if (nodecl_expr_is_type_dependent(nodecl_casted_expr))
     {
         *nodecl_output = nodecl_make_cast(
                 nodecl_casted_expr,
@@ -11439,12 +11427,11 @@ static void check_nodecl_function_call_cxx(
     }
 
     if (this_symbol == NULL
-            && nodecl_get_kind(nodecl_called_name) != NODECL_CXX_DEP_NAME_SIMPLE
             && any_is_member_function_of_a_dependent_class(candidates))
     {
-        // If 'this' is not available and we are doing a call A::F(X) and A::F
-        // is a member of a dependent class assume the whole call is dependent.
-        // Note that F(X) is not considered for this case
+        // If 'this' is not available and we are doing a call F(X) or A::F(X)
+        // and F or A::F is a member of a dependent class assume the whole call
+        // is dependent.
         any_arg_is_type_dependent = 1;
     }
 
@@ -15158,6 +15145,59 @@ static char update_stack_to_designator(type_t* declared_type,
     return 1;
 }
 
+// This function creates a designator for non designated initializers
+static void nodecl_craft_designator(
+        nodecl_t nodecl_init,
+        struct type_init_stack_t* type_stack,
+        int type_stack_idx,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_result = nodecl_init;
+
+    while (type_stack_idx >= 0)
+    {
+        type_t* current_type = type_stack[type_stack_idx].type;
+        int item = type_stack[type_stack_idx].item;
+
+        const_value_t* cval = nodecl_get_constant(nodecl_result);
+
+        if (is_array_type(current_type))
+        {
+            nodecl_result = nodecl_make_index_designator(
+                    const_value_to_nodecl(const_value_get_signed_int(item)),
+                    nodecl_result,
+                    array_type_get_element_type(current_type),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else if (is_vector_type(current_type))
+        {
+            // Do nothing with this case as it cannot be designated actually
+        }
+        else if (is_class_type(current_type))
+        {
+            scope_entry_t* field = type_stack[type_stack_idx].fields[item];
+
+            nodecl_result = nodecl_make_field_designator(
+                    nodecl_make_symbol(field, locus),
+                    nodecl_result,
+                    get_unqualified_type(field->type_information),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        type_stack_idx--;
+    }
+
+    *nodecl_output = nodecl_result;
+}
+
+
 static void nodecl_make_designator_rec(nodecl_t *nodecl_output, 
         type_t* designated_type, 
         nodecl_t *designators,
@@ -15167,7 +15207,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     if (current_designator >= num_designators)
         return;
 
-    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const locus_t* locus);
+    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus);
 
     nodecl_t child_0 = nodecl_null();
 
@@ -15210,6 +15250,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     *nodecl_output = (nodecl_ptr_fun)(
             child_0,
             *nodecl_output,
+            designated_type,
             nodecl_get_locus(*nodecl_output));
 }
 
@@ -15518,12 +15559,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         return;
                     }
 
-                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER
-                            && designator_is_ok)
+                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER)
                     {
-                        // Keep the designator
-                        nodecl_t designator = nodecl_get_child(list[i], 0);
-                        nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        if (designator_is_ok)
+                        {
+                            // Keep the designator
+                            nodecl_t designator = nodecl_get_child(list[i], 0);
+                            nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        }
+                    }
+                    else
+                    {
+                        nodecl_craft_designator(nodecl_init_output,
+                                type_stack,
+                                type_stack_idx,
+                                nodecl_get_locus(list[i]),
+                                &nodecl_init_output);
                     }
 
                     init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
@@ -20912,13 +20963,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, de
 
 nodecl_t instantiate_expression(
         nodecl_t nodecl_expr, decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
-    v.instantiation_symbol_map = instantiation_symbol_map_;
+    v.instantiation_symbol_map = instantiation_symbol_map;
 
     char do_not_evaluate = check_expr_flags.do_not_evaluate;
     check_expr_flags.do_not_evaluate = 0;
@@ -21000,6 +21051,7 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(class_type),
+                    /* instantiation_symbol_map */ NULL,
                     locus,
                     /* pack_index */ -1),
                 locus);
@@ -21039,6 +21091,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
         scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         char dependent_entry_already_updated,
         int pack_index,
         const locus_t* locus)
@@ -21073,6 +21126,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 update_template_argument_list(
                         decl_context,
                         template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                        instantiation_symbol_map,
                         locus,
                         pack_index);
         }
@@ -21106,6 +21160,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                     update_template_argument_list(
                         decl_context,
                         nodecl_get_template_parameters(copied_part),
+                        instantiation_symbol_map,
                         locus,
                         pack_index));
         }
@@ -21142,6 +21197,7 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
             sym,
             v->pack_index,
             NULL,
+            v->instantiation_symbol_map,
             nodecl_get_locus(node));
 
     nodecl_t complete_nodecl_name = nodecl_null();
@@ -21176,6 +21232,7 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
     complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
             list_of_dependent_parts,
             v->decl_context,
+            v->instantiation_symbol_map,
             dependent_entry_already_updated,
             v->pack_index,
             nodecl_get_locus(node));
@@ -21301,13 +21358,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else
     {
-        scope_entry_t* mapped_symbol = instantiation_symbol_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
-
-        if (mapped_symbol == NULL)
-        {
-            // There is no mapping, use the original symbol and hope for the best
-            mapped_symbol = nodecl_get_symbol(node);
-        }
+        scope_entry_t* mapped_symbol = instantiation_symbol_try_to_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
 
         // FIXME - Can this name be other than an unqualified thing?
         nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
@@ -21348,6 +21399,7 @@ static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nod
     template_parameter_list_t* update_template_args =
         update_template_argument_list(v->decl_context,
                 template_args,
+                v->instantiation_symbol_map,
                 nodecl_get_locus(node),
                 v->pack_index);
 
@@ -21378,6 +21430,7 @@ static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t*
             template_parameter_list_t* updated_template_args =
                 update_template_argument_list(v->decl_context,
                         template_args,
+                        v->instantiation_symbol_map,
                         nodecl_get_locus(expr),
                         v->pack_index);
 
@@ -22270,7 +22323,7 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
     nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 2));
     if (nodecl_is_err_expr(nodecl_false))
     {
-        v->nodecl_result = nodecl_true;
+        v->nodecl_result = nodecl_false;
         return;
     }
 

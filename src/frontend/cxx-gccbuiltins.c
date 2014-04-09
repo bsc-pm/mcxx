@@ -3199,6 +3199,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 {
     type_t* integer_types[] =
     {
+        get_char_type(),
         get_signed_char_type(),
         get_unsigned_char_type(),
         get_signed_short_int_type(),

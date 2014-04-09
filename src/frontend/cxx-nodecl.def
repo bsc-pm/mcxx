@@ -240,8 +240,8 @@ structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
       | NODECL_STRUCTURED_VALUE_BRACED()
       | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
-initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
+initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
+          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item) type const-value-opt
           | expression
           | fortran-implied-do
 

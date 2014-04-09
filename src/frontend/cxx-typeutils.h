@@ -138,7 +138,7 @@ LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_arti
 LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
 #endif
 
-LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
