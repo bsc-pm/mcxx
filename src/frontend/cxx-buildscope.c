@@ -16849,29 +16849,33 @@ static void build_scope_for_statement_nonrange(AST a,
     nodecl_t nodecl_loop_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
+        nodecl_t nodecl_dummy = nodecl_null();
+        scope_entry_list_t* declared_symbols = NULL;
+
+        gather_decl_spec_list_t gather_decl_spec_list;
+        memset(&gather_decl_spec_list, 0, sizeof(gather_decl_spec_list));
+
         build_scope_simple_declaration(for_init_statement, block_context,
-                /* is_template */ 0, /* is_explicit_specialization */ 0,
-                &nodecl_loop_init,
-                /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
+                /* is_template */ 0,
+                /* is_explicit_specialization */ 0,
+                &nodecl_dummy,
+                &declared_symbols, &gather_decl_spec_list);
+        nodecl_free(nodecl_dummy);
 
-        if (IS_CXX_LANGUAGE)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(declared_symbols);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            if (!nodecl_is_null(nodecl_loop_init))
-            {
-                int num_items = 0, i;
-                nodecl_t* list = nodecl_unpack_list(nodecl_loop_init, &num_items);
-
-                nodecl_loop_init = nodecl_null();
-                for (i = 0; i < num_items; i++)
-                {
-                    if (nodecl_get_kind(list[i]) != NODECL_CXX_DECL
-                            && nodecl_get_kind(list[i]) != NODECL_CXX_DEF)
-                    {
-                        nodecl_loop_init = nodecl_append_to_list(nodecl_loop_init, list[i]);
-                    }
-                }
-            }
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            nodecl_loop_init
+                = nodecl_append_to_list(
+                        nodecl_loop_init,
+                        nodecl_make_object_init(entry, entry->locus));
         }
+        entry_list_iterator_free(it);
+
+        xfree(gather_decl_spec_list.items);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
