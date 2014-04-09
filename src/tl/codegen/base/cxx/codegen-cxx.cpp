@@ -207,7 +207,8 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
 void CxxBase::visit(const Nodecl::Reference &node)
 {
     Nodecl::NodeclBase rhs = node.get_rhs();
-    char needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_this = false;
 
     CXX_LANGUAGE()
     {
@@ -223,9 +224,13 @@ void CxxBase::visit(const Nodecl::Reference &node)
         //    f(&x);
         //    // Emitting f(&A::x) is wrong but f(&(A::x)) is fine...
         // }
+        //
+        // But versions before g++ 4.7 do not honor the parentheses this and
+        // ignore the parentheses so it is safer to do &(*this).A::x
 
-        needs_parentheses = (rhs.is<Nodecl::Symbol>()
+        needs_this = (rhs.is<Nodecl::Symbol>()
                 && rhs.get_symbol().is_member()
+                && !rhs.get_symbol().is_static()
                 && !node.get_type().is_pointer_to_member());
     }
 
@@ -250,6 +255,10 @@ void CxxBase::visit(const Nodecl::Reference &node)
     if (needs_parentheses)
     {
         *(file) << "(";
+    }
+    if (needs_this)
+    {
+        *(file) << "(*this).";
     }
     walk(rhs);
     if (needs_parentheses)
