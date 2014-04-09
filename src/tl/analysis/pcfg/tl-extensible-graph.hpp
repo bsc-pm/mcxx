@@ -45,6 +45,8 @@
 namespace TL {
 namespace Analysis {
     
+    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> SizeMap;
+    
     class LIBTL_CLASS ExtensibleGraph
     {
     protected:
@@ -71,6 +73,9 @@ namespace Analysis {
          */
         Symbol _function_sym;
 
+        //! Map relating a symbol with pointer type and the number of elements hidden in the pointer
+        SizeMap _pointer_to_size_map;
+        
         //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
         /*! The key is the old node and the value is the new node
         */
@@ -365,6 +370,10 @@ namespace Analysis {
         //! It is null when the graph do not corresponds to a function code
         Symbol get_function_symbol( ) const;
 
+        void set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size);
+        Nodecl::NodeclBase get_pointer_n_elems(const Nodecl::NodeclBase& s);
+        void purge_non_constant_pointer_n_elems();
+        
         //! Returns the node containing the graph
         Node* get_graph( ) const;
 

@@ -39,6 +39,7 @@
 #include "tl-reaching-definitions.hpp"
 #include "tl-range-analysis.hpp"
 #include "tl-task-sync.hpp"
+#include "tl-pointer-size.hpp"
 #include "tl-use-def.hpp"
 #include "tl-task-syncs-tune.hpp"
 
@@ -539,8 +540,14 @@ namespace Analysis {
 
             std::set<Symbol> visited_funcs;
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+            {
                 if( !( *it )->usage_is_computed( ) )
+                {
+                    PointerSize ps(*it);
+                    ps.compute_pointer_vars_size();
                     use_def_rec( ( *it )->get_function_symbol( ), visited_funcs, &pcfgs );
+                }
+            }
         }
 
         return pcfgs;
