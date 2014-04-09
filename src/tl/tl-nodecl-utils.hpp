@@ -329,6 +329,8 @@ namespace Utils
             Ret visit( const Nodecl::Equal& n );
             Ret visit( const Nodecl::FloatingLiteral& n );
             Ret visit( const Nodecl::FunctionCall& n );
+            Ret visit( const Nodecl::GreaterThan& n );
+            Ret visit( const Nodecl::GreaterOrEqualThan& n );
             Ret visit( const Nodecl::IntegerLiteral& n );
             Ret visit( const Nodecl::LowerThan& n );
             Ret visit( const Nodecl::LowerOrEqualThan& n );

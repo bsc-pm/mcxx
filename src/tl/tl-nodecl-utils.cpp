@@ -1646,6 +1646,18 @@ namespace Nodecl
     }
 
     template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::GreaterThan& n )
+    {
+        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::GreaterOrEqualThan& n )
+    {
+        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
+    }
+
+    template <class Comparator>
     void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::IntegerLiteral& n )
     {
         if( _comparator( n, _n ) )
