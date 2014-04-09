@@ -1554,7 +1554,10 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     {
         fprintf(stderr, "TYPEUNIF: Unifying with an unresolved overloaded type. Unfolding it\n");
     }
-    scope_entry_list_t* overloaded_set = unresolved_overloaded_type_get_overload_set(t2);
+
+    scope_entry_list_t* overloaded_set =
+        unresolved_overloaded_type_compute_set_of_specializations(
+                t2, decl_context, locus);
 
     char contains_templates = 0;
     scope_entry_list_iterator_t* it = NULL;
