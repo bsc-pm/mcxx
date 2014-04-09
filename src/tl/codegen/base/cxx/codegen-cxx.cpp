@@ -1054,7 +1054,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type type = node.get_type();
 
-    bool add_parentheses = false;
+    bool add_double_parentheses = false;
 
     if (type.is_signed_short_int())
     {
@@ -1075,8 +1075,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
         {
             // It will be started by a 'typename' so wrap it inside a
             // parentheses for 'syntactic' security
-            *(file) << "(";
-            add_parentheses = true;
+            *(file) << "((";
+            add_double_parentheses = true;
         }
 
         *(file) << this->get_declaration(type, this->get_current_scope(),  "");
@@ -1084,8 +1084,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 
     walk(node.get_init_list());
 
-    if (add_parentheses)
-        *(file) << ")";
+    if (add_double_parentheses)
+        *(file) << "))";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
