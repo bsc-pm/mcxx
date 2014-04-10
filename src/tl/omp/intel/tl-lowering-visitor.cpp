@@ -57,12 +57,6 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::FlushMemory& construct)
             construct.get_locus_str().c_str());
 }
 
-void LoweringVisitor::visit(const Nodecl::OpenMP::Master& construct)
-{
-    error_printf("%s: error: OpenMP Master construct not yet implemented\n", 
-            construct.get_locus_str().c_str());
-}
-
 void LoweringVisitor::visit(const Nodecl::OpenMP::Sections& construct)
 {
     error_printf("%s: error: OpenMP Sections construct not yet implemented\n", 

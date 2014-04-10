@@ -1945,6 +1945,7 @@ src_tl_omp_intel_libtlintel_omp_lowering_la_SOURCES=\
 								   src/tl/omp/intel/tl-lowering-utils.hpp \
 								   src/tl/omp/intel/tl-lowering-utils.cpp \
 								   src/tl/omp/intel/tl-lower-parallel.cpp \
+								   src/tl/omp/intel/tl-lower-master.cpp \
 								   src/tl/omp/intel/tl-lower-single.cpp \
 								   src/tl/omp/intel/tl-lower-barrier.cpp \
 								   src/tl/omp/intel/tl-lower-for.cpp \
