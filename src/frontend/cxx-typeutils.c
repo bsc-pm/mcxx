@@ -1688,7 +1688,8 @@ char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
 {
     return entry->kind == SK_TEMPLATE_TYPE_PARAMETER
         || ((entry->kind == SK_CLASS
-                    || entry->kind == SK_FUNCTION)
+                    || entry->kind == SK_FUNCTION
+                    || (IS_CXX11_LANGUAGE && entry->kind == SK_TEMPLATE_ALIAS))
                 && is_dependent_type(entry->type_information))
         || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
 }
