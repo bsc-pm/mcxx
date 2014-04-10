@@ -493,7 +493,7 @@ parallel-execution : task-construct
                    | single-construct
                    | critical-construct
                    | parallel-construct
-                   | for-construct
+                   | omp-for-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
@@ -585,7 +585,7 @@ reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
               | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [appendix]statement-seq)
 
 # workshare (Fortran only)
@@ -618,11 +618,13 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
+                | simd-parallel-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] exec-environment-seq-opt)
 simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] exec-environment-seq-opt)
-simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] for-construct, [environment] exec-environment-seq-opt)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] exec-environment-seq-opt)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] exec-environment-seq-opt)
+simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] exec-environment-seq-opt)
 
 ##############################
 # CUDA                       #
