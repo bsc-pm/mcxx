@@ -5330,6 +5330,12 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
 {
     type_t* class_type = get_actual_class_type(class_entry->type_information);
 
+    if (class_type_get_class_kind(class_type) == TT_UNION)
+    {
+        error_printf("%s: a union cannot have bases\n", ast_location(base_clause));
+        return;
+    }
+
     AST list = ASTSon0(base_clause);
     AST iter;
     for_each_element(list, iter)
@@ -5348,6 +5354,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         AST class_name = ASTSon2(base_specifier);
 
         access_specifier_t access_specifier = AS_UNKNOWN;
+
         switch (class_type_get_class_kind(class_type))
         {
             case TT_CLASS :
@@ -5358,12 +5365,6 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
             case TT_STRUCT :
                 {
                     access_specifier = AS_PUBLIC;
-                    break;
-                }
-            case TT_UNION:
-                {
-                    // FIXME - Instead of running_error we should be able to return erroneously
-                    running_error("%s: a union cannot have bases\n", ast_location(base_clause));
                     break;
                 }
             default:
@@ -5526,10 +5527,10 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
         }
         else
         {
-            // FIXME - Instead of running_error we should be able to return erroneously
-            running_error("%s: error: invalid class name '%s'\n",
+            error_printf("%s: error: invalid class name '%s'\n",
                     ast_location(class_name),
                     prettyprint_in_buffer(class_name));
+            continue;
         }
 
         // Add the base to the class type
@@ -16421,6 +16422,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
 
     if (entry->kind == SK_VARIABLE
             && is_class_type(entry->type_information)
+            && is_complete_type(entry->type_information)
             && !is_dependent_type(entry->type_information)
             && !entry->entity_specs.is_static
             && !entry->entity_specs.is_extern)

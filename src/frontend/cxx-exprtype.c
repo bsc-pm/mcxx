@@ -1591,7 +1591,9 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         }
 #else
         {
-            running_error("%s: error: __float128 literals not supported\n", ast_location(expr));
+            error_printf("%s: error: __float128 literals not supported\n", ast_location(expr));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
         }
 #endif
     }
@@ -19772,6 +19774,9 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 {
     scope_entry_t* constructor = NULL;
     check_default_initialization_(entry, decl_context, locus, &constructor);
+
+    if (is_incomplete_type(entry->type_information))
+        return 0;
 
     if (is_class_type(entry->type_information))
     {

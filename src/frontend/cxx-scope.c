@@ -1617,16 +1617,16 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus
     }
     entry_list_iterator_free(it);
 
-    running_error("%s: error: lookup failed due to ambiguous reference '%s'\n", 
+    error_printf("%s: error: lookup failed due to ambiguous reference '%s'\n", 
             locus_to_str(locus), entry_list_head(entry_list)->symbol_name);
 }
 
 
-static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
+static char check_for_naming_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
 {
     if (entry_list == NULL
             || entry_list_size(entry_list) == 1)
-        return;
+        return 1;
 
     scope_entry_t* hiding_name = NULL;
 
@@ -1676,9 +1676,13 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const loc
         else
         {
             error_ambiguity(entry_list, locus);
+            entry_list_iterator_free(it);
+            return 0;
         }
     }
     entry_list_iterator_free(it);
+
+    return 1;
 }
 
 static scope_entry_list_t* entry_list_merge_aliases(scope_entry_list_t* list1, scope_entry_list_t* list2)
@@ -1800,7 +1804,8 @@ static scope_entry_list_t* unqualified_query_in_namespace(
                 entry_list_free(old_result);
             }
 
-            check_for_naming_ambiguity(grand_result, locus);
+            if (!check_for_naming_ambiguity(grand_result, locus))
+                return NULL;
         }
     }
     return grand_result;
@@ -1893,7 +1898,8 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
             entry_list_free(old_result);
         }
 
-        check_for_naming_ambiguity(grand_result, locus);
+        if (!check_for_naming_ambiguity(grand_result, locus))
+            return NULL;
     }
 
     return grand_result;
@@ -1937,8 +1943,8 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
         }
         if (!found)
         {
-            if ((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES)
-                running_error("Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
+            ERROR_CONDITION((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES,
+                "Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
             associated_namespaces[(*num_associated_namespaces)].scope_of_using = scope_of_using;
             associated_namespaces[(*num_associated_namespaces)].nominated = current_scope->use_namespace[i];
             associated_namespaces[(*num_associated_namespaces)].visited = 0;
@@ -3387,8 +3393,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
             {
-                running_error("%s: error: could not update array dimension",
+                error_printf("%s: error: could not update array dimension",
                         nodecl_locus_to_str(array_size));
+                return NULL;
             }
 
             DEBUG_CODE()
