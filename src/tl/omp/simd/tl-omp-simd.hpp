@@ -99,7 +99,12 @@ namespace TL
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
-                        const Nodecl::ForStatement& for_statement);
+                        TL::Scope enclosing_scope);
+
+                void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
+                        const Nodecl::FunctionCode& function_code,
+                        Vectorization::VectorizerEnvironment& function_environment,
+                        const bool masked_version);
 
             public:
                 SimdVisitor(Vectorization::SIMDInstructionSet simd_isa,
@@ -108,10 +113,7 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
-                virtual void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
-                        const Nodecl::FunctionCode& function_code,
-                        Vectorization::VectorizerEnvironment& function_environment,
-                        const bool masked_version);
+                virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
         };
 
         class FunctionDeepCopyFixVisitor : public Nodecl::ExhaustiveVisitor<void>

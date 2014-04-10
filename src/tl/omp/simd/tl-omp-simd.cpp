@@ -240,7 +240,7 @@ namespace TL {
 
             Nodecl::List omp_reduction_list = process_reduction_clause(simd_environment,
                     reductions, new_external_vector_symbol_map,
-                    for_statement);
+                    for_statement.retrieve_context());
 
             // Vectorizer Environment
             VectorizerEnvironment for_environment(
@@ -470,7 +470,7 @@ namespace TL {
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_for_environment,
                         reductions, new_external_vector_symbol_map,
-                        for_statement);
+                        for_statement.retrieve_context());
 
             // Vectorizer Environment
             VectorizerEnvironment for_environment(
@@ -848,6 +848,155 @@ namespace TL {
             }
         }
 
+        void SimdVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
+        {
+            Nodecl::OpenMP::Parallel omp_parallel = simd_node.
+                get_openmp_parallel().as<Nodecl::OpenMP::Parallel>();
+            Nodecl::List omp_simd_parallel_environment = simd_node.
+                get_environment().as<Nodecl::List>();
+            Nodecl::List omp_parallel_environment = omp_parallel.
+                get_environment().as<Nodecl::List>();
+
+            // Skipping AST_LIST_NODE
+            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements();
+
+            // Aligned clause
+            aligned_expr_map_t aligned_expressions;
+            process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
+
+            // Suitable clause
+            objlist_nodecl_t suitable_expressions;
+            process_suitable_clause(omp_simd_parallel_environment, suitable_expressions);
+
+            // Nontemporal clause
+            nontmp_expr_map_t nontemporal_expressions;
+            process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
+
+            // Cache clause
+            objlist_nodecl_t cached_expressions;
+            process_cache_clause(omp_simd_parallel_environment, cached_expressions);
+            VectorizerCache vectorizer_cache(cached_expressions);
+
+            // Vectorlengthfor clause
+            TL::Type vectorlengthfor_type;
+            process_vectorlengthfor_clause(omp_simd_parallel_environment, vectorlengthfor_type);
+
+            // External symbols (loop)
+            std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
+
+            // Reduction clause
+            objlist_tlsymbol_t reductions;
+            Nodecl::List omp_reduction_list =
+                process_reduction_clause(omp_parallel_environment,
+                        reductions, new_external_vector_symbol_map,
+                        parallel_statements.retrieve_context());
+
+            // Vectorizer Environment
+            VectorizerEnvironment parallel_environment(
+                    _device_name,
+                    _vector_length,
+                    _support_masking,
+                    _mask_size,
+                    _fast_math_enabled,
+                    vectorlengthfor_type,
+                    aligned_expressions,
+                    suitable_expressions,
+                    nontemporal_expressions,
+                    vectorizer_cache,
+                    &reductions,
+                    &new_external_vector_symbol_map);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(parallel_statements, 
+                    parallel_environment);
+
+            // Initialize analysis info
+            Nodecl::NodeclBase enclosing_func =
+                Nodecl::Utils::get_enclosing_function(parallel_statements)
+                .get_function_code();
+
+            _vectorizer.initialize_analysis(
+                    enclosing_func.as<Nodecl::FunctionCode>());
+
+            // Add scopes, default masks, etc.
+            parallel_environment.load_environment(parallel_statements);
+
+            // Cache init
+            vectorizer_cache.declare_cache_symbols(
+                    parallel_statements.retrieve_context(), parallel_environment);
+            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(
+                        parallel_environment));
+
+            // VECTORIZE PARALLEL STATEMENTS
+                _vectorizer.vectorize_parallel(parallel_statements,
+                        parallel_environment);
+
+            // Add new vector symbols
+            Nodecl::List pre_parallel_nodecls, post_parallel_nodecls;
+
+            if (!new_external_vector_symbol_map.empty())
+            {
+                // REDUCTIONS
+                for(Nodecl::List::iterator it = omp_reduction_list.begin();
+                        it != omp_reduction_list.end();
+                        it++)
+                {
+                    // Prepare reduction information to be used in vectorizer
+                    Nodecl::OpenMP::ReductionItem omp_red_item = (*it).as<Nodecl::OpenMP::ReductionItem>();
+                    TL::OpenMP::Reduction omp_red = *(OpenMP::Reduction::get_reduction_info_from_symbol(
+                                omp_red_item.get_reductor().get_symbol()));
+
+                    // Symbols
+                    std::map<TL::Symbol, TL::Symbol>::iterator new_external_symbol_pair =
+                        new_external_vector_symbol_map.find(omp_red_item.get_reduced_symbol().get_symbol());
+
+                    TL::Symbol scalar_tl_symbol = new_external_symbol_pair->first;
+                    TL::Symbol vector_tl_symbol = new_external_symbol_pair->second;
+
+                    // Reduction info
+                    Nodecl::NodeclBase reduction_initializer = omp_red.get_initializer();
+                    std::string reduction_name = omp_red.get_name();
+                    TL::Type reduction_type = omp_red.get_type();
+
+                    // Vectorize reductions
+                    if(_vectorizer.is_supported_reduction(
+                                omp_red.is_builtin(reduction_name),
+                                reduction_name,
+                                reduction_type,
+                                parallel_environment))
+                    {
+                        _vectorizer.vectorize_reduction(scalar_tl_symbol,
+                                vector_tl_symbol,
+                                reduction_initializer,
+                                reduction_name,
+                                reduction_type,
+                                parallel_environment,
+                                pre_parallel_nodecls,
+                                post_parallel_nodecls);
+                    }
+                    else
+                    {
+                        running_error("SIMD: reduction '%s:%s' (%s) is not supported",
+                                reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
+                                reduction_type.get_simple_declaration(
+                                    parallel_statements.retrieve_context(), "").c_str());
+                    }
+                }
+
+                simd_node.prepend_sibling(pre_parallel_nodecls);
+                // Final reduction after the epilog (to reduce also elements from masked epilogs)
+                //single_epilog.append_sibling(post_parallel_nodecls);
+            }
+
+            parallel_environment.unload_environment();
+
+            // Remove SIMD node
+            simd_node.replace(omp_parallel);
+
+            // Free analysis
+            _vectorizer.finalize_analysis();
+        }
+
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,
                 objlist_nodecl_t& suitable_expressions)
         {
@@ -961,7 +1110,7 @@ namespace TL {
         Nodecl::List SimdVisitor::process_reduction_clause(const Nodecl::List& environment,
                 TL::ObjectList<TL::Symbol>& reductions,
                 std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
-                const Nodecl::ForStatement& for_statement)
+                TL::Scope enclosing_scope)
         {
             Nodecl::List omp_reduction_list;
 
@@ -988,7 +1137,7 @@ namespace TL {
 
                         // Add new vector TL::Symbol in the enclosing context
                         TL::Symbol new_red_sym =
-                            for_statement.retrieve_context().new_symbol("__vred_" + red_sym.get_name());
+                            enclosing_scope.new_symbol("__vred_" + red_sym.get_name());
                         new_red_sym.get_internal_symbol()->kind = SK_VARIABLE;
                         new_red_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                         new_red_sym.set_type(red_sym.get_type().get_vector_to(_vector_length));

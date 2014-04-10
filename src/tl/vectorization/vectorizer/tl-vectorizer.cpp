@@ -127,6 +127,20 @@ namespace Vectorization
         }
     }
 
+    void Vectorizer::vectorize_parallel(Nodecl::NodeclBase& statements,
+            VectorizerEnvironment& environment)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Vectorizing Parallel -----\n");
+        }
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
     void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement,
             VectorizerEnvironment& environment,
             Nodecl::NodeclBase& net_epilog_node,

@@ -73,7 +73,9 @@ namespace TL
                 void vectorize(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
-
+                void vectorize_parallel(Nodecl::NodeclBase& statements,
+                        VectorizerEnvironment& environment);
+ 
                 void process_epilog(Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,

@@ -1717,6 +1717,16 @@ namespace TL
             }
         }
 
+        void Core::simd_parallel_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            parallel_handler_pre(construct);
+        }
+
+        void Core::simd_parallel_handler_post(TL::PragmaCustomStatement construct)
+        {
+            parallel_handler_post(construct);
+        }
+
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
@@ -1942,6 +1952,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(simd_for)
+        INVALID_DECLARATION_HANDLER(simd_parallel)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
