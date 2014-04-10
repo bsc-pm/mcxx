@@ -706,6 +706,7 @@ namespace Analysis {
     CLAUSE(shared) \
     CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
+    CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
     CLAUSE(unroll) \

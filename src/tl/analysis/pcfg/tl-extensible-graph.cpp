@@ -1290,6 +1290,26 @@ namespace Analysis {
         return get_enclosing_control_structure_rec( node->get_outer_node( ) );
     }
 
+    bool ExtensibleGraph::is_first_statement_node(Node* node)
+    {
+        // Get first node in code with statements
+        Node* stmt_node = _graph->get_graph_entry_node();
+        while(!stmt_node->has_statements() && (stmt_node != _graph->get_graph_exit_node()) )
+        {
+            if(stmt_node->is_graph_node())
+                stmt_node = stmt_node->get_graph_entry_node();
+            else if(stmt_node->is_exit_node() && (stmt_node->get_outer_node()->get_id() != 0))
+                stmt_node = stmt_node->get_outer_node()->get_children()[0];
+            else
+                stmt_node = stmt_node->get_children()[0];
+        }
+        
+        if(stmt_node->has_statements() && (stmt_node == node))
+            return true;
+        
+        return false;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;
