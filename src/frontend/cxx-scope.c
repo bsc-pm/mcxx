@@ -6996,7 +6996,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
             nodecl_name,
             field_path,
             decl_flags,
-            /* allow_namespaces */ 0,
+            /* allow_namespaces */ 1,
             query_nodecl_name_first_in_class,
             check_symbol_is_base_or_member,
             class_symbol);
