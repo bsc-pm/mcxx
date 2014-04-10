@@ -2088,6 +2088,70 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             entry_list_free(old_result);
         }
 
+        // The first unqualified-id of a nested-name-specifier
+        if (BITMAP_TEST(decl_flags, DF_NESTED_NAME_FIRST))
+        {
+            enum cxx_symbol_kind nested_name_first_cxx03[] = {
+                SK_CLASS,
+                SK_NAMESPACE,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_USING,
+            };
+
+            enum cxx_symbol_kind nested_name_first_cxx11[] = {
+                SK_CLASS,
+                SK_NAMESPACE,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_USING,
+                // C++11
+                SK_ENUM,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
+            };
+
+            scope_entry_list_t* old_result = result;
+            CXX03_LANGUAGE()
+            {
+                result = filter_symbol_kind_set(old_result,
+                        STATIC_ARRAY_LENGTH(nested_name_first_cxx03),
+                        nested_name_first_cxx03);
+            }
+            CXX11_LANGUAGE()
+            {
+                result = filter_symbol_kind_set(old_result,
+                        STATIC_ARRAY_LENGTH(nested_name_first_cxx11),
+                        nested_name_first_cxx11);
+            }
+            entry_list_free(old_result);
+
+            // Now verify typedefs
+            if (result != NULL)
+            {
+                scope_entry_t* alias_name = entry_list_head(result);
+                alias_name = entry_advance_aliases(alias_name);
+
+                if (alias_name->kind == SK_TYPEDEF)
+                {
+                    type_t* t = advance_over_typedefs(alias_name->type_information);
+
+                    if (!is_class_type(t)
+                            && !is_dependent_typename_type(t)
+                            && !is_typeof_expr(t)
+                            && !(is_named_type(t)
+                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                            && !(IS_CXX11_LANGUAGE
+                                && is_named_type(t)
+                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK))
+                    {
+                        // This cannot be a class-name at all
+                        entry_list_free(result);
+                        result = NULL;
+                    }
+                }
+            }
+        }
+
         if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
             return result;
@@ -6549,7 +6613,18 @@ static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_contex
         char is_global UNUSED_PARAMETER,
         void *extra_info UNUSED_PARAMETER)
 {
-    return query_nodecl_name_flags(current_context, current_name, field_path, decl_flags);
+    if (nodecl_get_kind(current_name) == NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        return query_nodecl_simple_name(current_context,
+                current_context,
+                current_name,
+                field_path,
+                decl_flags | DF_NESTED_NAME_FIRST);
+    }
+    else
+    {
+        return query_nodecl_name_flags(current_context, current_name, field_path, decl_flags);
+    }
 }
 
 static scope_entry_list_t* query_nodecl_name_first_in_class(
