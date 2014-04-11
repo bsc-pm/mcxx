@@ -317,36 +317,36 @@ namespace TL { namespace Nanox {
                     initializer_function,
                     _reduction_on_tasks_ini_map);
 
-            if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
-            {
-                reductions_stuff
-                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                    << "nanos_task_reduction_get_thread_storage("
-                    <<      "(void *) &"<< (*it)->get_field_name() << ","
-                    <<      "(void **) &" << storage_name << ");"
-                    ;
-            }
-            else
-            {
-                std::string cache_storage = (*it)->get_field_name() + "_cache_storage";
-                reductions_stuff
-                    << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                    << "nanos_TPRS_t* " << cache_storage << ";"
-                    << "nanos_reduction_request_TPRS("
-                    <<      "(void *) &" << (*it)->get_field_name() << ","    // target
-                    <<      "sizeof(" << as_type(reduction_type) << "),"    // size
-                    <<      "sizeof(int),"      // element size
-                    <<      "0"   // cache line size
-                    <<      "0,"  // ebl_size
-                    <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
-                    <<      "(void (*)(void *)) & " << initializer_function.get_name() << ","         // initializer
-                    <<      "(void (*)(void *, void *, void*)) reduction_local_reduce,"    // ???
-                    <<      "(void (*)(void *, void *, void *)) 0," // ?????
-                    <<      "(void (*)(void *)) reduction_TPRS_flush_int,"         // flush
-                    <<      "&(" << cache_storage << "));"  // storage
-                    <<      storage_name << " = " << "(" << as_type(reduction_type.get_pointer_to()) << ") " << cache_storage << "->storage;"
-                    ;
-            }
+                if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
+                {
+                    reductions_stuff
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "err = nanos_task_reduction_get_thread_storage("
+                        <<      "(void *) &"<< (*it)->get_field_name() << ","
+                        <<      "(void **) &" << storage_name << ");"
+                        ;
+                }
+                else
+                {
+                    std::string cache_storage = (*it)->get_field_name() + "_cache_storage";
+                    reductions_stuff
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "nanos_TPRS_t* " << cache_storage << ";"
+                        << "err = nanos_reduction_request_tprs("
+                        <<      "(void *) &" << (*it)->get_field_name() << "," // target
+                        <<      "sizeof(" << as_type(reduction_type) << "),"  // size
+                        <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
+                        <<      "(void (*)(void *)) & " << initializer_function.get_name() << "," // initializer
+                        <<      "(void (*)(void *, void *, void*)) reduction_reduce," // reducer atomic
+                        <<      "(void (*)(void *)) reduction_flush," // flush
+                        <<      "&" << cache_storage << ");"  // storage
+                        ;
+
+                        reductions_stuff
+                            << storage_name << " = "
+                            <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
+                            ;
+                }
 
             reduction_symbols_map[sym] = storage_name;
             }
@@ -356,6 +356,7 @@ namespace TL { namespace Nanox {
                 Nodecl::NodeclBase placeholder;
                 new_statements_src
                     << "{"
+                    <<      "nanos_err_t err;"
                     <<      reductions_stuff
                     <<      statement_placeholder(placeholder)
                     << "}"
