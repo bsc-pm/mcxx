@@ -25,9 +25,11 @@
 --------------------------------------------------------------------*/
 
 #include "tl-nanos.hpp"
+#include "tl-nodecl-utils-fortran.hpp"
 #include "tl-counters.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-lowering-visitor.hpp"
+#include "tl-nanox-ptr.hpp"
 
 namespace TL { namespace Nanox {
 
@@ -152,6 +154,73 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
+    static TL::Symbol create_reduction_function_fortran(
+            OpenMP::Reduction* red,
+            Nodecl::NodeclBase construct,
+            LoweringVisitor::reduction_map_t & reduction_map)
+    {
+        LoweringVisitor::reduction_map_t::iterator it = reduction_map.find(red);
+        if (it != reduction_map.end())
+        {
+            return it->second;
+        }
+
+        std::string fun_name;
+        {
+            std::stringstream ss;
+            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            fun_name = ss.str();
+        }
+
+        Nodecl::NodeclBase function_body;
+        Source src;
+
+        src << "SUBROUTINE " << fun_name << "(omp_out, omp_in)\n"
+            <<    "IMPLICIT NONE\n"
+            <<    as_type(red->get_type()) << " :: omp_out\n"
+            <<    as_type(red->get_type()) << " :: omp_in\n"
+            <<    statement_placeholder(function_body) << "\n"
+            << "END SUBROUTINE " << fun_name << "\n";
+        ;
+
+        Nodecl::NodeclBase function_code = src.parse_global(construct);
+
+        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
+        TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
+        ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
+        TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
+        ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
+
+        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+
+        Nodecl::NodeclBase expanded_combiner =
+            red->get_combiner().shallow_copy();
+        BasicReductionExpandVisitor1 expander_visitor(
+                red->get_omp_in(),
+                param_omp_in,
+                red->get_omp_out(),
+                param_omp_out);
+
+        expander_visitor.walk(expanded_combiner);
+
+        function_body.replace(
+                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
+
+        reduction_map[red] = function_sym;
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(),
+                    function_sym.get_related_scope());
+        }
+
+        // As the reduction function is needed during the instantiation of
+        // the task, this function should be inserted before the construct
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, function_code);
+
+        return function_sym;
+    }
 
     static void create_reduction_function(OpenMP::Reduction* red,
             Nodecl::NodeclBase construct,
@@ -165,7 +234,7 @@ namespace TL { namespace Nanox {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-        //    reduction_function = create_basic_reduction_function_fortran(red, construct);
+            reduction_function = create_reduction_function_fortran(red, construct, reduction_map);
         }
         else
         {
@@ -224,6 +293,50 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
+    static TL::Symbol create_initializer_function_fortran(
+            OpenMP::Reduction* red,
+            Nodecl::NodeclBase construct,
+            LoweringVisitor::reduction_map_t & initializer_map)
+    {
+        LoweringVisitor::reduction_map_t::iterator it = initializer_map.find(red);
+        if (it != initializer_map.end())
+        {
+            return it->second;
+        }
+
+        std::string fun_name;
+        {
+            std::stringstream ss;
+            ss << "nanos_ini_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+            fun_name = ss.str();
+        }
+
+        Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
+        Source src;
+
+        src << "SUBROUTINE " << fun_name << "(omp_out)\n"
+            <<    "IMPLICIT NONE\n"
+            <<    as_type(red->get_type()) << " :: omp_out\n"
+            <<    "omp_out = " << as_expression(initializer) << "\n"
+            << "END SUBROUTINE " << fun_name << "\n";
+        ;
+
+        TL::Scope global_scope = construct.retrieve_context().get_global_scope();
+        Nodecl::NodeclBase function_code = src.parse_global(global_scope);
+        TL::Symbol function_sym = global_scope.get_symbol_from_name(fun_name);
+
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+
+        initializer_map[red] = function_sym;
+
+        // As the initializer function is needed during the instantiation of
+        // the task, this function should be inserted before the construct
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct,
+                function_code);
+
+        return function_sym;
+    }
+
     static void create_initializer_function(OpenMP::Reduction* red,
             Nodecl::NodeclBase construct,
             TL::Type reduction_type,
@@ -236,7 +349,7 @@ namespace TL { namespace Nanox {
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-        //    reduction_function = create_basic_reduction_function_fortran(red, construct);
+            initializer_function = create_initializer_function_fortran(red, construct, initializer_map);
         }
         else
         {
@@ -276,7 +389,8 @@ namespace TL { namespace Nanox {
 
     };
 
-    void LoweringVisitor::handle_reductions_on_task(Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements)
+    void LoweringVisitor::handle_reductions_on_task(
+            Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements)
     {
         if (Nanos::Version::interface_is_at_least("task_reduction", 1000)
                 || (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)))
@@ -290,32 +404,32 @@ namespace TL { namespace Nanox {
                     it != data_items.end();
                     it++)
             {
-            if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
-            continue;
+                if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
+                    continue;
 
-            TL::Symbol sym = (*it)->get_symbol();
+                TL::Symbol sym = (*it)->get_symbol();
 
-            there_are_reductions_on_task = true;
+                there_are_reductions_on_task = true;
 
-            std::string storage_name = (*it)->get_field_name() + "_storage";
+                std::string storage_name = (*it)->get_field_name() + "_storage";
 
-            std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
-            TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
-            TL::Type reduction_type = red_info_pair.second;
+                std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
+                TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
+                TL::Type reduction_type = red_info_pair.second;
 
-            TL::Symbol reduction_function;
-            TL::Nanox::create_reduction_function(reduction_info,
-                    construct,
-                    reduction_type,
-                    reduction_function,
-                    _reduction_on_tasks_red_map);
+                TL::Symbol reduction_function;
+                TL::Nanox::create_reduction_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        reduction_function,
+                        _reduction_on_tasks_red_map);
 
-            TL::Symbol initializer_function;
-            create_initializer_function(reduction_info,
-                    construct,
-                    reduction_type,
-                    initializer_function,
-                    _reduction_on_tasks_ini_map);
+                TL::Symbol initializer_function;
+                create_initializer_function(reduction_info,
+                        construct,
+                        reduction_type,
+                        initializer_function,
+                        _reduction_on_tasks_ini_map);
 
                 if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
                 {
@@ -342,13 +456,33 @@ namespace TL { namespace Nanox {
                         <<      "&" << cache_storage << ");"  // storage
                         ;
 
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        // We need to convert a void* type into a pointer to the reduction type.
+                        // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
+                        // conversion directly in the FORTRAN source. For this reason we introduce
+                        // a new function that will be defined in a C file.
+                        TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
+                                // Destination
+                                reduction_type.get_pointer_to(),
+                                // Origin
+                                TL::Type::get_void_type().get_pointer_to(),
+                                construct.retrieve_context());
+
+                        reductions_stuff
+                            << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
+                            ;
+                    }
+                    else
+                    {
                         reductions_stuff
                             << storage_name << " = "
                             <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
                             ;
+                    }
                 }
 
-            reduction_symbols_map[sym] = storage_name;
+                reduction_symbols_map[sym] = storage_name;
             }
 
             if (there_are_reductions_on_task)
