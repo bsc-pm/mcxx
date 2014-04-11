@@ -84,7 +84,7 @@ namespace TL
                 void unload_environment();
 
                 friend class Vectorizer;
-                friend class VectorizerAnalysisStaticInfo;
+                friend class VectorizationAnalysisInterface;
                 friend class VectorizerCache;
                 friend class VectorizerLoopInfo;
                 friend class VectorizerVectorReduction;

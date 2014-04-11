@@ -24,23 +24,24 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_ANALYSIS_STATIC_INFO_HPP
-#define TL_VECTORIZER_ANALYSIS_STATIC_INFO_HPP
+#ifndef TL_VECTORIZATION_ANALYSIS_INTERFACE_HPP
+#define TL_VECTORIZATION_ANALYSIS_INTERFACE_HPP
 
-#include <list>
+
+#include "tl-vectorizer-environment.hpp"
+#include "tl-vectorization-common.hpp"
+
+#include "tl-vectorization-analysis-new.hpp"
 #include "tl-nodecl-base.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-analysis-static-info.hpp"
 
-#include "tl-vectorization-common.hpp"
-#include "tl-vectorizer-environment.hpp"
-
+#include <list>
 
 namespace TL
 {
 namespace Vectorization
 {
-    class VectorizerAnalysisMaps
+    class VectorizationAnalysisMaps
     {
         protected:
             Nodecl::Utils::NodeclDeepCopyMap _orig_to_copy_nodes;
@@ -53,11 +54,11 @@ namespace Vectorization
     };
 
 
-    class VectorizerAnalysisStaticInfo : public VectorizerAnalysisMaps,
-                                         public Analysis::AnalysisStaticInfo
+    class VectorizationAnalysisInterface : public VectorizationAnalysisMaps,
+                                         public Analysis::VectorizationAnalysis
     {
         private:
-            static VectorizerAnalysisStaticInfo *_vectorizer_analysis;
+            static VectorizationAnalysisInterface *_vectorizer_analysis;
 
             Nodecl::NodeclBase _original_node;
 
@@ -90,12 +91,12 @@ namespace Vectorization
                     const Nodecl::FunctionCode& enclosing_function);
             static void finalize_analysis();
 
-            VectorizerAnalysisStaticInfo(const Nodecl::NodeclBase& n,
+            VectorizationAnalysisInterface(const Nodecl::NodeclBase& n,
                     Analysis::WhichAnalysis analysis_mask,
                     Analysis::WhereAnalysis nested_analysis_mask,
                     int nesting_level);
 
-            ~VectorizerAnalysisStaticInfo();
+            ~VectorizationAnalysisInterface();
 
             virtual bool is_constant(const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n) __attribute__((deprecated));
@@ -188,5 +189,5 @@ namespace Vectorization
 }
 }
 
-#endif //TL_VECTORIZER_ANALYSIS_STATIC_INFO_HPP
+#endif //TL_VECTORIZATION_ANALYSIS_INTERFACE_HPP
 

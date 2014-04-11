@@ -26,14 +26,17 @@
 
 #include "tl-vectorizer-visitor-for.hpp"
 
+#include "tl-vectorization-utils.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
+
+#include "tl-vectorizer.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-vectorizer-visitor-expression.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
-#include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer.hpp"
-#include "tl-vectorizer-analysis.hpp"
-#include "tl-vectorizer-visitor-statement.hpp"
-#include "tl-vectorizer-visitor-expression.hpp"
 
 namespace TL
 {
@@ -186,10 +189,10 @@ namespace Vectorization
         Nodecl::NodeclBase lhs = condition.get_lhs();
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
-        bool lhs_const_flag = VectorizerAnalysisStaticInfo::
+        bool lhs_const_flag = VectorizationAnalysisInterface::
             _vectorizer_analysis->is_constant(
                     _environment._analysis_simd_scope, lhs);
-        bool rhs_const_flag = VectorizerAnalysisStaticInfo::
+        bool rhs_const_flag = VectorizationAnalysisInterface::
             _vectorizer_analysis->is_constant(
                     _environment._analysis_simd_scope, rhs);
 
@@ -204,11 +207,11 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_non_reduction_basic_induction_variable(
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope,
                         lhs))
             {
-                step = VectorizerAnalysisStaticInfo::_vectorizer_analysis->get_induction_variable_increment(
+                step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
                         _environment._analysis_scopes.back(),
                         lhs);
 
@@ -255,11 +258,11 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_induction_variable(
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->is_induction_variable(
                         _environment._analysis_simd_scope,
                         rhs))
             {
-                step = VectorizerAnalysisStaticInfo::_vectorizer_analysis->get_induction_variable_increment(
+                step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
                         _environment._analysis_scopes.back(),
                         rhs);
 
@@ -353,11 +356,11 @@ namespace Vectorization
     {
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
 
-        if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->is_induction_variable(
+        if (VectorizationAnalysisInterface::_vectorizer_analysis->is_induction_variable(
                     _environment._analysis_simd_scope,
                     lhs))
         {
-            Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::_vectorizer_analysis->get_induction_variable_increment(
+            Nodecl::NodeclBase step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
                     _environment._analysis_scopes.back(),
                     lhs);
 
@@ -386,7 +389,7 @@ namespace Vectorization
                                     TL::Type::get_int_type(),
                                     const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
-                                VectorizerAnalysisStaticInfo::_vectorizer_analysis->get_induction_variable_increment(
+                                VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
                                     _environment._analysis_scopes.back(),
                                     lhs),
                                 node.get_type(),

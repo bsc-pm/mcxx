@@ -30,7 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-optimizations.hpp"
 
-#include "tl-vectorizer-analysis.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
@@ -43,7 +43,6 @@ namespace Vectorization
 {
     Vectorizer *Vectorizer::_vectorizer = 0;
     FunctionVersioning Vectorizer::_function_versioning;
-//    VectorizerAnalysisStaticInfo* Vectorizer::_analysis_info = 0;
 
     Vectorizer& Vectorizer::get_vectorizer()
     {
@@ -56,12 +55,12 @@ namespace Vectorization
     void Vectorizer::initialize_analysis(
             const Nodecl::FunctionCode& enclosing_function)
     {
-        VectorizerAnalysisStaticInfo::initialize_analysis(enclosing_function);
+        VectorizationAnalysisInterface::initialize_analysis(enclosing_function);
     }
 
     void Vectorizer::finalize_analysis()
     {
-        VectorizerAnalysisStaticInfo::finalize_analysis();
+        VectorizationAnalysisInterface::finalize_analysis();
     }
 
 

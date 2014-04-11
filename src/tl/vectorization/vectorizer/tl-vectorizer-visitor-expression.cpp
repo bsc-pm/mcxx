@@ -26,12 +26,13 @@
 
 #include "tl-vectorizer-visitor-expression.hpp"
 
+#include "tl-vectorizer-gather-scatter-info.hpp"
+#include "tl-vectorization-utils.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
+
 #include "cxx-cexpr.h"
 #include "tl-nodecl-utils.hpp"
 
-#include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer-analysis.hpp"
-#include "tl-vectorizer-gather-scatter-info.hpp"
 
 namespace TL
 {
@@ -700,7 +701,7 @@ namespace Vectorization
                 _environment._unroll_factor);
 
         // IV vectorization: i = i + 3 --> i = i + (unroll_factor * 3)
-        if(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+        if(VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_non_reduction_basic_induction_variable(
                     _environment._analysis_simd_scope,
                     lhs))
@@ -711,11 +712,11 @@ namespace Vectorization
                         lhs.prettyprint().c_str());
             }
 
-            Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::
+            Nodecl::NodeclBase step = VectorizationAnalysisInterface::
                 _vectorizer_analysis->get_induction_variable_increment(
                     _environment._analysis_simd_scope, lhs);
 
-            //VectorizerAnalysisStaticInfo::_vectorizer_analysis->get_induction_variable_increment(
+            //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
             //    _environment._analysis_simd_scope, lhs);
 
             objlist_nodecl_t step_list =
@@ -753,7 +754,7 @@ namespace Vectorization
 
             // Vector Store
             // Constant ArraySubscript, nothing to do
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_constant_access(
                         _environment._analysis_simd_scope,
                         lhs))
@@ -765,10 +766,10 @@ namespace Vectorization
 
             }
             // ArraySubscript indexed by nested IV, nothing to do
-            else if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_nested_induction_variable_dependent_access(
                         _environment, lhs) &&
-                    !VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                    !VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_induction_variable_dependent_expression(
                         _environment._analysis_simd_scope, lhs))
             {
@@ -804,7 +805,7 @@ namespace Vectorization
 
 
                 // Adjacent access
-                if(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                if(VectorizationAnalysisInterface::_vectorizer_analysis->
                         is_adjacent_access(_environment._analysis_simd_scope, lhs))
                 {
                     TL::Type basic_type = lhs.get_type();
@@ -821,7 +822,7 @@ namespace Vectorization
                             _environment._nontemporal_expr_map.end());
 
                     // Aligned
-                    if(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                    if(VectorizationAnalysisInterface::_vectorizer_analysis->
                             is_simd_aligned_access(
                                 _environment._analysis_simd_scope,
                                 lhs,
@@ -1129,7 +1130,7 @@ namespace Vectorization
                 _environment._unroll_factor);
 
         // Vector Promotion from constant ArraySubscript
-        if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+        if (VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_constant_access(
                     _environment._analysis_simd_scope,
                     n))
@@ -1157,10 +1158,10 @@ namespace Vectorization
             encapsulated_symbol.replace(vector_prom);
         }
         // Vector promotion from ArraySubscript indexed by nested IV
-        else if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+        else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_nested_induction_variable_dependent_access(
                     _environment, n) &&
-                !VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                !VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_induction_variable_dependent_expression(
                     _environment._analysis_simd_scope,
                     n))
@@ -1221,13 +1222,13 @@ namespace Vectorization
             vector_gather.set_constant(const_value);
 
             // Adjacent access
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_adjacent_access(
                         _environment._analysis_simd_scope,
                         n))
             {
                 // Aligned
-                if(VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                if(VectorizationAnalysisInterface::_vectorizer_analysis->
                         is_simd_aligned_access(
                             _environment._analysis_simd_scope,
                             n,
@@ -1460,7 +1461,7 @@ namespace Vectorization
         if (!sym_type.is_vector() && !sym_type.is_mask())
         {
             // Vectorize BASIC induction variable
-            if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope, n))
             {
@@ -1468,19 +1469,19 @@ namespace Vectorization
             }
             // Vectorize NESTED IV
             else if (// Is nested IV and
-                    VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                    VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_nested_non_reduction_basic_induction_variable(
                         _environment, n)
                     &&
                     // Lb doesn't depend on SIMD IV and
-                    !VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                    !VectorizationAnalysisInterface::_vectorizer_analysis->
                     iv_lb_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         n,
                         _environment._analysis_simd_scope)
                     &&
                     // Step doesn't depend on SIMD IV
-                    !VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+                    !VectorizationAnalysisInterface::_vectorizer_analysis->
                     iv_step_depends_on_ivs_from_scope(
                         _environment._analysis_scopes.back(),
                         n,
@@ -1537,8 +1538,8 @@ namespace Vectorization
                 symbol_type_promotion(n);
             }
             // Vectorize constants
-            else if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
-                    is_constant(_environment._analysis_simd_scope, n))
+            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                    variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
             {
                 VECTORIZATION_DEBUG()
                 {
@@ -1776,7 +1777,7 @@ namespace Vectorization
         }
 
         // Computing IV offset {0, 1, 2, 3}
-        Nodecl::NodeclBase ind_var_increment = VectorizerAnalysisStaticInfo::
+        Nodecl::NodeclBase ind_var_increment = VectorizationAnalysisInterface::
             _vectorizer_analysis->get_induction_variable_increment(
                 _environment._analysis_simd_scope, n);
 

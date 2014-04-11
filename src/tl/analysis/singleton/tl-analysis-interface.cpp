@@ -21,15 +21,60 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
  
-#include "cxx-process.h"
-#include "tl-analysis-utils.hpp"
-#include "tl-analysis-static-info.hpp"
-#include "tl-expression-reduction.hpp"
-#include "tl-use-def.hpp"
+#include "tl-analysis-interface.hpp"
+
+//#include "cxx-process.h"
+//#include "tl-analysis-utils.hpp"
+//#include "tl-analysis-static-info.hpp"
+//#include "tl-expression-reduction.hpp"
+//#include "tl-use-def.hpp"
  
 namespace TL  {
 namespace Analysis {
- 
+
+    AnalysisInterface::AnalysisInterface( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
+            WhereAnalysis nested_analysis_mask, int nesting_level )
+        : AnalysisStaticInfo(n, analysis_mask, nested_analysis_mask, nesting_level)
+    {
+    }
+
+    Node* AnalysisInterface::retrieve_scope_node_from_nodecl(const Nodecl::NodeclBase& scope,
+            ExtensibleGraph* pcfg) 
+    {
+        nodecl_to_node_map_t::const_iterator it = _scope_nodecl_to_node_map.find(scope);
+
+        if(it != _scope_nodecl_to_node_map.end())
+        {
+            return it->second;
+        }
+        else // Insert new scope in the map
+        {
+            Node* scope_node = pcfg->find_nodecl_pointer(scope);
+            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for scope Nodecl '%s:%s'. \n",
+                    scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+
+            _scope_nodecl_to_node_map.insert(nodecl_to_node_pair_t(scope, scope_node));
+
+            return scope_node;
+        }
+    }
+
+    ExtensibleGraph* AnalysisInterface::retrieve_pcfg_from_func(const Nodecl::NodeclBase& n) const
+    {
+        TL::Symbol func_sym = Nodecl::Utils::get_enclosing_function(n);
+        ERROR_CONDITION(!func_sym.is_valid(), 
+                "Invalid Nodecl '%s' on expecting non top-level nodecls\n", func_sym.get_name().c_str());
+
+        Nodecl::NodeclBase func = func_sym.get_function_code();
+
+        // TODO Check 'func' is a valid nodecl
+
+        nodecl_to_pcfg_map_t::const_iterator it =_func_to_pcfg_map.find(func);
+        ERROR_CONDITION(it == _func_to_pcfg_map.end(), 
+                "No PCFG found corresponding to function %s\n", func.get_symbol().get_name().c_str());
+        return it->second;
+    }
+
     /* Example:
      *
      * if( i < 5 ) k = N;
@@ -51,7 +96,7 @@ namespace Analysis {
     {
         // Get reaching definitions for 'n' in its corresponding node
         Node* n_node = pcfg->find_nodecl_pointer(n);
-        Utils::ext_sym_map reach_defs = n_node->get_reaching_definitions_in(n);
+        Utils::ext_sym_map reach_defs = n_node->get_reaching_definitions_in();
         
         // Get the PCFG nodes where the reaching definitions where produced
         ObjectList<Node*> reach_defs_nodes;
@@ -102,15 +147,11 @@ end_depends:
         return depends_on_iv;
     }
  
-    DEPRECATED bool AnalysisStaticInfo::reach_defs_depend_on_iv(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
+    DEPRECATED bool AnalysisInterface::reach_defs_depend_on_iv(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         bool result = false;
  
-        Nodecl::NodeclBase func = Nodecl::Utils::get_enclosing_function(scope).get_function_code();
-        // TODO Check 'func' is a valid nodecl
-        ERROR_CONDITION(_nodecl_to_pcfg_map.find(func)== _nodecl_to_pcfg_map.end(), 
-                        "Node PCFG found corresponding to function %s\n", func.get_symbol().get_name().c_str());
-        ExtensibleGraph* pcfg = _nodecl_to_pcfg_map[func];
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
         
         // Get the induction variables involved in the scope
         Node* scope_node = pcfg->find_nodecl_pointer(scope);
@@ -127,37 +168,53 @@ end_depends:
         
         return result;
     }
-    
-    bool AnalysisStaticInfo::variable_is_constant_at_statement(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
+
+    bool AnalysisInterface::variable_is_constant_at_statement(
+            const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+
+        // Retrieve node
         Node* stmt_node = pcfg->find_nodecl_pointer(n);
-        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", n.get_locus_str().c_str(), n.prettyprint().c_str());
-        Node* scope_node = pcfg->find_nodecl_pointer(scope);
-        ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", scope.get_locus_str().c_str(), scope.prettyprint().c_str());
-        
+        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
+
+        return variable_is_constant_at_statement(scope_node, stmt_node, n, pcfg);
+    }
+
+    bool AnalysisInterface::variable_is_constant_at_statement(
+            Node* const scope_node,
+            Node* const stmt_node,
+            const Nodecl::NodeclBase& n,
+            ExtensibleGraph* const pcfg)
+    {
         Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
-        ERROR_CONDITION(reach_defs_in.find(n)==reach_defs_in.end(), 
-                        "Node reaching definition arrives for nodecl %s.\n", n.prettyprint().c_str());
+        ERROR_CONDITION(reach_defs_in.find(n)==reach_defs_in.end(),
+                "No reaching definition arrives for nodecl %s.\n", n.prettyprint().c_str());
         
         std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds = reach_defs_in.equal_range(n);
         Utils::ext_sym_map::iterator rd_it = bounds.first;
         while(rd_it != bounds.second)
         {
             // Get the PCFG nodes where the reaching definitions where produced
-            Node* reach_defs_node = pcfg->find_nodecl_pointer(reach_defs_in[n]);
+            Node* reach_defs_node = pcfg->find_nodecl_pointer(rd_it->second);
             if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
             {
-                Node* control_structure = get_enclosing_control_structure(reach_defs_node);
+                Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
                 if((control_structure != NULL) && (control_structure != scope_node))
                 {
                     Node* cond_node = control_structure->get_condition_node();
                     ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
-                    for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                    for(ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
                     {
-                        ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses()
-                        for(ObjectList<Nodecl::NodeclBase>::iterator itt = mem_accesses.begin(); it != mem_accesses.end(); ++itt)
+                        ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
+                        for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = mem_accesses.begin(); itt != mem_accesses.end(); ++itt)
                         {
-                            if(!is_constant(scope, *itt) || !variable_is_constant_at_statement(scope, *itt))
+                            //TODO: translate is_constant
+                            if(!is_constant(scope_node->get_graph_related_ast(), *itt) || !variable_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
                                 return false;
                         }
                     }

@@ -46,7 +46,7 @@ namespace TL
                 static Vectorizer* _vectorizer;
                 static FunctionVersioning _function_versioning;
 
-//                static VectorizerAnalysisStaticInfo *_analysis_info;
+//                static VectorizationAnalysisInterface *_analysis_info;
 
                 bool _avx2_enabled;
                 bool _knc_enabled;

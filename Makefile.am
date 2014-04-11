@@ -1369,6 +1369,12 @@ src_tl_analysis_singleton_libanalysis_singleton_la_SOURCES= \
                                   src/tl/analysis/singleton/tl-vectorization-analysis.cpp \
                                   src/tl/analysis/singleton/tl-analysis-singleton.hpp \
                                   src/tl/analysis/singleton/tl-analysis-singleton.cpp \
+                                  src/tl/analysis/singleton/tl-analysis-interface.hpp \
+                                  src/tl/analysis/singleton/tl-analysis-interface.cpp \
+                                  src/tl/analysis/singleton/tl-expression-evolution-visitor.hpp \
+                                  src/tl/analysis/singleton/tl-expression-evolution-visitor.cpp \
+                                  src/tl/analysis/singleton/tl-vectorization-analysis-new.hpp \
+                                  src/tl/analysis/singleton/tl-vectorization-analysis-new.cpp \
                                   $(END)
 
 ##########################################################################
@@ -1435,36 +1441,33 @@ src_tl_analysis_constants_libconstants_folding_la_SOURCES = \
 endif
 
 # ##########################################################################
-# # src/tl/vectorization
+# # src/tl/vectorization/common
 # ##########################################################################
 #
 if BUILD_VECTORIZATION
-lib_LTLIBRARIES += src/tl/vectorization/libtlvectorization.la
+lib_LTLIBRARIES += src/tl/vectorization/common/libtlvectorization-common.la
 
-src_tl_vectorization_libtlvectorization_la_CFLAGS = $(tl_cflags)
+src_tl_vectorization_common_libtlvectorization_common_la_CFLAGS = $(tl_cflags)
 
-src_tl_vectorization_libtlvectorization_la_CXXFLAGS = $(tl_cflags) \
+src_tl_vectorization_common_libtlvectorization_common_la_CXXFLAGS = $(tl_cflags) \
+                              -I $(top_srcdir)/src/tl/vectorization/common \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/analysis/singleton \
+                              -I $(top_srcdir)/src/tl/analysis/common \
+                              -I $(top_srcdir)/src/tl/analysis/pcfg \
+                              -I $(top_srcdir)/src/tl/analysis/tdg \
+                              -I $(top_srcdir)/src/tl/omp/core \
                               $(END)
 
-#src_tl_vectorization_libtlvectorization_la_CXXFLAGS = $(tl_cflags) \
-#                              -I $(top_srcdir)/src/tl/analysis/singleton/ \
-#                              -I $(top_srcdir)/src/tl/analysis/common/ \
-#                              -I $(top_srcdir)/src/tl/analysis/pcfg/ \
-#                              -I $(top_srcdir)/src/tl/optimizations/ \
-#                              -I $(top_srcdir)/src/tl/omp/core \
-#                              $(END)
+src_tl_vectorization_common_libtlvectorization_common_la_LDFLAGS = $(tl_ldflags)
+src_tl_vectorization_common_libtlvectorization_common_la_LIBADD = $(tl_libadd)
 
-src_tl_vectorization_libtlvectorization_la_LDFLAGS = $(tl_ldflags)
-src_tl_vectorization_libtlvectorization_la_LIBADD = $(tl_libadd)
-#
-#                          $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
-#                          $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
-#                          $(END)
-
-src_tl_vectorization_libtlvectorization_la_SOURCES = \
-                           src/tl/vectorization/tl-vectorization-common.hpp \
-                           src/tl/vectorization/tl-vectorization-utils.hpp \
-                           src/tl/vectorization/tl-vectorization-utils.cpp \
+src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
+                           src/tl/vectorization/common/tl-vectorization-common.hpp \
+                           src/tl/vectorization/common/tl-vectorization-utils.hpp \
+                           src/tl/vectorization/common/tl-vectorization-utils.cpp \
+                           src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp \
+                           src/tl/vectorization/common/tl-vectorization-analysis-interface.cpp \
                            $(END)
 endif
 
@@ -1478,25 +1481,24 @@ lib_LTLIBRARIES += src/tl/vectorization/vectorizer/libtlvectorizer.la
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
-                              -I $(top_srcdir)/src/tl/vectorization/ \
-                              -I $(top_srcdir)/src/tl/analysis/singleton/ \
-                              -I $(top_srcdir)/src/tl/analysis/common/ \
-                              -I $(top_srcdir)/src/tl/analysis/pcfg/ \
+                              -I $(top_srcdir)/src/tl/vectorization/common \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/analysis/singleton \
+                              -I $(top_srcdir)/src/tl/analysis/common \
+                              -I $(top_srcdir)/src/tl/analysis/pcfg \
                               -I $(top_srcdir)/src/tl/analysis/tdg \
-                              -I $(top_srcdir)/src/tl/optimizations/ \
+                              -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/omp/core \
                               $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
-                          $(top_builddir)/src/tl/vectorization/libtlvectorization.la \
+                          $(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
                           $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-analysis.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-analysis.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.hpp \
@@ -1570,17 +1572,11 @@ src_tl_omp_core_libtlomp_core_la_SOURCES = \
 phases_LTLIBRARIES += src/tl/omp/base/libtlomp-base.la
 
 src_tl_omp_base_libtlomp_base_la_CFLAGS = $(phases_cflags) \
-                          -I $(srcdir)/src/tl/omp/core \
-                          -I $(srcdir)/src/tl/vectorization/vectorizer \
-                          -I $(srcdir)/src/tl/analysis/singleton\
-                          -I $(srcdir)/src/tl/analysis/common \
-                          -I $(srcdir)/src/tl/analysis/pcfg \
-                          -I $(srcdir)/src/tl/analysis/tdg \
                           $(END)
 
 src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                          -I $(srcdir)/src/tl/omp/core \
-                         -I $(srcdir)/src/tl/vectorization/ \
+                         -I $(srcdir)/src/tl/vectorization/common \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                          -I $(srcdir)/src/tl/analysis/singleton\
                          -I $(top_srcdir)/src/tl/analysis/common \
@@ -1658,7 +1654,7 @@ src_tl_omp_simd_libtlomp_simd_la_CFLAGS = $(phases_cflags) \
 
 src_tl_omp_simd_libtlomp_simd_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/optimizations \
-                          -I $(top_srcdir)/src/tl/vectorization \
+                          -I $(top_srcdir)/src/tl/vectorization/common \
                           -I $(top_srcdir)/src/tl/vectorization/vectorizer \
                           -I $(top_srcdir)/src/tl/analysis/singleton \
                           -I $(top_srcdir)/src/tl/analysis/common \
@@ -2112,10 +2108,9 @@ endif
 # src/tl/vectorization/vector-lowering/sse
 ##########################################################################
 
-vector_lowering_cflags = \
-                         -I $(srcdir)/src/tl/vectorization/ \
-                         -I $(srcdir)/src/tl/vectorization/vectorizer \
-                         -I $(srcdir)/src/tl/analysis/singleton\
+vector_lowering_cflags = -I $(top_srcdir)/src/tl/vectorization/common \
+                         -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                         -I $(top_srcdir)/src/tl/analysis/singleton\
                          -I $(top_srcdir)/src/tl/analysis/common \
                          -I $(top_srcdir)/src/tl/analysis/pcfg \
                          -I $(top_srcdir)/src/tl/omp/core \
@@ -2152,7 +2147,7 @@ src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_CXXFLAGS 
 
 src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_LIBADD = \
-	$(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
 $(END)
 
 src_tl_vectorization_vector_lowering_avx2_libtlvector_lowering_avx2_la_SOURCES = \
@@ -2178,7 +2173,7 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = 
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \
-	$(top_builddir)/src/tl/vectorization/vectorizer/libtlvectorizer.la \
+	$(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
 $(END)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_SOURCES = \

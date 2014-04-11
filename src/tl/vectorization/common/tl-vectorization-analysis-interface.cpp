@@ -24,7 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorizer-analysis.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 
 #include <algorithm>
 
@@ -37,9 +37,9 @@ namespace TL
 {
 namespace Vectorization
 {
-    VectorizerAnalysisStaticInfo* VectorizerAnalysisStaticInfo::_vectorizer_analysis = 0;
+    VectorizationAnalysisInterface* VectorizationAnalysisInterface::_vectorizer_analysis = 0;
 
-    void VectorizerAnalysisStaticInfo::initialize_analysis(
+    void VectorizationAnalysisInterface::initialize_analysis(
             const Nodecl::FunctionCode& enclosing_function)
     {
         if(_vectorizer_analysis != 0)
@@ -58,7 +58,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: Computing new analysis\n");
         }
 
-        _vectorizer_analysis = new VectorizerAnalysisStaticInfo(
+        _vectorizer_analysis = new VectorizationAnalysisInterface(
                 enclosing_function,
                 Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
                 Analysis::WhichAnalysis::CONSTANTS_ANALYSIS ,
@@ -66,7 +66,7 @@ namespace Vectorization
                 /* nesting level */ 100);
     }
 
-    void VectorizerAnalysisStaticInfo::finalize_analysis()
+    void VectorizationAnalysisInterface::finalize_analysis()
     {
         VECTORIZATION_DEBUG()
         {
@@ -80,12 +80,12 @@ namespace Vectorization
         }
     }
 
-    VectorizerAnalysisStaticInfo::VectorizerAnalysisStaticInfo(
+    VectorizationAnalysisInterface::VectorizationAnalysisInterface(
             const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask,
             Analysis::WhereAnalysis nested_analysis_mask, int nesting_level)
         :
-            VectorizerAnalysisMaps(),
-            AnalysisStaticInfo::AnalysisStaticInfo(
+            VectorizationAnalysisMaps(),
+            VectorizationAnalysis::VectorizationAnalysis(
                     copy_function_code(n.as<Nodecl::FunctionCode>()),
                     analysis_mask, nested_analysis_mask, nesting_level),
             _original_node(n)
@@ -126,10 +126,10 @@ namespace Vectorization
     }
 
     // Base destructor is called automatically
-    VectorizerAnalysisStaticInfo::~VectorizerAnalysisStaticInfo()
+    VectorizationAnalysisInterface::~VectorizationAnalysisInterface()
     {}
 
-    Nodecl::FunctionCode VectorizerAnalysisStaticInfo::copy_function_code(
+    Nodecl::FunctionCode VectorizationAnalysisInterface::copy_function_code(
             const Nodecl::FunctionCode& n)
     {
         TL::Symbol func_sym = n.get_symbol();
@@ -146,7 +146,7 @@ namespace Vectorization
                 _orig_to_copy_symbols).as<Nodecl::FunctionCode>();
     }
 
-    bool VectorizerAnalysisStaticInfo::nodecl_needs_translation(
+    bool VectorizationAnalysisInterface::nodecl_needs_translation(
                 const Nodecl::NodeclBase& n)
     {
         if (n.is<Nodecl::IntegerLiteral>() ||
@@ -158,7 +158,7 @@ namespace Vectorization
         return true;
     }
 
-    Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translate_input(
+    Nodecl::NodeclBase VectorizationAnalysisInterface::translate_input(
             const Nodecl::NodeclBase& n)
     {
         if (nodecl_needs_translation(n))
@@ -193,7 +193,7 @@ namespace Vectorization
         }
     }
 
-    objlist_nodecl_t VectorizerAnalysisStaticInfo::translate_input(
+    objlist_nodecl_t VectorizationAnalysisInterface::translate_input(
             const objlist_nodecl_t& list)
     {
         objlist_nodecl_t result_list;
@@ -208,7 +208,7 @@ namespace Vectorization
         return result_list;
     }
 
-    TL::Symbol VectorizerAnalysisStaticInfo::translate_input(
+    TL::Symbol VectorizationAnalysisInterface::translate_input(
             const TL::Symbol& n) const
     {
         Nodecl::Utils::SymbolDeepCopyMap::const_iterator it =
@@ -223,7 +223,7 @@ namespace Vectorization
         return it->second;
     }
 
-    std::map<TL::Symbol, int> VectorizerAnalysisStaticInfo::translate_input(
+    std::map<TL::Symbol, int> VectorizationAnalysisInterface::translate_input(
             const std::map<TL::Symbol, int>& map)
     {
         std::map<TL::Symbol, int> result_map;
@@ -241,7 +241,7 @@ namespace Vectorization
         return result_map;
     }
 
-    Nodecl::NodeclBase VectorizerAnalysisStaticInfo::translate_output(
+    Nodecl::NodeclBase VectorizationAnalysisInterface::translate_output(
             const Nodecl::NodeclBase& n)
     {
         if (nodecl_needs_translation(n))
@@ -265,7 +265,7 @@ namespace Vectorization
         }
     }
 
-    objlist_nodecl_t VectorizerAnalysisStaticInfo::translate_output(
+    objlist_nodecl_t VectorizationAnalysisInterface::translate_output(
             const objlist_nodecl_t& list)
     {
         objlist_nodecl_t result_list;
@@ -280,7 +280,7 @@ namespace Vectorization
         return result_list;
     }
 
-    TL::Symbol VectorizerAnalysisStaticInfo::translate_output(
+    TL::Symbol VectorizationAnalysisInterface::translate_output(
             const TL::Symbol& n) const
     {
         Nodecl::Utils::SymbolDeepCopyMap::const_iterator it =
@@ -296,7 +296,7 @@ namespace Vectorization
     }
 
     Nodecl::Utils::NodeclDeepCopyMap::iterator
-        VectorizerAnalysisStaticInfo::find_equal_nodecl(
+        VectorizationAnalysisInterface::find_equal_nodecl(
             const Nodecl::NodeclBase& n,
             Nodecl::Utils::NodeclDeepCopyMap& map)
     {
@@ -314,7 +314,7 @@ namespace Vectorization
         return map.end();
     }
 
-    Nodecl::NodeclBase VectorizerAnalysisStaticInfo::get_translated_copy(
+    Nodecl::NodeclBase VectorizationAnalysisInterface::get_translated_copy(
             const Nodecl::NodeclBase& n)
     {
         Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
@@ -344,7 +344,7 @@ namespace Vectorization
         }
     }
 
-    void VectorizerAnalysisStaticInfo::register_node(
+    void VectorizationAnalysisInterface::register_node(
             const Nodecl::NodeclBase& n)
     {
         if (_orig_to_copy_nodes.find(n) != _orig_to_copy_nodes.end())
@@ -402,7 +402,7 @@ namespace Vectorization
 
     // WARNING: if you use this function out of unregister_nodes you should remove the
     // unregistered_node from the _registered_nodes list
-    void VectorizerAnalysisStaticInfo::unregister_node(const Nodecl::NodeclBase& n)
+    void VectorizationAnalysisInterface::unregister_node(const Nodecl::NodeclBase& n)
     {
         //std::cerr << "Delete " << n.prettyprint() << std::endl;
 
@@ -426,7 +426,7 @@ namespace Vectorization
          */
     }
 
-    void VectorizerAnalysisStaticInfo::unregister_nodes()
+    void VectorizationAnalysisInterface::unregister_nodes()
     {
         for(std::list<Nodecl::NodeclBase>::iterator it =
                 _registered_nodes.begin();
@@ -438,7 +438,7 @@ namespace Vectorization
         _registered_nodes.clear();
     }
 
-    bool VectorizerAnalysisStaticInfo::is_constant(
+    bool VectorizationAnalysisInterface::is_constant(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         bool result = Analysis::AnalysisStaticInfo::is_constant(
@@ -449,7 +449,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::has_been_defined(
+    bool VectorizationAnalysisInterface::has_been_defined(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& s)
     {
@@ -461,7 +461,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_induction_variable(
+    bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         bool result = Analysis::AnalysisStaticInfo::is_induction_variable(
@@ -472,7 +472,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_basic_induction_variable(
+    bool VectorizationAnalysisInterface::is_basic_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         bool result = Analysis::AnalysisStaticInfo::is_basic_induction_variable(
@@ -483,7 +483,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_non_reduction_basic_induction_variable(
+    bool VectorizationAnalysisInterface::is_non_reduction_basic_induction_variable(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
@@ -497,7 +497,7 @@ namespace Vectorization
     }
 
     Nodecl::NodeclBase
-        VectorizerAnalysisStaticInfo::get_induction_variable_lower_bound(
+        VectorizationAnalysisInterface::get_induction_variable_lower_bound(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
@@ -511,7 +511,7 @@ namespace Vectorization
     }
 
     Nodecl::NodeclBase
-        VectorizerAnalysisStaticInfo::get_induction_variable_upper_bound(
+        VectorizationAnalysisInterface::get_induction_variable_upper_bound(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
@@ -525,7 +525,7 @@ namespace Vectorization
     }
 
     Nodecl::NodeclBase
-        VectorizerAnalysisStaticInfo::get_induction_variable_increment(
+        VectorizationAnalysisInterface::get_induction_variable_increment(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
@@ -538,7 +538,7 @@ namespace Vectorization
         return translate_output(return_nodecl);
     }
 
-    objlist_nodecl_t VectorizerAnalysisStaticInfo::
+    objlist_nodecl_t VectorizationAnalysisInterface::
         get_induction_variable_increment_list(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
@@ -553,7 +553,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_induction_variable_increment_one(
+    bool VectorizationAnalysisInterface::is_induction_variable_increment_one(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
@@ -567,7 +567,7 @@ namespace Vectorization
     }
 
     ObjectList<Analysis::Utils::InductionVariableData*>
-        VectorizerAnalysisStaticInfo::get_induction_variables(
+        VectorizationAnalysisInterface::get_induction_variables(
                 const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n )
     {
         internal_error("VectorizerAnalysis: get_induction_variables"\
@@ -582,7 +582,7 @@ namespace Vectorization
         return result;
     }
 
-    objlist_nodecl_t VectorizerAnalysisStaticInfo::get_ivs_nodecls(
+    objlist_nodecl_t VectorizationAnalysisInterface::get_ivs_nodecls(
                 const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n )
     {
         typedef ObjectList<Analysis::Utils::InductionVariableData*>
@@ -606,7 +606,7 @@ namespace Vectorization
         return translate_output(result);
     }
 
-    bool VectorizerAnalysisStaticInfo::is_adjacent_access(
+    bool VectorizationAnalysisInterface::is_adjacent_access(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         bool result = Analysis::AnalysisStaticInfo::is_adjacent_access(
@@ -617,7 +617,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::
+    bool VectorizationAnalysisInterface::
         is_induction_variable_dependent_expression(
             const Nodecl::NodeclBase& ivs_scope,
             const Nodecl::NodeclBase& n)
@@ -631,7 +631,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::contains_induction_variable(
+    bool VectorizationAnalysisInterface::contains_induction_variable(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
@@ -644,7 +644,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_constant_access(
+    bool VectorizationAnalysisInterface::is_constant_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
@@ -656,7 +656,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_simd_aligned_access(
+    bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
             const std::map<TL::Symbol, int>& aligned_expressions,
@@ -682,7 +682,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::is_suitable_expression(
+    bool VectorizationAnalysisInterface::is_suitable_expression(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment, int& vector_size_module)
@@ -706,7 +706,7 @@ namespace Vectorization
     // SIMD-specific methods
     //
 
-    bool VectorizerAnalysisStaticInfo::
+    bool VectorizationAnalysisInterface::
         is_nested_induction_variable_dependent_access(
             const VectorizerEnvironment& environment,
             const Nodecl::NodeclBase& n)
@@ -739,7 +739,7 @@ namespace Vectorization
         return false;
     }
 
-    bool VectorizerAnalysisStaticInfo::
+    bool VectorizationAnalysisInterface::
         is_nested_non_reduction_basic_induction_variable(
             const VectorizerEnvironment& environment,
             const Nodecl::NodeclBase& n)
@@ -769,7 +769,7 @@ namespace Vectorization
         return false;
     }
 
-    bool VectorizerAnalysisStaticInfo::iv_lb_depends_on_ivs_from_scope(
+    bool VectorizationAnalysisInterface::iv_lb_depends_on_ivs_from_scope(
             const Nodecl::NodeclBase& n_scope,
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)
@@ -788,7 +788,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::iv_ub_depends_on_ivs_from_scope(
+    bool VectorizationAnalysisInterface::iv_ub_depends_on_ivs_from_scope(
             const Nodecl::NodeclBase& n_scope,
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)
@@ -807,7 +807,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerAnalysisStaticInfo::iv_step_depends_on_ivs_from_scope(
+    bool VectorizationAnalysisInterface::iv_step_depends_on_ivs_from_scope(
             const Nodecl::NodeclBase& n_scope,
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)

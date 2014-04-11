@@ -539,6 +539,13 @@ namespace Analysis {
         v.walk( n );
         static_info_map_t nested_blocks_static_info = v.get_analysis_info( );
         _static_info_map.insert( nested_blocks_static_info.begin( ), nested_blocks_static_info.end( ) );
+
+        // Fill nodecl to pcfg map
+        ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();
+        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            _func_to_pcfg_map[(*it)->get_nodecl()] = *it;
+        }
     }
 
     AnalysisStaticInfo::~AnalysisStaticInfo()
@@ -879,7 +886,7 @@ namespace Analysis {
         return result;
     }
 
-    bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    DEPRECATED bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
 

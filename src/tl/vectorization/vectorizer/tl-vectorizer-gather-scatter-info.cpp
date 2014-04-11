@@ -26,7 +26,7 @@
 
 #include "tl-vectorizer-gather-scatter-info.hpp"
 
-#include "tl-vectorizer-analysis.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 
 #include "tl-nodecl-utils.hpp"
 
@@ -296,12 +296,12 @@ namespace Vectorization
             const Nodecl::Symbol& n)
     {
         // SIMD IV
-        if (VectorizerAnalysisStaticInfo::_vectorizer_analysis->
+        if (VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_non_reduction_basic_induction_variable(
                     _environment._analysis_simd_scope, n))
         {
             // pair<n, lane_id * step>
-            Nodecl::NodeclBase step = VectorizerAnalysisStaticInfo::
+            Nodecl::NodeclBase step = VectorizationAnalysisInterface::
                 _vectorizer_analysis->get_induction_variable_increment(
                         _environment._analysis_simd_scope, n);
 

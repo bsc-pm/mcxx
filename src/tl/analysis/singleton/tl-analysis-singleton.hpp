@@ -75,7 +75,7 @@ namespace Analysis {
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
         bool _tdg;                  //!<True when PCFG's tasks dependency graphs have been created
 
-        /*!Returns the PCFG node enclosed in a PCFG node containing th flow of a nodecl
+        /*!Returns the PCFG node enclosed in a PCFG node containing the flow of a nodecl
          * @param current PCFG node where to search the nodecl
          * @param n Nodecl to be searched in the flow graph
          * @return The PCFG node containing the Nodecl
