@@ -12921,8 +12921,11 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
         class_type_add_member(lambda_class->type_information, new_conversion, /* is_definition */ 1);
     }
 
+    set_is_complete_type(lambda_class->type_information, 1);
+
     // rvalue of the class type
     type_t* lambda_type = get_user_defined_type(lambda_class);
+    set_is_complete_type(lambda_type, 1);
 
     *nodecl_output = nodecl_make_lambda(
             captures,
