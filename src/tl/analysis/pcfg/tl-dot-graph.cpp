@@ -48,6 +48,7 @@ namespace Analysis {
     static bool _liveness;
     static bool _reaching_defs;
     static bool _induction_vars;
+    static bool _ranges;
     static bool _auto_scoping;
     static bool _auto_deps;
     
@@ -66,7 +67,7 @@ namespace {
             
             usage = ( killed.empty( )          ? "" : ( "KILL: "          + killed        + "\\n" ) )
                     + ( ue.empty( )            ? "" : ( "UE: "            + ue            + "\\n" ) )
-                    + ( undef.empty( )         ? "" : ( "UNDEEF: "        + undef         + "\\n" ) )
+                    + ( undef.empty( )         ? "" : ( "UNDEF: "         + undef         + "\\n" ) )
                     + ( assert_ue.empty( )     ? "" : ( "ASSERT_UE: "     + assert_ue     + "\\n" ) ) 
                     + ( assert_killed.empty( ) ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
             
@@ -161,6 +162,26 @@ namespace {
         return induction_vars;
     }
     
+    std::string print_node_ranges( Node* current )
+    {
+        std::string ranges = "";
+        if( _ranges )
+        {
+            Utils::RangeValuesMap ranges_in_ = current->get_ranges_in( );
+            Utils::RangeValuesMap ranges_out_ = current->get_ranges_out( );
+            std::string ranges_in = prettyprint_range_values_map( current->get_ranges_in( ), /*dot*/ true );
+            std::string ranges_out = prettyprint_range_values_map( current->get_ranges_out( ), /*dot*/ true );
+            
+            ranges = ( ranges_in.empty( )    ? "" : "RI: " + ranges_in  + "\\n" )
+                     + ( ranges_out.empty( ) ? "" : "RO: " + ranges_out );
+            
+            int l_size = ranges.size( );
+            if( ( l_size > 3 ) && ( ranges.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
+                ranges = ranges.substr( 0, l_size - 2 );
+        }
+        return ranges;
+    }
+    
     std::string print_node_data_sharing( Node* current )
     {
         std::string auto_scope = "";
@@ -173,7 +194,7 @@ namespace {
             auto_scope = ( sc_private.empty( )        ? "" : "AUTO-SC_PRIVATE: "      + sc_private      + "\\n" )
                          + ( sc_firstprivate.empty( ) ? "" : "AUTO-SC_FIRSTPRIVATE: " + sc_firstprivate + "\\n" )
                          + ( sc_shared.empty( )       ? "" : "AUTO-SC_SHARED: "       + sc_shared       + "\\n" )
-                         + ( sc_undefined.empty( )    ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined    + "\\n" );
+                         + ( sc_undefined.empty( )    ? "" : "AUTO-SC_UNDEFINED: "    + sc_undefined );
         }
         return auto_scope;
     }
@@ -196,17 +217,19 @@ namespace {
                         + ( deps_in.empty( )           ? "" : "AUTO-DEPS_IN: "           + deps_in           + "\\n" )
                         + ( deps_out.empty( )          ? "" : "AUTO-DEPS_OUT: "          + deps_out          + "\\n" )
                         + ( deps_inout.empty( )        ? "" : "AUTO-DEPS_INOUT: "        + deps_inout        + "\\n" )
-                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined    + "\\n" );
+                        + ( deps_undefined.empty( )    ? "" : "AUTO-DEPS_UNDEFINED: "    + deps_undefined );
         }
         return auto_deps;
     }
 }
     
+    static int id_ = 0;
+    
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                              bool auto_scoping, bool auto_deps )
+                                              bool ranges, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_pcfg;
-
+        
         // Create the directory of dot files if it has not been previously created
         char buffer[1024];
         char* err = getcwd(buffer, 1024);
@@ -242,19 +265,21 @@ namespace {
         std::string filename = ::give_basename(node.get_filename().c_str());
         int line = node.get_line();
         std::stringstream ss; ss << filename << "_" << line;
-        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + ".dot";
+        std::stringstream ss_; ss_ << ++id_;
+        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + "_" + ss_.str() + "_pcfg.dot";
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
             
         // Create the dot graphs
         if( VERBOSE )
-            std::cerr << "- File '" << dot_file_name << "'" << std::endl;
+            std::cerr << "- PCFG File '" << dot_file_name << "'" << std::endl;
 
         _usage = usage;
         _liveness = liveness;
         _reaching_defs = reaching_defs;
         _induction_vars = induction_vars;
+        _ranges = ranges;
         _auto_scoping = auto_scoping;
         _auto_deps = auto_deps;
         
@@ -300,10 +325,8 @@ namespace {
                 _subgraph_id++;
 
                 // Print inner nodes of the graph
-                std::vector<std::string> new_outer_edges; 
-                outer_edges.push_back( new_outer_edges );
-                std::vector<Node*> new_outer_nodes; 
-                outer_nodes.push_back( new_outer_nodes );
+                outer_edges.push_back( std::vector<std::string>() );
+                outer_nodes.push_back( std::vector<Node*>() );
                 get_dot_subgraph( current, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent + "\t" );
                 dot_graph += indent + "}\n";
                 
@@ -318,74 +341,85 @@ namespace {
             
             // Connect the current node and the possible inner nodes (when current is a graph) 
             // with the nodes in the current nesting level
+            bool connect_current = true;
             std::stringstream ss_source_id;
-            if( current->is_graph_node( ) )
-                ss_source_id << current->get_graph_exit_node( )->get_id( );
-            else
+            if( current->is_graph_node( ) ) {
+                // It may happen that the exit of a graph node has no entry edges 
+                // when there is a break point inside the graph that avoid reaching the exit of the graph.
+                // In these cases, we do not need to print this edge because it will never occur
+                Node* exit = current->get_graph_exit_node( );
+                if( exit->get_entry_edges( ).empty( ) )
+                    connect_current = false;
+                
+                ss_source_id << exit->get_id( );
+            } else {
                 ss_source_id << current->get_id( );
-            
-            // Connect current children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                std::stringstream ss_target_id;
-                if( ( *it )->is_graph_node( ) )
-                    ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
-                else
-                    ss_target_id << ( *it )->get_id( );
-                
-                std::string direction = "";
-                if( ss_source_id.str( ) == ss_target_id.str( ) )
-                    direction = ", headport=n, tailport=s";
-                
-                std::string extra_edge_attrs = "";
-                Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
-                if( current_edge->is_task_edge( ) )
-                    extra_edge_attrs = ", style=dashed";
-                
-                std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
-                                    + " [label=\"" + current_edge->get_label( ) + "\"" + direction + extra_edge_attrs + "];\n";
-                Node* source_outer = current->get_outer_node( );
-                Node* target_outer = ( *it )->get_outer_node( );
-                if( source_outer == target_outer )
-                {   // The edge has to be printed now
-                    dot_graph += indent + edge;
-                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                }
-                else
-                {
-                    int nest = outer_edges.size( );
-                    while( source_outer != target_outer && source_outer != NULL )
-                    {
-                        source_outer = source_outer->get_outer_node( );
-                        nest--;
-                    }
-                    ERROR_CONDITION( nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0 );
-                    outer_edges[nest-1].push_back( edge );
-                    outer_nodes[nest-1].push_back( *it );
-                }
             }
                 
+            // Connect current children
+            if( connect_current )
+            {
+                ObjectList<Node*> children = current->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                {
+                    std::stringstream ss_target_id;
+                    if( ( *it )->is_graph_node( ) )
+                        ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
+                    else
+                        ss_target_id << ( *it )->get_id( );
+                    
+                    std::string direction = "";
+                    if( ss_source_id.str( ) == ss_target_id.str( ) )
+                        direction = ", headport=n, tailport=s";
+                    
+                    std::string extra_edge_attrs = "";
+                    Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
+                    if( current_edge->is_task_edge( ) )
+                        extra_edge_attrs = ", style=dashed";
+                    
+                    std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
+                                        + " [label=\"" + current_edge->get_label_as_string( ) 
+                                        + "\"" + direction + extra_edge_attrs + "];\n";
+                    Node* source_outer = current->get_outer_node( );
+                    Node* target_outer = ( *it )->get_outer_node( );
+                    if( source_outer == target_outer )
+                    {   // The edge has to be printed now
+                        dot_graph += indent + edge;
+                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                    }
+                    else
+                    {
+                        int nest = outer_edges.size( );
+                        while( source_outer != target_outer && source_outer != NULL )
+                        {
+                            source_outer = source_outer->get_outer_node( );
+                            nest--;
+                        }
+                        ERROR_CONDITION( nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0 );
+                        outer_edges[nest-1].push_back( edge );
+                        outer_nodes[nest-1].push_back( *it );
+                    }
+                }
+            }
+            
             // Connect all edges and nodes corresponding to the current level of nesting
             if( current->is_graph_node( ) && !outer_edges.empty( ) )
             {
                 // Printing the nodes
+                std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
+                    get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
+                // so we have to iterate over again
+                unsigned int last_nodes_size = current_outer_nodes.size( );
+                while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
                 {
-                    std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
-                    for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
-                        get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                    // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
-                    // so we have to iterate over again
-                    unsigned int last_nodes_size = current_outer_nodes.size( );
-                    while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
-                    {
-                        current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
-                        for( unsigned int i = last_nodes_size; i < current_outer_nodes.size( ); ++i )
-                            get_nodes_dot_data( current_outer_nodes[i], dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                        last_nodes_size = current_outer_nodes.size( );
-                    }
-                    outer_nodes.pop_back( );
+                    current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
+                    for( unsigned int i = last_nodes_size; i < current_outer_nodes.size( ); ++i )
+                        get_nodes_dot_data( current_outer_nodes[i], dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
+                    last_nodes_size = current_outer_nodes.size( );
                 }
+                outer_nodes.pop_back( );
                 
                 // Printing the edges
                 std::vector<std::string> current_outer_edges = outer_edges[outer_edges.size( )-1];
@@ -417,6 +451,7 @@ namespace {
             case __LoopWhile:
             case __SplitStmt:
             case __Switch:
+            case __SwitchCase:
                 dot_graph += indent + "color=grey45;\n";
                 break;
             case __OmpAtomic:
@@ -466,47 +501,47 @@ namespace {
             }
             case __UnclassifiedNode:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] UNCLASSIFIED_NODE\"];\n";
                 break;
             }
             case __OmpBarrier:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BARRIER\", shape=diamond];\n";
                 break;
             }
             case __OmpFlush:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] FLUSH\", shape=ellipse];\n";
                 break;
             }
             case __OmpTaskwait:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASKWAIT\", shape=ellipse];\n";
                 break;
             }
             case __OmpWaitonDeps:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] WAITON_DEPS\", shape=ellipse];\n";
                 break;
             }
             case __OmpVirtualTaskSync:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] POST_SYNC\", shape=ellipse];\n";
                 break;
             }
             case __OmpTaskCreation:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] TASK_CREATION\", shape=ellipse];\n";
                 break;
             }
             case __Break:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] BREAK\", shape=diamond];\n";
                 break;
             }
             case __Continue:
             {
-                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond]\n";
+                dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] CONTINUE\", shape=diamond];\n";
                 break;
             }
             case __AsmOp:
@@ -552,7 +587,7 @@ namespace {
             {
                 if( current->is_vector_node( ) )
                 {   // No codegen for these nodes, we generate a node containing only the type in the DOT file
-                    dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] " + current->get_type_as_string( ) + "\", shape=hexagon]\n";
+                    dot_graph += indent + ss.str( ) + "[label=\"[" + ss.str( ) + "] " + current->get_type_as_string( ) + "\", shape=hexagon];\n";
                 }
                 else
                 {
@@ -683,7 +718,7 @@ namespace {
                         clauses_str += "\\n ";
                 }
                 pragma_info_str += indent + id + "[label=\"" + clauses_str + "\", shape=box, color=wheat3];\n";
-                pragma_info_str += indent + current_entry_id + " -> " + id + " [style=dashed, color=wheat3, ltail=" + cluster_name + "]\n";
+                pragma_info_str += indent + current_entry_id + " -> " + id + " [style=dashed, color=wheat3, ltail=" + cluster_name + "];\n";
             }
         }
         return pragma_info_str;
@@ -701,6 +736,7 @@ namespace {
         std::string usage_str = print_node_usage( current );
         std::string liveness_str = print_node_liveness( current );
         std::string reach_defs_str = print_node_reaching_defs( current );
+        std::string ranges_str = print_node_ranges( current );
         std::string induction_vars_str = print_node_induction_variables( current );
         std::string color;
         std::string common_attrs = "style=dashed";
@@ -708,52 +744,75 @@ namespace {
         {
             std::string id = "-00" + node_id.str( );
             color = "blue";
-            dot_analysis_info += "\t" + id + "[label=\"" + usage_str + " \", shape=box, color=" + color + "]\n";
+            dot_analysis_info += "\t" + id + "[label=\"" + usage_str + " \", shape=box, color=" + color + "];\n";
             if( !current->is_extended_graph_node( ) )
             {
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                 if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
             }
         }
         if( !liveness_str.empty( ) )
         {
             std::string id = "-000" + node_id.str( );
             color = "green3";
-            dot_analysis_info += "\t" + id + "[label=\"" + liveness_str + " \", shape=box, color=" + color + "]\n";
+            dot_analysis_info += "\t" + id + "[label=\"" + liveness_str + " \", shape=box, color=" + color + "];\n";
             if( !current->is_extended_graph_node( ) )
             {
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                 if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
             }
         }
         if( !reach_defs_str.empty( ) )
         {
             std::string id = "-0000" + node_id.str( );
             color = "red2";
-            dot_analysis_info += "\t" + id + "[label=\"" + reach_defs_str + " \", shape=box, color=" + color + "]\n";
+            dot_analysis_info += "\t" + id + "[label=\"" + reach_defs_str + " \", shape=box, color=" + color + "];\n";
             if( !current->is_extended_graph_node( ) )
             {
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                 if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
+            }
+        }
+        if( !ranges_str.empty( ) )
+        {
+            std::string id = "-00000" + node_id.str( );
+            color = "cyan3";
+            dot_analysis_info += "\t" + id + "[label=\"" + ranges_str + " \", shape=box, color=" + color + "];\n";
+            if( !current->is_extended_graph_node( ) )
+            {
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
+                if( !cluster_name.empty() )
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
             }
         }
         if( !induction_vars_str.empty( ) )
         {
-            std::string id = "-00000" + node_id.str( );
+            std::string id = "-000000" + node_id.str( );
             color = "orange2";
-            dot_analysis_info += "\t" + id + "[label=\"" + induction_vars_str + " \", shape=box, color=" + color + "]\n";
+            dot_analysis_info += "\t" + id + "[label=\"" + induction_vars_str + " \", shape=box, color=" + color + "];\n";
             if( !current->is_extended_graph_node( ) )
             {
-                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                 if( !cluster_name.empty() )
-                    dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                dot_analysis_info += "\n";
+                    dot_analysis_info += ", ltail=" + cluster_name + "]";
+                else
+                    dot_analysis_info += "]";
+                dot_analysis_info += ";\n";
             }
         }
         if( current->is_omp_task_node( ) )
@@ -761,30 +820,34 @@ namespace {
             std::string auto_scope_str = print_node_data_sharing( current );
             if( !auto_scope_str.empty() )
             {
-                std::string id = "-00000" + node_id.str( );
+                std::string id = "-0000000" + node_id.str( );
                 color = "darkgoldenrod1";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_scope_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )
                 {
-                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                     if( !cluster_name.empty() )
-                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                    dot_analysis_info += "\n";
+                        dot_analysis_info += ", ltail=" + cluster_name + "]";
+                    else
+                        dot_analysis_info += "]";
+                    dot_analysis_info += ";\n";
                 }
             }
 
             std::string auto_deps_str = print_node_deps( current );
             if( !auto_deps_str.empty() )
             {
-                std::string id = "-000000" + node_id.str( );
+                std::string id = "-00000000" + node_id.str( );
                 color = "skyblue3";
                 dot_analysis_info += "\t" + id + "[label=\"" + auto_deps_str + " \", shape=box, color=" + color + "]\n";
                 if( !current->is_extended_graph_node( ) )
                 {
-                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color + "]";
+                    dot_analysis_info += "\t" + ssgeid.str( ) + " -> " + id + " [" + common_attrs + ", color=" + color;
                     if( !cluster_name.empty() )
-                        dot_analysis_info += "[ltail=" + cluster_name + "]\n";
-                    dot_analysis_info += "\n";
+                        dot_analysis_info += ", ltail=" + cluster_name + "]";
+                    else
+                        dot_analysis_info += "]";
+                    dot_analysis_info += ";\n";
                 }
             }
         }

@@ -90,14 +90,26 @@ namespace Utils {
     bool ext_sym_set_equivalence( ext_sym_set c1, ext_sym_set c2 );
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
     
-    bool ext_sym_set_contains_sym( ExtendedSymbol s, ext_sym_set sym_set );
+    bool ext_sym_set_contains_sym( const ExtendedSymbol& s, const ext_sym_set& sym_set );
     bool ext_sym_set_contains_nodecl( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set );
     
-    bool ext_sym_set_contains_enclosing_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
-    bool ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
+    /*!This method returns a null nodecl if the list #sym_set does not contain a Nodecl equal to #n or containing #n
+     * The cases where a nodecl contains a nodecl are the following:
+     * - v contains v (this is the case when the two nodecls are equal)
+     * - A contains A[i] (comparison between array ranges to be done)
+     * - S contains S.r
+     * Otherwise, it returns the nodecl equal or containing #n in #sym_set
+     */
+    Nodecl::NodeclBase ext_sym_set_contains_enclosing_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
+    /*!This method returns a null nodecl if the list #sym_set does not contain a Nodecl equal to #n or contained in #n
+     * - v is contained in v (this is the case when the two nodecls are equal)
+     * - A[i] is contained in A (comparison between array ranges to be done)
+     * - S.r is contained in S
+     * Otherwise, it returns the nodecl equal or contained in #n in #sym_set
+     */
+    Nodecl::NodeclBase ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
     
-    void delete_enclosing_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
-    void delete_enclosed_var_from_list( ExtendedSymbol ei, ext_sym_set& sym_set );
+    void delete_enclosed_var_from_list( const ExtendedSymbol& ei, ext_sym_set& sym_set );
 
     // ******************** END methods for dealing with Extended Symbols ********************* //
     // **************************************************************************************** //

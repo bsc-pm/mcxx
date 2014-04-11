@@ -69,8 +69,7 @@ namespace Analysis {
                     ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                     {
-                        Nodecl::NodeclBase it_copied = it->shallow_copy( );
-                        rdv.walk( it_copied );
+                        rdv.walk( *it );
                     }
                     current->set_generated_stmts( rdv.get_gen( ) );
                 }
@@ -141,10 +140,6 @@ namespace Analysis {
                         {
                             pred_rd_out = ( *it )->get_reaching_definitions_out( );
                         }
-                        if( current->get_id( ) == 37 )
-                        {
-
-                        }
                         rd_in = Utils::ext_sym_map_union( rd_in, pred_rd_out );
                     }
 
@@ -178,9 +173,18 @@ namespace Analysis {
             // RDI(graph) = U RDO (Y), for all Y predecessors of X
             Utils::ext_sym_map graph_rdi;
             ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); )
             {
-                graph_rdi = Utils::ext_sym_map_union( graph_rdi, ( *it )->get_reaching_definitions_out( ) );
+                Node* c_it = *it;
+                while(c_it->is_entry_node())
+                {
+                    if(c_it->get_outer_node()->get_id() != 0)
+                        c_it = c_it->get_outer_node()->get_parents()[0];
+                    else
+                        goto iterate;
+                }
+                graph_rdi = Utils::ext_sym_map_union( graph_rdi, c_it->get_reaching_definitions_out( ) );
+iterate:        ++it;
             }
             current->set_reaching_definitions_in( graph_rdi );
 
@@ -190,6 +194,13 @@ namespace Analysis {
             for( ObjectList<Node*>::iterator it = exits.begin( ); it != exits.end( ); ++it )
             {
                 graph_rdo = Utils::ext_sym_map_union( graph_rdo, ( *it )->get_reaching_definitions_out( ) );
+            }
+            if(graph_rdo.empty())
+            {   // This may happen when no Reaching Defintion has been computed inside the graph or
+                // when there is no statement inside the task and the information has not been propagated 
+                // (Entry and Exit nodes do not contain any analysis information)
+                // In this case, we propagate the Reaching Definition Out from the parents
+                graph_rdo = graph_rdi;
             }
             current->set_reaching_definitions_out( graph_rdo );
         }
@@ -225,14 +236,14 @@ namespace Analysis {
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::AddAssignment& n )
     {
-        Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
-        Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                                  n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
@@ -244,63 +255,63 @@ namespace Analysis {
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
-        Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
-        Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                          n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
-        Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
-        Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
-        Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::DivAssignment& n )
     {
-        Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MinusAssignment& n )
     {
-        Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                  n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ModAssignment& n )
     {
-        Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ),  n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MulAssignment& n )
     {
-        Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ), n.get_rhs( ).shallow_copy( ),
+        Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
         visit_assignment( n.get_lhs( ), rhs );
     }

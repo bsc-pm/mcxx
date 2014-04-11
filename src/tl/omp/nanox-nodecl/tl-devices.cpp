@@ -638,26 +638,38 @@ namespace TL { namespace Nanox {
                                     base_type = base_type.array_element();
 
                                 TL::Type class_type = base_type.get_unqualified_type();
-                                ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)", print_declarator(class_type.get_internal_type()));
-                                
+                                ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)",
+                                        print_declarator(class_type.get_internal_type()));
+
                                 base_type = base_type.get_unqualified_type().get_pointer_to();
 
                                 final_statements
                                     << "{"
-                                    << as_type(updated_vla_type) << "__orig = (" << as_type(updated_vla_type) << ")" << as_symbol(private_sym) << ";"
-                                    << as_type(base_type) << "__dest = (" << as_type(base_type) << ")" << as_symbol(vla_private_sym) << ";"
-                                    << "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
-                                    << "{"
-                                    << "(*__dest).~" << class_type.get_symbol().get_name() << "();"
-                                    << "__dest++;"
-                                    << "}"
+                                    <<    as_type(updated_vla_type) << "__orig = (" << as_type(updated_vla_type) << ")"
+                                    <<               as_symbol(private_sym) << ";"
+                                    <<    as_type(base_type) << "__dest = (" << as_type(base_type) << ")"
+                                    <<            as_symbol(vla_private_sym) << ";"
+                                    <<    "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
+                                    <<    "{"
+                                    <<    "(*__dest).~" << class_type.get_symbol().get_name() << "();"
+                                    <<    "__dest++;"
+                                    <<    "}"
                                     << "}"
                                     ;
                             }
                             else
                             {
                                 TL::Type class_type = (*it)->get_symbol().get_type().no_ref().get_unqualified_type();
-                                if (class_type.is_array())
+                                if (class_type.is_dependent())
+                                {
+                                    final_statements
+                                        << "{"
+                                        <<    "typedef " << as_type(class_type) << " DepType;"
+                                        <<    as_symbol(private_sym) << ".~DepType();"
+                                        << "}"
+                                        ;
+                                }
+                                else if (class_type.is_array())
                                 {
                                     TL::Type base_type = (*it)->get_symbol().get_type().no_ref();
 
@@ -670,18 +682,18 @@ namespace TL { namespace Nanox {
 
                                     final_statements
                                         << "{"
-                                        << as_type(base_type) << "__dest = (" << as_type(base_type) << ")" << as_symbol(private_sym) << ";"
-                                        << "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
-                                        << "{"
-                                        << "(*__dest).~" << base_type.points_to().get_symbol().get_name() << "();"
-                                        << "__dest++;"
-                                        << "}"
+                                        <<     as_type(base_type) << "__dest = (" << as_type(base_type) << ")"
+                                        <<           as_symbol(private_sym) << ";"
+                                        <<     "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
+                                        <<     "{"
+                                        <<     "(*__dest).~" << base_type.points_to().get_symbol().get_name() << "();"
+                                        <<     "__dest++;"
+                                        <<     "}"
                                         << "}"
                                         ;
                                 }
-                                else
+                                else if (class_type.is_named_class())
                                 {
-                                    ERROR_CONDITION(!class_type.is_named_class(), "This should be a named class type (%s)", print_declarator(class_type.get_internal_type()));
                                     final_statements << as_symbol(private_sym) << ".~" << class_type.get_symbol().get_name() << "();";
                                 }
                             }
@@ -938,6 +950,12 @@ namespace TL { namespace Nanox {
                     decl_context, make_locus("", 0, 0));
 
             template_type_set_related_symbol(new_template_sym->type_information, new_template_sym);
+
+            if (current_function.is_member())
+            {
+                new_template_sym->entity_specs.is_member = 1;
+                new_template_sym->entity_specs.class_type = current_function.get_class_type().get_internal_type();
+            }
 
             // The new function is the primary template specialization
             new_function_sym = named_type_get_symbol(

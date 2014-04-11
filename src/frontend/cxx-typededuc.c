@@ -591,7 +591,8 @@ char deduce_template_arguments_common(
         {
             type_t* updated_parameter = NULL;
             updated_parameter = update_type(parameters[j],
-                    updated_context, locus);
+                    updated_context,
+                    locus);
 
             if (updated_parameter == NULL
                     || !is_sound_type(updated_parameter, updated_context))
@@ -1020,6 +1021,7 @@ char deduce_template_arguments_common(
 
                 template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                         updated_context,
+                        /* instantiation_symbol_map */ NULL,
                         locus,
                         /* index_pack */ -1);
 
@@ -1051,7 +1053,8 @@ char deduce_template_arguments_common(
             current_deduced_template_arguments->arguments[i_tpl_parameters]->type =
                 update_type(
                         type_template_parameters->parameters[i_tpl_parameters]->entry->type_information,
-                        updated_context, locus);
+                        updated_context,
+                        locus);
 
             type_t* t = current_deduced_template_arguments->arguments[i_tpl_parameters]->type;
 
@@ -1221,7 +1224,8 @@ char deduce_arguments_of_conversion(
     type_t* original_parameter_type = (*parameter_types);
     type_t* updated_type = 
         update_type(original_parameter_type, 
-                updated_context, locus);
+                updated_context,
+                locus);
 
     if (!equivalent_types((*argument_types), updated_type))
     {
@@ -1392,16 +1396,13 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
                             decl_context, locus);
 
-                    if (solved_function == NULL)
-                    {
-                        current_argument_type = get_pointer_type(current_argument_type);
-                    }
-                    else
+                    if (solved_function != NULL
+                            && (!solved_function->entity_specs.is_member
+                                || solved_function->entity_specs.is_static))
                     {
                         current_argument_type = get_pointer_type(solved_function->type_information);
                     }
                 }
-
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
             else

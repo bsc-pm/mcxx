@@ -288,11 +288,7 @@ namespace TL
 
                 _data_ref._data_type = extend_array_type_to_regions(array);
 
-                Nodecl::NodeclBase subscripted = array.get_subscripted();
-                while (subscripted.is<Nodecl::Conversion>())
-                {
-                    subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
-                }
+                Nodecl::NodeclBase subscripted = array.get_subscripted().no_conv();
 
                 if (subscripted.is<Nodecl::Symbol>())
                 {
@@ -983,11 +979,7 @@ namespace TL
                     get_ptrdiff_t_type(),
                     result.get_locus());
 
-            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted();
-            while (subscripted.is<Nodecl::Conversion>())
-            {
-                subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
-            }
+            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted().no_conv();
 
             // a.b[e]
             // (p[e1])[e] -> This only happens when indexing a pointer p

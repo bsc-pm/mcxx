@@ -58,7 +58,19 @@ namespace Analysis {
         std::string _induction_vars_enabled_str;
         bool _induction_vars_enabled;
         void set_induction_vars( const std::string& induction_vars_enabled_str );
+        
+        std::string _task_sync_tune_enabled_str;
+        bool _task_sync_tune_enabled;
+        void set_task_sync_tune( const std::string& task_sync_tune_enabled_str );
+        
+        std::string _tdg_enabled_str;
+        bool _tdg_enabled;
+        void set_tdg( const std::string& tdg_enabled_str );
 
+        std::string _range_analysis_enabled_str;
+        bool _range_analysis_enabled;
+        void set_range_analsysis( const std::string& range_analysis_enabled_str );
+        
     public:
         //! Constructor of this phase
         TestAnalysisPhase();

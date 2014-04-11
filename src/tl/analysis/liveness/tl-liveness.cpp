@@ -115,10 +115,6 @@ namespace Analysis {
                 {
                     if( current->is_omp_task_node( ) )
                     {
-                        if( container_task != NULL )
-                        {
-                            WARNING_MESSAGE( "Analysis of nested tasks is not properly supported. You might get wrong results\n", 0 );
-                        }
                         container_task = current;
                     }
                     solve_live_equations_rec( current->get_graph_entry_node(), changed, container_task );
@@ -173,12 +169,12 @@ namespace Analysis {
                         Utils::ext_sym_set task_lo = current->get_live_out_vars( );
                         for( Utils::ext_sym_set::iterator it = task_li.begin( ); it != task_li.end( ); ++it )
                         {
-                            if( Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), task_lo ) )
+                            if( !Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), task_lo ).is_null( ) )
                             {
                                 delete_enclosed_var_from_list( *it, task_lo );
                                 current->set_live_out( *it );
                             }
-                            else if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), task_lo ) )
+                            else if( Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), task_lo ).is_null( ) )
                             {
                                 current->set_live_out( *it );
                             }

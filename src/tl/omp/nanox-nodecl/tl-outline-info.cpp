@@ -901,7 +901,8 @@ namespace TL { namespace Nanox {
             }
 
             if (IS_CXX_LANGUAGE
-                    && !t.is_pod())
+                    && (t.is_dependent()
+                        || !t.is_pod()))
             {
                 outline_info.set_allocation_policy(
                         outline_info.get_allocation_policy() |
@@ -942,7 +943,8 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
 
             if (IS_CXX_LANGUAGE
-                    && !t.is_pod())
+                    && (t.is_dependent()
+                        || !t.is_pod()))
             {
                 outline_info.set_allocation_policy(
                         outline_info.get_allocation_policy() |

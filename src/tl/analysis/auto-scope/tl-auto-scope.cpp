@@ -366,7 +366,7 @@ namespace {
     void AutoScoping::scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, Utils::ExtendedSymbol ei,
                                       Utils::ext_sym_set& scoped_vars )
     {
-        if( !Utils::ext_sym_set_contains_enclosing_nodecl( ei.get_nodecl( ), scoped_vars ) )
+        if( Utils::ext_sym_set_contains_enclosing_nodecl( ei.get_nodecl( ), scoped_vars ).is_null( ) )
         {   // The expression is not a symbol local from the task
             scoped_vars.insert( ei );
 
@@ -383,7 +383,7 @@ namespace {
                 if( usage_in_task._usage_type & Utils::UsageKind::DEFINED )
                 {
                     std::set<Symbol> global_vars = _graph->get_global_variables( );
-                    Symbol sym( Utils::ExtendedSymbol::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
+                    Symbol sym( Utils::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
                     ERROR_CONDITION( !sym.is_valid( ), 
                                      "An ExtendedSymbol must have a symbol associated to it base nodecl, but %s does not have one", 
                                      ei.get_nodecl( ).prettyprint( ).c_str( ) );

@@ -1317,7 +1317,7 @@ namespace Analysis {
 
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::Sizeof& n)
     {   // No evaluation performed in the sizeof expression, so no renaming needed
-    return ObjectList<Nodecl::NodeclBase>();
+        return ObjectList<Nodecl::NodeclBase>();
     }
 
     RenamingVisitor::Ret RenamingVisitor::visit(const Nodecl::StringLiteral& n)

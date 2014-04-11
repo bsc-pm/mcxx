@@ -978,7 +978,8 @@ void LoweringVisitor::fill_arguments(
                                 ;
 
                             if (IS_CXX_LANGUAGE
-                                    && !sym_type.is_pod())
+                                    && (sym_type.is_dependent()
+                                        || !sym_type.is_pod()))
                             {
                                 TL::Type base_type = sym_type;
                                 while (base_type.is_array())
@@ -1035,7 +1036,8 @@ void LoweringVisitor::fill_arguments(
                             if (sym_type.is_array())
                             {
                                 if (IS_CXX_LANGUAGE
-                                        && !sym_type.is_pod())
+                                        && (sym_type.is_dependent()
+                                            || !sym_type.is_pod()))
                                 {
                                     TL::Type base_type = sym_type;
                                     while (base_type.is_array())
@@ -1088,8 +1090,9 @@ void LoweringVisitor::fill_arguments(
                                 if ((*it)->get_captured_value().is_null())
                                 {
                                     if (IS_CXX_LANGUAGE
-                                            && sym_type.is_class()
-                                            && !sym_type.is_pod())
+                                            && (sym_type.is_dependent()
+                                                || (sym_type.is_class()
+                                                    && !sym_type.is_pod())))
                                     {
                                         fill_outline_arguments <<
                                             "new (& ol_args->" << (*it)->get_field_name() << " )"
@@ -1124,8 +1127,9 @@ void LoweringVisitor::fill_arguments(
                                     }
 
                                     if (IS_CXX_LANGUAGE
-                                            && sym_type.is_class()
-                                            && !sym_type.is_pod())
+                                            && (sym_type.is_dependent()
+                                                || (sym_type.is_class()
+                                                    && !sym_type.is_pod())))
                                     {
                                         fill_outline_arguments <<
                                             "new (&ol_args->" << (*it)->get_field_name() << ")"

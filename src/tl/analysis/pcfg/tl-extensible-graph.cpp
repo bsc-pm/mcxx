@@ -33,7 +33,7 @@ namespace Analysis {
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
           _global_vars( ), _function_sym( NULL ), nodes_m( ),
-          _task_nodes_l( ), _func_calls( ), 
+          _task_nodes_l( ), _func_calls( ),
           _concurrent_tasks( ), _last_sync( ), _next_sync( ),
           _cluster_to_entry_map( )
     {
@@ -108,7 +108,7 @@ namespace Analysis {
                 new_node->set_statements( nodecls );
                 connect_nodes( parents, new_node, etype );
             }
-            else if( nodecls.empty( ) && ntype != __Normal )
+            else if( ntype != __Normal )
             {
                 new_node = new Node( _utils->_nid, ntype, _utils->_outer_nodes.top( ) );
                 connect_nodes( parents, new_node, etype );
@@ -139,7 +139,7 @@ namespace Analysis {
         return append_new_node_to_parent( parents, ObjectList<Nodecl::NodeclBase>( 1, nodecl ), ntype, etype );
     }
 
-    Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, std::string label,
+    Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, Nodecl::NodeclBase label,
                                           bool is_task_edge )
     {
         Edge* edge = NULL;
@@ -156,13 +156,13 @@ namespace Analysis {
                 ObjectList<Edge*> exit_edges = parent->get_exit_edges( );
                 for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
                 {
-                    if( ( *it )->get_target( )->get_id( ) == child->get_id( ) )
+                    if( ( *it )->get_target( ) == child )
                     {
                         edge = *it;
                         break;
                     }
                 }
-                
+
                 edge->set_type( etype );
                 edge->set_label( label );
             }
@@ -176,7 +176,7 @@ namespace Analysis {
     }
 
     void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
-                                         ObjectList<Edge_type> etypes, ObjectList<std::string> elabels )
+                                         ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> elabels )
     {
         if( ( etypes.size( ) != elabels.size( ) ) || (parents.size( ) * children.size( ) != etypes.size( ) ) )
         {
@@ -187,21 +187,21 @@ namespace Analysis {
 
         int children_size = children.size( );
         ObjectList<Edge_type>::iterator itt = etypes.begin( );
-        ObjectList<std::string>::iterator itl = elabels.begin( );
+        ObjectList<Nodecl::NodeclBase>::iterator itl = elabels.begin( );
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( );
              ++it, itt+=children_size, itl+=children_size)
         {
             ObjectList<Edge_type> actual_etypes( itt, itt + children_size );
-            ObjectList<std::string> actual_elabels( itl, itl + children_size );
+            ObjectList<Nodecl::NodeclBase> actual_elabels( itl, itl + children_size );
             connect_nodes( *it, children, actual_etypes, actual_elabels );
         }
     }
 
     void ExtensibleGraph::connect_nodes(Node* parent, ObjectList<Node*> children,
-                                        ObjectList<Edge_type> etypes, ObjectList<std::string> labels)
+                                        ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> labels)
     {
         ObjectList<Edge_type>::iterator itt = etypes.begin( );
-        ObjectList<std::string>::iterator itl = labels.begin( );
+        ObjectList<Nodecl::NodeclBase>::iterator itl = labels.begin( );
         ObjectList<Node*>::iterator it = children.begin( );
         for(;
             it != children.end( ), itt != etypes.end( ), itl != labels.end( );
@@ -219,10 +219,11 @@ namespace Analysis {
     }
 
     void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child,
-                                         ObjectList<Edge_type> etypes, ObjectList<std::string> labels, bool is_task_edge )
+                                         ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> labels,
+                                         bool is_task_edge )
     {
         ObjectList<Edge_type>::iterator itt = etypes.begin( );
-        ObjectList<std::string>::iterator itl = labels.begin( );
+        ObjectList<Nodecl::NodeclBase>::iterator itl = labels.begin( );
         ObjectList<Node*>::iterator it = parents.begin( );
         for( ; it != parents.end( ), itt != etypes.end( ), itl != labels.end( );
              ++it, ++itt, ++itl )
@@ -238,7 +239,7 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label )
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, Nodecl::NodeclBase label )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
@@ -296,7 +297,7 @@ namespace Analysis {
                                               Graph_type graph_type, Nodecl::NodeclBase context )
     {
         Node* result = new Node( _utils->_nid, __Graph, outer_node );
-        
+
         Node* entry_node = result->get_graph_entry_node( );
         entry_node->set_outer_node( result );
         Node* exit_node = result->get_graph_exit_node( );
@@ -435,10 +436,10 @@ namespace Analysis {
             Node* back = node_l.back( );
             ObjectList<Node*> front_parents = front->get_parents( );
             ObjectList<Edge_type> front_entry_edge_types = front->get_entry_edge_types( );
-            ObjectList<std::string> front_entry_edge_labels = front->get_entry_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> front_entry_edge_labels = front->get_entry_edge_labels( );
             ObjectList<Node*> back_children = back->get_children( );
             ObjectList<Edge_type> back_exit_edge_types = back->get_exit_edge_types( );
-            ObjectList<std::string> back_exit_edge_labels = back->get_exit_edge_labels( );
+            ObjectList<Nodecl::NodeclBase> back_exit_edge_labels = back->get_exit_edge_labels( );
 
             // Destroy the nodes which has been concatenated
             for( ObjectList<Node*>::iterator it = node_l.begin( ); it != node_l.end( ); ++it )
@@ -508,12 +509,12 @@ namespace Analysis {
                     ObjectList<Node*> parents = current->get_parents( );
                     int n_connects = parents.size( ) * children.size( );
                     ObjectList<Edge_type> etypes;
-                    ObjectList<std::string> elabels;
+                    ObjectList<Nodecl::NodeclBase> elabels;
                     if( non_always_entries )
                     {
                         int n_children = children.size( );
                         ObjectList<Edge_type> entry_types = current->get_entry_edge_types( );
-                        ObjectList<std::string> entry_labels = current->get_entry_edge_labels( );
+                        ObjectList<Nodecl::NodeclBase> entry_labels = current->get_entry_edge_labels( );
                         while ( n_children > 0 )
                         {
                             etypes.append( entry_types );
@@ -525,7 +526,7 @@ namespace Analysis {
                     {
                         int n_children = children.size( );
                         ObjectList<Edge_type> exit_types = current->get_exit_edge_types( );
-                        ObjectList<std::string> exit_labels = current->get_exit_edge_labels( );
+                        ObjectList<Nodecl::NodeclBase> exit_labels = current->get_exit_edge_labels( );
                         while ( n_children > 0 )
                         {
                             etypes.append( exit_types );
@@ -536,7 +537,7 @@ namespace Analysis {
                     else
                     {
                         etypes = ObjectList<Edge_type>( n_connects, __Always );
-                        elabels = ObjectList<std::string>( n_connects, "" );
+                        elabels = ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null( ) );
                     }
 
                     disconnect_nodes( parents, current );
@@ -577,7 +578,7 @@ namespace Analysis {
                 // Get current current connecting information
                 ObjectList<Node*> parents = current->get_parents( );
                 ObjectList<Edge_type> etypes = current->get_entry_edge_types( );
-                ObjectList<std::string> elabels = current->get_entry_edge_labels( );
+                ObjectList<Nodecl::NodeclBase> elabels = current->get_entry_edge_labels( );
 
                 // Disconnect currents
                 disconnect_nodes( parents, current );
@@ -597,33 +598,6 @@ namespace Analysis {
                 erase_jump_nodes( *it );
             }
         }
-    }
-
-    bool ExtensibleGraph::belongs_to_the_same_graph( Edge* edge )
-    {
-        Node* source = edge->get_source( );
-        Node* target = edge->get_target( );
-        bool result = false;
-
-        if( source->has_key( _OUTER_NODE ) && target->has_key( _OUTER_NODE ) )
-        {
-            Node* source_outer_node = source->get_outer_node( );
-            Node* target_outer_node = target->get_outer_node( );
-
-            if( source_outer_node->get_id( ) == target_outer_node->get_id( ) )
-            {
-                result = true;
-            }
-        }
-        else
-        {
-            if( !source->has_key( _OUTER_NODE ) && !target->has_key( _OUTER_NODE ) )
-            {
-                result = true;
-            }
-        }
-
-        return result;
     }
 
     bool ExtensibleGraph::is_constant_in_context( Node* context, Nodecl::NodeclBase c )
@@ -646,14 +620,14 @@ namespace Analysis {
             {
                 ObjectList<Nodecl::NodeclBase> memory_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
                 for( ObjectList<Nodecl::NodeclBase>::iterator itm = memory_accesses.begin( );
-                    itm != memory_accesses.end( ) && result; ++itm )
+                     itm != memory_accesses.end( ) && result; ++itm )
+                {
+                    if( Utils::ext_sym_set_contains_nodecl( *itm, context->get_killed_vars( ) ) ||
+                        Utils::ext_sym_set_contains_nodecl( *itm, context->get_undefined_behaviour_vars( ) ) )
                     {
-                        if ( Utils::ext_sym_set_contains_nodecl( *itm, context->get_killed_vars( ) )
-                            || Utils::ext_sym_set_contains_nodecl( *itm, context->get_undefined_behaviour_vars( ) ) )
-                        {
-                            result = false;
-                        }
+                        result = false;
                     }
+                }
             }
         }
 
@@ -663,17 +637,17 @@ namespace Analysis {
     bool ExtensibleGraph::has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n )
     {
         bool result = false;
-        
+
         if( !current->is_visited_extgraph( ) )
         {
             current->set_visited_extgraph( true );
-         
+
             Utils::ext_sym_set killed = current->get_killed_vars( );
             if( Utils::ext_sym_set_contains_nodecl( n, killed ) )
             {
                 result = true;
             }
-            
+
             if( !result )
             {
                 ObjectList<Node*> parents;
@@ -682,7 +656,7 @@ namespace Analysis {
                     // Check if graph parents are still inside the scope
                     Node* outer_node = current->get_outer_node( );
                     if( outer_node->get_id( ) != scope->get_id( ) )
-                    {    
+                    {
                         parents = outer_node->get_parents( );
                     }
                 }
@@ -690,22 +664,22 @@ namespace Analysis {
                 {
                     parents = current->get_parents( );
                 }
-                
-                for( ObjectList<Node*>::iterator it = parents.begin( ); 
+
+                for( ObjectList<Node*>::iterator it = parents.begin( );
                      it != parents.end( ) && !result; ++it )
                 {
                     if( !ExtensibleGraph::is_backward_parent( current, *it ) )
-                    {    
+                    {
                         result = result || has_been_defined( *it, scope, n );
                     }
                     ExtensibleGraph::clear_visits_extgraph_aux( current );
                 }
             }
         }
-        
+
         return result;
     }
-    
+
     void ExtensibleGraph::clear_visits(Node* current)
     {
         if( current->is_visited( ) )
@@ -714,7 +688,7 @@ namespace Analysis {
 
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
                 clear_visits( current->get_graph_entry_node( ) );
 
@@ -732,7 +706,7 @@ namespace Analysis {
 
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
                 clear_visits_aux( current->get_graph_entry_node( ) );
 
@@ -747,48 +721,52 @@ namespace Analysis {
         if( current->is_visited_extgraph( ) )
         {
             current->set_visited_extgraph(false);
-            
+
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
                 clear_visits_extgraph( current->get_graph_entry_node( ) );
-            
+
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 clear_visits_extgraph( *it );
         }
     }
-    
+
     void ExtensibleGraph::clear_visits_extgraph_aux( Node* current )
     {
         if( current->is_visited_extgraph_aux( ) )
         {
             current->set_visited_extgraph_aux(false);
-            
+
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
                 clear_visits_extgraph_aux( current->get_graph_entry_node( ) );
-            
+
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 clear_visits_extgraph_aux( *it );
         }
     }
-    
+
     void ExtensibleGraph::clear_visits_in_level( Node* current, Node* outer_node )
     {
-        if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
+        if( current->is_visited( ) &&
+            ( current->node_is_enclosed_by( outer_node ) || current->is_omp_task_node( ) ) )
         {
             current->set_visited( false );
 
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
-                clear_visits_in_level( current->get_graph_entry_node( ), outer_node );
+            {
+                Node* new_outer = ( current->is_omp_task_node( ) ? current : outer_node );
+                clear_visits_in_level( current->get_graph_entry_node( ), new_outer );
+            }
 
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
@@ -800,22 +778,26 @@ namespace Analysis {
 
     void ExtensibleGraph::clear_visits_aux_in_level( Node* current, Node* outer_node )
     {
-        if( current->is_visited_aux( ) && current->node_is_enclosed_by( outer_node ) )
+        if( current->is_visited_aux( ) &&
+            ( current->node_is_enclosed_by( outer_node ) || current->is_omp_task_node( ) ) )
         {
             current->set_visited_aux( false );
-            
+
             if( current->is_exit_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
-                clear_visits_aux_in_level( current->get_graph_entry_node( ), outer_node );
-            
+            {
+                Node* new_outer = ( current->is_omp_task_node( ) ? current : outer_node );
+                clear_visits_aux_in_level( current->get_graph_entry_node( ), new_outer );
+            }
+
             ObjectList<Node*> children = current->get_children( );
             for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
                 clear_visits_aux_in_level( *it, outer_node );
         }
     }
-    
+
     void ExtensibleGraph::clear_visits_backwards( Node* current )
     {
         if( current->is_visited( ) )
@@ -824,7 +806,7 @@ namespace Analysis {
 
             if( current->is_entry_node( ) )
                 return;
-            
+
             if( current->is_graph_node( ) )
                 clear_visits_backwards( current->get_graph_exit_node( ) );
 
@@ -839,10 +821,10 @@ namespace Analysis {
         if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
         {
             current->set_visited( false );
-            
+
             if( current->is_graph_node( ) )
                 clear_visits_backwards_in_level( current->get_graph_exit_node( ), outer_node );
-            
+
             ObjectList<Node*> parents;
             if( current->is_entry_node( ) )
             {
@@ -856,62 +838,6 @@ namespace Analysis {
                 parents = current->get_parents( );
             for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
                 clear_visits_backwards_in_level( *it, outer_node );
-        }
-    }
-    
-    void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
-    {
-        if( current->is_visited_aux( ) )
-        {
-            current->set_visited_aux( false );
-
-            if( current->is_entry_node( ) )
-                return;
-            
-            if( current->is_graph_node( ) )
-                clear_visits_aux_backwards( current->get_graph_exit_node( ) );
-            
-            ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-                clear_visits_aux_backwards( *it );
-        }
-    }
-
-    void ExtensibleGraph::clear_visits_aux_backwards_in_level( Node* current, Node* outer_node )
-    {
-        if( current->is_visited_aux( ) && current->node_is_enclosed_by( outer_node ) )
-        {
-            current->set_visited_aux( false );
-
-            if( current->is_entry_node( ) )
-                return;
-            
-            if( current->is_graph_node( ) )
-                clear_visits_aux_backwards_in_level( current->get_graph_exit_node( ), outer_node );
-
-            ObjectList<Node*> parents = current->get_parents( );
-            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
-                clear_visits_aux_backwards_in_level( *it, outer_node );
-        }
-    }
-
-    void ExtensibleGraph::clear_visits_avoiding_branch( Node* current, Node* avoid_node )
-    {
-        if( ( current != avoid_node ) && current->is_visited( ) )
-        {
-            current->set_visited( false );
-
-            if( current->is_exit_node( ) )
-                return;
-            
-            if( current->is_graph_node( ) )
-                clear_visits_avoiding_branch( current->get_graph_entry_node( ), avoid_node );
-
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-            {
-                clear_visits_avoiding_branch( *it, avoid_node );
-            }
         }
     }
 
@@ -939,7 +865,7 @@ namespace Analysis {
     {
         _global_vars.insert( global_vars.begin( ), global_vars.end( ) );
     }
-    
+
     Symbol ExtensibleGraph::get_function_symbol( ) const
     {
         return _function_sym;
@@ -987,7 +913,7 @@ namespace Analysis {
     {
         return _func_calls;
     }
-    
+
     ObjectList<Node*> ExtensibleGraph::get_task_concurrent_tasks( Node* task )
     {
         ObjectList<Node*> result;
@@ -1006,7 +932,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     void ExtensibleGraph::add_concurrent_task_group( Node* task, ObjectList<Node*> concurrent_tasks )
     {
         if( _concurrent_tasks.find( task ) != _concurrent_tasks.end( ) )
@@ -1015,7 +941,7 @@ namespace Analysis {
                              " synchronous tasks of a PCFG. This should never happen so we skip it", 0 );
             return;
         }
-        
+
         _concurrent_tasks[task] = concurrent_tasks;
     }
 
@@ -1037,7 +963,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     void ExtensibleGraph::add_last_synchronization( Node* task, ObjectList<Node*> last_sync )
     {
         if( _last_sync.find( task ) != _last_sync.end( ) )
@@ -1046,10 +972,10 @@ namespace Analysis {
                              "last synchronization points of a task. This should never happen so we skip it", 0 );
             return;
         }
-        
+
         _last_sync[task] = last_sync;
     }
-    
+
     ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization( Node* task )
     {
         ObjectList<Node*> result;
@@ -1068,7 +994,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     void ExtensibleGraph::add_next_synchronization( Node* task, ObjectList<Node*> next_sync )
     {
         if( _next_sync.find( task ) != _next_sync.end( ) )
@@ -1079,7 +1005,7 @@ namespace Analysis {
         }
         _next_sync[task] = next_sync;
     }
-    
+
     //! This method returns the most outer node of a node before finding a loop node
     static Node* advance_over_outer_nodes_until_loop( Node* node )
     {
@@ -1150,7 +1076,7 @@ namespace Analysis {
     bool ExtensibleGraph::node_is_in_synchronous_construct( Node* current )
     {
         bool res = false;
-        
+
         Node* outer_node = current->get_outer_node( );
         while( ( outer_node != NULL ) && !res )
         {
@@ -1158,18 +1084,18 @@ namespace Analysis {
                 res = true;
             outer_node = outer_node->get_outer_node( );
         }
-        
+
         return res;
     }
-    
+
     bool ExtensibleGraph::is_backward_parent( Node* current, Node* parent )
     {
         bool result = false;
         if( !current->is_visited_extgraph_aux( ) )
         {
             current->set_visited_extgraph_aux( true );
-            
-            if( current->get_id( ) == parent->get_id( ) )
+
+            if( current == parent )
             {
                 result = true;
             }
@@ -1191,7 +1117,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     bool ExtensibleGraph::node_contains_node( Node* container, Node* contained )
     {
         bool result = false;
@@ -1209,28 +1135,28 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     Node* ExtensibleGraph::get_extensible_graph_from_node( Node* node )
     {
         Node* graph = node;
-        
+
         if( node != NULL )
         {
             while( graph->get_outer_node( ) != NULL )
                 graph = graph->get_outer_node( );
         }
-        
+
         return graph;
     }
-    
+
     bool ExtensibleGraph::node_is_ancestor_of_node( Node* ancestor, Node* descendant )
     {
         bool res = false;
-        
+
         if( !ancestor->is_visited_extgraph( ) )
         {
             ancestor->set_visited_extgraph( true );
-            
+
             if( ancestor == descendant )
             {
                 res = true;
@@ -1244,18 +1170,20 @@ namespace Analysis {
                 }
             }
         }
-        
+
         return res;
     }
-    
+
     Node* ExtensibleGraph::get_omp_enclosing_node( Node* current )
     {
         Node* result = current->get_outer_node( );
         while( result != NULL && !result->is_omp_node( ) )
             result = result->get_outer_node( );
+        if( result != NULL && !result->is_omp_node( ) )
+            result = NULL;
         return result;
     }
-    
+
     Edge* ExtensibleGraph::get_edge_between_nodes( Node* source, Node* target )
     {
         Edge* result = NULL;
@@ -1268,13 +1196,13 @@ namespace Analysis {
                 break;
             }
         }
-        
-        ERROR_CONDITION( result == NULL, 
-                         "Asking for the connection edge between two nodes ( %d, %d ) that are not connected\n", 
+
+        ERROR_CONDITION( result == NULL,
+                         "Asking for the connection edge between two nodes ( %d, %d ) that are not connected\n",
                          source->get_id( ), target->get_id( ) );
         return result;
     }
-    
+
     Node* ExtensibleGraph::get_enclosing_context( Node* n )
     {
         Node* sc = NULL;
@@ -1287,22 +1215,96 @@ namespace Analysis {
         }
         return sc;
     }
-    
-    Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
+
+    Node* ExtensibleGraph::get_enclosing_task( Node* n )
     {
         Node* result = NULL;
-        
+        Node* current = ( n->is_omp_task_node( ) ? n->get_parents( )[0] : n );
+        while( result == NULL && current != NULL )
+        {
+            if( current->is_omp_task_node( ) )
+                result = current;
+            else
+                current = current->get_outer_node( );
+        }
+        return result;
+    }
+
+    bool ExtensibleGraph::task_encloses_task( Node* container, Node* contained )
+    {
+        Node* enclosing_task = get_enclosing_task( contained );
+        while( ( enclosing_task != NULL ) && ( enclosing_task != container ) )
+            enclosing_task = get_enclosing_task( enclosing_task );
+        return ( enclosing_task == NULL ? false : true );
+    }
+
+    bool ExtensibleGraph::node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks )
+    {
+        bool result = false;
         if( !current->is_visited_extgraph( ) )
         {
             current->set_visited_extgraph( true );
-            
+            if( current != graph_node->get_graph_exit_node( ) )
+            {
+                // Insert current in the list of tasks if it is a task node
+                if( current->is_omp_task_creation_node( ) )
+                {
+                    result = true;
+                    tasks.insert( current );
+                }
+
+                if( current->is_graph_node( ) )
+                    result = node_contains_tasks( graph_node, current->get_graph_entry_node( ), tasks ) || result;
+
+                if( current != graph_node )
+                {
+                    ObjectList<Node*> children = current->get_children( );
+                    for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                        if( !(*it)->is_omp_task_node( ) )
+                            result = node_contains_tasks( graph_node, *it, tasks ) || result;
+                }
+            }
+            else
+                ExtensibleGraph::clear_visits_extgraph( graph_node );
+        }
+        return result;
+    }
+
+    Node* get_enclosing_control_structure_rec( Node* outer_node )
+    {
+        Node* result = NULL;
+        while( outer_node != NULL && result == NULL )
+        {
+            if( outer_node->is_loop_node( ) || outer_node->is_ifelse_statement( ) ||
+                outer_node->is_switch_case_node( ) )
+                result = outer_node;
+            outer_node = outer_node->get_outer_node( );
+        }
+        return result;
+    }
+
+    Node* ExtensibleGraph::get_enclosing_control_structure( Node* node )
+    {
+        if( node->is_omp_task_node( ) )
+            node = node->get_parents( )[0];
+        return get_enclosing_control_structure_rec( node->get_outer_node( ) );
+    }
+
+    Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
+    {
+        Node* result = NULL;
+
+        if( !current->is_visited_extgraph( ) )
+        {
+            current->set_visited_extgraph( true );
+
             if( !current->is_exit_node( ) )
             {
                 // Look first in nested nodes, if graph, or the current node, is not graph
                 if( current->is_graph_node( ) )
                 {
                     Nodecl::NodeclBase current_ast = current->get_graph_related_ast( );
-                    if( Nodecl::Utils::equal_nodecls( current_ast, n, /*skip conversion nodes*/ true ) )
+                    if( Nodecl::Utils::structurally_equal_nodecls( current_ast, n, /*skip conversion nodes*/ true ) )
                         result = current;
                     else
                         result = find_nodecl_rec( current->get_graph_entry_node( ), n );
@@ -1310,17 +1312,17 @@ namespace Analysis {
                 else
                 {
                     ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); 
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                          ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::stmtexpr_contains_nodecl( *it, n ) )
+                        if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( *it, n ) )
                             result = current;
                     }
                 }
-                
+
                 // If not found, look in the children
                 ObjectList<Node*> children = current->get_children( );
-                for( ObjectList<Node*>::iterator it = children.begin( ); 
+                for( ObjectList<Node*>::iterator it = children.begin( );
                      it != children.end( ) && ( result == NULL ); ++it )
                 {
                     result = find_nodecl_rec( *it, n );
@@ -1329,7 +1331,7 @@ namespace Analysis {
         }
         return result;
     }
-    
+
     Node* ExtensibleGraph::find_nodecl( const Nodecl::NodeclBase& n )
     {
         Node* entry = _graph->get_graph_entry_node( );
@@ -1337,7 +1339,57 @@ namespace Analysis {
         ExtensibleGraph::clear_visits_extgraph( entry );
         return result;
     }
-    
+
+    Node* ExtensibleGraph::find_nodecl_pointer_rec( Node* current, const Nodecl::NodeclBase& n )
+    {
+        Node* result = NULL;
+
+        if( !current->is_visited_extgraph( ) )
+        {
+            current->set_visited_extgraph( true );
+
+            if( !current->is_exit_node( ) )
+            {
+                // Look first in nested nodes, if graph, or the current node, is not graph
+                if( current->is_graph_node( ) )
+                {
+                    Nodecl::NodeclBase current_ast = current->get_graph_related_ast( );
+                    if( current_ast == n )
+                        result = current;
+                    else
+                        result = find_nodecl_pointer_rec( current->get_graph_entry_node( ), n );
+                }
+                else
+                {
+                    ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                    for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
+                        ( it != stmts.end( ) ) && ( result == NULL ); ++it )
+                    {
+                        if( Nodecl::Utils::stmtexpr_contains_nodecl_pointer( *it, n ) )
+                            result = current;
+                    }
+                }
+
+                // If not found, look in the children
+                ObjectList<Node*> children = current->get_children( );
+                for( ObjectList<Node*>::iterator it = children.begin( );
+                    it != children.end( ) && ( result == NULL ); ++it )
+                    {
+                        result = find_nodecl_pointer_rec( *it, n );
+                    }
+            }
+        }
+        return result;
+    }
+
+    Node* ExtensibleGraph::find_nodecl_pointer( const Nodecl::NodeclBase& n )
+    {
+        Node* entry = _graph->get_graph_entry_node( );
+        Node* result = find_nodecl_pointer_rec( entry, n );
+        ExtensibleGraph::clear_visits_extgraph( entry );
+        return result;
+    }
+
     bool ExtensibleGraph::usage_is_computed( )
     {
         bool result = false;
@@ -1345,6 +1397,6 @@ namespace Analysis {
             result = true;
         return result;
     }
-    
+
 }
 }

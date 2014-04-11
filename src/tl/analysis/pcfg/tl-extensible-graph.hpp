@@ -44,7 +44,7 @@
 
 namespace TL {
 namespace Analysis {
-
+    
     class LIBTL_CLASS ExtensibleGraph
     {
     protected:
@@ -54,7 +54,7 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
+        const Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
 
         /*!Graph scope (This variable is used when the variables are tagged as global)
          * If the graph contains a function code, the scope is the function's scope.
@@ -112,11 +112,6 @@ namespace Analysis {
         void concat_sequential_nodes( );
         void concat_sequential_nodes_recursive( Node* actual_node, ObjectList<Node*>& last_seq_nodes );
 
-        /*!Returns whether the source and the target of an edge belongs to the same outer node.
-         * If both the source and the target do not have an outer node, then true is returned.
-         */
-        static bool belongs_to_the_same_graph(Edge* edge);
-
         //! Method used during the copy method when the edges must be copied before connecting the nodes
         void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
 
@@ -134,8 +129,12 @@ namespace Analysis {
 
         void erase_jump_nodes( Node* current );
 
-        //! Looks for nodecl 'n' in 'current' and its successors
+        //! Structurally looks for nodecl 'n' in 'current' and its successors
         Node* find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+        
+        //! Looks for the same pointer nodecl 'n' in 'current' and its successors
+        Node* find_nodecl_pointer_rec( Node* current, const Nodecl::NodeclBase& n );
+        
         
         // *************************************************************************************** //
         // ********************************* DOT printing methods ******************************** //
@@ -231,7 +230,8 @@ namespace Analysis {
         *                     Thus, the edge will have special type _TASK_EDGE
         * \return The new edge created between the two nodes
         */
-        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, std::string label = "",
+        Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, 
+                             Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ),
                              bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
@@ -239,23 +239,23 @@ namespace Analysis {
         //! A set of edge types and labels must be provided. It is assumed that each parent is
         //! connected to all its children with the same type of edge.
         void connect_nodes( ObjectList<Node*> parents, ObjectList<Node*> children,
-                            ObjectList<Edge_type> etypes, ObjectList<std::string> elabels );
+                            ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> elabels );
 
         //! Wrapper method for #connect_nodes when a parent must be connected to a set of
         //! children and each connection may be different from the others.
         //! A set of edge types and labels must be provided.
         void connect_nodes( Node* parent, ObjectList<Node*> children,
-                            ObjectList<Edge_type> etypes, ObjectList<std::string> labels );
+                            ObjectList<Edge_type> etypes, ObjectList<Nodecl::NodeclBase> labels );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, ObjectList<Edge_type> etypes,
-                            ObjectList<std::string> labels, bool is_task_edge = false );
+                            ObjectList<Nodecl::NodeclBase> labels, bool is_task_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
-                            std::string label = "" );
+                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
         void disconnect_nodes( ObjectList<Node*> parents, Node* child );
@@ -336,17 +336,14 @@ namespace Analysis {
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
-        static void clear_visits_backwards_in_level( Node* node, Node* outer_node );
-        static void clear_visits_aux_backwards( Node* current );
-        static void clear_visits_aux_backwards_in_level( Node* node, Node* outer_node );
-        static void clear_visits_avoiding_branch( Node* current, Node* avoid_node );
+        static void clear_visits_backwards_in_level( Node* current, Node* outer_node );
         
         
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
         void print_graph_to_dot( bool usage = false, bool liveness = false, 
-                                 bool reaching_defs = false, bool induction_vars = false, 
+                                 bool reaching_defs = false, bool induction_vars = false, bool ranges = false,
                                  bool auto_scoping = false, bool auto_deps = false );
 
 
@@ -402,6 +399,10 @@ namespace Analysis {
         static Node* get_omp_enclosing_node( Node* current );
         static Edge* get_edge_between_nodes( Node* source, Node* target );
         static Node* get_enclosing_context( Node* n );
+        static Node* get_enclosing_task( Node* n );
+        static bool task_encloses_task( Node* container, Node* contained );
+        static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
+        static Node* get_enclosing_control_structure( Node* node );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
@@ -409,7 +410,8 @@ namespace Analysis {
         
         static bool has_been_defined( Node* current, Node* scope, const Nodecl::NodeclBase& n );
         
-        Node* find_nodecl( const Nodecl::NodeclBase& n );
+        Node* find_nodecl( const Nodecl::NodeclBase& n );           // structural search
+        Node* find_nodecl_pointer( const Nodecl::NodeclBase& n );   // pointer search
         
         bool usage_is_computed( );
 
