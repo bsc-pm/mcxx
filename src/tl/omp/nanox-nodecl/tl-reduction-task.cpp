@@ -370,12 +370,12 @@ namespace TL { namespace Nanox {
                     Source::source_language = SourceLanguage::Current;
 
 
-                 TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
-                 std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
-                 for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
-                         it != reduction_symbols_map.end();
-                         ++it)
-                 {
+                TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                        it != reduction_symbols_map.end();
+                        ++it)
+                {
                     TL::Symbol reduction_sym = it->first;
                     std::string storage_name = it->second;
                     TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
@@ -386,15 +386,14 @@ namespace TL { namespace Nanox {
                             storage_sym.get_type().points_to());
 
                     reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
-                 }
+                }
 
-               ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
-               Nodecl::NodeclBase copied_statements = statements.shallow_copy();
-               visitor.walk(copied_statements);
+                ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+                Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                visitor.walk(copied_statements);
 
                 placeholder.replace(copied_statements);
                 statements.replace(new_statements);
-
             }
         }
     }
