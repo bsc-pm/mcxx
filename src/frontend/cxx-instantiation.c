@@ -550,6 +550,17 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 enum_type_set_underlying_type(new_member->type_information,
                         underlying_type);
 
+                // Fix the type of the new enumerators to be enum and not integer
+                N = enum_type_get_num_enumerators(new_member->type_information);
+                for (i = 0; i < N; i++)
+                {
+                    scope_entry_t* enumerator = enum_type_get_enumerator_num(
+                            new_member->type_information,
+                            i);
+
+                    enumerator->type_information = get_user_defined_type(new_member);
+                }
+
                 instantiation_symbol_map_add(instantiation_symbol_map,
                         member_of_template,
                         new_member);
