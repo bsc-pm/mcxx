@@ -6031,6 +6031,34 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
     {
         return contains_wrongly_associated_template_name(ASTSon0(a), decl_context);
     }
+    else if (ASTType(a) == AST_NEW_EXPRESSION) // new TemplateName<
+    {
+        AST new_type_id_tree = ASTSon2(a);
+
+        type_t* new_type_id = compute_type_for_type_id_tree(new_type_id_tree, decl_context,
+                /* out simple type */ NULL, /* gather_info */ NULL);
+
+        scope_entry_t* name = NULL;
+        if (is_template_type(new_type_id))
+        {
+            return 1;
+        }
+        else if (is_named_type(new_type_id)
+                && (name = named_type_get_symbol(new_type_id))
+                && ((name->kind == SK_CLASS
+                        && is_template_specialized_type(name->type_information))
+                    || name->kind == SK_TEMPLATE
+                    || name->kind == SK_TEMPLATE_ALIAS
+                    || name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
     else if (ASTType(a) == AST_SYMBOL                         // E + f<
             || ASTType(a) == AST_QUALIFIED_ID                 // E + A::f<
             || ASTType(a) == AST_CLASS_MEMBER_ACCESS          // E + a.f<
