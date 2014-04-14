@@ -20227,7 +20227,7 @@ static const_value_t* evaluate_constexpr_constructor(
         nodecl_t nodecl_evaluated_expr = instantiate_expression(
                 nodecl_replaced_expr,
                 nodecl_retrieve_context(nodecl_function_code),
-                /* instantiation_symbol_map */ NULL,
+                entry->entity_specs.instantiation_symbol_map,
                 /* pack_index */ -1);
 
         values[member_pos] = nodecl_get_constant(nodecl_evaluated_expr);
@@ -20260,7 +20260,7 @@ static const_value_t* evaluate_constexpr_constructor(
 }
 
 static const_value_t* evaluate_constexpr_regular_function_call(
-        scope_entry_t* entry UNUSED_PARAMETER,
+        scope_entry_t* entry,
         nodecl_t nodecl_function_code,
         int num_map_items,
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
@@ -20274,10 +20274,15 @@ static const_value_t* evaluate_constexpr_regular_function_call(
             num_map_items,
             map_of_parameters_and_values);
 
-    // Now review the expression again in order to evaluate it
+    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+    if (entry->entity_specs.is_member)
+    {
+        instantiation_symbol_map = entry->entity_specs.instantiation_symbol_map;
+    }
+
     nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
             nodecl_retrieve_context(nodecl_function_code),
-            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+            instantiation_symbol_map, /* pack_index */ -1);
 
     return nodecl_get_constant(nodecl_evaluated_expr);
 }
@@ -20289,7 +20294,8 @@ static const_value_t* evaluate_constexpr_function_call(
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n", get_qualified_symbol_name(entry, entry->decl_context));
+        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n",
+                get_qualified_symbol_name(entry, entry->decl_context));
     }
 
     if (is_template_specialized_type(entry->type_information))
@@ -20525,10 +20531,17 @@ nodecl_t cxx_nodecl_make_function_call(
                 if (!nodecl_is_null(called_symbol->entity_specs.noexception)
                         && nodecl_expr_is_value_dependent(called_symbol->entity_specs.noexception))
                 {
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
                     nodecl_t new_noexception = instantiate_expression(
                             called_symbol->entity_specs.noexception,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_noexception))
                     {
@@ -20609,11 +20622,19 @@ nodecl_t cxx_nodecl_make_function_call(
                             || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
+
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
                     {
