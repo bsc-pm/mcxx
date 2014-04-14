@@ -128,6 +128,7 @@ static void print_deduction_set(deduction_set_t* deduction_set)
                 case TPK_NONTYPE_PACK:
                     {
                         fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
+                                nodecl_is_null(current_deduction->deduced_parameters[j]->value) ? "<<NULL>>" :
                                 codegen_to_str(current_deduction->deduced_parameters[j]->value,
                                     nodecl_retrieve_context(current_deduction->deduced_parameters[j]->value)));
                         fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
@@ -252,8 +253,10 @@ char deduce_template_arguments_common(
                                 value = print_declarator(current_template_argument->type);
                                 break;
                             case TPK_NONTYPE:
-                                value = codegen_to_str(current_template_argument->value,
-                                        nodecl_retrieve_context(current_template_argument->value));
+                                value = nodecl_is_null(current_template_argument->value)
+                                    ? "<<NULL>>"
+                                    : codegen_to_str(current_template_argument->value,
+                                            nodecl_retrieve_context(current_template_argument->value));
                                 break;
                             default:
                                 internal_error("Code unreachable", 0);
@@ -1978,6 +1981,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
                                 current_deduction->parameter_position,
                                 nesting,
                                 template_parameter_kind_name,
+                                nodecl_is_null(argument->value) ? "<<NULL>>" : 
                                 codegen_to_str(argument->value, nodecl_retrieve_context(argument->value)));
                     }
                 }

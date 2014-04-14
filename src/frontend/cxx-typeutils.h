@@ -157,6 +157,8 @@ LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_p
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,
+        decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 

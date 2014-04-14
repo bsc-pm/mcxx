@@ -106,6 +106,8 @@ enum decl_flags_tag
     DF_IGNORE_FRIEND_DECL = BITMAP(10),
     // The queries will not create dependent entities for unqualified names
     DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY = BITMAP(11),
+    // The query is the first unqualified-id of the nested-name-specifier
+    DF_NESTED_NAME_FIRST = BITMAP(12),
 } decl_flags_t;
 
 #undef BITMAP

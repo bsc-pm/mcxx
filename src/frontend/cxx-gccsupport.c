@@ -188,8 +188,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'vector_size' only allows one argument",
+            error_printf("%s: error: attribute 'vector_size' only allows one argument",
                     ast_location(expression_list));
+            return;
         }
 
         // Evaluate the expression
@@ -223,8 +224,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (expression_list != NULL)
         {
-            running_error("%s: error: attribute 'generic_vector' does not allow arguments",
+            error_printf("%s: error: attribute 'generic_vector' does not allow arguments",
                     ast_location(expression_list));
+            return;
         }
 
         gather_info->vector_size = 0;
@@ -302,8 +304,9 @@ void gather_one_gcc_attribute(const char* attribute_name,
         do_not_keep_attribute = 1;
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'mode' only allows one argument",
+            error_printf("%s: error: attribute 'mode' only allows one argument",
                     ast_location(expression_list));
+            return;
         }
 
         AST argument = advance_expression_nest(ASTSon1(expression_list));
@@ -586,10 +589,8 @@ void gather_one_gcc_attribute(const char* attribute_name,
     // Save it in the gather_info structure
     if (!do_not_keep_attribute)
     {
-        if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
-        {
-            running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
-        }
+        ERROR_CONDITION(gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL,
+                "Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
 
         gcc_attribute_t current_gcc_attribute;
 
