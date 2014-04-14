@@ -561,6 +561,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     enumerator->type_information = get_user_defined_type(new_member);
                 }
 
+                set_is_complete_type(new_member->type_information, 1);
+                set_is_complete_type(get_user_defined_type(new_member), 1);
+
                 instantiation_symbol_map_add(instantiation_symbol_map,
                         member_of_template,
                         new_member);
