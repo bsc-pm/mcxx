@@ -8908,7 +8908,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
             && !_this->symbol_is_nested_in_defined_classes(sym)
             && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
-                || sym->kind == SK_ENUM))
+                || sym->kind == SK_ENUM)
+            && !(sym->entity_specs.is_member
+                && is_template_specialized_type(get_actual_class_type(sym->entity_specs.class_type))
+                && class_type_is_complete_independent(get_actual_class_type(sym->entity_specs.class_type))))
     {
         result = sym->symbol_name;
 
