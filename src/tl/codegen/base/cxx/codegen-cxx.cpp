@@ -3545,11 +3545,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Range& node)
 {
-    *(file) << "[";
+    Nodecl::NodeclBase parent = node.get_parent();
+    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+        *(file) << "[";
     walk(node.get_lower());
     *(file) << ":";
     walk(node.get_upper());
-    *(file) << "]";
+    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+        *(file) << "]";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeIntersection& node)
