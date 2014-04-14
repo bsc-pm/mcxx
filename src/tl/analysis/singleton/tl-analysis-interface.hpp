@@ -65,14 +65,14 @@ namespace Analysis {
             AnalysisInterface( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                WhereAnalysis nested_analysis_mask, int nesting_level );
 
-            virtual ~AnalysisInterface();
+            ~AnalysisInterface();
 
 
             DEPRECATED bool reach_defs_depend_on_iv(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
 
-            bool variable_is_constant_at_statement(
+            virtual bool variable_is_constant_at_statement(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
  

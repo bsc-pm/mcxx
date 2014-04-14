@@ -1332,7 +1332,6 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CFLAGS= $(tl_cflags)
 src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/ \
 				-I$(srcdir)/src/tl/optimizations \
-				-I$(srcdir)/src/tl/analysis/singleton \
 				-I$(srcdir)/src/tl/analysis/common \
 				-I$(srcdir)/src/tl/analysis/pcfg \
 				-I$(srcdir)/src/tl/analysis/use_def \
@@ -1460,7 +1459,9 @@ src_tl_vectorization_common_libtlvectorization_common_la_CXXFLAGS = $(tl_cflags)
                               $(END)
 
 src_tl_vectorization_common_libtlvectorization_common_la_LDFLAGS = $(tl_ldflags)
-src_tl_vectorization_common_libtlvectorization_common_la_LIBADD = $(tl_libadd)
+src_tl_vectorization_common_libtlvectorization_common_la_LIBADD = $(tl_libadd) \
+                          $(top_builddir)/src/tl/analysis/singleton/libanalysis_singleton.la \
+                          $(END)
 
 src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-common.hpp \

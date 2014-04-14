@@ -55,7 +55,7 @@ namespace Vectorization
 
 
     class VectorizationAnalysisInterface : public VectorizationAnalysisMaps,
-                                         public Analysis::VectorizationAnalysis
+                                           public Analysis::VectorizationAnalysis
     {
         private:
             static VectorizationAnalysisInterface *_vectorizer_analysis;

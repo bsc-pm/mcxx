@@ -37,6 +37,10 @@ namespace Analysis
     {
     }
 
+    VectorizationAnalysis::~VectorizationAnalysis()
+    {
+    }
+
     bool VectorizationAnalysis::is_adjacent_access(const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n) 
     {

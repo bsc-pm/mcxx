@@ -609,7 +609,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_adjacent_access(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::is_adjacent_access(
+        bool result = Analysis::VectorizationAnalysis::is_adjacent_access(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();

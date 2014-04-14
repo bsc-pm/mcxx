@@ -561,7 +561,7 @@ namespace Analysis {
         return _node;
     }
 
-    bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
+    DEPRECATED bool AnalysisStaticInfo::is_constant( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
     {
         bool result = false;
 
@@ -881,35 +881,6 @@ namespace Analysis {
                 if( !ompss_reduction_rhs_uses_lhs( rhs_c, n_assig.get_lhs( ), function_tasks ) )
                     result = false;
             }
-        }
-
-        return result;
-    }
-
-    DEPRECATED bool AnalysisStaticInfo::is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const
-    {
-        bool result = false;
-
-        static_info_map_t::const_iterator scope_static_info = _static_info_map.find( scope );
-        if( scope_static_info == _static_info_map.end( ) )
-        {
-            WARNING_MESSAGE( "Nodecl '%s' is not contained in the current analysis. "\
-                    "Cannot resolve whether the accesses to '%s' are adjacent.'",
-                    scope.prettyprint( ).c_str( ), n.prettyprint( ).c_str( ) );
-        }
-        else
-        {
-            NodeclStaticInfo current_info = scope_static_info->second;
-            Node* scope_node = current_info.find_node_from_nodecl_pointer( scope );
-            if( scope_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
-                                 scope.prettyprint( ).c_str( ) );
-            Node* n_node = current_info.find_node_from_nodecl_pointer( n );
-            if( n_node == NULL )
-                WARNING_MESSAGE( "No PCFG node found in the static info computed for nodecl %s.",
-                                 n.prettyprint( ).c_str( ) );
-
-            result = current_info.is_adjacent_access( n, scope_node, n_node );
         }
 
         return result;

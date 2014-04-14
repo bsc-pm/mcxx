@@ -32,11 +32,17 @@
 namespace TL  {
 namespace Analysis {
 
+
+    AnalysisInterface::AnalysisInterface( ) {}
+
     AnalysisInterface::AnalysisInterface( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
             WhereAnalysis nested_analysis_mask, int nesting_level )
         : AnalysisStaticInfo(n, analysis_mask, nested_analysis_mask, nesting_level)
     {
     }
+
+    AnalysisInterface::~AnalysisInterface( ) {}
+
 
     Node* AnalysisInterface::retrieve_scope_node_from_nodecl(const Nodecl::NodeclBase& scope,
             ExtensibleGraph* pcfg) 

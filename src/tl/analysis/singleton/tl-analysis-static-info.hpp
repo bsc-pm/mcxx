@@ -147,8 +147,6 @@ namespace Analysis {
 
             // *** Queries for Vectorization *** //
 
-            bool is_adjacent_access( const Nodecl::NodeclBase& n, Node* scope_node, Node* n_node ) const;
-
             bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& n, Node* scope_node ) const;
 
             bool contains_induction_variable( const Nodecl::NodeclBase& n, Node* scope_node ) const;
@@ -265,9 +263,6 @@ namespace Analysis {
 
 
             // *** Queries for Vectorization *** //
-
-            //! Returns true if the given nodecl is an array accessed by adjacent positions
-            virtual bool is_adjacent_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
             //! Returns true if the given nodecl is an expression that contains an IV from ivs_scope
             virtual bool is_induction_variable_dependent_expression( const Nodecl::NodeclBase& ivs_scope, const Nodecl::NodeclBase& n ) const;

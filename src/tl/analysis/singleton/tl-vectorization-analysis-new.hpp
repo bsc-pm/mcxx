@@ -42,16 +42,12 @@ namespace Analysis {
     class VectorizationAnalysis : public AnalysisInterface
     {
         public:
-            // *** Constructors *** //
-            //! Constructor useful to make queries that do not require previous analyses
-            VectorizationAnalysis( );
-
             VectorizationAnalysis( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
                                 WhereAnalysis nested_analysis_mask, int nesting_level );
 
-            virtual ~VectorizationAnalysis();
+            ~VectorizationAnalysis();
 
-            bool is_adjacent_access(const Nodecl::NodeclBase& scope,
+            virtual bool is_adjacent_access(const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
     };
 }
