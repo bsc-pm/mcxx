@@ -132,7 +132,7 @@ namespace Utils {
     {
         ext_sym_set result;
         std::set_difference( c1.begin( ), c1.end( ), c2.begin( ), c2.end( ),
-                             std::inserter( result, result.begin() ) );
+                             std::inserter( result, result.begin() ), ExtendedSymbol_structural_less() );
         return result;
     }
 
@@ -241,16 +241,17 @@ namespace Utils {
         }
     }
 
-    Nodecl::NodeclBase ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
+    Nodecl::List ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
         ext_sym_set fake_set;
         fake_set.insert( ExtendedSymbol( n ) );
+        Nodecl::List result;
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
             if( !ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), fake_set ).is_null( ) )
-                return it->get_nodecl( );
+                result.append(it->get_nodecl().shallow_copy());
         }
-        return Nodecl::NodeclBase::null( );
+        return result;
     }
 
     void delete_enclosed_var_from_list( const ExtendedSymbol& ei, ext_sym_set& sym_set )

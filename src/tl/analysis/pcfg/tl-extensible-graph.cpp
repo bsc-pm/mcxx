@@ -887,6 +887,11 @@ namespace Analysis {
         return result;
     }
     
+    SizeMap ExtensibleGraph::get_pointer_n_elements_map()
+    {
+        return _pointer_to_size_map;
+    }
+    
     void ExtensibleGraph::purge_non_constant_pointer_n_elems()
     {
         for(SizeMap::iterator it = _pointer_to_size_map.begin(); it != _pointer_to_size_map.end(); )

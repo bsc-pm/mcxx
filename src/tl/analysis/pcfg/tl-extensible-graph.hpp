@@ -45,7 +45,7 @@
 namespace TL {
 namespace Analysis {
     
-    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase> SizeMap;
+    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> SizeMap;
     
     class LIBTL_CLASS ExtensibleGraph
     {
@@ -372,6 +372,7 @@ namespace Analysis {
 
         void set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size);
         Nodecl::NodeclBase get_pointer_n_elems(const Nodecl::NodeclBase& s);
+        SizeMap get_pointer_n_elements_map();
         void purge_non_constant_pointer_n_elems();
         
         //! Returns the node containing the graph
