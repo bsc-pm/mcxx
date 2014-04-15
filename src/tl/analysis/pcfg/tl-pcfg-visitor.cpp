@@ -2527,6 +2527,36 @@ namespace Analysis {
         return walk( n.get_statement( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdParallel& n )
+    {
+        // Create the new graph node containing the parallel
+        Node* simd_parallel_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpSimdParallel );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_node );
+        
+        Node* simd_parallel_entry = simd_parallel_node->get_graph_entry_node( );
+        Node* simd_parallel_exit = simd_parallel_node->get_graph_exit_node( );
+        
+        // Traverse the statements of the current sections
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_entry );
+        walk( n.get_openmp_parallel( ) );
+        
+        simd_parallel_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_parallel_entry, simd_parallel_exit ) );
+        walk( n.get_environment( ) );
+        simd_parallel_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_node );
+        return ObjectList<Node*>( 1, simd_parallel_node );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdReduction& n )
     {
         _utils->_is_simd = true;

@@ -104,6 +104,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpSimd) \
     GRAPH_TYPE(OmpSimdFor) \
     GRAPH_TYPE(OmpSimdFunction) \
+    GRAPH_TYPE(OmpSimdParallel) \
     GRAPH_TYPE(OmpSimdParallelFor) \
     GRAPH_TYPE(OmpSingle) \
     GRAPH_TYPE(OmpWorkshare) \
