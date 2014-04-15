@@ -20062,6 +20062,7 @@ constexpr_function_get_constants_of_arguments(
             {
                 fprintf(stderr, "EXPRTYPE: Argument at position %d is not constant, giving up evaluation\n", i);
             }
+            *num_map_items = -1;
             xfree(list);
             xfree(result);
             return NULL;
@@ -20365,16 +20366,15 @@ static const_value_t* evaluate_constexpr_function_call(
     }
 
     int num_map_items = -1;
-
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
         constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
 
-    if (map_of_parameters_and_values == NULL)
+    if (num_map_items < 0)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
-                    "constexpr call did not yield a constant value\n");
+                    "one of the arguments did not yield a constant value\n");
         }
         return NULL;
     }
