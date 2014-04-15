@@ -21394,14 +21394,13 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         {
             if (v->pack_index < 0)
             {
-                result = argument->value;
+                result = nodecl_shallow_copy(node);
             }
             else if (nodecl_is_list(argument->value)
                     && v->pack_index < nodecl_list_length(argument->value))
             {
                 int num_items;
                 nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
-                ERROR_CONDITION(v->pack_index >= num_items, "Mismatch between length of list and unpacked version of it", 0);
                 result = list[v->pack_index];
                 xfree(list);
             }
@@ -21442,6 +21441,56 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
         internal_error("This kind of symbol should not be wrapped in a NODECL_SYMBOL\n", 0);
+    }
+    else if (sym->kind == SK_VARIABLE_PACK)
+    {
+        scope_entry_t* mapped_symbol = instantiation_symbol_try_to_map(v->instantiation_symbol_map,
+                nodecl_get_symbol(node));
+
+        ERROR_CONDITION(mapped_symbol->kind != SK_VARIABLE_PACK, "This should be a variable pack", 0);
+
+        if (v->pack_index < 0)
+        {
+            nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
+
+            scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
+            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
+            entry_list_free(entry_list);
+        }
+        else
+        {
+            type_t* expanded_type = update_type_for_instantiation(sym->type_information,
+                    v->decl_context,
+                    nodecl_get_locus(node),
+                    v->instantiation_symbol_map,
+                    v->pack_index);
+
+            if (is_error_type(expanded_type)
+                    || (is_sequence_of_types(expanded_type)
+                        && (v->pack_index >= sequence_of_types_get_num_types(expanded_type))))
+            {
+                result = nodecl_make_err_expr(nodecl_get_locus(node));
+            }
+            else
+            {
+                // Not sure if expanded_type could ever be a non-sequence type
+                if (is_sequence_of_types(expanded_type))
+                {
+                    expanded_type = sequence_of_types_get_type_num(expanded_type, v->pack_index);
+                }
+
+                expanded_type = lvalue_ref(expanded_type);
+
+                result = nodecl_make_symbol(mapped_symbol, nodecl_get_locus(node));
+                nodecl_set_type(result, expanded_type);
+
+                if (is_dependent_type(expanded_type))
+                {
+                    nodecl_expr_set_is_type_dependent(result, 1);
+                    nodecl_expr_set_is_value_dependent(result, 1);
+                }
+            }
+        }
     }
     else
     {
@@ -21884,7 +21933,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t current_arg = 
+        nodecl_t current_arg =
                 instantiate_expr_walk(v, list[i]);
 
         if (nodecl_is_err_expr(current_arg))
@@ -21895,12 +21944,21 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             return;
         }
 
-        new_list = nodecl_append_to_list(
-                new_list,
-                current_arg);
+        if (nodecl_is_list(current_arg))
+        {
+            // Instantiation of pack expansions will generate a list here, concat
+            new_list = nodecl_concat_lists(new_list,
+                    current_arg);
+        }
+        else
+        {
+            new_list = nodecl_append_to_list(
+                    new_list,
+                    current_arg);
+        }
     }
 
-    check_nodecl_function_call(nodecl_called, 
+    check_nodecl_function_call(nodecl_called,
             new_list,
             v->decl_context,
             &v->nodecl_result);
@@ -22422,25 +22480,11 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
 static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expansion = nodecl_get_child(node, 0);
-    // nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
-
-    // if (nodecl_expr_is_value_dependent(packed_expr))
-    // {
-    //     type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
-    //     v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-    //             pack_type,
-    //             nodecl_get_locus(node));
-    //     nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
-    //     nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
-    //     return;
-    // }
-
     int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
 
     if (len < 0)
     {
-        v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
-        // nodecl_free(packed_expr);
+        v->nodecl_result = nodecl_shallow_copy(node);
         return;
     }
 

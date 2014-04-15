@@ -2583,9 +2583,17 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
                 P_LIST_ADD(expanded_values, num_expanded_values, argument->value);
             }
         }
+        else if (packs_to_expand[i]->kind == SK_VARIABLE_PACK)
+        {
+            // Should never be a sequence of types actually
+            if (is_sequence_of_types(packs_to_expand[i]->type_information))
+            {
+                P_LIST_ADD(expanded_types, num_expanded_types, packs_to_expand[i]->type_information);
+            }
+        }
         else
         {
-            internal_error("Code unreachable", 0);
+            internal_error("Code unreachable %s", symbol_kind_name(packs_to_expand[i]));
         }
     }
 
@@ -4219,7 +4227,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Too many template arguments %d > %d", 
+            fprintf(stderr, "SCOPE: Too many template arguments %d > %d\n", 
                     result->num_parameters, 
                     primary_template_parameters->num_parameters);
         }
