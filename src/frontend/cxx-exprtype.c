@@ -513,10 +513,14 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n", get_qualified_symbol_name(entry, entry->decl_context));
+            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n",
+                    get_qualified_symbol_name(entry, entry->decl_context));
         }
         if (is_template_specialized_type(entry->type_information)
-                || entry->entity_specs.is_non_emitted)
+                || (entry->entity_specs.is_member
+                    && is_template_specialized_type(
+                        named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
+
         {
             instantiation_add_symbol_to_instantiate(entry, locus);
         }
@@ -20327,7 +20331,10 @@ static const_value_t* evaluate_constexpr_function_call(
                 get_qualified_symbol_name(entry, entry->decl_context));
     }
 
-    if (is_template_specialized_type(entry->type_information))
+    if (is_template_specialized_type(entry->type_information)
+            || (entry->entity_specs.is_member
+                && is_template_specialized_type(
+                    named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
     {
         DEBUG_CODE()
         {
@@ -20336,7 +20343,7 @@ static const_value_t* evaluate_constexpr_function_call(
 
         ERROR_CONDITION(is_dependent_type(entry->type_information), "We attempt to call something that is dependent", 0);
 
-        if (nodecl_is_null(entry->entity_specs.function_code))
+        if (!entry->defined)
         {
             DEBUG_CODE()
             {
@@ -20346,10 +20353,14 @@ static const_value_t* evaluate_constexpr_function_call(
 
             instantiate_template_function(entry, locus);
 
-            // Verify the instantiation (though it is not an error if the function fails to be constexpr)
-            char is_constexpr = check_constexpr_function(entry,
-                    nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
-                && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+            char is_constexpr = 0;
+            if (entry->defined)
+            {
+                // Verify the instantiation (though it is not an error if the function fails to be constexpr)
+                is_constexpr = check_constexpr_function(entry,
+                        nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
+                    && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+            }
 
             entry->entity_specs.is_constexpr = is_constexpr;
 

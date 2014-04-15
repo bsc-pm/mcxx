@@ -258,8 +258,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     return new_member;
 }
 
-static void instantiate_emit_member_function(scope_entry_t* entry, const locus_t* locus);
-
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
@@ -778,16 +776,17 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     if (is_error_type(new_member->type_information))
                         return;
 
-                    new_member->entity_specs.is_non_emitted = 1;
+                    new_member->defined = 0;
+                    new_member->entity_specs.function_code = nodecl_null();
                     new_member->entity_specs.emission_template = member_of_template;
-                    new_member->entity_specs.emission_handler = instantiate_emit_member_function;
                 }
                 else
                 {
                     type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
                     type_t* primary_template = template_type_get_primary_type(template_type);
+                    scope_entry_t* primary_template_sym = named_type_get_symbol(primary_template);
 
-                    if (named_type_get_symbol(primary_template)->type_information != member_of_template->type_information)
+                    if (primary_template_sym->type_information != member_of_template->type_information)
                     {
                         internal_error("Code unreachable\n", 0);
                     }
@@ -810,8 +809,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
 
-                    new_member->entity_specs.is_inline = named_type_get_symbol(primary_template)->entity_specs.is_inline;
-                    new_member->entity_specs.is_static = named_type_get_symbol(primary_template)->entity_specs.is_static;
+                    new_member->defined = primary_template_sym->defined;
+                    new_member->entity_specs.is_inline = primary_template_sym->entity_specs.is_inline;
+                    new_member->entity_specs.is_static = primary_template_sym->entity_specs.is_static;
                 }
 
                 DEBUG_CODE()
@@ -1880,7 +1880,7 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
     }
 }
 
-static void instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+static void instantiate_true_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
 {
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
             "Invalid symbol", 0);
@@ -1889,14 +1889,6 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
 
     ERROR_CONDITION(!nodecl_is_null(entry->entity_specs.function_code),
             "Attempting to instantiate a specialized function apparently already instantiated", 0);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s\n",
-                entry->symbol_name,
-                print_type_str(entry->type_information, entry->decl_context),
-                locus_to_str(entry->locus));
-    }
 
     entry->locus = locus;
 
@@ -1909,18 +1901,38 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
 
+    if (!primary_specialization_function->defined)
+        return;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s\n",
+                entry->symbol_name,
+                print_type_str(entry->type_information, entry->decl_context),
+                locus_to_str(entry->locus));
+    }
+
     nodecl_t orig_function_code = primary_specialization_function->entity_specs.function_code;
 
     ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
 
     // ast_dump_graphviz(nodecl_get_ast(orig_function_code), stderr);
 
+    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+    if (entry->entity_specs.is_member)
+    {
+        instantiation_symbol_map = named_type_get_symbol(entry->entity_specs.class_type)
+            ->entity_specs.instantiation_symbol_map;
+    }
+
     nodecl_t instantiated_function_code = instantiate_function_code(
             orig_function_code,
             primary_specialization_function->decl_context,
             entry->decl_context,
             primary_specialization_function,
-            entry);
+            entry,
+            instantiation_symbol_map
+            );
 
     ERROR_CONDITION(nodecl_is_null(instantiated_function_code), "Instantiation failed to generate a function code", 0);
 
@@ -1934,79 +1946,70 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     }
 }
 
-static void instantiate_template_function_and_add_to_instantiation_units(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+static void instantiate_nontemplate_member_of_template_class(scope_entry_t* entry, const locus_t* locus)
 {
-    instantiate_template_function_internal(entry, locus);
+    ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
+            "Invalid symbol", 0);
+    ERROR_CONDITION(is_template_specialized_type(entry->type_information),
+            "Invalid function type", 0);
+    ERROR_CONDITION(!nodecl_is_null(entry->entity_specs.function_code),
+            "Attempting to instantiate a specialized function apparently already instantiated", 0);
 
-    nodecl_instantiation_units = nodecl_append_to_list(
-            nodecl_instantiation_units,
-            entry->entity_specs.function_code);
-}
+    entry->locus = locus;
 
-void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
-{
-    instantiate_template_function_internal(entry, locus);
+    scope_entry_t* emission_template = 
+        entry->entity_specs.emission_template;
+
+    ERROR_CONDITION(emission_template == NULL,
+            "Invalid nontemplate member function", 0);
+
+    // Cannot be instantiated
+    if (!emission_template->defined)
+        return;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating nontemplate member function of template '%s' with type '%s' at '%s\n",
+                get_qualified_symbol_name(entry, entry->decl_context),
+                print_type_str(entry->type_information, entry->decl_context),
+                locus_to_str(entry->locus));
+    }
+
+    nodecl_t orig_function_code = entry->entity_specs.emission_template->entity_specs.function_code;
+
+    ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
+
+    instantiation_symbol_map_t* instantiation_symbol_map = 
+        named_type_get_symbol(entry->entity_specs.class_type)->entity_specs.instantiation_symbol_map;
+
+    nodecl_t instantiated_function_code = instantiate_function_code(
+            orig_function_code,
+            entry->decl_context,
+            entry->decl_context,
+            emission_template,
+            entry,
+            instantiation_symbol_map
+            );
+
+    ERROR_CONDITION(nodecl_is_null(instantiated_function_code), "Instantiation failed to generate a function code", 0);
+
+    entry->entity_specs.function_code = instantiated_function_code;
+    entry->defined = 1;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: ended instantation of nontemplate member function template '%s'\n",
+                get_qualified_symbol_name(entry, entry->decl_context));
+    }
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
 static int num_being_instantiated_now = 0;
 
-void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t* locus)
+static void instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Instantiation request of template function '%s' at '%s\n",
-                print_decl_type_str(entry->type_information, entry->decl_context, 
-                    get_qualified_symbol_name(entry, entry->decl_context)),
-                locus_to_str(locus));
-    }
-
-    // Do nothing if we are checking for ambiguities as this may cause havoc
-    if (checking_ambiguity())
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "INSTANTIATION: Not instantiating since we are checking for ambiguities\n");
-        }
-        return;
-    }
-
-    ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol", 0);
-
-    type_t* template_specialized_type = entry->type_information;
-
-    if (!is_template_specialized_type(template_specialized_type)
-            || !is_function_type(template_specialized_type))
-    {
-        internal_error("Symbol '%s' is not a template function eligible for instantiation", entry->symbol_name);
-    }
-
-    type_t* template_type = template_specialized_type_get_related_template_type(template_specialized_type);
-    scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
-
-    // The primary specialization is a named type, even if the named type is a function!
-    type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
-    scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
-    // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
-
-    // If the primary specialization is not defined, no instantiation may happen
-    if (!primary_specialization_function->defined)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "INSTANTIATION: Not instantiating since primary template has not been defined\n");
-        }
-        return;
-    }
-
-    if (entry->defined)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "INSTANTIATION: Function already instantiated\n");
-        }
-        return;
-    }
+    ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
+            "Invalid symbol", 0);
 
     int i;
     for (i = 0; i < num_being_instantiated_now; i++)
@@ -2027,20 +2030,42 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-    instantiate_template_function_and_add_to_instantiation_units(entry, locus);
+    if (is_template_specialized_type(entry->type_information))
+    {
+        instantiate_true_template_function(entry, locus);
+    }
+    else if (entry->entity_specs.is_member
+                && is_template_specialized_type(
+                    named_type_get_symbol(entry->entity_specs.class_type)->type_information))
+    {
+        instantiate_nontemplate_member_of_template_class(entry, locus);
+    }
+    else
+    {
+        internal_error("This function cannot be instantiated", 0);
+    }
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
 }
 
-UNUSED_PARAMETER static void instantiate_default_arguments_of_function(scope_entry_t* entry UNUSED_PARAMETER)
+
+static void instantiate_template_function_and_add_to_instantiation_units(scope_entry_t* entry,
+        const locus_t* locus UNUSED_PARAMETER)
 {
-    internal_error("Not yet implemented", 0);
+    instantiate_template_function_internal(entry, locus);
+
+    nodecl_instantiation_units = nodecl_append_to_list(
+            nodecl_instantiation_units,
+            entry->entity_specs.function_code);
 }
 
-static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const locus_t* locus UNUSED_PARAMETER)
+static void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t* locus)
 {
-    internal_error("Not yet implemented", 0);
+    if (entry->defined)
+        return;
+
+    instantiate_template_function_and_add_to_instantiation_units(entry, locus);
 }
 
 static void instantiate_every_symbol(scope_entry_t* entry,
@@ -2049,23 +2074,19 @@ static void instantiate_every_symbol(scope_entry_t* entry,
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
-        if (is_template_specialized_type(entry->type_information))
-        {
-            instantiate_template_function_if_needed(entry, locus);
-        }
-        else if (entry->entity_specs.is_non_emitted)
-        {
-            (entry->entity_specs.emission_handler)(entry, locus);
-        }
+        instantiate_template_function_if_needed(entry, locus);
     }
 }
 
+void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+{
+    instantiate_template_function_internal(entry, locus);
+}
 
 // Instantiation map
 struct instantiation_symbol_map_tag
 {
     struct instantiation_symbol_map_tag *parent;
-
     rb_red_blk_tree *tree;
 };
 

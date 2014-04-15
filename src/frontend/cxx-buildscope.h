@@ -174,7 +174,8 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
         scope_entry_t* orig_function_instantiated,
-        scope_entry_t* new_function_instantiated);
+        scope_entry_t* new_function_instantiated,
+        instantiation_symbol_map_t* instantiation_symbol_map);
 
 type_t* compute_underlying_type_enum(
         const_value_t* min_value,
