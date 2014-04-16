@@ -448,9 +448,8 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> namespace_alias_definition
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
-%type<ast> nested_name_specifier_tail
-%type<ast> nested_name_specifier_first
-%type<ast> nested_name_specifier_first_in_tail
+%type<ast> nested_name_specifier_0
+// %type<ast> nested_name_specifier_1
 %type<ast> new_declarator
 %type<ast> new_expression
 %type<ast> new_initializer
@@ -4289,54 +4288,27 @@ nonglobal_qualified_id_template : nested_name_specifier TEMPLATE template_id
 }
 ;
 
-nested_name_specifier : nested_name_specifier_first TWO_COLONS %merge<ambiguityHandler>
+nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandler>
 {
     $$ = $1;
 }
-| nested_name_specifier_first TWO_COLONS nested_name_specifier_tail %merge<ambiguityHandler>
+| nested_name_specifier nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandler>
 {
-    ast_set_child($1, 1, $3);
-    $$ = $1;
+    // Since we mutate this tree rather than creating another one,
+    // we have to duplicate some nodes. Note that we cannot free
+    // $1 due to complex sharing issues
+    $$ = duplicate_nested_name_specifier_list($1);
+
+    AST last = $$;
+    while (ast_get_child(last, 1) != NULL)
+         last = ast_get_child(last, 1);
+    ast_set_child(last, 1, $2);
 }
 ;
 
-nested_name_specifier_tail : nested_name_specifier_first_in_tail TWO_COLONS %merge<ambiguityHandler>
-{
-    AST tree = $1;
-
-    // Since we mutate this tree rather than creating another one, sometimes we
-    // may have to duplicate some nodes
-    if (ast_get_parent(tree) != NULL)
-        tree = duplicate_nested_name_specifier_list(tree);
-
-    $$ = tree;
-}
-| nested_name_specifier_tail nested_name_specifier_first_in_tail TWO_COLONS %merge<ambiguityHandler>
-{
-    AST tree = $1;
-
-    // Since we mutate this tree rather than creating another one, sometimes we
-    // may have to duplicate some nodes
-    if (ast_get_parent(tree) != NULL)
-        tree = duplicate_nested_name_specifier_list(tree);
-
-    while (ast_get_child(tree, 1) != NULL)
-        tree = ast_get_child(tree, 1);
-
-    ast_set_child(tree, 1, $2);
-    $$ = $1;
-}
-;
-
-nested_name_specifier_first : class_or_namespace_name
+nested_name_specifier_0 : class_or_namespace_name
 {
  	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
-}
-;
-
-nested_name_specifier_first_in_tail : nested_name_specifier_first
-{
- 	$$ = $1;
 }
 | TEMPLATE template_id
 {
@@ -4355,7 +4327,7 @@ nested_name_specifier_first_in_tail : nested_name_specifier_first
 // 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
 // }
 // ;
-//
+// 
 // nested_name_specifier_0 : class_or_namespace_name TWO_COLONS %merge<ambiguityHandler>
 // {
 // 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
@@ -4363,27 +4335,49 @@ nested_name_specifier_first_in_tail : nested_name_specifier_first
 // | TEMPLATE template_id TWO_COLONS %merge<ambiguityHandler>
 // {
 //     ast_set_text($2, "template ");
-//
+// 
 //     $$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, NULL, ast_get_locus($2), NULL);
 // }
 // | class_or_namespace_name TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
 // {
 // 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
 // }
-// | TEMPLATE template_id TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
+// | TEMPLATE template_id TWO_COLONS nested_name_specifier_1 %merge<ambiguityHandler>
+// {
+//     ast_set_text($2, "template ");
+//     $$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, $4, ast_get_locus($2), NULL);
+// }
+// ;
+// 
+// nested_name_specifier_1 : unqualified_name TWO_COLONS %merge<ambiguityHandler>
+// {
+// 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+// }
+// | TEMPLATE template_id TWO_COLONS %merge<ambiguityHandler>
+// {
+//     ast_set_text($2, "template ");
+// 
+//     $$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, NULL, ast_get_locus($2), NULL);
+// }
+// | unqualified_name TWO_COLONS nested_name_specifier_1 %merge<ambiguityHandler>
+// {
+// 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
+// }
+// | TEMPLATE template_id TWO_COLONS nested_name_specifier_1 %merge<ambiguityHandler>
 // {
 //     ast_set_text($2, "template ");
 //     $$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, $4, ast_get_locus($2), NULL);
 // }
 // ;
 
+
 class_or_namespace_name : template_id
 {
 	$$ = $1;
 }
-| IDENTIFIER
+| unqualified_name
 {
-	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = $1;
 }
 ;
 
@@ -6155,9 +6149,10 @@ static AST duplicate_nested_name_specifier_list(AST a)
     if (a == NULL)
      return NULL;
 
-    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "Invalid node", 0);
+    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "Invalid node %s", ast_print_node_type(ASTType(a)));
 
-    return ASTMake2(AST_NESTED_NAME_SPECIFIER, ast_get_child(a, 0),
+    return ASTMake2(AST_NESTED_NAME_SPECIFIER,
+            ast_get_child(a, 0),
             duplicate_nested_name_specifier_list(ast_get_child(a, 1)),
             ast_get_locus(a), NULL);
 }
