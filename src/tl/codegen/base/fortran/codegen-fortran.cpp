@@ -1161,7 +1161,7 @@ OPERATOR_TABLE
         }
 
         if (const_value_is_floating(value))
-            emit_floating_constant(value, node.get_type());
+            emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
         else
@@ -1190,23 +1190,24 @@ OPERATOR_TABLE
         const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
 
         *(file) << "(";
-        emit_floating_constant(cval_real, t);
+        emit_floating_constant(cval_real);
         *(file) << ", ";
-        emit_floating_constant(cval_imag, t);
+        emit_floating_constant(cval_imag);
         *(file) << ")";
 
         state.in_data_value = in_data;
     }
 
-    void FortranBase::emit_floating_constant(const_value_t* value, TL::Type t)
+    void FortranBase::emit_floating_constant(const_value_t* value)
     {
         ERROR_CONDITION(value == NULL, "Invalid constant", 0);
 
-        int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
-        int precision = floating_type_get_info(t.get_internal_type())->p + 1;
-
         if (const_value_is_float(value))
         {
+            TL::Type t = get_float_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             float f = const_value_cast_to_float(value);
             uniquestr_sprintf(&result, "%.*E_%d", precision, f, kind);
@@ -1221,6 +1222,10 @@ OPERATOR_TABLE
         }
         else if (const_value_is_double(value))
         {
+            TL::Type t = get_double_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             double d = const_value_cast_to_double(value);
             uniquestr_sprintf(&result, "%.*E_%d", precision, d, kind);
@@ -1235,6 +1240,10 @@ OPERATOR_TABLE
         }
         else if (const_value_is_long_double(value))
         {
+            TL::Type t = get_long_double_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             long double ld = const_value_cast_to_long_double(value);
             uniquestr_sprintf(&result, "%.*LE_%d", precision, ld, kind);
@@ -1250,6 +1259,10 @@ OPERATOR_TABLE
 #ifdef HAVE_QUADMATH_H
         else if (const_value_is_float128(value))
         {
+            TL::Type t = get_float128_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             __float128 f128 = const_value_cast_to_float128(value);
             int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
             char c[n+1];
@@ -1338,7 +1351,7 @@ OPERATOR_TABLE
         }
 
         if (const_value_is_floating(value))
-            emit_floating_constant(value, node.get_type());
+            emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
         else
