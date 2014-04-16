@@ -331,18 +331,24 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size),
                                         const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
-                            running_error("%s: error: invalid bitfield of size '%d'",
+                            error_printf("%s: error: invalid bitfield of size '%d'",
                                     locus_to_str(new_member->locus),
                                     const_value_cast_to_4(
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size)));
+
+                            // Fix it to 1
+                            new_member->entity_specs.bitfield_size = const_value_to_nodecl(const_value_get_signed_int(1));
                         }
 
                         new_member->related_decl_context = context_of_being_instantiated;
                     }
                     else
                     {
-                        running_error("%s: error: bitfield specification is not a constant expression", 
+                        error_printf("%s: error: bitfield specification is not a constant expression", 
                                 locus_to_str(new_member->locus));
+
+                        // Fix it to 1
+                        new_member->entity_specs.bitfield_size = const_value_to_nodecl(const_value_get_signed_int(1));
                     }
                 }
 
@@ -1732,10 +1738,11 @@ static void instantiate_template_class(scope_entry_t* entry,
     {
         if (is_incomplete_type(selected_template))
         {
-            running_error("%s: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
+            error_printf("%s: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
                     locus_to_str(locus),
                     print_type_str(get_user_defined_type(entry), decl_context),
                     print_type_str(selected_template, decl_context));
+            return;
         }
 
         instantiate_specialized_template_class(selected_template, 
@@ -1744,8 +1751,9 @@ static void instantiate_template_class(scope_entry_t* entry,
     }
     else
     {
-        running_error("%s: instantiation of '%s' is not possible at this point\n", 
+        error_printf("%s: instantiation of '%s' is not possible at this point\n", 
                 locus_to_str(locus), print_type_str(get_user_defined_type(entry), decl_context));
+        return;
     }
 }
 

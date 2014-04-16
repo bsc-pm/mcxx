@@ -1591,7 +1591,9 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         }
 #else
         {
-            running_error("%s: error: __float128 literals not supported\n", ast_location(expr));
+            error_printf("%s: error: __float128 literals not supported\n", ast_location(expr));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
         }
 #endif
     }
@@ -12919,8 +12921,11 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
         class_type_add_member(lambda_class->type_information, new_conversion, /* is_definition */ 1);
     }
 
+    set_is_complete_type(lambda_class->type_information, 1);
+
     // rvalue of the class type
     type_t* lambda_type = get_user_defined_type(lambda_class);
+    set_is_complete_type(lambda_type, 1);
 
     *nodecl_output = nodecl_make_lambda(
             captures,
@@ -19773,6 +19778,9 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
     scope_entry_t* constructor = NULL;
     check_default_initialization_(entry, decl_context, locus, &constructor);
 
+    if (is_incomplete_type(entry->type_information))
+        return 0;
+
     if (is_class_type(entry->type_information))
     {
         ensure_function_is_emitted(constructor, locus);
@@ -20219,7 +20227,7 @@ static const_value_t* evaluate_constexpr_constructor(
         nodecl_t nodecl_evaluated_expr = instantiate_expression(
                 nodecl_replaced_expr,
                 nodecl_retrieve_context(nodecl_function_code),
-                /* instantiation_symbol_map */ NULL,
+                entry->entity_specs.instantiation_symbol_map,
                 /* pack_index */ -1);
 
         values[member_pos] = nodecl_get_constant(nodecl_evaluated_expr);
@@ -20252,7 +20260,7 @@ static const_value_t* evaluate_constexpr_constructor(
 }
 
 static const_value_t* evaluate_constexpr_regular_function_call(
-        scope_entry_t* entry UNUSED_PARAMETER,
+        scope_entry_t* entry,
         nodecl_t nodecl_function_code,
         int num_map_items,
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
@@ -20266,10 +20274,15 @@ static const_value_t* evaluate_constexpr_regular_function_call(
             num_map_items,
             map_of_parameters_and_values);
 
-    // Now review the expression again in order to evaluate it
+    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+    if (entry->entity_specs.is_member)
+    {
+        instantiation_symbol_map = entry->entity_specs.instantiation_symbol_map;
+    }
+
     nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
             nodecl_retrieve_context(nodecl_function_code),
-            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+            instantiation_symbol_map, /* pack_index */ -1);
 
     return nodecl_get_constant(nodecl_evaluated_expr);
 }
@@ -20281,7 +20294,8 @@ static const_value_t* evaluate_constexpr_function_call(
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n", get_qualified_symbol_name(entry, entry->decl_context));
+        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n",
+                get_qualified_symbol_name(entry, entry->decl_context));
     }
 
     if (is_template_specialized_type(entry->type_information))
@@ -20517,10 +20531,17 @@ nodecl_t cxx_nodecl_make_function_call(
                 if (!nodecl_is_null(called_symbol->entity_specs.noexception)
                         && nodecl_expr_is_value_dependent(called_symbol->entity_specs.noexception))
                 {
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
                     nodecl_t new_noexception = instantiate_expression(
                             called_symbol->entity_specs.noexception,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_noexception))
                     {
@@ -20601,11 +20622,19 @@ nodecl_t cxx_nodecl_make_function_call(
                             || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
+
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
                     {
@@ -20921,13 +20950,42 @@ static inline nodecl_visitor_fun_t instantiate_expr_visitor_fun(nodecl_instantia
     return NODECL_VISITOR_FUN(p);
 }
 
+// This function for debug only
+static const char* codegen_expression_to_str(nodecl_t expr, decl_context_t decl_context)
+{
+    if (nodecl_is_list(expr))
+    {
+        int n = 0;
+        nodecl_t* list = nodecl_unpack_list(expr, &n);
+        int i;
+        const char* result = uniquestr("{");
+
+        for (i = 0; i < n; i++)
+        {
+            if (i > 0)
+                result = strappend(result, ", ");
+
+            result = strappend(result,
+                    codegen_expression_to_str(list[i], decl_context));
+        }
+
+        result = strappend(result, "}");
+
+        return result;
+    }
+    else
+    {
+        return codegen_to_str(expr, decl_context);
+    }
+}
+
 static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
 {
     visitor->nodecl_result = nodecl_null();
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s). Constant evaluation is %s\n",
-                codegen_to_str(node, visitor->decl_context),
+                codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
 
@@ -20935,10 +20993,11 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' with type '%s'. Constant evaluation is %s",
-                codegen_to_str(node, visitor->decl_context),
+        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' "
+                "with type '%s'. Constant evaluation is %s",
+                codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
-                codegen_to_str(visitor->nodecl_result, visitor->decl_context),
+                codegen_expression_to_str(visitor->nodecl_result, visitor->decl_context),
                 print_declarator(nodecl_get_type(visitor->nodecl_result)),
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
         if (nodecl_is_constant(visitor->nodecl_result))
@@ -22335,32 +22394,36 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
 static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expansion = nodecl_get_child(node, 0);
-    nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
+    // nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
 
-    if (nodecl_expr_is_value_dependent(packed_expr))
-    {
-        type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
-        v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-                pack_type,
-                nodecl_get_locus(node));
-        nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
-        nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
-        return;
-    }
+    // if (nodecl_expr_is_value_dependent(packed_expr))
+    // {
+    //     type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
+    //     v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
+    //             pack_type,
+    //             nodecl_get_locus(node));
+    //     nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
+    //     nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
+    //     return;
+    // }
 
     int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
 
     if (len < 0)
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
-        nodecl_free(expansion);
-        nodecl_free(packed_expr);
+        // nodecl_free(packed_expr);
         return;
     }
 
     nodecl_t nodecl_result = nodecl_null();
 
     int old_pack_index = v->pack_index;
+
+    char is_value_dependent = 0;
+    char is_type_dependent = 0;
+
+    type_t* sequence_type = NULL;
 
     int i;
     for (i = 0; i < len; i++)
@@ -22372,10 +22435,23 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
         {
             v->pack_index = old_pack_index;
             v->nodecl_result = expr;
+            nodecl_free(nodecl_result);
             return;
         }
 
+        is_value_dependent = is_value_dependent || nodecl_expr_is_value_dependent(expr);
+        is_type_dependent = is_type_dependent || nodecl_expr_is_type_dependent(expr);
+
+        sequence_type = get_sequence_of_types_append_type(sequence_type, nodecl_get_type(expr));
+
         nodecl_result = nodecl_append_to_list(nodecl_result, expr);
+    }
+
+    if (!nodecl_is_null(nodecl_result))
+    {
+        nodecl_set_type(nodecl_result, sequence_type);
+        nodecl_expr_set_is_value_dependent(nodecl_result, is_value_dependent);
+        nodecl_expr_set_is_type_dependent(nodecl_result, is_type_dependent);
     }
 
     v->pack_index = old_pack_index;

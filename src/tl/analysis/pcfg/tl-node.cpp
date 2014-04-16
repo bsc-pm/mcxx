@@ -507,7 +507,7 @@ namespace Analysis {
         Graph_type gt = get_graph_type( );
         return ( is_graph_node( ) 
                  && ( ( gt == __OmpSimd ) || ( gt == __OmpSimdFor ) 
-                        || ( gt == __OmpSimdFunction ) || ( gt == __OmpSimdParallelFor ) ) );
+                 || ( gt == __OmpSimdFunction ) || ( gt == __OmpSimdParallelFor ) || ( gt == __OmpSimdParallel ) ) );
     }
     
     bool Node::is_omp_single_node( )

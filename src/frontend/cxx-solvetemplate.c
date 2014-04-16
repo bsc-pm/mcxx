@@ -41,6 +41,7 @@
 #include "cxx-driver.h"
 #include "cxx-instantiation.h"
 #include "cxx-entrylist.h"
+#include "cxx-diagnostic.h"
 
 static type_t* determine_most_specialized_template_class(type_t* template_type, 
         type_t** matching_specializations, int num_specializations,
@@ -158,9 +159,10 @@ type_t* solve_class_template(type_t* template_type,
             entry_list_iterator_free(it);
             entry_list_free(entry_list);
 
-            running_error("%s: error: ambiguous template type for '%s'\n", 
+            error_printf("%s: error: ambiguous template type for '%s'\n", 
                     locus_to_str(locus),
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
+            return NULL;
         }
 
         for (i = 0; i < num_matching_set; i++)

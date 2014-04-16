@@ -1617,16 +1617,16 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus
     }
     entry_list_iterator_free(it);
 
-    running_error("%s: error: lookup failed due to ambiguous reference '%s'\n", 
+    error_printf("%s: error: lookup failed due to ambiguous reference '%s'\n", 
             locus_to_str(locus), entry_list_head(entry_list)->symbol_name);
 }
 
 
-static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
+static char check_for_naming_ambiguity(scope_entry_list_t* entry_list, const locus_t* locus)
 {
     if (entry_list == NULL
             || entry_list_size(entry_list) == 1)
-        return;
+        return 1;
 
     scope_entry_t* hiding_name = NULL;
 
@@ -1676,9 +1676,13 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const loc
         else
         {
             error_ambiguity(entry_list, locus);
+            entry_list_iterator_free(it);
+            return 0;
         }
     }
     entry_list_iterator_free(it);
+
+    return 1;
 }
 
 static scope_entry_list_t* entry_list_merge_aliases(scope_entry_list_t* list1, scope_entry_list_t* list2)
@@ -1800,7 +1804,8 @@ static scope_entry_list_t* unqualified_query_in_namespace(
                 entry_list_free(old_result);
             }
 
-            check_for_naming_ambiguity(grand_result, locus);
+            if (!check_for_naming_ambiguity(grand_result, locus))
+                return NULL;
         }
     }
     return grand_result;
@@ -1893,7 +1898,8 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
             entry_list_free(old_result);
         }
 
-        check_for_naming_ambiguity(grand_result, locus);
+        if (!check_for_naming_ambiguity(grand_result, locus))
+            return NULL;
     }
 
     return grand_result;
@@ -1937,8 +1943,8 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
         }
         if (!found)
         {
-            if ((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES)
-                running_error("Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
+            ERROR_CONDITION((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES,
+                "Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
             associated_namespaces[(*num_associated_namespaces)].scope_of_using = scope_of_using;
             associated_namespaces[(*num_associated_namespaces)].nominated = current_scope->use_namespace[i];
             associated_namespaces[(*num_associated_namespaces)].visited = 0;
@@ -2082,6 +2088,70 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             entry_list_free(old_result);
         }
 
+        // The first unqualified-id of a nested-name-specifier
+        if (BITMAP_TEST(decl_flags, DF_NESTED_NAME_FIRST))
+        {
+            enum cxx_symbol_kind nested_name_first_cxx03[] = {
+                SK_CLASS,
+                SK_NAMESPACE,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_USING,
+            };
+
+            enum cxx_symbol_kind nested_name_first_cxx11[] = {
+                SK_CLASS,
+                SK_NAMESPACE,
+                SK_TYPEDEF,
+                SK_TEMPLATE_TYPE_PARAMETER,
+                SK_USING,
+                // C++11
+                SK_ENUM,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
+            };
+
+            scope_entry_list_t* old_result = result;
+            CXX03_LANGUAGE()
+            {
+                result = filter_symbol_kind_set(old_result,
+                        STATIC_ARRAY_LENGTH(nested_name_first_cxx03),
+                        nested_name_first_cxx03);
+            }
+            CXX11_LANGUAGE()
+            {
+                result = filter_symbol_kind_set(old_result,
+                        STATIC_ARRAY_LENGTH(nested_name_first_cxx11),
+                        nested_name_first_cxx11);
+            }
+            entry_list_free(old_result);
+
+            // Now verify typedefs
+            if (result != NULL)
+            {
+                scope_entry_t* alias_name = entry_list_head(result);
+                alias_name = entry_advance_aliases(alias_name);
+
+                if (alias_name->kind == SK_TYPEDEF)
+                {
+                    type_t* t = advance_over_typedefs(alias_name->type_information);
+
+                    if (!is_class_type(t)
+                            && !is_dependent_typename_type(t)
+                            && !is_typeof_expr(t)
+                            && !(is_named_type(t)
+                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                            && !(IS_CXX11_LANGUAGE
+                                && is_named_type(t)
+                                && named_type_get_symbol(t)->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK))
+                    {
+                        // This cannot be a class-name at all
+                        entry_list_free(result);
+                        result = NULL;
+                    }
+                }
+            }
+        }
+
         if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
             return result;
@@ -2110,7 +2180,8 @@ static nodecl_t update_nodecl_template_argument_expression(
     nodecl_t nodecl_inst = instantiate_expression(nodecl, decl_context,
             instantiation_symbol_map, /* pack_index */ pack_index);
 
-    if (nodecl_is_list(nodecl_inst))
+    if (nodecl_is_null(nodecl_inst)
+            || nodecl_is_list(nodecl_inst))
     {
         int num_items;
         nodecl_t* list = nodecl_unpack_list(nodecl_inst, &num_items);
@@ -2184,6 +2255,7 @@ char template_argument_is_pack(template_parameter_value_t* value)
                     || value->kind == TPK_TEMPLATE)
                 && is_pack_type(value->type))
             || (value->kind == TPK_NONTYPE
+                && !nodecl_is_null(value->value)
                 && nodecl_get_kind(value->value) == NODECL_CXX_VALUE_PACK));
 }
 
@@ -2234,30 +2306,29 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                 int i;
                 nodecl_t updated_list = nodecl_null();
 
-                type_t** type_list = NULL;
-                int num_types = 0;
+                type_t* type_sequence = NULL;
 
-                for (i = 0; i < num_items; list++)
+                for (i = 0; i < num_items; i++)
                 {
                     nodecl_t updated_expr =
-                        update_nodecl_template_argument_expression(v->value, decl_context,
+                        update_nodecl_template_argument_expression(list[i], decl_context,
                                 instantiation_symbol_map,
                                 pack_index);
 
                     if (nodecl_is_err_expr(updated_expr))
                     {
                         xfree(result);
-                        xfree(type_list);
+                        nodecl_free(updated_list);
                         return NULL;
                     }
 
                     updated_list = nodecl_append_to_list(updated_list, updated_expr);
 
-                    P_LIST_ADD(type_list, num_types, nodecl_get_type(updated_expr));
+                    type_sequence = get_sequence_of_types_append_type(type_sequence, nodecl_get_type(updated_expr));
                 }
 
-                result->type = get_sequence_of_types(num_types, type_list);
-                xfree(type_list);
+                result->value = updated_list;
+                result->type = type_sequence;
             }
             else
             {
@@ -2265,13 +2336,20 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                     update_nodecl_template_argument_expression(v->value, decl_context,
                             instantiation_symbol_map, pack_index);
 
-                if (nodecl_is_err_expr(result->value))
+                if (!nodecl_is_null(result->value))
                 {
-                    xfree(result);
-                    return NULL;
-                }
+                    if (nodecl_is_err_expr(result->value))
+                    {
+                        xfree(result);
+                        return NULL;
+                    }
 
-                result->type = nodecl_get_type(result->value);
+                    result->type = nodecl_get_type(result->value);
+                }
+                else
+                {
+                    result->type = get_sequence_of_types(0, NULL);
+                }
             }
         }
     }
@@ -2498,7 +2576,9 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
                     decl_context,
                     packs_to_expand[i]->entity_specs.template_parameter_nesting,
                     packs_to_expand[i]->entity_specs.template_parameter_position);
-            if (argument != NULL && nodecl_is_list(argument->value))
+            if (argument != NULL &&
+                    (nodecl_is_null(argument->value) // An empty sequence
+                     || nodecl_is_list(argument->value)))
             {
                 P_LIST_ADD(expanded_values, num_expanded_values, argument->value);
             }
@@ -3387,8 +3467,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
             {
-                running_error("%s: error: could not update array dimension",
+                error_printf("%s: error: could not update array dimension",
                         nodecl_locus_to_str(array_size));
+                return NULL;
             }
 
             DEBUG_CODE()
@@ -4446,7 +4527,11 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         parameter_type = sequence_of_types_get_type_num(parameter_type, index_of_type);
                     }
 
-                    if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
+                    if (nodecl_is_null(result->arguments[i]->value))
+                    {
+                        // May happen if we deduce an empty sequence of nontype arguments
+                    }
+                    else if (!nodecl_expr_is_value_dependent(result->arguments[i]->value))
                     {
                         type_t* arg_type = nodecl_get_type(result->arguments[i]->value);
                         if (is_unresolved_overloaded_type(arg_type))
@@ -4514,7 +4599,16 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 folded_value->type = get_sequence_of_types_append_type(folded_value->type, parameter_type);
                 if (result->arguments[i]->kind == TPK_NONTYPE)
                 {
+                    // Note that result->arguments[i]->value may be NULL but
+                    // this is fine as it won't enlarge the list
+                    char is_value_dependent = nodecl_expr_is_value_dependent(folded_value->value)
+                        || nodecl_expr_is_value_dependent(result->arguments[i]->value);
+
                     folded_value->value = nodecl_append_to_list(folded_value->value, result->arguments[i]->value);
+                    if (!nodecl_is_null(folded_value->value))
+                    {
+                        nodecl_expr_set_is_value_dependent(folded_value->value, is_value_dependent);
+                    }
                 }
             }
 
@@ -6344,6 +6438,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     instantiate_template_class_if_needed(current_symbol, current_symbol->decl_context,
                             nodecl_get_locus(current_name));
+
+                    if (is_incomplete_type(current_symbol->type_information))
+                        return NULL;
                 }
                 else if (class_type_is_incomplete_dependent(class_type)
                         // In some cases we do not want to examine uninstantiated templates
@@ -6542,7 +6639,18 @@ static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_contex
         char is_global UNUSED_PARAMETER,
         void *extra_info UNUSED_PARAMETER)
 {
-    return query_nodecl_name_flags(current_context, current_name, field_path, decl_flags);
+    if (nodecl_get_kind(current_name) == NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        return query_nodecl_simple_name(current_context,
+                current_context,
+                current_name,
+                field_path,
+                decl_flags | DF_NESTED_NAME_FIRST);
+    }
+    else
+    {
+        return query_nodecl_name_flags(current_context, current_name, field_path, decl_flags);
+    }
 }
 
 static scope_entry_list_t* query_nodecl_name_first_in_class(
@@ -6914,7 +7022,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
             nodecl_name,
             field_path,
             decl_flags,
-            /* allow_namespaces */ 0,
+            /* allow_namespaces */ 1,
             query_nodecl_name_first_in_class,
             check_symbol_is_base_or_member,
             class_symbol);
@@ -6988,6 +7096,9 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
 
     instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context,
             nodecl_get_locus(nodecl_name));
+
+    if (is_incomplete_type(class_symbol->type_information))
+        return NULL;
 
     decl_context_t inner_class_context = class_type_get_inner_context(class_type);
     if (inner_class_context.class_scope == NULL)
@@ -7424,6 +7535,9 @@ scope_entry_list_t* query_dependent_entity_in_context(
 
                         // Make sure class_type_get_inner_context does not return a bogus context below
                         instantiate_template_class_if_needed(class_sym, class_sym->decl_context, locus);
+
+                        if (is_incomplete_type(class_sym->type_information))
+                            return NULL;
 
                         nodecl_t update_dependent_parts = update_dependent_typename_dependent_parts(
                                 dependent_parts,

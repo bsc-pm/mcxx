@@ -39,12 +39,9 @@ namespace Utils {
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
-    bool is_empty_range( const Nodecl::Analysis::Range& r );
-    Nodecl::Analysis::Range get_empty_range( const TL::Type& t );
-    
-    Nodecl::NodeclBase range_sub( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
-    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::Range& r, const Nodecl::Analysis::Range& r2 );
-    Nodecl::NodeclBase range_union( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
+    Nodecl::NodeclBase range_sub( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
+    Nodecl::NodeclBase range_intersection( const Nodecl::NodeclBase& r, const Nodecl::NodeclBase& r2 );
+    Nodecl::NodeclBase range_union( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
 
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
