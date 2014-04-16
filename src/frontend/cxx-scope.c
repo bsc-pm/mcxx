@@ -4079,13 +4079,13 @@ static void get_template_arguments_from_syntax_rec(
         }
         else
         {
-            ast_replace_with_ambiguity(template_parameters_list_tree, i);
+            ast_replace_with_ambiguity(template_parameters_list_tree, valid);
 
             // Update the result with the new ones
             free_template_parameter_list(*result);
             *result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
             copy_template_parameter_list(*result, potential_results[valid]);
-            *position = potential_positions[i];
+            *position = potential_positions[valid];
         }
     }
     else if (ASTType(template_parameters_list_tree) == AST_NODE_LIST)
