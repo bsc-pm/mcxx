@@ -449,7 +449,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
 %type<ast> nested_name_specifier_0
-// %type<ast> nested_name_specifier_1
+%type<ast> nested_name_specifier_1
 %type<ast> new_declarator
 %type<ast> new_expression
 %type<ast> new_initializer
@@ -4292,7 +4292,7 @@ nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandl
 {
     $$ = $1;
 }
-| nested_name_specifier nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandler>
+| nested_name_specifier nested_name_specifier_1 TWO_COLONS %merge<ambiguityHandler>
 {
     // Since we mutate this tree rather than creating another one,
     // we have to duplicate some nodes. Note that we cannot free
@@ -4309,6 +4309,12 @@ nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandl
 nested_name_specifier_0 : class_or_namespace_name
 {
  	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+}
+;
+
+nested_name_specifier_1 : nested_name_specifier_0
+{
+ 	$$ = $1;
 }
 | TEMPLATE template_id
 {
