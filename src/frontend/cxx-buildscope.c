@@ -18544,7 +18544,9 @@ static inline nodecl_visitor_fun_t instantiate_stmt_visitor_fun(nodecl_instantia
 static void instantiate_stmt_not_implemented_yet(nodecl_instantiate_stmt_visitor_t* v UNUSED_PARAMETER,
         nodecl_t nodecl_stmt)
 {
-    internal_error("Statement '%s' not yet implemented\n", ast_print_node_type(nodecl_get_kind(nodecl_stmt)));
+    internal_error("Instantiation of statement '%s' at '%s' not yet implemented\n",
+            ast_print_node_type(nodecl_get_kind(nodecl_stmt)),
+            nodecl_locus_to_str(nodecl_stmt));
 }
 
 // This function does not return a NODECL_TEMPLATE_FUNCTION_CODE but a NODECL_FUNCTION_CODE
