@@ -56,7 +56,11 @@ namespace {
             Nodecl::NodeclBase subscripted;
             Nodecl::NodeclBase ctr_lb;
             Nodecl::NodeclBase ctr_ub;
-            TL::Type ctr_t = container.get_type( ).no_ref();
+            TL::Type ctr_t = container.is<Nodecl::Symbol>() ? container.get_symbol().get_type( ).no_ref() 
+                                                            : container.get_type().no_ref();
+            ERROR_CONDITION(!ctr_t.is_valid(), 
+                            "Invalid type computed for container %s.\n", 
+                            container.prettyprint().c_str());
             Nodecl::List ctd_subscripts = contained.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
             if(container.is<Nodecl::Analysis::RangeUnion>())
             {
