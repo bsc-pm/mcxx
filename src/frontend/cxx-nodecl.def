@@ -560,6 +560,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
 # Used for simd
                  | NODECL_OPEN_M_P*ALIGNED([aligned_expressions] expression-seq, [alignment] expression)
                  | NODECL_OPEN_M_P*VECTOR_LENGTH_FOR() type
+                 | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
                  | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
