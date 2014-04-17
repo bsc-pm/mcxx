@@ -18813,6 +18813,59 @@ static void instantiate_object_init(
     v->nodecl_result = nodecl_make_object_init(new_entry, nodecl_get_locus(node));
 }
 
+static void instantiate_cxx_member_init(
+        nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t node)
+{
+    nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
+    nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
+
+    // FIXME - What about classes?
+    scope_entry_list_t *entry_list = query_nodecl_name_in_class(
+            v->new_decl_context,
+            v->new_decl_context.class_scope->related_entry,
+            nodecl_cxx_dependent_name,
+            NULL);
+
+    if (entry_list == NULL)
+    {
+        v->nodecl_result = nodecl_null();
+        return;
+    }
+
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (entry->kind == SK_CLASS
+            || entry->kind == SK_VARIABLE)
+    {
+        nodecl_initialization_expression = instantiate_expression(
+                nodecl_initialization_expression,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* FIXME: pack_index */ -1);
+
+        nodecl_t nodecl_init = nodecl_null();
+        check_nodecl_initialization(
+                nodecl_initialization_expression,
+                v->new_decl_context,
+                entry,
+                get_unqualified_type(entry->type_information),
+                &nodecl_init,
+                /* is_auto */ 0);
+
+        v->nodecl_result = nodecl_make_member_init(
+                nodecl_init,
+                entry,
+                nodecl_get_locus(node));
+    }
+    else
+    {
+        v->nodecl_result = nodecl_null();
+        return;
+    }
+}
+
 // Initialization
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
         decl_context_t orig_decl_context,
@@ -18839,6 +18892,8 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_cxx_extern_explicit_instantiation = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_namespace = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_decl = NULL;
+
+    NODECL_VISITOR(v)->visit_cxx_member_init = instantiate_stmt_visitor_fun(instantiate_cxx_member_init);
 
     NODECL_VISITOR(v)->visit_object_init = instantiate_stmt_visitor_fun(instantiate_object_init);
 
