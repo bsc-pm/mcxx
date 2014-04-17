@@ -66,6 +66,12 @@ namespace Vectorization
         _mask_check_bb_cost.push_back(0);
     }
 
+    VectorizerEnvironment::~VectorizerEnvironment()
+    {
+        _inside_inner_masked_bb.pop_back();
+        _mask_check_bb_cost.pop_back();
+    }
+
     void VectorizerEnvironment::load_environment(
             const Nodecl::NodeclBase& n)
     {
@@ -87,12 +93,6 @@ namespace Vectorization
 
         _mask_list.clear();
         _analysis_scopes.clear();
-    }
-
-    VectorizerEnvironment::~VectorizerEnvironment()
-    {
-        _inside_inner_masked_bb.pop_back();
-        _mask_check_bb_cost.pop_back();
     }
 }
 }
