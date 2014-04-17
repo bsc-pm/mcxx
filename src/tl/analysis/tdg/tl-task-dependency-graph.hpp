@@ -45,16 +45,19 @@ namespace Analysis {
         ControlStructureType _type;
         Nodecl::NodeclBase _condition;
         Node* _pcfg_node;
+        ObjectList<unsigned int> _branch_ids;
         
         // *** Constructor *** //
         ControlStructure(int id, ControlStructureType type, 
-                         const Nodecl::NodeclBase condition, Node* pcfg_node);
+                         const Nodecl::NodeclBase condition, Node* pcfg_node, 
+                         ObjectList<unsigned int> taken_branches);
         
         // *** Getters and setters *** //
-        int get_id();
-        ControlStructureType get_type();
-        Nodecl::NodeclBase get_condition();
-        Node* get_pcfg_node();
+        int get_id() const;
+        ControlStructureType get_type() const;
+        Nodecl::NodeclBase get_condition() const;
+        Node* get_pcfg_node() const;
+        std::string get_branch_ids_as_string() const;
     };
     
     // ************ Task Dependency Graph Control Structures ************* //

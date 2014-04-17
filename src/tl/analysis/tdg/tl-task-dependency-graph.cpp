@@ -114,8 +114,14 @@ namespace{
             return false;
         
         // Return true only when we find the task traversing the current path
-        if(current == task)
-            return true;
+        if(current->is_omp_task_node())
+        {
+            if(current == task)
+                return true;
+            else
+                return false;   // Return false because we do not want to traverse tasks depending on other tasks
+                                // but only reach a tasks when traversing its corresponding task creation node
+        }
         
         bool result = false;
         
@@ -150,7 +156,7 @@ namespace{
     
     //! TaskDependencyGraph :: Returns a nodecl containing the condition that must fulfill 
     //! to follow the branch of an ifelse that takes to 'task'
-    Nodecl::NodeclBase get_ifelse_condition_from_path(Node* control_structure, Node* task)
+    Nodecl::NodeclBase get_ifelse_condition_from_path(Node* control_structure, Node* task, ObjectList<unsigned int>& taken_branches)
     {
         Nodecl::NodeclBase condition;
         
@@ -165,9 +171,15 @@ namespace{
             {
                 // Compute the condition depending on the branch taken in the IfElseStatement
                 if((*it)->is_true_edge())
+                {
                     condition = cond_stmt;
+                    taken_branches.append(1);
+                }
                 else
+                {
                     condition = Nodecl::LogicalNot::make(cond_stmt.shallow_copy(), cond_stmt.get_type());
+                    taken_branches.append(2);
+                }
                 
                 // Stop iterating, for we already found the task
                 break;
@@ -177,7 +189,7 @@ namespace{
         return condition;
     }
     
-    void get_cases_leading_to_task(Node* control_structure, Node* current, ObjectList<Nodecl::NodeclBase>& cases)
+    void get_cases_leading_to_task(Node* control_structure, Node* current, ObjectList<Edge*>& cases)
     {
         if(current->is_visited())
             return;
@@ -187,7 +199,7 @@ namespace{
             ObjectList<Edge*> entry_edges = current->get_entry_edges();
             for(ObjectList<Edge*>::iterator it = entry_edges.begin(); it != entry_edges.end(); ++it )
                 if((*it)->is_case_edge())
-                    cases.insert((*it)->get_label());
+                    cases.append(*it);
             
             // If there is only one entry, no other case can lead to 'task'
             if(entry_edges.size()==1)
@@ -200,42 +212,82 @@ namespace{
             get_cases_leading_to_task(control_structure, *it, cases);
     }
     
-    Nodecl::NodeclBase get_switch_condition_from_path(Node* control_structure, Node* task)
+    Node* get_switch_condition_node_from_case(Node* case_node)
     {
-        Nodecl::NodeclBase condition;
+        ERROR_CONDITION(!case_node->is_switch_case_node(), 
+                        "Expecting SwitchCase node but %s found.\n", 
+                        case_node->get_type_as_string().c_str());
         
-        // Get the statements that form the condition
-        Node* cond = NULL;
-        ObjectList<Node*> control_parents = control_structure->get_parents();
+        Node* switch_cond = NULL;
+        ObjectList<Node*> control_parents = case_node->get_parents();
         for(ObjectList<Node*>::iterator it = control_parents.begin(); it != control_parents.end(); ++it)
             if((*it)->is_entry_node())
             {
                 Node* switch_node = (*it);
                 while(!switch_node->is_switch_statement() && switch_node != NULL)
                     switch_node = switch_node->get_outer_node();
-                ERROR_CONDITION(switch_node==NULL, "No switch node found for case node %d.", control_structure->get_id());
+                ERROR_CONDITION(switch_node==NULL, "No switch node found for case node %d.\n", case_node->get_id());
                 
-                cond = switch_node->get_condition_node();
-                break;
+                switch_cond = switch_node->get_condition_node();
+                goto end_get_switch_cond;
             }
+        
+        internal_error("No switch node found for case node %d.\n", case_node->get_id());
+end_get_switch_cond:        
+        return switch_cond;
+    }
+    
+    Nodecl::NodeclBase get_switch_condition_from_path(Node* case_node, Node* task, ObjectList<unsigned int>& taken_branches)
+    {
+        Nodecl::NodeclBase condition;
+        
+        // Get the statements that form the condition
+        Node* cond = get_switch_condition_node_from_case(case_node);
         Nodecl::NodeclBase cond_stmt = get_condition_stmts(cond);
         
-        ObjectList<Nodecl::NodeclBase> cases;
-        get_cases_leading_to_task(control_structure, task->get_parents()[0], cases);
+        // Get the list of PCFG nodes containing the cases leading to 'current'
+        ObjectList<Edge*> cases;
+        get_cases_leading_to_task(case_node, task->get_parents()[0], cases);
         ERROR_CONDITION(cases.empty(), "No case leading to task %d has been found in control structure %d.\n", 
-                        task->get_id(), control_structure->get_id());
+                        task->get_id(), case_node->get_id());
         
-        // Create the nodecl for the first case
+        // Calculate here the identifiers for all switch branches (cases)
+        Node* switch_ctx = cond->get_children()[0];
+        ERROR_CONDITION(!switch_ctx->is_context_node(), 
+                        "Context node expected as child of a switch condition node. Found %s instead.\n", 
+                        switch_ctx->get_type_as_string().c_str());
+        ObjectList<Node*> all_branches = switch_ctx->get_graph_entry_node()->get_children();
+        std::map<Node*, unsigned int> all_branch_ids;
+        unsigned int id = 1;
+        for(ObjectList<Node*>::iterator it = all_branches.begin(); it != all_branches.end(); ++it, ++id)
+            all_branch_ids[*it] = id;
+        
+        // First case leading to the task
+        // 1.- Create the condition
         TL::Type cond_type = cond_stmt.get_type();
-        ObjectList<Nodecl::NodeclBase>::iterator it = cases.begin();
-        condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type);
-        // Build the others, if there is some
+        ObjectList<Edge*>::iterator it = cases.begin();
+        condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), (*it)->get_label().shallow_copy(), cond_type);
+        // 2.- Get the identifier of the branch
+        ERROR_CONDITION(all_branch_ids.find((*it)->get_target()) == all_branch_ids.end(), 
+                        "No chain of branches found from condition node %d to case node %d.\n", 
+                        cond->get_id(), (*it)->get_target()->get_id());
+        taken_branches.insert(all_branch_ids[(*it)->get_target()]);
+        
+        // Build the rest of cases, if there is any
         ++it;
         for(; it != cases.end(); ++it)
+        {
+            // 1.- Rebuild the condition
             condition = Nodecl::LogicalOr::make(condition.shallow_copy(), 
-                                                Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type), 
+                                                Nodecl::Equal::make(cond_stmt.shallow_copy(), 
+                                                                    (*it)->get_label().shallow_copy(), cond_type), 
                                                 cond_type);
-        
+            // 2.- Get the identifier of the branch
+            ERROR_CONDITION(all_branch_ids.find((*it)->get_target()) == all_branch_ids.end(), 
+                            "No chain of branches found from condition node %d to case node %d.\n", 
+                            cond->get_id(), (*it)->get_target()->get_id());
+            taken_branches.insert(all_branch_ids[(*it)->get_target()]);
+        }
         return condition;
     }
     
@@ -343,23 +395,20 @@ namespace{
         {
             // Get the names of all involved symbols on the LHS of the condition
             ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(n);
-            std::map<TL::Symbol, Nodecl::NodeclBase> sym_reach_def_map;
             for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
             {
                 // Get the reaching definition of the symbol from the source node
                 Utils::ExtendedSymbol es(*it);
-                if((reach_defs.find(es)==reach_defs.end()) && !_params.contains(it->get_symbol()))
-                {
-                    internal_error("No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
-                                   pcfg_node_id, it->get_symbol().get_name().c_str(), 
-                                   n.prettyprint().c_str());
-                }
+                ERROR_CONDITION(reach_defs.find(es)==reach_defs.end(),
+                                "No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
+                                pcfg_node_id, it->get_symbol().get_name().c_str(), 
+                                n.prettyprint().c_str());
                 
+                // Get the reaching definition corresponding to the current symbol
                 Nodecl::NodeclBase reach_def;
                 if(reach_defs.find(es)!=reach_defs.end())
                 {
                     std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> reach_defs_map = reach_defs.equal_range(es);
-                    // Store the reaching definitions in the map that relates it with the corresponding symbol
                     Utils::ext_sym_map::iterator itt = reach_defs_map.first;
                     reach_def = itt->second;
                     ++itt;
@@ -368,16 +417,19 @@ namespace{
                 }
                 else
                     reach_def = it->shallow_copy();
-                sym_reach_def_map[it->get_symbol()] = reach_def;
+
+                // Store the reaching definition related with the identifier of the variable defined
+                _var_id_to_values[it->get_symbol()] = reach_def.prettyprint();
             }
-            // Replace the names by the expression identifier and get the reaching definitions of each variable
+            // Replace the names by the expression identifier
             std::map<std::string, int> sym_name_to_id;
             std::string result = n.prettyprint();
-            for(std::map<TL::Symbol, Nodecl::NodeclBase>::iterator it = sym_reach_def_map.begin(); it != sym_reach_def_map.end(); ++it)
+            for(std::map<TL::Symbol, std::string>::iterator it = _var_id_to_values.begin(); it != _var_id_to_values.end(); ++it)
             {
                 // First position to be replaced
                 std::string sym_name = it->first.get_name();
                 size_t pos = result.find(sym_name, 0);
+                // Get the identifier of the symbol, if already parsed in this expression, or create a new one, otherwise
                 if(sym_name_to_id.find(sym_name)==sym_name_to_id.end())
                     sym_name_to_id[sym_name] = ++_id;
                 while((pos != std::string::npos) && (pos < result.size()))
@@ -387,8 +439,6 @@ namespace{
                     result.replace(pos, sym_name.size(), id_str.str());
                     // Modify the base position
                     pos += id_str.str().size() - 1;
-                    // Store the reaching definition related with the identifier of the variable defined
-                    _var_id_to_values[it->first] = sym_reach_def_map[it->first].prettyprint();
                     // Find the position to be replaced
                     pos = result.find(sym_name, pos);
                 }
@@ -506,28 +556,42 @@ namespace{
     // ************ Task Dependency Graph Control Structures ************* //
     
     ControlStructure::ControlStructure(int cs_id, ControlStructureType type, 
-                                       const Nodecl::NodeclBase condition, Node* pcfg_node)
-        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node)
+                                       const Nodecl::NodeclBase condition, Node* pcfg_node, 
+                                       ObjectList<unsigned int> taken_branches)
+        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node), _branch_ids(taken_branches)
     {}
     
-    int ControlStructure::get_id()
+    int ControlStructure::get_id() const
     {
         return _id;
     }
     
-    ControlStructureType ControlStructure::get_type()
+    ControlStructureType ControlStructure::get_type() const
     {
         return _type;
     }
     
-    Nodecl::NodeclBase ControlStructure::get_condition()
+    Nodecl::NodeclBase ControlStructure::get_condition() const
     {
         return _condition;
     }
     
-    Node* ControlStructure::get_pcfg_node()
+    Node* ControlStructure::get_pcfg_node() const
     {
         return _pcfg_node;
+    }
+    
+    std::string ControlStructure::get_branch_ids_as_string() const
+    {
+        std::stringstream ids;
+        for(ObjectList<unsigned int>::const_iterator it = _branch_ids.begin(); it != _branch_ids.end(); )
+        {
+            ids << *it;
+            ++it;
+            if(it != _branch_ids.end())
+                ids << ", ";
+        }
+        return ids.str();
     }
     
     // ************ Task Dependency Graph Control Structures ************* //
@@ -695,6 +759,7 @@ namespace{
                 // Get control structure type and condition
                 ControlStructureType cs_t;
                 Nodecl::NodeclBase condition;
+                ObjectList<unsigned int> taken_branches;
                 if(control_structure->is_loop_node())
                 {
                     // get the type of the Control Structure
@@ -713,7 +778,7 @@ namespace{
                     cs_t = Select;
                     
                     // Check whether the statement is in the TRUE or the FALSE branch of the condition
-                    condition = get_ifelse_condition_from_path(control_structure, node);
+                    condition = get_ifelse_condition_from_path(control_structure, node, taken_branches);
                     ObjectList<Node*> children = control_structure->get_condition_node()->get_children();
                     for(ObjectList<Node*>::iterator itt = children.begin(); itt != children.end(); ++itt)
                         ExtensibleGraph::clear_visits_in_level(*itt, control_structure);
@@ -724,7 +789,7 @@ namespace{
                     cs_t = Select;
                     
                     // Build the condition depending on the branch where the task is created
-                    condition = get_switch_condition_from_path(control_structure, node);
+                    condition = get_switch_condition_from_path(control_structure, node, taken_branches);
                 }
                 else
                 {
@@ -738,15 +803,26 @@ namespace{
                 store_condition_list_of_symbols(condition);
                 
                 // Crete the ControlStruct object and set it to the node
+                // For switch cases, the control structure is the 'case' because 
+                // we need the path to the 'case' currently being treated to build the condition
+                // However, the control structure to which we associate an identifier is the switch, not the particular case
+                Node* real_control_structure = control_structure;
+                if(control_structure->is_switch_case_node())
+                {
+                    while(real_control_structure!=NULL && !real_control_structure->is_switch_statement())
+                        real_control_structure = real_control_structure->get_outer_node();
+                    ERROR_CONDITION(real_control_structure==NULL, 
+                                    "No Switch node found wrapping Case node %d.\n", control_structure->get_id());
+                }
                 int cs_id;
-                if(control_struct_node_to_id.find(control_structure)!=control_struct_node_to_id.end())
-                    cs_id = control_struct_node_to_id[control_structure];
+                if(control_struct_node_to_id.find(real_control_structure)!=control_struct_node_to_id.end())
+                    cs_id = control_struct_node_to_id[real_control_structure];
                 else
                 {
                     cs_id = ++control_id;
-                    control_struct_node_to_id[control_structure] = cs_id;
+                    control_struct_node_to_id[real_control_structure] = cs_id;
                 }
-                ControlStructure cs(cs_id, cs_t, condition, control_structure);
+                ControlStructure cs(cs_id, cs_t, condition, real_control_structure, taken_branches);
                 (*it)->add_control_structure(cs);
                 
                 // Prepare next iteration
@@ -1089,16 +1165,21 @@ namespace{
                 Nodecl::NodeclBase dependency_size;
                 json_tdg << ",\n";
                 json_tdg << "\t\t\t\t\"control\" : [\n";
-                for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); ++itt)
+                for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); )
                 {
                     json_tdg << "\t\t\t\t\t{\n";
                     json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
-                    json_tdg << "\t\t\t\t\t\t\"id\" : " << itt->get_id() << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->get_id() << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << itt->get_branch_ids_as_string() << "],\n";
                     json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
                     print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t", 
                                     /*this param is unnecessary when computing a control structure condition*/dependency_size);
                     json_tdg << "\t\t\t\t\t\t}\n";
-                    json_tdg << "\t\t\t\t\t}\n";
+                    ++itt;
+                    if(itt != control_structures.end())
+                        json_tdg << "\t\t\t\t\t},\n";
+                    else
+                        json_tdg << "\t\t\t\t\t}\n";
                 }
                 json_tdg << "\t\t\t\t]\n";
             }
