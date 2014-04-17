@@ -21870,7 +21870,6 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
 {
     // This does not have to be instantiated
     nodecl_t nodecl_called = nodecl_shallow_copy(nodecl_get_child(node, 0));
-
     nodecl_t nodecl_argument_list = nodecl_get_child(node, 1);
 
     int num_items = 0;
@@ -21901,11 +21900,12 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
                 current_arg);
     }
 
-    nodecl_t function_form = nodecl_shallow_copy(nodecl_get_child(node, 2));
+    nodecl_t alternate_name = nodecl_shallow_copy(nodecl_get_child(node, 2));
+    nodecl_t function_form = nodecl_shallow_copy(nodecl_get_child(node, 3));
 
     v->nodecl_result = cxx_nodecl_make_function_call(
             nodecl_called,
-            /* called_name */ nodecl_null(),
+            alternate_name,
             new_list,
             function_form,
             nodecl_get_type(node),

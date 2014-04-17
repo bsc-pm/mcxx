@@ -4667,7 +4667,10 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && entry->kind != SK_TYPEDEF
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
-                && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
+                && (!gather_info->allow_class_template_names
+                    || entry->kind != SK_TEMPLATE
+                    // Do not allow template-names of template functions
+                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
                 && entry->kind != SK_GCC_BUILTIN_TYPE
