@@ -1170,7 +1170,8 @@ end_get_switch_cond:
                     json_tdg << "\t\t\t\t\t{\n";
                     json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
                     json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->get_id() << ",\n";
-                    json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << itt->get_branch_ids_as_string() << "],\n";
+                    if(itt->get_type()!=Loop)
+                        json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << itt->get_branch_ids_as_string() << "],\n";
                     json_tdg << "\t\t\t\t\t\t\"when\" : {\n";
                     print_condition(NULL, &(*itt), json_tdg, "\t\t\t\t\t\t\t", 
                                     /*this param is unnecessary when computing a control structure condition*/dependency_size);
