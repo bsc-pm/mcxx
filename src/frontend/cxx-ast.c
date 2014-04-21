@@ -83,8 +83,11 @@ struct AST_tag
     struct nodecl_expr_info_tag* expr_info;
 };
 
-static int count_bitmap(unsigned int bitmap)
+static inline int count_bitmap(unsigned int bitmap)
 {
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+    return __builtin_popcount(bitmap);
+#else
     int i;
     int s = 0;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
@@ -94,13 +97,17 @@ static int count_bitmap(unsigned int bitmap)
     }
 
     return s;
+#endif
 }
 
-static int bitmap_to_index(unsigned int bitmap, int num)
+static inline int bitmap_to_index(unsigned int bitmap, int num)
 {
     ERROR_CONDITION(((1 << num) & bitmap) == 0,
             "Invalid bitmap!", 0);
-
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+    bitmap = bitmap & (~(~0U << num));
+    return __builtin_popcount(bitmap);
+#else
     int i;
     int s = 0;
     for (i = 0; i < num; i++)
@@ -110,15 +117,16 @@ static int bitmap_to_index(unsigned int bitmap, int num)
     }
 
     return s;
+#endif
 }
 
 
-static int ast_son_num_to_son_index(const_AST a, int num_son)
+static inline int ast_son_num_to_son_index(const_AST a, int num_son)
 {
     return bitmap_to_index(a->bitmap_sons, num_son);
 }
 
-static char ast_has_son(const_AST a, int son)
+static inline char ast_has_son(const_AST a, int son)
 {
     return (((1 << son) & a->bitmap_sons) != 0);
 }
@@ -136,7 +144,7 @@ long long unsigned int ast_instantiation_used_memory(void)
     return _bytes_due_to_instantiation;
 }
 
-AST ast_make(node_t type, int num_children UNUSED_PARAMETER, 
+AST ast_make(node_t type, int __num_children UNUSED_PARAMETER, 
         AST child0, AST child1, AST child2, AST child3, 
         const locus_t* location, const char *text)
 {
@@ -148,8 +156,36 @@ AST ast_make(node_t type, int num_children UNUSED_PARAMETER,
 
     result->locus = location;
 
+    int num_children = 0;
+    unsigned int bitmap_sons = 0;
+
+#define COUNT_SON(n) \
+    if (child##n != NULL) \
+    { \
+        num_children++; \
+        bitmap_sons |= (1 << n); \
+    }
+
+    COUNT_SON(0);
+    COUNT_SON(1);
+    COUNT_SON(2);
+    COUNT_SON(3);
+#undef COUNT_SON
+
+    result->bitmap_sons = bitmap_sons;
+    result->children = counted_xcalloc(
+            sizeof(*result->children), 
+            num_children,
+            &_bytes_due_to_astmake);
+
+    int index = 0;
 #define ADD_SON(n) \
-    ast_set_child(result, n, child##n);
+    if (child##n != NULL) \
+    { \
+        result->children[index] = child##n; \
+        child##n->parent = result; \
+        index++; \
+    }
 
     ADD_SON(0);
     ADD_SON(1);
@@ -301,19 +337,7 @@ void ast_set_child(AST a, int num_child, AST new_child)
 
 int ast_num_children(const_AST a)
 {
-    // We return the maximum
-    int max = 0;
-    int i;
-    unsigned int bitmap = a->bitmap_sons;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if ((1 << i) & bitmap)
-        {
-            max = i + 1;
-        }
-    }
-
-    return max;
+    return count_bitmap(a->bitmap_sons);
 }
 
 /**
