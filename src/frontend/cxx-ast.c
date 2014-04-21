@@ -148,22 +148,29 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
         AST child0, AST child1, AST child2, AST child3, 
         const locus_t* location, const char *text)
 {
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
-
-    result->parent = NULL;
-
+    AST result = counted_xmalloc(1, sizeof(*result), &_bytes_due_to_astmake);
     result->node_type = type;
-
-    result->locus = location;
 
     int num_children = 0;
     unsigned int bitmap_sons = 0;
-
 #define COUNT_SON(n) \
     if (child##n != NULL) \
     { \
         num_children++; \
         bitmap_sons |= (1 << n); \
+    }
+
+    result->bitmap_sons = bitmap_sons;
+    result->parent = NULL;
+    result->locus = location;
+
+    if (text != NULL)
+    {
+        result->text = uniquestr(text);
+    }
+    else
+    {
+        result->text = NULL;
     }
 
     COUNT_SON(0);
@@ -173,7 +180,7 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
 #undef COUNT_SON
 
     result->bitmap_sons = bitmap_sons;
-    result->children = counted_xcalloc(
+    result->children = counted_xmalloc(
             sizeof(*result->children), 
             num_children,
             &_bytes_due_to_astmake);
@@ -193,11 +200,7 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
     ADD_SON(3);
 #undef ADD_SON
 
-    result->text = NULL;
-    if (text != NULL)
-    {
-        result->text = uniquestr(text);
-    }
+    result->expr_info = NULL;
 
     return result;
 }
@@ -268,7 +271,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = counted_xcalloc(sizeof(*a->children), 
+    a->children = counted_xmalloc(sizeof(*a->children), 
             (count_bitmap(a->bitmap_sons)), 
             &_bytes_due_to_astmake);
 
@@ -756,7 +759,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
+        result->ambig = counted_xmalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
         result->ambig[0] = son0;
         result->ambig[1] = son1;
         result->locus = son0->locus;
