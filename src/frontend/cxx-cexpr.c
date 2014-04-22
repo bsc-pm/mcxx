@@ -3835,44 +3835,48 @@ const char* const_value_to_str(const_value_t* cval)
 #ifdef HAVE_INT128
                 if (cval->sign)
                 {
-                    result = signed_int128_to_str(cval->value.si);
+                    uniquestr_sprintf(&result, "(int%d_t)%s",
+                            cval->num_bytes * 8, signed_int128_to_str(cval->value.si));
                 }
                 else
                 {
-                    result = unsigned_int128_to_str(cval->value.i, 0);
+                    uniquestr_sprintf(&result, "(int%d_t)%s",
+                        cval->num_bytes * 8, unsigned_int128_to_str(cval->value.i, 0));
                 }
 #else
                 if (cval->sign)
                 {
-                    uniquestr_sprintf(&result, "%lld", cval->value.si);
+                    uniquestr_sprintf(&result, "(int%d_t)%lld",
+                        cval->num_bytes * 8, cval->value.si);
                 }
                 else
                 {
-                    uniquestr_sprintf(&result, "%llu", cval->value.i);
+                    uniquestr_sprintf(&result, "(uint%d_t)%llu",
+                        cval->num_bytes * 8, cval->value.i);
                 }
 #endif
                 break;
             }
         case CVK_FLOAT:
             {
-                uniquestr_sprintf(&result, "%f", cval->value.f);
+                uniquestr_sprintf(&result, "(float)%f", cval->value.f);
                 break;
             }
         case CVK_DOUBLE:
             {
-                uniquestr_sprintf(&result, "%f", cval->value.d);
+                uniquestr_sprintf(&result, "(double)%f", cval->value.d);
                 break;
             }
         case CVK_LONG_DOUBLE:
             {
-                uniquestr_sprintf(&result, "%Lf", cval->value.ld);
+                uniquestr_sprintf(&result, "(long double)%Lf", cval->value.ld);
                 break;
             }
 #ifdef HAVE_QUADMATH_H
         case CVK_FLOAT128:
             {
                 char c[256];
-                quadmath_snprintf (c, 256, "%Q", cval->value.f128);
+                quadmath_snprintf (c, 256, "(float128)%Q", cval->value.f128);
                 c[255] = '\0';
                 result = uniquestr(c);
                 break;
