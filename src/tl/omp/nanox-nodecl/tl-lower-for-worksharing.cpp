@@ -43,10 +43,12 @@ namespace TL { namespace Nanox {
             TL::Symbol slicer_descriptor,
             Nodecl::NodeclBase &placeholder1,
             Nodecl::NodeclBase &placeholder2,
+            Nodecl::NodeclBase &lastprivate1,
+            Nodecl::NodeclBase &lastprivate2,
             Nodecl::NodeclBase &reduction_initialization,
             Nodecl::NodeclBase &reduction_code)
     {
-        Source for_code, lastprivate_code, barrier_code;
+        Source for_code, barrier_code;
         Source instrument_before_opt, instrument_loop_opt, instrument_after_opt;
 
         TL::Symbol ind_var = range.get_induction_variable().get_symbol();
@@ -99,7 +101,7 @@ namespace TL { namespace Nanox {
                 ;
 
             for_code
-                << lastprivate_code
+                << statement_placeholder(lastprivate1)
                 << "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 << "}"
                 ;
@@ -119,7 +121,7 @@ namespace TL { namespace Nanox {
                 <<       "{"
                 <<       statement_placeholder(placeholder1)
                 <<       "}"
-                <<       lastprivate_code
+                <<       statement_placeholder(lastprivate1)
                 <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
@@ -134,7 +136,7 @@ namespace TL { namespace Nanox {
                 <<       "{"
                 <<          statement_placeholder(placeholder2)
                 <<       "}"
-                <<       lastprivate_code
+                <<       statement_placeholder(lastprivate2)
                 <<       "err = nanos_worksharing_next_item(" << slicer_descriptor.get_name() << ", (void**)&nanos_item_loop);"
                 <<   "}"
                 << "}"
@@ -230,8 +232,6 @@ namespace TL { namespace Nanox {
             reduction_code_src << statement_placeholder(reduction_code);
         }
 
-        lastprivate_code << update_lastprivates(outline_info, "nanos_item_loop");
-
         if (!distribute_environment.find_first<Nodecl::OpenMP::BarrierAtEnd>().is_null())
         {
             barrier_code
@@ -253,6 +253,8 @@ namespace TL { namespace Nanox {
            Nodecl::NodeclBase& outline_placeholder1,
            // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
            Nodecl::NodeclBase& outline_placeholder2,
+           Nodecl::NodeclBase& lastprivate1,
+           Nodecl::NodeclBase& lastprivate2,
            Nodecl::NodeclBase& reduction_initialization,
            Nodecl::NodeclBase& reduction_code)
     {
@@ -355,6 +357,19 @@ namespace TL { namespace Nanox {
                 outline_placeholder2.replace(Nodecl::Utils::deep_copy(output_statements_filtered, outline_placeholder2, label_symbol_map2));
             }
 
+            // Lastprivate
+            Source update_lastprivates_src = update_lastprivates(outline_info, "nanos_item_loop");
+            if (!update_lastprivates_src.empty())
+            {
+                Nodecl::NodeclBase lastprivates_tree = update_lastprivates_src.parse_statement(lastprivate1);
+                lastprivate1.replace(lastprivates_tree);
+                if (!lastprivate2.is_null())
+                {
+                    lastprivates_tree = update_lastprivates_src.parse_statement(lastprivate2);
+                    lastprivate2.replace(lastprivates_tree);
+                }
+            }
+
             if (there_are_reductions(outline_info))
             {
                 reduction_initialization_code(outline_info, reduction_initialization, construct);
@@ -450,7 +465,9 @@ namespace TL { namespace Nanox {
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 
-        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2, reduction_initialization, reduction_code;
+        Nodecl::NodeclBase outline_placeholder1, outline_placeholder2,
+            lastprivate1, lastprivate2,
+            reduction_initialization, reduction_code;
         Source outline_distribute_loop_source = get_loop_distribution_source_worksharing(construct,
                 distribute_environment,
                 range,
@@ -458,6 +475,8 @@ namespace TL { namespace Nanox {
                 slicer_descriptor,
                 outline_placeholder1,
                 outline_placeholder2,
+                lastprivate1,
+                lastprivate2,
                 reduction_initialization,
                 reduction_code);
 
@@ -469,6 +488,8 @@ namespace TL { namespace Nanox {
                 outline_distribute_loop_source,
                 outline_placeholder1,
                 outline_placeholder2,
+                lastprivate1,
+                lastprivate2,
                 reduction_initialization,
                 reduction_code);
     }
