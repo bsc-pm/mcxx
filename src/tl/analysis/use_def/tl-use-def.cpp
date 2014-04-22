@@ -759,53 +759,135 @@ namespace {
         }
     }
 
-    sym_to_nodecl_map map_reference_params_to_args( ObjectList<TL::Symbol> parameters,
-                                                    Nodecl::List arguments )
+    ObjectList<Nodecl::NodeclBase> get_all_modifiable_arguments( ObjectList<TL::Symbol> parameters,
+                                                                 Nodecl::List arguments )
     {
-        sym_to_nodecl_map ref_params_to_args;
+        ObjectList<Nodecl::NodeclBase> ref_args;
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
 
-        //TODO: parameters.size() must be == to arguments.size()
+        // Check arguments corresponding to non-ellipsis parameters
+        // Note #params > #args => default arguments: 
+        // this cannot happen because default parameters are inserted by convenience 
+        // in the AST representing the call to the function
+        // Example:
+        // void foo(int a = A);
+        // void bar() {
+        //     foo();      ->       foo(/*A*/)   
+        // }
         for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( ( param_type.is_any_reference( ) || param_type.is_pointer( ) ) )
-                ref_params_to_args[*itp] = *ita;
+            {
+                Nodecl::NodeclBase modifiable_arg;
+                if(ita->is<Nodecl::DefaultArgument>())
+                    modifiable_arg = ita->as<Nodecl::DefaultArgument>().get_argument();
+                else
+                    modifiable_arg = *ita;
+                if(modifiable_arg.is<Nodecl::Reference>())
+                    modifiable_arg = modifiable_arg.as<Nodecl::Reference>().get_rhs();
+                ref_args.append(modifiable_arg);
+            }
+        }
+        
+        // If #args > #params => (ellipsis parameter) These arguments must be analyzed as well
+        if(ita!=arguments.end())
+        {
+            while(ita!=arguments.end())
+            {
+                Nodecl::NodeclBase base_ita = Utils::get_nodecl_base(*ita);
+                if(!base_ita.is_null())
+                {
+                    Type arg_type = base_ita.get_type();
+                    if(arg_type.is_lvalue_reference())
+                        arg_type = arg_type.references_to();
+                    if(arg_type.is_any_reference() || arg_type.is_pointer())
+                    {
+                        ref_args.append(*ita);
+                    }
+                }
+                ++ita;
+            }
         }
 
-        return ref_params_to_args;
+        return ref_args;
     }
 
-    sym_to_nodecl_map map_non_reference_params_to_args( ObjectList<TL::Symbol> parameters,
-                                                        Nodecl::List arguments )
+    ObjectList<Nodecl::NodeclBase> get_all_non_modifiable_arguments( ObjectList<TL::Symbol> parameters,
+                                                                     Nodecl::List arguments )
     {
-        sym_to_nodecl_map non_ref_params_to_args;
+        ObjectList<Nodecl::NodeclBase> non_ref_args;
 
         ObjectList<TL::Symbol>::iterator itp = parameters.begin( );
         Nodecl::List::iterator ita = arguments.begin( );
 
-        //TODO: parameters.size() must be == to arguments.size()
+        // Check arguments corresponding to non-ellipsis parameters
+        // Note #params > #args => default arguments: 
+        // this cannot happen because default parameters are inserted by convenience
+        // in the AST representing the call to the function
+        // Example:
+        // void foo(int a = A);
+        // void bar() {
+        //     foo();      ->       foo(/*A*/)   
+        // }
         for( ; ( ita != arguments.end( ) ) && ( itp != parameters.end( ) ); ++itp, ++ita )
         {
             Type param_type = itp->get_type( );
             if( !param_type.is_any_reference( ) && !param_type.is_pointer( ) )
             {
-                // If some memory access in the argument is a symbol, then we add the tuple to the map
+                // If some memory access in the argument is a symbol, then we add it to the result list
+                // because it has to be analyzed as a used variable
                 ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
                 for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
                 {
                     if( !it->is_constant( ) )
                     {
-                        non_ref_params_to_args[*itp] = *ita;
+                        Nodecl::NodeclBase modifiable_arg;
+                        if(ita->is<Nodecl::DefaultArgument>())
+                            modifiable_arg = ita->as<Nodecl::DefaultArgument>().get_argument();
+                        else
+                            modifiable_arg = *ita;
+                        if(modifiable_arg.is<Nodecl::Reference>())
+                            modifiable_arg = modifiable_arg.as<Nodecl::Reference>().get_rhs();
+                        non_ref_args.append(modifiable_arg);
                         break;
                     }
                 }
             }
         }
+        
+        // If #args > #params => (ellipsis parameter) These arguments must be analyzed as well
+        if(ita!=arguments.end())
+        {
+            while(ita!=arguments.end())
+            {
+                Nodecl::NodeclBase base_ita = Utils::get_nodecl_base(*ita);
+                if(!base_ita.is_null())
+                {
+                    Type arg_type = base_ita.get_type();
+                    if(arg_type.is_lvalue_reference())
+                        arg_type = arg_type.references_to();
+                    if(!arg_type.is_any_reference() && !arg_type.is_pointer())
+                    {
+                        // If some memory access in the argument is a symbol, then we add the tuple to the map
+                        ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *ita );
+                        for( ObjectList<Nodecl::NodeclBase>::iterator it = obj.begin( ); it != obj.end( ); ++it )
+                        {
+                            if( !it->is_constant( ) )
+                            {
+                                non_ref_args.append(*ita);
+                                break;
+                            }
+                        }
+                    }
+                }
+                ++ita;
+            }
+        }
 
-        return non_ref_params_to_args;
+        return non_ref_args;
     }
 }
 
@@ -1249,7 +1331,7 @@ namespace {
                     set_var_usage_to_node( undef_vars, Utils::UsageKind::UNDEFINED );
                 }
                 else
-                {   // We are arguments are used when calling the function
+                {   // All arguments are used when calling the function
                     for( Nodecl::List::const_iterator it = arguments.begin( ); it != arguments.end( ); ++it )
                     {
                         ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *it );
@@ -1369,29 +1451,33 @@ namespace {
                             Utils::ext_sym_set undef = _node->get_undefined_behaviour_vars( );
 
                             // Set all reference parameters to undefined
-                            sym_to_nodecl_map ref_params = map_reference_params_to_args( params, arguments );
-                            for( sym_to_nodecl_map::iterator it = ref_params.begin( ); it != ref_params.end( ); ++it )
+                            ObjectList<Nodecl::NodeclBase> ref_params = get_all_modifiable_arguments( params, arguments );
+                            for( ObjectList<Nodecl::NodeclBase>::iterator it = ref_params.begin( ); it != ref_params.end( ); ++it )
                             {
-                                if( Nodecl::Utils::nodecl_is_modifiable_lvalue( it->second ) &&
-                                    Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ).is_null( ) &&
-                                    Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ).is_null( ) )
+                                Nodecl::NodeclBase current_arg = *it;
+                                // FIXME If an enclosed part is already in a different set, then we should split the object here
+                                if( /*Nodecl::Utils::nodecl_is_modifiable_lvalue( current_arg ) &&*/
+                                    Utils::ext_sym_set_contains_enclosing_nodecl( current_arg, killed ).is_null( ) &&
+                                    Utils::ext_sym_set_contains_enclosed_nodecl( current_arg, killed ).is_null( ) )
                                 {
                                     _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                                        Utils::ExtendedSymbol( it->second ) );
+                                        Utils::ExtendedSymbol( current_arg ) );
                                 }
                             }
 
-                            // Set the value passed parameters as upper exposed
-                            sym_to_nodecl_map non_ref_params = map_non_reference_params_to_args( params, arguments );
-                            for( sym_to_nodecl_map::iterator it = non_ref_params.begin( ); it != non_ref_params.end( ); ++it )
+                            // Set the values passed parameters as upper exposed
+                            ObjectList<Nodecl::NodeclBase> non_ref_args = get_all_non_modifiable_arguments( params, arguments );
+                            for( ObjectList<Nodecl::NodeclBase>::iterator it = non_ref_args.begin( ); it != non_ref_args.end( ); ++it )
                             {
-                                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( it->second );
+                                Nodecl::NodeclBase current_arg = *it;
+                                ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( current_arg );
                                 for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
                                 {
-                                    if( Utils::ext_sym_set_contains_enclosing_nodecl( it->second, killed ).is_null( ) &&
-                                        Utils::ext_sym_set_contains_enclosed_nodecl( it->second, killed ).is_null( ) &&
-                                        Utils::ext_sym_set_contains_enclosing_nodecl( it->second, undef ).is_null( ) &&
-                                        Utils::ext_sym_set_contains_enclosed_nodecl( it->second, undef ).is_null( ) )
+                                    // FIXME If an enclosed part is already in a different set, then we should split the object here
+                                    if( Utils::ext_sym_set_contains_enclosing_nodecl( current_arg, killed ).is_null( ) &&
+                                        Utils::ext_sym_set_contains_enclosed_nodecl( current_arg, killed ).is_null( ) &&
+                                        Utils::ext_sym_set_contains_enclosing_nodecl( current_arg, undef ).is_null( ) &&
+                                        Utils::ext_sym_set_contains_enclosed_nodecl( current_arg, undef ).is_null( ) )
                                     {
                                         _node->add_ue_var( Utils::ExtendedSymbol( *it_o ) );
                                     }
