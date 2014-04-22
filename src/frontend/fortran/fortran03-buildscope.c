@@ -5292,7 +5292,12 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                 // Stop the madness here
                 if (current_attr_spec.is_codimension)
                 {
-                    running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                    error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                }
+
+                if (current_attr_spec.is_asynchronous)
+                {
+                    error_printf("%s: sorry: ASYNCHRONOUS attribute not supported\n", ast_location(declaration));
                 }
 
                 if (current_attr_spec.is_dimension 
@@ -7884,6 +7889,11 @@ static void build_scope_declaration_common_stmt(AST a, decl_context_t decl_conte
         if (current_attr_spec.is_codimension)
         {
             error_printf("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+        }
+
+        if (current_attr_spec.is_asynchronous)
+        {
+            error_printf("%s: sorry: ASYNCHRONOUS attribute not supported\n", ast_location(declaration));
         }
 
         if (current_attr_spec.is_dimension
