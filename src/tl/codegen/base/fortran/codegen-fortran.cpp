@@ -3761,6 +3761,8 @@ OPERATOR_TABLE
                     attribute_list += ", PRIVATE";
                 }
             }
+            if (entry.is_contiguous())
+                attribute_list += ", CONTIGUOUS";
             if (entry.get_type().is_volatile()
                     && !entry.is_member())
                 attribute_list += ", VOLATILE";

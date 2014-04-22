@@ -641,6 +641,14 @@ namespace TL
               */
             bool is_optional() const;
 
+            //! This symbol is CONTIGUOUS
+            /*!
+              States whether this assumed-shape array or pointer to array is contiguous
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_contiguous() const;
+
             //! This Fortran program unit has a global SAVE
             /*!
              * States whether this program unit has a SAVE specifier with an empty name-list
