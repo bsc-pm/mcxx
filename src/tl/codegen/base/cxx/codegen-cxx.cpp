@@ -2004,7 +2004,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 if (assignment_operator)
                     needs_parentheses = needs_parentheses || (same_operation(node, arguments[0])
                             // Extra check for function calls
-                            && (arguments[0].get_kind() != node.get_kind()));
+                            && (arguments[0].no_conv().get_kind() != node.get_kind()));
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -2019,7 +2019,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                     needs_parentheses = needs_parentheses
                         || (same_operation(node, arguments[1])
                                 // Extra check for function calls
-                                && (arguments[1].get_kind() != node.get_kind()));
+                                && (arguments[1].no_conv().get_kind() != node.get_kind()));
 
                 if (needs_parentheses)
                     *(file) << "(";
