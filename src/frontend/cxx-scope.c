@@ -1923,7 +1923,7 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
         scope_t* scope_of_using,
         scope_t* current_scope,
         int *num_associated_namespaces,
-        associated_namespace_t associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES])
+        associated_namespace_t **associated_namespaces)
 {
     int i;
     for (i = 0; i < current_scope->num_used_namespaces; i++)
@@ -1939,16 +1939,16 @@ static void transitive_add_using_namespaces(decl_flags_t decl_flags,
 
         for (j = 0; j < (*num_associated_namespaces) && !found; j++)
         {
-            found = (associated_namespaces[j].nominated == current_scope->use_namespace[i]);
+            found = ((*associated_namespaces)[j].nominated == current_scope->use_namespace[i]);
         }
         if (!found)
         {
-            ERROR_CONDITION((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES,
-                "Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
-            associated_namespaces[(*num_associated_namespaces)].scope_of_using = scope_of_using;
-            associated_namespaces[(*num_associated_namespaces)].nominated = current_scope->use_namespace[i];
-            associated_namespaces[(*num_associated_namespaces)].visited = 0;
-            (*num_associated_namespaces)++;
+            associated_namespace_t assoc_namespace;
+            assoc_namespace.scope_of_using = scope_of_using;
+            assoc_namespace.nominated = current_scope->use_namespace[i];
+            assoc_namespace.visited = 0;
+
+            P_LIST_ADD(*associated_namespaces, *num_associated_namespaces, assoc_namespace);
 
             transitive_add_using_namespaces(decl_flags,
                     scope_of_using,
@@ -2001,9 +2001,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
     scope_entry_list_t* result = NULL;
 
+    associated_namespace_t* associated_namespaces = NULL;
     int num_associated_namespaces = 0;
-    associated_namespace_t associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
-    memset(associated_namespaces, 0, sizeof(associated_namespaces));
 
     scope_t* current_scope = decl_context.current_scope;
 
@@ -2014,7 +2013,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
                 current_scope, 
                 current_scope,
                 &num_associated_namespaces, 
-                associated_namespaces);
+                &associated_namespaces);
 
         if (current_scope->kind == CLASS_SCOPE)
         {
@@ -2154,11 +2153,14 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
         if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
+            xfree(associated_namespaces);
             return result;
         }
 
         current_scope = current_scope->contained_in;
     }
+
+    xfree(associated_namespaces);
 
     return result;
 }
