@@ -1081,6 +1081,70 @@ namespace TL { namespace OpenMP {
             const TL::PragmaCustomLine& pragma_line,
             Nodecl::List& environment)
     {
+        // Aligned
+        PragmaCustomClause aligned_clause = pragma_line.get_clause("aligned");
+
+        if (aligned_clause.is_defined())
+        {
+            TL::ObjectList<std::string> arg_clauses_list = aligned_clause.get_raw_arguments();
+
+            TL::ExpressionTokenizerTrim colon_tokenizer(':');
+            TL::ExpressionTokenizerTrim comma_tokenizer(',');
+
+            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
+                    it != arg_clauses_list.end();
+                    it++)
+            {
+                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
+
+                int colon_splited_list_size = colon_splited_list.size();
+
+                ERROR_CONDITION((colon_splited_list_size <= 0) ||
+                        (colon_splited_list_size > 2),
+                        "'aligned' clause has a wrong format", 0);
+
+                Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
+
+                if (colon_splited_list_size == 2)
+                {
+                    TL::Source colon_src;
+                    colon_src << colon_splited_list.back();
+
+                    Nodecl::NodeclBase nodecl_alignment = colon_src.parse_expression(
+                            pragma_line.retrieve_context());
+
+                    ERROR_CONDITION(!nodecl_alignment.is<Nodecl::IntegerLiteral>(),
+                            "wrong alignment in 'aligned' clause", 0);
+
+                    alignment = nodecl_alignment.as<Nodecl::IntegerLiteral>();
+                }
+
+                TL::ObjectList<std::string> comma_splited_list = comma_tokenizer.tokenize(
+                        colon_splited_list.front());
+
+                Nodecl::List aligned_variables = 
+                    Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
+                                comma_splited_list, pragma_line));
+
+                environment.append(
+                        Nodecl::OpenMP::Aligned::make(
+                            aligned_variables,
+                            alignment,
+                            stmt.get_locus()));
+            }
+        }
+
+        // Uniform
+        PragmaCustomClause uniform_clause = pragma_line.get_clause("uniform");
+
+        if (uniform_clause.is_defined())
+        {
+            environment.append(
+                    Nodecl::OpenMP::Uniform::make(
+                        Nodecl::List::make(uniform_clause.get_arguments_as_expressions()),
+                        stmt.get_locus()));
+        }
+
         // Suitable
         PragmaCustomClause suitable_clause = pragma_line.get_clause("suitable");
 
@@ -1214,58 +1278,7 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        // Aligned
-        PragmaCustomClause aligned_clause = pragma_line.get_clause("aligned");
 
-        if (aligned_clause.is_defined())
-        {
-            TL::ObjectList<std::string> arg_clauses_list = aligned_clause.get_raw_arguments();
-
-            TL::ExpressionTokenizerTrim colon_tokenizer(':');
-            TL::ExpressionTokenizerTrim comma_tokenizer(',');
-
-            for(TL::ObjectList<std::string>::iterator it = arg_clauses_list.begin();
-                    it != arg_clauses_list.end();
-                    it++)
-            {
-                TL::ObjectList<std::string> colon_splited_list = colon_tokenizer.tokenize(*it);
-
-                int colon_splited_list_size = colon_splited_list.size();
-
-                ERROR_CONDITION((colon_splited_list_size <= 0) ||
-                        (colon_splited_list_size > 2),
-                        "'aligned' clause has a wrong format", 0);
-
-                Nodecl::IntegerLiteral alignment = const_value_to_nodecl(const_value_get_zero(4, 1));
-
-                if (colon_splited_list_size == 2)
-                {
-                    TL::Source colon_src;
-                    colon_src << colon_splited_list.back();
-
-                    Nodecl::NodeclBase nodecl_alignment = colon_src.parse_expression(
-                            pragma_line.retrieve_context());
-
-                    ERROR_CONDITION(!nodecl_alignment.is<Nodecl::IntegerLiteral>(),
-                            "wrong alignment in 'aligned' clause", 0);
-
-                    alignment = nodecl_alignment.as<Nodecl::IntegerLiteral>();
-                }
-
-                TL::ObjectList<std::string> comma_splited_list = comma_tokenizer.tokenize(
-                        colon_splited_list.front());
-
-                Nodecl::List aligned_variables = 
-                    Nodecl::List::make(Nodecl::Utils::get_strings_as_expressions(
-                                comma_splited_list, pragma_line));
-
-                environment.append(
-                        Nodecl::OpenMP::Aligned::make(
-                            aligned_variables,
-                            alignment,
-                            stmt.get_locus()));
-            }
-        }
     }
 
     // SIMD Statement

@@ -39,6 +39,7 @@ namespace Vectorization
             const bool fast_math,
             const TL::Type& target_type,
             const aligned_expr_map_t& aligned_expr_map,
+            const objlist_nodecl_t& uniform_expr_list,
             const objlist_nodecl_t& suitable_expr_list,
             const nontmp_expr_map_t& nontemporal_expr_list,
             const VectorizerCache& vectorizer_cache,
@@ -51,6 +52,7 @@ namespace Vectorization
         _fast_math(fast_math),
         _target_type(target_type),
         _aligned_expr_map(aligned_expr_map),
+        _uniform_expr_list(uniform_expr_list),
         _suitable_expr_list(suitable_expr_list),
         _nontemporal_expr_map(nontemporal_expr_list),
         _vectorizer_cache(vectorizer_cache),
@@ -62,6 +64,12 @@ namespace Vectorization
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);
+    }
+
+    VectorizerEnvironment::~VectorizerEnvironment()
+    {
+        _inside_inner_masked_bb.pop_back();
+        _mask_check_bb_cost.pop_back();
     }
 
     void VectorizerEnvironment::load_environment(
@@ -85,12 +93,6 @@ namespace Vectorization
 
         _mask_list.clear();
         _analysis_scopes.clear();
-    }
-
-    VectorizerEnvironment::~VectorizerEnvironment()
-    {
-        _inside_inner_masked_bb.pop_back();
-        _mask_check_bb_cost.pop_back();
     }
 }
 }
