@@ -441,7 +441,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_constant(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::is_constant(
+        bool result = Analysis::AnalysisInterface::is_constant(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -453,7 +453,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& s)
     {
-        bool result = Analysis::AnalysisStaticInfo::has_been_defined(
+        bool result = Analysis::AnalysisInterface::has_been_defined(
                 translate_input(scope), translate_input(n), translate_input(s));
 
         unregister_nodes();
@@ -464,7 +464,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::is_induction_variable(
+        bool result = Analysis::AnalysisInterface::is_induction_variable(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -475,7 +475,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_basic_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::is_basic_induction_variable(
+        bool result = Analysis::AnalysisInterface::is_basic_induction_variable(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -487,7 +487,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_non_reduction_basic_induction_variable(
                 translate_input(scope), translate_input(n));
 
@@ -501,7 +501,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
-        Nodecl::NodeclBase return_nodecl = Analysis::AnalysisStaticInfo::
+        Nodecl::NodeclBase return_nodecl = Analysis::AnalysisInterface::
             get_induction_variable_lower_bound(
                     translate_input(scope), translate_input(n));
 
@@ -515,7 +515,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n )
     {
-        Nodecl::NodeclBase return_nodecl = Analysis::AnalysisStaticInfo::
+        Nodecl::NodeclBase return_nodecl = Analysis::AnalysisInterface::
             get_induction_variable_upper_bound(
                     translate_input(scope), translate_input(n));
 
@@ -530,7 +530,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& n )
     {
         Nodecl::NodeclBase return_nodecl =
-            Analysis::AnalysisStaticInfo::get_induction_variable_increment(
+            Analysis::AnalysisInterface::get_induction_variable_increment(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -544,7 +544,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& n )
     {
         objlist_nodecl_t result =
-            translate_output(Analysis::AnalysisStaticInfo::
+            translate_output(Analysis::AnalysisInterface::
                     get_induction_variable_increment_list(
                         translate_input(scope), translate_input(n)));
 
@@ -557,7 +557,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_induction_variable_increment_one(
                 translate_input(scope), translate_input(n));
 
@@ -574,7 +574,7 @@ namespace Vectorization
                 "cannot be called from here", 0);
 
         ObjectList<Analysis::Utils::InductionVariableData*> result =
-            Analysis::AnalysisStaticInfo::get_induction_variables(
+            Analysis::AnalysisInterface::get_induction_variables(
                     translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -589,7 +589,7 @@ namespace Vectorization
             objlist_iv_data_t;
 
         objlist_iv_data_t iv_data_list =
-            Analysis::AnalysisStaticInfo::get_induction_variables(
+            Analysis::AnalysisInterface::get_induction_variables(
                     translate_input(scope), translate_input(n));
 
         objlist_nodecl_t result;
@@ -622,7 +622,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& ivs_scope,
             const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_induction_variable_dependent_expression(
                     translate_input(ivs_scope), translate_input(n));
 
@@ -635,7 +635,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             contains_induction_variable(
                 translate_input(scope), translate_input(n));
 
@@ -648,7 +648,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
-        bool result = Analysis::AnalysisStaticInfo::is_constant_access(
+        bool result = Analysis::AnalysisInterface::is_constant_access(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();
@@ -671,7 +671,7 @@ namespace Vectorization
         objlist_nodecl_t translated_suitable_expressions =
             translate_input(suitable_expressions);
 
-        result = Analysis::AnalysisStaticInfo::is_simd_aligned_access(
+        result = Analysis::AnalysisInterface::is_simd_aligned_access(
                 translate_input(scope), translate_input(n),
                 translated_aligned_expressions,
                 translated_suitable_expressions,
@@ -692,7 +692,7 @@ namespace Vectorization
         objlist_nodecl_t translated_suitable_expressions =
             translate_input(suitable_expressions);
 
-        result = Analysis::AnalysisStaticInfo::is_suitable_expression(
+        result = Analysis::AnalysisInterface::is_suitable_expression(
                 translate_input(scope), translate_input(n),
                 translated_suitable_expressions,
                 unroll_factor, alignment, vector_size_module);
@@ -701,6 +701,21 @@ namespace Vectorization
 
         return result;
     }
+
+    bool VectorizationAnalysisInterface::variable_is_constant_at_statement(
+            const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& n)
+    {
+        bool result;
+
+        result = Analysis::AnalysisInterface::variable_is_constant_at_statement(
+                translate_input(scope), translate_input(n));
+
+        unregister_nodes();
+
+        return result;
+    }
+
 
     //
     // SIMD-specific methods
@@ -774,11 +789,11 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)
     {
-        Nodecl::NodeclBase lb_analysis_copy = Analysis::AnalysisStaticInfo::
+        Nodecl::NodeclBase lb_analysis_copy = Analysis::AnalysisInterface::
             get_induction_variable_lower_bound(translate_input(n_scope),
                     translate_input(n));
 
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_induction_variable_dependent_expression(
                     translate_input(ivs_scope),
                     lb_analysis_copy);
@@ -793,11 +808,11 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)
     {
-        Nodecl::NodeclBase ub_analysis_copy = Analysis::AnalysisStaticInfo::
+        Nodecl::NodeclBase ub_analysis_copy = Analysis::AnalysisInterface::
             get_induction_variable_upper_bound(translate_input(n_scope),
                     translate_input(n));
 
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_induction_variable_dependent_expression(
                     translate_input(ivs_scope),
                     ub_analysis_copy);
@@ -812,11 +827,11 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& ivs_scope)
     {
-        Nodecl::NodeclBase step_analysis_copy = Analysis::AnalysisStaticInfo::
+        Nodecl::NodeclBase step_analysis_copy = Analysis::AnalysisInterface::
             get_induction_variable_increment(translate_input(n_scope),
                     translate_input(n));
 
-        bool result = Analysis::AnalysisStaticInfo::
+        bool result = Analysis::AnalysisInterface::
             is_induction_variable_dependent_expression(
                     translate_input(ivs_scope),
                     step_analysis_copy);
