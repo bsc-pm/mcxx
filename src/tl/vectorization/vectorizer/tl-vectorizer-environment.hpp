@@ -48,6 +48,7 @@ namespace TL
                 const bool _fast_math;
                 const TL::Type& _target_type;
                 const aligned_expr_map_t& _aligned_expr_map;
+                const objlist_nodecl_t& _uniform_expr_list;
                 const objlist_nodecl_t& _suitable_expr_list;
                 const nontmp_expr_map_t& _nontemporal_expr_map;
                 const VectorizerCache& _vectorizer_cache;
@@ -72,6 +73,7 @@ namespace TL
                         const bool fast_math,
                         const TL::Type& target_type,
                         const aligned_expr_map_t& aligned_expr_map,
+                        const objlist_nodecl_t& uniform_expr_list,
                         const objlist_nodecl_t& suitable_expr_list,
                         const nontmp_expr_map_t& nontemporal_expr_map,
                         const VectorizerCache& vectorizer_cache,

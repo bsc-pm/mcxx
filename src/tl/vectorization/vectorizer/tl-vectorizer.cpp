@@ -34,6 +34,7 @@
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
+#include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 
@@ -133,6 +134,10 @@ namespace Vectorization
         {
             fprintf(stderr, "VECTORIZER: ----- Vectorizing Parallel -----\n");
         }
+
+        VectorizerVisitorStatement visitor_stmt(environment, 
+                /* cache enabled */ true);
+        visitor_stmt.walk(statements);
 
         VECTORIZATION_DEBUG()
         {

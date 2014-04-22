@@ -35,7 +35,7 @@ namespace
 {
     // TODO Complete this node, some cases are not properly handled
     void combine_ranges( ObjectList<Utils::RangeValue_tag>& original,
-                                ObjectList<Utils::RangeValue_tag> new_values )
+                         ObjectList<Utils::RangeValue_tag> new_values )
     {
         ObjectList<Utils::RangeValue_tag> elems_to_add;
         ObjectList<ObjectList<Utils::RangeValue_tag>::iterator> elems_to_erase;
@@ -138,7 +138,7 @@ namespace
 
     void RangeAnalysis::compute_range_analysis( )
     {
-        bool changed = true;
+//         bool changed = true;
         Node* entry = _graph->get_graph( )->get_graph_entry_node( );
 
         // Initialize range values with information about the reaching definitions out and killed variables
@@ -198,8 +198,8 @@ namespace
                     }
                     if( !values.empty( ) )
                     {
-                        Utils::RangeValue_tag rv = values[0];
-                        rv;
+//                         Utils::RangeValue_tag rv = values[0];
+//                         rv;
                     }
                     current->set_range_out( var, values );
                 }

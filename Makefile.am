@@ -1269,6 +1269,24 @@ src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
                                $(END)
 
 ##########################################################################
+# src/tl/analysis/pointers
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/pointers/libpointer_size.la
+
+src_tl_analysis_pointers_libpointer_size_la_CFLAGS = $(tl_cflags)
+src_tl_analysis_pointers_libpointer_size_la_CXXFLAGS = $(tl_cflags) $(ANALYSIS_CFLAGS)
+src_tl_analysis_pointers_libpointer_size_la_LDFLAGS = $(tl_ldflags)
+src_tl_analysis_pointers_libpointer_size_la_LIBADD = $(tl_libadd) \
+							src/tl/libtl.la \
+							$(ANALYSIS_LIBADD)
+
+src_tl_analysis_pointers_libpointer_size_la_SOURCES = \
+                               src/tl/analysis/pointers/tl-pointer-size.hpp \
+                               src/tl/analysis/pointers/tl-pointer-size.cpp \
+                               $(END)
+
+##########################################################################
 # src/tl/analysis/auto-scope
 ##########################################################################
 if BUILD_AUTO_SCOPE
@@ -1334,6 +1352,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/optimizations \
 				-I$(srcdir)/src/tl/analysis/common \
 				-I$(srcdir)/src/tl/analysis/pcfg \
+				-I$(srcdir)/src/tl/analysis/pointers \
 				-I$(srcdir)/src/tl/analysis/use_def \
 				-I$(srcdir)/src/tl/analysis/liveness \
 				-I$(srcdir)/src/tl/analysis/reach_defs \
@@ -1352,6 +1371,7 @@ src_tl_analysis_singleton_libanalysis_singleton_la_LIBADD= \
 				src/tl/optimizations/libtloptimizations.la \
 				src/tl/analysis/common/libanalysis_utils.la \
 				src/tl/analysis/pcfg/libpcfg.la \
+				src/tl/analysis/pointers/libpointer_size.la \
 				src/tl/analysis/use_def/libuse_def.la \
 				src/tl/analysis/liveness/libliveness.la \
 				src/tl/analysis/reach_defs/libreaching_definitions.la \

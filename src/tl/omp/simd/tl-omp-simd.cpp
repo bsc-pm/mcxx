@@ -215,6 +215,10 @@ namespace TL {
             aligned_expr_map_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
+            // Uniform clause
+            objlist_nodecl_t uniform_expressions;
+            process_uniform_clause(simd_environment, uniform_expressions);
+
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
             process_suitable_clause(simd_environment, suitable_expressions);
@@ -251,6 +255,7 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
+                    uniform_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -445,6 +450,10 @@ namespace TL {
             aligned_expr_map_t aligned_expressions;
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
+            // Uniform clause
+            objlist_nodecl_t uniform_expressions;
+            process_uniform_clause(omp_simd_for_environment, uniform_expressions);
+
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
             process_suitable_clause(omp_simd_for_environment, suitable_expressions);
@@ -481,6 +490,7 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
+                    uniform_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -684,6 +694,10 @@ namespace TL {
             aligned_expr_map_t aligned_expressions;
             process_aligned_clause(omp_environment, aligned_expressions);
 
+            // Uniform clause
+            objlist_nodecl_t uniform_expressions;
+            process_uniform_clause(omp_environment, uniform_expressions);
+
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
             process_suitable_clause(omp_environment, suitable_expressions);
@@ -724,6 +738,7 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
+                    uniform_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -864,6 +879,10 @@ namespace TL {
             aligned_expr_map_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
+            // Uniform clause
+            objlist_nodecl_t uniform_expressions;
+            process_uniform_clause(omp_simd_parallel_environment, uniform_expressions);
+
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
             process_suitable_clause(omp_simd_parallel_environment, suitable_expressions);
@@ -900,6 +919,7 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
+                    uniform_expressions,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -995,6 +1015,19 @@ namespace TL {
 
             // Free analysis
             _vectorizer.finalize_analysis();
+        }
+
+        void SimdVisitor::process_uniform_clause(const Nodecl::List& environment,
+                objlist_nodecl_t& uniform_expressions)
+        {
+            Nodecl::OpenMP::Uniform omp_uniform =
+                environment.find_first<Nodecl::OpenMP::Uniform>();
+
+            if(!omp_uniform.is_null())
+            {
+                uniform_expressions = omp_uniform.get_uniform_expressions().
+                    as<Nodecl::List>().to_object_list();
+            }
         }
 
         void SimdVisitor::process_suitable_clause(const Nodecl::List& environment,

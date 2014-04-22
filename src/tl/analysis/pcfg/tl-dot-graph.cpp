@@ -464,6 +464,7 @@ namespace {
             case __OmpSections:
             case __OmpSimd:
             case __OmpSimdFor:
+            case __OmpSimdParallel:
             case __OmpSimdParallelFor:
             case __OmpSimdFunction:
             case __OmpSingle:

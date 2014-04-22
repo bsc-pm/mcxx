@@ -46,6 +46,7 @@
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-instantiation.h"
+#include "cxx-typededuc.h"
 
 #include "fortran03-scope.h"
 
@@ -1687,7 +1688,8 @@ char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
 {
     return entry->kind == SK_TEMPLATE_TYPE_PARAMETER
         || ((entry->kind == SK_CLASS
-                    || entry->kind == SK_FUNCTION)
+                    || entry->kind == SK_FUNCTION
+                    || (IS_CXX11_LANGUAGE && entry->kind == SK_TEMPLATE_ALIAS))
                 && is_dependent_type(entry->type_information))
         || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
 }
@@ -11450,7 +11452,8 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
     ERROR_CONDITION(entry->kind != SK_TEMPLATE, "This should be a template type\n", 0);
 
-    template_parameter_list_t* template_arguments = duplicate_template_argument_list(template_type_get_template_parameters(entry->type_information));
+    template_parameter_list_t* template_arguments =
+        duplicate_template_argument_list(template_type_get_template_parameters(entry->type_information));
     template_arguments->arguments = argument_list->arguments;
 
     // Get a specialization of this template
@@ -11463,8 +11466,66 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     }
     else
     {
+        // These are shared, so do not free them
+        template_arguments->arguments = NULL;
+        free_template_parameter_list(template_arguments);
         return NULL;
     }
+}
+
+scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,
+        decl_context_t decl_context, const locus_t* locus)
+{
+    ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
+
+    template_parameter_list_t *explicit_template_parameters = t->template_arguments;
+
+    if (explicit_template_parameters == NULL)
+        return unresolved_overloaded_type_get_overload_set(t);
+
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t *it;
+    for (it = entry_list_iterator_begin(t->overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+        if (entry->kind != SK_TEMPLATE)
+            continue;
+
+        template_parameter_list_t* type_template_parameters
+            = template_type_get_template_parameters(entry->type_information);
+        type_t* specialization_type = template_type_get_primary_type(entry->type_information);
+        scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
+        type_t* specialized_function_type = specialization_symbol->type_information;
+
+        template_parameter_list_t* template_parameters =
+            template_specialized_type_get_template_arguments(specialized_function_type);
+
+        template_parameter_list_t* argument_list = NULL;
+
+        if (deduce_arguments_from_call_to_specific_template_function(
+                    NULL, 0, specialization_type,
+                    template_parameters, type_template_parameters,
+                    decl_context, &argument_list, locus,
+                    explicit_template_parameters))
+        {
+            type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
+                    argument_list, decl_context, locus);
+
+            if (named_specialization_type == NULL)
+                continue;
+
+            scope_entry_t* specialized_symbol = named_type_get_symbol(named_specialization_type);
+
+            result = entry_list_add(result, specialized_symbol);
+        }
+    }
+
+    entry_list_iterator_free(it);
+
+    return result;
 }
 
 static rb_red_blk_tree *_zero_types_hash = NULL;
