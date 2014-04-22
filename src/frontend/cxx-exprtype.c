@@ -9318,9 +9318,9 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
 static const_value_t* cxx_nodecl_make_value_conversion(
         type_t* dest_type,
         type_t* orig_type,
-        const_value_t* val, 
+        const_value_t* val,
         char is_explicit_cast,
-        char allow_enum_to_int,
+        char allow_int_to_enum,
         const locus_t* locus)
 {
     ERROR_CONDITION(is_dependent_type(orig_type),
@@ -9340,7 +9340,7 @@ static const_value_t* cxx_nodecl_make_value_conversion(
 
     // Try again with enums
     if (!there_is_a_scs
-            && allow_enum_to_int
+            && allow_int_to_enum
             && is_enum_type(no_ref(dest_type)))
     {
         there_is_a_scs = standard_conversion_between_types(
@@ -10306,7 +10306,7 @@ static void check_nodecl_cast_expr(
                 nodecl_get_type(nodecl_casted_expr),
                 casted_value,
                 /* is_explicit_type_cast */ 1,
-                /* allow_enum_to_int */ 1,
+                /* allow_int_to_enum */ 1,
                 locus);
 
         // Propagate zero types
@@ -19966,7 +19966,7 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
             nodecl_get_type(expr),
             nodecl_get_constant(expr),
             /* is_explicit_cast */ 0,
-            /* allow_enum_to_int */ 0,
+            /* allow_int_to_enum */ 0,
             locus);
 
     // Propagate zero types
