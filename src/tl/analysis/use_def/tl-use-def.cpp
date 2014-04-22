@@ -280,12 +280,16 @@ namespace {
 
     Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained)
     {
-        Nodecl::NodeclBase result = container;
+        Nodecl::NodeclBase result = container.no_conv();
         if(contained.is<Nodecl::List>())
         {
             Nodecl::List contained_list = contained.as<Nodecl::List>();
             for(Nodecl::List::iterator it = contained_list.begin(); it != contained_list.end(); ++it)
-                result = split_var_depending_on_usage_rec(result, *it);
+            {
+                result = split_var_depending_on_usage_rec(result, it->no_conv());
+                if(result.is_null())    // If we are not able to split one element in 'contained' list, stop splitting the rest
+                    break;
+            }
         }
         else
             result = split_var_depending_on_usage_rec(result, contained);
