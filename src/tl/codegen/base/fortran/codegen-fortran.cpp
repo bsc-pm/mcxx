@@ -5406,6 +5406,10 @@ OPERATOR_TABLE
         else if (entry.is_in_module())
         {
             module = entry.in_module();
+
+            // Make sure it has been loaded
+            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+                fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else
         {
