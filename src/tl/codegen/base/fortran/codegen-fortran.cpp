@@ -842,7 +842,8 @@ OPERATOR_TABLE
 
             int length = 0;
             int *bytes = NULL;
-            const_value_string_unpack_to_int(v, &bytes, &length);
+            char is_null_ended = 0;
+            const_value_string_unpack_to_int(v, &bytes, &length, &is_null_ended);
 
             if (length == 0
                     || (::isprint(bytes[0])))
@@ -891,6 +892,11 @@ OPERATOR_TABLE
                     || (::isprint(bytes[length - 1])))
             {
                 *(file) << "\"";
+            }
+
+            if (is_null_ended)
+            {
+                *(file) << " // ACHAR(0)";
             }
 
             xfree(bytes);
@@ -1626,56 +1632,7 @@ OPERATOR_TABLE
                 }
             }
 
-            if (pos < (signed int)parameter_types.size())
-            {
-                parameter_type = parameter_types[pos];
-            }
-
-            if (!parameter_type.is_valid())
-            {
-                walk(arg);
-            }
-            else
-            {
-                if (parameter_type.is_pointer())
-                {
-                    // Several cases:
-                    //        Parameter       Argument         Pass
-                    //         non-Fortran     non-Fortran     Do nothing
-                    //         non-Fortran     Fortran         LOC
-                    //
-                    TL::Type arg_type = arg.get_type();
-                    bool is_ref = arg_type.is_any_reference();
-                    if (is_ref)
-                        arg_type = arg_type.references_to();
-                    if ((arg_type.is_pointer()
-                                && !is_fortran_representable_pointer(arg_type))
-                            || !is_ref)
-                    {
-                        if (parameter_type.points_to().get_unqualified_type().is_char())
-                        {
-                            *(file) << "(";
-                            walk(arg);
-                            *(file) << ") // ACHAR(0)";
-                        }
-                        else
-                        {
-                            walk(arg);
-                        }
-                    }
-                    else
-                    {
-                        *(file) << "LOC(";
-                        arg = advance_parenthesized_expression(arg);
-                        walk(arg);
-                        *(file) << ")";
-                    }
-                }
-                else
-                {
-                    walk(arg);
-                }
-            }
+            walk(arg);
         }
     }
 
@@ -2755,31 +2712,17 @@ OPERATOR_TABLE
         TL::Type dest_type = orig_dest_type;
         TL::Type source_type = orig_source_type;
 
-        if (dest_type.is_any_reference())
-            dest_type = dest_type.references_to();
-        if (source_type.is_any_reference())
-            source_type = source_type.references_to();
-
-        // If the cast is of the same type as the source expression
-        // we ignore it, unless for pointer types where we will
-        // cast to integer
-        if (source_type.is_same_type(dest_type))
-        {
-            walk(nest);
-            return;
-        }
-
         // C-style casts from/to int
         // or integers of different size
         if ((dest_type.is_integral_type()
                     && !dest_type.is_bool()
-                    && (source_type.is_pointer() 
-                        || (source_type.is_integral_type()
-                            && !source_type.is_bool())))
+                    && (source_type.no_ref().is_pointer() 
+                        || (source_type.no_ref().is_integral_type()
+                            && !source_type.no_ref().is_bool())))
                 // T* <- int
                 || (dest_type.is_pointer() 
-                    && source_type.is_integral_type()
-                    && !source_type.is_bool()))
+                    && source_type.no_ref().is_integral_type()
+                    && !source_type.no_ref().is_bool()))
         {
             *(file) << "INT(";
             walk(nest);
@@ -2813,17 +2756,23 @@ OPERATOR_TABLE
             *(file) << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && nest.get_type().is_any_reference()
-                && !nest.get_type().references_to().is_pointer()
-                && !is_string_literal_type(nest.get_type().get_internal_type()))
+                && source_type.is_any_reference()
+                && source_type.no_ref().is_pointer()
+                && is_fortran_representable_pointer(dest_type))
         {
             // We need a LOC here
             *(file) << "LOC(";
-            nest = advance_parenthesized_expression(nest);
-            while (nest.is<Nodecl::Conversion>())
-            {
-                nest = nest.as<Nodecl::Conversion>().get_nest();
-            }
+            nest = nest.no_conv();
+            walk(nest);
+            *(file) << ")";
+        }
+        else if (dest_type.is_pointer()
+                && source_type.no_ref().is_array()
+                && !is_string_literal_type(source_type.get_internal_type()))
+        {
+            // We need a LOC here
+            *(file) << "LOC(";
+            nest = nest.no_conv();
             walk(nest);
 
             if (nest.get_symbol().is_valid()
@@ -2850,9 +2799,9 @@ OPERATOR_TABLE
         else if (
                 //  T() -> T (*)() (function to pointer)
                 (dest_type.is_pointer()
-                 && source_type.is_function())
+                 && source_type.no_ref().is_function())
                 //  T() -> int (function to integral...)
-                ||(source_type.is_function()
+                ||(source_type.no_ref().is_function()
                     && dest_type.is_integral_type()))
         {
             // We need a LOC here

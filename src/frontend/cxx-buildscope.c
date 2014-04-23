@@ -14529,7 +14529,7 @@ static void build_scope_function_definition_body(
     scope_entry_t* mercurium_pretty_function = NULL;
     {
         nodecl_t nodecl_expr = const_value_to_nodecl(
-                const_value_make_string(entry->symbol_name, strlen(entry->symbol_name)));
+                const_value_make_string_null_ended(entry->symbol_name, strlen(entry->symbol_name)));
 
         // Adjust type to include room for the final \0
         nodecl_set_type(nodecl_expr,
@@ -14572,7 +14572,7 @@ static void build_scope_function_definition_body(
             const char* nice_name =
                 print_decl_type_str(entry->type_information,
                         entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
-            const_value_t* nice_name_value = const_value_make_string(nice_name, strlen(nice_name));
+            const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
             nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
 
             // Adjust type to include room for the final \0

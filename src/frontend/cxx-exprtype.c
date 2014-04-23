@@ -1261,8 +1261,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
-    if (ASTType(expr) == AST_OCTAL_LITERAL
-            && const_value_is_zero(val))
+    if (const_value_is_zero(val))
     {
         // Get the appropiate zero value
         result = get_zero_type(result);
@@ -1987,13 +1986,13 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
         for (i = 0; i < length; i++)
             c[i] = codepoints[i];
 
-        value = const_value_make_string(c, length - 1);
+        value = const_value_make_string_null_ended(c, length - 1);
     }
     else if (is_wchar_t_type(get_unqualified_type(base_type)))
     {
         // FIXME - Should we perform a conversion as well?
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
     }
     else if (is_char16_t_type(get_unqualified_type(base_type)))
     {
@@ -2005,7 +2004,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
             "Cannot convert to UTF16LE from UTF32\n", 0);
 
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
 
         // Usually there are no surrogates, so initially allocate the same number of codepoints
         int capacity_out = num_codepoints;
@@ -2069,7 +2068,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
     else if (is_char32_t_type(get_unqualified_type(base_type)))
     {
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
     }
     else
     {
@@ -3210,18 +3209,18 @@ type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs,
         type_t* result = compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
 
         if (is_pointer_and_integral_type(
-                    no_ref(lhs_type), 
+                    no_ref(lhs_type),
                     no_ref(rhs_type)))
         {
             unary_record_conversion_to_result(result, lhs);
             unary_record_conversion_to_result(no_ref(rhs_type), rhs);
         }
         else if (is_pointer_and_integral_type(
-                    no_ref(rhs_type), 
+                    no_ref(rhs_type),
                     no_ref(lhs_type)))
         {
-            unary_record_conversion_to_result(no_ref(rhs_type), rhs);
-            unary_record_conversion_to_result(result, lhs);
+            unary_record_conversion_to_result(result, rhs);
+            unary_record_conversion_to_result(no_ref(lhs_type), lhs);
         }
 
         return result;
@@ -3835,10 +3834,7 @@ static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs, const 
     }
     else if (pointer_types_are_similar(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        // FIXME, this should be the type related to ptrdiff_t (usually int)
         type_t* result = get_ptrdiff_t_type();
-
-        binary_record_conversion_to_result(result, lhs, rhs);
         return result;
     }
     // Vector case
@@ -4349,6 +4345,25 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             result_type = get_bool_type();
         }
         ERROR_CONDITION(result_type == NULL, "Code unreachable", 0);
+
+        // Lvalue conversions
+        if (is_function_type(no_ref_lhs_type))
+        {
+            no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
+        }
+        else if (is_array_type(no_ref_lhs_type))
+        {
+            no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
+        }
+
+        if (is_function_type(no_ref_rhs_type))
+        {
+            no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
+        }
+        else if (is_array_type(no_ref_rhs_type))
+        {
+            no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
+        }
 
         unary_record_conversion_to_result(no_ref_lhs_type, lhs);
         unary_record_conversion_to_result(no_ref_rhs_type, rhs);
@@ -4970,22 +4985,42 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
             || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
         return;
 
-    // Classes have their own operators
-    if (is_class_type(no_ref(lhs_type)))
+    type_t* rhs_type = NULL;
+
+    if (is_promoteable_integral_type(no_ref(lhs_type)))
+    {
+        rhs_type = promote_integral_type(no_ref(lhs_type));
+    }
+    else if (is_integral_type(no_ref(lhs_type))
+            || is_floating_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else if (is_enum_type(no_ref(lhs_type))
+            || is_pointer_to_member_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else if (is_pointer_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else
+    {
+        // No builtin is possible for any other type
         return;
+    }
 
     parameter_info_t parameters[2] =
     {
-        { 
+        {
             .is_ellipsis = 0,
             .type_info = lhs_type,
             .nonadjusted_type_info = NULL
         },
         {
             .is_ellipsis = 0,
-            .type_info = get_lvalue_reference_type(
-                    get_const_qualified_type(
-                        reference_type_get_referenced_type(lhs_type))),
+            .type_info = rhs_type,
             .nonadjusted_type_info = NULL
         }
     };
@@ -5132,17 +5167,18 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         {
             // Keep conversions
             if (!equivalent_types(
-                        get_unqualified_type(no_ref(nodecl_get_type(*lhs))), 
+                        get_unqualified_type(no_ref(nodecl_get_type(*lhs))),
                         get_unqualified_type(no_ref(result))))
             {
                 *lhs = cxx_nodecl_make_conversion(*lhs, result,
                         nodecl_get_locus(*lhs));
             }
             if (!equivalent_types(
-                        get_unqualified_type(no_ref(nodecl_get_type(*rhs))), 
+                        get_unqualified_type(no_ref(nodecl_get_type(*rhs))),
                         get_unqualified_type(no_ref(result))))
             {
-                *rhs = cxx_nodecl_make_conversion(*rhs, result,
+                *rhs = cxx_nodecl_make_conversion(*rhs,
+                        no_ref(result),
                         nodecl_get_locus(*rhs));
             }
 
@@ -5185,7 +5221,7 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 
     if (both_operands_are_arithmetic(no_ref(rhs_type), no_ref(lhs_type), locus))
     {
-        unary_record_conversion_to_result(lhs_type, rhs);
+        unary_record_conversion_to_result(no_ref(lhs_type), rhs);
 
         return lhs_type;
     }
@@ -11974,8 +12010,13 @@ static void check_nodecl_function_call_cxx(
 
     // Update the unresolved call with all the conversions
     {
-        // Starting from 0 would be a conversion of 'this' which does not apply here
-        int arg_i = 1;
+        int arg_i = 0;
+        if (overloaded_call->entity_specs.is_member)
+        {
+            // We ignore the conversor of this parameter
+            arg_i = 1;
+        }
+
         // Set conversors of arguments if needed
         num_items = 0;
         list = nodecl_unpack_list(nodecl_argument_list, &num_items);
@@ -19953,8 +19994,11 @@ static void error_message_overload_failed(candidate_t* candidates,
     }
 
 }
- 
-nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
+
+static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
+        type_t* dest_type,
+        const locus_t* locus,
+        char verify_conversion)
 {
     ERROR_CONDITION(nodecl_expr_is_type_dependent(expr),
             "Do not call this function on type dependent expressions", 0);
@@ -19981,12 +20025,30 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
         }
     }
 
+    if (verify_conversion)
+    {
+        standard_conversion_t scs;
+        char there_is_a_scs = standard_conversion_between_types(
+                &scs, nodecl_get_type(expr),
+                get_unqualified_type(dest_type), locus);
+        ERROR_CONDITION(!there_is_a_scs, "At this point (%s) there should be a SCS from '%s' to '%s'\n",
+                locus_to_str(locus),
+                print_declarator(nodecl_get_type(expr)),
+                print_declarator(get_unqualified_type(dest_type)));
+    }
+
     nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
 
     nodecl_set_constant(result, val);
     nodecl_expr_set_is_value_dependent(result, is_value_dep);
 
     return result;
+}
+
+nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
+{
+    return cxx_nodecl_make_conversion_internal(expr, dest_type, locus,
+            /* verify conversion */ 1);
 }
 
 static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_function_code)
@@ -20522,18 +20584,32 @@ nodecl_t cxx_nodecl_make_function_call(
         {
             type_t* param_type = function_type_get_parameter_type_num(function_type, j);
 
-            if (!equivalent_types(
-                        get_unqualified_type(no_ref(param_type)),
-                        get_unqualified_type(no_ref(arg_type))))
+            char verify_conversion = 1;
+            C_LANGUAGE()
             {
-                list[i] = cxx_nodecl_make_conversion(list[i],
+                // Do not verify functions lacking prototype or parameter types that
+                // are transparent unions, their validity has been verified elsewhere
+                // and do not fit the regular SCS code
+                verify_conversion = !(
+                        function_type_get_lacking_prototype(function_type)
+                        || (is_class_type(param_type)
+                            && (is_transparent_union(param_type)
+                                || is_transparent_union(get_actual_class_type(param_type))))
+                        );
+            }
+
+            if (!equivalent_types(
+                        get_unqualified_type(arg_type),
+                        get_unqualified_type(param_type)))
+            {
+                list[i] = cxx_nodecl_make_conversion_internal(list[i],
                         param_type,
-                        nodecl_get_locus(list[i]));
+                        nodecl_get_locus(list[i]),
+                        verify_conversion);
             }
         }
         else
         {
-
             if (is_promoting_ellipsis)
             {
                 // We do not emit diagnostic here because it is too late to take any
@@ -20548,9 +20624,10 @@ nodecl_t cxx_nodecl_make_function_call(
                         "This default argument conversion is wrong, should have been checked earlier\n",
                         0);
 
-                list[i] = cxx_nodecl_make_conversion(list[i],
+                list[i] = cxx_nodecl_make_conversion_internal(list[i],
                         default_conversion,
-                        nodecl_get_locus(list[i]));
+                        nodecl_get_locus(list[i]),
+                        /* verify_conversion */ 0);
             }
         }
 
@@ -20661,6 +20738,8 @@ nodecl_t cxx_nodecl_make_function_call(
                             || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
+                    type_t* default_param_type = function_type_get_parameter_type_num(function_type, arg_i);
+
                     instantiation_symbol_map_t* instantiation_symbol_map = NULL;
                     if (called_symbol->entity_specs.is_member)
                     {
@@ -20676,10 +20755,15 @@ nodecl_t cxx_nodecl_make_function_call(
                             instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
-                    {
-                        // Best effort
                         return new_default_argument;
-                    }
+
+                    check_nodecl_expr_initializer(new_default_argument,
+                            called_symbol->decl_context,
+                            default_param_type,
+                            &new_default_argument);
+
+                    if (nodecl_is_err_expr(new_default_argument))
+                        return new_default_argument;
 
                     converted_arg_list = nodecl_append_to_list(
                             converted_arg_list,

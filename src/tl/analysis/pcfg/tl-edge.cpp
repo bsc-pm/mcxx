@@ -121,8 +121,9 @@ namespace Analysis {
                 case __GotoEdge:    {   Nodecl::NodeclBase lab = get_label();
                                         if(!lab.is_null())
                                         {
+                                            char is_null_ended = 0;
                                             if( lab.is<Nodecl::StringLiteral>() )       // avoid printing "\"...\""
-                                                label = std::string(const_value_string_unpack_to_string(lab.get_constant()));
+                                                label = std::string(const_value_string_unpack_to_string(lab.get_constant(), &is_null_ended));
                                             else
                                                 label = lab.prettyprint( );
                                     }

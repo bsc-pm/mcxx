@@ -3579,7 +3579,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     int *bytes = NULL;
     int length = 0;
-    const_value_string_unpack_to_int(v, &bytes, &length);
+    char is_null_ended = 0;
+    const_value_string_unpack_to_int(v, &bytes, &length, &is_null_ended);
 
     type_t* base_type = get_unqualified_type(
             array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())))

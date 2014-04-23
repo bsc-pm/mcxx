@@ -1812,7 +1812,7 @@ const_value_t* const_value_make_string_from_values(int num_elements, const_value
     return result;
 }
 
-const_value_t* const_value_make_string(const char* literal, int num_elements)
+static const_value_t* const_value_make_string_internal(const char* literal, int num_elements, char add_null)
 {
     const_value_t* elements[num_elements + 1];
     memset(elements, 0, sizeof(elements));
@@ -1821,11 +1821,28 @@ const_value_t* const_value_make_string(const char* literal, int num_elements)
     {
         elements[i] = const_value_get_integer(literal[i], 1, 0);
     }
+    if (add_null)
+    {
+        elements[num_elements] = const_value_get_integer(0, 1, 0);
+        num_elements++;
+    }
 
     return const_value_make_string_from_values(num_elements, elements);
 }
 
-const_value_t* const_value_make_wstring(int* literal, int num_elements)
+const_value_t* const_value_make_string_null_ended(const char* literal, int num_elements)
+{
+    return const_value_make_string_internal(literal, num_elements, /* add_null */ 1);
+}
+
+const_value_t* const_value_make_string(const char* literal, int num_elements)
+{
+    return const_value_make_string_internal(literal, num_elements, /* add_null */ 0);
+}
+
+static const_value_t* const_value_make_wstring_internal(int* literal,
+        int num_elements,
+        char add_null)
 {
     const_value_t* elements[num_elements + 1];
     memset(elements, 0, sizeof(elements));
@@ -1834,8 +1851,23 @@ const_value_t* const_value_make_wstring(int* literal, int num_elements)
     {
         elements[i] = const_value_get_integer(literal[i], 4, 0);
     }
+    if (add_null)
+    {
+        elements[num_elements] = const_value_get_integer(0, 1, 0);
+        num_elements++;
+    }
 
     return const_value_make_string_from_values(num_elements, elements);
+}
+
+const_value_t* const_value_make_wstring(int* literal, int num_elements)
+{
+    return const_value_make_wstring_internal(literal, num_elements, /* add_null */ 0);
+}
+
+const_value_t* const_value_make_wstring_null_ended(int * literal, int num_elements)
+{
+    return const_value_make_wstring_internal(literal, num_elements, /* add_null */ 1);
 }
 
 const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
@@ -3374,13 +3406,23 @@ static const_value_t* arith_powz(const_value_t* v1, const_value_t* v2)
     }
 }
 
-void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_elements)
+void const_value_string_unpack_to_int(const_value_t* v,
+        int **values, int *num_elements,
+        char *is_null_ended)
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
     int *result = xcalloc(const_value_get_num_elements(v), sizeof(*result));
 
     int i, nels = const_value_get_num_elements(v);
+
+    if (nels > 0
+            && const_value_is_zero(v->value.m->elements[nels-1]))
+    {
+        *is_null_ended = 1;
+        nels--;
+    }
+
     for (i = 0; i < nels; i++)
     {
         result[i] = const_value_cast_to_4(v->value.m->elements[i]);
@@ -3390,10 +3432,10 @@ void const_value_string_unpack_to_int(const_value_t* v, int **values, int *num_e
     *values = result;
 }
 
-const char *const_value_string_unpack_to_string(const_value_t* v)
+const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_ended)
 {
     int *values = NULL, num_elements = 0;
-    const_value_string_unpack_to_int(v, &values, &num_elements);
+    const_value_string_unpack_to_int(v, &values, &num_elements, is_null_ended);
 
     char str[num_elements + 1];
     int i;
