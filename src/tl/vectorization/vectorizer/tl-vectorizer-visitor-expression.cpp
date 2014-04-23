@@ -755,7 +755,7 @@ namespace Vectorization
             // Vector Store
             // Constant ArraySubscript, nothing to do
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_constant_access(
+                    variable_is_constant_at_statement(
                         _environment._analysis_simd_scope,
                         lhs))
             {
@@ -1128,7 +1128,7 @@ namespace Vectorization
 
         // Vector Promotion from constant ArraySubscript
         if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_constant_access(
+                variable_is_constant_at_statement(
                     _environment._analysis_simd_scope,
                     n))
         {
@@ -1154,6 +1154,7 @@ namespace Vectorization
 
             encapsulated_symbol.replace(vector_prom);
         }
+        /* This is no longer necessary due to the new query variable_is_constant_at_statement
         // Vector promotion from ArraySubscript indexed by nested IV
         else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_nested_induction_variable_dependent_access(
@@ -1189,6 +1190,7 @@ namespace Vectorization
 
             encapsulated_symbol.replace(vector_prom);
         }
+        */
         // Cached access
         else if (_cache_enabled &&
                 _environment._vectorizer_cache.is_cached_access(n))
@@ -1462,6 +1464,33 @@ namespace Vectorization
             {
                 vectorize_basic_induction_variable(n);
             }
+            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                    variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
+            {
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr,"VECTORIZER: Promotion '%s'\n",
+                            n.prettyprint().c_str());
+                }
+
+                Nodecl::VectorPromotion vector_prom =
+                    Nodecl::VectorPromotion::make(
+                            encapsulated_symbol.shallow_copy(),
+                            Utils::get_null_mask(),
+                            Utils::get_qualified_vector_to(
+                                encapsulated_symbol_type,
+                                _environment._unroll_factor),
+                            n.get_locus());
+
+                if(encapsulated_symbol.is_constant())
+                    vector_prom.set_constant(
+                            const_value_make_vector_from_scalar(
+                                _environment._unroll_factor,
+                                encapsulated_symbol.get_constant()));
+
+                encapsulated_symbol.replace(vector_prom);
+            }
+/*
             // Vectorize NESTED IV
             else if (// Is nested IV and
                     VectorizationAnalysisInterface::_vectorizer_analysis->
@@ -1498,6 +1527,7 @@ namespace Vectorization
 
                 encapsulated_symbol.replace(vector_prom);
             }
+            */
             // Vectorize symbols declared in the SIMD scope
             else if (Utils::is_declared_in_inner_scope(
                         _environment._analysis_simd_scope,
@@ -1533,6 +1563,7 @@ namespace Vectorization
                 symbol_type_promotion(n);
             }
             // Vectorize constants
+            /*
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
             {
@@ -1559,6 +1590,7 @@ namespace Vectorization
 
                 encapsulated_symbol.replace(vector_prom);
             }
+            */
             else
             {
                 //TODO: If you are from outside of the loop -> Vector local copy.
