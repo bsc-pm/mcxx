@@ -98,8 +98,11 @@ namespace Analysis {
      */
  
     // Beter name: evolution_depends_on_iv??
-    static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
+    DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
     {
+        if(n.is<Nodecl::Undefined>())
+            return false;
+            
         // Get reaching definitions for 'n' in its corresponding node
         Node* n_node = pcfg->find_nodecl_pointer(n);
         Utils::ext_sym_map reach_defs = n_node->get_reaching_definitions_in();
@@ -107,7 +110,8 @@ namespace Analysis {
         // Get the PCFG nodes where the reaching definitions where produced
         ObjectList<Node*> reach_defs_nodes;
         for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-            reach_defs_nodes.append(pcfg->find_nodecl_pointer(it->second));
+            if(!it->second.is<Nodecl::Undefined>())
+                reach_defs_nodes.append(pcfg->find_nodecl_pointer(it->second));
         
         // For each reaching definition node:
         // 1.- check whether any of its outer nodes depend on an induction variable
@@ -205,8 +209,15 @@ end_depends:
         Utils::ext_sym_map::iterator rd_it = bounds.first;
         while(rd_it != bounds.second)
         {
+            // Note that we increment the iterator here
+            Nodecl::NodeclBase rd_it_nodecl = rd_it->second;
+            ++rd_it;
+            
+            if(rd_it_nodecl.is<Nodecl::Undefined>())
+                continue;
+            
             // Get the PCFG nodes where the reaching definitions where produced
-            Node* reach_defs_node = pcfg->find_nodecl_pointer(rd_it->second);
+            Node* reach_defs_node = pcfg->find_nodecl_pointer(rd_it_nodecl);
             if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
             {
                 Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
@@ -216,7 +227,7 @@ end_depends:
                     ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
                     for(ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
                     {
-                        ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
+                        const ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
                         for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = mem_accesses.begin(); itt != mem_accesses.end(); ++itt)
                         {
                             //TODO: translate is_constant
@@ -226,8 +237,6 @@ end_depends:
                     }
                 }
             }
-
-            ++rd_it;
         }
         
         return true;

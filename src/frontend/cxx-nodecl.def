@@ -237,7 +237,7 @@ expression : literal
            | NODECL_ERR_EXPR()
 # This one is intended to represent implicit conversions allowed by the base language
            | NODECL_CONVERSION([nest] expression) type const-value-opt
-# Ths one is used when we need an expression only for its type
+# This one is used when we need an expression only for its type
            | NODECL_DUMMY() type
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
@@ -650,6 +650,7 @@ constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
                       | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
                       
 expression : constraint_expression
+           | NODECL_UNDEFINED()
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

@@ -190,6 +190,7 @@ namespace Codegen
             Ret visit(const Nodecl::TryBlock &);
             Ret visit(const Nodecl::Type &);
             Ret visit(const Nodecl::Typeid &);
+            Ret visit(const Nodecl::Undefined &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::VectorLaneId &);
             Ret visit(const Nodecl::WhileStatement &);

@@ -42,9 +42,9 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
-        Utils::ext_sym_map _params_reach_defs;
+        Utils::ext_sym_map _undefined_reach_defs;
 
-        void generate_parameters_reaching_definitions( );
+        void generate_undefined_reaching_definitions( );
         
         //!Computes the reaching definitions of each node regarding only its inner statements
         //!Reach Out (X) = Gen (X)

@@ -772,6 +772,8 @@ namespace Analysis
                 for(Utils::ext_sym_map::iterator it = def_nodes.first; it != def_nodes.second; ++it)
                 {
                     Nodecl::NodeclBase current_def = it->second;
+                    if(current_def.is<Nodecl::Undefined>())
+                        continue;
                     Node* reach_def_node = _pcfg->find_nodecl_pointer(current_def);
                     ERROR_CONDITION(reach_def_node==NULL, "Nodecl corresponding to reaching definition %s not found\n", current_def.prettyprint().c_str() );
                     // FIXME This comparison is not enough because we can have cycles in the reaching definitions of the variables
