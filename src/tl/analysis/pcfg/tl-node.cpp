@@ -1403,13 +1403,13 @@ namespace Analysis {
         return gen_stmts;
     }
 
-    Utils::ext_sym_map Node::set_generated_stmts( Utils::ext_sym_map gen )
+    Utils::ext_sym_map Node::set_generated_stmts( const Utils::ext_sym_map& gen )
     {
         Utils::ext_sym_map gen_stmts;
         if( has_key( _GEN ) )
         {
             gen_stmts = get_data<Utils::ext_sym_map>( _GEN );
-            for( Utils::ext_sym_map::iterator it = gen.begin( ); it != gen.end( ); ++it )
+            for( Utils::ext_sym_map::const_iterator it = gen.begin( ); it != gen.end( ); ++it )
             {
                 if( gen_stmts.find( it->first ) != gen_stmts.end( ) )
                     gen_stmts.erase( it->first );
@@ -1436,26 +1436,28 @@ namespace Analysis {
         return reaching_defs_out;
     }
 
-    void Node::set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
+    void Node::set_reaching_definition_in( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                           const Nodecl::NodeclBase& stmt )
     {
         Utils::ext_sym_map reaching_defs_in = get_reaching_definitions_in( );
-        reaching_defs_in.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( var, init ) );
+        reaching_defs_in.insert( std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( var, Utils::NodeclPair(init, stmt) ) );
         set_data( _REACH_DEFS_IN, reaching_defs_in );
     }
 
-    void Node::set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in )
+    void Node::set_reaching_definitions_in( const Utils::ext_sym_map& reach_defs_in )
     {
         set_data( _REACH_DEFS_IN, reach_defs_in );
     }
 
-    void Node::set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init )
+    void Node::set_reaching_definition_out( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                            const Nodecl::NodeclBase& stmt )
     {
         Utils::ext_sym_map reaching_defs_out = get_reaching_definitions_out( );
-        reaching_defs_out.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( var, init ) );
+        reaching_defs_out.insert( std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( var, Utils::NodeclPair(init, stmt) ) );
         set_data( _REACH_DEFS_OUT, reaching_defs_out );
     }
 
-    void Node::set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out )
+    void Node::set_reaching_definitions_out( const Utils::ext_sym_map& reach_defs_out )
     {
         set_data( _REACH_DEFS_OUT, reach_defs_out );
     }
@@ -2237,7 +2239,8 @@ namespace Analysis {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
             Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
             assert_reach_defs_in.insert( 
-                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+                    std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( 
+                            rd_var, Utils::NodeclPair(rd.get_value( ), Nodecl::NodeclBase::null()) ) );
         }
         set_data( _ASSERT_REACH_DEFS_IN, assert_reach_defs_in );
     }
@@ -2259,7 +2262,8 @@ namespace Analysis {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>( );
             Utils::ExtendedSymbol rd_var( rd.get_expression( ) );
             assert_reach_defs_out.insert( 
-                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( rd_var, rd.get_value( ) ) );
+                    std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( 
+                            rd_var, Utils::NodeclPair(rd.get_value( ), Nodecl::NodeclBase::null()) ) );
         }
         set_data( _ASSERT_REACH_DEFS_OUT, assert_reach_defs_out );
     }

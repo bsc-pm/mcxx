@@ -119,7 +119,7 @@ namespace {
         Utils::ext_sym_set m_killed_vars = m_node->get_killed_vars( );
         if( ( m_reaching_defs_in.count( m ) == 1 ) && ( m_killed_vars.find( m ) == m_killed_vars.end( ) ) )
         {   // There is a unique reaching definition of the subscript and it is not defined inside the m_node node
-            Nodecl::NodeclBase m_reach_def = m_reaching_defs_in.find( m )->second;
+            Nodecl::NodeclBase m_reach_def = m_reaching_defs_in.find( m )->second.first;
             if( m_reach_def.is_constant( ) )
             {   // m definition is constant
                 modification_type = match_constant_values( n, m_reach_def, condition );
@@ -157,8 +157,8 @@ namespace {
         if( ( n_reaching_defs_in.count( n ) == 1 ) && ( n_killed_vars.find( n ) == n_killed_vars.end( ) ) &&
             ( m_reaching_defs_in.count( m ) == 1 ) && ( m_killed_vars.find( m ) == m_killed_vars.end( ) ) )
         {
-            Nodecl::NodeclBase n_reach_def = n_reaching_defs_in.find( n )->second;
-            Nodecl::NodeclBase m_reach_def = m_reaching_defs_in.find( m )->second;
+            Nodecl::NodeclBase n_reach_def = n_reaching_defs_in.find( n )->second.first;
+            Nodecl::NodeclBase m_reach_def = m_reaching_defs_in.find( m )->second.first;
 
             if( n_reach_def.is_constant( ) )
             {   // n definition is constant

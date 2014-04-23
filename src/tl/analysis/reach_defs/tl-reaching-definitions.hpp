@@ -103,7 +103,8 @@ namespace Analysis {
         Utils::ext_sym_map get_gen( );
 
         // ***************** Visiting methods ***************** //
-        void visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+        void visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs, 
+                               const Nodecl::NodeclBase& stmt );
 
         Ret visit( const Nodecl::AddAssignment& n );
         Ret visit( const Nodecl::ArithmeticShrAssignment& n );

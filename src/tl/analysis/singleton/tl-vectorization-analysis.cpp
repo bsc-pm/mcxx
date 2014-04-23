@@ -669,7 +669,8 @@ namespace Analysis {
             {
                 if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
                 {   // n has been defined previously
-                    result = definition_depends_on_iv( it->second, node );
+                    Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+                    result = definition_depends_on_iv( stmt_reach_def, node );
                 }
             }
         }
@@ -751,7 +752,8 @@ namespace Analysis {
                         {
                             if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
                             {   // 'n' is being modified
-                                result = definition_depends_on_iv( it->second, current );
+                                Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+                                result = definition_depends_on_iv( stmt_reach_def, current );
                             }
                         }
                     }
@@ -848,7 +850,8 @@ namespace Analysis {
                         {
                             if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
                             {   // 'n' is being modified
-                                result = definition_depends_on_iv( it->second, current );
+                                Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+                                result = definition_depends_on_iv( stmt_reach_def, current );
                             }
                         }
                     }
@@ -1266,16 +1269,16 @@ namespace Analysis {
             {
                 std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> def_nodes = reach_def_in.equal_range(es);
                 for(Utils::ext_sym_map::iterator it = def_nodes.first; it != def_nodes.second; ++it)
-                {
-                    Nodecl::NodeclBase current_def = it->second;
-                    Node* reach_def_node = _pcfg->find_nodecl_pointer(current_def);
-                    ERROR_CONDITION(reach_def_node==NULL, "Nodecl corresponding to reaching definition %s not found\n", current_def.prettyprint().c_str() );
+                {                    
+                    Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+                    Node* reach_def_node = _pcfg->find_nodecl_pointer(stmt_reach_def);
+                    ERROR_CONDITION(reach_def_node==NULL, "Nodecl corresponding to reaching definition %s not found\n", stmt_reach_def.prettyprint().c_str() );
                     // FIXME This comparison is not enough because we can have cycles in the reaching definitions of the variables
                     // A solution might be to store the list of nodes we have visited. In that case, this list must be reseted each time we initiate a walk
                     if(reach_def_node!=_n_node)
                     {
                         ExpressionEvolutionVisitor eev(_induction_variables, _killed, _scope_node, reach_def_node, _pcfg);
-                        eev.walk(current_def);
+                        eev.walk(stmt_reach_def);
                         reach_def_is_adjacent = eev.is_adjacent_access();
                     }
                 }

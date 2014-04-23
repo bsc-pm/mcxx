@@ -70,7 +70,7 @@ namespace Analysis {
                         Utils::ext_sym_map rdi = current->get_reaching_definitions_in( );
                         if( rdi.find( ( *it )->get_variable( ) ) != rdi.end( ) )
                         {
-                            ( *it )->set_lb( rdi.find( ( *it )->get_variable( ) )->second );
+                            ( *it )->set_lb( rdi.find( ( *it )->get_variable( ) )->second.first );
                         }
                         else
                         {

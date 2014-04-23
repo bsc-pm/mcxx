@@ -360,7 +360,7 @@ namespace Utils {
         int line_size = 0;
         for( ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
         {
-            if( it->second.is_null( ) )
+            if( it->second.first.is_null( ) )
             {
                 std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=UNKNOWN VALUE; ";
                 if( line_size + it_str.size( ) > 100 )
@@ -376,7 +376,7 @@ namespace Utils {
             }
             else
             {
-                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=" + it->second.prettyprint( ) + "; ";
+                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=" + it->second.first.prettyprint( ) + "; ";
                 if( line_size + it_str.size( ) > 100 )
                 {
                     result += "$$";

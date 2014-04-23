@@ -65,7 +65,9 @@ namespace Analysis {
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
             s.set_type(it->get_type());
             Utils::ExtendedSymbol es(s);
-            _undefined_reach_defs.insert(std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(es, Nodecl::Undefined::make()));
+            _undefined_reach_defs.insert(
+                    std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
+                            es, Utils::NodeclPair(Nodecl::Undefined::make(), Nodecl::Undefined::make())));
         }
         
         // Take care of the global variables
@@ -84,7 +86,9 @@ namespace Analysis {
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
             s.set_type(it->get_type());
             Utils::ExtendedSymbol es(s);
-            _undefined_reach_defs.insert(std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(es, reach_def));
+            _undefined_reach_defs.insert(
+                    std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
+                            es, Utils::NodeclPair(reach_def, Nodecl::NodeclBase::null())));
         }
     }
     
@@ -264,7 +268,8 @@ iterate:        ++it;
         return _gen;
     }
 
-    void GeneratedStatementsVisitor::visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
+    void GeneratedStatementsVisitor::visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs, 
+                                                       const Nodecl::NodeclBase& stmt )
     {
         if( _gen.find( lhs ) != _gen.end( ) )
         {   // Generated set only contains downwards exposed definitions
@@ -272,89 +277,90 @@ iterate:        ++it;
             // we remove it from the list
             _gen.erase( Utils::ExtendedSymbol( lhs ) );
         }
-        _gen.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( Utils::ExtendedSymbol( lhs ), rhs ) );
+        _gen.insert( std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( Utils::ExtendedSymbol( lhs ), 
+                                                                          Utils::NodeclPair(rhs, stmt) ) );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::AddAssignment& n )
     {
         Nodecl::Add rhs = Nodecl::Add::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         Nodecl::ArithmeticShr rhs = Nodecl::ArithmeticShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                                  n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Assignment& n )
     {
-        visit_assignment( n.get_lhs( ), n.get_rhs( ) );
+        visit_assignment( n.get_lhs( ), n.get_rhs( ), Nodecl::NodeclBase::null() );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         Nodecl::BitwiseAnd rhs = Nodecl::BitwiseAnd::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         Nodecl::BitwiseOr rhs = Nodecl::BitwiseOr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                          n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         Nodecl::BitwiseShl rhs = Nodecl::BitwiseShl::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         Nodecl::BitwiseShr rhs = Nodecl::BitwiseShr::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         Nodecl::BitwiseXor rhs = Nodecl::BitwiseXor::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                            n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::DivAssignment& n )
     {
         Nodecl::Div rhs = Nodecl::Div::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                                  n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ModAssignment& n )
     {
         Nodecl::Mod rhs = Nodecl::Mod::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ),  n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::MulAssignment& n )
     {
         Nodecl::Mul rhs = Nodecl::Mul::make( n.get_lhs( ).shallow_copy( ), n.get_rhs( ).shallow_copy( ),
                                              n.get_type( ), n.get_locus() );
-        visit_assignment( n.get_lhs( ), rhs );
+        visit_assignment( n.get_lhs( ), rhs, n );
     }
     
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::ObjectInit& n )
@@ -366,7 +372,8 @@ iterate:        ++it;
         // check for nested assignments
         walk( rhs );
         
-        _gen.insert( std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>( Utils::ExtendedSymbol( lhs ), rhs ) );
+        _gen.insert( std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>( Utils::ExtendedSymbol( lhs ), 
+                                                                          Utils::NodeclPair(rhs, Nodecl::NodeclBase::null()) ) );
     }
     
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postdecrement& n )
@@ -375,7 +382,7 @@ iterate:        ++it;
                                                                    n.get_locus() );
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_rhs( ).shallow_copy(), one , n.get_type( ),
                                                  n.get_locus() );
-        visit_assignment( n.get_rhs( ), rhs );
+        visit_assignment( n.get_rhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Postincrement& n )
@@ -384,7 +391,7 @@ iterate:        ++it;
                                                                    n.get_locus() );
         Nodecl::Add rhs = Nodecl::Add::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
                                              n.get_locus() );
-        visit_assignment( n.get_rhs( ), rhs );
+        visit_assignment( n.get_rhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Predecrement& n )
@@ -393,7 +400,7 @@ iterate:        ++it;
                                                                    n.get_locus() );
         Nodecl::Minus rhs = Nodecl::Minus::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
                                                  n.get_locus() );
-        visit_assignment( n.get_rhs( ), rhs );
+        visit_assignment( n.get_rhs( ), rhs, n );
     }
 
     GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit( const Nodecl::Preincrement& n )
@@ -402,7 +409,7 @@ iterate:        ++it;
                                                                    n.get_locus() );
         Nodecl::Add rhs = Nodecl::Add::make( n.get_rhs( ).shallow_copy( ), one, n.get_type( ),
                                              n.get_locus() );
-        visit_assignment( n.get_rhs( ), rhs );
+        visit_assignment( n.get_rhs( ), rhs, n );
     }
 
     // ********************** END class implementing a visitor of reaching definition ********************* //

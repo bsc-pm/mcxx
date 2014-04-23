@@ -607,7 +607,7 @@ namespace Analysis {
 
             //! Include a new map of generated values
             //! If a definition of the same variable already existed, the is substituted by the new value
-            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+            Utils::ext_sym_map set_generated_stmts( const Utils::ext_sym_map& gen );
 
             //! Return the map containing all symbols reached at the entry of the node and its reached expression
             Utils::ext_sym_map get_reaching_definitions_in( );
@@ -616,13 +616,15 @@ namespace Analysis {
             Utils::ext_sym_map get_reaching_definitions_out( );
 
             //! Set a new pair to the input reaching definitions of the node
-            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_in( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                             const Nodecl::NodeclBase& stmt );
             //! Set a new list of input reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definitions_in( const Utils::ext_sym_map& reach_defs_in );
             //! Set a new pair to the output reaching definitions of the node
-            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_out( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                              const Nodecl::NodeclBase& stmt );
             //! Set a new list of output reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
+            void set_reaching_definitions_out( const Utils::ext_sym_map& reach_defs_out );
 
             // ********** END getters and setters for reaching definitions analysis ********* //
             // ****************************************************************************** //
