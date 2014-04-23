@@ -1616,15 +1616,72 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    ObjectList<Utils::Constraint> Node::get_constraints( const Nodecl::NodeclBase& var )
+    Utils::ConstraintMap Node::get_constraints_map( )
     {
-        Utils::ConstraintMap constraints;
+        Utils::ConstraintMap constraints_map;
         if( has_key( _CONSTRAINTS ) )
-            constraints = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
-        ObjectList<Utils::Constraint> var_constraints;
-        if( constraints.find( var ) != constraints.end( ) )
-            var_constraints = constraints[var];
-        return var_constraints;
+            constraints_map = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
+        return constraints_map;
+    }
+    
+    Utils::ConstraintMap Node::get_propagated_constraints_map( )
+    {
+        Utils::ConstraintMap constraints_map;
+        if( has_key( _PROPAGATED_CONSTRAINTS ) )
+            constraints_map = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
+        return constraints_map;
+    }
+    
+    Utils::ConstraintMap Node::get_all_constraints_map( )
+    {
+        Utils::ConstraintMap constraints_map;
+        if( has_key( _PROPAGATED_CONSTRAINTS ) )
+            constraints_map = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
+        if( has_key( _CONSTRAINTS ) )
+        {
+            Utils::ConstraintMap tmp = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
+            for(Utils::ConstraintMap::iterator it = tmp.begin(); it != tmp.end(); ++it )
+                constraints_map[it->first] = it->second;
+            
+        }
+        return constraints_map;
+    }
+    
+    Utils::Constraint Node::get_constraint( const Nodecl::NodeclBase& var )
+    {
+        Utils::ConstraintMap constraints_map;
+        if( has_key( _CONSTRAINTS ) )
+            constraints_map = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
+        Utils::Constraint var_constraint;
+        if( constraints_map.find( var ) != constraints_map.end( ) )
+            var_constraint = constraints_map[var];
+        return var_constraint;
+    }
+    
+    void Node::add_constraints_map( Utils::ConstraintMap new_constraints_map )
+    {
+        Utils::ConstraintMap constraints_map = get_constraints_map();
+        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
+            constraints_map[it->first] = it->second;
+        set_data( _CONSTRAINTS, constraints_map );
+    }
+    
+    void Node::set_constraints_map( Utils::ConstraintMap constraints_map )
+    {
+        set_data( _CONSTRAINTS, constraints_map );
+    }
+    
+    void Node::add_propagated_constraints_map( Utils::ConstraintMap new_constraints_map )
+    {
+        Utils::ConstraintMap constraints_map = get_propagated_constraints_map();
+        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
+            constraints_map[it->first] = it->second;
+        set_data( _PROPAGATED_CONSTRAINTS, constraints_map );
+    }
+    
+    void Node::set_propagated_constraints_map( Utils::ConstraintMap constraints_map )
+    {
+        set_data( _PROPAGATED_CONSTRAINTS, constraints_map );
     }
     
     Utils::RangeValuesMap Node::get_ranges_in( )

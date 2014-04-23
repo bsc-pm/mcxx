@@ -36,10 +36,9 @@
 #include <tr1/unordered_map>
 #include <functional>
 
-namespace Nodecl
-{
-namespace Utils
-{
+namespace Nodecl {
+namespace Utils {
+    
     TL::ObjectList<TL::Symbol> get_all_symbols(Nodecl::NodeclBase);
     TL::ObjectList<TL::Symbol> get_nonlocal_symbols(Nodecl::NodeclBase);
     TL::ObjectList<TL::Symbol> get_local_symbols(Nodecl::NodeclBase);
@@ -69,9 +68,10 @@ namespace Utils
     bool stmtexpr_contains_nodecl_pointer( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
     bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
     bool structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
-            const bool skip_conversion_nodecls = false);
+                                    const bool skip_conversion_nodecls = false);
+    
     int structurally_cmp_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2,
-            bool skip_conversion_nodecls = false);
+                                 bool skip_conversion_nodecls = false);
     struct Nodecl_hash {
         size_t operator() (const Nodecl::NodeclBase& n) const;
     };

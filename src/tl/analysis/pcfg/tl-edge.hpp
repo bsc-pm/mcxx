@@ -56,9 +56,10 @@ namespace Analysis {
         * \param type           Type of the new edge, belonging to the enum Edge_type
         * \param label          Additional argument, when the edge will not be always taken in the graph
         *                       flow. It indicates the condition of the edge.
+        * \param is_back_edge   Boolean indicating whether the edge's target is a node that appears before in the flow
         */
         Edge( Node *source, Node *target, bool is_task_edge, Edge_type type, 
-              Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
+              Nodecl::NodeclBase label=Nodecl::NodeclBase::null( ), bool is_back_edge=false );
 
 
         // *** Getters and Setters *** //
@@ -79,6 +80,9 @@ namespace Analysis {
 
         //! Returns the boolean indicating whether the target of the edge is a Task
         bool is_task_edge( );
+        
+        //! Returns the boolean indicating whether the target of the edge is a node that appears before in the flow
+        bool is_back_edge( );
 
         /*! Returns the label of the edge.
          * \return When the label is empty, meaning the edge is always taken, an empty string is returned.

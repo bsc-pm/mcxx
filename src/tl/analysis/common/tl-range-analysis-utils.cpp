@@ -262,6 +262,42 @@ namespace Utils {
         return result;
     }
 
+    // ******************************************************************************************* //
+    // ******************************* Range Analysis Constraints ******************************** //
+    
+    Constraint::Constraint()
+        : _constr_sym(Symbol()), _constraint(Nodecl::NodeclBase::null())
+    {}
+        
+    Constraint::Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& constraint )
+        : _constr_sym( constr_sym ), _constraint( constraint )
+    {}
+        
+    TL::Symbol Constraint::get_symbol() const 
+    {
+        return _constr_sym;
+    }
+        
+    Nodecl::NodeclBase Constraint::get_constraint() const 
+    {
+        return _constraint;
+    }
+        
+    bool Constraint::operator!=(const Constraint& c) const
+    {
+        return ((this->_constr_sym != c._constr_sym) ||
+                !Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
+    }
+    
+    bool Constraint::operator==(const Constraint& c) const
+    {
+        return ((this->_constr_sym == c._constr_sym) &&
+                Nodecl::Utils::structurally_equal_nodecls(this->_constraint, c._constraint, /*skip_conversion_nodes*/true));
+    }
+    
+    // ***************************** END Range Analysis Constraints ****************************** //
+    // ******************************************************************************************* //
+    
 }
 }
 }
