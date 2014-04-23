@@ -96,7 +96,7 @@ namespace Analysis
                     Utils::ext_sym_set killed_vars = scope_node->get_killed_vars();
 
                     ExpressionEvolutionVisitor iv_v(induction_vars, killed_vars, scope_node, n_node, pcfg);
-                    iv_v.walk(n);
+                    iv_v.walk(last_dim_n);
                     result = iv_v.is_adjacent_access( );
                 }
             }
