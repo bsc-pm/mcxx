@@ -442,33 +442,6 @@ namespace Vectorization
             front().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().front().
             as<Nodecl::CompoundStatement>();
 
-        // Get mask for epilog instructions
-        Nodecl::NodeclBase mask_value;
-        if (_epilog_iterations > 0 || _only_epilog) // Constant value
-        {
-            mask_value = Vectorization::Utils::get_contiguous_mask_literal(
-                    _environment._unroll_factor,
-                    _epilog_iterations);
-        }
-        else // Unknown number of iterations
-        {
-            mask_value = for_statement.get_loop_header().
-                as<Nodecl::LoopControl>().get_cond().shallow_copy();
-
-            // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
-            Nodecl::MaskLiteral all_one_mask =
-                Vectorization::Utils::get_contiguous_mask_literal(
-                        _environment._unroll_factor,
-                        _environment._unroll_factor);
-            _environment._mask_list.push_back(all_one_mask);
-
-            // Vectorising mask
-            VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
-            visitor_mask.walk(mask_value);
-
-            _environment._mask_list.pop_back();
-        }
-
 
         Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                 _environment._analysis_simd_scope,
@@ -514,6 +487,36 @@ namespace Vectorization
         Nodecl::ExpressionStatement mask_exp;
         if (_epilog_iterations != 1)
         {
+            // Get mask for epilog instructions
+            Nodecl::NodeclBase mask_value;
+            if (_epilog_iterations > 0 || _only_epilog) // Constant value
+            {
+                mask_value = Vectorization::Utils::get_contiguous_mask_literal(
+                        _environment._unroll_factor,
+                        _epilog_iterations);
+            }
+            else // Unknown number of iterations
+            {
+                // We are not shallow_copying.
+                // It's not possible because we need to use the analysis
+                mask_value = for_statement.get_loop_header().
+                    as<Nodecl::LoopControl>().get_cond(); //.shallow_copy();
+
+                // Add all-one MaskLiteral to mask_list in order to vectorize the mask_value
+                Nodecl::MaskLiteral all_one_mask =
+                    Vectorization::Utils::get_contiguous_mask_literal(
+                            _environment._unroll_factor,
+                            _environment._unroll_factor);
+                _environment._mask_list.push_back(all_one_mask);
+
+                // Vectorising mask
+                VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
+                visitor_mask.walk(mask_value);
+
+                _environment._mask_list.pop_back();
+            }
+
+
             if (mask_nodecl_sym.get_type().no_ref().is_same_type(mask_value.get_type().no_ref()))
             {
                 //    std::cerr << "Masks have the same type" << std::endl;
