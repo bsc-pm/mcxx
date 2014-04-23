@@ -63,7 +63,6 @@ bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
-bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
 bool|all|is_nested_function|States that this function is nested inside another one
 bool|all|is_saved_expression|States that this variable is actually a phony one created to store a runtime value used elsewhere
 bool|all|gcc_extension|States that this variable has the gcc __extension__ attribute
@@ -91,6 +90,7 @@ bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 bool|fortran|is_cray_pointer|This symbol is a Cray pointer
 bool|fortran|is_saved_program_unit|States that all non-automatic entities are SAVEd in that program unit
+bool|fortran|is_contiguous|CONTIGUOUS attribute for pointers
 symbol|all|result_var|If this symbol is a function, its result variable, NULL otherwise
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|The generic symbol of an intrinsic (Fortran). The template that must be used to emit this specialization (C++)
@@ -123,7 +123,6 @@ typeof(_size_t,intptr)|all|field_offset|Offset of the storage unit of a field/no
 array(typeof(gcc_attribute_t))|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 array(typeof(gcc_attribute_t))|all|ms_attributes|MS __declspec attributes
 typeof(simplify_function_t,pointer)|all|simplify_function|Function used to simplify expressions
-typeof(emission_handler_t,pointer)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 nodecl|fortran|bind_info|Information of a BIND(lang, X)
 nodecl|all|asm_specification|__asm specification of GCC
 nodecl|all|*function_code|Nodecl statement of a function

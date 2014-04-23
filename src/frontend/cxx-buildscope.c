@@ -4667,7 +4667,10 @@ static void common_gather_type_spec_from_simple_type_specifier(AST a,
                 && entry->kind != SK_TYPEDEF
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER_PACK
-                && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
+                && (!gather_info->allow_class_template_names
+                    || entry->kind != SK_TEMPLATE
+                    // Do not allow template-names of template functions
+                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
                 && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
                 && entry->kind != SK_GCC_BUILTIN_TYPE
@@ -6117,7 +6120,7 @@ static void build_scope_ctor_initializer(
     entry_list_iterator_free(it);
 }
 
-
+#if 0
 static void apply_function_to_data_layout_members(
         scope_entry_t* entry,
         void (*fun)(scope_entry_t*, void*),
@@ -6161,14 +6164,18 @@ static void apply_function_to_data_layout_members(
     entry_list_free(direct_base_classes);
     entry_list_free(nonstatic_data_members);
 }
+#endif
 
+#if 0
 struct check_constructor_helper
 {
     const char* filename;
     const locus_t* locus;
     char has_const;
 };
+#endif
 
+#if 0
 static void ensure_default_constructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
@@ -6177,7 +6184,9 @@ static void ensure_default_constructor_is_emitted(scope_entry_t* entry, void* da
     scope_entry_t* constructor = NULL;
     check_default_initialization(entry, entry->decl_context, p->locus, &constructor);
 }
+#endif
 
+#if 0
 static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE , "Invalid symbol", 0);
@@ -6187,7 +6196,9 @@ static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
     check_copy_constructor(entry, entry->decl_context, p->has_const,
             p->locus, &constructor);
 }
+#endif
 
+#if 0
 static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
@@ -6197,7 +6208,9 @@ static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, voi
     check_copy_assignment_operator(entry, entry->decl_context, p->has_const,
             p->locus, &constructor);
 }
+#endif
 
+#if 0
 static void ensure_move_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
@@ -6207,7 +6220,9 @@ static void ensure_move_assignment_operator_is_emitted(scope_entry_t* entry, voi
     check_move_assignment_operator(entry, entry->decl_context, p->has_const,
             p->locus, &constructor);
 }
+#endif
 
+#if 0
 static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
@@ -6222,6 +6237,7 @@ static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
     ERROR_CONDITION(destructor == NULL, "Bad class %s lacking destructor", 
             print_type_str(get_user_defined_type(entry), entry->decl_context));
 }
+#endif
 
 // These functions emit special members that may have to be defined by the compiler itself
 // they ensure that every other function that might have to be called will be emitted too
@@ -6230,22 +6246,19 @@ static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 // Currently they do not generate nodecl (we are unsure what we would do with it) but maybe
 // they will have to in the future
 
+#if 0
 static void emit_implicit_default_constructor(scope_entry_t* entry, const locus_t* locus)
 {
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-
     struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_default_constructor_is_emitted, &l);
 }
+#endif
 
+#if 0
 static void emit_implicit_copy_constructor(scope_entry_t* entry,
         const locus_t* locus)
 {
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-
     char has_const = is_const_qualified_type(
             no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
 
@@ -6253,13 +6266,12 @@ static void emit_implicit_copy_constructor(scope_entry_t* entry,
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_copy_constructor_is_emitted, &l);
 }
+#endif
 
+#if 0
 static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
         const locus_t* locus)
 {
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-
     char has_const = is_const_qualified_type(
             no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
 
@@ -6267,13 +6279,12 @@ static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_copy_assignment_operator_is_emitted, &l);
 }
+#endif
 
+#if 0
 static void emit_implicit_move_assignment_operator(scope_entry_t* entry,
         const locus_t* locus)
 {
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-
     char has_const = is_const_qualified_type(
             no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
 
@@ -6281,17 +6292,17 @@ static void emit_implicit_move_assignment_operator(scope_entry_t* entry,
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_move_assignment_operator_is_emitted, &l);
 }
+#endif
 
+#if 0
 static void emit_implicit_destructor(scope_entry_t* entry,
         const locus_t* locus)
 {
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-
     struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
     apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
             ensure_destructor_is_emitted, &l);
 }
+#endif
 
 static char name_is_accessible_from_context(scope_entry_t* entry UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER)
@@ -6970,9 +6981,6 @@ static void finish_class_type_cxx(type_t* class_type,
             {
                 implicit_default_constructor->entity_specs.is_trivial = 1;
             }
-
-            implicit_default_constructor->entity_specs.is_non_emitted = 1;
-            implicit_default_constructor->entity_specs.emission_handler = emit_implicit_default_constructor;
         }
     }
 
@@ -7155,9 +7163,6 @@ static void finish_class_type_cxx(type_t* class_type,
         {
             implicit_copy_constructor->entity_specs.is_trivial = 1;
         }
-
-        implicit_copy_constructor->entity_specs.is_non_emitted = 1;
-        implicit_copy_constructor->entity_specs.emission_handler = emit_implicit_copy_constructor;
     }
 
     /*
@@ -7602,9 +7607,6 @@ static void finish_class_type_cxx(type_t* class_type,
             {
                 implicit_copy_assignment_function->entity_specs.is_trivial = 1;
             }
-
-            implicit_copy_assignment_function->entity_specs.is_non_emitted = 1;
-            implicit_copy_assignment_function->entity_specs.emission_handler = emit_implicit_copy_assignment_operator;
         }
     }
 
@@ -7833,9 +7835,6 @@ static void finish_class_type_cxx(type_t* class_type,
             {
                 implicit_move_assignment_function->entity_specs.is_trivial = 1;
             }
-
-            implicit_move_assignment_function->entity_specs.is_non_emitted = 1;
-            implicit_move_assignment_function->entity_specs.emission_handler = emit_implicit_move_assignment_operator;
         }
     }
 
@@ -7930,9 +7929,6 @@ static void finish_class_type_cxx(type_t* class_type,
         {
             implicit_destructor->entity_specs.is_trivial = 1;
         }
-
-        implicit_destructor->entity_specs.is_non_emitted = 1;
-        implicit_destructor->entity_specs.emission_handler = emit_implicit_destructor;
     }
 
     // Free temporary lists used in the function
@@ -14387,8 +14383,7 @@ static scope_entry_t* build_scope_function_definition_declarator(
         entry->entity_specs.is_nested_function = 1;
     }
 
-    if (entry->defined
-            && !entry->entity_specs.is_non_emitted)
+    if (entry->defined)
     {
         const char *funct_name = entry->symbol_name;
         CXX_LANGUAGE()
@@ -14415,12 +14410,6 @@ static scope_entry_t* build_scope_function_definition_declarator(
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
     entry->defined = 1;
-    if (entry->entity_specs.is_non_emitted)
-    {
-        entry->entity_specs.is_non_emitted = 0;
-        entry->entity_specs.emission_handler = NULL;
-        entry->entity_specs.emission_template = NULL;
-    }
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION
                 && entry->kind != SK_DEPENDENT_FRIEND_FUNCTION),
@@ -18558,7 +18547,9 @@ static inline nodecl_visitor_fun_t instantiate_stmt_visitor_fun(nodecl_instantia
 static void instantiate_stmt_not_implemented_yet(nodecl_instantiate_stmt_visitor_t* v UNUSED_PARAMETER,
         nodecl_t nodecl_stmt)
 {
-    internal_error("Statement '%s' not yet implemented\n", ast_print_node_type(nodecl_get_kind(nodecl_stmt)));
+    internal_error("Instantiation of statement '%s' at '%s' not yet implemented\n",
+            ast_print_node_type(nodecl_get_kind(nodecl_stmt)),
+            nodecl_locus_to_str(nodecl_stmt));
 }
 
 // This function does not return a NODECL_TEMPLATE_FUNCTION_CODE but a NODECL_FUNCTION_CODE
@@ -18825,6 +18816,59 @@ static void instantiate_object_init(
     v->nodecl_result = nodecl_make_object_init(new_entry, nodecl_get_locus(node));
 }
 
+static void instantiate_cxx_member_init(
+        nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t node)
+{
+    nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
+    nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
+
+    // FIXME - What about classes?
+    scope_entry_list_t *entry_list = query_nodecl_name_in_class(
+            v->new_decl_context,
+            v->new_decl_context.class_scope->related_entry,
+            nodecl_cxx_dependent_name,
+            NULL);
+
+    if (entry_list == NULL)
+    {
+        v->nodecl_result = nodecl_null();
+        return;
+    }
+
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (entry->kind == SK_CLASS
+            || entry->kind == SK_VARIABLE)
+    {
+        nodecl_initialization_expression = instantiate_expression(
+                nodecl_initialization_expression,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* FIXME: pack_index */ -1);
+
+        nodecl_t nodecl_init = nodecl_null();
+        check_nodecl_initialization(
+                nodecl_initialization_expression,
+                v->new_decl_context,
+                entry,
+                get_unqualified_type(entry->type_information),
+                &nodecl_init,
+                /* is_auto */ 0);
+
+        v->nodecl_result = nodecl_make_member_init(
+                nodecl_init,
+                entry,
+                nodecl_get_locus(node));
+    }
+    else
+    {
+        v->nodecl_result = nodecl_null();
+        return;
+    }
+}
+
 // Initialization
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
         decl_context_t orig_decl_context,
@@ -18851,6 +18895,8 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_cxx_extern_explicit_instantiation = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_namespace = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_decl = NULL;
+
+    NODECL_VISITOR(v)->visit_cxx_member_init = instantiate_stmt_visitor_fun(instantiate_cxx_member_init);
 
     NODECL_VISITOR(v)->visit_object_init = instantiate_stmt_visitor_fun(instantiate_object_init);
 
@@ -18881,13 +18927,14 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
         scope_entry_t* orig_function_instantiated,
-        scope_entry_t* new_function_instantiated)
+        scope_entry_t* new_function_instantiated,
+        instantiation_symbol_map_t* instantiation_symbol_map)
 {
     nodecl_instantiate_stmt_visitor_t v;
     instantiate_stmt_init_visitor(&v,
             orig_decl_context,
             new_decl_context,
-            NULL,
+            instantiation_symbol_map,
             orig_function_instantiated,
             new_function_instantiated
             );

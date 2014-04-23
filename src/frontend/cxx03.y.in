@@ -33,6 +33,7 @@
  */
 
 #include "cxx-ast.h"
+#include "cxx-graphviz.h"
 #include "cxx-parser.h"
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -71,6 +72,9 @@
 extern int yylex(void);
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
+
+static AST duplicate_nested_name_specifier_list(AST);
+
 %}
 
 %token END 0 "end of input"
@@ -445,6 +449,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
 %type<ast> nested_name_specifier_0
+%type<ast> nested_name_specifier_1
 %type<ast> new_declarator
 %type<ast> new_expression
 %type<ast> new_initializer
@@ -4283,35 +4288,39 @@ nonglobal_qualified_id_template : nested_name_specifier TEMPLATE template_id
 }
 ;
 
-nested_name_specifier : class_or_namespace_name TWO_COLONS %merge<ambiguityHandler>
+nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+    $$ = $1;
 }
-| class_or_namespace_name TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
+| nested_name_specifier nested_name_specifier_1 TWO_COLONS %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
+    // Since we mutate this tree rather than creating another one,
+    // we have to duplicate some nodes. Note that we cannot free
+    // $1 due to complex sharing issues
+    $$ = duplicate_nested_name_specifier_list($1);
+
+    AST last = $$;
+    while (ast_get_child(last, 1) != NULL)
+         last = ast_get_child(last, 1);
+    ast_set_child(last, 1, $2);
 }
 ;
 
-nested_name_specifier_0 : class_or_namespace_name TWO_COLONS %merge<ambiguityHandler>
+nested_name_specifier_0 : class_or_namespace_name
 {
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+ 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
 }
-| TEMPLATE template_id TWO_COLONS %merge<ambiguityHandler>
+;
+
+nested_name_specifier_1 : nested_name_specifier_0
+{
+ 	$$ = $1;
+}
+| TEMPLATE template_id
 {
     ast_set_text($2, "template ");
 
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, NULL, ast_get_locus($2), NULL);
-}
-| class_or_namespace_name TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ast_get_locus($1), NULL);
-}
-| TEMPLATE template_id TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
-{
-    ast_set_text($2, "template ");
-
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, $4, ast_get_locus($2), NULL);
 }
 ;
 
@@ -4319,9 +4328,9 @@ class_or_namespace_name : template_id
 {
 	$$ = $1;
 }
-| IDENTIFIER
+| unqualified_name
 {
-	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = $1;
 }
 ;
 
@@ -6086,4 +6095,17 @@ right_bracket_token : '>'
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
 	fprintf(stderr, "%s:%d: error: %s\n", scanning_now.current_filename, scanning_now.line_number, c);
+}
+
+static AST duplicate_nested_name_specifier_list(AST a)
+{
+    if (a == NULL)
+     return NULL;
+
+    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "Invalid node %s", ast_print_node_type(ASTType(a)));
+
+    return ASTMake2(AST_NESTED_NAME_SPECIFIER,
+            ast_get_child(a, 0),
+            duplicate_nested_name_specifier_list(ast_get_child(a, 1)),
+            ast_get_locus(a), NULL);
 }

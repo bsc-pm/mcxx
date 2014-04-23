@@ -24,39 +24,29 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdlib.h>
-#include "mem.h"
 
-void *counted_xmalloc(size_t nmemb, size_t size, unsigned long long *counter)
+
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
+
+#include<assert.h>
+int main()
 {
-    if (size == 0
-            || nmemb == 0)
+    int res = 0;
+    int v[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+#pragma omp task shared(v, res)
     {
-        // Ensure a NULL when we allocate 0 bytes
-        return NULL;
+        int i;
+        #pragma omp for
+        for (i = 0; i < 10; ++i)
+        {
+            #pragma omp atomic
+            res += v[i];
+        }
     }
-
-    if (counter != NULL)
-    {
-        (*counter) += (size * nmemb);
-    }
-
-    return xmalloc(nmemb * size);
-}
-
-void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
-{
-    if (size == 0
-            || nmemb == 0)
-    {
-        // Ensure a NULL when we allocate 0 bytes
-        return NULL;
-    }
-
-    if (counter != NULL)
-    {
-        (*counter) += (size * nmemb);
-    }
-
-    return xcalloc(nmemb, size);
+    #pragma omp taskwait
+    assert(res == 45);
 }

@@ -850,10 +850,8 @@ void LoweringVisitor::visit_task(
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
 
-        RemoveOpenMPTasks visitor;
-        visitor.walk(copied_statements);
+        Nodecl::NodeclBase copied_statements_placeholder;
 
-        walk(copied_statements);
 
         code
             << "{"
@@ -862,7 +860,7 @@ void LoweringVisitor::visit_task(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          as_statement(copied_statements)
+            <<          statement_placeholder(copied_statements_placeholder)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -880,6 +878,13 @@ void LoweringVisitor::visit_task(
             Source::source_language = SourceLanguage::Current;
 
         construct.replace(if_else_tree);
+
+        copied_statements_placeholder.replace(copied_statements);
+
+        RemoveOpenMPTasks visitor;
+        visitor.walk(copied_statements);
+        walk(copied_statements);
+
     }
     else
     {

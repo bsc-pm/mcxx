@@ -249,6 +249,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
                 Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_worksharing(
@@ -263,6 +265,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_worksharing(const Nodecl::OpenMP::For& construct);
@@ -284,6 +288,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 TL::Symbol slicer_descriptor,
                 Nodecl::NodeclBase &placeholder1,
                 Nodecl::NodeclBase &placeholder2,
+                Nodecl::NodeclBase &lastprivate1,
+                Nodecl::NodeclBase &lastprivate2,
                 Nodecl::NodeclBase &reduction_initialization,
                 Nodecl::NodeclBase &reduction_code);
         void distribute_loop_with_outline_slicer(
@@ -298,6 +304,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
                 Nodecl::NodeclBase& outline_placeholder1,
                 // Auxiliar loop (when the step is not known at compile time, in the outline distributed code)
                 Nodecl::NodeclBase& outline_placeholder2,
+                Nodecl::NodeclBase& lastprivate1,
+                Nodecl::NodeclBase& lastprivate2,
                 Nodecl::NodeclBase& reduction_initialization,
                 Nodecl::NodeclBase& reduction_code);
         void lower_for_slicer(const Nodecl::OpenMP::For& construct);

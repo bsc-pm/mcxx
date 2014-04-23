@@ -306,6 +306,7 @@ struct simple_type_tag {
     int num_specialized_types;
     // These are a STK_INDIRECT
     type_t** specialized_types;
+    rb_red_blk_tree* canonical_specialization_set;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
@@ -1688,7 +1689,8 @@ char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
 {
     return entry->kind == SK_TEMPLATE_TYPE_PARAMETER
         || ((entry->kind == SK_CLASS
-                    || entry->kind == SK_FUNCTION)
+                    || entry->kind == SK_FUNCTION
+                    || (IS_CXX11_LANGUAGE && entry->kind == SK_TEMPLATE_ALIAS))
                 && is_dependent_type(entry->type_information))
         || (entry->kind == SK_TYPEDEF && is_typeof_expr(entry->type_information));
 }
@@ -2016,6 +2018,8 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     return result;
 }
 
+static int template_argument_list_identical_comp(const void*, const void*);
+
 type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
@@ -2052,6 +2056,11 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    rb_red_blk_tree* canonical_specialization_set = rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
+    rb_tree_insert(canonical_specialization_set, primary_type->template_arguments, type_info->type->primary_specialization);
+
+    type_info->type->canonical_specialization_set = canonical_specialization_set;
 
     return type_info;
 }
@@ -2113,6 +2122,11 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    rb_red_blk_tree* canonical_specialization_set = rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
+    rb_tree_insert(canonical_specialization_set, primary_type->template_arguments, type_info->type->primary_specialization);
+
+    type_info->type->canonical_specialization_set = canonical_specialization_set;
 
     return type_info;
 }
@@ -2332,6 +2346,7 @@ char is_template_explicit_specialization(template_parameter_list_t* template_par
     return is_explicit_specialization;
 }
 
+#if 0
 static char types_are_identical_in_template_argument(type_t* t1,
         type_t* t2);
 
@@ -2419,6 +2434,121 @@ static char template_arguments_are_identical(
 
     return 1;
 }
+#endif
+
+static char template_nontype_argument_nodecl_cmp(nodecl_t n1, nodecl_t n2)
+{
+    if (nodecl_is_null(n1) && nodecl_is_null(n2))
+        return 0;
+
+    if (nodecl_is_null(n1) != nodecl_is_null(n2))
+        return nodecl_is_null(n1) ? -1 : 1;
+
+    int k1 = nodecl_get_kind(n1);
+    int k2 = nodecl_get_kind(n2);
+    if (k1 < k2)
+        return -1;
+    else if (k1 > k2)
+        return 1;
+
+    int cmp;
+    cmp = intptr_t_comp(nodecl_get_symbol(n1), nodecl_get_symbol(n2));
+    if (cmp != 0)
+        return cmp;
+
+    cmp = intptr_t_comp(nodecl_get_constant(n1), nodecl_get_constant(n2));
+    if (cmp != 0)
+        return cmp;
+
+    cmp = intptr_t_comp(nodecl_get_type(n1), nodecl_get_type(n2)); 
+    if (cmp != 0)
+        return cmp;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        cmp = template_nontype_argument_nodecl_cmp(
+                    nodecl_get_child(n1, i),
+                    nodecl_get_child(n2, i));
+
+        if (cmp != 0)
+            return cmp;
+    }
+
+    return 0;
+}
+
+static int template_argument_identical_comp(template_parameter_value_t* targ_1, template_parameter_value_t* targ_2)
+{
+    ERROR_CONDITION(targ_1 == NULL || targ_2 == NULL, "Invalid parameter value", 0);
+
+    if (targ_1->kind < targ_2->kind)
+        return -1;
+    else if (targ_1->kind > targ_2->kind)
+        return 1;
+
+    switch (targ_1->kind)
+    {
+        case TPK_TYPE:
+        case TPK_TEMPLATE:
+            {
+                int cmp = intptr_t_comp(targ_1->type, targ_2->type);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TPK_NONTYPE:
+            {
+                int cmp = intptr_t_comp(targ_1->type, targ_2->type);
+                if (cmp != 0)
+                    return cmp;
+
+                cmp = template_nontype_argument_nodecl_cmp(targ_1->value, targ_2->value);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid template argument kind", 0);
+            }
+    }
+
+    return 0;
+}
+
+static int template_argument_list_identical_comp(const void* v1, const void* v2)
+{
+    template_parameter_list_t* template_parameter_list_1 = (template_parameter_list_t*)v1;
+    template_parameter_list_t* template_parameter_list_2 = (template_parameter_list_t*)v2;
+
+    int m = template_parameter_list_1->num_parameters < template_parameter_list_2->num_parameters ?
+        template_parameter_list_1->num_parameters : template_parameter_list_2->num_parameters;
+
+
+    // Lexicographical order
+    int i;
+    for (i = 0; i < m; i++)
+    {
+        template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
+        template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
+
+        int cmp = template_argument_identical_comp(targ_1, targ_2);
+        if (cmp != 0)
+            return cmp;
+    }
+
+    // No one is different up to this point but maybe they share a prefix
+    if (template_parameter_list_1->num_parameters < template_parameter_list_2->num_parameters)
+        return -1;
+    else if (template_parameter_list_1->num_parameters > template_parameter_list_2->num_parameters)
+        return 1;
+
+    return 0;
+}
+
+
+static rb_red_blk_tree* template_type_get_canonical_specialization_set_(type_t* t);
 
 static type_t* template_type_get_identical_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
@@ -2426,47 +2556,36 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
-    // Search an existing specialization
-    DEBUG_CODE()
+    if (template_type_get_template_parameters(t)->num_parameters == 0)
     {
-        fprintf(stderr, "TYPEUTILS: Searching an identic specialization that matches the requested one\n");
-        fprintf(stderr, "TYPEUTILS: There are '%d' specializations of this template type\n", 
-                template_type_get_num_specializations(t));
-    }
-    int i;
-    for (i = 0; i < template_type_get_num_specializations(t); i++)
-    {
-        type_t* specialization = template_type_get_specialization_num(t, i);
-
-        scope_entry_t* entry = named_type_get_symbol(specialization);
-        template_parameter_list_t* specialization_template_parameters = 
-            template_specialized_type_get_template_arguments(entry->type_information);
-
-        DEBUG_CODE()
+        // Special handling for 0-parameterized templates. These template types
+        // only have two specializations: a primary (the proper template) and
+        // the specialization (the only instantiation possible)
+        int num_specializations = template_type_get_num_specializations(t);
+        if (num_specializations == 1)
         {
-            fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, entry->decl_context),
-                    entry->type_information,
-                    locus_to_str(entry->locus));
+            return NULL;
         }
-
-        if (template_arguments_are_identical(template_parameters, specialization_template_parameters)
-                // If this template type is 0-parameterized, the primary never matches
-                && !(specialization == template_type_get_primary_type(t)
-                    && template_type_get_template_parameters(t)->num_parameters == 0))
+        else if (num_specializations == 2)
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
-                fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, entry->decl_context),
-                        entry->type_information);
-            }
-
-            return specialization;
+            return template_type_get_specialization_num(t, 1);
+        }
+        else
+        {
+            internal_error("Wrong number of specializations (%d) for a 0-parameterized template type", num_specializations);
         }
     }
-    return NULL;
+
+    rb_red_blk_tree* specialization_identical_set = template_type_get_canonical_specialization_set_(t);
+
+    rb_red_blk_node * n = rb_tree_query(specialization_identical_set, template_parameters);
+
+    type_t* specialization = NULL;
+
+    if (n != NULL)
+        specialization = rb_node_get_info(n);
+
+    return specialization;
 }
 
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
@@ -2773,10 +2892,15 @@ static type_t* template_type_get_specialized_type_(
         }
     }
 
-    // Register this new specialization
+    // Register this new specialization in the specialization list
     P_LIST_ADD(t->type->specialized_types,
             t->type->num_specialized_types,
             result);
+
+    // Register this new specialization in the canonical set
+    rb_red_blk_tree* canonical_specialization_set = template_type_get_canonical_specialization_set_(t);
+    rb_tree_insert(canonical_specialization_set, template_arguments, result);
+
 
     return result;
 }
@@ -2837,6 +2961,14 @@ type_t* template_type_get_specialization_num(type_t* t, int i)
     {
         return t->type->specialized_types[i-1];
     }
+}
+
+static rb_red_blk_tree* template_type_get_canonical_specialization_set_(type_t* t)
+{
+    ERROR_CONDITION(!is_template_type(t),
+            "This is not a template type", 0);
+
+    return t->type->canonical_specialization_set;
 }
 
 void template_type_update_template_parameters(type_t* t, template_parameter_list_t* new_template_parameters)
