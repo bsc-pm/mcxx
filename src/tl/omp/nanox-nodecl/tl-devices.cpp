@@ -110,8 +110,14 @@ namespace TL { namespace Nanox {
         if (Nanos::Version::interface_is_at_least("master", 5019)
                 || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
-            Source extended_descr, extra_cast, instrument_before_c,
+            Source val, extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
+
+            // In some cases, the outline_function name is the same for two different tasks.
+            // For this reason we add also the filename and the line
+            val << outline_function.get_name()
+                << "_" << locus_get_filename(locus)
+                << "_" << locus_get_line(locus);
 
             std::string function_name;
             if (task_label.is_null())
@@ -145,6 +151,7 @@ namespace TL { namespace Nanox {
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
             extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
+
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target an unsigned long long, in architectures of 32
             // bits we first cast to an unsigned int
@@ -166,8 +173,13 @@ namespace TL { namespace Nanox {
                 << "{"
                 <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
-                <<               " \"user-funct-location\", \"" << outline_function.get_name() << "\", \"" << extended_descr << "\", 0);"
+                <<    "err = nanos_instrument_register_value_with_val("
+                <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
+                <<          "\"user-funct-location\","
+                <<          "\"" << val << "\","
+                <<          "\"" << extended_descr << "\","
+                <<          /* abort_when_registered */ "0);"
+
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
