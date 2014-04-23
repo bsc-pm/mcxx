@@ -365,52 +365,6 @@ namespace Analysis {
 
     // ******************* END Visitor retrieving the analysis of a given Nodecl ******************* //
     // ********************************************************************************************* //
-
-
-
-    // ********************************************************************************************* //
-    // ************************ Visitor retrieving suitable simd alignment ************************* //
-
-    class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
-    {
-    private:
-        const ObjectList<Utils::InductionVariableData*> _induction_variables;
-        const TL::ObjectList<Nodecl::NodeclBase> _suitable_expressions;
-        const int _unroll_factor;
-        const int _type_size;
-        const int _alignment;
-
-        bool is_suitable_expression( Nodecl::NodeclBase n );
-        bool is_suitable_constant( int n );
-
-    public:
-        // *** Constructor *** //
-        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
-                                  const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                                  int unroll_factor, int type_size, int alignment );
-
-        // *** Visiting methods *** //
-        Ret join_list( ObjectList<int>& list );
-        bool is_aligned_access( const Nodecl::ArraySubscript& n,
-                const std::map<TL::Symbol, int> aligned_expressions );
-
-        Ret visit( const Nodecl::Add& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::BitwiseShl& n );
-        Ret visit( const Nodecl::BitwiseShr& n );
-        Ret visit( const Nodecl::Conversion& n );
-        Ret visit( const Nodecl::IntegerLiteral& n );
-        Ret visit( const Nodecl::Neg& n );
-        Ret visit( const Nodecl::Minus& n );
-        Ret visit( const Nodecl::Mul& n );
-        Ret visit( const Nodecl::ParenthesizedExpression& n );
-        Ret visit( const Nodecl::Symbol& n );
-
-        Ret unhandled_node(const Nodecl::NodeclBase& n);
-    };
-
-    // ********************** END visitor retrieving suitable simd alignment *********************** //
-    // ********************************************************************************************* //
 }
 }
 

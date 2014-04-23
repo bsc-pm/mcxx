@@ -1392,6 +1392,8 @@ src_tl_analysis_singleton_libanalysis_singleton_la_SOURCES= \
                                   src/tl/analysis/singleton/tl-analysis-interface.cpp \
                                   src/tl/analysis/singleton/tl-expression-evolution-visitor.hpp \
                                   src/tl/analysis/singleton/tl-expression-evolution-visitor.cpp \
+                                  src/tl/analysis/singleton/tl-suitable-alignment-visitor.hpp \
+                                  src/tl/analysis/singleton/tl-suitable-alignment-visitor.cpp \
                                   src/tl/analysis/singleton/tl-vectorization-analysis-new.hpp \
                                   src/tl/analysis/singleton/tl-vectorization-analysis-new.cpp \
                                   $(END)
