@@ -140,14 +140,14 @@ namespace Analysis {
     }
 
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, Nodecl::NodeclBase label,
-                                          bool is_task_edge )
+                                          bool is_task_edge, bool is_back_edge )
     {
         Edge* edge = NULL;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
             {
-                edge = new Edge( parent, child, is_task_edge, etype, label );
+                edge = new Edge( parent, child, is_task_edge, etype, label, is_back_edge );
                 parent->set_exit_edge( edge );
                 child->set_entry_edge( edge );
             }
@@ -239,11 +239,12 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, Nodecl::NodeclBase label )
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, Nodecl::NodeclBase label, 
+                                         bool is_task_edge, bool is_back_edge )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            connect_nodes( *it, child, etype, label );
+            connect_nodes( *it, child, etype, label, is_task_edge, is_back_edge );
         }
     }
 

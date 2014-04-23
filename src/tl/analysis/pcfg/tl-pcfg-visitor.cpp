@@ -1053,7 +1053,8 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, condition_node );
         if( !stmts.empty( ) )
         {
-            _pcfg->connect_nodes( condition_node, stmts[0], __TrueEdge );
+            _pcfg->connect_nodes( condition_node, stmts[0], __TrueEdge, Nodecl::NodeclBase::null(), 
+                                  /*is_task_edge*/false, /*is_back_edge*/true );
         }
 
         // Connect the condition false side to the condition node
@@ -1292,8 +1293,9 @@ namespace Analysis {
             next->set_outer_node( for_graph_node );
             _pcfg->connect_nodes( _utils->_last_nodes, next, aux_etype );
             if( cond != NULL )
-            {   // Normal case: there is a condition in the loop. So after the increment we check the condition
-                _pcfg->connect_nodes( next, cond );
+            {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
+                _pcfg->connect_nodes( next, cond, __Always, Nodecl::NodeclBase::null(), 
+                                      /*is_task_edge*/false, /*is_back_edge*/true );
             }
             else
             {   // When there is no condition, the is no iteration
@@ -1420,10 +1422,11 @@ namespace Analysis {
         ObjectList<Node*>::iterator it;
         for( it = _utils->_labeled_nodes.begin( ); it != _utils->_labeled_nodes.end( ); ++it )
         {
+            // The label has already appeared and the connection will be a back edge
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
                 Nodecl::Symbol s = Nodecl::Symbol::make( n.get_symbol( ) );
-                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, s );
+                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, s, /*is_task_edge*/false, /*is_back_edge*/true );
                 break;
             }
         }
@@ -3410,7 +3413,8 @@ namespace Analysis {
         _utils->_continue_nodes.pop( );
         _utils->_break_nodes.pop( );
 
-        _pcfg->connect_nodes( _utils->_last_nodes, cond_node );
+        _pcfg->connect_nodes( _utils->_last_nodes, cond_node, __Always, Nodecl::NodeclBase::null(), 
+                              /*is_task_edge*/false, /*is_back_edge*/true );
         ObjectList<Edge*> cond_exits = cond_node->get_exit_edges( );
         for( ObjectList<Edge*>::iterator it = cond_exits.begin( ); it != cond_exits.end( ); ++it )
             ( *it )->set_true_edge( );

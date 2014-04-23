@@ -607,7 +607,7 @@ namespace Analysis {
 
             //! Include a new map of generated values
             //! If a definition of the same variable already existed, the is substituted by the new value
-            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+            Utils::ext_sym_map set_generated_stmts( const Utils::ext_sym_map& gen );
 
             //! Return the map containing all symbols reached at the entry of the node and its reached expression
             Utils::ext_sym_map get_reaching_definitions_in( );
@@ -616,13 +616,15 @@ namespace Analysis {
             Utils::ext_sym_map get_reaching_definitions_out( );
 
             //! Set a new pair to the input reaching definitions of the node
-            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_in( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                             const Nodecl::NodeclBase& stmt );
             //! Set a new list of input reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definitions_in( const Utils::ext_sym_map& reach_defs_in );
             //! Set a new pair to the output reaching definitions of the node
-            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_out( const Utils::ExtendedSymbol& var, const Nodecl::NodeclBase& init, 
+                                              const Nodecl::NodeclBase& stmt );
             //! Set a new list of output reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
+            void set_reaching_definitions_out( const Utils::ext_sym_map& reach_defs_out );
 
             // ********** END getters and setters for reaching definitions analysis ********* //
             // ****************************************************************************** //
@@ -655,8 +657,29 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for range analysis ******************* //
             
+            //! Returns all the constraints associated to the node or propagated from its parents
+            Utils::ConstraintMap get_all_constraints_map( );
+
+            //! Returns all the constraints that have been propagated to the node
+            Utils::ConstraintMap get_propagated_constraints_map( );
+            
+            //! Returns all the constraints associated to the node
+            Utils::ConstraintMap get_constraints_map( );
+            
             //! Returns the constraints associated to a given variable in the node
-            ObjectList<Utils::Constraint> get_constraints( const Nodecl::NodeclBase& var );
+            Utils::Constraint get_constraint( const Nodecl::NodeclBase& var );
+            
+            //! Adds a new set of constraints to the node
+            void add_constraints_map( Utils::ConstraintMap new_constraints_map );
+            
+            //! Sets a new map of constraints to the node
+            void set_constraints_map( Utils::ConstraintMap constraints_map );
+            
+            //! Adds a new map of propagated constraints to the node
+            void add_propagated_constraints_map( Utils::ConstraintMap new_constraints_map );
+            
+            //! Sets a new map of propagated constraints to the node
+            void set_propagated_constraints_map( Utils::ConstraintMap constraints_map );
             
             //! Returns the map of variables and their range values associated 
             //! at the entry point of the node

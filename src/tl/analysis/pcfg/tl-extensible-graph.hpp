@@ -237,7 +237,7 @@ namespace Analysis {
         */
         Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, 
                              Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ),
-                             bool is_task_edge = false );
+                             bool is_task_edge = false, bool is_back_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
         //! set of children and each connection may be different from the others.
@@ -260,7 +260,8 @@ namespace Analysis {
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
-                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
+                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ), 
+                            bool is_task_edge = false, bool is_back_edge = false );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
         void disconnect_nodes( ObjectList<Node*> parents, Node* child );

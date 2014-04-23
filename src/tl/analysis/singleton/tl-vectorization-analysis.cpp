@@ -108,5 +108,5 @@ namespace Analysis {
 
     // ************ END class to retrieve SIMD analysis info about one specific nodecl ************* //
     // ********************************************************************************************* //
-} 
+}
 }

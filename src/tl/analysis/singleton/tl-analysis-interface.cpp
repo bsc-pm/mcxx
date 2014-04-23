@@ -110,8 +110,11 @@ namespace Analysis {
         // Get the PCFG nodes where the reaching definitions where produced
         ObjectList<Node*> reach_defs_nodes;
         for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-            if(!it->second.is<Nodecl::Undefined>())
-                reach_defs_nodes.append(pcfg->find_nodecl_pointer(it->second));
+            if(!it->second.first.is<Nodecl::Undefined>())
+            {
+                Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+                reach_defs_nodes.append(pcfg->find_nodecl_pointer(stmt_reach_def));
+            }
         
         // For each reaching definition node:
         // 1.- check whether any of its outer nodes depend on an induction variable
@@ -142,7 +145,8 @@ namespace Analysis {
         // 2.- otherwise, recursively check the variables in the RHS of the reaching definition
         for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
         {
-            ObjectList<Nodecl::NodeclBase> vars = Nodecl::Utils::get_all_memory_accesses(it->second);
+            Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
+            ObjectList<Nodecl::NodeclBase> vars = Nodecl::Utils::get_all_memory_accesses(stmt_reach_def);
             for(ObjectList<Nodecl::NodeclBase>::iterator itt = vars.begin(); itt != vars.end(); ++itt)
             {
                 if(reach_defs_depend_on_iv_rec(*itt, ivs, pcfg))
@@ -209,15 +213,16 @@ end_depends:
         Utils::ext_sym_map::iterator rd_it = bounds.first;
         while(rd_it != bounds.second)
         {
-            // Note that we increment the iterator here
-            Nodecl::NodeclBase rd_it_nodecl = rd_it->second;
+            // Note that we increment the iterator here. 
+            // Thus, if we enter in the next condition and execute 'continue' the iterator will be correct
             ++rd_it;
             
-            if(rd_it_nodecl.is<Nodecl::Undefined>())
+            if(rd_it->second.first.is<Nodecl::Undefined>())
                 continue;
             
             // Get the PCFG nodes where the reaching definitions where produced
-            Node* reach_defs_node = pcfg->find_nodecl_pointer(rd_it_nodecl);
+            Nodecl::NodeclBase stmt_reach_def = rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+            Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
             if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
             {
                 Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);

@@ -203,11 +203,11 @@ namespace {
                         {   // Check whether the values are the same
                             for( Utils::ext_sym_map::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r )
                             {
-                                Nodecl::NodeclBase value = it_r->second;
+                                Nodecl::NodeclBase value = it_r->second.first;
                                 bool found = false;
                                 for( Utils::ext_sym_map::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s )
                                 {
-                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second ) )
+                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second.first ) )
                                         found = true;
                                 }
                                 if( !found )
@@ -226,7 +226,7 @@ namespace {
                             std::string rd_str = "";
                             for( Utils::ext_sym_map::iterator it_r = rd.first; it_r != rd.second; ++it_r, ++i )
                             {
-                                rd_str += it_r->second.prettyprint( );
+                                rd_str += it_r->second.first.prettyprint( );
                                 if( i < rd_size-1 )
                                     rd_str += ", ";
                             }

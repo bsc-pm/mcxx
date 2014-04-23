@@ -110,10 +110,11 @@ namespace Utils {
         for( ext_sym_map::iterator it = c2.begin(); it != c2.end(); ++it)
         {
             bool pair_already_in_map = false;
+            Nodecl::NodeclBase it_first_value = it->second.first;
             std::pair<ext_sym_map::iterator, ext_sym_map::iterator> current_key_in_result = result.equal_range( it->first );
             for( ext_sym_map::iterator itt = current_key_in_result.first; itt != current_key_in_result.second; ++itt )
             {
-                if( Nodecl::Utils::structurally_equal_nodecls( itt->second, it->second ) )
+                if( Nodecl::Utils::structurally_equal_nodecls( itt->second.first, it_first_value ) )
                 {
                     pair_already_in_map = true;
                     break;
@@ -121,7 +122,7 @@ namespace Utils {
             }
             if( !pair_already_in_map )
             {
-                result.insert( std::pair<ExtendedSymbol, Nodecl::NodeclBase>( it->first, it->second ) );
+                result.insert( std::pair<ExtendedSymbol, NodeclPair>( it->first, NodeclPair(it_first_value, it->second.second) ) );
             }
         }
 
@@ -143,7 +144,7 @@ namespace Utils {
         {
             if( c2.find( it->first ) == c2.end( ) )
             {
-                result.insert( std::pair<ExtendedSymbol, Nodecl::NodeclBase>( it->first, it->second ) );
+                result.insert( std::pair<ExtendedSymbol, NodeclPair>( it->first, NodeclPair(it->second.first, it->second.second) ) );
             }
         }
         return result;
@@ -174,7 +175,7 @@ namespace Utils {
             for( ; it1 != c1.end( ); ++it1, ++it2 )
             {
                 if( !Nodecl::Utils::structurally_equal_nodecls( it1->first.get_nodecl( ), it2->first.get_nodecl( ), /* skip Conversion nodes */ true ) ||
-                    !Nodecl::Utils::structurally_equal_nodecls( it1->second, it2->second, /* skip Conversion nodes */ true ) )
+                    !Nodecl::Utils::structurally_equal_nodecls( it1->second.first, it2->second.first, /* skip Conversion nodes */ true ) )
                 {
                     result = false;
                     break;
