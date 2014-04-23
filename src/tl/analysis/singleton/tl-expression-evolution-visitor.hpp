@@ -68,8 +68,7 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        ExpressionEvolutionVisitor( ObjectList<Utils::InductionVariableData*> ivs,
-                                Utils::ext_sym_set killed, Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
+        ExpressionEvolutionVisitor( Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
 
         // *** Consultants *** //
         bool has_constant_evolution( );

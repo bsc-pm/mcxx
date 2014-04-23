@@ -36,9 +36,8 @@ namespace TL
 {
 namespace Analysis
 {
-    ExpressionEvolutionVisitor::ExpressionEvolutionVisitor( ObjectList<Analysis::Utils::InductionVariableData*> ivs,
-                                                            Utils::ext_sym_set killed, Node* scope, Node* n_node, ExtensibleGraph* pcfg )
-            : _induction_variables( ivs ), _killed( killed ),
+    ExpressionEvolutionVisitor::ExpressionEvolutionVisitor( Node* scope, Node* n_node, ExtensibleGraph* pcfg )
+            : _induction_variables( scope->get_induction_variables() ), _killed( scope->get_killed_vars() ),
               _pcfg( pcfg ), _scope_node( scope ), _n_node( n_node ),
               _ivs( ), _is_adjacent_access( false ), _has_constant_evolution( false )
     {}
@@ -780,7 +779,7 @@ namespace Analysis
                     // A solution might be to store the list of nodes we have visited. In that case, this list must be reseted each time we initiate a walk
                     if(reach_def_node!=_n_node)
                     {
-                        ExpressionEvolutionVisitor eev(_induction_variables, _killed, _scope_node, reach_def_node, _pcfg);
+                        ExpressionEvolutionVisitor eev(_scope_node, reach_def_node, _pcfg);
                         eev.walk(current_def);
                         reach_def_is_adjacent |= eev.is_adjacent_access();
 

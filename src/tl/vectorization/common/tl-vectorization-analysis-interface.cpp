@@ -671,7 +671,7 @@ namespace Vectorization
         objlist_nodecl_t translated_suitable_expressions =
             translate_input(suitable_expressions);
 
-        result = Analysis::AnalysisInterface::is_simd_aligned_access(
+        result = Analysis::VectorizationAnalysis::is_simd_aligned_access(
                 translate_input(scope), translate_input(n),
                 translated_aligned_expressions,
                 translated_suitable_expressions,
@@ -692,7 +692,7 @@ namespace Vectorization
         objlist_nodecl_t translated_suitable_expressions =
             translate_input(suitable_expressions);
 
-        result = Analysis::AnalysisInterface::is_suitable_expression(
+        result = Analysis::VectorizationAnalysis::is_suitable_expression(
                 translate_input(scope), translate_input(n),
                 translated_suitable_expressions,
                 unroll_factor, alignment, vector_size_module);

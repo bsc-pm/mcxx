@@ -155,15 +155,6 @@ namespace Analysis {
 
             bool is_constant_access( const Nodecl::NodeclBase& n ) const;
 
-            bool is_simd_aligned_access( const Nodecl::NodeclBase& n,
-                    const std::map<TL::Symbol, int>& aligned_expressions,
-                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                    int unroll_factor, int alignment ) const;
-
-            bool is_suitable_expression( const Nodecl::NodeclBase& n,
-                    const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                    int unroll_factor, int alignment, int& vector_size_module ) const;
-
             // *** Queries about Auto-Scoping *** //
 
             void print_auto_scoping_results( ) const;
@@ -272,45 +263,12 @@ namespace Analysis {
             //! Returns true if the given nodecl is an array accessed by a constant expression
             virtual bool is_constant_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n ) const;
 
-            //! Returns true if the given nodecl is aligned to a given value
-            virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-                                         const std::map<TL::Symbol, int>& aligned_expressions,
-                                         const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                                         int unroll_factor, int alignment ) const;
-
-            //! Returns true if the given nodecl is suitable
-            virtual bool is_suitable_expression( const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-                                         const ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                                         int unroll_factor, int alignment, int& vector_size_module ) const;
-
 
             // *** Queries about Auto-Scoping *** //
 
             virtual void print_auto_scoping_results( const Nodecl::NodeclBase& scope );
 
             virtual Utils::AutoScopedVariables get_auto_scoped_variables( const Nodecl::NodeclBase scope );
-
-
-
-
-
-
-            /* NEW INTERFACE */
-
-            DEPRECATED bool reach_defs_depend_on_iv(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n);
-
-            //TODO: private
-            bool variable_is_constant_at_statement(
-                    const Node* scope_node,
-                    const Node* stmt_node,
-                    const ExtensibleGraph* pcfg) const;
-
-            bool variable_is_constant_at_statement(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n) const;
- 
     };
 
     // ************************** END User interface for static analysis *************************** //

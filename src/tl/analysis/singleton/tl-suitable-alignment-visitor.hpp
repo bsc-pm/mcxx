@@ -30,7 +30,7 @@
 #include "tl-suitable-alignment-visitor.hpp"
 
 #include "tl-induction-variables-data.hpp"
-//#include "tl-extensible-graph.hpp"
+#include "tl-extensible-graph.hpp"
 
 #include "tl-nodecl-visitor.hpp"
 //#include "tl-objectlist.hpp"
@@ -53,7 +53,7 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        SuitableAlignmentVisitor( ObjectList<Utils::InductionVariableData*> induction_variables,
+        SuitableAlignmentVisitor( Node* scope,
                                   const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                   int unroll_factor, int type_size, int alignment );
 

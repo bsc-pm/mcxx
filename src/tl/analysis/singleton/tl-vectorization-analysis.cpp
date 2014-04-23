@@ -27,7 +27,6 @@
 #include "tl-analysis-static-info.hpp"
 
 #include "tl-expression-evolution-visitor.hpp"
-#include "tl-suitable-alignment-visitor.hpp"
 
 #include "tl-analysis-utils.hpp"
 #include "tl-expression-reduction.hpp"
@@ -55,7 +54,7 @@ namespace Analysis {
         Nodecl::NodeclBase s = n.shallow_copy( );
         v.walk( s );
 
-        ExpressionEvolutionVisitor iv_v( scope_node->get_induction_variables(), scope_node->get_killed_vars(), scope_node,  NULL, NULL );
+        ExpressionEvolutionVisitor iv_v( scope_node,  NULL, NULL );
         iv_v.walk( s );
         result = iv_v.depends_on_induction_vars( );
 
@@ -67,7 +66,7 @@ namespace Analysis {
     {
         bool result = false;
 
-        ExpressionEvolutionVisitor iv_v( _induction_variables, _killed, scope_node, NULL, NULL );
+        ExpressionEvolutionVisitor iv_v( scope_node, NULL, NULL );
         ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_occurrences( n );
         for( ObjectList<Nodecl::Symbol>::iterator it = syms.begin( ); it != syms.end( ) && !result; ++it )
         {
@@ -103,55 +102,6 @@ namespace Analysis {
                 }
             }
         }
-
-        return result;
-    }
-
-    bool NodeclStaticInfo::is_simd_aligned_access( const Nodecl::NodeclBase& n,
-            const std::map<TL::Symbol, int>& aligned_expressions,
-            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-            int unroll_factor, int alignment ) const
-    {
-        if( !n.is<Nodecl::ArraySubscript>( ) )
-        {
-            std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
-                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
-            return false;
-        }
-
-        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
-
-        Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
-        int type_size = subscripted.get_type().basic_type().get_size();
-
-        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
-
-        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
-    }
-
-    bool NodeclStaticInfo::is_suitable_expression( const Nodecl::NodeclBase& n,
-            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-            int unroll_factor, int alignment, int& vector_size_module ) const
-    {
-        bool result = false;
-        int type_size = n.get_type().basic_type().get_size();
-
-        SuitableAlignmentVisitor sa_v( _induction_variables, suitable_expressions, unroll_factor, type_size, alignment );
-        int subscript_alignment = sa_v.walk( n );
-
-        for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = suitable_expressions.begin();
-                it != suitable_expressions.end();
-                it ++)
-        {
-            printf("%s ", it->prettyprint().c_str());
-        }
-        printf("\n");
-        // End Remove me!
-
-        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :
-                                                               subscript_alignment % alignment );
-        if( vector_size_module == 0 )
-            result = true;
 
         return result;
     }

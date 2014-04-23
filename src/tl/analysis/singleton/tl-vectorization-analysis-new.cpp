@@ -25,7 +25,9 @@
 --------------------------------------------------------------------*/
 
 #include "tl-vectorization-analysis-new.hpp"
+
 #include "tl-expression-evolution-visitor.hpp"
+#include "tl-suitable-alignment-visitor.hpp"
 
 namespace TL  
 {
@@ -91,16 +93,81 @@ namespace Analysis
                 }
                 else
                 {
-                    //TODO:: Meter dentro del visitante
-                    ObjectList<Utils::InductionVariableData*> induction_vars = scope_node->get_induction_variables();
-                    Utils::ext_sym_set killed_vars = scope_node->get_killed_vars();
-
-                    ExpressionEvolutionVisitor iv_v(induction_vars, killed_vars, scope_node, n_node, pcfg);
+                    ExpressionEvolutionVisitor iv_v(scope_node, n_node, pcfg);
                     iv_v.walk(last_dim_n);
                     result = iv_v.is_adjacent_access( );
                 }
             }
         }
+
+        return result;
+    }
+
+    bool VectorizationAnalysis::is_simd_aligned_access(const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& n,
+            const std::map<TL::Symbol, int>& aligned_expressions,
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
+            int unroll_factor, int alignment) 
+    {
+        // Retrieve PCFG
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n",
+                n.prettyprint().c_str());
+
+        // Retrieve nodes from PCFG
+        Node* n_node = pcfg->find_nodecl_pointer(n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", 
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
+        Node* scope_node = pcfg->find_nodecl_pointer(scope);
+        ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
+                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+
+        if( !n.is<Nodecl::ArraySubscript>( ) )
+        {
+            std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
+                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
+            return false;
+        }
+
+        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
+
+        Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
+        int type_size = subscripted.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( scope_node, suitable_expressions,
+                unroll_factor, type_size, alignment );
+
+        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
+    }
+
+    bool VectorizationAnalysis::is_suitable_expression(const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& n,
+            const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
+            int unroll_factor, int alignment, int& vector_size_module)
+    {
+        bool result = false;
+
+        // Retrieve PCFG
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n",
+                n.prettyprint().c_str());
+
+        // Retrieve nodes from PCFG
+        // n_node is not necessary in this query
+        Node* scope_node = pcfg->find_nodecl_pointer(scope);
+        ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
+                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+
+
+        int type_size = n.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( scope_node, suitable_expressions, unroll_factor, type_size, alignment );
+        int subscript_alignment = sa_v.walk( n );
+
+        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :
+                                                               subscript_alignment % alignment );
+        if( vector_size_module == 0 )
+            result = true;
 
         return result;
     }

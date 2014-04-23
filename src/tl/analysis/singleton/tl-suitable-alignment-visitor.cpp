@@ -36,10 +36,10 @@ namespace TL
 {
 namespace Analysis
 {
-    SuitableAlignmentVisitor::SuitableAlignmentVisitor( const ObjectList<Utils::InductionVariableData*> induction_variables,
+    SuitableAlignmentVisitor::SuitableAlignmentVisitor( Node* scope,
             const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor,
             int type_size, int alignment )
-        : _induction_variables( induction_variables ), _suitable_expressions( suitable_expressions ),
+        : _induction_variables( scope->get_induction_variables() ), _suitable_expressions( suitable_expressions ),
         _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
     {
     }
