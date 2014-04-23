@@ -139,6 +139,8 @@ lib_libmcxx_utils_la_SOURCES = \
                           lib/string_utils.c \
                           lib/dhash_str.c \
                           lib/dhash_str.h \
+                          lib/dhash_ptr.c \
+                          lib/dhash_ptr.h \
                           lib/red_black_tree.c \
                           lib/red_black_tree.h \
                           lib/mem.c \
