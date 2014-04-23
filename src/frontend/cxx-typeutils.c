@@ -1375,17 +1375,17 @@ static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
     return result;
 }
 
-static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
-{
-    type_t* result = NULL;
-    rb_red_blk_node* n = rb_tree_query(tree, sym);
-    if (n != NULL)
-    {
-        result = (type_t*)rb_node_get_info(n);
-    }
-
-    return result;
-}
+// static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
+// {
+//     type_t* result = NULL;
+//     rb_red_blk_node* n = rb_tree_query(tree, sym);
+//     if (n != NULL)
+//     {
+//         result = (type_t*)rb_node_get_info(n);
+//     }
+// 
+//     return result;
+// }
 
 static int intptr_t_comp(const void *v1, const void *v2)
 {
@@ -1415,16 +1415,16 @@ static int uint_comp(const void *v1, const void *v2)
 
 static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
-    static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
+    static dhash_ptr_t *_user_defined_types_arr[2] = { NULL, NULL };
 
     if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        _user_defined_types_arr[!!indirect] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _user_defined_types_arr[!!indirect] = dhash_ptr_new(5);
     }
 
-    rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
+    dhash_ptr_t * _user_defined_types = _user_defined_types_arr[!!indirect];
     
-    type_t* type_info = rb_tree_query_symbol(_user_defined_types, entry);
+    type_t* type_info = dhash_ptr_query(_user_defined_types, entry);
 
     if (type_info == NULL)
     {
@@ -1451,7 +1451,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
             type_info->info->is_dependent = is_dependent_type(entry->type_information);
         }
 
-        rb_tree_insert(_user_defined_types, entry, type_info);
+        dhash_ptr_insert(_user_defined_types, entry, type_info);
     }
 
     return type_info;

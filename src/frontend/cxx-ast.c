@@ -220,7 +220,7 @@ const char* ast_get_text(const_AST a)
     return a->text;
 }
 
-node_t ast_get_type(const_AST a)
+extern inline node_t ast_get_type(const_AST a)
 {
     return a->node_type;
 }
@@ -235,7 +235,7 @@ void ast_set_type(AST a, node_t node_type)
     a->node_type = node_type;
 }
 
-AST ast_get_child(const_AST a, int num_child)
+extern inline AST ast_get_child(const_AST a, int num_child)
 {
     if (ast_has_son(a, num_child))
     {
