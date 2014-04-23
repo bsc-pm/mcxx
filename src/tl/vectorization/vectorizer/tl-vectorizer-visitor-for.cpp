@@ -190,10 +190,10 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
         bool lhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->is_constant(
+            _vectorizer_analysis->variable_is_constant_at_statement(
                     _environment._analysis_simd_scope, lhs);
         bool rhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->is_constant(
+            _vectorizer_analysis->variable_is_constant_at_statement(
                     _environment._analysis_simd_scope, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
