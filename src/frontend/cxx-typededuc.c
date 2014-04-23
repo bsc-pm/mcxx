@@ -1822,7 +1822,7 @@ char deduce_arguments_of_auto_initialization(
 
     // Fake type template parameter
     scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
-    fake_template_parameter_symbol->symbol_name = uniquestr("FakeTypeTemplateParameter");
+    fake_template_parameter_symbol->symbol_name = UNIQUESTR_LITERAL("FakeTypeTemplateParameter");
     fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
     fake_template_parameter_symbol->entity_specs.is_template_parameter = 1;
     fake_template_parameter_symbol->locus = locus;

@@ -748,7 +748,7 @@ namespace TL { namespace OpenMP {
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
@@ -948,7 +948,7 @@ namespace TL { namespace OpenMP {
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {

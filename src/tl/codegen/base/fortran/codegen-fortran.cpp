@@ -3511,7 +3511,7 @@ OPERATOR_TABLE
                 current_context.current_scope = sc_scope;
                 current_context.block_scope = sc_scope;
 
-                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str(), NULL);
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_internal_symbol()->symbol_name, NULL);
 
                 if (query != NULL
                         && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3529,7 +3529,7 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str(), NULL);
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_internal_symbol()->symbol_name, NULL);
 
         if (query != NULL
                 && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3983,7 +3983,7 @@ OPERATOR_TABLE
                 {
                     // Get the generic symbol
                     TL::Symbol generic_entry = 
-                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_internal_symbol()->symbol_name);
 
                     if (TL::Symbol(generic_entry) == entry)
                     {

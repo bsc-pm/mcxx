@@ -143,7 +143,7 @@ static AST ambig_assignment_statement_function(YYSTYPE x0, YYSTYPE x1)
 static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 {
    AST result = ast_make_ambiguous(x0.ast, x1.ast);
-   ast_set_text(result, uniquestr("ambiguous_io_spec"));
+   ast_set_text(result, "ambiguous_io_spec");
 
    return result;
 }

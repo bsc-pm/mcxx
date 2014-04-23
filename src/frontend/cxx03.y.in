@@ -4377,10 +4377,10 @@ unqualified_id_funct : operator_function_id
 destructor_id : '~' IDENTIFIER
 {
 	// Construct an artificial name for it
-    char c[256];
-    snprintf(c, 255, "~%s", $2.token_text);
+    const char* destructor_name = NULL;
+    uniquestr_sprintf(&destructor_name, "~%s", $2.token_text);
 
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), uniquestr(c));
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), destructor_name);
 
 	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -4396,10 +4396,10 @@ destructor_template_id : '~' template_id
 	AST symbol = ASTSon0($2);
 
 	// Construct an artificial name for it
-    char c[256];
-    snprintf(c, 255, "~%s", ASTText(symbol));
+    const char* destructor_name = NULL;
+    uniquestr_sprintf(&destructor_name, "~%s", ASTText(symbol));
 
-	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus($1.token_file, $1.token_line, 0), uniquestr(c));
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus($1.token_file, $1.token_line, 0), destructor_name);
 }
 ;
 
@@ -6015,7 +6015,7 @@ right_token : AB1 '>'
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">>");
+    $$.token_text = UNIQUESTR_LITERAL(">>");
 }
 | RIGHT
 {
@@ -6028,7 +6028,7 @@ right_assign_token : AB1 AB2 '='
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">>=");
+    $$.token_text = UNIQUESTR_LITERAL(">>=");
 }
 | RIGHT_ASSIGN
 {
@@ -6041,7 +6041,7 @@ greater_equal_token : AB2 '='
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">=");
+    $$.token_text = UNIQUESTR_LITERAL(">=");
 }
 | GREATER_OR_EQUAL
 {

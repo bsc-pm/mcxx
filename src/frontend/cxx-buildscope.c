@@ -8951,7 +8951,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         // through any sort of lookup. It will be accessible throgh
         // the related_symbols of the class symbol
         scope_entry_t* this_symbol = xcalloc(1, sizeof(*this_symbol));
-        this_symbol->symbol_name = uniquestr("this");
+        this_symbol->symbol_name = UNIQUESTR_LITERAL("this");
         this_symbol->decl_context = inner_decl_context;
         this_symbol->locus = ast_get_locus(a);
         this_symbol->kind = SK_VARIABLE;
@@ -9668,7 +9668,7 @@ scope_entry_t* get_function_declaration_proxy(void)
     if (_decl_proxy == NULL)
     {
         _decl_proxy = xcalloc(1, sizeof(*_decl_proxy));
-        _decl_proxy->symbol_name = uniquestr("._function_declarator_");
+        _decl_proxy->symbol_name = UNIQUESTR_LITERAL("._function_declarator_");
         _decl_proxy->kind = SK_FUNCTION;
     }
 
@@ -10760,7 +10760,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 type_t* conversion_type_info = NULL;
 
                 // Get the type and its name
-                char* conversion_function_name = get_conversion_function_name(decl_context, declarator_id, 
+                const char* conversion_function_name = get_conversion_function_name(decl_context, declarator_id, 
                         &conversion_type_info);
                 AST conversion_id = ASTLeaf(AST_SYMBOL, 
                         ast_get_locus(declarator_id), 
@@ -11735,7 +11735,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
     new_entry->value = nodecl_name;
     //The symbol name has been computed by Codegen!!
-    new_entry->symbol_name = codegen_to_str(nodecl_name, decl_context);
+    new_entry->symbol_name = uniquestr(codegen_to_str(nodecl_name, decl_context));
 
     new_entry->entity_specs.is_friend_declared = 1;
     new_entry->entity_specs.any_exception = gather_info->any_exception;
@@ -13632,7 +13632,7 @@ static void build_scope_namespace_definition(AST a,
     else
     {
         // Register this namespace if it does not exist in this scope
-        const char* unnamed_namespace = uniquestr("(unnamed)");
+        const char* unnamed_namespace = UNIQUESTR_LITERAL("(unnamed)");
         scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, NULL, DF_ONLY_CURRENT_SCOPE);
 
         decl_context_t namespace_context;
@@ -16303,95 +16303,104 @@ const char* get_operator_function_name(AST declarator_id)
 
     AST operator  = ASTSon0(declarator_id);
 
+#define RETURN_UNIQUESTR_NAME(x) \
+    { \
+        static const char* c = NULL; \
+        if (c != NULL) return c; \
+        return (c = uniquestr(x)); \
+    } 
+
     switch (ASTType(operator))
     {
         case AST_NEW_OPERATOR :
-            return STR_OPERATOR_NEW;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_NEW);
         case AST_DELETE_OPERATOR :
-            return STR_OPERATOR_DELETE;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_DELETE);
         case AST_NEW_ARRAY_OPERATOR :
-            return STR_OPERATOR_NEW_ARRAY;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_NEW_ARRAY);
         case AST_DELETE_ARRAY_OPERATOR :
-            return STR_OPERATOR_DELETE_ARRAY;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_DELETE_ARRAY);
         case AST_ADD_OPERATOR :
-            return STR_OPERATOR_ADD;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_ADD);
         case AST_MINUS_OPERATOR :
-            return STR_OPERATOR_MINUS;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MINUS);
         case AST_MUL_OPERATOR :
-            return STR_OPERATOR_MULT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MULT);
         case AST_DIV_OPERATOR :
-            return STR_OPERATOR_DIV;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_DIV);
         case AST_MOD_OPERATOR :
-            return STR_OPERATOR_MOD;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MOD);
         case AST_BITWISE_XOR_OPERATOR :
-            return STR_OPERATOR_BIT_XOR;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_BIT_XOR);
         case AST_BITWISE_AND_OPERATOR :
-            return STR_OPERATOR_BIT_AND;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_BIT_AND);
         case AST_BITWISE_OR_OPERATOR :
-            return STR_OPERATOR_BIT_OR;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_BIT_OR);
         case AST_BITWISE_NEG_OPERATOR :
-            return STR_OPERATOR_BIT_NOT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_BIT_NOT);
         case AST_LOGICAL_NOT_OPERATOR :
-            return STR_OPERATOR_LOGIC_NOT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_LOGIC_NOT);
         case AST_ASSIGNMENT_OPERATOR :
-            return STR_OPERATOR_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_ASSIGNMENT);
         case AST_LOWER_OPERATOR :
-            return STR_OPERATOR_LOWER_THAN;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_LOWER_THAN);
         case AST_GREATER_OPERATOR :
-            return STR_OPERATOR_GREATER_THAN;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_GREATER_THAN);
         case AST_ADD_ASSIGN_OPERATOR :
-            return STR_OPERATOR_ADD_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_ADD_ASSIGNMENT);
         case AST_SUB_ASSIGN_OPERATOR :
-            return STR_OPERATOR_MINUS_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MINUS_ASSIGNMENT);
         case AST_MUL_ASSIGN_OPERATOR :
-            return STR_OPERATOR_MUL_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MUL_ASSIGNMENT);
         case AST_DIV_ASSIGN_OPERATOR :
-            return STR_OPERATOR_DIV_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_DIV_ASSIGNMENT);
         case AST_MOD_ASSIGN_OPERATOR :
-            return STR_OPERATOR_MOD_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_MOD_ASSIGNMENT);
         case AST_BITWISE_XOR_ASSIGN_OPERATOR :
-            return STR_OPERATOR_XOR_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_XOR_ASSIGNMENT);
         case AST_BITWISE_AND_ASSIGN_OPERATOR :
-            return STR_OPERATOR_AND_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_AND_ASSIGNMENT);
         case AST_BITWISE_OR_ASSIGN_OPERATOR :
-            return STR_OPERATOR_OR_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_OR_ASSIGNMENT);
         case AST_LEFT_OPERATOR :
-            return STR_OPERATOR_SHIFT_LEFT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_SHIFT_LEFT);
         case AST_RIGHT_OPERATOR :
-            return STR_OPERATOR_SHIFT_RIGHT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_SHIFT_RIGHT);
         case AST_LEFT_ASSIGN_OPERATOR :
-            return STR_OPERATOR_SHL_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_SHL_ASSIGNMENT);
         case AST_RIGHT_ASSIGN_OPERATOR :
-            return STR_OPERATOR_SHR_ASSIGNMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_SHR_ASSIGNMENT);
         case AST_EQUAL_OPERATOR :
-            return STR_OPERATOR_EQUAL;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_EQUAL);
         case AST_DIFFERENT_OPERATOR :
-            return STR_OPERATOR_DIFFERENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_DIFFERENT);
         case AST_LESS_OR_EQUAL_OPERATOR :
-            return STR_OPERATOR_LOWER_EQUAL;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_LOWER_EQUAL);
         case AST_GREATER_OR_EQUAL_OPERATOR :
-            return STR_OPERATOR_GREATER_EQUAL;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_GREATER_EQUAL);
         case AST_LOGICAL_AND_OPERATOR :
-            return STR_OPERATOR_LOGIC_AND;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_LOGIC_AND);
         case AST_LOGICAL_OR_OPERATOR :
-            return STR_OPERATOR_LOGIC_OR;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_LOGIC_OR);
         case AST_INCREMENT_OPERATOR :
-            return STR_OPERATOR_POSTINCREMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_POSTINCREMENT);
         case AST_DECREMENT_OPERATOR :
-            return STR_OPERATOR_POSTDECREMENT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_POSTDECREMENT);
         case AST_COMMA_OPERATOR :
-            return STR_OPERATOR_COMMA;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_COMMA);
         case AST_POINTER_OPERATOR :
-            return STR_OPERATOR_ARROW;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_ARROW);
         case AST_POINTER_DERREF_OPERATOR :
-            return STR_OPERATOR_ARROW_POINTER;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_ARROW_POINTER);
         case AST_FUNCTION_CALL_OPERATOR :
-            return STR_OPERATOR_CALL;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_CALL);
         case AST_SUBSCRIPT_OPERATOR :
-            return STR_OPERATOR_SUBSCRIPT;
+            RETURN_UNIQUESTR_NAME(STR_OPERATOR_SUBSCRIPT);
         default :
             internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(declarator_id)));
     }
+
+#undef RETURN_UNIQUESTR_NAME
 }
 
 
@@ -16982,7 +16991,7 @@ static void build_scope_for_statement_range(AST a,
 
     // Create __range
     scope_entry_t* range_symbol = new_symbol(block_context, block_context.current_scope, ".__range");
-    range_symbol->symbol_name = uniquestr("__range");
+    range_symbol->symbol_name = UNIQUESTR_LITERAL("__range");
     range_symbol->kind = SK_VARIABLE;
     range_symbol->type_information = get_rvalue_reference_type(get_auto_type());
     range_symbol->locus = ast_get_locus(a);
@@ -17147,7 +17156,7 @@ static void build_scope_for_statement_range(AST a,
 
         // Create __begin and __end
         scope_entry_t* begin_symbol = new_symbol(block_context, block_context.current_scope, ".__begin");
-        begin_symbol->symbol_name = uniquestr("__begin");
+        begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
         begin_symbol->kind = SK_VARIABLE;
         begin_symbol->type_information = get_auto_type();
         begin_symbol->locus = ast_get_locus(a);
@@ -17170,7 +17179,7 @@ static void build_scope_for_statement_range(AST a,
         }
 
         scope_entry_t* end_symbol = new_symbol(block_context, block_context.current_scope, ".__end");
-        end_symbol->symbol_name = uniquestr("__end");
+        end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
         end_symbol->kind = SK_VARIABLE;
         end_symbol->type_information = get_auto_type();
         end_symbol->locus = ast_get_locus(a);
@@ -18376,7 +18385,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
     }
 }
 
-char* get_conversion_function_name(decl_context_t decl_context, 
+const char* get_conversion_function_name(decl_context_t decl_context, 
         AST conversion_function_id, 
         type_t** result_conversion_type)
 {
@@ -18408,7 +18417,7 @@ char* get_conversion_function_name(decl_context_t decl_context,
         *result_conversion_type = type_info;
     }
 
-    return "$.operator";
+    return UNIQUESTR_LITERAL("$.operator");
 }
 
 nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context)

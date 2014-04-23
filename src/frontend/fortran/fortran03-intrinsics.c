@@ -469,7 +469,7 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         {
             scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
             new_keyword_sym->kind = SK_VARIABLE;
-            new_keyword_sym->symbol_name = current_variant.keyword_names[i];
+            new_keyword_sym->symbol_name = uniquestr(current_variant.keyword_names[i]);
             new_keyword_sym->decl_context = entry->decl_context;
             new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
@@ -1203,7 +1203,7 @@ static scope_entry_t* get_intrinsic_symbol_(
         {
             new_entry->locus = make_locus("(fortran-intrinsic)", 0, 0);
         }
-        new_entry->symbol_name = name;
+        new_entry->symbol_name = uniquestr(name);
         new_entry->decl_context = new_program_unit_context(decl_context);
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
@@ -1393,7 +1393,7 @@ void copy_intrinsic_function_info(scope_entry_t* entry, scope_entry_t* intrinsic
 
         scope_entry_t* new_keyword_sym = xcalloc(1, sizeof(*new_keyword_sym));
         new_keyword_sym->kind = SK_VARIABLE;
-        new_keyword_sym->symbol_name = dummy_arg->symbol_name;
+        new_keyword_sym->symbol_name = uniquestr(dummy_arg->symbol_name);
         new_keyword_sym->decl_context = entry->decl_context;
         new_keyword_sym->type_information = dummy_arg->type_information;
 
@@ -1499,7 +1499,7 @@ static scope_entry_t* register_specific_intrinsic_name(
         // Note that get_intrinsic_symbol_ uses the name in generic_entry
         // if it is not NULL, and here it will never be null, so overwrite
         // the name now
-        new_specific_entry->symbol_name = specific_name;
+        new_specific_entry->symbol_name = uniquestr(specific_name);
 
         // Add the keywords that are non null
         for (i = 0; i < MAX_SPECIFIC_PARAMETERS; i++)

@@ -8770,12 +8770,12 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
             }
         case STK_CLASS :
             {
-                result = uniquestr("class <anonymous>");
+                result = UNIQUESTR_LITERAL("class <anonymous>");
                 break;
             }
         case STK_ENUM :
             {
-                result = uniquestr("enum <anonymous>");
+                result = UNIQUESTR_LITERAL("enum <anonymous>");
                 break;
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -8966,11 +8966,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
     if (is_unresolved_overloaded_type(type_info))
     {
-        result = uniquestr("<unresolved overloaded function type>");
+        result = UNIQUESTR_LITERAL("<unresolved overloaded function type>");
     }
     else if (is_error_type(type_info))
     {
-        result = uniquestr("<error-type>");
+        result = UNIQUESTR_LITERAL("<error-type>");
     }
     else if (is_sequence_of_types(type_info))
     {
@@ -9000,7 +9000,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     }
     else if (is_auto_type(type_info))
     {
-        result = uniquestr("auto");
+        result = UNIQUESTR_LITERAL("auto");
     }
     else if (is_braced_list_type(type_info))
     {
@@ -9450,7 +9450,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 {
                     if (nodecl_is_null(type_info->array->whole_size))
                     {
-                        whole_size = uniquestr("[]");
+                        whole_size = UNIQUESTR_LITERAL("[]");
                     }
                     // If this is a saved expression and it IS a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
@@ -9474,7 +9474,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 {
                     if (nodecl_is_null(type_info->array->whole_size))
                     {
-                        whole_size = uniquestr("[]");
+                        whole_size = UNIQUESTR_LITERAL("[]");
                     }
                     // A saved expression that is not user declared means that we have to ignore it
                     // when printing it
@@ -9699,7 +9699,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 {
     ERROR_CONDITION(user_defined_type == NULL, "This cannot be null", 0);
 
-    const char* result = uniquestr("");
+    const char* result = UNIQUESTR_LITERAL("");
 
     const int MAX_LENGTH = 1023;
     char* user_defined_str = counted_xcalloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
@@ -9876,7 +9876,7 @@ static const char* get_builtin_type_name(type_t* type_info)
 {
     simple_type_t* simple_type_info = type_info->type;
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
-    const char* result = uniquestr("");
+    const char* result = UNIQUESTR_LITERAL("");
 
     if (simple_type_info->is_long == 1)
     {
@@ -13221,7 +13221,7 @@ const char* print_type_str(type_t* t, decl_context_t decl_context)
 {
     if (t == NULL)
     {
-        return uniquestr("< unknown type >");
+        return UNIQUESTR_LITERAL("< unknown type >");
     }
     else
     {
@@ -13253,17 +13253,17 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         }
         else
         {
-            return uniquestr("<unresolved overload>");
+            return UNIQUESTR_LITERAL("<unresolved overload>");
         }
         entry_list_free(overload_set);
     }
     else if (is_braced_list_type(t))
     {
-        return uniquestr("<brace-enclosed initializer list>");
+        return UNIQUESTR_LITERAL("<brace-enclosed initializer list>");
     }
     else if (is_error_type(t))
     {
-        return uniquestr("<error-type>");
+        return UNIQUESTR_LITERAL("<error-type>");
     }
     else
     {

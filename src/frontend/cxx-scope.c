@@ -161,6 +161,16 @@ static int strcmp_vptr(const void* v1, const void *v2)
     return strcmp((const char*)v1, (const char*) v2);
 }
 
+static int uniquestr_vptr(const void* v1, const void* v2)
+{
+    if (v1 < v2)
+        return -1;
+    else if (v1 > v2)
+        return 1;
+    else
+        return 0;
+}
+
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 // Any new scope should be created using this one
@@ -169,7 +179,7 @@ scope_t* _new_scope(void)
     scope_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->hash =
-        rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
+        rb_tree_create(uniquestr_vptr, null_dtor_func, null_dtor_func);
 
     return result;
 }
@@ -503,6 +513,7 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
 void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Inserting a symbol entry without name!", 0);
+    ERROR_CONDITION(entry->symbol_name != uniquestr(entry->symbol_name), "Name of symbol not canonical", 0);
     
     scope_entry_list_t* result_set = NULL;
     rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
@@ -5846,7 +5857,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
         // First: lookup inside the class
         scope_entry_list_t* entry_list = query_in_class(
                 decl_context.current_scope,
-                name,
+                uniquestr(name),
                 field_path,
                 decl_flags,
                 NULL,
@@ -6117,7 +6128,7 @@ scope_entry_list_t* query_conversion_function_info(decl_context_t decl_context, 
     decl_context_t class_context = decl_context;
     class_context.current_scope = class_context.class_scope;
 
-    scope_entry_list_t* entry_list = query_in_class(decl_context.class_scope, "$.operator", NULL, DF_NONE, conversion_type, locus);
+    scope_entry_list_t* entry_list = query_in_class(decl_context.class_scope, UNIQUESTR_LITERAL("$.operator"), NULL, DF_NONE, conversion_type, locus);
 
     return entry_list;
 }

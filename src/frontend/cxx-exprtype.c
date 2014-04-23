@@ -2091,7 +2091,7 @@ static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
         scope_entry_t* nullptr_sym = new_symbol(global_context, global_context.current_scope, ".nullptr");
 
         // Change the name of the symbol
-        nullptr_sym->symbol_name = "nullptr";
+        nullptr_sym->symbol_name = UNIQUESTR_LITERAL("nullptr");
         nullptr_sym->kind = SK_VARIABLE;
         nullptr_sym->entity_specs.is_builtin = 1;
         nullptr_sym->type_information = get_nullptr_type();
@@ -8919,7 +8919,7 @@ static void check_new_expression_impl(
         if (!checking_ambiguity())
         {
             // Format a nice message
-            const char* argument_call = uniquestr("");
+            const char* argument_call = UNIQUESTR_LITERAL("");
 
             argument_call = strappend(argument_call, "operator new");
             if (is_new_array)
@@ -20950,7 +20950,7 @@ static const char* codegen_expression_to_str(nodecl_t expr, decl_context_t decl_
         int n = 0;
         nodecl_t* list = nodecl_unpack_list(expr, &n);
         int i;
-        const char* result = uniquestr("{");
+        const char* result = UNIQUESTR_LITERAL("{");
 
         for (i = 0; i < n; i++)
         {
