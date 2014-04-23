@@ -35,6 +35,7 @@
 #include "cxx-locus.h"
 
 #include "red_black_tree.h"
+#include "dhash_ptr.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
@@ -364,7 +365,8 @@ struct scope_tag
     enum scope_kind kind;
 
     // Hash of scope_entry_list
-    rb_red_blk_tree *hash;
+    // rb_red_blk_tree *hash;
+    dhash_ptr_t* dhash;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is

@@ -156,30 +156,27 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
  * to create them.
  */
 
-static int strcmp_vptr(const void* v1, const void *v2)
-{
-    return strcmp((const char*)v1, (const char*) v2);
-}
+// static int strcmp_vptr(const void* v1, const void *v2)
+// {
+//     return strcmp((const char*)v1, (const char*) v2);
+// }
 
-static int uniquestr_vptr(const void* v1, const void* v2)
-{
-    if (v1 < v2)
-        return -1;
-    else if (v1 > v2)
-        return 1;
-    else
-        return 0;
-}
-
-static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
+// static int uniquestr_vptr(const void* v1, const void* v2)
+// {
+//     if (v1 < v2)
+//         return -1;
+//     else if (v1 > v2)
+//         return 1;
+//     else
+//         return 0;
+// }
 
 // Any new scope should be created using this one
 scope_t* _new_scope(void)
 {
     scope_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
-    result->hash =
-        rb_tree_create(uniquestr_vptr, null_dtor_func, null_dtor_func);
+    result->dhash = dhash_ptr_new(5);
 
     return result;
 }
@@ -412,12 +409,7 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
 
     const char* symbol_name = uniquestr(name);
 
-    scope_entry_list_t* result_set = NULL;
-    rb_red_blk_node* n = rb_tree_query(sc->hash, symbol_name);
-    if (n != NULL)
-    {
-        result_set = (scope_entry_list_t*) rb_node_get_info(n);
-    }
+    scope_entry_list_t* result_set = (scope_entry_list_t*)dhash_ptr_query(sc->dhash, symbol_name);
 
     if (result_set != NULL)
     {
@@ -428,7 +420,7 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
         result_set = entry_list_new(entry);
     }
 
-    rb_tree_insert(sc->hash, symbol_name, result_set);
+    dhash_ptr_insert(sc->dhash, symbol_name, result_set);
 }
 
 static const char* scope_names[] =
@@ -461,7 +453,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
 char same_scope(scope_t* stA, scope_t* stB)
 {
-    return (stA->hash == stB->hash);
+    return (stA->dhash == stB->dhash);
 }
 
 static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
@@ -485,12 +477,7 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
         }
     }
 
-    scope_entry_list_t* result = NULL;
-    rb_red_blk_node *n = rb_tree_query(sc->hash, name);
-    if (n != NULL)
-    {
-        result = (scope_entry_list_t*) rb_node_get_info(n);
-    }
+    scope_entry_list_t *result = (scope_entry_list_t*)dhash_ptr_query(sc->dhash, name);
 
     DEBUG_CODE()
     {
@@ -515,12 +502,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
     ERROR_CONDITION((entry->symbol_name == NULL), "Inserting a symbol entry without name!", 0);
     ERROR_CONDITION(entry->symbol_name != uniquestr(entry->symbol_name), "Name of symbol not canonical", 0);
     
-    scope_entry_list_t* result_set = NULL;
-    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
-    if (n != NULL)
-    {
-        result_set = (scope_entry_list_t*)rb_node_get_info(n);
-    }
+    scope_entry_list_t* result_set = (scope_entry_list_t*)dhash_ptr_query(sc->dhash, entry->symbol_name);
 
     if (result_set != NULL)
     {
@@ -540,24 +522,32 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
         if (!do_not_add)
         {
             result_set = entry_list_prepend(result_set, entry);
-            rb_tree_insert(sc->hash, entry->symbol_name, result_set);
+            dhash_ptr_insert(sc->dhash, entry->symbol_name, result_set);
         }
     }
     else
     {
         result_set = entry_list_new(entry);
-        rb_tree_insert(sc->hash, entry->symbol_name, result_set);
+        dhash_ptr_insert(sc->dhash, entry->symbol_name, result_set);
     }
 }
 
 void remove_entry(scope_t* sc, scope_entry_t* entry)
 {
-    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
-    if (n == NULL)
+    scope_entry_list_t* entry_list = dhash_ptr_query(sc->dhash, entry->symbol_name);
+    if (entry_list == NULL)
         return;
 
-    scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
-    rb_tree_insert(sc->hash, entry->symbol_name, entry_list_remove(entry_list, entry));
+    entry_list = entry_list_remove(entry_list, entry);
+
+    if (entry_list_size(entry_list) > 1)
+    {
+        dhash_ptr_insert(sc->dhash, entry->symbol_name, entry_list);
+    }
+    else
+    {
+        dhash_ptr_remove(sc->dhash, entry->symbol_name);
+    }
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
@@ -5613,7 +5603,7 @@ void scope_for_each_entity(scope_t* sc, void *data, void (*fun)(scope_entry_list
 {
     struct fun_adaptor_data_tag fun_adaptor_data = { .data = data, .fun = fun };
 
-    rb_tree_walk(sc->hash, for_each_fun_adaptor, &fun_adaptor_data);
+    dhash_ptr_walk(sc->dhash, (dhash_ptr_walk_fn*)for_each_fun_adaptor, &fun_adaptor_data);
 }
 
 int get_template_nesting_of_context(decl_context_t decl_context)

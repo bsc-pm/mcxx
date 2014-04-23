@@ -130,7 +130,7 @@ static void print_scope_full(scope_t* st, int global_indent)
     print_context_data.scope_set[print_context_data.num_scopes] = st;
     print_context_data.num_scopes++;
 
-    rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
+    dhash_ptr_walk(st->dhash, (dhash_ptr_walk_fn*)print_scope_full_aux, &global_indent);
 
     print_context_data.num_scopes--;
     print_context_data.scope_set[print_context_data.num_scopes] = NULL;

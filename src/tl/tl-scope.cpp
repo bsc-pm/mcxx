@@ -170,7 +170,7 @@ namespace TL
         ObjectList<Symbol> result;
 
         walk_scope_data_t walk_data(result, include_hidden);
-        rb_tree_walk(_decl_context.current_scope->hash, walk_scope, &walk_data);
+        dhash_ptr_walk(_decl_context.current_scope->dhash, (dhash_ptr_walk_fn*)walk_scope, &walk_data);
 
         return result;
     }
