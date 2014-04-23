@@ -1983,7 +1983,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
             if (tpl != NULL // This could be null because of variadic template arguments
                     && tpl->entry != NULL
-                    && strcmp(tpl->entry->symbol_name, name) == 0)
+                    && tpl->entry->symbol_name == name)
             {
                 DEBUG_CODE()
                 {

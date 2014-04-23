@@ -2084,7 +2084,7 @@ static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, ".nullptr", NULL);
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".nullptr"), NULL);
 
     if (entry_list == NULL)
     {
@@ -2129,7 +2129,7 @@ static void resolve_this_symbol(AST expression, decl_context_t decl_context, nod
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
         // Lookup a symbol 'this' as usual
-        scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+        scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
         if (entry_list != NULL)
         {
             this_symbol = entry_list_head(entry_list);
@@ -6993,7 +6993,7 @@ static void cxx_compute_name_from_entry_list(
             type_t* this_type = NULL;
             scope_entry_t* this_symbol = NULL;
 
-            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, "this", NULL);
+            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
             if (this_symbol_list != NULL)
             {
                 this_symbol =  entry_list_head(this_symbol_list);
@@ -11321,7 +11321,7 @@ static void check_nodecl_function_call_cxx(
     }
     xfree(list);
 
-    scope_entry_list_t* this_query = query_name_str(decl_context, "this", NULL);
+    scope_entry_list_t* this_query = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
     scope_entry_t* this_symbol = NULL;
 
     if (this_query != NULL)
@@ -12572,7 +12572,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                         }
                     case AST_LAMBDA_CAPTURE_THIS:
                         {
-                            scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
                             if (entry_list == NULL)
                             {
                                 if (!checking_ambiguity())
@@ -14793,7 +14793,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
         decl_context_t global_context = decl_context;
         global_context.current_scope = global_context.global_scope;
 
-        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -14802,14 +14802,15 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
                 entry_list_free(entry_list);
 
             error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "Maybe you need '#include <typeinfo>'",
+                    "%s: info: maybe you need '#include <typeinfo>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
             return NULL;
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
-        entry_list = query_in_scope_str(std_context, "type_info", NULL);
+        entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
 
         if (entry_list == NULL
                 || (entry_list_head(entry_list)->kind != SK_CLASS
@@ -14819,7 +14820,8 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
                 entry_list_free(entry_list);
 
             error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "Maybe you need '#include <typeinfo>'",
+                    "%s: info: maybe you need '#include <typeinfo>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
             return NULL;
         }
@@ -14841,7 +14843,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
 
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
     if (entry_list == NULL 
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -14854,7 +14856,8 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list'\n"
-                    "Maybe you need '#include <initializer_list>'",
+                    "%s: info: maybe you need '#include <initializer_list>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
         }
         return NULL;
@@ -14863,7 +14866,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
     entry_list_free(entry_list);
 
-    entry_list = query_in_scope_str(std_context, "initializer_list", NULL);
+    entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("initializer_list"), NULL);
 
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_TEMPLATE)
@@ -14876,7 +14879,8 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list'\n"
-                    "Maybe you need '#include <initializer_list>'",
+                    "%s: info: maybe you need '#include <initializer_list>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
         }
         return NULL;
@@ -20020,7 +20024,7 @@ constexpr_function_get_constants_of_arguments(
                         nodecl_get_child(entry->entity_specs.function_code, 0)
                         );
                 scope_entry_list_t* this_list =
-                    query_name_str(body_context, "this", NULL);
+                    query_name_str(body_context, UNIQUESTR_LITERAL("this"), NULL);
 
                 ERROR_CONDITION(this_list == NULL, "There should be a 'this'", 0);
 

@@ -8012,7 +8012,7 @@ static void fortran_finish_intrinsic_modules(decl_context_t decl_context UNUSED_
 
 static void fortran_create_scope_for_intrinsics(decl_context_t decl_context)
 {
-    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context.current_scope, ".fortran_intrinsics");
+    scope_entry_t* fortran_intrinsics = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL(".fortran_intrinsics"));
     fortran_intrinsics->kind = SK_NAMESPACE;
     fortran_intrinsics->related_decl_context = new_namespace_context(decl_context, fortran_intrinsics);
 }
@@ -8022,7 +8022,7 @@ decl_context_t fortran_get_context_of_intrinsics(decl_context_t decl_context)
     decl_context_t global_context = decl_context;
     global_context.current_scope = decl_context.global_scope;
 
-    scope_entry_list_t* global_list = query_in_scope_str(global_context, ".fortran_intrinsics", NULL);
+    scope_entry_list_t* global_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".fortran_intrinsics"), NULL);
 
     ERROR_CONDITION(global_list == NULL, "Fortran intrinsics context was requested but it is missing", 0);
 

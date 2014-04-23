@@ -2513,7 +2513,8 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
 { \
     if (pred) \
     { \
-    scope_entry_list_t* generic_list = query_name_str(global_context, generic_name, NULL); \
+        const char* generic_name_str = UNIQUESTR_LITERAL(generic_name); \
+    scope_entry_list_t* generic_list = query_name_str(global_context, generic_name_str, NULL); \
     ERROR_CONDITION(generic_list == NULL, "Generic '" generic_name "' not found", 0); \
     scope_entry_t* generic = entry_list_head(generic_list); \
     entry_list_free(generic_list); \
@@ -2533,10 +2534,11 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
     { \
         nodecl_free(nodecl_args[i]); \
     } \
-    insert_alias(global_context.current_scope, specific, generic_name "_" #bytes); \
+    const char* alias_str = UNIQUESTR_LITERAL(generic_name "_" #bytes); \
+    insert_alias(global_context.current_scope, specific, alias_str); \
     if (!CURRENT_CONFIGURATION->xl_compatibility) \
     { /* We use the specific name always, except under XL compatibility */ \
-        specific->symbol_name = uniquestr(generic_name "_" #bytes); \
+        specific->symbol_name = alias_str; \
     } \
     } \
 }

@@ -164,15 +164,8 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
     result->parent = NULL;
     result->locus = location;
 
-    if (text != NULL)
-    {
-        result->text = uniquestr(text);
-    }
-    else
-    {
-        result->text = NULL;
-    }
-
+    result->text = text;
+    
     COUNT_SON(0);
     COUNT_SON(1);
     COUNT_SON(2);
@@ -227,7 +220,7 @@ extern inline node_t ast_get_type(const_AST a)
 
 void ast_set_text(AST a, const char* str)
 {
-    a->text = uniquestr(str);
+    a->text = str;
 }
 
 void ast_set_type(AST a, node_t node_type)
@@ -439,7 +432,7 @@ AST ast_copy(const_AST a)
 
     if (a->text != NULL)
     {
-        result->text = uniquestr(a->text);
+        result->text = a->text;
     }
 
     result->parent = NULL;

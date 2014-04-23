@@ -9150,7 +9150,7 @@ static void register_this_symbol(decl_context_t decl_context,
     // It is a constant pointer, so qualify like it is
     this_type = get_cv_qualified_type(this_type, CV_CONST);
 
-    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, "this");
+    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
 
     this_symbol->locus = locus;
 
@@ -14468,7 +14468,7 @@ static void build_scope_function_definition_body(
             // It is a constant pointer, so qualify like it is
             this_type = get_cv_qualified_type(this_type, CV_CONST);
 
-            scope_entry_list_t* entry_list = query_name_str(block_context, "this", NULL);
+            scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
             // If the function is defined inside the class specifier, build_scope_function_definition_declarator
             ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
             scope_entry_t *this_symbol = entry_list_head(entry_list);
@@ -17067,7 +17067,7 @@ static void build_scope_for_statement_range(AST a,
             // For the purpose of this lookup, std is an associated namespace
             decl_context_t global_context = decl_context;
             global_context.current_scope = global_context.global_scope;
-            scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
+            scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
 
             scope_entry_t* std_namespace = NULL;
@@ -17095,9 +17095,9 @@ static void build_scope_for_statement_range(AST a,
             }
 
             AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "begin"),
+                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
                     ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
                         ),
                     ast_get_locus(a),
                     NULL);
@@ -17121,9 +17121,9 @@ static void build_scope_for_statement_range(AST a,
                     ast_get_locus(a));
 
             AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), "end"),
+                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
                     ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__range")
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
                         ),
                     ast_get_locus(a),
                     NULL);
@@ -17203,7 +17203,7 @@ static void build_scope_for_statement_range(AST a,
         AST initialize_iterator =
             ASTMake1(AST_EQUAL_INITIALIZER,
                     ASTMake1(AST_DERREFERENCE,
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), ".__begin"),
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__begin")),
                         ast_get_locus(a), NULL),
                     ast_get_locus(a), NULL);
 
