@@ -58,7 +58,6 @@ namespace Codegen
             Ret visit(const Nodecl::Analysis::MinusInfinity &);
             Ret visit(const Nodecl::Analysis::EmptyRange& node);
             Ret visit(const Nodecl::Analysis::Phi &);
-            Ret visit(const Nodecl::Analysis::Range &);
             Ret visit(const Nodecl::Analysis::RangeIntersection &);
             Ret visit(const Nodecl::Analysis::RangeSub &);
             Ret visit(const Nodecl::Analysis::RangeUnion &);
@@ -273,6 +272,9 @@ namespace Codegen
                 // Object init
                 std::set<TL::Symbol> must_be_object_init;
 
+                // friends that have been declared but not yet defined
+                std::set<TL::Symbol> friend_function_declared_but_not_defined;
+
                 // This means that we are doing &X and X is a rebindable reference
                 bool do_not_derref_rebindable_reference;
 
@@ -301,6 +303,7 @@ namespace Codegen
                     pending_nested_types_to_define(),
                     walked_symbols(),
                     must_be_object_init(),
+                    friend_function_declared_but_not_defined(),
                     do_not_derref_rebindable_reference(false),
                     _inline_comment_nest(0),
                     _indent_level(0) { }
@@ -466,6 +469,7 @@ namespace Codegen
             static bool operand_has_lower_priority(Nodecl::NodeclBase operation, Nodecl::NodeclBase operand);
             static std::string quote_c_string(int* c, int length, const std::string& prefix);
             static bool nodecl_calls_to_constructor(Nodecl::NodeclBase, TL::Type t);
+            static bool nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase);
             static Nodecl::List nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase initializer);
             static bool nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type);
 

@@ -207,7 +207,32 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
 void CxxBase::visit(const Nodecl::Reference &node)
 {
     Nodecl::NodeclBase rhs = node.get_rhs();
-    char needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_parentheses = operand_has_lower_priority(node, rhs);
+    bool needs_this = false;
+
+    CXX_LANGUAGE()
+    {
+        // struct A
+        // {
+        //    int x;
+        //    void f(int *);
+        //    void g();
+        // };
+        //
+        // void A::g()
+        // {
+        //    f(&x);
+        //    // Emitting f(&A::x) is wrong but f(&(A::x)) is fine...
+        // }
+        //
+        // But versions before g++ 4.7 do not honor the parentheses this and
+        // ignore the parentheses so it is safer to do &(*this).A::x
+
+        needs_this = (rhs.is<Nodecl::Symbol>()
+                && rhs.get_symbol().is_member()
+                && !rhs.get_symbol().is_static()
+                && !node.get_type().is_pointer_to_member());
+    }
 
     bool old_do_not_derref_rebindable_ref = state.do_not_derref_rebindable_reference;
 
@@ -230,6 +255,10 @@ void CxxBase::visit(const Nodecl::Reference &node)
     if (needs_parentheses)
     {
         *(file) << "(";
+    }
+    if (needs_this)
+    {
+        *(file) << "(*this).";
     }
     walk(rhs);
     if (needs_parentheses)
@@ -1034,6 +1063,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
 {
     TL::Type type = node.get_type();
 
+    bool add_double_parentheses = false;
+
     if (type.is_signed_short_int())
     {
         *(file) << "short";
@@ -1048,10 +1079,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxExplicitTypeCast& node)
     }
     else
     {
+        if (type.is_named()
+                && ::symbol_is_member_of_dependent_class(type.get_symbol().get_internal_symbol()))
+        {
+            // It will be started by a 'typename' so wrap it inside a
+            // parentheses for 'syntactic' security
+            *(file) << "((";
+            add_double_parentheses = true;
+        }
+
         *(file) << this->get_declaration(type, this->get_current_scope(),  "");
     }
 
     walk(node.get_init_list());
+
+    if (add_double_parentheses)
+        *(file) << "))";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CxxParenthesizedInitializer& node)
@@ -1443,7 +1486,7 @@ CxxBase::Ret CxxBase::codegen_function_call_arguments(
         if (type_it != type_end
                 && type_it->is_valid())
         {
-            actual_arg = Nodecl::Utils::advance_conversions(actual_arg);
+            actual_arg = actual_arg.no_conv();
 
             bool param_is_ref = is_non_language_reference_type(*type_it);
 
@@ -2063,6 +2106,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
     TL::Type symbol_type = symbol.get_type();
     TL::Scope function_scope = context.retrieve_context();
 
+    state.friend_function_declared_but_not_defined.erase(symbol);
+
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
 
@@ -2370,6 +2415,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     }
 
     TL::Scope symbol_scope = symbol.get_scope();
+
+    state.friend_function_declared_but_not_defined.erase(symbol);
 
     ERROR_CONDITION(!symbol.is_function()
             && !symbol.is_dependent_friend_function(), "Invalid symbol", 0);
@@ -3385,10 +3432,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     Nodecl::NodeclBase ub_expr = node.get_upper();
     Nodecl::NodeclBase step_expr = node.get_stride();
 
+    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
+    Nodecl::NodeclBase parent = node.get_parent();
+    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+        *(file) << "[";
+    
     walk(lb_expr);
     *(file) << ":";
     walk(ub_expr);
 
+    // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
+    if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+        *(file) << "]";
+    
     // Do not emit stride 1 because it looks weird in C
     if (!step_expr.is_constant()
             || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
@@ -3494,15 +3550,6 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
             *(file) << ", ";
     }
     *(file) << ")";
-}
-
-CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Range& node)
-{
-    *(file) << "[";
-    walk(node.get_lower());
-    *(file) << ":";
-    walk(node.get_upper());
-    *(file) << "]";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeIntersection& node)
@@ -3908,9 +3955,17 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Symbol& node)
     }
     CXX_LANGUAGE()
     {
+        // Builtins cannot be qualified
         if (entry.is_builtin()
-                // Builtins cannot be qualified
-                || (entry.is_function() && entry.is_friend_declared()))
+                || (entry.is_function() &&
+                    // Friend declared functions cannot be qualified
+                    (entry.is_friend_declared()
+                     // Not friend declared functions (because we will
+                     // eventually find their function definition in this same
+                     // file) but not yet defined but seen only in a friend
+                     // declaration, cannot be qualified either
+                     || (state.friend_function_declared_but_not_defined.find(entry)
+                         != state.friend_function_declared_but_not_defined.end()))))
         {
             *(file) << entry.get_name();
         }
@@ -4893,7 +4948,34 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
         }
     }
 
-    // 2.2 Declare members as usual
+    // 2.2 Mark friend functions as declared but not defined.
+    //
+    // We need to do this for member functions defined inside the class that
+    // call a friend because we do not keep friends ordered
+    TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
+    for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
+            it != friends.end();
+            it++)
+    {
+        TL::Symbol &_friend(*it);
+        if ((_friend.is_function() || _friend.is_dependent_friend_function()))
+        {
+            if (!_friend.get_function_code().is_null()
+                    && _friend.is_defined_inside_class())
+            {
+                // Do nothing
+            }
+            else
+            {
+                if (get_codegen_status(_friend) == CODEGEN_STATUS_NONE)
+                {
+                    state.friend_function_declared_but_not_defined.insert(_friend);
+                }
+            }
+        }
+    }
+
+    // 2.3 Declare members as usual
     bool previous_was_just_member_declarator_name = false;
 
     for (TL::ObjectList<TL::Symbol>::iterator it = members.begin();
@@ -5131,7 +5213,6 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
     }
 
     // 3. Declare friends
-    TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
             it++)
@@ -5417,7 +5498,34 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
     TL::ObjectList<TL::MemberDeclarationInfo> members = symbol_type.get_member_declarations();
     access_specifier_t current_access_spec = default_access_spec;
 
-    // 2.2 Declare members as usual
+    // 2.2 Mark friend functions as declared but not defined.
+    //
+    // We need to do this for member functions defined inside the class that
+    // call a friend because we do not keep friends ordered
+    TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
+    for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
+            it != friends.end();
+            it++)
+    {
+        TL::Symbol &_friend(*it);
+        if ((_friend.is_function() || _friend.is_dependent_friend_function()))
+        {
+            if (!_friend.get_function_code().is_null()
+                    && _friend.is_defined_inside_class())
+            {
+                // Do nothing
+            }
+            else
+            {
+                if (get_codegen_status(_friend) == CODEGEN_STATUS_NONE)
+                {
+                    state.friend_function_declared_but_not_defined.insert(_friend);
+                }
+            }
+        }
+    }
+
+    // 2.3 Declare members as usual
     bool previous_was_just_member_declarator_name = false;
 
     for (TL::ObjectList<TL::MemberDeclarationInfo>::iterator it = members.begin();
@@ -5697,7 +5805,6 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
     }
 
     // 3. Declare friends
-    TL::ObjectList<TL::Symbol> friends = symbol_type.class_get_friends();
     for (TL::ObjectList<TL::Symbol>::iterator it = friends.begin();
             it != friends.end();
             it++)
@@ -6193,8 +6300,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
 
         // We try to always emit direct-initialization syntax
         // except when infelicities in the syntax prevent us to do that
-        Nodecl::NodeclBase init = symbol.get_value();
-        init = Nodecl::Utils::advance_conversions(init);
+        Nodecl::NodeclBase init = symbol.get_value().no_conv();
 
         if (is_definition)
         {
@@ -6296,6 +6402,13 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // "function (pointer to function() returning A) returning A"
                         // [extra blanks added for clarity in the example above]
                         walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+                    }
+                    else if (nodecl_is_parenthesized_explicit_type_conversion(init))
+                    {
+                        // Same reason above
+                        *file << "(";
+                        walk(init);
+                        *file << ")";
                     }
                     else
                     {
@@ -8201,7 +8314,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = Nodecl::Utils::advance_conversions(n);
+    n = n.no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8248,10 +8361,20 @@ static char is_additive_bin_operator(node_t n)
         || n == NODECL_MINUS;
 }
 
+static char is_relational_operator(node_t n)
+{
+    return n == NODECL_EQUAL
+        || n == NODECL_DIFFERENT
+        || n == NODECL_LOWER_THAN
+        || n == NODECL_LOWER_OR_EQUAL_THAN
+        || n == NODECL_GREATER_THAN
+        || n == NODECL_GREATER_OR_EQUAL_THAN;
+}
+
 bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8262,8 +8385,8 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
 {
-    current_operator = Nodecl::Utils::advance_conversions(current_operator);
-    operand = Nodecl::Utils::advance_conversions(operand);
+    current_operator = current_operator.no_conv();
+    operand = operand.no_conv();
 
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
@@ -8281,6 +8404,8 @@ bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, No
             || (is_shift_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
             // a + b & c -> (a + b) & c
             || (is_bitwise_bin_operator(current_kind) && is_additive_bin_operator(operand_kind))
+            // a #1 b #2 c -> (a #1 b) #2 c     [where #1 and #2 are ==, <, <=, >=, >, !=]
+            || (is_relational_operator(current_kind) && is_relational_operator(operand_kind))
             )
     {
         return 1;
@@ -8382,9 +8507,16 @@ std::string CxxBase::quote_c_string(int* c, int length, const std::string& prefi
     return result;
 }
 
+bool CxxBase::nodecl_is_parenthesized_explicit_type_conversion(Nodecl::NodeclBase node)
+{
+    return node.is<Nodecl::CxxExplicitTypeCast>()
+        && !node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is_null()
+        && node.as<Nodecl::CxxExplicitTypeCast>().get_init_list().is<Nodecl::CxxParenthesizedInitializer>();
+}
+
 Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBase node)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     ERROR_CONDITION(!node.is<Nodecl::FunctionCall>(), "Invalid node", 0);
 
@@ -8393,7 +8525,7 @@ Nodecl::List CxxBase::nodecl_calls_to_constructor_get_arguments(Nodecl::NodeclBa
 
 bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     if (node.is<Nodecl::FunctionCall>())
     {
@@ -8402,12 +8534,13 @@ bool CxxBase::nodecl_calls_to_constructor(Nodecl::NodeclBase node, TL::Type t)
         return (called_sym.is_valid()
                 && called_sym.is_constructor());
     }
+
     return 0;
 }
 
 bool CxxBase::nodecl_is_zero_args_call_to_constructor(Nodecl::NodeclBase node, TL::Type t)
 {
-    node = Nodecl::Utils::advance_conversions(node);
+    node = node.no_conv();
 
     return (nodecl_calls_to_constructor(node, t)
             && nodecl_calls_to_constructor_get_arguments(node).empty());

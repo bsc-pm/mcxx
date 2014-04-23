@@ -107,7 +107,7 @@ namespace Utils {
      * - S.r is contained in S
      * Otherwise, it returns the nodecl equal or contained in #n in #sym_set
      */
-    Nodecl::NodeclBase ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
+    Nodecl::List ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set );
     
     void delete_enclosed_var_from_list( const ExtendedSymbol& ei, ext_sym_set& sym_set );
 

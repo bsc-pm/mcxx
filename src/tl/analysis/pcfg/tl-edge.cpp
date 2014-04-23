@@ -32,12 +32,13 @@
 namespace TL {
 namespace Analysis {
 
-    Edge::Edge( Node *source, Node *target, bool is_task_edge_, Edge_type type, Nodecl::NodeclBase label )
+    Edge::Edge( Node *source, Node *target, bool is_task_edge_, Edge_type type, Nodecl::NodeclBase label, bool is_back_edge_ )
         : _source( source ), _target( target )
     {
         set_data( _EDGE_TYPE, type );
         set_data( _EDGE_LABEL, label );
         set_data( _IS_TASK_EDGE, is_task_edge_ );
+        set_data( _IS_BACK_EDGE, is_back_edge_ );
     }
 
     Node* Edge::get_source( ) const
@@ -102,11 +103,24 @@ namespace Analysis {
         }
         else
         {
-            internal_error( "Edge between '%d' and '%d 'without attribute _IS_TASK. This attribute is mandatory for all edges",
+            internal_error( "Edge between '%d' and '%d 'without attribute _IS_TASK_EDGE. This attribute is mandatory for all edges",
                             _source->get_id( ), _target->get_id( ) );
         }
     }
 
+    bool Edge::is_back_edge( )
+    {
+        if( has_key( _IS_BACK_EDGE ) )
+        {
+            return get_data<bool>( _IS_BACK_EDGE );
+        }
+        else
+        {
+            internal_error( "Edge between '%d' and '%d 'without attribute _IS_BACK_EDGE. This attribute is mandatory for all edges",
+                            _source->get_id( ), _target->get_id( ) );
+        }
+    }
+    
     std::string Edge::get_label_as_string( )
     {
         std::string label = "";

@@ -45,6 +45,8 @@
 namespace TL {
 namespace Analysis {
     
+    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> SizeMap;
+    
     class LIBTL_CLASS ExtensibleGraph
     {
     protected:
@@ -71,6 +73,9 @@ namespace Analysis {
          */
         Symbol _function_sym;
 
+        //! Map relating a symbol with pointer type and the number of elements hidden in the pointer
+        SizeMap _pointer_to_size_map;
+        
         //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
         /*! The key is the old node and the value is the new node
         */
@@ -232,7 +237,7 @@ namespace Analysis {
         */
         Edge* connect_nodes( Node* parent, Node* child, Edge_type etype = __Always, 
                              Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ),
-                             bool is_task_edge = false );
+                             bool is_task_edge = false, bool is_back_edge = false );
 
         //! Wrapper method for #connect_nodes when a set of parents must be connected to a
         //! set of children and each connection may be different from the others.
@@ -255,7 +260,8 @@ namespace Analysis {
         //! Wrapper method for #connect_nodes when a set of parents must be connected to an
         //! only child and the nature of the connection is the same for all of them.
         void connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype = __Always,
-                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ) );
+                            Nodecl::NodeclBase label = Nodecl::NodeclBase::null( ), 
+                            bool is_task_edge = false, bool is_back_edge = false );
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
         void disconnect_nodes( ObjectList<Node*> parents, Node* child );
@@ -365,6 +371,11 @@ namespace Analysis {
         //! It is null when the graph do not corresponds to a function code
         Symbol get_function_symbol( ) const;
 
+        void set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size);
+        Nodecl::NodeclBase get_pointer_n_elems(const Nodecl::NodeclBase& s);
+        SizeMap get_pointer_n_elements_map();
+        void purge_non_constant_pointer_n_elems();
+        
         //! Returns the node containing the graph
         Node* get_graph( ) const;
 

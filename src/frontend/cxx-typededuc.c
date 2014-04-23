@@ -128,6 +128,7 @@ static void print_deduction_set(deduction_set_t* deduction_set)
                 case TPK_NONTYPE_PACK:
                     {
                         fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
+                                nodecl_is_null(current_deduction->deduced_parameters[j]->value) ? "<<NULL>>" :
                                 codegen_to_str(current_deduction->deduced_parameters[j]->value,
                                     nodecl_retrieve_context(current_deduction->deduced_parameters[j]->value)));
                         fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
@@ -252,8 +253,10 @@ char deduce_template_arguments_common(
                                 value = print_declarator(current_template_argument->type);
                                 break;
                             case TPK_NONTYPE:
-                                value = codegen_to_str(current_template_argument->value,
-                                        nodecl_retrieve_context(current_template_argument->value));
+                                value = nodecl_is_null(current_template_argument->value)
+                                    ? "<<NULL>>"
+                                    : codegen_to_str(current_template_argument->value,
+                                            nodecl_retrieve_context(current_template_argument->value));
                                 break;
                             default:
                                 internal_error("Code unreachable", 0);
@@ -591,7 +594,8 @@ char deduce_template_arguments_common(
         {
             type_t* updated_parameter = NULL;
             updated_parameter = update_type(parameters[j],
-                    updated_context, locus);
+                    updated_context,
+                    locus);
 
             if (updated_parameter == NULL
                     || !is_sound_type(updated_parameter, updated_context))
@@ -1020,6 +1024,7 @@ char deduce_template_arguments_common(
 
                 template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                         updated_context,
+                        /* instantiation_symbol_map */ NULL,
                         locus,
                         /* index_pack */ -1);
 
@@ -1051,7 +1056,8 @@ char deduce_template_arguments_common(
             current_deduced_template_arguments->arguments[i_tpl_parameters]->type =
                 update_type(
                         type_template_parameters->parameters[i_tpl_parameters]->entry->type_information,
-                        updated_context, locus);
+                        updated_context,
+                        locus);
 
             type_t* t = current_deduced_template_arguments->arguments[i_tpl_parameters]->type;
 
@@ -1221,7 +1227,8 @@ char deduce_arguments_of_conversion(
     type_t* original_parameter_type = (*parameter_types);
     type_t* updated_type = 
         update_type(original_parameter_type, 
-                updated_context, locus);
+                updated_context,
+                locus);
 
     if (!equivalent_types((*argument_types), updated_type))
     {
@@ -1974,6 +1981,7 @@ static template_parameter_list_t* build_template_parameter_list_from_deduction_s
                                 current_deduction->parameter_position,
                                 nesting,
                                 template_parameter_kind_name,
+                                nodecl_is_null(argument->value) ? "<<NULL>>" : 
                                 codegen_to_str(argument->value, nodecl_retrieve_context(argument->value)));
                     }
                 }

@@ -138,7 +138,7 @@ LIBMCXX_EXTERN void dependent_typename_set_is_artificial(type_t* t, char is_arti
 LIBMCXX_EXTERN char dependent_typename_is_artificial(type_t* t);
 #endif
 
-LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context, char is_scoped);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum type_tag_t class_kind);
 
 LIBMCXX_EXTERN type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
@@ -156,6 +156,8 @@ LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explici
 LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
+        decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,
         decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);

@@ -1591,7 +1591,9 @@ static void floating_literal_type(AST expr, nodecl_t* nodecl_output)
         }
 #else
         {
-            running_error("%s: error: __float128 literals not supported\n", ast_location(expr));
+            error_printf("%s: error: __float128 literals not supported\n", ast_location(expr));
+            *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
+            return;
         }
 #endif
     }
@@ -6940,26 +6942,6 @@ static void cxx_compute_name_from_entry_list(
         return;
     }
 
-    if (!check_expr_flags.do_not_fold_into_dependent_typename
-            && entry->entity_specs.is_member
-            && !entry->entity_specs.is_injected_class_name
-            && is_dependent_type(entry->entity_specs.class_type)
-            && (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_SIMPLE
-                || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID))
-    {
-        type_t* dependent_typename =
-           build_dependent_typename_for_entry(
-                named_type_get_symbol(entry->entity_specs.class_type),
-                nodecl_name,
-                nodecl_get_locus(nodecl_name));
-
-        *nodecl_output = nodecl_shallow_copy(nodecl_name);
-        nodecl_set_type(*nodecl_output, dependent_typename);
-        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-        return;
-    }
-
     template_parameter_list_t* last_template_args = NULL;
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
@@ -6976,9 +6958,17 @@ static void cxx_compute_name_from_entry_list(
 
         if (!accessing_symbol->entity_specs.is_member
                 || accessing_symbol->entity_specs.is_static
-                || check_expr_flags.is_non_executable)
+                || check_expr_flags.is_non_executable
+                || symbol_is_member_of_dependent_class(entry))
         {
             *nodecl_output = nodecl_access_to_symbol;
+
+            if (symbol_is_member_of_dependent_class(entry))
+            {
+                // This is like this->x
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -10045,7 +10035,7 @@ static void check_nodecl_cast_expr(
         return;
     }
 
-    if (is_dependent_type(nodecl_get_type(nodecl_casted_expr)))
+    if (nodecl_expr_is_type_dependent(nodecl_casted_expr))
     {
         *nodecl_output = nodecl_make_cast(
                 nodecl_casted_expr,
@@ -11439,12 +11429,11 @@ static void check_nodecl_function_call_cxx(
     }
 
     if (this_symbol == NULL
-            && nodecl_get_kind(nodecl_called_name) != NODECL_CXX_DEP_NAME_SIMPLE
             && any_is_member_function_of_a_dependent_class(candidates))
     {
-        // If 'this' is not available and we are doing a call A::F(X) and A::F
-        // is a member of a dependent class assume the whole call is dependent.
-        // Note that F(X) is not considered for this case
+        // If 'this' is not available and we are doing a call F(X) or A::F(X)
+        // and F or A::F is a member of a dependent class assume the whole call
+        // is dependent.
         any_arg_is_type_dependent = 1;
     }
 
@@ -12932,8 +12921,11 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
         class_type_add_member(lambda_class->type_information, new_conversion, /* is_definition */ 1);
     }
 
+    set_is_complete_type(lambda_class->type_information, 1);
+
     // rvalue of the class type
     type_t* lambda_type = get_user_defined_type(lambda_class);
+    set_is_complete_type(lambda_type, 1);
 
     *nodecl_output = nodecl_make_lambda(
             captures,
@@ -15158,6 +15150,59 @@ static char update_stack_to_designator(type_t* declared_type,
     return 1;
 }
 
+// This function creates a designator for non designated initializers
+static void nodecl_craft_designator(
+        nodecl_t nodecl_init,
+        struct type_init_stack_t* type_stack,
+        int type_stack_idx,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_result = nodecl_init;
+
+    while (type_stack_idx >= 0)
+    {
+        type_t* current_type = type_stack[type_stack_idx].type;
+        int item = type_stack[type_stack_idx].item;
+
+        const_value_t* cval = nodecl_get_constant(nodecl_result);
+
+        if (is_array_type(current_type))
+        {
+            nodecl_result = nodecl_make_index_designator(
+                    const_value_to_nodecl(const_value_get_signed_int(item)),
+                    nodecl_result,
+                    array_type_get_element_type(current_type),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else if (is_vector_type(current_type))
+        {
+            // Do nothing with this case as it cannot be designated actually
+        }
+        else if (is_class_type(current_type))
+        {
+            scope_entry_t* field = type_stack[type_stack_idx].fields[item];
+
+            nodecl_result = nodecl_make_field_designator(
+                    nodecl_make_symbol(field, locus),
+                    nodecl_result,
+                    get_unqualified_type(field->type_information),
+                    locus);
+            nodecl_set_constant(nodecl_result, cval);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        type_stack_idx--;
+    }
+
+    *nodecl_output = nodecl_result;
+}
+
+
 static void nodecl_make_designator_rec(nodecl_t *nodecl_output, 
         type_t* designated_type, 
         nodecl_t *designators,
@@ -15167,7 +15212,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     if (current_designator >= num_designators)
         return;
 
-    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, const locus_t* locus);
+    nodecl_t (*nodecl_ptr_fun)(nodecl_t, nodecl_t, type_t*, const locus_t* locus);
 
     nodecl_t child_0 = nodecl_null();
 
@@ -15210,6 +15255,7 @@ static void nodecl_make_designator_rec(nodecl_t *nodecl_output,
     *nodecl_output = (nodecl_ptr_fun)(
             child_0,
             *nodecl_output,
+            designated_type,
             nodecl_get_locus(*nodecl_output));
 }
 
@@ -15518,12 +15564,22 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         return;
                     }
 
-                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER
-                            && designator_is_ok)
+                    if (nodecl_get_kind(list[i]) == NODECL_C99_DESIGNATED_INITIALIZER)
                     {
-                        // Keep the designator
-                        nodecl_t designator = nodecl_get_child(list[i], 0);
-                        nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        if (designator_is_ok)
+                        {
+                            // Keep the designator
+                            nodecl_t designator = nodecl_get_child(list[i], 0);
+                            nodecl_make_designator(&nodecl_init_output, declared_type, designator);
+                        }
+                    }
+                    else
+                    {
+                        nodecl_craft_designator(nodecl_init_output,
+                                type_stack,
+                                type_stack_idx,
+                                nodecl_get_locus(list[i]),
+                                &nodecl_init_output);
                     }
 
                     init_list_output = nodecl_append_to_list(init_list_output, nodecl_init_output);
@@ -19722,6 +19778,9 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
     scope_entry_t* constructor = NULL;
     check_default_initialization_(entry, decl_context, locus, &constructor);
 
+    if (is_incomplete_type(entry->type_information))
+        return 0;
+
     if (is_class_type(entry->type_information))
     {
         ensure_function_is_emitted(constructor, locus);
@@ -20168,7 +20227,7 @@ static const_value_t* evaluate_constexpr_constructor(
         nodecl_t nodecl_evaluated_expr = instantiate_expression(
                 nodecl_replaced_expr,
                 nodecl_retrieve_context(nodecl_function_code),
-                /* instantiation_symbol_map */ NULL,
+                entry->entity_specs.instantiation_symbol_map,
                 /* pack_index */ -1);
 
         values[member_pos] = nodecl_get_constant(nodecl_evaluated_expr);
@@ -20201,7 +20260,7 @@ static const_value_t* evaluate_constexpr_constructor(
 }
 
 static const_value_t* evaluate_constexpr_regular_function_call(
-        scope_entry_t* entry UNUSED_PARAMETER,
+        scope_entry_t* entry,
         nodecl_t nodecl_function_code,
         int num_map_items,
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
@@ -20215,10 +20274,15 @@ static const_value_t* evaluate_constexpr_regular_function_call(
             num_map_items,
             map_of_parameters_and_values);
 
-    // Now review the expression again in order to evaluate it
+    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+    if (entry->entity_specs.is_member)
+    {
+        instantiation_symbol_map = entry->entity_specs.instantiation_symbol_map;
+    }
+
     nodecl_t nodecl_evaluated_expr = instantiate_expression(nodecl_replace_parameters,
             nodecl_retrieve_context(nodecl_function_code),
-            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+            instantiation_symbol_map, /* pack_index */ -1);
 
     return nodecl_get_constant(nodecl_evaluated_expr);
 }
@@ -20230,7 +20294,8 @@ static const_value_t* evaluate_constexpr_function_call(
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n", get_qualified_symbol_name(entry, entry->decl_context));
+        fprintf(stderr, "EXPRTYPE: Evaluating constexpr call to function '%s'\n",
+                get_qualified_symbol_name(entry, entry->decl_context));
     }
 
     if (is_template_specialized_type(entry->type_information))
@@ -20466,10 +20531,17 @@ nodecl_t cxx_nodecl_make_function_call(
                 if (!nodecl_is_null(called_symbol->entity_specs.noexception)
                         && nodecl_expr_is_value_dependent(called_symbol->entity_specs.noexception))
                 {
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
                     nodecl_t new_noexception = instantiate_expression(
                             called_symbol->entity_specs.noexception,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_noexception))
                     {
@@ -20550,11 +20622,19 @@ nodecl_t cxx_nodecl_make_function_call(
                             || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
+                    instantiation_symbol_map_t* instantiation_symbol_map = NULL;
+                    if (called_symbol->entity_specs.is_member)
+                    {
+                        instantiation_symbol_map
+                            = named_type_get_symbol(called_symbol->entity_specs.class_type)
+                            ->entity_specs.instantiation_symbol_map;
+                    }
+
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
                             called_symbol->decl_context,
-                            /* instantiation_symbol_map */ NULL, /* pack_index */ -1);
+                            instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
                     {
@@ -20870,13 +20950,42 @@ static inline nodecl_visitor_fun_t instantiate_expr_visitor_fun(nodecl_instantia
     return NODECL_VISITOR_FUN(p);
 }
 
+// This function for debug only
+static const char* codegen_expression_to_str(nodecl_t expr, decl_context_t decl_context)
+{
+    if (nodecl_is_list(expr))
+    {
+        int n = 0;
+        nodecl_t* list = nodecl_unpack_list(expr, &n);
+        int i;
+        const char* result = uniquestr("{");
+
+        for (i = 0; i < n; i++)
+        {
+            if (i > 0)
+                result = strappend(result, ", ");
+
+            result = strappend(result,
+                    codegen_expression_to_str(list[i], decl_context));
+        }
+
+        result = strappend(result, "}");
+
+        return result;
+    }
+    else
+    {
+        return codegen_to_str(expr, decl_context);
+    }
+}
+
 static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
 {
     visitor->nodecl_result = nodecl_null();
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s). Constant evaluation is %s\n",
-                codegen_to_str(node, visitor->decl_context),
+                codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
 
@@ -20884,10 +20993,11 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' with type '%s'. Constant evaluation is %s",
-                codegen_to_str(node, visitor->decl_context),
+        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' "
+                "with type '%s'. Constant evaluation is %s",
+                codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
-                codegen_to_str(visitor->nodecl_result, visitor->decl_context),
+                codegen_expression_to_str(visitor->nodecl_result, visitor->decl_context),
                 print_declarator(nodecl_get_type(visitor->nodecl_result)),
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
         if (nodecl_is_constant(visitor->nodecl_result))
@@ -20912,13 +21022,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, de
 
 nodecl_t instantiate_expression(
         nodecl_t nodecl_expr, decl_context_t decl_context,
-        instantiation_symbol_map_t* instantiation_symbol_map_,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index)
 {
     nodecl_instantiate_expr_visitor_t v;
     memset(&v, 0, sizeof(v));
     v.pack_index = pack_index;
-    v.instantiation_symbol_map = instantiation_symbol_map_;
+    v.instantiation_symbol_map = instantiation_symbol_map;
 
     char do_not_evaluate = check_expr_flags.do_not_evaluate;
     check_expr_flags.do_not_evaluate = 0;
@@ -21000,6 +21110,7 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
                 update_template_argument_list(
                     decl_context,
                     template_specialized_type_get_template_arguments(class_type),
+                    /* instantiation_symbol_map */ NULL,
                     locus,
                     /* pack_index */ -1),
                 locus);
@@ -21039,6 +21150,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
         scope_entry_t* dependent_entry,
         nodecl_t list_of_dependent_parts,
         decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
         char dependent_entry_already_updated,
         int pack_index,
         const locus_t* locus)
@@ -21073,6 +21185,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 update_template_argument_list(
                         decl_context,
                         template_specialized_type_get_template_arguments(dependent_entry->type_information),
+                        instantiation_symbol_map,
                         locus,
                         pack_index);
         }
@@ -21106,6 +21219,7 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                     update_template_argument_list(
                         decl_context,
                         nodecl_get_template_parameters(copied_part),
+                        instantiation_symbol_map,
                         locus,
                         pack_index));
         }
@@ -21142,6 +21256,7 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
             sym,
             v->pack_index,
             NULL,
+            v->instantiation_symbol_map,
             nodecl_get_locus(node));
 
     nodecl_t complete_nodecl_name = nodecl_null();
@@ -21176,6 +21291,7 @@ static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v,
     complete_nodecl_name = complete_nodecl_name_of_dependent_entity(dependent_entry,
             list_of_dependent_parts,
             v->decl_context,
+            v->instantiation_symbol_map,
             dependent_entry_already_updated,
             v->pack_index,
             nodecl_get_locus(node));
@@ -21301,13 +21417,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else
     {
-        scope_entry_t* mapped_symbol = instantiation_symbol_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
-
-        if (mapped_symbol == NULL)
-        {
-            // There is no mapping, use the original symbol and hope for the best
-            mapped_symbol = nodecl_get_symbol(node);
-        }
+        scope_entry_t* mapped_symbol = instantiation_symbol_try_to_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
 
         // FIXME - Can this name be other than an unqualified thing?
         nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
@@ -21348,6 +21458,7 @@ static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nod
     template_parameter_list_t* update_template_args =
         update_template_argument_list(v->decl_context,
                 template_args,
+                v->instantiation_symbol_map,
                 nodecl_get_locus(node),
                 v->pack_index);
 
@@ -21378,6 +21489,7 @@ static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t*
             template_parameter_list_t* updated_template_args =
                 update_template_argument_list(v->decl_context,
                         template_args,
+                        v->instantiation_symbol_map,
                         nodecl_get_locus(expr),
                         v->pack_index);
 
@@ -22270,7 +22382,7 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
     nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 2));
     if (nodecl_is_err_expr(nodecl_false))
     {
-        v->nodecl_result = nodecl_true;
+        v->nodecl_result = nodecl_false;
         return;
     }
 
@@ -22282,32 +22394,36 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
 static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expansion = nodecl_get_child(node, 0);
-    nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
+    // nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
 
-    if (nodecl_expr_is_value_dependent(packed_expr))
-    {
-        type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
-        v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-                pack_type,
-                nodecl_get_locus(node));
-        nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
-        nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
-        return;
-    }
+    // if (nodecl_expr_is_value_dependent(packed_expr))
+    // {
+    //     type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
+    //     v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
+    //             pack_type,
+    //             nodecl_get_locus(node));
+    //     nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
+    //     nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
+    //     return;
+    // }
 
     int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
 
     if (len < 0)
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
-        nodecl_free(expansion);
-        nodecl_free(packed_expr);
+        // nodecl_free(packed_expr);
         return;
     }
 
     nodecl_t nodecl_result = nodecl_null();
 
     int old_pack_index = v->pack_index;
+
+    char is_value_dependent = 0;
+    char is_type_dependent = 0;
+
+    type_t* sequence_type = NULL;
 
     int i;
     for (i = 0; i < len; i++)
@@ -22319,10 +22435,23 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
         {
             v->pack_index = old_pack_index;
             v->nodecl_result = expr;
+            nodecl_free(nodecl_result);
             return;
         }
 
+        is_value_dependent = is_value_dependent || nodecl_expr_is_value_dependent(expr);
+        is_type_dependent = is_type_dependent || nodecl_expr_is_type_dependent(expr);
+
+        sequence_type = get_sequence_of_types_append_type(sequence_type, nodecl_get_type(expr));
+
         nodecl_result = nodecl_append_to_list(nodecl_result, expr);
+    }
+
+    if (!nodecl_is_null(nodecl_result))
+    {
+        nodecl_set_type(nodecl_result, sequence_type);
+        nodecl_expr_set_is_value_dependent(nodecl_result, is_value_dependent);
+        nodecl_expr_set_is_type_dependent(nodecl_result, is_type_dependent);
     }
 
     v->pack_index = old_pack_index;

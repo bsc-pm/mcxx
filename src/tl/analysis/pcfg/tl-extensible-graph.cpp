@@ -32,7 +32,7 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph( std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils )
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
-          _global_vars( ), _function_sym( NULL ), nodes_m( ),
+          _global_vars( ), _function_sym( NULL ), _pointer_to_size_map(), nodes_m( ),
           _task_nodes_l( ), _func_calls( ),
           _concurrent_tasks( ), _last_sync( ), _next_sync( ),
           _cluster_to_entry_map( )
@@ -140,14 +140,14 @@ namespace Analysis {
     }
 
     Edge* ExtensibleGraph::connect_nodes( Node* parent, Node* child, Edge_type etype, Nodecl::NodeclBase label,
-                                          bool is_task_edge )
+                                          bool is_task_edge, bool is_back_edge )
     {
         Edge* edge = NULL;
         if( parent != NULL && child != NULL )
         {
             if( !parent->has_child( child ) )
             {
-                edge = new Edge( parent, child, is_task_edge, etype, label );
+                edge = new Edge( parent, child, is_task_edge, etype, label, is_back_edge );
                 parent->set_exit_edge( edge );
                 child->set_entry_edge( edge );
             }
@@ -239,11 +239,12 @@ namespace Analysis {
         }
     }
 
-    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, Nodecl::NodeclBase label )
+    void ExtensibleGraph::connect_nodes( ObjectList<Node*> parents, Node* child, Edge_type etype, Nodecl::NodeclBase label, 
+                                         bool is_task_edge, bool is_back_edge )
     {
         for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
         {
-            connect_nodes( *it, child, etype, label );
+            connect_nodes( *it, child, etype, label, is_task_edge, is_back_edge );
         }
     }
 
@@ -871,6 +872,38 @@ namespace Analysis {
         return _function_sym;
     }
 
+    void ExtensibleGraph::set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size)
+    {
+        if(_pointer_to_size_map.find(s)==_pointer_to_size_map.end())
+            _pointer_to_size_map[s] = size;
+        else
+            _pointer_to_size_map[s] = Nodecl::NodeclBase::null();
+    }
+    
+    Nodecl::NodeclBase ExtensibleGraph::get_pointer_n_elems(const Nodecl::NodeclBase& s)
+    {
+        Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
+        if(_pointer_to_size_map.find(s)!=_pointer_to_size_map.end())
+            result = _pointer_to_size_map[s];
+        return result;
+    }
+    
+    SizeMap ExtensibleGraph::get_pointer_n_elements_map()
+    {
+        return _pointer_to_size_map;
+    }
+    
+    void ExtensibleGraph::purge_non_constant_pointer_n_elems()
+    {
+        for(SizeMap::iterator it = _pointer_to_size_map.begin(); it != _pointer_to_size_map.end(); )
+        {
+            if(it->second.is_null())
+                _pointer_to_size_map.erase(it++);
+            else
+                ++it;
+        }
+    }
+    
     Node* ExtensibleGraph::get_graph( ) const
     {
         return _graph;

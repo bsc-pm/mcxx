@@ -2257,6 +2257,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 nodecl_make_field_designator(
                     nodecl_make_symbol(member, ast_get_locus(expr)),
                     initialization_expressions[i],
+                    no_ref(member->type_information),
                     ast_get_locus(expr)));
     }
     entry_list_iterator_free(iter);

@@ -881,13 +881,7 @@ namespace Nodecl
 
     Nodecl::NodeclBase Utils::advance_conversions(Nodecl::NodeclBase n)
     {
-        if (n.is_null())
-            return n;
-        while (n.is<Nodecl::Conversion>() || n.is<Nodecl::VectorConversion>())
-        {
-            n = n.as<Nodecl::Conversion>().get_nest();
-        }
-        return n;
+        return n.no_conv();
     }
 
     std::string Utils::get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n)
@@ -2025,16 +2019,16 @@ namespace TL
                         || test_expr.is<Nodecl::LowerOrEqualThan>()
                         || test_expr.is<Nodecl::GreaterThan>()
                         || test_expr.is<Nodecl::GreaterOrEqualThan>())
-                    && (Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_lhs()).get_symbol()
+                    && (test_expr.as<Nodecl::LowerThan>().get_lhs().no_conv().get_symbol()
                         == _induction_var.get_symbol()
-                        || Nodecl::Utils::advance_conversions(test_expr.as<Nodecl::LowerThan>().get_rhs()).get_symbol()
+                        || test_expr.as<Nodecl::LowerThan>().get_rhs().no_conv().get_symbol()
                         == _induction_var.get_symbol()))
 
             {
                 Nodecl::NodeclBase lhs = test_expr.as<Nodecl::LowerThan>().get_lhs();
                 Nodecl::NodeclBase rhs = test_expr.as<Nodecl::LowerThan>().get_rhs();
 
-                bool lhs_is_var = (Nodecl::Utils::advance_conversions(lhs).get_symbol() == _induction_var.get_symbol());
+                bool lhs_is_var = (lhs.no_conv().get_symbol() == _induction_var.get_symbol());
 
                 if (test_expr.is<Nodecl::LowerThan>())
                 {
@@ -2179,42 +2173,42 @@ namespace TL
             // incr-expr must have the following form
             // ++_induction_var
             if (incr_expr.is<Nodecl::Preincrement>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Preincrement>().get_rhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Preincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 _step = const_value_to_nodecl(const_value_get_one(4, 1));
             }
             // _induction_var++
             else if (incr_expr.is<Nodecl::Postincrement>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Postincrement>().get_rhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Postincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 _step = const_value_to_nodecl(const_value_get_one(4, 1));
             }
             // --_induction_var
             else if (incr_expr.is<Nodecl::Predecrement>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Predecrement>().get_rhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Predecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
             }
             // _induction_var--
             else if (incr_expr.is<Nodecl::Postdecrement>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Postdecrement>().get_rhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Postdecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
             }
             // _induction_var += incr
             else if (incr_expr.is<Nodecl::AddAssignment>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::AddAssignment>().get_lhs()).get_symbol()
+                    && incr_expr.as<Nodecl::AddAssignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy();
             }
             // _induction_var -= incr
             else if (incr_expr.is<Nodecl::MinusAssignment>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::MinusAssignment>().get_lhs()).get_symbol()
+                    && incr_expr.as<Nodecl::MinusAssignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
                 Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::AddAssignment>().get_rhs();
@@ -2238,37 +2232,31 @@ namespace TL
             }
             // _induction_var = _induction_var + incr
             else if (incr_expr.is<Nodecl::Assignment>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_lhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_rhs()).is<Nodecl::Add>()
-                    && Nodecl::Utils::advance_conversions(
-                        Nodecl::Utils::advance_conversions(
-                            incr_expr.as<Nodecl::Assignment>().get_rhs())
-                        .as<Nodecl::Add>().get_lhs()).get_symbol() == _induction_var.get_symbol())
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Add>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
                 _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().shallow_copy();
             }
             // _induction_var = incr + _induction_var
             else if (incr_expr.is<Nodecl::Assignment>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_lhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_rhs()).is<Nodecl::Add>()
-                    && Nodecl::Utils::advance_conversions(
-                        Nodecl::Utils::advance_conversions(
-                            incr_expr.as<Nodecl::Assignment>().get_rhs())
-                        .as<Nodecl::Add>().get_rhs()).get_symbol() == _induction_var.get_symbol())
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Add>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Add>().get_rhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
                 _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().shallow_copy();
             }
             // _induction_var = _induction_var - incr
             else if (incr_expr.is<Nodecl::Assignment>()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_lhs()).get_symbol()
+                    && incr_expr.as<Nodecl::Assignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol()
-                    && Nodecl::Utils::advance_conversions(incr_expr.as<Nodecl::Assignment>().get_rhs()).is<Nodecl::Minus>()
-                    && Nodecl::Utils::advance_conversions(
-                        Nodecl::Utils::advance_conversions(
-                            incr_expr.as<Nodecl::Assignment>().get_rhs())
-                        .as<Nodecl::Minus>().get_lhs()).get_symbol() == _induction_var.get_symbol())
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv().is<Nodecl::Minus>()
+                    && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
+                        .as<Nodecl::Minus>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
                 Nodecl::NodeclBase rhs = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Minus>().get_rhs();
 
