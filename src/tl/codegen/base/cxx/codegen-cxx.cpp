@@ -4028,6 +4028,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Undefined& node)
+{
+    *(file) << "_undef_value_";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
