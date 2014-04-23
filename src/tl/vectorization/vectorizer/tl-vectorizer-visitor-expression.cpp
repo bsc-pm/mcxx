@@ -930,11 +930,8 @@ namespace Vectorization
                 {
                     VECTORIZATION_DEBUG()
                     {
-                        fprintf(stderr, "VECTORIZER: Scatter '%s' "\
-                                "(base: %s strides: %s\n",
-                                lhs_array.prettyprint().c_str(),
-                                base.prettyprint().c_str(),
-                                strides.prettyprint().c_str());
+                        fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
+                                lhs_array.prettyprint().c_str());
                     }
 
                     n.replace(vector_scatter);
@@ -1286,10 +1283,8 @@ namespace Vectorization
             {
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr, "VECTORIZER: Gather '%s' "\
-                            "(base: %s strides: %s)\n", n.prettyprint().c_str(),
-                            base.prettyprint().c_str(),
-                            strides.prettyprint().c_str());
+                    fprintf(stderr, "VECTORIZER: Gather '%s'\n", 
+                            n.prettyprint().c_str());
                 }
 
                 n.replace(vector_gather);

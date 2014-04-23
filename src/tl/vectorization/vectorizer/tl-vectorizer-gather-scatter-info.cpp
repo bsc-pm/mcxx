@@ -101,7 +101,7 @@ namespace Vectorization
 
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: Base %s\n",
+            fprintf(stderr, "VECTORIZER:    Base %s\n",
                     _base.prettyprint().c_str());
         }
 
@@ -119,7 +119,7 @@ namespace Vectorization
 
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: Strides %s\n",
+            fprintf(stderr, "VECTORIZER:    Strides %s\n",
                     _strides.prettyprint().c_str());
         }
 
