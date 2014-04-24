@@ -204,7 +204,7 @@ namespace Nodecl { namespace Utils { namespace C {
                         it2 != _extra_new_sym.end();
                         it2++)
                 {
-                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, it2->get_name().c_str());
+                    scope_entry_t* new_sym = ::new_symbol(decl_context, decl_context.current_scope, uniquestr(it2->get_name().c_str()));
                     new_symbols.append(new_sym);
 
                     new_sym->kind = it2->get_internal_symbol()->kind;
