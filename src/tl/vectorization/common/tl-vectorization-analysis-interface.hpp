@@ -64,8 +64,6 @@ namespace Vectorization
 
             Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
 
-            bool nodecl_needs_translation(const Nodecl::NodeclBase& n);
-
             Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n);
             objlist_nodecl_t translate_input(
                     const objlist_nodecl_t& list);

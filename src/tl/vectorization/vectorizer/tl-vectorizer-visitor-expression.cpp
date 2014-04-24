@@ -1457,8 +1457,13 @@ namespace Vectorization
 
         if (!sym_type.is_vector() && !sym_type.is_mask())
         {
+            // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
+            if(tl_sym_type.is_vector())
+            {
+                symbol_type_promotion(n);
+            }
             // Vectorize BASIC induction variable
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope, n))
             {
@@ -1556,11 +1561,6 @@ namespace Vectorization
                 }
 
                 n.replace(new_red_symbol);
-            }
-            // Non local Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            else if(tl_sym_type.is_vector())
-            {
-                symbol_type_promotion(n);
             }
             // Vectorize constants
             /*

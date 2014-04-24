@@ -146,51 +146,35 @@ namespace Vectorization
                 _orig_to_copy_symbols).as<Nodecl::FunctionCode>();
     }
 
-    bool VectorizationAnalysisInterface::nodecl_needs_translation(
-                const Nodecl::NodeclBase& n)
-    {
-//         if (n.is<Nodecl::IntegerLiteral>() ||
-//                 n.is<Nodecl::FloatingLiteral>())
-//         {
-//             return false;
-//         }
-
-        return true;
-    }
-
     Nodecl::NodeclBase VectorizationAnalysisInterface::translate_input(
             const Nodecl::NodeclBase& n)
     {
-        if (nodecl_needs_translation(n))
-        {
-            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
-                _orig_to_copy_nodes.find(n);
+        Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
+            _orig_to_copy_nodes.find(n);
 
-            if (it == _orig_to_copy_nodes.end())
+        if (it == _orig_to_copy_nodes.end())
+        {
+            //std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
+
+            Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 =
+                _copy_to_orig_nodes.find(n);
+            if (it2 != _copy_to_orig_nodes.end())
             {
-                //std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
-
-                Nodecl::Utils::NodeclDeepCopyMap::const_iterator it2 =
-                    _copy_to_orig_nodes.find(n);
-                if (it2 != _copy_to_orig_nodes.end())
-                    internal_error("VectorizerAnalysis: Error translating Nodecl "\
-                            "from origin to copy. NODE ALREADY TRANSLATED", 0);
-
-                register_node(n);
-
-                // Get the registered node
-                it = _orig_to_copy_nodes.find(n);
-
-                //internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
+                return n;
+                //internal_error("VectorizerAnalysis: Error translating Nodecl "\
+                "from origin to copy. NODE ALREADY TRANSLATED", 0);
             }
-            //std::cerr << "Translation from O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
 
-            return it->second;
+            register_node(n);
+
+            // Get the registered node
+            it = _orig_to_copy_nodes.find(n);
+
+            //internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
         }
-        else
-        {
-            return n;
-        }
+        //std::cerr << "Translation from O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
+
+        return it->second;
     }
 
     objlist_nodecl_t VectorizationAnalysisInterface::translate_input(
@@ -244,25 +228,18 @@ namespace Vectorization
     Nodecl::NodeclBase VectorizationAnalysisInterface::translate_output(
             const Nodecl::NodeclBase& n)
     {
-        if (nodecl_needs_translation(n))
-        {
-            Nodecl::Utils::NodeclDeepCopyMap::iterator it =
-                find_equal_nodecl(n, _copy_to_orig_nodes);
+        Nodecl::Utils::NodeclDeepCopyMap::iterator it =
+            find_equal_nodecl(n, _copy_to_orig_nodes);
 
-            if (it == _copy_to_orig_nodes.end())
-            {
-                //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
-                internal_error("VectorizerAnalysis: Error translating "\
-                        "Nodecl from copy to origin", 0);
-                return n;
-            }
-
-            return it->second;
-        }
-        else
+        if (it == _copy_to_orig_nodes.end())
         {
+            //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
+            //internal_error("VectorizerAnalysis: Error translating "\
+            "Nodecl from copy to origin", 0);
             return n;
         }
+
+        return it->second;
     }
 
     objlist_nodecl_t VectorizationAnalysisInterface::translate_output(
