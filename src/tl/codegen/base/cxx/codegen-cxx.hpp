@@ -443,7 +443,9 @@ namespace Codegen
                 void visit_function_call_form_template_id(const Node&);
 
             template <typename Node>
-                bool is_implicit_function_call(const Node& node) const;
+                static bool is_implicit_function_call(const Node& node);
+
+            static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
             template <typename Node>
                 static bool is_binary_infix_operator_function_call(const Node& node);
