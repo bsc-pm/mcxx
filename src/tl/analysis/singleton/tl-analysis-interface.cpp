@@ -223,15 +223,14 @@ end_depends:
         Utils::ext_sym_map::iterator rd_it = bounds.first;
         while(rd_it != bounds.second)
         {
-            // Note that we increment the iterator here. 
-            // Thus, if we enter in the next condition and execute 'continue' the iterator will be correct
+            std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase> rd_value = rd_it->second;
             ++rd_it;
             
-            if(rd_it->second.first.is<Nodecl::Undefined>())
+            if(rd_value.first.is<Nodecl::Undefined>())
                 continue;
             
             // Get the PCFG nodes where the reaching definitions where produced
-            Nodecl::NodeclBase stmt_reach_def = rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+            Nodecl::NodeclBase stmt_reach_def = rd_value.second.is_null() ? rd_value.first : rd_value.second;
             Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
             if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
             {
