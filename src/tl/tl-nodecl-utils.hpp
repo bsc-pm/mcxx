@@ -346,6 +346,7 @@ namespace Utils {
             Ret visit( const Nodecl::Preincrement& n );
             Ret visit( const Nodecl::Range& n );
             Ret visit( const Nodecl::Reference& n );
+            Ret visit( const Nodecl::ReturnStatement& n );
             Ret visit( const Nodecl::Symbol& n );
             Ret visit( const Nodecl::UnalignedVectorLoad& n );
             Ret visit( const Nodecl::UnalignedVectorStore& n );
