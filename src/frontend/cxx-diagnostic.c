@@ -58,6 +58,9 @@ void error_printf(const char* format, ...)
     va_end(va);
     error_count++;
 
+    if (CURRENT_CONFIGURATION->debug_options.print_nodecl_graphviz)
+        ast_dump_graphviz(CURRENT_COMPILED_FILE->parsed_tree, stderr);
+
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
 }
