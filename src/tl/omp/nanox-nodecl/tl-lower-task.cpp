@@ -1743,28 +1743,31 @@ void LoweringVisitor::fill_copies_region(
 
                 while (t.is_array())
                 {
-                    Nodecl::NodeclBase lower, upper, region_size;
+                    Nodecl::NodeclBase array_lb, array_ub;
+                    Nodecl::NodeclBase region_lb, region_ub;
+                    Nodecl::NodeclBase region_size;
                     if (t.array_is_region())
                     {
-                        t.array_get_region_bounds(lower, upper);
+                        t.array_get_bounds(array_lb, array_ub);
+                        t.array_get_region_bounds(region_lb, region_ub);
                         region_size = t.array_get_size();
                     }
                     else
                     {
-                        t.array_get_bounds(lower, upper);
+                        t.array_get_bounds(array_lb, array_ub);
                         region_size = t.array_get_size();
                     }
 
                     if (IS_FORTRAN_LANGUAGE
                             && t.is_fortran_array())
                     {
-                        if (lower.is_null())
+                        if (array_lb.is_null())
                         {
-                            lower = get_lower_bound(data_ref, rank);
+                            array_lb = get_lower_bound(data_ref, rank);
                         }
-                        if (upper.is_null())
+                        if (array_ub.is_null())
                         {
-                            upper = get_upper_bound(data_ref, rank);
+                            array_ub = get_upper_bound(data_ref, rank);
                         }
                         if (region_size.is_null())
                         {
@@ -1772,8 +1775,22 @@ void LoweringVisitor::fill_copies_region(
                         }
                     }
 
-                    lower_bounds.append(lower);
-                    upper_bounds.append(upper);
+                    // The region is the whole array
+                    if (region_lb.is_null())
+                        region_lb = array_lb;
+                    if (region_ub.is_null())
+                        region_ub = array_ub;
+
+                    // Adjust bounds to be 0-based
+                    Nodecl::NodeclBase adjusted_region_lb =
+                        (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
+                        parse_expression(ctr);
+                    Nodecl::NodeclBase adjusted_region_ub =
+                        (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
+                        parse_expression(ctr);
+
+                    lower_bounds.append(adjusted_region_lb);
+                    upper_bounds.append(adjusted_region_ub);
                     total_sizes.append(region_size);
 
                     t = t.array_element();
@@ -1793,7 +1810,6 @@ void LoweringVisitor::fill_copies_region(
 
             num_dimensions
                 << num_dimensions_count;
-
 
             for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
             {
@@ -2492,11 +2508,9 @@ void LoweringVisitor::handle_dependency_item(
             if (region_lb.is_null())
                 region_lb = array_lb;
 
-            Source diff;
-            diff
-                << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
-
-            lb = diff.parse_expression(ctr);
+            // Adjust bounds to be 0-based
+            lb = (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
+                .parse_expression(ctr);
 
             size = contiguous_array_type.array_get_region_size();
 
@@ -2784,27 +2798,39 @@ void LoweringVisitor::fill_dimensions(
                 dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-        Nodecl::NodeclBase lb, ub, size;
+        Nodecl::NodeclBase array_lb, array_ub, size;
+        Nodecl::NodeclBase region_lb, region_ub;
 
         if (dep_type.array_is_region())
         {
-            dep_type.array_get_region_bounds(lb, ub);
+            dep_type.array_get_bounds(array_lb, array_ub);
+            dep_type.array_get_region_bounds(region_lb, region_ub);
             size = dep_type.array_get_region_size();
         }
         else
         {
-            dep_type.array_get_bounds(lb, ub);
-
-            if (lb.is_null() && IS_FORTRAN_LANGUAGE)
-            {
-                lb = get_lower_bound(dep_expr, current_dim);
-            }
-
+            dep_type.array_get_bounds(array_lb, array_ub);
             size = get_size_for_dimension(dep_type, current_dim, dep_expr);
         }
 
+        if (array_lb.is_null() && IS_FORTRAN_LANGUAGE)
+        {
+            array_lb = get_lower_bound(dep_expr, current_dim);
+        }
+
+        // The region is the whole array
+        if (region_lb.is_null())
+            region_lb = array_lb;
+        if (region_ub.is_null())
+            region_ub = array_ub;
+
+        // Adjust bounds to be 0-based
+        Nodecl::NodeclBase adjusted_lb = 
+            (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
+            .parse_expression(sc);
+
         dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
-        dimension_lower_bound << as_expression(lb);
+        dimension_lower_bound << as_expression(adjusted_lb);
         dimension_accessed_length << as_expression(size);
 
         if (IS_C_LANGUAGE
