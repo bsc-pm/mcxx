@@ -31,19 +31,37 @@
 #include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer.hpp"
 
-namespace TL { namespace Vectorization { class VectorizerVisitorPreprocessor :
-    public Nodecl::ExhaustiveVisitor<void> { public:
-        VectorizerVisitorPreprocessor();
+namespace TL
+{ 
+namespace Vectorization
+{ 
+    class VectorizerVisitorPreprocessor : public Nodecl::ExhaustiveVisitor<void> 
+    {
+        private:
+            const VectorizerEnvironment& _environment;
 
-                void visit(const Nodecl::AddAssignment& n);
-                void visit(const Nodecl::MinusAssignment& n);
-                void visit(const Nodecl::MulAssignment& n);
-                void visit(const Nodecl::DivAssignment& n);
-                void visit(const Nodecl::ModAssignment& n);
+            void visit_pre_post_increment(const Nodecl::Preincrement& n);
+            void visit_pre_post_decrement(const Nodecl::Predecrement& n);
 
-                void visit(const Nodecl::ArraySubscript& n);
-        };
-    }
+
+        public:
+            VectorizerVisitorPreprocessor(
+                    const VectorizerEnvironment& environment);
+
+            void visit(const Nodecl::AddAssignment& n);
+            void visit(const Nodecl::MinusAssignment& n);
+            void visit(const Nodecl::MulAssignment& n);
+            void visit(const Nodecl::DivAssignment& n);
+            void visit(const Nodecl::ModAssignment& n);
+
+            void visit(const Nodecl::Preincrement& n);
+            void visit(const Nodecl::Postincrement& n);
+            void visit(const Nodecl::Predecrement& n);
+            void visit(const Nodecl::Postdecrement& n);
+
+            void visit(const Nodecl::ForStatement& n);
+    };
+}
 }
 
 #endif //TL_VECTORIZER_VISITOR_PREPROCESSOR_HPP

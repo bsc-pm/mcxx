@@ -469,7 +469,7 @@ namespace Utils
         return result;
     }
 
-    Nodecl::NodeclBase get_denormalize_ub(Nodecl::ForStatement for_statement)
+    Nodecl::NodeclBase get_denormalized_ub(Nodecl::ForStatement for_statement)
     {
         Nodecl::NodeclBase loop_condition = for_statement.get_loop_header().
             as<Nodecl::LoopControl>().get_cond();

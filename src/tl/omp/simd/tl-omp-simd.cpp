@@ -262,6 +262,9 @@ namespace TL {
                     &reductions,
                     &new_external_vector_symbol_map);
 
+            // Add scopes, default masks, etc.
+            for_environment.load_environment(for_statement);
+
             // Get code ready for vectorisation
             _vectorizer.preprocess_code(for_statement, for_environment);
 
@@ -276,9 +279,6 @@ namespace TL {
                 Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
 
             _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
-
-            // Add scopes, default masks, etc.
-            for_environment.load_environment(for_statement);
 
             // Get epilog information
             bool only_epilog;
@@ -497,6 +497,9 @@ namespace TL {
                     &reductions,
                     &new_external_vector_symbol_map);
 
+            // Add scopes, default masks, etc.
+            for_environment.load_environment(for_statement);
+
             // Get code ready for vectorisation
             _vectorizer.preprocess_code(for_statement, for_environment);
 
@@ -511,9 +514,6 @@ namespace TL {
                 Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
 
             _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
-
-            // Add scopes, default masks, etc.
-            for_environment.load_environment(for_statement);
 
             // Get epilog information
             bool only_epilog;
@@ -768,9 +768,6 @@ namespace TL {
                 Vectorization::VectorizerEnvironment& function_environment,
                 const bool masked_version)
         {
-            // Get code ready for vectorisation
-            _vectorizer.preprocess_code(function_code, function_environment);
-
             TL::Symbol func_sym = function_code.get_symbol();
             std::string orig_func_name = func_sym.get_name();
 
@@ -813,12 +810,15 @@ namespace TL {
             // Append vectorized function code to scalar function
             simd_node.append_sibling(vector_func_code);
 
+            // Add scopes, default masks, etc.
+            function_environment.load_environment(vector_func_code);
+
+            // Get code ready for vectorisation
+            _vectorizer.preprocess_code(function_code, function_environment);
+
             // Initialize analysis info
             _vectorizer.initialize_analysis(vector_func_code);
 
-            // Add scopes, default masks, etc.
-            function_environment.load_environment(vector_func_code);
- 
             _vectorizer.vectorize(vector_func_code, function_environment, masked_version);
 
             function_environment.unload_environment();
@@ -926,6 +926,9 @@ namespace TL {
                     &reductions,
                     &new_external_vector_symbol_map);
 
+            // Add scopes, default masks, etc.
+            parallel_environment.load_environment(parallel_statements);
+
             // Get code ready for vectorisation
             _vectorizer.preprocess_code(parallel_statements, 
                     parallel_environment);
@@ -937,9 +940,6 @@ namespace TL {
 
             _vectorizer.initialize_analysis(
                     enclosing_func.as<Nodecl::FunctionCode>());
-
-            // Add scopes, default masks, etc.
-            parallel_environment.load_environment(parallel_statements);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(

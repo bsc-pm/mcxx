@@ -618,7 +618,7 @@ namespace Vectorization
         }
 
         // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)
-        Nodecl::NodeclBase upper_bound = TL::Vectorization::Utils::get_denormalize_ub(for_statement);
+        Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
         Nodecl::NodeclBase lower_bound = tl_for_statement.get_lower_bound();
 
         TL::Symbol iv = tl_for_statement.get_induction_variable();

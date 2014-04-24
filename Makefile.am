@@ -1093,7 +1093,7 @@ lib_LTLIBRARIES += src/tl/optimizations/libtloptimizations.la
 src_tl_optimizations_libtloptimizations_la_CFLAGS = $(tl_cflags)
 src_tl_optimizations_libtloptimizations_la_CXXFLAGS = $(tl_cflags)
 
-src_tl_optimizations_libtloptimizations_la_LDFLAGS = $(tl_ldflagss)
+src_tl_optimizations_libtloptimizations_la_LDFLAGS = $(tl_ldflags)
 src_tl_optimizations_libtloptimizations_la_LIBADD = $(tl_libadd)
 
 src_tl_optimizations_libtloptimizations_la_SOURCES = \

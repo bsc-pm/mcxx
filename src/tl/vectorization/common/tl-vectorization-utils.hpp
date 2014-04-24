@@ -121,7 +121,7 @@ namespace TL
             const_value_t * get_vector_const_value(
                     const TL::ObjectList<Nodecl::NodeclBase>& list);
 
-            Nodecl::NodeclBase get_denormalize_ub(Nodecl::ForStatement for_statement);
+            Nodecl::NodeclBase get_denormalized_ub(Nodecl::ForStatement for_statement);
         }
     }
 }

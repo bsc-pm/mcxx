@@ -35,72 +35,73 @@
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+    class VectorizerEnvironment
     {
-        class VectorizerEnvironment
-        {
-            private:
-                const std::string& _device;
-                const unsigned int _vector_length;
-                const unsigned int _unroll_factor;
-                const bool _support_masking;
-                const unsigned int _mask_size;
-                const bool _fast_math;
-                const TL::Type& _target_type;
-                const aligned_expr_map_t& _aligned_expr_map;
-                const objlist_nodecl_t& _uniform_expr_list;
-                const objlist_nodecl_t& _suitable_expr_list;
-                const nontmp_expr_map_t& _nontemporal_expr_map;
-                const VectorizerCache& _vectorizer_cache;
+        private:
+            const std::string& _device;
+            const unsigned int _vector_length;
+            const unsigned int _unroll_factor;
+            const bool _support_masking;
+            const unsigned int _mask_size;
+            const bool _fast_math;
+            const TL::Type& _target_type;
+            const aligned_expr_map_t& _aligned_expr_map;
+            const objlist_nodecl_t& _uniform_expr_list;
+            const objlist_nodecl_t& _suitable_expr_list;
+            const nontmp_expr_map_t& _nontemporal_expr_map;
+            const VectorizerCache& _vectorizer_cache;
 
-                const objlist_tlsymbol_t* _reduction_list;
-                std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
+            const objlist_tlsymbol_t* _reduction_list;
+            std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
 
-                stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
-                Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
+            stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
+            Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
 
-                stdlist_nodecl_t _mask_list;                    // Stack of masks
-                std::list<bool> _inside_inner_masked_bb;        // TBD :)
-                std::list<unsigned int> _mask_check_bb_cost;    // Costs of BB for early exist heuristic
+            stdlist_nodecl_t _mask_list;                    // Stack of masks
+            std::list<bool> _inside_inner_masked_bb;        // TBD :)
+            std::list<unsigned int> _mask_check_bb_cost;    // Costs of BB for early exist heuristic
 
-                TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
+            TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
 
-            public:
-                VectorizerEnvironment(const std::string& device,
-                        const unsigned int vector_length,
-                        const bool support_masking,
-                        const unsigned int mask_size,
-                        const bool fast_math,
-                        const TL::Type& target_type,
-                        const aligned_expr_map_t& aligned_expr_map,
-                        const objlist_nodecl_t& uniform_expr_list,
-                        const objlist_nodecl_t& suitable_expr_list,
-                        const nontmp_expr_map_t& nontemporal_expr_map,
-                        const VectorizerCache& vectorizer_cache,
-                        const objlist_tlsymbol_t* reduction_list,
-                        std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
+        public:
+            VectorizerEnvironment(const std::string& device,
+                    const unsigned int vector_length,
+                    const bool support_masking,
+                    const unsigned int mask_size,
+                    const bool fast_math,
+                    const TL::Type& target_type,
+                    const aligned_expr_map_t& aligned_expr_map,
+                    const objlist_nodecl_t& uniform_expr_list,
+                    const objlist_nodecl_t& suitable_expr_list,
+                    const nontmp_expr_map_t& nontemporal_expr_map,
+                    const VectorizerCache& vectorizer_cache,
+                    const objlist_tlsymbol_t* reduction_list,
+                    std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
-                ~VectorizerEnvironment();
+            ~VectorizerEnvironment();
 
-                void load_environment(const Nodecl::NodeclBase& for_statement);
-                void unload_environment();
+            void load_environment(const Nodecl::NodeclBase& for_statement);
+            void unload_environment();
 
-                friend class Vectorizer;
-                friend class VectorizationAnalysisInterface;
-                friend class VectorizerCache;
-                friend class VectorizerLoopInfo;
-                friend class VectorizerVectorReduction;
-                friend class VectorizerVisitorFor;
-                friend class VectorizerVisitorForEpilog;
-                friend class VectorizerVisitorLoopHeader;
-                friend class VectorizerVisitorLoopCond;
-                friend class VectorizerVisitorLoopNext;
-                friend class VectorizerVisitorFunction;
-                friend class VectorizerVisitorStatement;
-                friend class VectorizerVisitorExpression;
-                friend class StrideSplitterVisitor;
-        };
-    }
+            friend class Vectorizer;
+            friend class VectorizationAnalysisInterface;
+            friend class VectorizerCache;
+            friend class VectorizerLoopInfo;
+            friend class VectorizerVectorReduction;
+            friend class VectorizerVisitorFor;
+            friend class VectorizerVisitorForEpilog;
+            friend class VectorizerVisitorLoopHeader;
+            friend class VectorizerVisitorLoopCond;
+            friend class VectorizerVisitorLoopNext;
+            friend class VectorizerVisitorFunction;
+            friend class VectorizerVisitorStatement;
+            friend class VectorizerVisitorExpression;
+            friend class VectorizerVisitorPreprocessor;
+            friend class StrideSplitterVisitor;
+    };
+}
 }
 
 #endif // TL_VECTORIZER_ENVIRONMENT_HPP

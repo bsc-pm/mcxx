@@ -136,8 +136,7 @@ namespace Vectorization
         TL::ForStatement tl_for(for_statement);
 
         Nodecl::NodeclBase lb = tl_for.get_lower_bound();
-        Nodecl::NodeclBase ub = TL::Vectorization::Utils::get_denormalize_ub(
-                for_statement);
+        Nodecl::NodeclBase ub = tl_for.get_upper_bound();
         Nodecl::NodeclBase step = tl_for.get_step();
 
 

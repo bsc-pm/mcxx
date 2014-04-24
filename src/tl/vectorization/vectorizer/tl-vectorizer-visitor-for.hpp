@@ -34,112 +34,112 @@
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+    class VectorizerVisitorFor : public Nodecl::NodeclVisitor<void>
     {
-        class VectorizerVisitorFor : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                VectorizerEnvironment& _environment;
+        private:
+            VectorizerEnvironment& _environment;
 
-            public:
-                VectorizerVisitorFor(VectorizerEnvironment& environment);
+        public:
+            VectorizerVisitorFor(VectorizerEnvironment& environment);
 
-                virtual void visit(const Nodecl::ForStatement& for_statement);
+            virtual void visit(const Nodecl::ForStatement& for_statement);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+    };
 
-        class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                const VectorizerEnvironment& _environment;
+    class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            const VectorizerEnvironment& _environment;
 
-            public:
-                VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment);
+        public:
+            VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment);
 
-                virtual void visit(const Nodecl::LoopControl& loop_header);
+            virtual void visit(const Nodecl::LoopControl& loop_header);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+    };
 
-        class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
-        {
-            public:
-                VectorizerVisitorLoopInit(void);
+    class VectorizerVisitorLoopInit : public Nodecl::NodeclVisitor<void>
+    {
+        public:
+            VectorizerVisitorLoopInit(void);
 
-                void visit(const Nodecl::ObjectInit& node);
-                void visit(const Nodecl::Assignment& node);
-                void visit(const Nodecl::Comma& node);
+            void visit(const Nodecl::ObjectInit& node);
+            void visit(const Nodecl::Assignment& node);
+            void visit(const Nodecl::Comma& node);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+    };
 
-        class VectorizerVisitorLoopCond : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                const VectorizerEnvironment& _environment;
+    class VectorizerVisitorLoopCond : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            const VectorizerEnvironment& _environment;
 
-                void visit_condition(const Nodecl::NodeclBase& condition);
+            void visit_condition(const Nodecl::NodeclBase& condition);
 
-            public:
-                VectorizerVisitorLoopCond(const VectorizerEnvironment& environment);
+        public:
+            VectorizerVisitorLoopCond(const VectorizerEnvironment& environment);
 
-                void visit(const Nodecl::Equal& node);
-                void visit(const Nodecl::LowerThan& node);
-                void visit(const Nodecl::LowerOrEqualThan& node);
-                void visit(const Nodecl::GreaterThan& node);
-                void visit(const Nodecl::GreaterOrEqualThan& node);
+            void visit(const Nodecl::Equal& node);
+            void visit(const Nodecl::LowerThan& node);
+            void visit(const Nodecl::LowerOrEqualThan& node);
+            void visit(const Nodecl::GreaterThan& node);
+            void visit(const Nodecl::GreaterOrEqualThan& node);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
-        };
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+    };
 
-        class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
-        {
-            private:
-                const VectorizerEnvironment& _environment;
+    class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            const VectorizerEnvironment& _environment;
 
-                void visit_increment(const Nodecl::NodeclBase& node,
-                        const Nodecl::NodeclBase& lhs);
+            void visit_increment(const Nodecl::NodeclBase& node,
+                    const Nodecl::NodeclBase& lhs);
 
-            public:
-                VectorizerVisitorLoopNext(const VectorizerEnvironment& environment);
+        public:
+            VectorizerVisitorLoopNext(const VectorizerEnvironment& environment);
 
-                void visit(const Nodecl::Comma& node);
-                void visit(const Nodecl::Preincrement& node);
-                void visit(const Nodecl::Postincrement& node);
-                void visit(const Nodecl::AddAssignment& node);
-                void visit(const Nodecl::Assignment& node);
+            void visit(const Nodecl::Comma& node);
+            void visit(const Nodecl::Preincrement& node);
+            void visit(const Nodecl::Postincrement& node);
+            void visit(const Nodecl::AddAssignment& node);
+            void visit(const Nodecl::Assignment& node);
 
-                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
-        };
+            Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);
+    };
 
-        class VectorizerVisitorForEpilog
-        {
-            private:
-                VectorizerEnvironment& _environment;
-                int _epilog_iterations;
-                bool _only_epilog;
-                bool _is_parallel_loop;
+    class VectorizerVisitorForEpilog
+    {
+        private:
+            VectorizerEnvironment& _environment;
+            int _epilog_iterations;
+            bool _only_epilog;
+            bool _is_parallel_loop;
 
-                void get_updated_iv_init_for_epilog(const Nodecl::ForStatement& for_statement,
-                        Nodecl::NodeclBase &induction_variable,
-                        Nodecl::NodeclBase &iv_init);
+            void get_updated_iv_init_for_epilog(const Nodecl::ForStatement& for_statement,
+                    Nodecl::NodeclBase &induction_variable,
+                    Nodecl::NodeclBase &iv_init);
 
-            public:
-                VectorizerVisitorForEpilog(VectorizerEnvironment& environment,
-                        int epilog_iterations, bool only_epilog,
-                        bool is_parallel_loop);
+        public:
+            VectorizerVisitorForEpilog(VectorizerEnvironment& environment,
+                    int epilog_iterations, bool only_epilog,
+                    bool is_parallel_loop);
 
-                void visit(const Nodecl::ForStatement& for_statement,
-                        Nodecl::NodeclBase& net_epilog_node);
+            void visit(const Nodecl::ForStatement& for_statement,
+                    Nodecl::NodeclBase& net_epilog_node);
 
-                void visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
-                        Nodecl::NodeclBase& net_epilog_node);
-                void visit_vector_epilog(const Nodecl::ForStatement& for_statement,
-                        Nodecl::NodeclBase& net_epilog_node);
+            void visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
+                    Nodecl::NodeclBase& net_epilog_node);
+            void visit_vector_epilog(const Nodecl::ForStatement& for_statement,
+                    Nodecl::NodeclBase& net_epilog_node);
 
-        };
-    }
+    };
+}
 }
 
 #endif //TL_VECTORIZER_VISITOR_FOR_HPP

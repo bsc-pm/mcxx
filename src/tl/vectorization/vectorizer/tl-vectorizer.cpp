@@ -78,7 +78,7 @@ namespace Vectorization
     void Vectorizer::preprocess_code(const Nodecl::NodeclBase& n,
             const VectorizerEnvironment& environment)
     {
-        VectorizerVisitorPreprocessor vectorizer_preproc;
+        VectorizerVisitorPreprocessor vectorizer_preproc(environment);
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
