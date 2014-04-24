@@ -478,6 +478,20 @@ struct type_tag
     // (all types)
     common_type_info_t* info;
 
+    // Unqualified type, itself if the type is not qualified
+    // (all types)
+    type_t* unqualified_type;
+
+    // For parameter types, if not null it means some adjustement was done
+    // (all types)
+    type_t* original_type;
+
+    // Aliases to current type.
+    // These are lazily set by advance_over_typedefs_with_cv_qualif
+    // (all types)
+    type_t* aliases_to;
+    cv_qualifier_t aliases_to_cv_qualifier;
+
     // Pointer
     // (kind == TK_POINTER)
     // (kind == TK_POINTER_TO_MEMBER)
@@ -503,13 +517,6 @@ struct type_tag
     // (kind == TK_BRACED_LIST)
     braced_list_info_t* braced_type;
 
-    // Unqualified type, itself if the type is not qualified
-    // (all types)
-    type_t* unqualified_type;
-
-    // For parameter types, if not null it means some adjustement was done
-    // (all types)
-    type_t* original_type;
 
     // For template specialized parameters and template types
     // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
@@ -562,6 +569,10 @@ static type_t* copy_type_for_variant(type_t* t)
 {
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
+
+    result->aliases_to = NULL;
+    result->aliases_to_cv_qualifier = CV_NONE;
+
     result->info = copy_common_type_info(t->info);
 
     return result;
@@ -3218,6 +3229,9 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
+        qualified_type->aliases_to = NULL;
+        qualified_type->aliases_to_cv_qualifier = CV_NONE;
+
         rb_tree_insert(_qualification[(int)(cv_qualification)], 
                 original->unqualified_type, 
                 qualified_type);
@@ -4181,7 +4195,12 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 
     type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
     *result = *class_type;
+
+    result->aliases_to = NULL;
+    result->aliases_to_cv_qualifier = CV_NONE;
+
     result->unqualified_type = result;
+
 
     // These are the parts relevant for duplication
     result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
@@ -5431,39 +5450,49 @@ void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed)
     enum_type->enum_info->underlying_type_is_fixed = is_fixed;
 }
 
-type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
+extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifier_t* cv_qualif)
 {
-    if (t1 == NULL)
+    type_t* result = t;
+    if (result == NULL)
         return NULL;
 
-    if (cv_qualif != NULL)
+    if (t->aliases_to != NULL)
     {
-        *cv_qualif |= t1->cv_qualifier;
+        if (cv_qualif != NULL)
+            *cv_qualif |= t->aliases_to_cv_qualifier;
+        return t->aliases_to;
     }
 
+    cv_qualifier_t cv_qualifier_result = result->cv_qualifier;
+
     // Advance over typedefs
-    while (t1->kind == TK_DIRECT
-            && t1->type->kind == STK_INDIRECT
-            && t1->type->user_defined_type != NULL
-            && t1->type->is_indirect)
+    while (result->kind == TK_DIRECT
+            && result->type->kind == STK_INDIRECT
+            && result->type->user_defined_type != NULL
+            && result->type->is_indirect)
     {
-        t1 = t1->type->user_defined_type->type_information;
-        if (cv_qualif != NULL)
-        {
-            *cv_qualif |= t1->cv_qualifier;
-        }
+        result = result->type->user_defined_type->type_information;
+        cv_qualifier_result |= result->cv_qualifier;
     }
 
     // Arrays add the element qualification 
     //
     // Note: DO NOT use is_array because it uses advance_over_typedefs which
     // ends using advance_over_typedefs_with_cv_qualif
-    if (t1->kind == TK_ARRAY)
+    if (result->kind == TK_ARRAY)
     {
-        advance_over_typedefs_with_cv_qualif(t1->array->element_type, cv_qualif);
+        advance_over_typedefs_with_cv_qualif(result->array->element_type, &cv_qualifier_result);
     }
 
-    return t1;
+    if (cv_qualif != NULL)
+    {
+        *cv_qualif |= cv_qualifier_result;
+    }
+
+    t->aliases_to = result;
+    t->aliases_to_cv_qualifier = cv_qualifier_result;
+
+    return result;
 }
 
 
@@ -5715,7 +5744,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     return this_class_conversors;
 }
 
-type_t* advance_over_typedefs(type_t* t1)
+extern inline type_t* advance_over_typedefs(type_t* t1)
 {
     cv_qualifier_t cv = CV_NONE;
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv);
@@ -11683,6 +11712,9 @@ type_t* get_variant_type_zero(type_t* t)
         result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
         *result = *t;
 
+        result->aliases_to = NULL;
+        result->aliases_to_cv_qualifier = CV_NONE;
+
         // The unqualified type must point to itself
         result->unqualified_type = result;
 
@@ -13644,6 +13676,9 @@ type_t* get_variant_type_interoperable(type_t* t)
     {
         result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
         *result = *t;
+
+        result->aliases_to = NULL;
+        result->aliases_to_cv_qualifier = CV_NONE;
 
         // The unqualified type must point to itself
         result->unqualified_type = result;
