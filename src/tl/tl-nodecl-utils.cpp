@@ -1790,6 +1790,15 @@ namespace Nodecl
     }
 
     template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ReturnStatement& n )
+    {
+        if( _comparator( n, _n ) )
+            _nodecl_is_found = true;
+        else
+            walk(n.get_value());
+    }
+    
+    template <class Comparator>
     void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Symbol& n )
     {
         if( _comparator( n, _n ) )
