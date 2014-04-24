@@ -30,6 +30,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
+#include "cxx-graphviz.h"
 #include <algorithm>
 
 namespace Nodecl
@@ -1956,6 +1957,15 @@ namespace Nodecl
 
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
+
+// #################
+//  DEBUG FUNCTIONS
+// #################
+
+    void Utils::print_ast(Nodecl::NodeclBase n)
+    {
+        ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
+    }
 }
 
 namespace TL
@@ -2354,4 +2364,6 @@ namespace TL
     {
         return _step;
     }
+
+
 }

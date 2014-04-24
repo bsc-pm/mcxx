@@ -379,6 +379,8 @@ namespace Utils {
 
     typedef ExprFinderVisitor<std::equal_to<Nodecl::NodeclBase> > ExprPointerFinderVisitor;
     typedef ExprFinderVisitor<Nodecl_structural_equal> ExprStructuralFinderVisitor;
+
+    void print_ast(Nodecl::NodeclBase n);
 }
 }
 
