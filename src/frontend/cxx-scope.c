@@ -48,7 +48,7 @@
 #include "cxx-codegen.h"
 #include "cxx-entrylist.h"
 #include "cxx-diagnostic.h"
-#include "red_black_tree.h"
+#include "dhash_ptr.h"
 
 static unsigned long long _bytes_used_scopes = 0;
 
@@ -880,20 +880,6 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
     return 0;
 }
 
-static int intptr_t_comp(const void *v1, const void *v2)
-{
-    intptr_t p1 = (intptr_t)(v1);
-    intptr_t p2 = (intptr_t)(v2);
-
-    if (p1 < p2)
-        return -1;
-    else if (p1 > p2)
-        return 1;
-    else
-        return 0;
-}
-
-
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
@@ -949,20 +935,16 @@ static scope_entry_t* create_new_dependent_entity(
 
     nodecl_free(nodecl_parts);
 
-    static rb_red_blk_tree *_dependent_symbols = NULL;
+    static dhash_ptr_t *_dependent_symbols = NULL;
     if (_dependent_symbols == NULL)
     {
-        _dependent_symbols = rb_tree_create(intptr_t_comp, NULL, NULL);
+        _dependent_symbols = dhash_ptr_new(5);
     }
 
-    scope_entry_t* result = NULL;
     // Try to reuse an existing symbol through its dependent type
-    rb_red_blk_node * n = rb_tree_query(_dependent_symbols, dependent_type);
-    if (n != NULL)
-    {
-        result = (scope_entry_t*)rb_node_get_info(n);
-    }
-    else
+    scope_entry_t * result = dhash_ptr_query(_dependent_symbols, dependent_type);
+
+    if (result == NULL)
     {
         result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
 
@@ -971,7 +953,7 @@ static scope_entry_t* create_new_dependent_entity(
         result->symbol_name = dependent_entry->symbol_name;
         result->type_information = dependent_type;
 
-        rb_tree_insert(_dependent_symbols, dependent_type, result);
+        dhash_ptr_insert(_dependent_symbols, dependent_type, result);
     }
 
     return result;
