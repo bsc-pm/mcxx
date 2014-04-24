@@ -2691,6 +2691,39 @@ static void error_message_overload_failed(candidate_t* candidates,
         type_t* this_type,
         const locus_t* locus);
 
+static void update_unresolved_overload_argument(type_t* arg_type,
+        type_t* param_type,
+        decl_context_t decl_context,
+        const locus_t* locus,
+
+        nodecl_t* nodecl_output)
+{
+    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
+    scope_entry_t* solved_function = address_of_overloaded_function(
+            unresolved_set,
+            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+            no_ref(param_type),
+            decl_context,
+            locus);
+
+    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+    if (!solved_function->entity_specs.is_member
+            || solved_function->entity_specs.is_static)
+    {
+        *nodecl_output = nodecl_make_symbol(solved_function, locus);
+        nodecl_set_type(*nodecl_output, lvalue_ref(solved_function->type_information));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_pointer_to_member(solved_function,
+                get_lvalue_reference_type(
+                    get_pointer_to_member_type(solved_function->type_information,
+                        solved_function->entity_specs.class_type)),
+                locus);
+    }
+}
+
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
         scope_entry_list_t* builtins,
@@ -2791,6 +2824,15 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             }
             else
             {
+                if (is_unresolved_overloaded_type(lhs_type))
+                {
+                    update_unresolved_overload_argument(lhs_type,
+                            param_type_0,
+                            decl_context,
+                            nodecl_get_locus(*lhs),
+                            lhs);
+                }
+
                 if (conversors[0] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[0], locus))
@@ -2808,34 +2850,6 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                             nodecl_make_list_1(*lhs),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*lhs)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*lhs));
-                }
-                else if (is_unresolved_overloaded_type(lhs_type))
-                {
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(lhs_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(
-                            unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(lhs_type),
-                            no_ref(param_type_0), 
-                            decl_context,
-                            nodecl_get_locus(*lhs));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        *lhs = nodecl_make_symbol(solved_function, 
-                                nodecl_get_locus(*lhs));
-                        nodecl_set_type(*lhs, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        *lhs = nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(*lhs));
-                    }
                 }
             }
         }
@@ -2863,6 +2877,15 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         }
         else
         {
+            if (is_unresolved_overloaded_type(rhs_type))
+            {
+                update_unresolved_overload_argument(rhs_type,
+                        param_type_1,
+                        decl_context,
+                        nodecl_get_locus(*rhs),
+                        rhs);
+            }
+
             if (conversors[1] != NULL)
             {
                 if (function_has_been_deleted(decl_context, conversors[1], locus))
@@ -2879,35 +2902,6 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         nodecl_make_list_1(*rhs),
                         nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*rhs)),
                         actual_type_of_conversor(conversors[1]), nodecl_get_locus(*rhs));
-            }
-            else if (is_unresolved_overloaded_type(rhs_type))
-            {
-
-                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
-                scope_entry_t* solved_function = address_of_overloaded_function(
-                        unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
-                        no_ref(param_type_1), 
-                        decl_context,
-                        nodecl_get_locus(*rhs));
-
-                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                if (!solved_function->entity_specs.is_member
-                        || solved_function->entity_specs.is_static)
-                {
-                    *rhs = nodecl_make_symbol(solved_function, 
-                            nodecl_get_locus(*rhs));
-                    nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
-                }
-                else
-                {
-                    *rhs = nodecl_make_pointer_to_member(solved_function, 
-                            get_lvalue_reference_type(
-                                get_pointer_to_member_type(solved_function->type_information,
-                                    solved_function->entity_specs.class_type)),
-                            nodecl_get_locus(*rhs));
-                }
             }
         }
 
@@ -3040,6 +3034,15 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             }
             else
             {
+                if (is_unresolved_overloaded_type(op_type))
+                {
+                    update_unresolved_overload_argument(op_type,
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(*op),
+                            op);
+                }
+
                 if (conversors[0] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[0], locus))
@@ -3057,35 +3060,6 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                             nodecl_make_list_1(*op),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*op)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*op));
-                }
-                else if (is_unresolved_overloaded_type(op_type))
-                {
-
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(op_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(
-                            unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(op_type),
-                            no_ref(param_type), 
-                            decl_context,
-                            nodecl_get_locus(*op));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        *op = nodecl_make_symbol(solved_function, 
-                                nodecl_get_locus(*op));
-                        nodecl_set_type(*op, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        *op = nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(*op));
-                    }
                 }
             }
         }
@@ -5089,41 +5063,12 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         // to solve it here using lhs_type
         if (is_unresolved_overloaded_type(no_ref(rhs_type)))
         {
-            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
-            scope_entry_t* solved_function = address_of_overloaded_function(
-                    unresolved_set,
-                    unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
-                    no_ref(lhs_type), 
+            update_unresolved_overload_argument(rhs_type,
+                    lhs_type,
                     decl_context,
-                    nodecl_get_locus(*lhs));
-            entry_list_free(unresolved_set);
-
-            if (solved_function == NULL)
-            {
-                *nodecl_output = nodecl_make_err_expr(locus);
-                return;
-            }
-
-            // Update the types everywhere
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
-            {
-                rhs_type = get_lvalue_reference_type(get_pointer_type(solved_function->type_information));
-
-                *rhs = nodecl_make_symbol(solved_function, 
-                        nodecl_get_locus(*rhs));
-                nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
-            }
-            else
-            {
-                rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
-                            solved_function->type_information,
-                            solved_function->entity_specs.class_type));
-
-                *rhs = nodecl_make_pointer_to_member(solved_function, 
-                        rhs_type,
-                        nodecl_get_locus(*rhs));
-            }
+                    nodecl_get_locus(*rhs),
+                    rhs);
+            rhs_type = nodecl_get_type(*rhs);
         }
 
         standard_conversion_t sc;
@@ -7641,6 +7586,15 @@ static void check_nodecl_array_subscript_expression_cxx(
             }
             else
             {
+                if (is_unresolved_overloaded_type(subscript_type))
+                {
+                    update_unresolved_overload_argument(subscript_type,
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_subscript),
+                            &nodecl_subscript);
+                }
+
                 if (conversors[1] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[1], locus))
@@ -7658,34 +7612,6 @@ static void check_nodecl_array_subscript_expression_cxx(
                             nodecl_make_cxx_function_form_implicit(locus),
                             actual_type_of_conversor(conversors[1]), locus);
 
-                }
-                else if (is_unresolved_overloaded_type(subscript_type))
-                {
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(subscript_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(subscript_type),
-                            param_type,
-                            decl_context,
-                            nodecl_get_locus(nodecl_subscript));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        nodecl_subscript =
-                            nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_subscript));
-                        nodecl_set_type(nodecl_subscript, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        nodecl_subscript =
-                            nodecl_make_pointer_to_member(solved_function,
-                                    get_lvalue_reference_type(
-                                        get_pointer_to_member_type(solved_function->type_information,
-                                            solved_function->entity_specs.class_type)),
-                                    nodecl_get_locus(nodecl_subscript));
-                    }
                 }
             }
 
@@ -9061,6 +8987,15 @@ static void check_new_expression_impl(
             }
             else
             {
+                if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
+                {
+                    update_unresolved_overload_argument(nodecl_get_type(nodecl_expr),
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_expr),
+                            &nodecl_expr);
+                }
+
                 if (conversors[j] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[j], locus))
@@ -9079,36 +9014,6 @@ static void check_new_expression_impl(
                                 nodecl_get_locus(nodecl_expr)),
                             actual_type_of_conversor(conversors[j]),
                             nodecl_get_locus(nodecl_expr));
-                }
-                else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
-                {
-                    type_t* arg_type = nodecl_get_type(nodecl_expr);
-
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                            no_ref(arg_type),
-                            decl_context,
-                            nodecl_get_locus(nodecl_expr));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        nodecl_expr =
-                            nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_expr));
-                        nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        nodecl_expr =
-                            nodecl_make_pointer_to_member(solved_function, 
-                                    get_lvalue_reference_type(
-                                        get_pointer_to_member_type(solved_function->type_information,
-                                            solved_function->entity_specs.class_type)),
-                                    nodecl_get_locus(nodecl_expr));
-                    }
                 }
             }
 
@@ -12055,31 +11960,11 @@ static void check_nodecl_function_call_cxx(
                 {
                     if (is_unresolved_overloaded_type(arg_type))
                     {
-                        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-                        scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                                unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                                no_ref(param_type),
+                        update_unresolved_overload_argument(arg_type,
+                                param_type,
                                 decl_context,
-                                locus);
-
-                        ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                        if (!solved_function->entity_specs.is_member
-                                || solved_function->entity_specs.is_static)
-                        {
-                            nodecl_arg =
-                                nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_arg));
-                            nodecl_set_type(nodecl_arg, lvalue_ref(solved_function->type_information));
-                        }
-                        else
-                        {
-                            nodecl_arg =
-                                nodecl_make_pointer_to_member(solved_function,
-                                        get_lvalue_reference_type(
-                                            get_pointer_to_member_type(solved_function->type_information,
-                                                solved_function->entity_specs.class_type)),
-                                        nodecl_get_locus(nodecl_arg));
-                        }
+                                nodecl_get_locus(nodecl_arg),
+                                &nodecl_arg);
                     }
 
                     if (conversors[arg_i] != NULL)
@@ -16416,6 +16301,16 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                 if (i < num_parameters)
                 {
+                    if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_arg)))
+                    {
+                        update_unresolved_overload_argument(
+                                nodecl_get_type(nodecl_arg),
+                                function_type_get_parameter_type_num(chosen_constructor->type_information, i),
+                                decl_context,
+                                nodecl_get_locus(nodecl_arg),
+                                &nodecl_arg);
+                    }
+
                     if (conversors[i] != NULL)
                     {
                         nodecl_arg = cxx_nodecl_make_function_call(
@@ -16428,9 +16323,6 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 }
                 else
                 {
-                    // Note that it should not be possible to create
-                    // constructors with non promoting ellipsis, so we do not
-                    // check it here as we do in some other places
                     type_t* default_argument_promoted_type = compute_default_argument_conversion(
                             nodecl_get_type(nodecl_arg),
                             decl_context,
@@ -17294,34 +17186,11 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         {
             if (is_unresolved_overloaded_type(initializer_expr_type))
             {
-                // Note: type_can_be_implicitly_converted_to already did this:
-                // figure a way to get this conversion without having to compute
-                // this address overload twice
-                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(initializer_expr_type);
-                scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(initializer_expr_type),
-                        no_ref(declared_type_no_cv),
+                update_unresolved_overload_argument(initializer_expr_type,
+                        declared_type_no_cv,
                         decl_context,
-                        nodecl_get_locus(nodecl_expr));
-
-                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                if (!solved_function->entity_specs.is_member
-                        || solved_function->entity_specs.is_static)
-                {
-                    nodecl_expr =
-                        nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_expr));
-                    nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-                }
-                else
-                {
-                    nodecl_expr =
-                        nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(nodecl_expr));
-                }
+                        nodecl_get_locus(nodecl_expr),
+                        &nodecl_expr);
             }
 
             *nodecl_output = nodecl_expr;
