@@ -32,6 +32,7 @@ Cambridge, MA 02139, USA.
 #include <fstream>
 #include <set>
 #include <sys/stat.h>
+#include <unistd.h>
 
 namespace TL {
 namespace Analysis {
