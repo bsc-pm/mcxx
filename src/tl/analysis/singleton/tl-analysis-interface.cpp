@@ -173,6 +173,9 @@ end_depends:
  
     DEPRECATED bool AnalysisInterface::reach_defs_depend_on_iv(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
+        if(Nodecl::Utils::nodecl_is_literal(n))
+            return true;
+        
         bool result = false;
  
         ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
@@ -196,6 +199,9 @@ end_depends:
     bool AnalysisInterface::variable_is_constant_at_statement(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
+        if(Nodecl::Utils::nodecl_is_literal(n))
+            return true;
+        
         // Retrieve pcfg
         ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
         // Retrieve scope
@@ -215,6 +221,9 @@ end_depends:
             const Nodecl::NodeclBase& n,
             ExtensibleGraph* const pcfg)
     {
+        if(Nodecl::Utils::nodecl_is_literal(n))
+            return true;
+        
         Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
         ERROR_CONDITION(reach_defs_in.find(n)==reach_defs_in.end(),
                 "No reaching definition arrives for nodecl %s.\n", n.prettyprint().c_str());
@@ -235,7 +244,8 @@ end_depends:
             if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
             {
                 Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
-                if((control_structure != NULL) && (control_structure != scope_node))
+                if((control_structure != NULL) && 
+                   (ExtensibleGraph::node_contains_node(scope_node, control_structure) || (scope_node==control_structure)))
                 {
                     Node* cond_node = control_structure->get_condition_node();
                     ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
@@ -245,7 +255,8 @@ end_depends:
                         for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = mem_accesses.begin(); itt != mem_accesses.end(); ++itt)
                         {
                             //TODO: translate is_constant
-                            if(!is_constant(scope_node->get_graph_related_ast(), *itt) || !variable_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
+                            if(!is_constant(scope_node->get_graph_related_ast(), *itt) || 
+                               !variable_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
                                 return false;
                         }
                     }

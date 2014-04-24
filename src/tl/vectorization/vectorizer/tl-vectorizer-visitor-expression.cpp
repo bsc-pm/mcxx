@@ -947,7 +947,7 @@ namespace Vectorization
                        // case LHS and RHS visits seems to be
                        // equivalent
 
-            TL::Type tl_lhs_sym_type = sym.get_symbol().get_type();
+            TL::Type tl_lhs_sym_type = sym.get_type().no_ref();
 
             if (tl_lhs_sym_type.is_vector())  // Register
             {

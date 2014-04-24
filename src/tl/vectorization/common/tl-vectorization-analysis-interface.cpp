@@ -149,11 +149,11 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::nodecl_needs_translation(
                 const Nodecl::NodeclBase& n)
     {
-        if (n.is<Nodecl::IntegerLiteral>() ||
-                n.is<Nodecl::FloatingLiteral>())
-        {
-            return false;
-        }
+//         if (n.is<Nodecl::IntegerLiteral>() ||
+//                 n.is<Nodecl::FloatingLiteral>())
+//         {
+//             return false;
+//         }
 
         return true;
     }
