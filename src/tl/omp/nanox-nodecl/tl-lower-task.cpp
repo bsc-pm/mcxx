@@ -1863,75 +1863,75 @@ void LoweringVisitor::fill_copies_region(
                 }
             }
 
-            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
-            {
-                bool has_serializer=false;
-                TL::Type ser_type = copy_type;
-                //If the object is a class, generate everything so nanox can it
-                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
-                        TL::Symbol sym_serializer = ser_type.get_symbol();
-                        if (sym_serializer.get_type().is_pointer_to_class()){
-                            ser_type= sym_serializer.get_type().get_pointer_to();
-                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-                        }
-                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
-                        ObjectList<TL::Symbol>::iterator ser_it;
-                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
-                            if (ser_it->get_name()=="serialize") has_serializer=true;
-                        }    
-                }
-                //If its serializable and input, create serialization adapters and fill copy info
-                //if it's not input, the device should warn the programmer in case it's needed
-                if (has_serializer && input) {
-                    TL::Symbol sym_serializer = ser_type.get_symbol();
-                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
-
-                    Source serialize_adapters;
-
-                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
-                            << "{  "
-                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
-                            << "} ;";
-                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
-                            << "{ "
-                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
-                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
-                            << "} ;";
-                    
-                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
-                            << "{"
-                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
-                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
-                            << "} ;";
-
-                    copy_ol_setup
-                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
-                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
-                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
-                        ;
-
-                    copy_imm_setup
-                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
-                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
-                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
-                        ;
-
-                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
-                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
-                } else {
-                    copy_ol_setup
-                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
-                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
-                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
-                        ;
-
-                    copy_imm_setup
-                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
-                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
-                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
-                        ;
-                }
-            }
+//            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
+//            {
+//                bool has_serializer=false;
+//                TL::Type ser_type = copy_type;
+//                //If the object is a class, generate everything so nanox can it
+//                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+//                        TL::Symbol sym_serializer = ser_type.get_symbol();
+//                        if (sym_serializer.get_type().is_pointer_to_class()){
+//                            ser_type= sym_serializer.get_type().get_pointer_to();
+//                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+//                        }
+//                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+//                        ObjectList<TL::Symbol>::iterator ser_it;
+//                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
+//                            if (ser_it->get_name()=="serialize") has_serializer=true;
+//                        }    
+//                }
+//                //If its serializable and input, create serialization adapters and fill copy info
+//                //if it's not input, the device should warn the programmer in case it's needed
+//                if (has_serializer && input) {
+//                    TL::Symbol sym_serializer = ser_type.get_symbol();
+//                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
+//
+//                    Source serialize_adapters;
+//
+//                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
+//                            << "{  "
+//                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
+//                            << "} ;";
+//                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
+//                            << "{ "
+//                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
+//                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
+//                            << "} ;";
+//                    
+//                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
+//                            << "{"
+//                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
+//                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
+//                            << "} ;";
+//
+//                    copy_ol_setup
+//                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+//                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+//                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+//                        ;
+//
+//                    copy_imm_setup
+//                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+//                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+//                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+//                        ;
+//
+//                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
+//                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
+//                } else {
+//                    copy_ol_setup
+//                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
+//                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
+//                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
+//                        ;
+//
+//                    copy_imm_setup
+//                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
+//                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
+//                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
+//                        ;
+//                }
+//            }
         }
     }
     
