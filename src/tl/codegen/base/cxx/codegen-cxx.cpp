@@ -1681,9 +1681,20 @@ void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(c
 {
 }
 
+Nodecl::NodeclBase CxxBase::advance_implicit_function_calls(Nodecl::NodeclBase node)
+{
+    while (node.is<Nodecl::FunctionCall>()
+            && is_implicit_function_call(node.as<Nodecl::FunctionCall>())
+            && !node.as<Nodecl::FunctionCall>().get_arguments().is_null())
+    {
+        node = node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0];
+    }
+
+    return node;
+}
 
 template <typename Node>
-bool CxxBase::is_implicit_function_call(const Node& node) const
+bool CxxBase::is_implicit_function_call(const Node& node)
 {
     return (!node.get_function_form().is_null()
             && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
@@ -1691,7 +1702,7 @@ bool CxxBase::is_implicit_function_call(const Node& node) const
 
 // Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
-bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
     return 0;
 }
@@ -2002,9 +2013,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
                 bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (assignment_operator)
-                    needs_parentheses = needs_parentheses || (same_operation(node, arguments[0])
-                            // Extra check for function calls
-                            && (arguments[0].no_conv().get_kind() != node.get_kind()));
+                    needs_parentheses = needs_parentheses || same_operation(node, arguments[0]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -2017,9 +2026,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 needs_parentheses = operand_has_lower_priority(node, arguments[1]);
                 if (!assignment_operator)
                     needs_parentheses = needs_parentheses
-                        || (same_operation(node, arguments[1])
-                                // Extra check for function calls
-                                && (arguments[1].no_conv().get_kind() != node.get_kind()));
+                        || same_operation(node, arguments[1]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -8310,7 +8317,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = n.no_conv();
+    n = advance_implicit_function_calls(n.no_conv()).no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8375,8 +8382,7 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
-    return (current_operator.get_kind() == operand.get_kind())
-        || (rank_current == rank_operand);
+    return (rank_current == rank_operand);
 }
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
