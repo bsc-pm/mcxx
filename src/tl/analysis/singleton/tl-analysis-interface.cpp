@@ -68,8 +68,18 @@ namespace Analysis {
     ExtensibleGraph* AnalysisInterface::retrieve_pcfg_from_func(const Nodecl::NodeclBase& n) const
     {
         TL::Symbol func_sym = Nodecl::Utils::get_enclosing_function(n);
+
+        if(func_sym.is_valid() && n.is<Nodecl::FunctionCode>())
+        {
+            WARNING_MESSAGE("FunctionCode nested in another FunctionCode. Retrieving enclosing FunctionCode PCFG Node.\n", 0);
+        }
+
+        // If n is a FunctionCode, maybe could be FunctionCode nested in another FunctionCode
+        if(!func_sym.is_valid() && n.is<Nodecl::FunctionCode>())
+            func_sym = n.as<Nodecl::FunctionCode>().get_symbol();
+
         ERROR_CONDITION(!func_sym.is_valid(), 
-                "Invalid Nodecl '%s' on expecting non top-level nodecls\n", func_sym.get_name().c_str());
+                "Invalid Nodecl '%s' on expecting non top-level nodecls\n", n.prettyprint().c_str());
 
         Nodecl::NodeclBase func = func_sym.get_function_code();
 
