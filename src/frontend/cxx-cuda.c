@@ -40,7 +40,7 @@
 
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
-    scope_entry_list_t* entry_list = query_name_str(decl_context, name, NULL);
+    scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(name), NULL);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
 
     scope_entry_t* entry = entry_list_head(entry_list);
@@ -108,7 +108,7 @@ void cuda_kernel_symbols_for_function_body(
         {
             scope_entry_t* cuda_sym = new_symbol(block_context, 
                     block_context.current_scope, 
-                    cuda_builtins[i].name);
+                    uniquestr(cuda_builtins[i].name));
 
             cuda_sym->locus = ast_get_locus(function_body);
 
