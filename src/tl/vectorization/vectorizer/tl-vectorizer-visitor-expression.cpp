@@ -712,6 +712,53 @@ namespace Vectorization
                         lhs.prettyprint().c_str());
             }
 
+            if (rhs.is<Nodecl::Add>())
+            {
+                Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
+
+                Nodecl::NodeclBase add_lhs = 
+                    Nodecl::Utils::advance_conversions(rhs_add.get_lhs());
+                Nodecl::NodeclBase add_rhs = 
+                    Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
+
+                // = i + 3
+                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs))
+                {
+                    Nodecl::Mul mul = Nodecl::Mul::make(
+                            add_rhs.shallow_copy(),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(
+                                    _environment._unroll_factor),
+                                n.get_locus()),
+                            TL::Type::get_int_type(),
+                            n.get_locus());
+                    
+                    add_rhs.replace(mul);
+                }
+                // = 3 + i
+                else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+                {
+                    Nodecl::Mul mul = Nodecl::Mul::make(
+                            add_lhs.shallow_copy(),
+                            Nodecl::IntegerLiteral::make(
+                                TL::Type::get_int_type(),
+                                const_value_get_signed_int(
+                                    _environment._unroll_factor),
+                                n.get_locus()),
+                            TL::Type::get_int_type(),
+                            n.get_locus());
+                    
+                    add_lhs.replace(mul);
+                }
+            }
+            else
+            {
+                running_error("Vectorizer: This IV update is not supported yet"\
+                        "(%s).", n.prettyprint().c_str());
+            }
+
+            /*
             Nodecl::NodeclBase step = VectorizationAnalysisInterface::
                 _vectorizer_analysis->get_induction_variable_increment(
                     _environment._analysis_simd_scope, lhs);
@@ -739,6 +786,7 @@ namespace Vectorization
 
                 it->replace(new_step);
             }
+            */
         }
         else if(lhs.is<Nodecl::ArraySubscript>())
         {
