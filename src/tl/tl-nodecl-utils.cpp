@@ -1926,6 +1926,12 @@ namespace Nodecl
     }
 
     template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMaskAssignment& n )
+    {
+        binary_visitor( n, n.get_lhs(), n.get_rhs());
+    }
+
+    template <class Comparator>
     void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMul& n )
     {
         ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
@@ -2364,6 +2370,4 @@ namespace TL
     {
         return _step;
     }
-
-
 }

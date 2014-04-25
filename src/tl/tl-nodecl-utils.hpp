@@ -370,6 +370,7 @@ namespace Utils {
             Ret visit( const Nodecl::VectorLoad& n );
             Ret visit( const Nodecl::VectorLowerThan& n );
             Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
+            Ret visit( const Nodecl::VectorMaskAssignment& n );
             Ret visit( const Nodecl::VectorMul& n );
             Ret visit( const Nodecl::VectorPromotion& n );
             Ret visit( const Nodecl::VectorReductionAdd& n );
