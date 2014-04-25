@@ -190,10 +190,10 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
         bool lhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->variable_is_constant_at_statement(
+            _vectorizer_analysis->nodecl_is_constant_at_statement(
                     _environment._analysis_simd_scope, lhs);
         bool rhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->variable_is_constant_at_statement(
+            _vectorizer_analysis->nodecl_is_constant_at_statement(
                     _environment._analysis_simd_scope, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
@@ -207,11 +207,13 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->is_non_reduction_basic_induction_variable(
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                    is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope,
                         lhs))
             {
-                step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                step = VectorizationAnalysisInterface::_vectorizer_analysis->
+                    get_induction_variable_increment(
                         _environment._analysis_scopes.back(),
                         lhs);
 
@@ -262,7 +264,8 @@ namespace Vectorization
                         _environment._analysis_simd_scope,
                         rhs))
             {
-                step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                step = VectorizationAnalysisInterface::_vectorizer_analysis->
+                    get_induction_variable_increment(
                         _environment._analysis_scopes.back(),
                         rhs);
 
@@ -360,7 +363,8 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     lhs))
         {
-            Nodecl::NodeclBase step = VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+            Nodecl::NodeclBase step = VectorizationAnalysisInterface::_vectorizer_analysis->
+                get_induction_variable_increment(
                     _environment._analysis_scopes.back(),
                     lhs);
 
@@ -374,7 +378,8 @@ namespace Vectorization
                     Nodecl::AddAssignment::make(
                             lhs.shallow_copy(),
                             const_value_to_nodecl(
-                                const_value_mul(const_value_get_signed_int(_environment._unroll_factor),
+                                const_value_mul(const_value_get_signed_int(
+                                        _environment._unroll_factor),
                                     step.get_constant())),
                             node.get_type(),
                             node.get_locus());
@@ -389,7 +394,8 @@ namespace Vectorization
                                     TL::Type::get_int_type(),
                                     const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
-                                VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                                VectorizationAnalysisInterface::_vectorizer_analysis->
+                                get_induction_variable_increment(
                                     _environment._analysis_scopes.back(),
                                     lhs),
                                 node.get_type(),
@@ -402,7 +408,8 @@ namespace Vectorization
         }
     }
 
-    Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(const Nodecl::NodeclBase& n)
+    Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(
+            const Nodecl::NodeclBase& n)
     {
         std::cerr << "Loop Next Visitor: Unknown node "
             << ast_print_node_type(n.get_kind())
@@ -573,7 +580,8 @@ namespace Vectorization
         net_epilog_node = for_inner_statement;
     }
 
-    void VectorizerVisitorForEpilog::visit_scalar_epilog(const Nodecl::ForStatement& for_statement,
+    void VectorizerVisitorForEpilog::visit_scalar_epilog(
+            const Nodecl::ForStatement& for_statement,
             Nodecl::NodeclBase& net_epilog_code)
     {
         // Set new IV init

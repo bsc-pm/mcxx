@@ -51,7 +51,7 @@ namespace Analysis {
                     ExtensibleGraph* pcfg);
             ExtensibleGraph* retrieve_pcfg_from_func(const Nodecl::NodeclBase& n) const;
 
-            bool variable_is_constant_at_statement(
+            bool nodecl_is_constant_at_statement(
                     Node* const scope_node,
                     Node* const stmt_node,
                     const Nodecl::NodeclBase& n,
@@ -72,7 +72,7 @@ namespace Analysis {
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
 
-            virtual bool variable_is_constant_at_statement(
+            virtual bool nodecl_is_constant_at_statement(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
  

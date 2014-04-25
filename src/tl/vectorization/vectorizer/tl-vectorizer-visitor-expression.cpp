@@ -755,7 +755,7 @@ namespace Vectorization
             // Vector Store
             // Constant ArraySubscript, nothing to do
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    variable_is_constant_at_statement(
+                    nodecl_is_constant_at_statement(
                         _environment._analysis_simd_scope,
                         lhs))
             {
@@ -1128,7 +1128,7 @@ namespace Vectorization
 
         // Vector Promotion from constant ArraySubscript
         if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                variable_is_constant_at_statement(
+                nodecl_is_constant_at_statement(
                     _environment._analysis_simd_scope,
                     n))
         {
@@ -1462,6 +1462,13 @@ namespace Vectorization
             {
                 symbol_type_promotion(n);
             }
+            // Vectorize symbols declared in the SIMD scope
+            else if (Utils::is_declared_in_inner_scope(
+                        _environment._analysis_simd_scope,
+                        n.get_symbol()))
+            {
+                symbol_type_promotion(n);
+            }
             // Vectorize BASIC induction variable
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
@@ -1470,7 +1477,7 @@ namespace Vectorization
                 vectorize_basic_induction_variable(n);
             }
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
+                    nodecl_is_constant_at_statement(_environment._analysis_simd_scope, n))
             {
                 VECTORIZATION_DEBUG()
                 {
@@ -1533,14 +1540,7 @@ namespace Vectorization
                 encapsulated_symbol.replace(vector_prom);
             }
             */
-            // Vectorize symbols declared in the SIMD scope
-            else if (Utils::is_declared_in_inner_scope(
-                        _environment._analysis_simd_scope,
-                        n.get_symbol()))
-            {
-                symbol_type_promotion(n);
-            }
-            // Is a reduction symbol
+           // Is a reduction symbol
             else if(_environment._reduction_list != NULL &&
                     _environment._reduction_list->contains(tl_sym))
             {

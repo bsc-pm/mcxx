@@ -161,8 +161,8 @@ namespace Vectorization
             if (it2 != _copy_to_orig_nodes.end())
             {
                 return n;
-                //internal_error("VectorizerAnalysis: Error translating Nodecl "\
-                "from origin to copy. NODE ALREADY TRANSLATED", 0);
+                //internal_error("VectorizerAnalysis: Error translating Nodecl "
+                //"from origin to copy. NODE ALREADY TRANSLATED", 0);
             }
 
             register_node(n);
@@ -234,8 +234,8 @@ namespace Vectorization
         if (it == _copy_to_orig_nodes.end())
         {
             //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
-            //internal_error("VectorizerAnalysis: Error translating "\
-            "Nodecl from copy to origin", 0);
+            //internal_error("VectorizerAnalysis: Error translating "
+            //"Nodecl from copy to origin", 0);
             return n;
         }
 
@@ -679,13 +679,13 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizationAnalysisInterface::variable_is_constant_at_statement(
+    bool VectorizationAnalysisInterface::nodecl_is_constant_at_statement(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
         bool result;
 
-        result = Analysis::AnalysisInterface::variable_is_constant_at_statement(
+        result = Analysis::AnalysisInterface::nodecl_is_constant_at_statement(
                 translate_input(scope), translate_input(n));
 
         unregister_nodes();

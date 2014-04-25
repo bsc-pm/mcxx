@@ -196,7 +196,7 @@ end_depends:
         return result;
     }
 
-    bool AnalysisInterface::variable_is_constant_at_statement(
+    bool AnalysisInterface::nodecl_is_constant_at_statement(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
         if(Nodecl::Utils::nodecl_is_literal(n))
@@ -212,10 +212,10 @@ end_depends:
         ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
                 n.get_locus_str().c_str(), n.prettyprint().c_str());
 
-        return variable_is_constant_at_statement(scope_node, stmt_node, n, pcfg);
+        return nodecl_is_constant_at_statement(scope_node, stmt_node, n, pcfg);
     }
 
-    bool AnalysisInterface::variable_is_constant_at_statement(
+    bool AnalysisInterface::nodecl_is_constant_at_statement(
             Node* const scope_node,
             Node* const stmt_node,
             const Nodecl::NodeclBase& n,
@@ -225,39 +225,58 @@ end_depends:
             return true;
         
         Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
-        ERROR_CONDITION(reach_defs_in.find(n)==reach_defs_in.end(),
-                "No reaching definition arrives for nodecl %s.\n", n.prettyprint().c_str());
-        
-        std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds = reach_defs_in.equal_range(n);
-        Utils::ext_sym_map::iterator rd_it = bounds.first;
-        while(rd_it != bounds.second)
+
+        // Get all memory accesses and study their RDs 
+        const ObjectList<Nodecl::Symbol> n_mem_accesses = 
+            Nodecl::Utils::get_all_symbols_first_occurrence(n);
+ 
+        for(ObjectList<Nodecl::Symbol>::const_iterator n_ma_it =
+                n_mem_accesses.begin(); 
+                n_ma_it != n_mem_accesses.end();
+                n_ma_it++)
         {
-            std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase> rd_value = rd_it->second;
-            ++rd_it;
-            
-            if(rd_value.first.is<Nodecl::Undefined>())
-                continue;
-            
-            // Get the PCFG nodes where the reaching definitions where produced
-            Nodecl::NodeclBase stmt_reach_def = rd_value.second.is_null() ? rd_value.first : rd_value.second;
-            Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
-            if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
+            Nodecl::Symbol n_ma = *n_ma_it;
+
+            ERROR_CONDITION(reach_defs_in.find(n_ma)==reach_defs_in.end(),
+                    "No reaching definition arrives for nodecl %s.\n", n_ma.prettyprint().c_str());
+
+            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
+                reach_defs_in.equal_range(n_ma);
+
+            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
+                rd_it != bounds.second;
+                rd_it++)
             {
-                Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
-                if((control_structure != NULL) && 
-                   (ExtensibleGraph::node_contains_node(scope_node, control_structure) || (scope_node==control_structure)))
+                if(rd_it->second.first.is<Nodecl::Undefined>())
+                    continue;
+
+                // Get the PCFG nodes where the reaching definitions where produced
+                Nodecl::NodeclBase stmt_reach_def = rd_it->second.second.is_null() ? 
+                    rd_it->second.first : rd_it->second.second;
+                Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
+                if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
                 {
-                    Node* cond_node = control_structure->get_condition_node();
-                    ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
-                    for(ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end(); ++it)
+                    Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
+                    if((control_structure != NULL) && 
+                            (ExtensibleGraph::node_contains_node(scope_node, control_structure) ||
+                             (scope_node==control_structure)))
                     {
-                        const ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
-                        for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = mem_accesses.begin(); itt != mem_accesses.end(); ++itt)
+                        Node* cond_node = control_structure->get_condition_node();
+                        ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+                        for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
+                                it != cond_node_stmts.end(); 
+                                ++it)
                         {
-                            //TODO: translate is_constant
-                            if(!is_constant(scope_node->get_graph_related_ast(), *itt) || 
-                               !variable_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
-                                return false;
+                            const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
+                                Nodecl::Utils::get_all_memory_accesses(*it);
+                            for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
+                                    itt != stms_mem_accesses.end();
+                                    ++itt)
+                            {
+                                if(!is_constant(scope_node->get_graph_related_ast(), *itt) || 
+                                        !nodecl_is_constant_at_statement(scope_node, cond_node, *itt, pcfg))
+                                    return false;
+                            }
                         }
                     }
                 }
