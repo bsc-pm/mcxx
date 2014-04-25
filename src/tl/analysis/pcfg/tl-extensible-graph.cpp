@@ -1367,9 +1367,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 
@@ -1417,9 +1416,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl_pointer( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_pointer_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_pointer_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 
