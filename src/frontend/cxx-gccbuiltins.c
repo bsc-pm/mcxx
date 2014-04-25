@@ -3274,7 +3274,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             for (j = 0; j < num_arguments; j++)
             {
                 parameter_info[j].is_ellipsis = 0;
-                parameter_info[j].type_info = no_ref(types[j]);
+                parameter_info[j].type_info = get_unqualified_type(no_ref(types[j]));
                 parameter_info[j].nonadjusted_type_info = NULL;
             }
 
