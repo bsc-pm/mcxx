@@ -366,6 +366,12 @@ namespace Optimizations {
         {   // R11
             Nodecl::Utils::replace(n, const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)));
         }
+        else if (rhs.get_type().is_integral_type() && lhs.get_type().is_integral_type() &&
+                rhs.is_constant() && lhs.is_constant())
+        {   
+            Nodecl::Utils::replace(n, const_value_to_nodecl(const_value_mod(lhs.get_constant(), rhs.get_constant())));
+        }
+
     }
 
     void ReduceExpressionVisitor::visit_post(const Nodecl::Mul& n)
