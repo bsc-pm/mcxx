@@ -5425,13 +5425,6 @@ extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifi
     if (result == NULL)
         return NULL;
 
-    if (t->aliases_to != NULL)
-    {
-        if (cv_qualif != NULL)
-            *cv_qualif |= t->aliases_to_cv_qualifier;
-        return t->aliases_to;
-    }
-
     cv_qualifier_t cv_qualifier_result = result->cv_qualifier;
 
     // Advance over typedefs

@@ -438,6 +438,8 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     ERROR_CONDITION(name == NULL ||
             *name == '\0', "New symbol called with an empty or NULL string", 0);
 
+    // ERROR_CONDITION(name != uniquestr(name), "Invalid name", 0);
+
     scope_entry_t* result;
 
     result = counted_xcalloc(1, sizeof(*result), &_bytes_used_symbols);
@@ -479,6 +481,8 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
 
     scope_entry_list_t *result = (scope_entry_list_t*)dhash_ptr_query(sc->dhash, name);
 
+    // ERROR_CONDITION(name != uniquestr(name), "Invalid name", 0);
+
     DEBUG_CODE()
     {
         if (result == NULL)
@@ -500,8 +504,8 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
 void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Inserting a symbol entry without name!", 0);
-    ERROR_CONDITION(entry->symbol_name != uniquestr(entry->symbol_name), "Name of symbol not canonical", 0);
-    
+    // ERROR_CONDITION(entry->symbol_name != uniquestr(entry->symbol_name), "Name of symbol not canonical", 0);
+
     scope_entry_list_t* result_set = (scope_entry_list_t*)dhash_ptr_query(sc->dhash, entry->symbol_name);
 
     if (result_set != NULL)
@@ -5824,7 +5828,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
     if (name[0]== '~')
     {
         // This is a destructor-id
-        name++;
+        name = uniquestr(name + 1);
 
         // First: lookup inside the class
         scope_entry_list_t* entry_list = query_in_class(

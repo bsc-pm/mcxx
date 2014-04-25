@@ -506,7 +506,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     // __builtin_va_list is a very special type in GCC
     scope_entry_t* builtin_va_list;
 
-    builtin_va_list = new_symbol(decl_context, decl_context.global_scope, "__builtin_va_list");
+    builtin_va_list = new_symbol(decl_context, decl_context.global_scope, uniquestr("__builtin_va_list"));
     builtin_va_list->kind = SK_TYPEDEF;
     builtin_va_list->defined = 1;
     builtin_va_list->type_information = get_gcc_builtin_va_list_type();
@@ -517,7 +517,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     {
         {
             // Namespace std preexists
-            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context.global_scope, "std");
+            scope_entry_t* namespace_std = new_symbol(decl_context, decl_context.global_scope, uniquestr("std"));
             namespace_std->kind = SK_NAMESPACE;
             namespace_std->entity_specs.is_user_declared = 1;
 
@@ -528,7 +528,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         // There are two 'operator new' and two 'operator delete' at global scope
         {
             scope_entry_t* global_operator_new;
-            global_operator_new = new_symbol(decl_context, decl_context.global_scope, "operator new");
+            global_operator_new = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator new"));
             global_operator_new->kind = SK_FUNCTION;
             global_operator_new->do_not_print = 1;
 
@@ -548,7 +548,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         // Version for arrays
         {
             scope_entry_t* global_operator_new;
-            global_operator_new = new_symbol(decl_context, decl_context.global_scope, "operator new[]");
+            global_operator_new = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator new[]"));
             global_operator_new->kind = SK_FUNCTION;
             global_operator_new->do_not_print = 1;
 
@@ -568,7 +568,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
 
         {
             scope_entry_t* global_operator_delete;
-            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, "operator delete");
+            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator delete"));
             global_operator_delete->kind = SK_FUNCTION;
             global_operator_delete->do_not_print = 1;
 
@@ -587,7 +587,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
         }
         {
             scope_entry_t* global_operator_delete;
-            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, "operator delete[]");
+            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, uniquestr("operator delete[]"));
             global_operator_delete->kind = SK_FUNCTION;
             global_operator_delete->do_not_print = 1;
 
@@ -621,13 +621,13 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
 
 #ifdef HAVE_INT128
     {
-        scope_entry_t* __int128_t_type = new_symbol(decl_context, decl_context.global_scope, "__int128_t");
+        scope_entry_t* __int128_t_type = new_symbol(decl_context, decl_context.global_scope, uniquestr("__int128_t"));
         __int128_t_type->kind = SK_TYPEDEF;
         __int128_t_type->type_information = get_signed_int128_type();
         __int128_t_type->locus = make_locus("(global scope)", 0, 0);
     }
     {
-        scope_entry_t* __uint128_t_type = new_symbol(decl_context, decl_context.global_scope, "__uint128_t");
+        scope_entry_t* __uint128_t_type = new_symbol(decl_context, decl_context.global_scope, uniquestr("__uint128_t"));
         __uint128_t_type->kind = SK_TYPEDEF;
         __uint128_t_type->type_information = get_unsigned_int128_type();
         __uint128_t_type->locus = make_locus("(global scope)", 0, 0);

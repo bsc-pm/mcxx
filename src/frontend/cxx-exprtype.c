@@ -13174,7 +13174,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
         return 0;
 
     // Ignore '~'
-    last_name++;
+    last_name = uniquestr(last_name + 1);
 
     // Now build ::[opt] nested-name-specifier-seq[opt] type-name1
     nodecl_t new_list = nodecl_null();

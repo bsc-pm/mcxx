@@ -1119,7 +1119,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
   { \
       if (COND) \
       { \
-      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, NAME); \
+      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       new_builtin->entity_specs.is_builtin = 1; \
@@ -3381,7 +3381,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
                 name = uniquestr(name);
             }
 
-            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
             sym->locus = make_locus("(builtin-simd-type)", 0, 0);
             sym->kind = SK_CLASS;
             sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
