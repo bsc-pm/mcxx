@@ -3338,7 +3338,10 @@ OPERATOR_TABLE
                 TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                if (class_type.is_in_module())
+                // If the class type is defined in a module
+                if (class_type.is_in_module()
+                        // and this module is not the current one, we should emit a use stmt
+                        && class_type.in_module() != get_current_declaring_module())
                     continue;
 
                 // The symbol should not come from a module unless at this
