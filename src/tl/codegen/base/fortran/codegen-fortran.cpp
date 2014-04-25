@@ -5663,28 +5663,28 @@ OPERATOR_TABLE
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
             {
-                Nodecl::NodeclBase upper_bound = array_type_get_array_upper_bound(t.get_internal_type());
-                if (upper_bound.is_constant())
+                Nodecl::NodeclBase string_size = array_type_get_array_size_expr(t.get_internal_type());
+                if (string_size.is_constant())
                 {
-                    upper_bound = const_value_to_nodecl(nodecl_get_constant(upper_bound.get_internal_nodecl()));
+                    string_size = const_value_to_nodecl(nodecl_get_constant(string_size.get_internal_nodecl()));
                 }
                 else
                 {
-                    declare_everything_needed(upper_bound);
+                    declare_everything_needed(string_size);
                 }
 
                 if (state.emit_interoperable_types)
                 {
                     ss << "CHARACTER(KIND=C_CHAR,LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
                 else
                 {
                     ss << "CHARACTER(LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
             }

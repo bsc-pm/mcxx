@@ -337,8 +337,7 @@ Source LoweringVisitor::fill_const_wd_info(
             Nanos::Version::interface_is_at_least("master", 5022))
     {
         result
-            // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
