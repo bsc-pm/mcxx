@@ -218,7 +218,7 @@ namespace Vectorization
                         lhs);
 
                 new_step = Nodecl::Mul::make(
-                        step,
+                        step.shallow_copy(),
                         Nodecl::IntegerLiteral::make(
                             TL::Type::get_int_type(),
                             const_value_get_signed_int(_environment._unroll_factor),
@@ -270,7 +270,7 @@ namespace Vectorization
                         rhs);
 
                 new_step = Nodecl::Mul::make(
-                        step,
+                        step.shallow_copy(),
                         Nodecl::IntegerLiteral::make(
                             TL::Type::get_int_type(),
                             const_value_get_signed_int(_environment._unroll_factor),
