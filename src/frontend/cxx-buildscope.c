@@ -14596,6 +14596,7 @@ static void build_scope_function_definition_body(
             mercurium_pretty_function->type_information = no_ref(nodecl_get_type(nice_name_tree));
             mercurium_pretty_function->value = nice_name_tree;
             mercurium_pretty_function->entity_specs.is_user_declared = 1;
+            mercurium_pretty_function->entity_specs.is_static = 1;
 
             // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
             insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
