@@ -1109,6 +1109,9 @@ static void build_scope_explicit_instantiation(AST a,
     {
         entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, current_decl_context);
 
+        keep_gcc_attributes_in_symbol(entry, &gather_info);
+        keep_ms_declspecs_in_symbol(entry, &gather_info);
+
         AST id_expr = get_declarator_id_expression(declarator, current_decl_context);
         compute_nodecl_name_from_id_expression(ASTSon0(id_expr), current_decl_context, &declarator_name_opt);
         // We do this to fix the declarator_name_opt
@@ -4175,6 +4178,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 return;
             }
             *type_info = entry->type_information;
+
+            if (class_gather_info.num_gcc_attributes != 0
+                    || class_gather_info.num_ms_attributes != 0)
+            {
+                // Clone the symbol to avoid modifying the SK_DEPENDENT_ENTITY
+                // returned by the scope
+                scope_entry_t* old_entry = entry;
+                entry = xcalloc(1, sizeof(*entry));
+                *entry = *old_entry;
+
+                keep_gcc_attributes_in_symbol(entry, &class_gather_info);
+                keep_ms_declspecs_in_symbol(entry, &class_gather_info);
+            }
             return;
         }
 
@@ -4262,7 +4278,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         class_entry->entity_specs.is_instantiable = 1;
     }
 
-    // Do not modify the class entry with the gcc attributes of the gather info
+    keep_gcc_attributes_in_symbol(class_entry, &class_gather_info);
+    keep_ms_declspecs_in_symbol(class_entry, &class_gather_info);
 
     *type_info = get_user_defined_type(class_entry);
 

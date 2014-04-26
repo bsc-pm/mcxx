@@ -7089,10 +7089,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 return;
             }
 
+
             if (!symbol.is_anonymous_union())
             {
+                std::string gcc_attributes;
+                if (symbol.has_gcc_attributes())
+                {
+                    gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+                }
+
                 indent();
-                *(file) << class_key << " " << symbol.get_name();
+                *(file) << class_key << " " << gcc_attributes << symbol.get_name();
 
                 if (is_template_specialized
                         && !is_primary_template)
