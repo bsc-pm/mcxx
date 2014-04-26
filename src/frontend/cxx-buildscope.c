@@ -3756,7 +3756,6 @@ static void gather_extra_attributes(AST a,
                 }
             case AST_CLASS_VIRT_SPEC:
             case AST_MEMBER_VIRT_SPEC:
-            case AST_INVALID_VIRT_SPEC:
                 {
                     gather_single_virt_specifier(item, gather_info, decl_context);
                     break;
@@ -15491,24 +15490,12 @@ static void gather_single_virt_specifier(AST item,
 {
     switch (ASTType(item))
     {
-        case AST_INVALID_VIRT_SPEC:
         case AST_CLASS_VIRT_SPEC:
         case AST_MEMBER_VIRT_SPEC:
             {
                 ERROR_CONDITION( (ASTText(item) == NULL), "Invalid node", 0);
                 const char* spec = ASTText(item);
 
-                if (ASTType(item) == AST_INVALID_VIRT_SPEC)
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: unexpected identifier '%s'\n",
-                                ast_location(item),
-                                spec);
-                    }
-                    return;
-                }
-    
                 if (IS_CXX03_LANGUAGE)
                 {
                     warn_printf("%s: warning: virt-specifiers are a C+11 feature\n",
