@@ -9402,43 +9402,6 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                             entry = named_type_get_symbol(entry->entity_specs.class_type);
                         }
 
-#if 0
-                        if (is_dependent_type(entry->type_information)
-                                &&  symbol_is_member_of_dependent_class(entry))
-                        {
-                            // Craft a nodecl name for it
-                            nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
-                                    entry->symbol_name,
-                                    ast_get_locus(id_type_expr));
-
-                            nodecl_t nodecl_name = nodecl_simple_name;
-
-                            if (is_template_specialized_type(entry->type_information))
-                            {
-                                nodecl_name = nodecl_make_cxx_dep_template_id(
-                                        nodecl_name,
-                                        // If our enclosing class is dependent
-                                        // this template id will require a 'template '
-                                        "template ",
-                                        template_specialized_type_get_template_arguments(entry->type_information),
-                                        ast_get_locus(id_type_expr));
-                            }
-
-                            // Craft a dependent typename since we will need it later for proper updates
-                            type_t* dependent_typename = build_dependent_typename_for_entry(
-                                    get_function_or_class_where_symbol_depends(entry),
-                                    nodecl_name,
-                                    ast_get_locus(id_type_expr));
-
-                            entry = xcalloc(1, sizeof(*entry));
-                            entry->kind = SK_DEPENDENT_ENTITY;
-                            entry->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
-                            entry->decl_context = decl_context;
-                            entry->type_information = dependent_typename;
-                            entry->locus = ast_get_locus(id_type_expr);
-                        }
-#endif
-
                         *declarator_type = get_pointer_to_member_type(pointee_type, get_user_defined_type(entry));
                     }
                     else
