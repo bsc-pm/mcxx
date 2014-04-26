@@ -4240,15 +4240,28 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             *(file) << "extern ";
 
-        *(file) << "template " << class_key << " " << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
+        *(file) << "template " << class_key << " " << gcc_attributes << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
 
     }
     else if (sym.is_function())
     {
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context.namespace_scope->related_entry);
+
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
 
         TL::Type real_type = sym.get_type();
         if (sym.is_conversion_function()
@@ -4263,15 +4276,22 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         }
 
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
     }
     else if (sym.is_variable())
     {
         // This should be a nonstatic member
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
     }
     else
     {
