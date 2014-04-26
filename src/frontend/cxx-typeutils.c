@@ -487,12 +487,6 @@ struct type_tag
     // (all types)
     type_t* original_type;
 
-    // Aliases to current type.
-    // These are lazily set by advance_over_typedefs_with_cv_qualif
-    // (all types)
-    type_t* aliases_to;
-    cv_qualifier_t aliases_to_cv_qualifier;
-
     // Pointer
     // (kind == TK_POINTER)
     // (kind == TK_POINTER_TO_MEMBER)
@@ -570,9 +564,6 @@ static type_t* copy_type_for_variant(type_t* t)
 {
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
-
-    result->aliases_to = NULL;
-    result->aliases_to_cv_qualifier = CV_NONE;
 
     result->info = copy_common_type_info(t->info);
 
@@ -3201,9 +3192,6 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
-        qualified_type->aliases_to = NULL;
-        qualified_type->aliases_to_cv_qualifier = CV_NONE;
-
         dhash_ptr_insert(_qualification[(int)(cv_qualification)], 
                 original->unqualified_type, 
                 qualified_type);
@@ -4165,11 +4153,7 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
     type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
     *result = *class_type;
 
-    result->aliases_to = NULL;
-    result->aliases_to_cv_qualifier = CV_NONE;
-
     result->unqualified_type = result;
-
 
     // These are the parts relevant for duplication
     result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
@@ -5450,9 +5434,6 @@ extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifi
     {
         *cv_qualif |= cv_qualifier_result;
     }
-
-    t->aliases_to = result;
-    t->aliases_to_cv_qualifier = cv_qualifier_result;
 
     return result;
 }
@@ -11674,9 +11655,6 @@ type_t* get_variant_type_zero(type_t* t)
         result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
         *result = *t;
 
-        result->aliases_to = NULL;
-        result->aliases_to_cv_qualifier = CV_NONE;
-
         // The unqualified type must point to itself
         result->unqualified_type = result;
 
@@ -13638,9 +13616,6 @@ type_t* get_variant_type_interoperable(type_t* t)
     {
         result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
         *result = *t;
-
-        result->aliases_to = NULL;
-        result->aliases_to_cv_qualifier = CV_NONE;
 
         // The unqualified type must point to itself
         result->unqualified_type = result;
