@@ -357,8 +357,6 @@ namespace Vectorization
 
     void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
     {
-        Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
-
         if (VectorizationAnalysisInterface::_vectorizer_analysis->is_induction_variable(
                     _environment._analysis_simd_scope,
                     lhs))
@@ -367,8 +365,6 @@ namespace Vectorization
                 get_induction_variable_increment(
                     _environment._analysis_scopes.back(),
                     lhs);
-
-            result = step.shallow_copy();
 
             Nodecl::AddAssignment new_node;
 
@@ -394,10 +390,7 @@ namespace Vectorization
                                     TL::Type::get_int_type(),
                                     const_value_get_signed_int(_environment._unroll_factor),
                                     node.get_locus()),
-                                VectorizationAnalysisInterface::_vectorizer_analysis->
-                                get_induction_variable_increment(
-                                    _environment._analysis_scopes.back(),
-                                    lhs),
+                                step.shallow_copy(),
                                 node.get_type(),
                                 node.get_locus()),
                             node.get_type(),
@@ -618,7 +611,7 @@ namespace Vectorization
             Nodecl::NodeclBase &iv_init)
     {
         // Add IV initialization after vectorization
-        TL::ForStatement tl_for_statement(for_statement);
+        TL::ForStatementHelper<TL::NoNewNodePolicy> tl_for_statement(for_statement);
 
         if(!tl_for_statement.is_omp_valid_loop())
         {

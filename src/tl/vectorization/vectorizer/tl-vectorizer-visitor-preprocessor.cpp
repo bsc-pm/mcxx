@@ -38,6 +38,14 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorPreprocessor::visit(const Nodecl::ArraySubscript& n)
+    {
+        walk(n.get_subscripted());
+        walk(n.get_subscripts());
+
+        n.replace(Nodecl::Utils::linearize_array_subscript(n));
+    }
+
     void VectorizerVisitorPreprocessor::visit(const Nodecl::AddAssignment& n)
     {
         walk(n.get_lhs());
@@ -139,7 +147,7 @@ namespace Vectorization
         Nodecl::NodeclBase parent = n.get_parent();
 
         if(parent.is<Nodecl::ExpressionStatement>() || 
-                 parent.get_parent().is<Nodecl::LoopControl>())
+                 parent.is<Nodecl::LoopControl>())
         {
             Nodecl::Assignment new_increment = 
                 Nodecl::Assignment::make(

@@ -133,7 +133,7 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: ----- Computing epilog info -----\n");
         }
 
-        TL::ForStatement tl_for(for_statement);
+        TL::ForStatementHelper<TL::NoNewNodePolicy> tl_for(for_statement);
 
         Nodecl::NodeclBase lb = tl_for.get_lower_bound();
         Nodecl::NodeclBase ub = tl_for.get_upper_bound();
@@ -197,7 +197,8 @@ namespace Vectorization
 
             if (ub.is_constant())
             {
-                const_ub = const_value_cast_to_8(ub.get_constant());
+                // Closed interval: + 1
+                const_ub = const_value_cast_to_8(ub.get_constant()) + 1;
             }
             else
             {

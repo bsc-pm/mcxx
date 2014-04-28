@@ -1510,19 +1510,19 @@ namespace Vectorization
             {
                 symbol_type_promotion(n);
             }
-            // Vectorize symbols declared in the SIMD scope
-            else if (Utils::is_declared_in_inner_scope(
-                        _environment._analysis_simd_scope,
-                        n.get_symbol()))
-            {
-                symbol_type_promotion(n);
-            }
             // Vectorize BASIC induction variable
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope, n))
             {
                 vectorize_basic_induction_variable(n);
+            }
+            // Vectorize symbols declared in the SIMD scope
+            else if (Utils::is_declared_in_inner_scope(
+                        _environment._analysis_simd_scope,
+                        n.get_symbol()))
+            {
+                symbol_type_promotion(n);
             }
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     nodecl_is_constant_at_statement(_environment._analysis_simd_scope, n))
@@ -1742,6 +1742,12 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::IntegerLiteral& n)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr,"VECTORIZER: IntegerLiteral promotion '%s'\n",
+                    n.prettyprint().c_str());
+        }
+
         Nodecl::VectorPromotion vector_prom =
             Nodecl::VectorPromotion::make(
                     n.shallow_copy(),
@@ -1760,6 +1766,12 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::FloatingLiteral& n)
     {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr,"VECTORIZER: FloatingLiteral promotion '%s'\n",
+                    n.prettyprint().c_str());
+        }
+
         Nodecl::VectorPromotion vector_prom =
             Nodecl::VectorPromotion::make(
                     n.shallow_copy(),

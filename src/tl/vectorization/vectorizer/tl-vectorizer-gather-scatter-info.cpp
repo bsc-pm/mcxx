@@ -47,8 +47,7 @@ namespace Vectorization
                 "VectorizerGatherScatterInfo: Access is not an ArraySubscript",
                 0);
 
-        Nodecl::ArraySubscript array = Nodecl::Utils::linearize_array_subscript(
-                _access.as<Nodecl::ArraySubscript>());
+        Nodecl::ArraySubscript array = _access.as<Nodecl::ArraySubscript>();
 
         VECTORIZATION_DEBUG()
         {

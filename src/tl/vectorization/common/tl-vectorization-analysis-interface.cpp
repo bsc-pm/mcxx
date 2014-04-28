@@ -161,16 +161,26 @@ namespace Vectorization
             if (it2 != _copy_to_orig_nodes.end())
             {
                 return n;
-                //internal_error("VectorizerAnalysis: Error translating Nodecl "
-                //"from origin to copy. NODE ALREADY TRANSLATED", 0);
+                internal_error("VectorizerAnalysis: Error translating Nodecl "
+                "from origin to copy. NODE ALREADY TRANSLATED", 0);
             }
 
-            register_node(n);
+            //return n;
+            //register_node(n);
 
             // Get the registered node
-            it = _orig_to_copy_nodes.find(n);
+            //it = _orig_to_copy_nodes.find(n);
 
-            //internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy", 0);
+            for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it3 = _orig_to_copy_nodes.begin();
+                    it3 != _orig_to_copy_nodes.end();
+                    it3++)
+            {
+                std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
+            }
+
+
+            internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy, %p %s",
+                    &(n.get_internal_nodecl()), n.prettyprint().c_str());
         }
         //std::cerr << "Translation from O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
 
@@ -229,7 +239,7 @@ namespace Vectorization
             const Nodecl::NodeclBase& n)
     {
         Nodecl::Utils::NodeclDeepCopyMap::iterator it =
-            find_equal_nodecl(n, _copy_to_orig_nodes);
+            _copy_to_orig_nodes.find(n);
 
         if (it == _copy_to_orig_nodes.end())
         {
@@ -421,7 +431,7 @@ namespace Vectorization
         bool result = Analysis::AnalysisInterface::is_constant(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -433,7 +443,7 @@ namespace Vectorization
         bool result = Analysis::AnalysisInterface::has_been_defined(
                 translate_input(scope), translate_input(n), translate_input(s));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -444,7 +454,7 @@ namespace Vectorization
         bool result = Analysis::AnalysisInterface::is_induction_variable(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -455,7 +465,7 @@ namespace Vectorization
         bool result = Analysis::AnalysisInterface::is_basic_induction_variable(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -468,7 +478,7 @@ namespace Vectorization
             is_non_reduction_basic_induction_variable(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -482,7 +492,7 @@ namespace Vectorization
             get_induction_variable_lower_bound(
                     translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return translate_output(return_nodecl);
     }
@@ -496,7 +506,7 @@ namespace Vectorization
             get_induction_variable_upper_bound(
                     translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return translate_output(return_nodecl);
     }
@@ -510,7 +520,7 @@ namespace Vectorization
             Analysis::AnalysisInterface::get_induction_variable_increment(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return translate_output(return_nodecl);
     }
@@ -525,7 +535,7 @@ namespace Vectorization
                     get_induction_variable_increment_list(
                         translate_input(scope), translate_input(n)));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -538,7 +548,7 @@ namespace Vectorization
             is_induction_variable_increment_one(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -554,7 +564,7 @@ namespace Vectorization
             Analysis::AnalysisInterface::get_induction_variables(
                     translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -578,7 +588,7 @@ namespace Vectorization
             result.append((*it)->get_variable().get_nodecl());
         }
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return translate_output(result);
     }
@@ -589,7 +599,7 @@ namespace Vectorization
         bool result = Analysis::VectorizationAnalysis::is_adjacent_access(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -603,7 +613,7 @@ namespace Vectorization
             is_induction_variable_dependent_expression(
                     translate_input(ivs_scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -616,7 +626,7 @@ namespace Vectorization
             contains_induction_variable(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -628,7 +638,7 @@ namespace Vectorization
         bool result = Analysis::AnalysisInterface::is_constant_access(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -654,7 +664,7 @@ namespace Vectorization
                 translated_suitable_expressions,
                 unroll_factor, alignment);
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -674,7 +684,7 @@ namespace Vectorization
                 translated_suitable_expressions,
                 unroll_factor, alignment, vector_size_module);
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -688,7 +698,7 @@ namespace Vectorization
         result = Analysis::AnalysisInterface::nodecl_is_constant_at_statement(
                 translate_input(scope), translate_input(n));
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -775,7 +785,7 @@ namespace Vectorization
                     translate_input(ivs_scope),
                     lb_analysis_copy);
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -794,7 +804,7 @@ namespace Vectorization
                     translate_input(ivs_scope),
                     ub_analysis_copy);
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }
@@ -813,7 +823,7 @@ namespace Vectorization
                     translate_input(ivs_scope),
                     step_analysis_copy);
 
-        unregister_nodes();
+        //unregister_nodes();
 
         return result;
     }

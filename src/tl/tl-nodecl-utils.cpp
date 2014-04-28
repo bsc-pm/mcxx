@@ -1980,7 +1980,8 @@ namespace TL
     // Lower bound and upper bound are closed ranges:
     //      [lower_bound, upper_bound] if step is positive
     //      [upper_bound, lower_bound] if step is negative
-    void ForStatement::analyze_loop_header()
+    template <typename CopyPolicy>
+    void ForStatementHelper<CopyPolicy>::analyze_loop_header()
     {
         Nodecl::NodeclBase lc = this->get_loop_header();
         if (lc.is<Nodecl::RangeLoopControl>())
@@ -1996,9 +1997,9 @@ namespace TL
             }
 
             _induction_var = loop_control.get_induction_variable();
-            _lower_bound = loop_control.get_lower().shallow_copy();
-            _upper_bound = loop_control.get_upper().shallow_copy();
-            _step = loop_control.get_step().shallow_copy();
+            _lower_bound = CopyPolicy::shallow_copy(loop_control.get_lower());
+            _upper_bound = CopyPolicy::shallow_copy(loop_control.get_upper());
+            _step = CopyPolicy::shallow_copy(loop_control.get_step());
 
             _is_omp_valid = true;
         }
@@ -2038,7 +2039,7 @@ namespace TL
                 }
 
                 Nodecl::NodeclBase rhs = init_expr.as<Nodecl::Assignment>().get_rhs();
-                _lower_bound = rhs.shallow_copy();
+                _lower_bound = CopyPolicy::shallow_copy(rhs);
             }
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
@@ -2046,7 +2047,7 @@ namespace TL
                 _induction_variable_in_separate_scope = true;
                 _induction_var = init_expr;
 
-                _lower_bound = _induction_var.get_symbol().get_value().shallow_copy();
+                _lower_bound = CopyPolicy::shallow_copy(_induction_var.get_symbol().get_value());
             }
             else
             {
@@ -2091,18 +2092,21 @@ namespace TL
 
                         if (rhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
                                     const_value_sub(
                                         rhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                                        const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Minus::make(
-                                    rhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    rhs.get_locus());
+                            _upper_bound =
+                                CopyPolicy::new_node(
+                                        Nodecl::Minus::make(
+                                            CopyPolicy::shallow_copy(rhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            rhs.get_locus()));
                         }
                     }
                     else
@@ -2115,18 +2119,21 @@ namespace TL
 
                         if (lhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
-                                    const_value_add(
-                                        lhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_add(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Add::make(
-                                    lhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    lhs.get_locus());
+                            _upper_bound = 
+                                CopyPolicy::new_node(
+                                        Nodecl::Add::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
                         }
                     }
                 }
@@ -2135,12 +2142,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x <= E
-                        _upper_bound = rhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
                     }
                     else
                     {
                         // E <= x this is like x >= E
-                        _upper_bound = lhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
                     }
                 }
                 else if (test_expr.is<Nodecl::GreaterThan>())
@@ -2156,18 +2163,20 @@ namespace TL
 
                         if (rhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
                                     const_value_add(
                                         rhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                                        const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Add::make(
-                                    rhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    rhs.get_locus());
+                            _upper_bound = CopyPolicy::new_node(
+                                    Nodecl::Add::make(
+                                        CopyPolicy::shallow_copy(rhs),
+                                        CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                        t,
+                                        rhs.get_locus()));
                         }
                     }
                     else
@@ -2180,18 +2189,21 @@ namespace TL
 
                         if (lhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
-                                    const_value_sub(
-                                        lhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_sub(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Minus::make(
-                                    lhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    lhs.get_locus());
+                            _upper_bound = 
+                                CopyPolicy::new_node(
+                                        Nodecl::Minus::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
                         }
                     }
                 }
@@ -2200,12 +2212,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x >= E
-                        _upper_bound = rhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
                     }
                     else
                     {
                         // E >= x this is like x <= E
-                        _upper_bound = lhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
                     }
                 }
                 else
@@ -2225,35 +2237,35 @@ namespace TL
                     && incr_expr.as<Nodecl::Preincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
             }
             // _induction_var++
             else if (incr_expr.is<Nodecl::Postincrement>()
                     && incr_expr.as<Nodecl::Postincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
             }
             // --_induction_var
             else if (incr_expr.is<Nodecl::Predecrement>()
                     && incr_expr.as<Nodecl::Predecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
             }
             // _induction_var--
             else if (incr_expr.is<Nodecl::Postdecrement>()
                     && incr_expr.as<Nodecl::Postdecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
             }
             // _induction_var += incr
             else if (incr_expr.is<Nodecl::AddAssignment>()
                     && incr_expr.as<Nodecl::AddAssignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::AddAssignment>().get_rhs());
             }
             // _induction_var -= incr
             else if (incr_expr.is<Nodecl::MinusAssignment>()
@@ -2269,14 +2281,16 @@ namespace TL
 
                 if (rhs.is_constant())
                 {
-                    _step = const_value_to_nodecl(const_value_neg(rhs.get_constant()));
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(const_value_neg(rhs.get_constant())));
                 }
                 else
                 {
-                    _step = Nodecl::Neg::make(
-                            rhs,
-                            t,
-                            rhs.get_locus());
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                rhs,
+                                t,
+                                rhs.get_locus()));
                 }
             }
             // _induction_var = _induction_var + incr
@@ -2287,7 +2301,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
                         .as<Nodecl::Add>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs());
             }
             // _induction_var = incr + _induction_var
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -2297,7 +2311,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
                         .as<Nodecl::Add>().get_rhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs());
             }
             // _induction_var = _induction_var - incr
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -2316,15 +2330,17 @@ namespace TL
 
                 if (rhs.is_constant())
                 {
-                    _step = const_value_to_nodecl(
-                            const_value_neg(rhs.get_constant()));
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(
+                            const_value_neg(rhs.get_constant())));
                 }
                 else
                 {
-                    _step = Nodecl::Neg::make(
-                            rhs.shallow_copy(),
-                            t,
-                            rhs.get_locus());
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                CopyPolicy::shallow_copy(rhs),
+                                t,
+                                rhs.get_locus()));
                 }
             }
             else
@@ -2341,33 +2357,36 @@ namespace TL
         _is_omp_valid = true;
     }
 
-    bool ForStatement::is_omp_valid_loop() const
+    bool ForStatementHelperBase::is_omp_valid_loop() const
     {
         return _is_omp_valid;
     }
 
-    TL::Symbol ForStatement::get_induction_variable() const
+    TL::Symbol ForStatementHelperBase::get_induction_variable() const
     {
         return _induction_var.get_symbol();
     }
 
-    bool ForStatement::induction_variable_in_separate_scope() const
+    bool ForStatementHelperBase::induction_variable_in_separate_scope() const
     {
         return _induction_variable_in_separate_scope;
     }
 
-    Nodecl::NodeclBase ForStatement::get_lower_bound() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_lower_bound() const
     {
         return _lower_bound;
     }
 
-    Nodecl::NodeclBase ForStatement::get_upper_bound() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_upper_bound() const
     {
         return _upper_bound;
     }
 
-    Nodecl::NodeclBase ForStatement::get_step() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_step() const
     {
         return _step;
     }
+
+    template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
+    template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
 }

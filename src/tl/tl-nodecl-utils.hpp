@@ -387,11 +387,35 @@ namespace Utils {
 
 namespace TL
 {
-    struct ForStatement : Nodecl::ForStatement
+    struct NoNewNodePolicy
     {
-        private:
-            bool _is_omp_valid;
+        static Nodecl::NodeclBase shallow_copy(const Nodecl::NodeclBase& n)
+        {
+            return n;
+        }
 
+        static Nodecl::NodeclBase new_node(const Nodecl::NodeclBase& n)
+        {
+            internal_error("Attempt to copy code", 0);
+        }
+    };
+
+    struct UsualCopyPolicy
+    {
+        static Nodecl::NodeclBase shallow_copy(const Nodecl::NodeclBase& n)
+        {
+            return n.shallow_copy();
+        }
+
+        static Nodecl::NodeclBase new_node(const Nodecl::NodeclBase& n)
+        {
+            return n;
+        }
+    };
+
+    struct ForStatementHelperBase
+    {
+        protected:
             Nodecl::NodeclBase _induction_var;
 
             Nodecl::NodeclBase _lower_bound;
@@ -399,14 +423,9 @@ namespace TL
             Nodecl::NodeclBase _step;
 
             bool _induction_variable_in_separate_scope;
+            bool _is_omp_valid;
 
-            void analyze_loop_header();
         public:
-            ForStatement(const Nodecl::ForStatement n)
-                : Nodecl::ForStatement(n)
-            {
-                    analyze_loop_header();
-            }
 
             bool is_omp_valid_loop() const;
 
@@ -418,6 +437,22 @@ namespace TL
             Nodecl::NodeclBase get_upper_bound() const;
             Nodecl::NodeclBase get_step() const;
     };
+
+
+    template <typename CopyPolicy>
+    struct ForStatementHelper : Nodecl::ForStatement, ForStatementHelperBase
+    {
+        private:
+            void analyze_loop_header();
+        public:
+            ForStatementHelper(const Nodecl::ForStatement& n)
+                : Nodecl::ForStatement(n), ForStatementHelperBase()
+            {
+                    analyze_loop_header();
+            }
+    };
+
+    typedef ForStatementHelper<TL::UsualCopyPolicy> ForStatement;
 }
 
 #endif // TL_NODECL_UTILS_HPP
