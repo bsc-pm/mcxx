@@ -7,7 +7,7 @@
 typedef
 struct bucket_ptr_tag
 {
-    const void* key;
+    const char* key;
     dhash_ptr_info_t info;
     struct bucket_ptr_tag* next;
 } bucket_ptr_t;
@@ -16,7 +16,7 @@ enum { MAX_BUCKET_SIZE = 76003 };
 const static int prime_set[] = { 5, 11, 23, 53, 131, 317, 787, 1951, 4877, 12163, 30403, MAX_BUCKET_SIZE };
 const static int last_prime = (sizeof(prime_set) / sizeof(prime_set[0])) - 1;
  
-static inline uint32_t Murmur3_32(const void* ptr);
+static inline uint32_t Murmur3_32(const char* ptr);
 
 struct dhash_ptr_tag
 {
@@ -74,7 +74,7 @@ void dhash_ptr_destroy(dhash_ptr_t* dhash)
     xfree(dhash->buckets);
 }
 
-void* dhash_ptr_query(dhash_ptr_t* dhash, const void* key)
+void* dhash_ptr_query(dhash_ptr_t* dhash, const char* key)
 {
     if (key == NULL) abort();
 
@@ -95,7 +95,7 @@ void* dhash_ptr_query(dhash_ptr_t* dhash, const void* key)
 }
 
 
-static void dhash_ptr_do_insert(dhash_ptr_t* dhash, const void* key, dhash_ptr_info_t info)
+static void dhash_ptr_do_insert(dhash_ptr_t* dhash, const char* key, dhash_ptr_info_t info)
 {
     int num_buckets = prime_set[dhash->num_buckets_idx];
     uint32_t hash = Murmur3_32(key) % num_buckets;
@@ -164,7 +164,7 @@ static void dhash_ptr_increase_rehash(dhash_ptr_t* dhash)
     dhash->buckets = new_buckets;
 }
 
-void dhash_ptr_insert(dhash_ptr_t* dhash, const void* key, dhash_ptr_info_t info)
+void dhash_ptr_insert(dhash_ptr_t* dhash, const char* key, dhash_ptr_info_t info)
 {
     if (key == NULL) abort();
     if (info == NULL) abort();
@@ -178,7 +178,7 @@ void dhash_ptr_insert(dhash_ptr_t* dhash, const void* key, dhash_ptr_info_t info
     dhash_ptr_do_insert(dhash, key, info);
 }
 
-void dhash_ptr_remove(dhash_ptr_t* dhash, const void* key)
+void dhash_ptr_remove(dhash_ptr_t* dhash, const char* key)
 {
     if (key == NULL) abort();
 
@@ -221,7 +221,7 @@ void dhash_ptr_walk(dhash_ptr_t* dhash, dhash_ptr_walk_fn walk_fn, void *walk_in
 
 // Hash function
 // Taken from wikipedia
-static inline uint32_t Murmur3_32(const void* ptr)
+static inline uint32_t Murmur3_32(const char* key)
 {
 	static const uint32_t c1 = 0xcc9e2d51;
 	static const uint32_t c2 = 0x1b873593;
@@ -230,9 +230,8 @@ static inline uint32_t Murmur3_32(const void* ptr)
 	static const uint32_t m = 5;
 	static const uint32_t n = 0xe6546b64;
 
-    uint32_t len = sizeof(const void*);
-    const char* key = (const char*)&ptr;
- 
+    // Size of a pointer
+    uint32_t len = sizeof(const char*);
 	uint32_t hash = 0;
  
 	uint32_t* keydata = (uint32_t*) key; //used to extract 32 bits at a time
