@@ -15,8 +15,23 @@ struct bucket_ptr_tag
 enum { MAX_BUCKET_SIZE = 76003 };
 const static int prime_set[] = { 5, 11, 23, 53, 131, 317, 787, 1951, 4877, 12163, 30403, MAX_BUCKET_SIZE };
 const static int last_prime = (sizeof(prime_set) / sizeof(prime_set[0])) - 1;
- 
-static inline uint32_t Murmur3_32(const char* ptr);
+
+#ifdef __GNUC__
+  #if __GNUC__ == 4
+     #if __GNUC_MINOR__ >= 6
+       #define STATIC_INLINE static inline
+     #else
+       // This is a workaround for GCC 4.4 generating wrong code
+       #define STATIC_INLINE static
+     #endif
+  #else
+     #define STATIC_INLINE static inline
+  #endif
+#else
+   #define STATIC_INLINE static inline
+#endif
+
+STATIC_INLINE uint32_t Murmur3_32(const char* ptr);
 
 struct dhash_ptr_tag
 {
@@ -221,7 +236,7 @@ void dhash_ptr_walk(dhash_ptr_t* dhash, dhash_ptr_walk_fn walk_fn, void *walk_in
 
 // Hash function
 // Taken from wikipedia
-static inline uint32_t Murmur3_32(const char* ptr)
+STATIC_INLINE uint32_t Murmur3_32(const char* ptr)
 {
 	static const uint32_t c1 = 0xcc9e2d51;
 	static const uint32_t c2 = 0x1b873593;
