@@ -221,7 +221,7 @@ void dhash_ptr_walk(dhash_ptr_t* dhash, dhash_ptr_walk_fn walk_fn, void *walk_in
 
 // Hash function
 // Taken from wikipedia
-static inline uint32_t Murmur3_32(const char* key)
+static inline uint32_t Murmur3_32(const char* ptr)
 {
 	static const uint32_t c1 = 0xcc9e2d51;
 	static const uint32_t c2 = 0x1b873593;
@@ -231,7 +231,9 @@ static inline uint32_t Murmur3_32(const char* key)
 	static const uint32_t n = 0xe6546b64;
 
     // Size of a pointer
-    uint32_t len = sizeof(const char*);
+    uint32_t len = sizeof(ptr);
+    const char* key = (const char*)&ptr;
+
 	uint32_t hash = 0;
  
 	uint32_t* keydata = (uint32_t*) key; //used to extract 32 bits at a time
