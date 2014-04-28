@@ -847,8 +847,6 @@ void LoweringVisitor::visit_task(
         TL::Source code;
 
         Nodecl::NodeclBase copied_statements_placeholder;
-
-
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
@@ -877,10 +875,12 @@ void LoweringVisitor::visit_task(
 
         copied_statements_placeholder.replace(copied_statements);
 
+        // Remove the OmpSs/OpenMP tasks from the tree
         RemoveOpenMPTasks visitor;
-        visitor.walk(copied_statements);
-        walk(copied_statements);
+        visitor.walk(copied_statements_placeholder);
 
+        // Walk over the tree, transforming OpenMP/OmpSs pragmas
+        walk(copied_statements_placeholder);
     }
     else
     {
