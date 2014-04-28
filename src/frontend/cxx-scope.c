@@ -946,7 +946,7 @@ static scope_entry_t* create_new_dependent_entity(
     }
 
     // Try to reuse an existing symbol through its dependent type
-    scope_entry_t * result = dhash_ptr_query(_dependent_symbols, dependent_type);
+    scope_entry_t * result = dhash_ptr_query(_dependent_symbols, (const char*)dependent_type);
 
     if (result == NULL)
     {
@@ -957,7 +957,7 @@ static scope_entry_t* create_new_dependent_entity(
         result->symbol_name = dependent_entry->symbol_name;
         result->type_information = dependent_type;
 
-        dhash_ptr_insert(_dependent_symbols, dependent_type, result);
+        dhash_ptr_insert(_dependent_symbols, (const char*)dependent_type, result);
     }
 
     return result;

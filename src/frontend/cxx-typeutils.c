@@ -1403,7 +1403,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 
     dhash_ptr_t * _user_defined_types = _user_defined_types_arr[!!indirect];
     
-    type_t* type_info = dhash_ptr_query(_user_defined_types, entry);
+    type_t* type_info = dhash_ptr_query(_user_defined_types, (const char*)entry);
 
     if (type_info == NULL)
     {
@@ -1430,7 +1430,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
             type_info->info->is_dependent = is_dependent_type(entry->type_information);
         }
 
-        dhash_ptr_insert(_user_defined_types, entry, type_info);
+        dhash_ptr_insert(_user_defined_types, (const char*)entry, type_info);
     }
 
     return type_info;
@@ -1728,13 +1728,13 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
         _dependent_entries = dhash_ptr_new(5);
     }
 
-    rb_red_blk_tree * dependent_entry_hash = dhash_ptr_query(_dependent_entries, dependent_entry);
+    rb_red_blk_tree * dependent_entry_hash = dhash_ptr_query(_dependent_entries, (const char*)dependent_entry);
 
     if (dependent_entry_hash == NULL)
     {
         dependent_entry_hash = rb_tree_create(compare_dependent_parts, null_dtor, null_dtor);
 
-        dhash_ptr_insert(_dependent_entries, dependent_entry, dependent_entry_hash);
+        dhash_ptr_insert(_dependent_entries, (const char*)dependent_entry, dependent_entry_hash);
     }
 
     rb_red_blk_node* n = rb_tree_query(dependent_entry_hash, nodecl_get_ast(dependent_parts));
@@ -3027,7 +3027,7 @@ type_t* get_complex_type(type_t* t)
         _complex_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = dhash_ptr_query(_complex_hash, t);
+    type_t* result = dhash_ptr_query(_complex_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -3042,7 +3042,7 @@ type_t* get_complex_type(type_t* t)
 
         result->info->is_dependent = is_dependent_type(t);
 
-        dhash_ptr_insert(_complex_hash, t, result);
+        dhash_ptr_insert(_complex_hash, (const char*)t, result);
     }
 
     return result;
@@ -3182,7 +3182,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Lookup based on the unqualified type
     type_t* qualified_type = (type_t*)dhash_ptr_query(
             _qualification[(int)(cv_qualification)], 
-            original->unqualified_type);
+            (const char*)original->unqualified_type);
 
     if (qualified_type == NULL)
     {
@@ -3193,7 +3193,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->unqualified_type = original->unqualified_type;
 
         dhash_ptr_insert(_qualification[(int)(cv_qualification)], 
-                original->unqualified_type, 
+                (const char*)original->unqualified_type, 
                 qualified_type);
     }
 
@@ -3231,7 +3231,7 @@ type_t* get_pointer_type(type_t* t)
         _pointer_types = dhash_ptr_new(5);
     }
 
-    type_t* pointed_type = dhash_ptr_query(_pointer_types, t);
+    type_t* pointed_type = dhash_ptr_query(_pointer_types, (const char*)t);
 
     if (pointed_type == NULL)
     {
@@ -3266,7 +3266,7 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
-        dhash_ptr_insert(_pointer_types, t, pointed_type);
+        dhash_ptr_insert(_pointer_types, (const char*)t, pointed_type);
     }
 
     return pointed_type;
@@ -3320,7 +3320,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
 
     dhash_ptr_t *reference_hash = *reference_types;
 
-    type_t* referenced_type = dhash_ptr_query(reference_hash, t);
+    type_t* referenced_type = dhash_ptr_query(reference_hash, (const char*)t);
 
     if (referenced_type == NULL)
     {
@@ -3333,7 +3333,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        dhash_ptr_insert(reference_hash, t, referenced_type);
+        dhash_ptr_insert(reference_hash, (const char*)t, referenced_type);
     }
 
     return referenced_type;
@@ -3366,16 +3366,16 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
     }
 
     // First lookup using the class type
-    dhash_ptr_t * class_type_hash = dhash_ptr_query(_class_types, class_type);
+    dhash_ptr_t * class_type_hash = dhash_ptr_query(_class_types, (const char*)class_type);
 
     if (class_type_hash == NULL)
     {
         class_type_hash = dhash_ptr_new(5);
 
-        dhash_ptr_insert(_class_types, class_type, class_type_hash);
+        dhash_ptr_insert(_class_types, (const char*)class_type, class_type_hash);
     }
 
-    type_t* pointer_to_member = dhash_ptr_query(class_type_hash, t);
+    type_t* pointer_to_member = dhash_ptr_query(class_type_hash, (const char*)t);
 
     if (pointer_to_member == NULL)
     {
@@ -3407,7 +3407,7 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
         pointer_to_member->info->is_dependent = is_dependent_type(t) 
             || is_dependent_type(class_type);
 
-        dhash_ptr_insert(class_type_hash, t, pointer_to_member);
+        dhash_ptr_insert(class_type_hash, (const char*)t, pointer_to_member);
     }
 
     return pointer_to_member;
@@ -3661,7 +3661,8 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = dhash_ptr_query(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type);
+            undefined_array_type = dhash_ptr_query(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                    (const char*)element_type);
         }
         if (undefined_array_type == NULL)
         {
@@ -3706,7 +3707,8 @@ static type_t* _get_array_type(type_t* element_type,
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                dhash_ptr_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type, result);
+                dhash_ptr_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                        (const char*)element_type, result);
             }
         }
         else
@@ -3728,7 +3730,7 @@ static type_t* _get_array_type(type_t* element_type,
                     with_descriptor,
                     is_string_literal);
 
-            type_t* array_type = dhash_ptr_query(array_sized_hash, element_type);
+            type_t* array_type = dhash_ptr_query(array_sized_hash, (const char*)element_type);
 
             if (array_type == NULL)
             {
@@ -3760,7 +3762,7 @@ static type_t* _get_array_type(type_t* element_type,
 
                 result->array->is_string_literal = is_string_literal;
 
-                dhash_ptr_insert(array_sized_hash, element_type, result);
+                dhash_ptr_insert(array_sized_hash, (const char*)element_type, result);
             }
             else
             {
@@ -4034,7 +4036,7 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 
     dhash_ptr_t *_vector_hash = get_vector_sized_hash(vector_size);
 
-    type_t* result = dhash_ptr_query(_vector_hash, element_type);
+    type_t* result = dhash_ptr_query(_vector_hash, (const char*)element_type);
 
     if (result == NULL)
     {
@@ -4050,7 +4052,7 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 
         result->info->is_dependent = is_dependent_type(element_type);
 
-        dhash_ptr_insert(_vector_hash, element_type, result);
+        dhash_ptr_insert(_vector_hash, (const char*)element_type, result);
     }
 
     return result;
@@ -11648,7 +11650,7 @@ type_t* get_variant_type_zero(type_t* t)
         _zero_types_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = dhash_ptr_query(_zero_types_hash, t);
+    type_t* result = dhash_ptr_query(_zero_types_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -11663,7 +11665,7 @@ type_t* get_variant_type_zero(type_t* t)
 
         result->info->is_zero_type = 1;
 
-        dhash_ptr_insert(_zero_types_hash, t, result);
+        dhash_ptr_insert(_zero_types_hash, (const char*)t, result);
     }
 
     return get_cv_qualified_type(result, cv_qualif);;
@@ -13610,7 +13612,7 @@ type_t* get_variant_type_interoperable(type_t* t)
         _interoperable_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = dhash_ptr_query(_interoperable_hash, t);
+    type_t* result = dhash_ptr_query(_interoperable_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -13625,7 +13627,7 @@ type_t* get_variant_type_interoperable(type_t* t)
 
         result->info->is_interoperable = 1;
 
-        dhash_ptr_insert(_interoperable_hash, t, result);
+        dhash_ptr_insert(_interoperable_hash, (const char*)t, result);
     }
 
     return result;
@@ -13794,7 +13796,7 @@ type_t* get_pack_type(type_t* t)
         _pack_types = dhash_ptr_new(5);
     }
 
-    type_t* pack_type = dhash_ptr_query(_pack_types, t);
+    type_t* pack_type = dhash_ptr_query(_pack_types, (const char*)t);
 
     if (pack_type == NULL)
     {
@@ -13807,7 +13809,7 @@ type_t* get_pack_type(type_t* t)
 
         pack_type->info->is_dependent = is_dependent_type(t);
 
-        dhash_ptr_insert(_pack_types, t, pack_type);
+        dhash_ptr_insert(_pack_types, (const char*)t, pack_type);
     }
 
     return pack_type;
