@@ -114,7 +114,7 @@ namespace Utils {
             std::pair<ext_sym_map::iterator, ext_sym_map::iterator> current_key_in_result = result.equal_range( it->first );
             for( ext_sym_map::iterator itt = current_key_in_result.first; itt != current_key_in_result.second; ++itt )
             {
-                if( Nodecl::Utils::structurally_equal_nodecls( itt->second.first, it_first_value ) )
+                if( itt->second.first == it_first_value )
                 {
                     pair_already_in_map = true;
                     break;
@@ -174,8 +174,8 @@ namespace Utils {
             ext_sym_map::iterator it2 = c2.begin( );
             for( ; it1 != c1.end( ); ++it1, ++it2 )
             {
-                if( !Nodecl::Utils::structurally_equal_nodecls( it1->first.get_nodecl( ), it2->first.get_nodecl( ), /* skip Conversion nodes */ true ) ||
-                    !Nodecl::Utils::structurally_equal_nodecls( it1->second.first, it2->second.first, /* skip Conversion nodes */ true ) )
+                if( (it1->first.get_nodecl( ) != it2->first.get_nodecl( )) ||
+                    (it1->second.first != it2->second.first) )
                 {
                     result = false;
                     break;
