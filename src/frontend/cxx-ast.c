@@ -178,13 +178,13 @@ AST ast_make(node_t type, int __num_children UNUSED_PARAMETER,
             num_children,
             &_bytes_due_to_astmake);
 
-    int index = 0;
+    int idx = 0;
 #define ADD_SON(n) \
     if (child##n != NULL) \
     { \
-        result->children[index] = child##n; \
+        result->children[idx] = child##n; \
         child##n->parent = result; \
-        index++; \
+        idx++; \
     }
 
     ADD_SON(0);
