@@ -8,7 +8,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
 	if (son0 == son1) 
 	{
-		internal_error("Ambiguity function received two trees that are the same!\n", 0);
+        return son1;
 	}
 
     return ast_make_ambiguous(son0, son1);

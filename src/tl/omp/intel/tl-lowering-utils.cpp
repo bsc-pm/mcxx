@@ -74,7 +74,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
     scope_entry_t* new_ident_sym = ::new_symbol(
             CURRENT_COMPILED_FILE->global_decl_context,
             CURRENT_COMPILED_FILE->global_decl_context.current_scope,
-            new_name.str().c_str());
+            uniquestr(new_name.str().c_str()));
 
     new_ident_sym->kind = SK_VARIABLE;
     new_ident_sym->type_information = ident_t_type.get_internal_type();
@@ -127,7 +127,7 @@ TL::Symbol Intel::new_private_symbol(TL::Symbol original_symbol, TL::Scope priva
     scope_entry_t* new_private_sym = ::new_symbol(
             private_scope.get_decl_context(),
             private_scope.get_decl_context().current_scope,
-            new_name.str().c_str());
+            uniquestr(new_name.str().c_str()));
 
     new_private_sym->kind = original_symbol.get_internal_symbol()->kind;
     new_private_sym->type_information = original_symbol.get_internal_symbol()->type_information;
@@ -161,7 +161,7 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
         scope_entry_t* new_ident_sym = ::new_symbol(
                 CURRENT_COMPILED_FILE->global_decl_context,
                 CURRENT_COMPILED_FILE->global_decl_context.current_scope,
-                new_name.str().c_str());
+                uniquestr(new_name.str().c_str()));
 
         new_ident_sym->kind = SK_VARIABLE;
         new_ident_sym->type_information = kmp_critical_name_type.get_internal_type();

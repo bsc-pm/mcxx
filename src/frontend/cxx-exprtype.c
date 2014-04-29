@@ -513,10 +513,14 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n", get_qualified_symbol_name(entry, entry->decl_context));
+            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n",
+                    get_qualified_symbol_name(entry, entry->decl_context));
         }
         if (is_template_specialized_type(entry->type_information)
-                || entry->entity_specs.is_non_emitted)
+                || (entry->entity_specs.is_member
+                    && is_template_specialized_type(
+                        named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
+
         {
             instantiation_add_symbol_to_instantiate(entry, locus);
         }
@@ -1257,8 +1261,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
     val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
-    if (ASTType(expr) == AST_OCTAL_LITERAL
-            && const_value_is_zero(val))
+    if (const_value_is_zero(val))
     {
         // Get the appropiate zero value
         result = get_zero_type(result);
@@ -1983,13 +1986,13 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
         for (i = 0; i < length; i++)
             c[i] = codepoints[i];
 
-        value = const_value_make_string(c, length - 1);
+        value = const_value_make_string_null_ended(c, length - 1);
     }
     else if (is_wchar_t_type(get_unqualified_type(base_type)))
     {
         // FIXME - Should we perform a conversion as well?
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
     }
     else if (is_char16_t_type(get_unqualified_type(base_type)))
     {
@@ -2001,7 +2004,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
             "Cannot convert to UTF16LE from UTF32\n", 0);
 
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
 
         // Usually there are no surrogates, so initially allocate the same number of codepoints
         int capacity_out = num_codepoints;
@@ -2065,7 +2068,7 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
     else if (is_char32_t_type(get_unqualified_type(base_type)))
     {
         length = num_codepoints;
-        value = const_value_make_wstring(codepoints, length - 1);
+        value = const_value_make_wstring_null_ended(codepoints, length - 1);
     }
     else
     {
@@ -2081,14 +2084,14 @@ static scope_entry_t* get_nullptr_symbol(decl_context_t decl_context)
 {
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, ".nullptr", NULL);
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL(".nullptr"), NULL);
 
     if (entry_list == NULL)
     {
         scope_entry_t* nullptr_sym = new_symbol(global_context, global_context.current_scope, ".nullptr");
 
         // Change the name of the symbol
-        nullptr_sym->symbol_name = "nullptr";
+        nullptr_sym->symbol_name = UNIQUESTR_LITERAL("nullptr");
         nullptr_sym->kind = SK_VARIABLE;
         nullptr_sym->entity_specs.is_builtin = 1;
         nullptr_sym->type_information = get_nullptr_type();
@@ -2126,7 +2129,7 @@ static void resolve_this_symbol(AST expression, decl_context_t decl_context, nod
     if (decl_context.current_scope->kind == BLOCK_SCOPE)
     {
         // Lookup a symbol 'this' as usual
-        scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+        scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
         if (entry_list != NULL)
         {
             this_symbol = entry_list_head(entry_list);
@@ -2688,6 +2691,39 @@ static void error_message_overload_failed(candidate_t* candidates,
         type_t* this_type,
         const locus_t* locus);
 
+static void update_unresolved_overload_argument(type_t* arg_type,
+        type_t* param_type,
+        decl_context_t decl_context,
+        const locus_t* locus,
+
+        nodecl_t* nodecl_output)
+{
+    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
+    scope_entry_t* solved_function = address_of_overloaded_function(
+            unresolved_set,
+            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+            no_ref(param_type),
+            decl_context,
+            locus);
+
+    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+    if (!solved_function->entity_specs.is_member
+            || solved_function->entity_specs.is_static)
+    {
+        *nodecl_output = nodecl_make_symbol(solved_function, locus);
+        nodecl_set_type(*nodecl_output, lvalue_ref(solved_function->type_information));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_pointer_to_member(solved_function,
+                get_lvalue_reference_type(
+                    get_pointer_to_member_type(solved_function->type_information,
+                        solved_function->entity_specs.class_type)),
+                locus);
+    }
+}
+
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
         scope_entry_list_t* builtins,
@@ -2788,6 +2824,15 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             }
             else
             {
+                if (is_unresolved_overloaded_type(lhs_type))
+                {
+                    update_unresolved_overload_argument(lhs_type,
+                            param_type_0,
+                            decl_context,
+                            nodecl_get_locus(*lhs),
+                            lhs);
+                }
+
                 if (conversors[0] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[0], locus))
@@ -2805,34 +2850,6 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                             nodecl_make_list_1(*lhs),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*lhs)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*lhs));
-                }
-                else if (is_unresolved_overloaded_type(lhs_type))
-                {
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(lhs_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(
-                            unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(lhs_type),
-                            no_ref(param_type_0), 
-                            decl_context,
-                            nodecl_get_locus(*lhs));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        *lhs = nodecl_make_symbol(solved_function, 
-                                nodecl_get_locus(*lhs));
-                        nodecl_set_type(*lhs, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        *lhs = nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(*lhs));
-                    }
                 }
             }
         }
@@ -2860,6 +2877,15 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         }
         else
         {
+            if (is_unresolved_overloaded_type(rhs_type))
+            {
+                update_unresolved_overload_argument(rhs_type,
+                        param_type_1,
+                        decl_context,
+                        nodecl_get_locus(*rhs),
+                        rhs);
+            }
+
             if (conversors[1] != NULL)
             {
                 if (function_has_been_deleted(decl_context, conversors[1], locus))
@@ -2876,35 +2902,6 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         nodecl_make_list_1(*rhs),
                         nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*rhs)),
                         actual_type_of_conversor(conversors[1]), nodecl_get_locus(*rhs));
-            }
-            else if (is_unresolved_overloaded_type(rhs_type))
-            {
-
-                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
-                scope_entry_t* solved_function = address_of_overloaded_function(
-                        unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
-                        no_ref(param_type_1), 
-                        decl_context,
-                        nodecl_get_locus(*rhs));
-
-                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                if (!solved_function->entity_specs.is_member
-                        || solved_function->entity_specs.is_static)
-                {
-                    *rhs = nodecl_make_symbol(solved_function, 
-                            nodecl_get_locus(*rhs));
-                    nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
-                }
-                else
-                {
-                    *rhs = nodecl_make_pointer_to_member(solved_function, 
-                            get_lvalue_reference_type(
-                                get_pointer_to_member_type(solved_function->type_information,
-                                    solved_function->entity_specs.class_type)),
-                            nodecl_get_locus(*rhs));
-                }
             }
         }
 
@@ -3037,6 +3034,15 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             }
             else
             {
+                if (is_unresolved_overloaded_type(op_type))
+                {
+                    update_unresolved_overload_argument(op_type,
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(*op),
+                            op);
+                }
+
                 if (conversors[0] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[0], locus))
@@ -3054,35 +3060,6 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                             nodecl_make_list_1(*op),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*op)),
                             actual_type_of_conversor(conversors[0]), nodecl_get_locus(*op));
-                }
-                else if (is_unresolved_overloaded_type(op_type))
-                {
-
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(op_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(
-                            unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(op_type),
-                            no_ref(param_type), 
-                            decl_context,
-                            nodecl_get_locus(*op));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        *op = nodecl_make_symbol(solved_function, 
-                                nodecl_get_locus(*op));
-                        nodecl_set_type(*op, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        *op = nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(*op));
-                    }
                 }
             }
         }
@@ -3206,18 +3183,18 @@ type_t* compute_type_no_overload_add_operation(nodecl_t *lhs, nodecl_t *rhs,
         type_t* result = compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
 
         if (is_pointer_and_integral_type(
-                    no_ref(lhs_type), 
+                    no_ref(lhs_type),
                     no_ref(rhs_type)))
         {
             unary_record_conversion_to_result(result, lhs);
             unary_record_conversion_to_result(no_ref(rhs_type), rhs);
         }
         else if (is_pointer_and_integral_type(
-                    no_ref(rhs_type), 
+                    no_ref(rhs_type),
                     no_ref(lhs_type)))
         {
-            unary_record_conversion_to_result(no_ref(rhs_type), rhs);
-            unary_record_conversion_to_result(result, lhs);
+            unary_record_conversion_to_result(result, rhs);
+            unary_record_conversion_to_result(no_ref(lhs_type), lhs);
         }
 
         return result;
@@ -3831,10 +3808,7 @@ static type_t* compute_type_no_overload_sub(nodecl_t *lhs, nodecl_t *rhs, const 
     }
     else if (pointer_types_are_similar(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        // FIXME, this should be the type related to ptrdiff_t (usually int)
         type_t* result = get_ptrdiff_t_type();
-
-        binary_record_conversion_to_result(result, lhs, rhs);
         return result;
     }
     // Vector case
@@ -4345,6 +4319,25 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
             result_type = get_bool_type();
         }
         ERROR_CONDITION(result_type == NULL, "Code unreachable", 0);
+
+        // Lvalue conversions
+        if (is_function_type(no_ref_lhs_type))
+        {
+            no_ref_lhs_type = get_pointer_type(no_ref_lhs_type);
+        }
+        else if (is_array_type(no_ref_lhs_type))
+        {
+            no_ref_lhs_type = get_pointer_type(array_type_get_element_type(no_ref_lhs_type));
+        }
+
+        if (is_function_type(no_ref_rhs_type))
+        {
+            no_ref_rhs_type = get_pointer_type(no_ref_rhs_type);
+        }
+        else if (is_array_type(no_ref_rhs_type))
+        {
+            no_ref_rhs_type = get_pointer_type(array_type_get_element_type(no_ref_rhs_type));
+        }
 
         unary_record_conversion_to_result(no_ref_lhs_type, lhs);
         unary_record_conversion_to_result(no_ref_rhs_type, rhs);
@@ -4966,22 +4959,42 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
             || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
         return;
 
-    // Classes have their own operators
-    if (is_class_type(no_ref(lhs_type)))
+    type_t* rhs_type = NULL;
+
+    if (is_promoteable_integral_type(no_ref(lhs_type)))
+    {
+        rhs_type = promote_integral_type(no_ref(lhs_type));
+    }
+    else if (is_integral_type(no_ref(lhs_type))
+            || is_floating_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else if (is_enum_type(no_ref(lhs_type))
+            || is_pointer_to_member_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else if (is_pointer_type(no_ref(lhs_type)))
+    {
+        rhs_type = get_unqualified_type(no_ref(lhs_type));
+    }
+    else
+    {
+        // No builtin is possible for any other type
         return;
+    }
 
     parameter_info_t parameters[2] =
     {
-        { 
+        {
             .is_ellipsis = 0,
             .type_info = lhs_type,
             .nonadjusted_type_info = NULL
         },
         {
             .is_ellipsis = 0,
-            .type_info = get_lvalue_reference_type(
-                    get_const_qualified_type(
-                        reference_type_get_referenced_type(lhs_type))),
+            .type_info = rhs_type,
             .nonadjusted_type_info = NULL
         }
     };
@@ -5050,41 +5063,12 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         // to solve it here using lhs_type
         if (is_unresolved_overloaded_type(no_ref(rhs_type)))
         {
-            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
-            scope_entry_t* solved_function = address_of_overloaded_function(
-                    unresolved_set,
-                    unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
-                    no_ref(lhs_type), 
+            update_unresolved_overload_argument(rhs_type,
+                    lhs_type,
                     decl_context,
-                    nodecl_get_locus(*lhs));
-            entry_list_free(unresolved_set);
-
-            if (solved_function == NULL)
-            {
-                *nodecl_output = nodecl_make_err_expr(locus);
-                return;
-            }
-
-            // Update the types everywhere
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
-            {
-                rhs_type = get_lvalue_reference_type(get_pointer_type(solved_function->type_information));
-
-                *rhs = nodecl_make_symbol(solved_function, 
-                        nodecl_get_locus(*rhs));
-                nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
-            }
-            else
-            {
-                rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
-                            solved_function->type_information,
-                            solved_function->entity_specs.class_type));
-
-                *rhs = nodecl_make_pointer_to_member(solved_function, 
-                        rhs_type,
-                        nodecl_get_locus(*rhs));
-            }
+                    nodecl_get_locus(*rhs),
+                    rhs);
+            rhs_type = nodecl_get_type(*rhs);
         }
 
         standard_conversion_t sc;
@@ -5128,17 +5112,18 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
         {
             // Keep conversions
             if (!equivalent_types(
-                        get_unqualified_type(no_ref(nodecl_get_type(*lhs))), 
+                        get_unqualified_type(no_ref(nodecl_get_type(*lhs))),
                         get_unqualified_type(no_ref(result))))
             {
                 *lhs = cxx_nodecl_make_conversion(*lhs, result,
                         nodecl_get_locus(*lhs));
             }
             if (!equivalent_types(
-                        get_unqualified_type(no_ref(nodecl_get_type(*rhs))), 
+                        get_unqualified_type(no_ref(nodecl_get_type(*rhs))),
                         get_unqualified_type(no_ref(result))))
             {
-                *rhs = cxx_nodecl_make_conversion(*rhs, result,
+                *rhs = cxx_nodecl_make_conversion(*rhs,
+                        no_ref(result),
                         nodecl_get_locus(*rhs));
             }
 
@@ -5181,7 +5166,7 @@ static type_t* compute_type_no_overload_assig_only_arithmetic_type(nodecl_t *lhs
 
     if (both_operands_are_arithmetic(no_ref(rhs_type), no_ref(lhs_type), locus))
     {
-        unary_record_conversion_to_result(lhs_type, rhs);
+        unary_record_conversion_to_result(no_ref(lhs_type), rhs);
 
         return lhs_type;
     }
@@ -6030,6 +6015,34 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
             || ASTType(a) == AST_BITWISE_NOT)
     {
         return contains_wrongly_associated_template_name(ASTSon0(a), decl_context);
+    }
+    else if (ASTType(a) == AST_NEW_EXPRESSION) // new TemplateName<
+    {
+        AST new_type_id_tree = ASTSon2(a);
+
+        type_t* new_type_id = compute_type_for_type_id_tree(new_type_id_tree, decl_context,
+                /* out simple type */ NULL, /* gather_info */ NULL);
+
+        scope_entry_t* name = NULL;
+        if (is_template_type(new_type_id))
+        {
+            return 1;
+        }
+        else if (is_named_type(new_type_id)
+                && (name = named_type_get_symbol(new_type_id))
+                && ((name->kind == SK_CLASS
+                        && is_template_specialized_type(name->type_information))
+                    || name->kind == SK_TEMPLATE
+                    || name->kind == SK_TEMPLATE_ALIAS
+                    || name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
     }
     else if (ASTType(a) == AST_SYMBOL                         // E + f<
             || ASTType(a) == AST_QUALIFIED_ID                 // E + A::f<
@@ -6980,7 +6993,7 @@ static void cxx_compute_name_from_entry_list(
             type_t* this_type = NULL;
             scope_entry_t* this_symbol = NULL;
 
-            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, "this", NULL);
+            scope_entry_list_t* this_symbol_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
             if (this_symbol_list != NULL)
             {
                 this_symbol =  entry_list_head(this_symbol_list);
@@ -7573,6 +7586,15 @@ static void check_nodecl_array_subscript_expression_cxx(
             }
             else
             {
+                if (is_unresolved_overloaded_type(subscript_type))
+                {
+                    update_unresolved_overload_argument(subscript_type,
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_subscript),
+                            &nodecl_subscript);
+                }
+
                 if (conversors[1] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[1], locus))
@@ -7590,34 +7612,6 @@ static void check_nodecl_array_subscript_expression_cxx(
                             nodecl_make_cxx_function_form_implicit(locus),
                             actual_type_of_conversor(conversors[1]), locus);
 
-                }
-                else if (is_unresolved_overloaded_type(subscript_type))
-                {
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(subscript_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(subscript_type),
-                            param_type,
-                            decl_context,
-                            nodecl_get_locus(nodecl_subscript));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        nodecl_subscript =
-                            nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_subscript));
-                        nodecl_set_type(nodecl_subscript, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        nodecl_subscript =
-                            nodecl_make_pointer_to_member(solved_function,
-                                    get_lvalue_reference_type(
-                                        get_pointer_to_member_type(solved_function->type_information,
-                                            solved_function->entity_specs.class_type)),
-                                    nodecl_get_locus(nodecl_subscript));
-                    }
                 }
             }
 
@@ -8925,7 +8919,7 @@ static void check_new_expression_impl(
         if (!checking_ambiguity())
         {
             // Format a nice message
-            const char* argument_call = uniquestr("");
+            const char* argument_call = UNIQUESTR_LITERAL("");
 
             argument_call = strappend(argument_call, "operator new");
             if (is_new_array)
@@ -8993,6 +8987,15 @@ static void check_new_expression_impl(
             }
             else
             {
+                if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
+                {
+                    update_unresolved_overload_argument(nodecl_get_type(nodecl_expr),
+                            param_type,
+                            decl_context,
+                            nodecl_get_locus(nodecl_expr),
+                            &nodecl_expr);
+                }
+
                 if (conversors[j] != NULL)
                 {
                     if (function_has_been_deleted(decl_context, conversors[j], locus))
@@ -9011,36 +9014,6 @@ static void check_new_expression_impl(
                                 nodecl_get_locus(nodecl_expr)),
                             actual_type_of_conversor(conversors[j]),
                             nodecl_get_locus(nodecl_expr));
-                }
-                else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
-                {
-                    type_t* arg_type = nodecl_get_type(nodecl_expr);
-
-                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                            no_ref(arg_type),
-                            decl_context,
-                            nodecl_get_locus(nodecl_expr));
-
-                    ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                    if (!solved_function->entity_specs.is_member
-                            || solved_function->entity_specs.is_static)
-                    {
-                        nodecl_expr =
-                            nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_expr));
-                        nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-                    }
-                    else
-                    {
-                        nodecl_expr =
-                            nodecl_make_pointer_to_member(solved_function, 
-                                    get_lvalue_reference_type(
-                                        get_pointer_to_member_type(solved_function->type_information,
-                                            solved_function->entity_specs.class_type)),
-                                    nodecl_get_locus(nodecl_expr));
-                    }
                 }
             }
 
@@ -9286,9 +9259,9 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
 static const_value_t* cxx_nodecl_make_value_conversion(
         type_t* dest_type,
         type_t* orig_type,
-        const_value_t* val, 
+        const_value_t* val,
         char is_explicit_cast,
-        char allow_enum_to_int,
+        char allow_int_to_enum,
         const locus_t* locus)
 {
     ERROR_CONDITION(is_dependent_type(orig_type),
@@ -9308,7 +9281,7 @@ static const_value_t* cxx_nodecl_make_value_conversion(
 
     // Try again with enums
     if (!there_is_a_scs
-            && allow_enum_to_int
+            && allow_int_to_enum
             && is_enum_type(no_ref(dest_type)))
     {
         there_is_a_scs = standard_conversion_between_types(
@@ -10274,7 +10247,7 @@ static void check_nodecl_cast_expr(
                 nodecl_get_type(nodecl_casted_expr),
                 casted_value,
                 /* is_explicit_type_cast */ 1,
-                /* allow_enum_to_int */ 1,
+                /* allow_int_to_enum */ 1,
                 locus);
 
         // Propagate zero types
@@ -11348,7 +11321,7 @@ static void check_nodecl_function_call_cxx(
     }
     xfree(list);
 
-    scope_entry_list_t* this_query = query_name_str(decl_context, "this", NULL);
+    scope_entry_list_t* this_query = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
     scope_entry_t* this_symbol = NULL;
 
     if (this_query != NULL)
@@ -11942,8 +11915,13 @@ static void check_nodecl_function_call_cxx(
 
     // Update the unresolved call with all the conversions
     {
-        // Starting from 0 would be a conversion of 'this' which does not apply here
-        int arg_i = 1;
+        int arg_i = 0;
+        if (overloaded_call->entity_specs.is_member)
+        {
+            // We ignore the conversor of this parameter
+            arg_i = 1;
+        }
+
         // Set conversors of arguments if needed
         num_items = 0;
         list = nodecl_unpack_list(nodecl_argument_list, &num_items);
@@ -11982,31 +11960,11 @@ static void check_nodecl_function_call_cxx(
                 {
                     if (is_unresolved_overloaded_type(arg_type))
                     {
-                        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-                        scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                                unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                                no_ref(param_type),
+                        update_unresolved_overload_argument(arg_type,
+                                param_type,
                                 decl_context,
-                                locus);
-
-                        ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                        if (!solved_function->entity_specs.is_member
-                                || solved_function->entity_specs.is_static)
-                        {
-                            nodecl_arg =
-                                nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_arg));
-                            nodecl_set_type(nodecl_arg, lvalue_ref(solved_function->type_information));
-                        }
-                        else
-                        {
-                            nodecl_arg =
-                                nodecl_make_pointer_to_member(solved_function,
-                                        get_lvalue_reference_type(
-                                            get_pointer_to_member_type(solved_function->type_information,
-                                                solved_function->entity_specs.class_type)),
-                                        nodecl_get_locus(nodecl_arg));
-                        }
+                                nodecl_get_locus(nodecl_arg),
+                                &nodecl_arg);
                     }
 
                     if (conversors[arg_i] != NULL)
@@ -12614,7 +12572,7 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                         }
                     case AST_LAMBDA_CAPTURE_THIS:
                         {
-                            scope_entry_list_t* entry_list = query_name_str(decl_context, "this", NULL);
+                            scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
                             if (entry_list == NULL)
                             {
                                 if (!checking_ambiguity())
@@ -13216,7 +13174,7 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
         return 0;
 
     // Ignore '~'
-    last_name++;
+    last_name = uniquestr(last_name + 1);
 
     // Now build ::[opt] nested-name-specifier-seq[opt] type-name1
     nodecl_t new_list = nodecl_null();
@@ -14835,7 +14793,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
         decl_context_t global_context = decl_context;
         global_context.current_scope = global_context.global_scope;
 
-        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -14844,14 +14802,15 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
                 entry_list_free(entry_list);
 
             error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "Maybe you need '#include <typeinfo>'",
+                    "%s: info: maybe you need '#include <typeinfo>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
             return NULL;
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
-        entry_list = query_in_scope_str(std_context, "type_info", NULL);
+        entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("type_info"), NULL);
 
         if (entry_list == NULL
                 || (entry_list_head(entry_list)->kind != SK_CLASS
@@ -14861,7 +14820,8 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, const locus
                 entry_list_free(entry_list);
 
             error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info'. \n"
-                    "Maybe you need '#include <typeinfo>'",
+                    "%s: info: maybe you need '#include <typeinfo>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
             return NULL;
         }
@@ -14883,7 +14843,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t global_context = decl_context;
     global_context.current_scope = global_context.global_scope;
 
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std", NULL);
+    scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
 
     if (entry_list == NULL 
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
@@ -14896,7 +14856,8 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list'\n"
-                    "Maybe you need '#include <initializer_list>'",
+                    "%s: info: maybe you need '#include <initializer_list>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
         }
         return NULL;
@@ -14905,7 +14866,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
     decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
     entry_list_free(entry_list);
 
-    entry_list = query_in_scope_str(std_context, "initializer_list", NULL);
+    entry_list = query_in_scope_str(std_context, UNIQUESTR_LITERAL("initializer_list"), NULL);
 
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_TEMPLATE)
@@ -14918,7 +14879,8 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!checking_ambiguity())
         {
             error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list'\n"
-                    "Maybe you need '#include <initializer_list>'",
+                    "%s: info: maybe you need '#include <initializer_list>'",
+                    locus_to_str(locus),
                     locus_to_str(locus));
         }
         return NULL;
@@ -16343,6 +16305,16 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                 if (i < num_parameters)
                 {
+                    if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_arg)))
+                    {
+                        update_unresolved_overload_argument(
+                                nodecl_get_type(nodecl_arg),
+                                function_type_get_parameter_type_num(chosen_constructor->type_information, i),
+                                decl_context,
+                                nodecl_get_locus(nodecl_arg),
+                                &nodecl_arg);
+                    }
+
                     if (conversors[i] != NULL)
                     {
                         nodecl_arg = cxx_nodecl_make_function_call(
@@ -16355,9 +16327,6 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 }
                 else
                 {
-                    // Note that it should not be possible to create
-                    // constructors with non promoting ellipsis, so we do not
-                    // check it here as we do in some other places
                     type_t* default_argument_promoted_type = compute_default_argument_conversion(
                             nodecl_get_type(nodecl_arg),
                             decl_context,
@@ -17221,34 +17190,11 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         {
             if (is_unresolved_overloaded_type(initializer_expr_type))
             {
-                // Note: type_can_be_implicitly_converted_to already did this:
-                // figure a way to get this conversion without having to compute
-                // this address overload twice
-                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(initializer_expr_type);
-                scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(initializer_expr_type),
-                        no_ref(declared_type_no_cv),
+                update_unresolved_overload_argument(initializer_expr_type,
+                        declared_type_no_cv,
                         decl_context,
-                        nodecl_get_locus(nodecl_expr));
-
-                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-                if (!solved_function->entity_specs.is_member
-                        || solved_function->entity_specs.is_static)
-                {
-                    nodecl_expr =
-                        nodecl_make_symbol(solved_function, nodecl_get_locus(nodecl_expr));
-                    nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-                }
-                else
-                {
-                    nodecl_expr =
-                        nodecl_make_pointer_to_member(solved_function, 
-                                get_lvalue_reference_type(
-                                    get_pointer_to_member_type(solved_function->type_information,
-                                        solved_function->entity_specs.class_type)),
-                                nodecl_get_locus(nodecl_expr));
-                }
+                        nodecl_get_locus(nodecl_expr),
+                        &nodecl_expr);
             }
 
             *nodecl_output = nodecl_expr;
@@ -19921,8 +19867,11 @@ static void error_message_overload_failed(candidate_t* candidates,
     }
 
 }
- 
-nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
+
+static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,
+        type_t* dest_type,
+        const locus_t* locus,
+        char verify_conversion)
 {
     ERROR_CONDITION(nodecl_expr_is_type_dependent(expr),
             "Do not call this function on type dependent expressions", 0);
@@ -19934,7 +19883,7 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
             nodecl_get_type(expr),
             nodecl_get_constant(expr),
             /* is_explicit_cast */ 0,
-            /* allow_enum_to_int */ 0,
+            /* allow_int_to_enum */ 0,
             locus);
 
     // Propagate zero types
@@ -19949,12 +19898,30 @@ nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locu
         }
     }
 
+    if (verify_conversion)
+    {
+        standard_conversion_t scs;
+        char there_is_a_scs = standard_conversion_between_types(
+                &scs, nodecl_get_type(expr),
+                get_unqualified_type(dest_type), locus);
+        ERROR_CONDITION(!there_is_a_scs, "At this point (%s) there should be a SCS from '%s' to '%s'\n",
+                locus_to_str(locus),
+                print_declarator(nodecl_get_type(expr)),
+                print_declarator(get_unqualified_type(dest_type)));
+    }
+
     nodecl_t result = nodecl_make_conversion(expr, dest_type, locus);
 
     nodecl_set_constant(result, val);
     nodecl_expr_set_is_value_dependent(result, is_value_dep);
 
     return result;
+}
+
+nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus)
+{
+    return cxx_nodecl_make_conversion_internal(expr, dest_type, locus,
+            /* verify conversion */ 1);
 }
 
 static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_function_code)
@@ -20034,6 +20001,7 @@ constexpr_function_get_constants_of_arguments(
             {
                 fprintf(stderr, "EXPRTYPE: Argument at position %d is not constant, giving up evaluation\n", i);
             }
+            *num_map_items = -1;
             xfree(list);
             xfree(result);
             return NULL;
@@ -20056,7 +20024,7 @@ constexpr_function_get_constants_of_arguments(
                         nodecl_get_child(entry->entity_specs.function_code, 0)
                         );
                 scope_entry_list_t* this_list =
-                    query_name_str(body_context, "this", NULL);
+                    query_name_str(body_context, UNIQUESTR_LITERAL("this"), NULL);
 
                 ERROR_CONDITION(this_list == NULL, "There should be a 'this'", 0);
 
@@ -20298,7 +20266,10 @@ static const_value_t* evaluate_constexpr_function_call(
                 get_qualified_symbol_name(entry, entry->decl_context));
     }
 
-    if (is_template_specialized_type(entry->type_information))
+    if (is_template_specialized_type(entry->type_information)
+            || (entry->entity_specs.is_member
+                && is_template_specialized_type(
+                    named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
     {
         DEBUG_CODE()
         {
@@ -20307,7 +20278,7 @@ static const_value_t* evaluate_constexpr_function_call(
 
         ERROR_CONDITION(is_dependent_type(entry->type_information), "We attempt to call something that is dependent", 0);
 
-        if (nodecl_is_null(entry->entity_specs.function_code))
+        if (!entry->defined)
         {
             DEBUG_CODE()
             {
@@ -20317,10 +20288,14 @@ static const_value_t* evaluate_constexpr_function_call(
 
             instantiate_template_function(entry, locus);
 
-            // Verify the instantiation (though it is not an error if the function fails to be constexpr)
-            char is_constexpr = check_constexpr_function(entry,
-                    nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
-                && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+            char is_constexpr = 0;
+            if (entry->defined)
+            {
+                // Verify the instantiation (though it is not an error if the function fails to be constexpr)
+                is_constexpr = check_constexpr_function(entry,
+                        nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
+                    && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+            }
 
             entry->entity_specs.is_constexpr = is_constexpr;
 
@@ -20337,16 +20312,15 @@ static const_value_t* evaluate_constexpr_function_call(
     }
 
     int num_map_items = -1;
-
     map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
         constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
 
-    if (map_of_parameters_and_values == NULL)
+    if (num_map_items < 0)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
-                    "constexpr call did not yield a constant value\n");
+                    "one of the arguments did not yield a constant value\n");
         }
         return NULL;
     }
@@ -20483,18 +20457,32 @@ nodecl_t cxx_nodecl_make_function_call(
         {
             type_t* param_type = function_type_get_parameter_type_num(function_type, j);
 
-            if (!equivalent_types(
-                        get_unqualified_type(no_ref(param_type)),
-                        get_unqualified_type(no_ref(arg_type))))
+            char verify_conversion = 1;
+            C_LANGUAGE()
             {
-                list[i] = cxx_nodecl_make_conversion(list[i],
+                // Do not verify functions lacking prototype or parameter types that
+                // are transparent unions, their validity has been verified elsewhere
+                // and do not fit the regular SCS code
+                verify_conversion = !(
+                        function_type_get_lacking_prototype(function_type)
+                        || (is_class_type(param_type)
+                            && (is_transparent_union(param_type)
+                                || is_transparent_union(get_actual_class_type(param_type))))
+                        );
+            }
+
+            if (!equivalent_types(
+                        get_unqualified_type(arg_type),
+                        get_unqualified_type(param_type)))
+            {
+                list[i] = cxx_nodecl_make_conversion_internal(list[i],
                         param_type,
-                        nodecl_get_locus(list[i]));
+                        nodecl_get_locus(list[i]),
+                        verify_conversion);
             }
         }
         else
         {
-
             if (is_promoting_ellipsis)
             {
                 // We do not emit diagnostic here because it is too late to take any
@@ -20509,9 +20497,10 @@ nodecl_t cxx_nodecl_make_function_call(
                         "This default argument conversion is wrong, should have been checked earlier\n",
                         0);
 
-                list[i] = cxx_nodecl_make_conversion(list[i],
+                list[i] = cxx_nodecl_make_conversion_internal(list[i],
                         default_conversion,
-                        nodecl_get_locus(list[i]));
+                        nodecl_get_locus(list[i]),
+                        /* verify_conversion */ 0);
             }
         }
 
@@ -20622,6 +20611,8 @@ nodecl_t cxx_nodecl_make_function_call(
                             || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
                             "Invalid default argument information %d", arg_i);
 
+                    type_t* default_param_type = function_type_get_parameter_type_num(function_type, arg_i);
+
                     instantiation_symbol_map_t* instantiation_symbol_map = NULL;
                     if (called_symbol->entity_specs.is_member)
                     {
@@ -20637,10 +20628,15 @@ nodecl_t cxx_nodecl_make_function_call(
                             instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
-                    {
-                        // Best effort
                         return new_default_argument;
-                    }
+
+                    check_nodecl_expr_initializer(new_default_argument,
+                            called_symbol->decl_context,
+                            default_param_type,
+                            &new_default_argument);
+
+                    if (nodecl_is_err_expr(new_default_argument))
+                        return new_default_argument;
 
                     converted_arg_list = nodecl_append_to_list(
                             converted_arg_list,
@@ -20958,7 +20954,7 @@ static const char* codegen_expression_to_str(nodecl_t expr, decl_context_t decl_
         int n = 0;
         nodecl_t* list = nodecl_unpack_list(expr, &n);
         int i;
-        const char* result = uniquestr("{");
+        const char* result = UNIQUESTR_LITERAL("{");
 
         for (i = 0; i < n; i++)
         {
@@ -21366,14 +21362,13 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
         {
             if (v->pack_index < 0)
             {
-                result = argument->value;
+                result = nodecl_shallow_copy(node);
             }
             else if (nodecl_is_list(argument->value)
                     && v->pack_index < nodecl_list_length(argument->value))
             {
                 int num_items;
                 nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
-                ERROR_CONDITION(v->pack_index >= num_items, "Mismatch between length of list and unpacked version of it", 0);
                 result = list[v->pack_index];
                 xfree(list);
             }
@@ -21414,6 +21409,56 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
         internal_error("This kind of symbol should not be wrapped in a NODECL_SYMBOL\n", 0);
+    }
+    else if (sym->kind == SK_VARIABLE_PACK)
+    {
+        scope_entry_t* mapped_symbol = instantiation_symbol_try_to_map(v->instantiation_symbol_map,
+                nodecl_get_symbol(node));
+
+        ERROR_CONDITION(mapped_symbol->kind != SK_VARIABLE_PACK, "This should be a variable pack", 0);
+
+        if (v->pack_index < 0)
+        {
+            nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(mapped_symbol->symbol_name, nodecl_get_locus(node));
+
+            scope_entry_list_t* entry_list = entry_list_new(mapped_symbol);
+            cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
+            entry_list_free(entry_list);
+        }
+        else
+        {
+            type_t* expanded_type = update_type_for_instantiation(sym->type_information,
+                    v->decl_context,
+                    nodecl_get_locus(node),
+                    v->instantiation_symbol_map,
+                    v->pack_index);
+
+            if (is_error_type(expanded_type)
+                    || (is_sequence_of_types(expanded_type)
+                        && (v->pack_index >= sequence_of_types_get_num_types(expanded_type))))
+            {
+                result = nodecl_make_err_expr(nodecl_get_locus(node));
+            }
+            else
+            {
+                // Not sure if expanded_type could ever be a non-sequence type
+                if (is_sequence_of_types(expanded_type))
+                {
+                    expanded_type = sequence_of_types_get_type_num(expanded_type, v->pack_index);
+                }
+
+                expanded_type = lvalue_ref(expanded_type);
+
+                result = nodecl_make_symbol(mapped_symbol, nodecl_get_locus(node));
+                nodecl_set_type(result, expanded_type);
+
+                if (is_dependent_type(expanded_type))
+                {
+                    nodecl_expr_set_is_type_dependent(result, 1);
+                    nodecl_expr_set_is_value_dependent(result, 1);
+                }
+            }
+        }
     }
     else
     {
@@ -21782,7 +21827,6 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
 {
     // This does not have to be instantiated
     nodecl_t nodecl_called = nodecl_shallow_copy(nodecl_get_child(node, 0));
-
     nodecl_t nodecl_argument_list = nodecl_get_child(node, 1);
 
     int num_items = 0;
@@ -21813,11 +21857,12 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
                 current_arg);
     }
 
-    nodecl_t function_form = nodecl_shallow_copy(nodecl_get_child(node, 2));
+    nodecl_t alternate_name = nodecl_shallow_copy(nodecl_get_child(node, 2));
+    nodecl_t function_form = nodecl_shallow_copy(nodecl_get_child(node, 3));
 
     v->nodecl_result = cxx_nodecl_make_function_call(
             nodecl_called,
-            /* called_name */ nodecl_null(),
+            alternate_name,
             new_list,
             function_form,
             nodecl_get_type(node),
@@ -21856,7 +21901,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     int i;
     for (i = 0; i < num_items; i++)
     {
-        nodecl_t current_arg = 
+        nodecl_t current_arg =
                 instantiate_expr_walk(v, list[i]);
 
         if (nodecl_is_err_expr(current_arg))
@@ -21867,12 +21912,21 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             return;
         }
 
-        new_list = nodecl_append_to_list(
-                new_list,
-                current_arg);
+        if (nodecl_is_list(current_arg))
+        {
+            // Instantiation of pack expansions will generate a list here, concat
+            new_list = nodecl_concat_lists(new_list,
+                    current_arg);
+        }
+        else
+        {
+            new_list = nodecl_append_to_list(
+                    new_list,
+                    current_arg);
+        }
     }
 
-    check_nodecl_function_call(nodecl_called, 
+    check_nodecl_function_call(nodecl_called,
             new_list,
             v->decl_context,
             &v->nodecl_result);
@@ -22394,25 +22448,11 @@ static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t
 static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t expansion = nodecl_get_child(node, 0);
-    // nodecl_t packed_expr = instantiate_expr_walk(v, expansion);
-
-    // if (nodecl_expr_is_value_dependent(packed_expr))
-    // {
-    //     type_t* pack_type = get_pack_type(nodecl_get_type(packed_expr));
-    //     v->nodecl_result = nodecl_make_cxx_value_pack(packed_expr,
-    //             pack_type,
-    //             nodecl_get_locus(node));
-    //     nodecl_expr_set_is_type_dependent(v->nodecl_result, is_dependent_type(pack_type));
-    //     nodecl_expr_set_is_value_dependent(v->nodecl_result, 1);
-    //     return;
-    // }
-
     int len = get_length_of_pack_expansion_from_expression(expansion, v->decl_context, nodecl_get_locus(node));
 
     if (len < 0)
     {
-        v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
-        // nodecl_free(packed_expr);
+        v->nodecl_result = nodecl_shallow_copy(node);
         return;
     }
 

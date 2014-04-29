@@ -134,9 +134,11 @@ void DeviceOpenCL::generate_ndrange_code(
 
     bool dim_const = new_ndrange[0].is_constant();
 
+    char is_null_ended = 0;
     bool check_dim = !(new_ndrange[num_args_ndrange - 1].is_constant()
             && const_value_is_string(new_ndrange[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange[num_args_ndrange-1].get_constant(), &is_null_ended),
+                    "noCheckDim") == 0));
 
     int num_dim = 0;
     if (dim_const)

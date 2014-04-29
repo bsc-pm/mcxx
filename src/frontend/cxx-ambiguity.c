@@ -792,25 +792,6 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
                 return 0;
             }
         }
-        if (type_spec == NULL
-                && first_init_declarator != NULL
-                && ASTType(first_init_declarator) == AST_MEMBER_DECLARATOR)
-        {
-            // This case "typedef Q P" can be understood as "typedef <no-type> Q <invalid-virt-spec:P>"
-            //
-            // Note that we check all the member declarators
-            for_each_element(declarator_list, declarator_iter)
-            {
-                AST current_member_declarator = ASTSon1(declarator_iter);
-                ERROR_CONDITION(ASTType(current_member_declarator) != AST_MEMBER_DECLARATOR, "Invalid node", 0);
-
-                AST virt_specifiers = ASTSon2(current_member_declarator);
-                if (virt_specifiers != NULL)
-                {
-                    return 0;
-                }
-            }
-        }
 
         AST first_declarator = NULL;
         if (first_init_declarator != NULL)

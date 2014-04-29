@@ -1681,9 +1681,20 @@ void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(c
 {
 }
 
+Nodecl::NodeclBase CxxBase::advance_implicit_function_calls(Nodecl::NodeclBase node)
+{
+    while (node.is<Nodecl::FunctionCall>()
+            && is_implicit_function_call(node.as<Nodecl::FunctionCall>())
+            && !node.as<Nodecl::FunctionCall>().get_arguments().is_null())
+    {
+        node = node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0];
+    }
+
+    return node;
+}
 
 template <typename Node>
-bool CxxBase::is_implicit_function_call(const Node& node) const
+bool CxxBase::is_implicit_function_call(const Node& node)
 {
     return (!node.get_function_form().is_null()
             && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
@@ -1691,7 +1702,7 @@ bool CxxBase::is_implicit_function_call(const Node& node) const
 
 // Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
-bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
     return 0;
 }
@@ -2002,9 +2013,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
                 bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (assignment_operator)
-                    needs_parentheses = needs_parentheses || (same_operation(node, arguments[0])
-                            // Extra check for function calls
-                            && (arguments[0].get_kind() != node.get_kind()));
+                    needs_parentheses = needs_parentheses || same_operation(node, arguments[0]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -2017,9 +2026,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 needs_parentheses = operand_has_lower_priority(node, arguments[1]);
                 if (!assignment_operator)
                     needs_parentheses = needs_parentheses
-                        || (same_operation(node, arguments[1])
-                                // Extra check for function calls
-                                && (arguments[1].get_kind() != node.get_kind()));
+                        || same_operation(node, arguments[1]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -3579,7 +3586,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     int *bytes = NULL;
     int length = 0;
-    const_value_string_unpack_to_int(v, &bytes, &length);
+    char is_null_ended = 0;
+    const_value_string_unpack_to_int(v, &bytes, &length, &is_null_ended);
 
     type_t* base_type = get_unqualified_type(
             array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())))
@@ -4232,15 +4240,28 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             *(file) << "extern ";
 
-        *(file) << "template " << class_key << " " << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
+        *(file) << "template " << class_key << " " << gcc_attributes << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
 
     }
     else if (sym.is_function())
     {
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context.namespace_scope->related_entry);
+
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
 
         TL::Type real_type = sym.get_type();
         if (sym.is_conversion_function()
@@ -4255,15 +4276,22 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         }
 
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
     }
     else if (sym.is_variable())
     {
         // This should be a nonstatic member
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
     }
     else
     {
@@ -7081,10 +7109,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 return;
             }
 
+
             if (!symbol.is_anonymous_union())
             {
+                std::string gcc_attributes;
+                if (symbol.has_gcc_attributes())
+                {
+                    gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+                }
+
                 indent();
-                *(file) << class_key << " " << symbol.get_name();
+                *(file) << class_key << " " << gcc_attributes << symbol.get_name();
 
                 if (is_template_specialized
                         && !is_primary_template)
@@ -8309,7 +8344,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = n.no_conv();
+    n = advance_implicit_function_calls(n.no_conv()).no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8374,8 +8409,7 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
-    return (current_operator.get_kind() == operand.get_kind())
-        || (rank_current == rank_operand);
+    return (rank_current == rank_operand);
 }
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
@@ -8908,7 +8942,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
             && !_this->symbol_is_nested_in_defined_classes(sym)
             && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
-                || sym->kind == SK_ENUM))
+                || sym->kind == SK_ENUM)
+            && !(sym->entity_specs.is_member
+                && is_template_specialized_type(get_actual_class_type(sym->entity_specs.class_type))
+                && class_type_is_complete_independent(get_actual_class_type(sym->entity_specs.class_type))))
     {
         result = sym->symbol_name;
 

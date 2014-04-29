@@ -186,7 +186,7 @@ unsigned char contain_prefix_number(const char* c)
 }
 
 // merge sort functions 
-void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
+static void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     const char ** aux_list = NULL;
     int i, j, k, middle, min, res, num_str;
@@ -252,7 +252,7 @@ void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned ch
     }
 }
 
-void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
+static void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     if(ind_upper - ind_lower > 0)
     {

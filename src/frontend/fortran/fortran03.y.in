@@ -143,7 +143,7 @@ static AST ambig_assignment_statement_function(YYSTYPE x0, YYSTYPE x1)
 static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 {
    AST result = ast_make_ambiguous(x0.ast, x1.ast);
-   ast_set_text(result, uniquestr("ambiguous_io_spec"));
+   ast_set_text(result, "ambiguous_io_spec");
 
    return result;
 }
@@ -1150,9 +1150,8 @@ intrinsic_type_spec : TOKEN_INTEGER kind_selector
     int k = atoi(text);
     k /= 2;
 
-    char c[16] = { 0 };
-    snprintf(c, 15, "%d", k);
-    c[15] = '\0';
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%d", k);
 
     ast_set_text($3, c);
 
@@ -1683,9 +1682,8 @@ enum_def : enum_def_stmt enumerator_def_stmt_seq end_enum_stmt
 enum_def_stmt : labeldef TOKEN_ENUM ',' TOKEN_BIND '(' TOKEN_C ')' eos
 {
     // Keep the original case
-    char c[100];
-    snprintf(c, 99, "%s, %s(%s)", $2.token_text, $4.token_text, $6.token_text);
-    c[99] = '\0';
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s, %s(%s)", $2.token_text, $4.token_text, $6.token_text);
 
     $$ = ASTMake1Label(AST_ENUM_DEF_STATEMENT, $1, make_locus($2.token_file, $2.token_line, 0), c);
 }
@@ -4937,8 +4935,8 @@ interface_body : function_stmt interface_program_body end_function_stmt
 
 procedure_stmt : labeldef TOKEN_MODULE TOKEN_PROCEDURE ':' ':' procedure_name_list eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $6, make_locus($2.token_file, $2.token_line, 0), c);
 }
@@ -4948,8 +4946,8 @@ procedure_stmt : labeldef TOKEN_MODULE TOKEN_PROCEDURE ':' ':' procedure_name_li
 }
 | labeldef TOKEN_MODULE TOKEN_PROCEDURE procedure_name_list eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $4, make_locus($2.token_file, $2.token_line, 0), c);
 }
@@ -5259,8 +5257,8 @@ separate_module_subprogram : mp_subprogram_stmt program_body end_mp_subprogram_s
 ;
 mp_subprogram_stmt : labeldef TOKEN_MODULE TOKEN_PROCEDURE name eos
 {
-    char c[] = "module procedure";
-    sprintf(c, "%s %s", $2.token_text, $3.token_text);
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s %s", $2.token_text, $3.token_text);
 
     $$ = ASTMake2Label(AST_MODULE_PROCEDURE_STATEMENT, $1, $4, make_locus($2.token_file, $2.token_line, 0), c);
 }

@@ -131,9 +131,11 @@ void DeviceCUDA::generate_ndrange_additional_code(
 
     ERROR_CONDITION(num_dim < 1 || num_dim > 3, "invalid number of dimensions for 'ndrange' clause. Valid values: 1, 2 and 3." , 0);
 
+    char is_null_ended = 0;
     bool check_dim = !(new_ndrange_args[num_args_ndrange - 1].is_constant()
             && const_value_is_string(new_ndrange_args[num_args_ndrange - 1].get_constant())
-            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant()),"noCheckDim") == 0));
+            && (strcmp(const_value_string_unpack_to_string(new_ndrange_args[num_args_ndrange-1].get_constant(), &is_null_ended),
+                    "noCheckDim") == 0));
 
     ERROR_CONDITION(((num_dim * 2) + 1 + !check_dim) != num_args_ndrange, "invalid number of arguments for 'ndrange' clause", 0);
 

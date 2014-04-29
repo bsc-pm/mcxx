@@ -65,7 +65,7 @@ LIBMCXX_EXTERN struct AST_tag* get_declarator_name(struct AST_tag* a, decl_conte
 LIBMCXX_EXTERN struct AST_tag* get_declarator_id_expression(struct AST_tag* a, decl_context_t decl_context);
 LIBMCXX_EXTERN struct AST_tag* get_function_declarator_parameter_list(struct AST_tag* funct_declarator, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
+LIBMCXX_EXTERN const char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
         struct type_tag** result_conversion_type);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
@@ -174,7 +174,8 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,
         decl_context_t new_decl_context,
         scope_entry_t* orig_function_instantiated,
-        scope_entry_t* new_function_instantiated);
+        scope_entry_t* new_function_instantiated,
+        instantiation_symbol_map_t* instantiation_symbol_map);
 
 type_t* compute_underlying_type_enum(
         const_value_t* min_value,

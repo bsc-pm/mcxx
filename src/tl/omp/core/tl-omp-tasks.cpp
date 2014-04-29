@@ -1124,6 +1124,7 @@ namespace TL
         }
 
         static void separate_input_arguments(
+                const TL::PragmaCustomDeclaration& construct,
                 const ObjectList<Nodecl::NodeclBase>& all_input_args,
                 ObjectList<Nodecl::NodeclBase>& input_args,
                 ObjectList<Nodecl::NodeclBase>& input_value_args,
@@ -1141,6 +1142,13 @@ namespace TL
                     if (sym.is_parameter()
                             && !sym.get_type().is_any_reference())
                     {
+                        warn_printf("%s: warning: defining an input dependence on the '%s' parameter "
+                                "which is not a pointer nor a reference is an experimental feature. "
+                                "Please, remove this dependence if you are not sure that you need it.\n",
+                                construct.get_locus_str().c_str(),
+                                sym.get_name().c_str());
+
+
                         input_value_args.append(input_argument);
                     }
                     else
@@ -1213,7 +1221,7 @@ namespace TL
                 all_input_arguments = input_clause.get_arguments_as_expressions(parsing_scope);
                 all_input_arguments = update_clauses(all_input_arguments, function_sym);
 
-               separate_input_arguments(all_input_arguments, input_arguments, input_value_arguments, function_sym);
+               separate_input_arguments(construct, all_input_arguments, input_arguments, input_value_arguments, function_sym);
             }
 
             TL::ObjectList<std::string> input_private_names;

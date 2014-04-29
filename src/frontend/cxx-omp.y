@@ -48,7 +48,7 @@ omp_dr_reduction_id : omp_dr_operator
 }
 ;
 
-omp_dr_identifier : IDENTIFIER
+omp_dr_identifier : identifier_token
 {
     $$ = ASTLeaf(AST_OMP_DR_IDENTIFIER, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }

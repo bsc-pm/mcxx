@@ -3357,8 +3357,8 @@ static void check_called_symbol_list(
 
         if (position < num_parameter_types)
         {
-            type_t* parameter_type = no_ref(function_type_get_parameter_type_num(no_ref(symbol->type_information),
-                        position));
+            type_t* parameter_type = function_type_get_parameter_type_num(
+                    no_ref(symbol->type_information), position);
             nodecl_argument = fortran_nodecl_adjust_function_argument(
                     parameter_type, nodecl_argument);
         }
@@ -3522,7 +3522,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
-
 
     if (nodecl_is_null(nodecl_simplify))
     {
@@ -6507,17 +6506,37 @@ static nodecl_t fortran_nodecl_adjust_function_argument(
         type_t* parameter_type,
         nodecl_t argument)
 {
+    ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_FORTRAN_ACTUAL_ARGUMENT, "Invalid pointer access", 0);
+    nodecl_t expr = nodecl_get_child(argument, 0);
+    type_t* argument_type = nodecl_get_type(expr);
+
     if (is_pointer_type(no_ref(parameter_type))
             && !is_call_to_null(argument, NULL))
     {
         // When calling a function with a POINTER dummy argument we have an
         // extra dereference, let's get the pointer reference itself
-
-        ERROR_CONDITION(nodecl_get_kind(argument) != NODECL_FORTRAN_ACTUAL_ARGUMENT, "Invalid pointer access", 0);
-        nodecl_t expr = nodecl_get_child(argument, 0);
         ERROR_CONDITION(nodecl_get_kind(expr) != NODECL_DEREFERENCE, "Invalid pointer access", 0);
         expr = nodecl_get_child(expr, 0);
-
+        nodecl_set_child(argument, 0, expr);
+    }
+    else if (is_lvalue_reference_type(parameter_type)
+            && !is_lvalue_reference_type(argument_type))
+    {
+        // Passing a non-variable actual argument to a non-VALUE dummy argument
+        const_value_t* cval = nodecl_get_constant(expr);
+        expr = nodecl_make_conversion(
+                expr, parameter_type, nodecl_get_locus(expr));
+        nodecl_set_constant(expr, cval);
+        nodecl_set_child(argument, 0, expr);
+    }
+    else if (!is_lvalue_reference_type(parameter_type)
+            && is_lvalue_reference_type(argument_type))
+    {
+        // Passing a variable actual argument to a VALUE dummy argument
+        const_value_t* cval = nodecl_get_constant(expr);
+        expr = nodecl_make_conversion(
+                expr, parameter_type, nodecl_get_locus(expr));
+        nodecl_set_constant(expr, cval);
         nodecl_set_child(argument, 0, expr);
     }
 

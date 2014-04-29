@@ -1113,6 +1113,12 @@ type {
  /*!endif*/
 
  /*!if CPLUSPLUS*/
+ /* C++2011 keywords that are not reserved words */
+"final"         { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_FINAL; else return IDENTIFIER; }
+"override"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_OVERRIDE; else return IDENTIFIER; }
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
  /* Alternative tokens */
 "<%" { parse_token_text(); return '{'; }
 "%>" { parse_token_text(); return '}'; }

@@ -732,6 +732,11 @@ namespace TL
         return _symbol->entity_specs.is_optional;
     }
 
+    bool Symbol::is_contiguous() const
+    {
+        return _symbol->entity_specs.is_contiguous;
+    }
+
     bool Symbol::is_saved_program_unit() const
     {
         return _symbol->entity_specs.is_saved_program_unit;
