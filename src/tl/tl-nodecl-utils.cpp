@@ -642,12 +642,12 @@ namespace Nodecl
         nodecl_t n1_ = n1.get_internal_nodecl();
         nodecl_t n2_ = n2.get_internal_nodecl();
 
-        if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
-        {
-            std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
-                      << " no lists inside. The method returns false but they can be the same tree" << std::endl;
-            return false;
-        }
+//         if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
+//         {
+//             std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
+//                       << " no lists inside. The method returns false but they can be the same tree" << std::endl;
+//             return false;
+//         }
 
         bool equals = equal_trees_rec(n1_, n2_, skip_conversion_nodecls);
         return equals;
