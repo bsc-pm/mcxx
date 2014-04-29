@@ -41,6 +41,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include "cxx-overload.h"
+#include "cxx-diagnostic.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -48,28 +49,6 @@
  * context-xfree (i.e. a flaw in our grammar or the standard grammar)
  *
  */
-
-static char _ambiguity_testing = 0;
-void enter_test_expression(void) 
-{ 
-    _ambiguity_testing++; 
-}
-
-void leave_test_expression(void) 
-{ 
-    ERROR_CONDITION(_ambiguity_testing <= 0, "This cannot be lower than 1", 0); 
-    _ambiguity_testing--; 
-}
-
-char get_test_expression_status(void)
-{
-    return _ambiguity_testing;
-}
-
-void set_test_expression_status(char c)
-{
-    _ambiguity_testing = c;
-}
 
 // Generic routines
 void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
@@ -83,13 +62,20 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     int valid_option = -1;
 
     int i, n = ast_get_num_ambiguities(a);
+
+    diagnostic_context_t* ambig_diag[n + 1];
+
     for (i = 0; i < n; i++)
     {
         AST current_interpretation = ast_get_ambiguity(a, i);
 
         ast_fix_parents_inside_intepretation(current_interpretation);
 
-        if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
+        ambig_diag[i] = diagnostic_context_push_buffered();
+        char c = ambiguity_check_intepretation(current_interpretation, decl_context, i, info);
+        diagnostic_context_pop();
+
+        if (c)
         {
             if (valid_option < 0)
             {
@@ -107,6 +93,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
                     chosen_result = ambiguity_choose_interpretation(
                             current_interpretation,
                             previous_interpretation,
+                            i, valid_option,
                             decl_context,
                             info);
                 }
@@ -139,7 +126,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
             AST current_interpretation = ast_get_ambiguity(a, i);
             ast_fix_parents_inside_intepretation(current_interpretation);
 
-            if (ambiguity_fallback_interpretation(current_interpretation, decl_context, info))
+            if (ambiguity_fallback_interpretation(current_interpretation, decl_context, i, info))
             {
                 valid_option = i;
                 break;
@@ -150,14 +137,38 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
     if (valid_option < 0)
     {
         // There is not any valid option.
-        // We choose the first and then the code should diagnose it
+        // We choose the first and diagnose all cases
         valid_option = 0;
 
         DEBUG_CODE()
         {
-            printf("Could not solve ambiguity '%s'\nat '%s'\n",
+            printf("Could not solve ambiguity '%s' at '%s'\n",
                     prettyprint_in_buffer(a),
                     ast_location(a));
+        }
+
+        // Commit everything
+        diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+        for (i = 0; i < n; i++)
+        {
+            diagnostic_context_commit(ambig_diag[i]);
+        }
+        diagnostic_context_pop();
+        diagnostic_context_commit(combine_diagnostics);
+    }
+    else
+    {
+        // Commit the chosen interpretation and discard all others
+        for (i = 0; i < n; i++)
+        {
+            if (i == valid_option)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            else
+            {
+                diagnostic_context_discard(ambig_diag[i]);
+            }
         }
     }
 
@@ -179,7 +190,9 @@ static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, v
         AST current_interpretation = ast_get_ambiguity(a, i);
         ast_fix_parents_inside_intepretation(current_interpretation);
 
-        if (ambiguity_check_intepretation(current_interpretation, decl_context, info))
+        char c = ambiguity_check_intepretation(current_interpretation, decl_context, i, info);
+
+        if (c)
         {
             if (valid_option < 0)
             {
@@ -197,6 +210,7 @@ static char try_to_solve_ambiguity_generic(AST a, decl_context_t decl_context, v
                     chosen_result = ambiguity_choose_interpretation(
                             current_interpretation,
                             previous_interpretation,
+                            i, valid_option,
                             decl_context,
                             info);
                 }
@@ -308,7 +322,9 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
     }
 }
 
-static char check_function_header(AST a, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char check_function_header(AST a, decl_context_t decl_context,
+        int option UNUSED_PARAMETER,
+        void* p UNUSED_PARAMETER)
 {
     AST declarator = ASTSon1(a);
     return check_declarator(declarator, decl_context);
@@ -322,7 +338,9 @@ void solve_ambiguous_function_header(AST a, decl_context_t decl_context)
             NULL);
 }
 
-static char solve_ambiguous_declaration_check_interpretation(AST declaration, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char solve_ambiguous_declaration_check_interpretation(AST declaration, decl_context_t decl_context,
+        int option UNUSED_PARAMETER,
+        void* p UNUSED_PARAMETER)
 {
     char current_valid = 0;
     if (ASTType(declaration) == AST_FUNCTION_DEFINITION)
@@ -338,14 +356,10 @@ static char solve_ambiguous_declaration_check_interpretation(AST declaration, de
     }
     else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
     {
-        enter_test_expression();
-
         AST id_expr = ASTSon0(declaration);
         scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, id_expr, NULL, DF_DEPENDENT_TYPENAME);
         current_valid = (entry_list != NULL);
         entry_list_free(entry_list);
-
-        leave_test_expression();
     }
     else
     {
@@ -419,6 +433,8 @@ static char simple_declaration_is_class_specifier_without_declarators(AST a)
 static int solve_ambiguous_declaration_choose_interpretation(
         AST current,
         AST previous,
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         void* info UNUSED_PARAMETER)
 {
@@ -515,23 +531,20 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context UNUSED_PARAME
     internal_error("Don't know how to handle this ambiguity", 0);
 }
 
-static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t decl_context,
+        int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current_check = 0;
     switch (ASTType(a))
     {
         case AST_DECLARATION_STATEMENT :
             {
-                enter_test_expression();
                 current_check = check_declaration_statement(a, decl_context);
-                leave_test_expression();
                 break;
             }
         case AST_EXPRESSION_STATEMENT :
             {
-                enter_test_expression();
                 current_check = check_expression_statement(a, decl_context);
-                leave_test_expression();
                 break;
             }
         case AST_IF_ELSE_STATEMENT:
@@ -565,7 +578,9 @@ static char solve_ambiguous_statement_check_interpretation(AST a, decl_context_t
 }
 
 static int solve_ambiguous_statement_choose_interpretation(AST current_interpretation, AST previous_interpretation, 
-        decl_context_t decl_context UNUSED_PARAMETER, void * p UNUSED_PARAMETER)
+        int current_idx UNUSED_PARAMETER, int previous_idx UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void * p UNUSED_PARAMETER)
 {
     // Prioritize the AST_DECLARATION_STATEMENT
     return either_type(
@@ -575,7 +590,8 @@ static int solve_ambiguous_statement_choose_interpretation(AST current_interpret
             AST_DECLARATION_STATEMENT);
 }
 
-static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
+static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER,
+        int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     return (ASTType(a) == AST_EXPRESSION_STATEMENT);
 }
@@ -585,7 +601,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     solve_ambiguity_generic(a, decl_context, NULL,
             solve_ambiguous_statement_check_interpretation, 
             solve_ambiguous_statement_choose_interpretation,
-            solve_ambiguous_statement_fallback);
+            /* solve_ambiguous_statement_fallback */ NULL);
 }
 
 static char check_simple_type_spec(AST type_spec, 
@@ -663,7 +679,9 @@ static char check_simple_type_spec(AST type_spec,
 
 static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates);
 
-static char solve_ambiguity_type_specifier_check_interpretation(AST a, decl_context_t decl_context, void *p)
+static char solve_ambiguity_type_specifier_check_interpretation(AST a, decl_context_t decl_context,
+        int option UNUSED_PARAMETER,
+        void *p)
 {
     char *allow_class_templates = (char*)p;
     return check_type_specifier_aux(a, decl_context, *allow_class_templates);
@@ -712,9 +730,7 @@ static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, c
         case AST_GCC_TYPEOF_EXPR :
             {
                 nodecl_t nodecl_dummy = nodecl_null();
-                enter_test_expression();
                 char result = check_expression_non_executable(ASTSon0(type_id), decl_context, &nodecl_dummy);
-                leave_test_expression();
                 return result;
             }
         case AST_GCC_TYPEOF :
@@ -749,7 +765,9 @@ static char check_type_specifier_or_class_template_name(AST type_id, decl_contex
 
 static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_context);
 
-static char solve_typeless_init_declarator_check_interpretation(AST opt_declarator, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char solve_typeless_init_declarator_check_interpretation(AST opt_declarator, decl_context_t decl_context,
+        int option UNUSED_PARAMETER,
+        void* p UNUSED_PARAMETER)
 {
     AST declarator = ASTSon0(opt_declarator);
 
@@ -974,7 +992,8 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
     return 1;
 }
 
-static char solve_ambiguous_declaration_statement_check_interpretation(AST a, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+static char solve_ambiguous_declaration_statement_check_interpretation(AST a, decl_context_t decl_context,
+        int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     switch (ASTType(a))
     {
@@ -1181,15 +1200,19 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
 
     int i;
     int correct_choice = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
+    int n = ast_get_num_ambiguities(ambiguous_list);
+
+    diagnostic_context_t* ambig_diag[n + 1];
+
+    for (i = 0; i < n; i++)
     {
         AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
         ast_fix_parents_inside_intepretation(current_expression_list);
 
         nodecl_t nodecl_expr = nodecl_null();
-        enter_test_expression();
+        ambig_diag[i] = diagnostic_context_push_buffered();
         check_list_of_expressions(current_expression_list, decl_context, &nodecl_expr);
-        leave_test_expression();
+        diagnostic_context_pop();
 
         if (nodecl_is_null(nodecl_expr)
                 || !nodecl_is_err_expr(nodecl_expr))
@@ -1213,12 +1236,33 @@ char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl_context_t decl
 
     if (correct_choice < 0)
     {
+        // Combine all diagnostics and commit
+        diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+        for (i = 0; i < n; i++)
+        {
+            diagnostic_context_commit(ambig_diag[i]);
+        }
+        diagnostic_context_pop();
+        diagnostic_context_commit(combine_diagnostics);
+
         if (nodecl_output != NULL)
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(ambiguous_list));
         return 0;
     }
     else
     {
+        for (i = 0; i < n; i++)
+        {
+            if (i == correct_choice)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            else
+            {
+                diagnostic_context_discard(ambig_diag[i]);
+            }
+        }
+
         ast_replace_with_ambiguity(ambiguous_list, correct_choice);
         return 1;
     }
@@ -1231,15 +1275,19 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
 
     int i;
     int correct_choice = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
+    int n = ast_get_num_ambiguities(ambiguous_list);
+
+    diagnostic_context_t* ambig_diag[n + 1];
+
+    for (i = 0; i < n; i++)
     {
         AST current_expression_list = ast_get_ambiguity(ambiguous_list, i);
         ast_fix_parents_inside_intepretation(current_expression_list);
 
+        ambig_diag[i] = diagnostic_context_push_buffered();
         nodecl_t nodecl_expr = nodecl_null();
-        enter_test_expression();
         check_list_of_initializer_clauses(current_expression_list, decl_context, &nodecl_expr);
-        leave_test_expression();
+        diagnostic_context_pop();
 
         if (nodecl_is_null(nodecl_expr)
                 || !nodecl_is_err_expr(nodecl_expr))
@@ -1263,63 +1311,44 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
 
     if (correct_choice < 0)
     {
+        // Combine all diagnostics and commit
+        diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+        for (i = 0; i < n; i++)
+        {
+            diagnostic_context_commit(ambig_diag[i]);
+        }
+        diagnostic_context_pop();
+        diagnostic_context_commit(combine_diagnostics);
+
         if (nodecl_output != NULL)
             *nodecl_output = nodecl_make_err_expr(ast_get_locus(ambiguous_list));
         return 0;
     }
     else
     {
+        for (i = 0; i < n; i++)
+        {
+            if (i == correct_choice)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            else
+            {
+                diagnostic_context_discard(ambig_diag[i]);
+            }
+        }
+
         ast_replace_with_ambiguity(ambiguous_list, correct_choice);
         return 1;
     }
 }
 
-template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambiguous_list, decl_context_t decl_context)
-{
-    ERROR_CONDITION(ASTType(ambiguous_list) != AST_AMBIGUITY, "invalid kind", 0);
-
-    // FIXME - We should be using solve_ambiguity_generic
-
-    int i;
-    template_parameter_list_t* result = NULL;
-    int valid = -1;
-    for (i = 0; i < ast_get_num_ambiguities(ambiguous_list); i++)
-    {
-        AST current_template_argument_list = ast_get_ambiguity(ambiguous_list, i);
-        ast_fix_parents_inside_intepretation(current_template_argument_list);
-
-        enter_test_expression();
-        template_parameter_list_t* template_parameters =
-            get_template_arguments_from_syntax(current_template_argument_list, decl_context);
-        leave_test_expression();
-
-        if (template_parameters != NULL)
-        {
-            if (result != NULL)
-            {
-                internal_error("More than one valid alternative\n", 0);
-                return NULL;
-            }
-            result = template_parameters;
-            valid = i;
-        }
-    }
-
-    if (valid >= 0)
-    {
-        ast_replace_with_ambiguity(ambiguous_list, valid);
-    }
-
-    return result;
-}
-
-static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context, void* info UNUSED_PARAMETER)
+static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context,
+        int position UNUSED_PARAMETER, void* info UNUSED_PARAMETER)
 {
     ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "invalid kind\n", 0);
     nodecl_t nodecl_nested_part;
-    enter_test_expression();
     compute_nodecl_name_from_nested_part(a, decl_context, &nodecl_nested_part);
-    leave_test_expression();
     return !nodecl_is_err_expr(nodecl_nested_part);
 }
 
@@ -1333,6 +1362,7 @@ void solve_ambiguous_nested_part(AST a, decl_context_t decl_context)
 
 static char solve_ambiguous_init_declarator_check_interpretation(AST a,
         decl_context_t decl_context,
+        int option UNUSED_PARAMETER,
         void* info UNUSED_PARAMETER)
 {
     return check_init_declarator(a, decl_context);
@@ -1341,6 +1371,8 @@ static char solve_ambiguous_init_declarator_check_interpretation(AST a,
 static int solve_ambiguous_init_declarator_choose_interpretation(
         AST current_interpretation,
         AST previous_interpretation,
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         void *p UNUSED_PARAMETER)
 {
@@ -1369,12 +1401,20 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
     int correct_choice = -1;
     int i;
 
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    int n = ast_get_num_ambiguities(a);
+
+    diagnostic_context_t* ambig_diag[n + 1];
+
+    for (i = 0; i < n; i++)
     {
         AST init_declarator = ast_get_ambiguity(a, i);
         ast_fix_parents_inside_intepretation(init_declarator);
 
-        if (check_init_declarator(init_declarator, decl_context))
+        ambig_diag[i] = diagnostic_context_push_buffered();
+        char c = check_init_declarator(init_declarator, decl_context);
+        diagnostic_context_pop();
+
+        if (c)
         {
             if (correct_choice < 0)
             {
@@ -1411,10 +1451,30 @@ static char try_to_solve_ambiguous_init_declarator(AST a, decl_context_t decl_co
 
     if (correct_choice < 0)
     {
+        // Combine all diagnostics and commit
+        diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+        for (i = 0; i < n; i++)
+        {
+            diagnostic_context_commit(ambig_diag[i]);
+        }
+        diagnostic_context_pop();
+        diagnostic_context_commit(combine_diagnostics);
+
         return 0;
     }
     else
     {
+        for (i = 0; i < n; i++)
+        {
+            if (i == correct_choice)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            else
+            {
+                diagnostic_context_discard(ambig_diag[i]);
+            }
+        }
         ast_replace_with_ambiguity(a, correct_choice);
         return 1;
     }
@@ -1442,9 +1502,7 @@ static char check_init_declarator(AST init_declarator, decl_context_t decl_conte
             default:
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
-                    enter_test_expression();
                     result = check_expression(initializer, decl_context, &nodecl_dummy);
-                    leave_test_expression();
                     break;
                 }
             case AST_PARENTHESIZED_INITIALIZER:
@@ -1453,11 +1511,7 @@ static char check_init_declarator(AST init_declarator, decl_context_t decl_conte
                     AST initializer_list = ASTSon0(initializer);
 
                     nodecl_t nodecl_dummy = nodecl_null();
-
-                    enter_test_expression();
                     result = check_list_of_expressions(initializer_list, decl_context, &nodecl_dummy);
-                    leave_test_expression();
-
                     nodecl_free(nodecl_dummy);
 
                     break;
@@ -1480,9 +1534,7 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
                 if (ASTSon1(declarator) != NULL)
                 {
                     nodecl_t nodecl_dummy = nodecl_null();
-                    enter_test_expression();
                     char result = check_expression(ASTSon1(declarator), decl_context, &nodecl_dummy);
-                    leave_test_expression();
 
                     if (!result)
                     {
@@ -1558,7 +1610,8 @@ static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
     return !is_abstract_declarator(a, decl_context);
 }
 
-static char solve_ambiguous_function_declarator_parameter_check_intepretation(AST a, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char solve_ambiguous_function_declarator_parameter_check_intepretation(AST a, decl_context_t decl_context,
+        int option UNUSED_PARAMETER, void* p UNUSED_PARAMETER)
 {
     AST decl_specifier_seq = ASTSon0(a);
     AST type_specifier = ASTSon1(decl_specifier_seq);
@@ -1579,6 +1632,8 @@ static char solve_ambiguous_function_declarator_parameter_check_intepretation(AS
 static int solve_ambiguous_function_declarator_parameter_choose_intepretation(
         AST current_interpretation, 
         AST previous_interpretation,
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
         decl_context_t decl_context, void* p UNUSED_PARAMETER)
 {
     if (ASTSon1(current_interpretation) != NULL
@@ -1679,13 +1734,13 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 
     return 1;
 }
+
 static char solve_ambiguous_parameter_declaration_check_interpretation(AST parameter_decl, 
         decl_context_t decl_context, 
+        int position UNUSED_PARAMETER,
         void* p UNUSED_PARAMETER)
 {
     char current_valid = 1;
-
-    enter_test_expression();
 
     AST decl_specifier_seq = ASTSon0(parameter_decl);
 
@@ -1718,13 +1773,14 @@ static char solve_ambiguous_parameter_declaration_check_interpretation(AST param
         current_valid = current_valid && check_declarator(declarator, decl_context);
     }
 
-    leave_test_expression();
-
     return current_valid;
 }
 
 static int solve_ambiguous_parameter_declaration_choose_interpretation(
-        AST current_interpretation, AST previous_interpretation, 
+        AST current_interpretation,
+        AST previous_interpretation, 
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
         decl_context_t decl_context, void *p UNUSED_PARAMETER)
 {
     AST previous_parameter_decl = previous_interpretation;
@@ -1796,7 +1852,8 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
             NULL);
 }
 
-static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init_statement, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init_statement, decl_context_t decl_context,
+        int option UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current = 0;
     switch (ASTType(for_init_statement))
@@ -1810,12 +1867,10 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
         case AST_EXPRESSION_STATEMENT :
             {
                 nodecl_t nodecl_dummy = nodecl_null();
-                enter_test_expression();
                 if (check_expression(ASTSon0(for_init_statement), decl_context, &nodecl_dummy))
                 {
                     current = 1;
                 }
-                leave_test_expression();
             }
             break;
         default :
@@ -1827,9 +1882,10 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
     return current;
 }
 
-static char solve_ambiguous_for_init_statement_fallback(AST a, decl_context_t decl_context, void *p)
+static char solve_ambiguous_for_init_statement_fallback(AST a, decl_context_t decl_context,
+        int position, void *p)
 {
-    return solve_ambiguous_statement_fallback(a, decl_context, p);
+    return solve_ambiguous_statement_fallback(a, decl_context, position, p);
 }
 
 void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
@@ -1837,10 +1893,11 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
     solve_ambiguity_generic(a, decl_context, NULL,
             solve_ambiguous_for_init_statement_check_interpretation,
             NULL,
-            solve_ambiguous_for_init_statement_fallback);
+            /* solve_ambiguous_for_init_statement_fallback */ NULL);
 }
 
-static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifier, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifier, decl_context_t decl_context,
+        int position UNUSED_PARAMETER, void* p UNUSED_PARAMETER)
 {
     char current_typeof = 0;
     AST typeof_argument = ASTSon0(type_specifier);
@@ -1851,9 +1908,7 @@ static char solve_ambiguous_type_specifier_check_interpretation(AST type_specifi
     else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
     {
         nodecl_t nodecl_dummy = nodecl_null();
-        enter_test_expression();
         current_typeof = check_expression_non_executable(typeof_argument, decl_context, &nodecl_dummy);
-        leave_test_expression();
     }
     else
     {
@@ -1982,23 +2037,23 @@ char check_type_id_tree_or_class_template_name(AST type_id, decl_context_t decl_
                 || (check_declarator(abstract_declarator, decl_context)));
 }
 
-
-// States if we are checking ambiguities
-char checking_ambiguity(void)
+struct nodecl_expr_ambiguities_tag
 {
-    return (_ambiguity_testing != 0);
-}
+    int chosen;
+    nodecl_t* nodecls;
+};
 
-static char solve_ambiguous_expression_check_intepretation(AST ambig_expression, decl_context_t decl_context, void* p UNUSED_PARAMETER)
+static char solve_ambiguous_expression_check_intepretation(AST ambig_expression, decl_context_t decl_context,
+        int position, void* p)
 {
-    nodecl_t current_nodecl = nodecl_null();
-    enter_test_expression();
-    char current_check = 
-        check_expression(ambig_expression, decl_context, &current_nodecl);
-    leave_test_expression();
+    struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
 
-    if (!current_check)
-        nodecl_free(current_nodecl);
+    char current_check = check_expression(ambig_expression, decl_context, &(data->nodecls[position]));
+
+    if (current_check)
+    {
+        data->chosen = position;
+    }
 
     return current_check;
 }
@@ -2006,9 +2061,12 @@ static char solve_ambiguous_expression_check_intepretation(AST ambig_expression,
 static int solve_ambiguous_expression_choose_interpretation(
         AST current_choice, 
         AST previous_choice, 
+        int current_idx,
+        int previous_idx,
         decl_context_t decl_context UNUSED_PARAMETER, 
-        void* p UNUSED_PARAMETER)
+        void* p)
 {
+    struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
     // How to read this checks
     //
     //  either_type(a, b, T1, T2) 
@@ -2023,10 +2081,6 @@ static int solve_ambiguous_expression_choose_interpretation(
     //  returns -1 it means that the previous choice is a B and the
     //  current_choice is an A. If it returns 1 it means that the
     //  previous_choice is an A and current_choice is a B
-    //
-    //  Tests are arranged so we only take action for the -1 case
-    //  since the 1 case is already OK to us (so we go into the if
-    //  but nothing is done)
     //
     int either;
     // This one covers cases like this one
@@ -2047,17 +2101,25 @@ static int solve_ambiguous_expression_choose_interpretation(
     //    typename _T::f(t);
     // }
     //
-    // But this last case is not ambiguous so it will never go
-    // through this desambiguation code
+    // But this last case is not ambiguous at the expression level so it will
+    // never go through this desambiguation code
     if ((either = either_type(current_choice, previous_choice, 
                     AST_FUNCTION_CALL, AST_EXPLICIT_TYPE_CONVERSION)))
     {
         if (either > 0)
         {
+            if (data != NULL)
+            {
+                data->chosen = current_idx;
+            }
             return -1;
         }
         else
         {
+            if (data != NULL)
+            {
+                data->chosen = previous_idx;
+            }
             return 1;
         }
     }
@@ -2067,20 +2129,46 @@ static int solve_ambiguous_expression_choose_interpretation(
     }
 }
 
+#if 0
+static char solve_ambiguous_expression_fallback(AST current_interpretation,
+        decl_context_t decl_context UNUSED_PARAMETER, int position, void *p)
+{
+    struct nodecl_expr_ambiguities_tag* data = (struct nodecl_expr_ambiguities_tag*)p;
+    // Prioritize function calls
+    if (ASTType(current_interpretation) == AST_FUNCTION_CALL)
+    {
+        data->chosen = position;
+        return 1;
+    }
+    return 0;
+}
+#endif
+
 void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    if (!try_to_solve_ambiguity_generic(ambig_expression, decl_context, NULL,
+    int n = ast_get_num_ambiguities(ambig_expression);
+
+    nodecl_t nodecl_local_array[n + 1];
+
+    struct nodecl_expr_ambiguities_tag nodecl_expr_ambiguities;
+    nodecl_expr_ambiguities.chosen = 0;
+    nodecl_expr_ambiguities.nodecls = nodecl_local_array;
+
+    solve_ambiguity_generic(ambig_expression, decl_context, &nodecl_expr_ambiguities,
             solve_ambiguous_expression_check_intepretation,
-            solve_ambiguous_expression_choose_interpretation))
+            solve_ambiguous_expression_choose_interpretation,
+            /* solve_ambiguous_expression_fallback */ NULL);
+
+    int i;
+    for (i = 0; i < n; i++)
     {
-        // Prioritize function call if any
-        int m = select_node_type(ambig_expression, AST_FUNCTION_CALL);
-        if (m < 0) m = 0;
-        ast_replace_with_ambiguity(ambig_expression, m);
+        if (i != nodecl_expr_ambiguities.chosen)
+        {
+            nodecl_free(nodecl_expr_ambiguities.nodecls[i]);
+        }
     }
 
-    // Recheck for hidden diagnostics
-    check_expression(ambig_expression, decl_context, nodecl_output);
+    *nodecl_output = nodecl_expr_ambiguities.nodecls[nodecl_expr_ambiguities.chosen];
 }
 
 static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)
@@ -2092,7 +2180,6 @@ static AST get_expression_of_condition(AST current_condition)
 {
     if (ASTSon0(current_condition) == NULL) // Expression
     {
-        enter_test_expression();
         return ASTSon2(current_condition);
     }
     else
@@ -2102,7 +2189,8 @@ static AST get_expression_of_condition(AST current_condition)
     }
 }
 
-static char solve_ambiguous_condition_interpretation(AST current_condition, decl_context_t decl_context, void *p UNUSED_PARAMETER)
+static char solve_ambiguous_condition_interpretation(AST current_condition, decl_context_t decl_context,
+        int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     char current_check = 0;
     AST current_expression;
@@ -2110,10 +2198,8 @@ static char solve_ambiguous_condition_interpretation(AST current_condition, decl
 
     if (ASTSon0(current_condition) == NULL) // Expression
     {
-        enter_test_expression();
         current_expression = ASTSon2(current_condition);
         current_check = check_expression(current_expression, decl_context, &current_nodecl);
-        leave_test_expression();
     }
     else
     {
@@ -2128,10 +2214,8 @@ static char solve_ambiguous_condition_interpretation(AST current_condition, decl
         current_check = check_type_specifier(type_specifier, decl_context)
             && check_declarator(declarator, decl_context);
 
-        enter_test_expression();
         current_expression = ASTSon0(equal_initializer);
         current_check = current_check && check_expression(current_expression, decl_context, &current_nodecl);
-        leave_test_expression();
     }
 
     return current_check;
@@ -2139,24 +2223,25 @@ static char solve_ambiguous_condition_interpretation(AST current_condition, decl
 
 static int solve_ambiguous_condition_choose_interpretation(AST current_condition,
         AST previous_condition,
+        int current_idx,
+        int previous_idx,
         decl_context_t decl_context,
-        void *p)
+        void *p UNUSED_PARAMETER)
 {
     return solve_ambiguous_expression_choose_interpretation(
             get_expression_of_condition(current_condition),
             get_expression_of_condition(previous_condition),
-            decl_context, p);
+            current_idx,
+            previous_idx,
+            decl_context, NULL);
 }
 
 void solve_ambiguous_condition(AST a, decl_context_t decl_context)
 {
-    if (!try_to_solve_ambiguity_generic(a, decl_context, NULL,
+    solve_ambiguity_generic(a, decl_context, NULL,
                 solve_ambiguous_condition_interpretation,
-                solve_ambiguous_condition_choose_interpretation))
-    {
-        // Best effort
-        ast_replace_with_ambiguity(a, 0);
-    }
+                solve_ambiguous_condition_choose_interpretation,
+                NULL);
 }
 
 // Look for a template parameter pack
@@ -2212,6 +2297,7 @@ static char contains_template_parameter_pack(AST a, decl_context_t decl_context)
 static char solve_ambiguous_parameter_clause_check_interpretation(
         AST parameter_clause UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
+        int position UNUSED_PARAMETER,
         void *info UNUSED_PARAMETER)
 {
     char result = 0;

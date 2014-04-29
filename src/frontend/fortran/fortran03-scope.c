@@ -397,11 +397,8 @@ scope_entry_t* fortran_query_name_str(decl_context_t decl_context,
             if (entry_list_size(result_list) > 1
                     && !mean_the_same_entity(result_list))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
-                    diagnostic_ambiguity(result_list);
-                }
+                error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
+                diagnostic_ambiguity(result_list);
             }
 
             result = entry_list_head(result_list);
@@ -580,11 +577,8 @@ scope_entry_list_t* fortran_query_name_str_for_function(decl_context_t decl_cont
                 {
                     if (!mean_the_same_entity(entry_list))
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
-                            diagnostic_ambiguity(entry_list);
-                        }
+                        error_printf("%s: error: name '%s' is ambiguous\n", locus_to_str(locus), unqualified_name);
+                        diagnostic_ambiguity(entry_list);
                     }
 
                     // Use the first entry found

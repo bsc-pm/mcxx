@@ -1060,12 +1060,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         }
     }
 
-    if (!checking_ambiguity()
-            && CURRENT_CONFIGURATION->strict_typecheck
-            && nodecl_is_err_expr(*nodecl_output))
-    {
-        internal_error("Invalid expression '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
-    }
+    // if (CURRENT_CONFIGURATION->strict_typecheck
+    //         && nodecl_is_err_expr(*nodecl_output))
+    // {
+    //     internal_error("Invalid expression '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
+    // }
 }
 
 
@@ -1378,12 +1377,9 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               if (!checking_ambiguity())
-                               {
-                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                           ast_location(expr),
-                                           prettyprint_in_buffer(expr));
-                               }
+                               error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                       ast_location(expr),
+                                       prettyprint_in_buffer(expr));
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
@@ -1407,12 +1403,9 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               if (!checking_ambiguity())
-                               {
-                                   error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                           ast_location(expr),
-                                           prettyprint_in_buffer(expr));
-                               }
+                               error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                       ast_location(expr),
+                                       prettyprint_in_buffer(expr));
                                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                return;
                            }
@@ -1436,14 +1429,11 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                            {
                                if (!IS_HEXA_CHAR(literal[i]))
                                {
-                                   if (!checking_ambiguity())
-                                   {
-                                       char ill_literal[11];
-                                       strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                       error_printf("%s: error: invalid universal literal character name '%s'", 
-                                               ast_location(expr),
-                                               ill_literal);
-                                   }
+                                   char ill_literal[11];
+                                   strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                   error_printf("%s: error: invalid universal literal character name '%s'", 
+                                           ast_location(expr),
+                                           ill_literal);
                                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                                    return;
                                }
@@ -2037,11 +2027,8 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
                 }
                 else if (errno == EINVAL || errno == EILSEQ)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: discarding invalid UTF-16 literal\n",
-                                ast_location(expr));
-                    }
+                    error_printf("%s: error: discarding invalid UTF-16 literal\n",
+                            ast_location(expr));
                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                     xfree(output_buffer);
                 }
@@ -2151,11 +2138,8 @@ static void resolve_this_symbol(AST expression, decl_context_t decl_context, nod
 
     if (this_symbol == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: 'this' cannot be used in this context\n",
-                    ast_location(expression));
-        }
+        error_printf("%s: error: 'this' cannot be used in this context\n",
+                ast_location(expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
     }
     else
@@ -2665,13 +2649,10 @@ static char filter_only_nonmembers(scope_entry_t* e, void* p UNUSED_PARAMETER)
 
 static void error_message_delete_call(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
 {
-    if (!checking_ambiguity())
-    {
-        error_printf("%s: error: call to deleted function '%s'\n",
-                locus_to_str(locus),
-                print_decl_type_str(entry->type_information, decl_context,
-                    get_qualified_symbol_name(entry, decl_context)));
-    }
+    error_printf("%s: error: call to deleted function '%s'\n",
+            locus_to_str(locus),
+            print_decl_type_str(entry->type_information, decl_context,
+                get_qualified_symbol_name(entry, decl_context)));
 }
 
 char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const locus_t* locus)
@@ -2911,15 +2892,12 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     }
     else 
     {
-        if (!checking_ambiguity())
-        {
-            error_message_overload_failed(candidate_set, 
-                    prettyprint_in_buffer(operator_name),
-                    decl_context,
-                    num_arguments, argument_types,
-                    /* implicit_argument */ NULL,
-                    locus);
-        }
+        error_message_overload_failed(candidate_set, 
+                prettyprint_in_buffer(operator_name),
+                decl_context,
+                num_arguments, argument_types,
+                /* implicit_argument */ NULL,
+                locus);
         candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
@@ -3070,15 +3048,12 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     }
     else 
     {
-        if (!checking_ambiguity())
-        {
-            error_message_overload_failed(candidate_set, 
-                    prettyprint_in_buffer(operator_name),
-                    decl_context,
-                    num_arguments, argument_types,
-                    /* implicit_argument */ NULL,
-                    locus);
-        }
+        error_message_overload_failed(candidate_set, 
+                prettyprint_in_buffer(operator_name),
+                decl_context,
+                num_arguments, argument_types,
+                /* implicit_argument */ NULL,
+                locus);
         candidate_set_free(&candidate_set);
         overloaded_type = get_error_type();
     }
@@ -3249,12 +3224,9 @@ static char is_valid_reference_to_nonstatic_member_function(nodecl_t n, decl_con
 
     if (!result)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid reference to nonstatic member function '%s'\n",
-                    nodecl_locus_to_str(n),
-                    codegen_to_str(n, decl_context));
-        }
+        error_printf("%s: error: invalid reference to nonstatic member function '%s'\n",
+                nodecl_locus_to_str(n),
+                codegen_to_str(n, decl_context));
     }
 
     return result;
@@ -6050,13 +6022,13 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
             || ASTType(a) == AST_POINTER_CLASS_MEMBER_ACCESS) // E + p->f<
     {
         nodecl_t nodecl_check = nodecl_null();
-        enter_test_expression();
+        diagnostic_context_push_buffered();
         // We do not want unresolved overloads to become dependent typenames
         // even if they are members of dependent classes
         check_expr_flags.do_not_fold_into_dependent_typename = 1;
         check_expression_impl_(a, decl_context, &nodecl_check);
         check_expr_flags.do_not_fold_into_dependent_typename = 0;
-        leave_test_expression();
+        diagnostic_context_pop_and_discard();
 
         if (nodecl_is_err_expr(nodecl_check))
             return 0;
@@ -6104,11 +6076,8 @@ static void parse_lhs_lower_than(AST op,
             && contains_wrongly_associated_template_name(op, decl_context))
     {
         // This is something like a + p->f<3>(4) being parsed as a + (p->f<3)>4
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: left-hand side of operator < is a template-name\n",
-                    ast_location(op));
-        }
+        error_printf("%s: error: left-hand side of operator < is a template-name\n",
+                ast_location(op));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
     }
 }
@@ -6128,11 +6097,8 @@ static void parse_reference(AST op,
 
             if (nodecl_is_err_expr(op_name))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid qualified name '%s'\n",
-                            ast_location(op), prettyprint_in_buffer(op));
-                }
+                error_printf("%s: error: invalid qualified name '%s'\n",
+                        ast_location(op), prettyprint_in_buffer(op));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
                 return;
             }
@@ -6143,11 +6109,8 @@ static void parse_reference(AST op,
 
             if (entry_list == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid qualified name '%s'\n",
-                            ast_location(op), prettyprint_in_buffer(op));
-                }
+                error_printf("%s: error: invalid qualified name '%s'\n",
+                        ast_location(op), prettyprint_in_buffer(op));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(op));
                 return;
             }
@@ -6197,12 +6160,9 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         if (entry_list == NULL)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: name '%s' not found in scope\n",
-                        locus_to_str(locus),
-                        codegen_to_str(*op, decl_context));
-            }
+            error_printf("%s: error: name '%s' not found in scope\n",
+                    locus_to_str(locus),
+                    codegen_to_str(*op, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(locus);
         }
@@ -6640,18 +6600,15 @@ static void check_unary_expression_(node_t node_kind,
 
     if (nodecl_is_err_expr(*nodecl_output))
     {
-        if (!checking_ambiguity())
+        type_t* t_op = nodecl_get_type(*op);
+        C_LANGUAGE()
         {
-            type_t* t_op = nodecl_get_type(*op);
-            C_LANGUAGE()
-            {
-                t_op = no_ref(t_op);
-            }
-            error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
-                    locus_to_str(locus),
-                    get_operation_function_name(node_kind), 
-                    codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
+            t_op = no_ref(t_op);
         }
+        error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
+                locus_to_str(locus),
+                get_operation_function_name(node_kind), 
+                codegen_to_str(*op, decl_context), print_type_str(t_op, decl_context));
 
         nodecl_free(*op);
     }
@@ -6672,21 +6629,18 @@ static void check_binary_expression_(node_t node_kind,
 
     if (nodecl_is_err_expr(*nodecl_output))
     {
-        if(!checking_ambiguity())
+        type_t* lhs_type = nodecl_get_type(*nodecl_lhs);
+        type_t* rhs_type = nodecl_get_type(*nodecl_rhs);
+        C_LANGUAGE()
         {
-            type_t* lhs_type = nodecl_get_type(*nodecl_lhs);
-            type_t* rhs_type = nodecl_get_type(*nodecl_rhs);
-            C_LANGUAGE()
-            {
-                lhs_type = no_ref(lhs_type);
-                rhs_type = no_ref(rhs_type);
-            }
-            error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
-                    locus_to_str(locus),
-                    get_operation_function_name(node_kind),
-                    codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
-                    codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
+            lhs_type = no_ref(lhs_type);
+            rhs_type = no_ref(rhs_type);
         }
+        error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
+                locus_to_str(locus),
+                get_operation_function_name(node_kind),
+                codegen_to_str(*nodecl_lhs, decl_context), print_type_str(lhs_type, decl_context),
+                codegen_to_str(*nodecl_rhs, decl_context), print_type_str(rhs_type, decl_context));
 
         nodecl_free(*nodecl_lhs);
         nodecl_free(*nodecl_rhs);
@@ -6816,11 +6770,8 @@ static void compute_symbol_type_from_entry_list(scope_entry_list_t* result,
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: name '%s' not valid in expression\n",
-                    locus_to_str(locus), entry->symbol_name);
-        }
+        error_printf("%s: error: name '%s' not valid in expression\n",
+                locus_to_str(locus), entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(locus);
     }
 
@@ -6841,11 +6792,8 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
 
     if (result == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: symbol '%s' not found in current scope\n",
-                    ast_location(expr), ASTText(expr));
-        }
+        error_printf("%s: error: symbol '%s' not found in current scope\n",
+                ast_location(expr), ASTText(expr));
 
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
@@ -6915,11 +6863,8 @@ static void cxx_compute_name_from_entry_list(
 
     if (entry_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: symbol '%s' not found in current scope\n",
-                    nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
-        }
+        error_printf("%s: error: symbol '%s' not found in current scope\n",
+                nodecl_locus_to_str(nodecl_name), codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -6945,12 +6890,9 @@ static void cxx_compute_name_from_entry_list(
             && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER
             && entry->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: name '%s' is not valid in this context\n",
-                    nodecl_locus_to_str(nodecl_name),
-                    codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
-        }
+        error_printf("%s: error: name '%s' is not valid in this context\n",
+                nodecl_locus_to_str(nodecl_name),
+                codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -7068,12 +7010,9 @@ static void cxx_compute_name_from_entry_list(
             else
             {
                 // Invalid access to a nonstatic member from a "this" lacking context
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
-                            nodecl_locus_to_str(nodecl_name),
-                            get_qualified_symbol_name(entry, entry->decl_context));
-                }
+                error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                        nodecl_locus_to_str(nodecl_name),
+                        get_qualified_symbol_name(entry, entry->decl_context));
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
                 return;
             }
@@ -7154,12 +7093,9 @@ static void cxx_compute_name_from_entry_list(
 
         if (named_type->kind != SK_FUNCTION)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid template class-name '%s' in expression\n", 
-                        nodecl_locus_to_str(nodecl_name),
-                        codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
-            }
+            error_printf("%s: error: invalid template class-name '%s' in expression\n", 
+                    nodecl_locus_to_str(nodecl_name),
+                    codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
             return;
         }
@@ -7347,14 +7283,11 @@ static void check_nodecl_array_subscript_expression_c(
         if (!is_integral_type(no_ref(subscript_type)) &&
                 !is_enum_type(no_ref(subscript_type)))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
-                        locus_to_str(nodecl_get_locus(nodecl_subscript)),
-                        codegen_to_str(nodecl_subscript, decl_context),
-                        print_type_str(no_ref(subscript_type), decl_context),
-                        print_type_str(get_ptrdiff_t_type(), decl_context));
-            }
+            error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
+                    locus_to_str(nodecl_get_locus(nodecl_subscript)),
+                    codegen_to_str(nodecl_subscript, decl_context),
+                    print_type_str(no_ref(subscript_type), decl_context),
+                    print_type_str(get_ptrdiff_t_type(), decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_subscripted);
             nodecl_free(nodecl_subscript);
@@ -7416,16 +7349,14 @@ static void check_nodecl_array_subscript_expression_c(
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is "
-                    "neither an array-type or pointer-type\n",
-                    nodecl_locus_to_str(nodecl_subscripted),
-                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                    codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                    print_type_str(no_ref(subscripted_type), decl_context));
-        }
+        error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is "
+                "neither an array-type or pointer-type\n",
+                nodecl_locus_to_str(nodecl_subscripted),
+                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                print_type_str(no_ref(subscripted_type), decl_context));
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_subscripted);
         nodecl_free(nodecl_subscript);
@@ -7667,14 +7598,11 @@ static void check_nodecl_array_subscript_expression_cxx(
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-                    nodecl_locus_to_str(nodecl_subscripted),
-                    codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                    codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                    print_type_str(subscripted_type, decl_context));
-        }
+        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+                nodecl_locus_to_str(nodecl_subscripted),
+                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+                print_type_str(subscripted_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_subscripted);
         nodecl_free(nodecl_subscript);
@@ -7727,10 +7655,7 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     if (decl_context.class_scope == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: a class-scope is required to name a conversion function\n", ast_location(expression));
-        }
+        error_printf("%s: error: a class-scope is required to name a conversion function\n", ast_location(expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
@@ -7762,12 +7687,9 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     if (entry_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: 'operator %s' not found in the current scope\n",
-                    ast_location(expression),
-                    print_type_str(conversion_type, decl_context));
-        }
+        error_printf("%s: error: 'operator %s' not found in the current scope\n",
+                ast_location(expression),
+                print_type_str(conversion_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
         return;
     }
@@ -8481,16 +8403,13 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
 
             if (overloaded_call == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_message_overload_failed(candidate_set,
-                            "operator ?",
-                            decl_context,
-                            num_arguments,
-                            argument_types,
-                            /* implicit argument */ NULL,
-                            locus);
-                }
+                error_message_overload_failed(candidate_set,
+                        "operator ?",
+                        decl_context,
+                        num_arguments,
+                        argument_types,
+                        /* implicit argument */ NULL,
+                        locus);
                 candidate_set_free(&candidate_set);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
@@ -8620,8 +8539,7 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
 
     if (nodecl_is_err_expr(*nodecl_output))
     {
-        if (!checking_ambiguity()
-                && !nodecl_is_err_expr(first_op)
+        if (!nodecl_is_err_expr(first_op)
                 && !nodecl_is_err_expr(second_op)
                 && !nodecl_is_err_expr(third_op))
         {
@@ -8871,12 +8789,9 @@ static void check_new_expression_impl(
 
     if (operator_new_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: no suitable '%s' has been found in the scope\n",
-                    locus_to_str(locus),
-                    prettyprint_in_buffer(called_operation_new_tree));
-        }
+        error_printf("%s: error: no suitable '%s' has been found in the scope\n",
+                locus_to_str(locus),
+                prettyprint_in_buffer(called_operation_new_tree));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
         nodecl_free(nodecl_initializer);
@@ -8916,36 +8831,34 @@ static void check_new_expression_impl(
 
     if (chosen_operator_new == NULL)
     {
-        if (!checking_ambiguity())
+        // Format a nice message
+        const char* argument_call = UNIQUESTR_LITERAL("");
+
+        argument_call = strappend(argument_call, "operator new");
+        if (is_new_array)
         {
-            // Format a nice message
-            const char* argument_call = UNIQUESTR_LITERAL("");
-
-            argument_call = strappend(argument_call, "operator new");
-            if (is_new_array)
-            {
-                argument_call = strappend(argument_call, "[]");
-            }
-            argument_call = strappend(argument_call, "(");
-
-            int i;
-            for (i = 1; i < num_arguments; i++)
-            {
-                argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
-                if ((i + 1) < num_arguments)
-                {
-                    argument_call = strappend(argument_call, ", ");
-                }
-            }
-            argument_call = strappend(argument_call, ")");
-
-            error_printf("%s: error: no suitable '%s' found for new-expression\n",
-                    locus_to_str(locus),
-                    argument_call);
-
-            diagnostic_candidates(operator_new_list, locus);
-            entry_list_free(operator_new_list);
+            argument_call = strappend(argument_call, "[]");
         }
+        argument_call = strappend(argument_call, "(");
+
+        int i;
+        for (i = 1; i < num_arguments; i++)
+        {
+            argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
+            if ((i + 1) < num_arguments)
+            {
+                argument_call = strappend(argument_call, ", ");
+            }
+        }
+        argument_call = strappend(argument_call, ")");
+
+        error_printf("%s: error: no suitable '%s' found for new-expression\n",
+                locus_to_str(locus),
+                argument_call);
+
+        diagnostic_candidates(operator_new_list, locus);
+        entry_list_free(operator_new_list);
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
         nodecl_free(nodecl_initializer);
@@ -9183,13 +9096,10 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
                 || is_pointer_to_function_type(deleted_type)
                 || is_pointer_to_member_type(deleted_type))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid type '%s' for delete%s expression\n",
-                        locus_to_str(locus),
-                        is_array_delete ? "[]" : "",
-                        print_type_str(deleted_type, decl_context));
-            }
+            error_printf("%s: error: invalid type '%s' for delete%s expression\n",
+                    locus_to_str(locus),
+                    is_array_delete ? "[]" : "",
+                    print_type_str(deleted_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_deleted_expr);
             return;
@@ -9205,13 +9115,10 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
 
         if (!is_complete_type(full_type))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid incomplete type '%s' in delete%s expression\n",
-                        locus_to_str(locus),
-                        print_type_str(full_type, decl_context),
-                        is_array_delete ? "[]" : "");
-            }
+            error_printf("%s: error: invalid incomplete type '%s' in delete%s expression\n",
+                    locus_to_str(locus),
+                    print_type_str(full_type, decl_context),
+                    is_array_delete ? "[]" : "");
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_deleted_expr);
             return;
@@ -9379,21 +9286,18 @@ static const_value_t* cxx_nodecl_make_value_conversion(
                     sci_conversion_to_str(scs.conv[1]));
     }
 
-    if (!checking_ambiguity())
+    if (there_is_a_scs && !is_explicit_cast)
     {
-        if (there_is_a_scs && !is_explicit_cast)
+        // Emit a warning for some common cases
+        if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
         {
-            // Emit a warning for some common cases
-            if (scs.conv[1] == SCI_INTEGRAL_TO_POINTER_CONVERSION)
-            {
-                warn_printf("%s: warning: conversion from integer type to pointer type\n",
-                        locus_to_str(locus));
-            }
-            else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
-            {
-                warn_printf("%s: warning: conversion from pointer type to integer\n",
-                        locus_to_str(locus));
-            }
+            warn_printf("%s: warning: conversion from integer type to pointer type\n",
+                    locus_to_str(locus));
+        }
+        else if (scs.conv[2] == SCI_POINTER_TO_INTEGRAL_CONVERSION)
+        {
+            warn_printf("%s: warning: conversion from pointer type to integer\n",
+                    locus_to_str(locus));
         }
     }
 
@@ -9540,7 +9444,7 @@ static char conversion_is_valid_static_cast(
                 nodecl_get_locus(*nodecl_expression));
     nodecl_t nodecl_static_cast_output = nodecl_null();
 
-    enter_test_expression();
+    diagnostic_context_push_buffered();
     check_nodecl_parenthesized_initializer(
             nodecl_parenthesized_init,
             decl_context,
@@ -9549,7 +9453,7 @@ static char conversion_is_valid_static_cast(
             /* is_explicit_type_cast */ 1,
             /* emit_cast */ 0,
             &nodecl_static_cast_output);
-    leave_test_expression();
+    diagnostic_context_pop_and_discard();
 
     if (!nodecl_is_err_expr(nodecl_static_cast_output))
     {
@@ -10043,18 +9947,15 @@ static void check_nodecl_cast_expr(
 
 #define CONVERSION_ERROR \
     do { \
-      if (!checking_ambiguity()) \
+      error_printf("%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
+              locus_to_str(locus), \
+              codegen_to_str(nodecl_casted_expr, decl_context), \
+              print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context), \
+              print_type_str(declarator_type, decl_context), \
+              cast_kind); \
+      if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr))) \
       { \
-          error_printf("%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
-                  locus_to_str(locus), \
-                  codegen_to_str(nodecl_casted_expr, decl_context), \
-                  print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context), \
-                  print_type_str(declarator_type, decl_context), \
-                  cast_kind); \
-          if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr))) \
-          { \
-              diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), locus); \
-          } \
+          diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), locus); \
       } \
       *nodecl_output = nodecl_make_err_expr(locus); \
       nodecl_free(nodecl_casted_expr); \
@@ -10124,27 +10025,24 @@ static void check_nodecl_cast_expr(
 
         if (conversion_funs[i] == NULL)
         {
-            if (!checking_ambiguity())
+            type_t* orig_type = nodecl_get_type(nodecl_casted_expr);
+            type_t* dest_type = declarator_type;
+            C_LANGUAGE()
             {
-                type_t* orig_type = nodecl_get_type(nodecl_casted_expr);
-                type_t* dest_type = declarator_type;
-                C_LANGUAGE()
-                {
-                    // Remove references for the sake of the diagnostic
-                    orig_type = no_ref(orig_type);
-                    dest_type = no_ref(dest_type);
-                }
-                error_printf("%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
-                        locus_to_str(locus),
-                        codegen_to_str(nodecl_casted_expr, decl_context),
-                        print_type_str(orig_type, decl_context),
-                        print_type_str(dest_type, decl_context));
-                if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr)))
-                {
-                    diagnostic_candidates(
-                            unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)),
-                            locus);
-                }
+                // Remove references for the sake of the diagnostic
+                orig_type = no_ref(orig_type);
+                dest_type = no_ref(dest_type);
+            }
+            error_printf("%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
+                    locus_to_str(locus),
+                    codegen_to_str(nodecl_casted_expr, decl_context),
+                    print_type_str(orig_type, decl_context),
+                    print_type_str(dest_type, decl_context));
+            if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr)))
+            {
+                diagnostic_candidates(
+                        unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)),
+                        locus);
             }
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_casted_expr);
@@ -10399,12 +10297,9 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
 
     if (entry_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: 'typename %s' not found in the current scope\n",
-                    ast_location(id_expression),
-                    prettyprint_in_buffer(id_expression));
-        }
+        error_printf("%s: error: 'typename %s' not found in the current scope\n",
+                ast_location(id_expression),
+                prettyprint_in_buffer(id_expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -10418,12 +10313,9 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
             && entry->kind != SK_DEPENDENT_ENTITY
             && entry->kind != SK_TEMPLATE_TYPE_PARAMETER)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' does not name a type\n",
-                    ast_location(expr),
-                    prettyprint_in_buffer(id_expression));
-        }
+        error_printf("%s: error: '%s' does not name a type\n",
+                ast_location(expr),
+                prettyprint_in_buffer(id_expression));
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
         return;
     }
@@ -10742,7 +10634,7 @@ static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type
                 entry_list_free(list_of_members);
             }
         }
-        if (!found_a_conversion && !checking_ambiguity())
+        if (!found_a_conversion)
         {
             error_printf("%s: error: argument %d of type '%s' cannot be "
                     "converted to type '%s' of parameter\n",
@@ -10763,15 +10655,12 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
 
     if (nodecl_is_err_expr(*arg))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: argument %d of type '%s' cannot be "
-                    "converted to type '%s' of parameter\n",
-                    nodecl_locus_to_str(*arg),
-                    num_parameter + 1,
-                    print_type_str(arg_type, p->decl_context),
-                    print_type_str(param_type, p->decl_context));
-        }
+        error_printf("%s: error: argument %d of type '%s' cannot be "
+                "converted to type '%s' of parameter\n",
+                nodecl_locus_to_str(*arg),
+                num_parameter + 1,
+                print_type_str(arg_type, p->decl_context),
+                print_type_str(param_type, p->decl_context));
         nodecl_free(old_arg);
         return 0;
     }
@@ -10863,14 +10752,11 @@ static type_t* compute_default_argument_conversion(type_t* arg_type,
     }
     else
     {
-        if (!checking_ambiguity())
+        if (emit_diagnostic)
         {
-            if (emit_diagnostic)
-            {
-                error_printf("%s: error: no suitable default argument promotion exists when passing argument of type '%s'\n",
-                        locus_to_str(locus),
-                        print_type_str(no_ref(result_type), decl_context));
-            }
+            error_printf("%s: error: no suitable default argument promotion exists when passing argument of type '%s'\n",
+                    locus_to_str(locus),
+                    print_type_str(no_ref(result_type), decl_context));
         }
         result_type = get_error_type();
     }
@@ -10904,14 +10790,11 @@ static char check_argument_types_of_call(
         {
             if (num_explicit_arguments != function_type_get_num_parameters(function_type))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: call to '%s' expects %d arguments but %d passed\n",
-                            locus_to_str(locus),
-                            codegen_to_str(nodecl_called, data->decl_context),
-                            function_type_get_num_parameters(function_type),
-                            num_explicit_arguments);
-                }
+                error_printf("%s: error: call to '%s' expects %d arguments but %d passed\n",
+                        locus_to_str(locus),
+                        codegen_to_str(nodecl_called, data->decl_context),
+                        function_type_get_num_parameters(function_type),
+                        num_explicit_arguments);
                 return 0;
             }
         }
@@ -10928,14 +10811,11 @@ static char check_argument_types_of_call(
 
             if (num_explicit_arguments < min_arguments)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: call to '%s' expects at least %d parameters but only %d passed\n",
-                            locus_to_str(locus),
-                            codegen_to_str(nodecl_called, data->decl_context),
-                            min_arguments,
-                            num_explicit_arguments);
-                }
+                error_printf("%s: error: call to '%s' expects at least %d parameters but only %d passed\n",
+                        locus_to_str(locus),
+                        codegen_to_str(nodecl_called, data->decl_context),
+                        min_arguments,
+                        num_explicit_arguments);
                 return 0;
             }
         }
@@ -11185,12 +11065,9 @@ static void handle_computed_function_type(
 
     if (specific_name == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid call to generic function '%s'\n", 
-                    locus_to_str(locus),
-                    generic_name->symbol_name);
-        }
+        error_printf("%s: error: invalid call to generic function '%s'\n", 
+                locus_to_str(locus),
+                generic_name->symbol_name);
         *nodecl_called = nodecl_make_err_expr(locus);
         *called_type = get_error_type();
         nodecl_free(nodecl_argument_list);
@@ -11231,12 +11108,9 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
     if (!is_function_type(called_type)
             && !is_pointer_to_function_type(called_type))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: expression '%s' cannot be called\n", 
-                    nodecl_locus_to_str(nodecl_called),
-                    codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
-        }
+        error_printf("%s: expression '%s' cannot be called\n", 
+                nodecl_locus_to_str(nodecl_called),
+                codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_called);
         nodecl_free(nodecl_argument_list);
@@ -11357,12 +11231,9 @@ static void check_nodecl_function_call_cxx(
         if (candidates == NULL
                 && !any_arg_is_type_dependent)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: called name '%s' not found in the current scope\n",
-                        locus_to_str(nodecl_get_locus(nodecl_called)),
-                        codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
-            }
+            error_printf("%s: error: called name '%s' not found in the current scope\n",
+                    locus_to_str(nodecl_get_locus(nodecl_called)),
+                    codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_called));
             nodecl_free(nodecl_called);
             nodecl_free(nodecl_argument_list);
@@ -11470,12 +11341,9 @@ static void check_nodecl_function_call_cxx(
                 && !is_pointer_to_function_type(no_ref(called_type)))
         {
             // This cannot be called at all
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: expression '%s' cannot be called\n",
-                        locus_to_str(locus),
-                        codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
-            }
+            error_printf("%s: error: expression '%s' cannot be called\n",
+                    locus_to_str(locus),
+                    codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_called);
             nodecl_free(nodecl_argument_list);
@@ -11730,13 +11598,13 @@ static void check_nodecl_function_call_cxx(
                     field_path_t field_path;
                     field_path_init(&field_path);
 
-                    enter_test_expression();
+                    diagnostic_context_push_buffered();
                     scope_entry_list_t* extra_query = get_member_of_class_type_nodecl(
                             decl_context,
                             no_ref(get_unqualified_type(class_type)),
                             nodecl_called_name,
                             &field_path);
-                    leave_test_expression();
+                    diagnostic_context_pop_and_discard();
 
                     // This may not exist if we are calling a static member
                     // function of another non-base class
@@ -11811,16 +11679,13 @@ static void check_nodecl_function_call_cxx(
     if (overloaded_call == NULL)
     {
         // Overload failed
-        if (!checking_ambiguity())
-        {
-            error_message_overload_failed(candidate_set, 
-                    codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)),
-                    decl_context,
-                    num_arguments - 1,
-                    argument_types + 1,
-                    /* implicit_argument */ argument_types[0],
-                    locus);
-        }
+        error_message_overload_failed(candidate_set, 
+                codegen_to_str(nodecl_called, nodecl_retrieve_context(nodecl_called)),
+                decl_context,
+                num_arguments - 1,
+                argument_types + 1,
+                /* implicit_argument */ argument_types[0],
+                locus);
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_called);
@@ -11893,14 +11758,11 @@ static void check_nodecl_function_call_cxx(
         // Make sure we got an object
         if (nodecl_is_null(nodecl_implicit_argument))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: cannot call '%s' without an object\n", 
-                        locus_to_str(locus),
-                        print_decl_type_str(overloaded_call->type_information,
-                            decl_context,
-                            get_qualified_symbol_name(overloaded_call, decl_context)));
-            }
+            error_printf("%s: error: cannot call '%s' without an object\n", 
+                    locus_to_str(locus),
+                    print_decl_type_str(overloaded_call->type_information,
+                        decl_context,
+                        get_qualified_symbol_name(overloaded_call, decl_context)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_called);
             nodecl_free(nodecl_argument_list);
@@ -12137,12 +11999,9 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
 
                 entry->type_information = nonproto_type;
 
-                if (!checking_ambiguity())
-                {
-                    warn_printf("%s: warning: implicit declaration of function '%s' in call\n",
-                            ast_location(advanced_called_expression),
-                            entry->symbol_name);
-                }
+                warn_printf("%s: warning: implicit declaration of function '%s' in call\n",
+                        ast_location(advanced_called_expression),
+                        entry->symbol_name);
             }
             else
             {
@@ -12298,7 +12157,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
         scope_entry_t* selected_operator = NULL;
 
         // We do not want a warning if no overloads are available
-        enter_test_expression();
+        diagnostic_context_push_buffered();
         type_t* computed_type = compute_user_defined_bin_operator_type(operation_comma_tree,
                 &nodecl_lhs,
                 &nodecl_rhs,
@@ -12306,7 +12165,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
                 decl_context,
                 locus,
                 &selected_operator);
-        leave_test_expression();
+        diagnostic_context_pop_and_discard();
 
         if (!is_error_type(computed_type))
         {
@@ -12417,12 +12276,9 @@ static void compute_implicit_captures(nodecl_t node,
         {
             if (lambda_capture_default == LAMBDA_CAPTURE_NONE)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: symbol '%s' has not been captured\n",
-                            nodecl_locus_to_str(node),
-                            entry->symbol_name);
-                }
+                error_printf("%s: error: symbol '%s' has not been captured\n",
+                        nodecl_locus_to_str(node),
+                        entry->symbol_name);
                 *ok = 0;
             }
             else if (lambda_capture_default == LAMBDA_CAPTURE_COPY)
@@ -12460,11 +12316,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
 {
     CXX03_LANGUAGE()
     {
-        if (!checking_ambiguity())
-        {
-            warn_printf("%s: warning: lambda-expressions are only valid in C++11\n",
-                    ast_location(expression));
-        }
+        warn_printf("%s: warning: lambda-expressions are only valid in C++11\n",
+                ast_location(expression));
     }
 
     AST lambda_capture = ASTSon0(expression);
@@ -12521,12 +12374,9 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                             scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(capture), NULL);
                             if (entry_list == NULL)
                             {
-                                if (!checking_ambiguity())
-                                {
-                                    error_printf("%s: error: captured entity '%s' not found in current scope\n",
-                                            ast_location(capture),
-                                            ASTText(capture));
-                                }
+                                error_printf("%s: error: captured entity '%s' not found in current scope\n",
+                                        ast_location(capture),
+                                        ASTText(capture));
                                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                 return;
                             }
@@ -12542,12 +12392,9 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                                             )
                                         && (!is_pack || entry->kind != SK_VARIABLE_PACK))
                                 {
-                                    if (!checking_ambiguity())
-                                    {
-                                        error_printf("%s: error: cannot capture entity '%s'\n",
-                                                ast_location(capture),
-                                                ASTText(capture));
-                                    }
+                                    error_printf("%s: error: cannot capture entity '%s'\n",
+                                            ast_location(capture),
+                                            ASTText(capture));
                                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                     return;
                                 }
@@ -12575,11 +12422,8 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
                             scope_entry_list_t* entry_list = query_name_str(decl_context, UNIQUESTR_LITERAL("this"), NULL);
                             if (entry_list == NULL)
                             {
-                                if (!checking_ambiguity())
-                                {
-                                    error_printf("%s: error: captured entity 'this' not found in current scope\n",
-                                            ast_location(capture));
-                                }
+                                error_printf("%s: error: captured entity 'this' not found in current scope\n",
+                                        ast_location(capture));
                                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                                 return;
                             }
@@ -12980,11 +12824,8 @@ static void check_nodecl_initializer_clause_expansion(nodecl_t pack,
 {
     if (!there_are_template_packs(pack))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: pack expansion does not reference any parameter pack\n", 
-                    locus_to_str(locus));
-        }
+        error_printf("%s: error: pack expansion does not reference any parameter pack\n", 
+                locus_to_str(locus));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(pack);
         return;
@@ -13536,20 +13377,17 @@ static void check_nodecl_member_access(
 
             type_t* t = get_error_type();
 
-            enter_test_expression();
+            diagnostic_context_push_buffered();
             t = compute_type_for_type_id_tree(type_id, decl_context,
                     /* out_simple_type */ NULL, /* out_gather_info */ NULL);
-            leave_test_expression();
+            diagnostic_context_pop_and_discard();
 
             // If not found, error
             if (is_error_type(t))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: type-id %s of conversion-id not found\n",
-                            nodecl_locus_to_str(nodecl_member),
-                            prettyprint_in_buffer(type_id));
-                }
+                error_printf("%s: error: type-id %s of conversion-id not found\n",
+                        nodecl_locus_to_str(nodecl_member),
+                        prettyprint_in_buffer(type_id));
                 *nodecl_output = nodecl_make_err_expr(locus);
                 nodecl_free(nodecl_accessed);
                 nodecl_free(nodecl_member);
@@ -13603,14 +13441,12 @@ static void check_nodecl_member_access(
         }
         else
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
-                        nodecl_locus_to_str(nodecl_accessed),
-                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
-                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
-                        print_type_str(no_ref(accessed_type), decl_context));
-            }
+            error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
+                    nodecl_locus_to_str(nodecl_accessed),
+                    codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                    codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                    print_type_str(no_ref(accessed_type), decl_context));
+
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_accessed);
             nodecl_free(nodecl_member);
@@ -13641,14 +13477,12 @@ static void check_nodecl_member_access(
 
         if (operator_arrow_list == NULL)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
-                        nodecl_locus_to_str(nodecl_accessed),
-                        codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
-                        codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
-                        print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
-            }
+            error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
+                    nodecl_locus_to_str(nodecl_accessed),
+                    codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                    codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                    print_type_str(nodecl_get_type(nodecl_accessed), decl_context));
+
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_accessed);
             nodecl_free(nodecl_member);
@@ -13684,16 +13518,14 @@ static void check_nodecl_member_access(
 
         if (selected_operator_arrow == NULL)
         {
-            if (!checking_ambiguity())
-            {
-                error_message_overload_failed(candidate_set, 
-                        "operator->",
-                        decl_context,
-                        /* num_arguments */ 0, 
-                        /* no explicit arguments */ NULL,
-                        /* implicit_argument */ argument_types[0],
-                        nodecl_get_locus(nodecl_accessed));
-            }
+            error_message_overload_failed(candidate_set, 
+                    "operator->",
+                    decl_context,
+                    /* num_arguments */ 0, 
+                    /* no explicit arguments */ NULL,
+                    /* implicit_argument */ argument_types[0],
+                    nodecl_get_locus(nodecl_accessed));
+
             candidate_set_free(&candidate_set);
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_accessed);
@@ -13752,15 +13584,13 @@ static void check_nodecl_member_access(
     }
     else if (!is_class_type(no_ref(accessed_type)))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s%s' cannot be applied to '%s' (of type '%s')\n",
-                    nodecl_locus_to_str(nodecl_accessed),
-                    operator_arrow ? "->" : ".",
-                    codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
-                    codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
-                    print_type_str(no_ref(accessed_type), decl_context));
-        }
+        error_printf("%s: error: '%s%s' cannot be applied to '%s' (of type '%s')\n",
+                nodecl_locus_to_str(nodecl_accessed),
+                operator_arrow ? "->" : ".",
+                codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                codegen_to_str(nodecl_accessed, nodecl_retrieve_context(nodecl_accessed)),
+                print_type_str(no_ref(accessed_type), decl_context));
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_accessed);
         nodecl_free(nodecl_member);
@@ -13782,13 +13612,10 @@ static void check_nodecl_member_access(
 
     if (entry_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' is not a member/field of type '%s'\n",
-                    nodecl_locus_to_str(nodecl_member),
-                    codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
-                    print_type_str(no_ref(accessed_type), decl_context));
-        }
+        error_printf("%s: error: '%s' is not a member/field of type '%s'\n",
+                nodecl_locus_to_str(nodecl_member),
+                codegen_to_str(nodecl_member, nodecl_retrieve_context(nodecl_member)),
+                print_type_str(no_ref(accessed_type), decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_accessed);
         nodecl_free(nodecl_member);
@@ -14109,15 +13936,12 @@ static void check_postoperator_user_defined(
 
     if (overloaded_call == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_message_overload_failed(candidate_set, 
-                    get_operator_function_name(operator),
-                    decl_context,
-                    num_arguments, argument_types,
-                    /* implicit_argument */ NULL,
-                    nodecl_get_locus(postoperated_expr));
-        }
+        error_message_overload_failed(candidate_set, 
+                get_operator_function_name(operator),
+                decl_context,
+                num_arguments, argument_types,
+                /* implicit_argument */ NULL,
+                nodecl_get_locus(postoperated_expr));
         *nodecl_output = nodecl_make_err_expr(
                 nodecl_get_locus(postoperated_expr));
         candidate_set_free(&candidate_set);
@@ -14268,15 +14092,12 @@ static void check_preoperator_user_defined(AST operator,
 
     if (overloaded_call == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_message_overload_failed(candidate_set, 
-                    get_operator_function_name(operator),
-                    decl_context,
-                    num_arguments, argument_types,
-                    /* implicit_argument */ NULL,
-                    nodecl_get_locus(preoperated_expr));
-        }
+        error_message_overload_failed(candidate_set, 
+                get_operator_function_name(operator),
+                decl_context,
+                num_arguments, argument_types,
+                /* implicit_argument */ NULL,
+                nodecl_get_locus(preoperated_expr));
         candidate_set_free(&candidate_set);
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
         nodecl_free(preoperated_expr);
@@ -14423,26 +14244,20 @@ static void check_nodecl_postoperator(AST operator,
             // Should be an lvalue
             if (!is_lvalue_reference_type(operated_type))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
-                            nodecl_locus_to_str(postoperated_expr),
-                            codegen_to_str(postoperated_expr, decl_context),
-                            is_decrement ? "postdecrement" : "postincrement");
-                }
+                error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
+                        nodecl_locus_to_str(postoperated_expr),
+                        codegen_to_str(postoperated_expr, decl_context),
+                        is_decrement ? "postdecrement" : "postincrement");
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
                 nodecl_free(postoperated_expr);
                 return;
             }
             if (is_const_qualified_type(no_ref(operated_type)))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: operand '%s' of %s is read-only\n",
-                            nodecl_locus_to_str(postoperated_expr),
-                            codegen_to_str(postoperated_expr, decl_context),
-                            is_decrement ? "postdecrement" : "postincrement");
-                }
+                error_printf("%s: error: operand '%s' of %s is read-only\n",
+                        nodecl_locus_to_str(postoperated_expr),
+                        codegen_to_str(postoperated_expr, decl_context),
+                        is_decrement ? "postdecrement" : "postincrement");
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
                 nodecl_free(postoperated_expr);
                 return;
@@ -14457,13 +14272,10 @@ static void check_nodecl_postoperator(AST operator,
         }
         else
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: type '%s' is not valid for %s operator\n",
-                        nodecl_locus_to_str(postoperated_expr),
-                        print_type_str(no_ref(operated_type), decl_context),
-                        is_decrement ? "postdecrement" : "postincrement");
-            }
+            error_printf("%s: error: type '%s' is not valid for %s operator\n",
+                    nodecl_locus_to_str(postoperated_expr),
+                    print_type_str(no_ref(operated_type), decl_context),
+                    is_decrement ? "postdecrement" : "postincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
             nodecl_free(postoperated_expr);
             return;
@@ -14556,13 +14368,10 @@ static void check_nodecl_preoperator(AST operator,
         // Should be an lvalue
         if (!is_lvalue_reference_type(operated_type))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
-                        nodecl_locus_to_str(preoperated_expr),
-                        codegen_to_str(preoperated_expr, decl_context),
-                        is_decrement ? "predecrement" : "preincrement");
-            }
+            error_printf("%s: error: operand '%s' of %s is not an lvalue\n",
+                    nodecl_locus_to_str(preoperated_expr),
+                    codegen_to_str(preoperated_expr, decl_context),
+                    is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
             nodecl_free(preoperated_expr);
             return;
@@ -14570,13 +14379,10 @@ static void check_nodecl_preoperator(AST operator,
 
         if (is_const_qualified_type(no_ref(operated_type)))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: operand '%s' of %s is read-only\n",
-                        nodecl_locus_to_str(preoperated_expr),
-                        codegen_to_str(preoperated_expr, decl_context),
-                        is_decrement ? "predecrement" : "preincrement");
-            }
+            error_printf("%s: error: operand '%s' of %s is read-only\n",
+                    nodecl_locus_to_str(preoperated_expr),
+                    codegen_to_str(preoperated_expr, decl_context),
+                    is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
             nodecl_free(preoperated_expr);
             return;
@@ -14591,13 +14397,10 @@ static void check_nodecl_preoperator(AST operator,
     {
         C_LANGUAGE()
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: type '%s' is not valid for %s operator\n",
-                        nodecl_locus_to_str(preoperated_expr),
-                        print_type_str(no_ref(operated_type), decl_context),
-                        is_decrement ? "predecrement" : "preincrement");
-            }
+            error_printf("%s: error: type '%s' is not valid for %s operator\n",
+                    nodecl_locus_to_str(preoperated_expr),
+                    print_type_str(no_ref(operated_type), decl_context),
+                    is_decrement ? "predecrement" : "preincrement");
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
             nodecl_free(preoperated_expr);
             return;
@@ -14853,13 +14656,10 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!mandatory)
             return NULL;
 
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list'\n"
-                    "%s: info: maybe you need '#include <initializer_list>'",
-                    locus_to_str(locus),
-                    locus_to_str(locus));
-        }
+        error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list'\n"
+                "%s: info: maybe you need '#include <initializer_list>'",
+                locus_to_str(locus),
+                locus_to_str(locus));
         return NULL;
     }
 
@@ -14876,13 +14676,10 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context,
         if (!mandatory)
             return NULL;
 
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list'\n"
-                    "%s: info: maybe you need '#include <initializer_list>'",
-                    locus_to_str(locus),
-                    locus_to_str(locus));
-        }
+        error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list'\n"
+                "%s: info: maybe you need '#include <initializer_list>'",
+                locus_to_str(locus),
+                locus_to_str(locus));
         return NULL;
     }
 
@@ -15288,13 +15085,10 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     && !is_class_type(declared_type)
                     && !is_vector_type(declared_type))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: brace initialization can only be used with\n",
-                            nodecl_locus_to_str(braced_initializer));
-                    error_printf("%s: error: array types, struct, class, union or vector types\n",
-                            nodecl_locus_to_str(braced_initializer));
-                }
+                error_printf("%s: error: brace initialization can only be used with\n",
+                        nodecl_locus_to_str(braced_initializer));
+                error_printf("%s: error: array types, struct, class, union or vector types\n",
+                        nodecl_locus_to_str(braced_initializer));
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
@@ -15318,7 +15112,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                    )
                 {
                     // Attempt an interpretation like char a[] = "hello";
-                    enter_test_expression();
+                    diagnostic_context_push_buffered();
                     nodecl_t nodecl_tmp = nodecl_shallow_copy(
                             nodecl_get_child(nodecl_list_head(initializer_clause_list), 0)
                             );
@@ -15326,7 +15120,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             decl_context,
                             declared_type,
                             nodecl_output);
-                    leave_test_expression();
+                    diagnostic_context_pop_and_discard();
 
                     if (!nodecl_is_err_expr(*nodecl_output))
                     {
@@ -15358,21 +15152,15 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     {
                         if (nodecl_is_null(array_type_get_array_size_expr(declared_type)))
                         {
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: initialization not allowed for arrays of undefined size\n",
-                                        nodecl_locus_to_str(braced_initializer));
-                            }
+                            error_printf("%s: error: initialization not allowed for arrays of undefined size\n",
+                                    nodecl_locus_to_str(braced_initializer));
                             *nodecl_output = nodecl_make_err_expr(locus);
                             return;
                         }
                         if (!nodecl_is_constant(array_type_get_array_size_expr(declared_type)))
                         {
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: initialization not allowed for variable-length arrays\n",
-                                        nodecl_locus_to_str(braced_initializer));
-                            }
+                            error_printf("%s: error: initialization not allowed for variable-length arrays\n",
+                                    nodecl_locus_to_str(braced_initializer));
                             *nodecl_output = nodecl_make_err_expr(locus);
                             return;
                         }
@@ -15448,12 +15236,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         }
                         else
                         {
-                            if (!checking_ambiguity())
-                            {
-                                warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
-                                        nodecl_locus_to_str(nodecl_initializer_clause),
-                                        print_type_str(type_stack[type_stack_idx].type, decl_context));
-                            }
+                            warn_printf("%s: warning: too many initializers for type '%s', ignoring\n",
+                                    nodecl_locus_to_str(nodecl_initializer_clause),
+                                    print_type_str(type_stack[type_stack_idx].type, decl_context));
                             // We are at the top level object of this braced initializer, give up
                             too_many_initializers = 1;
                             break;
@@ -15561,11 +15346,11 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             || is_vector_type(type_to_be_initialized))
                     {
                         nodecl_t nodecl_init_output = nodecl_null();
-                        enter_test_expression();
+                        diagnostic_context_push_buffered();
                         nodecl_t nodecl_tmp = nodecl_shallow_copy(nodecl_initializer_clause);
                         check_nodecl_initializer_clause(nodecl_tmp, decl_context,
                                 type_to_be_initialized, &nodecl_init_output);
-                        leave_test_expression();
+                        diagnostic_context_pop_and_discard();
                         if (!nodecl_is_err_expr(nodecl_init_output))
                         {
                             // It seems fine
@@ -15595,11 +15380,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             {
                                 if (type_stack_idx > 0)
                                 {
-                                    if (!checking_ambiguity())
-                                    {
-                                        warn_printf("%s: warning: initialization of flexible array member without braces\n",
-                                                nodecl_locus_to_str(nodecl_initializer_clause));
-                                    }
+                                    warn_printf("%s: warning: initialization of flexible array member without braces\n",
+                                            nodecl_locus_to_str(nodecl_initializer_clause));
                                 }
                                 type_stack[type_stack_idx].num_items = -1;
                             }
@@ -15709,12 +15491,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         }
         else
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: cannot call internal constructor of '%s' for braced-initializer\n",
-                        locus_to_str(locus),
-                        print_type_str(declared_type, decl_context));
-            }
+            error_printf("%s: error: cannot call internal constructor of '%s' for braced-initializer\n",
+                    locus_to_str(locus),
+                    print_type_str(declared_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
         }
         return;
@@ -15800,12 +15579,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
             if (constructor == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid initializer for type '%s'\n",
-                            nodecl_locus_to_str(braced_initializer),
-                            print_type_str(declared_type, decl_context));
-                }
+                error_printf("%s: error: invalid initializer for type '%s'\n",
+                        nodecl_locus_to_str(braced_initializer),
+                        print_type_str(declared_type, decl_context));
                 xfree(nodecl_list);
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
@@ -15918,12 +15694,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
             if (constructor == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid initializer for type '%s'\n", 
-                            nodecl_locus_to_str(braced_initializer),
-                            print_type_str(declared_type, decl_context));
-                }
+                error_printf("%s: error: invalid initializer for type '%s'\n", 
+                        nodecl_locus_to_str(braced_initializer),
+                        print_type_str(declared_type, decl_context));
                 *nodecl_output = nodecl_make_err_expr(
                         locus);
                 return;
@@ -16005,32 +15778,23 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 CXX_LANGUAGE()
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: brace initialization with more than one element is not valid here\n",
-                                nodecl_locus_to_str(braced_initializer));
-                    }
+                    error_printf("%s: error: brace initialization with more than one element is not valid here\n",
+                            nodecl_locus_to_str(braced_initializer));
                     *nodecl_output = nodecl_make_err_expr(locus);
                     return;
                 }
                 C_LANGUAGE()
                 {
-                    if (!checking_ambiguity())
-                    {
-                        warn_printf("%s: warning: brace initializer with more than one element initializing a scalar\n",
-                                nodecl_locus_to_str(braced_initializer));
-                    }
+                    warn_printf("%s: warning: brace initializer with more than one element initializing a scalar\n",
+                            nodecl_locus_to_str(braced_initializer));
                 }
             }
             else
             {
-                if (!checking_ambiguity())
+                if (!is_explicit_type_cast)
                 {
-                    if (!is_explicit_type_cast)
-                    {
-                        warn_printf("%s: warning: redundant brace initializer of scalar\n",
-                                nodecl_locus_to_str(braced_initializer));
-                    }
+                    warn_printf("%s: warning: redundant brace initializer of scalar\n",
+                            nodecl_locus_to_str(braced_initializer));
                 }
             }
 
@@ -16121,13 +15885,10 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                 {
                     if (!is_class_type(*designated_type))
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: in designated initializer '%s', field designator not valid for type '%s'\n",
-                                    nodecl_locus_to_str(nodecl_current_designator),
-                                    codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
-                                    print_type_str(*designated_type, decl_context));
-                        }
+                        error_printf("%s: in designated initializer '%s', field designator not valid for type '%s'\n",
+                                nodecl_locus_to_str(nodecl_current_designator),
+                                codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
+                                print_type_str(*designated_type, decl_context));
                         ok = 0;
                     }
                     else
@@ -16171,13 +15932,10 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
                 {
                     if (!is_array_type(*designated_type))
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: in designated initializer '%s', subscript designator not valid for type '%s'\n",
-                                    nodecl_locus_to_str(nodecl_current_designator),
-                                    codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
-                                    print_type_str(*designated_type, decl_context));
-                        }
+                        error_printf("%s: in designated initializer '%s', subscript designator not valid for type '%s'\n",
+                                nodecl_locus_to_str(nodecl_current_designator),
+                                codegen_to_str(nodecl_current_designator, nodecl_retrieve_context(nodecl_current_designator)),
+                                print_type_str(*designated_type, decl_context));
                         ok = 0;
                     }
                     else
@@ -16269,13 +16027,10 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         {
             if (entry_list_size(candidates) != 0)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no suitable constructor for class type '%s'\n",
-                            locus_to_str(locus),
-                            print_type_str(declared_type, decl_context));
-                    diagnostic_candidates(candidates, locus);
-                }
+                error_printf("%s: error: no suitable constructor for class type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(declared_type, decl_context));
+                diagnostic_candidates(candidates, locus);
             }
             entry_list_free(candidates);
 
@@ -16356,12 +16111,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     {
         if (nodecl_list_length(nodecl_list) > 1)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: too many initializers when initializing '%s' type\n", 
-                        nodecl_locus_to_str(direct_initializer),
-                        print_type_str(declared_type, decl_context));
-            }
+            error_printf("%s: error: too many initializers when initializing '%s' type\n", 
+                    nodecl_locus_to_str(direct_initializer),
+                    print_type_str(declared_type, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
         }
@@ -16535,11 +16287,8 @@ static void check_nodecl_pointer_to_pointer_member(
     {
         if (!is_pointer_to_class_type(no_ref(lhs_type)))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' does not have pointer to class type\n",
-                        nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
-            }
+            error_printf("%s: error: '%s' does not have pointer to class type\n",
+                    nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_lhs);
             nodecl_free(nodecl_rhs);
@@ -16548,11 +16297,8 @@ static void check_nodecl_pointer_to_pointer_member(
 
         if (!is_pointer_to_member_type(no_ref(rhs_type)))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' is does not have pointer to member type\n",
-                        nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
-            }
+            error_printf("%s: error: '%s' is does not have pointer to member type\n",
+                    nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_lhs);
             nodecl_free(nodecl_rhs);
@@ -16573,13 +16319,10 @@ static void check_nodecl_pointer_to_pointer_member(
                     get_actual_class_type(pointed_lhs_type),
                     locus))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
-                        locus_to_str(locus),
-                        print_type_str(no_ref(rhs_type), decl_context), 
-                        print_type_str(no_ref(pointed_lhs_type), decl_context));
-            }
+            error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+                    locus_to_str(locus),
+                    print_type_str(no_ref(rhs_type), decl_context), 
+                    print_type_str(no_ref(pointed_lhs_type), decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_lhs);
             nodecl_free(nodecl_rhs);
@@ -16722,11 +16465,8 @@ static void check_nodecl_pointer_to_member(
 
     if (!is_class_type(no_ref(lhs_type)))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' does not have class type\n",
-                    nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
-        }
+        error_printf("%s: error: '%s' does not have class type\n",
+                nodecl_locus_to_str(nodecl_lhs), codegen_to_str(nodecl_lhs, nodecl_retrieve_context(nodecl_lhs)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
         nodecl_free(nodecl_rhs);
@@ -16734,11 +16474,8 @@ static void check_nodecl_pointer_to_member(
     }
     if (!is_pointer_to_member_type(no_ref(rhs_type)))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' is not a pointer to member\n",
-                    nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
-        }
+        error_printf("%s: error: '%s' is not a pointer to member\n",
+                nodecl_locus_to_str(nodecl_rhs), codegen_to_str(nodecl_rhs, nodecl_retrieve_context(nodecl_rhs)));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
         nodecl_free(nodecl_rhs);
@@ -16755,12 +16492,9 @@ static void check_nodecl_pointer_to_member(
                 get_actual_class_type(no_ref(lhs_type)),
                 locus))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
-                    locus_to_str(locus),
-                    print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
-        }
+        error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+                locus_to_str(locus),
+                print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_lhs);
         nodecl_free(nodecl_rhs);
@@ -17119,14 +16853,11 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         if (!can_be_initialized)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
-                        nodecl_locus_to_str(nodecl_expr),
-                        codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
-                        print_decl_type_str(initializer_expr_type, decl_context, ""),
-                        print_decl_type_str(declared_type, decl_context, ""));
-            }
+            error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
+                    nodecl_locus_to_str(nodecl_expr),
+                    codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
+                    print_decl_type_str(initializer_expr_type, decl_context, ""),
+                    print_decl_type_str(declared_type, decl_context, ""));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
             return;
         }
@@ -17162,14 +16893,11 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         if (!can_be_initialized)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
-                        nodecl_locus_to_str(nodecl_expr),
-                        codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
-                        print_decl_type_str(initializer_expr_type, decl_context, ""),
-                        print_decl_type_str(declared_type, decl_context, ""));
-            }
+            error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
+                    nodecl_locus_to_str(nodecl_expr),
+                    codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
+                    print_decl_type_str(initializer_expr_type, decl_context, ""),
+                    print_decl_type_str(declared_type, decl_context, ""));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
             return;
         }
@@ -17223,15 +16951,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         {
             if (entry_list_size(candidates) != 0)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no suitable constructor for direct initialization of type '%s' "
-                            "using an expression of type '%s'\n",
-                            locus_to_str(nodecl_get_locus(nodecl_expr)),
-                            print_type_str(initializer_expr_type, decl_context),
-                            print_type_str(declared_type_no_cv, decl_context));
-                    diagnostic_candidates(candidates, nodecl_get_locus(nodecl_expr));
-                }
+                error_printf("%s: error: no suitable constructor for direct initialization of type '%s' "
+                        "using an expression of type '%s'\n",
+                        locus_to_str(nodecl_get_locus(nodecl_expr)),
+                        print_type_str(initializer_expr_type, decl_context),
+                        print_type_str(declared_type_no_cv, decl_context));
+                diagnostic_candidates(candidates, nodecl_get_locus(nodecl_expr));
             }
             entry_list_free(candidates);
 
@@ -17330,11 +17055,8 @@ void check_nodecl_initialization(
         {
             if (!check_self_reference(nodecl_initializer, initialized_entry))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
-                            nodecl_locus_to_str(nodecl_initializer));
-                }
+                error_printf("%s: error: an auto declaration initializer cannot reference the initialized name\n",
+                        nodecl_locus_to_str(nodecl_initializer));
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
                 nodecl_free(nodecl_initializer);
                 return;
@@ -17385,13 +17107,10 @@ void check_nodecl_initialization(
         }
         else
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
-                        nodecl_locus_to_str(nodecl_initializer),
-                        print_type_str(declared_type, decl_context),
-                        print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
-            }
+            error_printf("%s: error: failure when deducing type of '%s' from '%s'\n",
+                    nodecl_locus_to_str(nodecl_initializer),
+                    print_type_str(declared_type, decl_context),
+                    print_type_str(nodecl_get_type(nodecl_initializer), decl_context));
             *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_initializer));
             nodecl_free(nodecl_initializer);
             return;
@@ -17995,12 +17714,9 @@ static void check_sizeof_type(type_t* t,
 
         if (is_incomplete_type(t))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: sizeof of incomplete type '%s'\n", 
-                        locus_to_str(locus),
-                        print_type_str(t, decl_context));
-            }
+            error_printf("%s: error: sizeof of incomplete type '%s'\n", 
+                    locus_to_str(locus),
+                    print_type_str(t, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_expr);
             return;
@@ -18108,12 +17824,9 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: name '%s' is not a template or parameter pack\n",
-                    locus_to_str(locus),
-                    entry->symbol_name);
-        }
+        error_printf("%s: error: name '%s' is not a template or parameter pack\n",
+                locus_to_str(locus),
+                entry->symbol_name);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
@@ -18148,12 +17861,9 @@ static void check_sizeof_pack(AST expr, decl_context_t decl_context, nodecl_t* n
 
     if (result_list == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: symbol '%s' not found in the current scope\n",
-                    nodecl_locus_to_str(nodecl_name),
-                    codegen_to_str(nodecl_name, decl_context));
-        }
+        error_printf("%s: error: symbol '%s' not found in the current scope\n",
+                nodecl_locus_to_str(nodecl_name),
+                codegen_to_str(nodecl_name, decl_context));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
         return;
     }
@@ -18363,11 +18073,8 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: __builtin_types_compatible_p is not implemented for dependent expressions",
-                    ast_location(expression));
-        }
+        error_printf("%s: error: __builtin_types_compatible_p is not implemented for dependent expressions",
+                ast_location(expression));
     }
 }
 
@@ -18403,12 +18110,9 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
         type_t* t = no_ref(nodecl_get_type(nodecl_expr));
         if (!is_complex_type(t))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: operand of '%s' is not a complex type\n",
-                        nodecl_locus_to_str(nodecl_expr),
-                        is_real ? "__real__" : "__imag__");
-            }
+            error_printf("%s: error: operand of '%s' is not a complex type\n",
+                    nodecl_locus_to_str(nodecl_expr),
+                    is_real ? "__real__" : "__imag__");
 
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_expr);
@@ -18505,12 +18209,10 @@ static void check_gcc_alignof_type(type_t* t,
 
     if (is_incomplete_type(t))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: alignof of incomplete type '%s'\n", 
-                    locus_to_str(locus),
-                    print_type_str(t, decl_context));
-        }
+        error_printf("%s: error: alignof of incomplete type '%s'\n", 
+                locus_to_str(locus),
+                print_type_str(t, decl_context));
+
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_expr);
         return;
@@ -18688,11 +18390,8 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context,
         //
         // if (nodecl_get_kind(nodecl_last_stmt) != NODECL_EXPRESSION_STATEMENT)
         // {
-        //     if (!checking_ambiguity())
-        //     {
-        //         error_printf("%s:%d: error: last statement must be an expression statement\n",
+        //     error_printf("%s:%d: error: last statement must be an expression statement\n",
         //                 locus);
-        //     }
         //     *nodecl_output = nodecl_make_err_expr(locus);
         //     return;
         // }
@@ -18896,22 +18595,16 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     {
         if (i > 0)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pointer types only allow one-level array sections\n",
-                        nodecl_locus_to_str(nodecl_postfix));
-            }
+            error_printf("%s: error: pointer types only allow one-level array sections\n",
+                    nodecl_locus_to_str(nodecl_postfix));
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
         if (is_void_pointer_type(indexed_type))
         {
-            if (!checking_ambiguity())
-            {
-                warn_printf("%s: warning: postfix expression '%s' of array section is 'void*', assuming 'char*' instead\n",
-                        nodecl_locus_to_str(nodecl_postfix),
-                        codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)));
-            }
+            warn_printf("%s: warning: postfix expression '%s' of array section is 'void*', assuming 'char*' instead\n",
+                    nodecl_locus_to_str(nodecl_postfix),
+                    codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)));
             indexed_type = get_pointer_type(get_char_type());
         }
         result_type = get_array_type_bounds_with_regions(
@@ -18924,13 +18617,10 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     }
     else
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: warning: array section is invalid since '%s' has type '%s'\n",
-                    nodecl_locus_to_str(nodecl_postfix),
-                    codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)),
-                    print_type_str(indexed_type, decl_context));
-        }
+        error_printf("%s: warning: array section is invalid since '%s' has type '%s'\n",
+                nodecl_locus_to_str(nodecl_postfix),
+                codegen_to_str(nodecl_postfix, nodecl_retrieve_context(nodecl_postfix)),
+                print_type_str(indexed_type, decl_context));
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
     }
@@ -19058,12 +18748,9 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
                     get_signed_int_type(),
                     locus))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
-                        nodecl_locus_to_str(current_expr),
-                        codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)));
-            }
+            error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
+                    nodecl_locus_to_str(current_expr),
+                    codegen_to_str(current_expr, nodecl_retrieve_context(current_expr)));
             xfree(list);
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -19081,12 +18768,9 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
 
     if (!is_pointer_type(no_ref(shaped_expr_type)))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
-                    nodecl_locus_to_str(nodecl_shaped_expr),
-                    codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
-        }
+        error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
+                nodecl_locus_to_str(nodecl_shaped_expr),
+                codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         xfree(list);
         *nodecl_output = nodecl_make_err_expr(locus);
         return;
@@ -19094,12 +18778,9 @@ static void check_nodecl_shaping_expression(nodecl_t nodecl_shaped_expr,
 
     if (is_void_pointer_type(no_ref(shaped_expr_type)))
     {
-        if (!checking_ambiguity())
-        {
-            warn_printf("%s: warning: shaped expression '%s' has type 'void*', assuming 'char*' instead\n",
-                    nodecl_locus_to_str(nodecl_shaped_expr),
-                    codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
-        }
+        warn_printf("%s: warning: shaped expression '%s' has type 'void*', assuming 'char*' instead\n",
+                nodecl_locus_to_str(nodecl_shaped_expr),
+                codegen_to_str(nodecl_shaped_expr, nodecl_retrieve_context(nodecl_shaped_expr)));
         shaped_expr_type = get_pointer_type(get_char_type());
     }
 
@@ -19161,60 +18842,57 @@ static void check_shaping_expression(AST expression,
                 || ASTType(shaped_expr) == AST_ARRAY_SECTION
                 || ASTType(shaped_expr) == AST_ARRAY_SECTION_SIZE))
     {
-        if (!checking_ambiguity())
+        warn_printf("%s: warning: syntax '%s%s' is equivalent to '%s(%s)'\n",
+                ast_location(expression),
+                prettyprint_shape(shape_list),
+                prettyprint_in_buffer(shaped_expr),
+                prettyprint_shape(shape_list),
+                prettyprint_in_buffer(shaped_expr));
+
+        AST subscripted_item = shaped_expr;
+        while (ASTType(subscripted_item) == AST_ARRAY_SUBSCRIPT
+                || ASTType(subscripted_item) == AST_ARRAY_SECTION
+                || ASTType(subscripted_item) == AST_ARRAY_SECTION_SIZE)
         {
-            warn_printf("%s: warning: syntax '%s%s' is equivalent to '%s(%s)'\n",
-                    ast_location(expression),
-                    prettyprint_shape(shape_list),
-                    prettyprint_in_buffer(shaped_expr),
-                    prettyprint_shape(shape_list),
-                    prettyprint_in_buffer(shaped_expr));
-
-            AST subscripted_item = shaped_expr;
-            while (ASTType(subscripted_item) == AST_ARRAY_SUBSCRIPT
-                    || ASTType(subscripted_item) == AST_ARRAY_SECTION
-                    || ASTType(subscripted_item) == AST_ARRAY_SECTION_SIZE)
-            {
-                subscripted_item = ASTSon0(subscripted_item);
-            }
-
-            AST subscript_item = shaped_expr;
-            const char* array_subscript = "";
-            for (;;)
-            {
-                if (ASTType(subscript_item) == AST_ARRAY_SUBSCRIPT)
-                {
-                    uniquestr_sprintf(&array_subscript, "[%s]%s",
-                            prettyprint_in_buffer(ASTSon1(subscript_item)),
-                            array_subscript);
-                }
-                else if (ASTType(subscript_item) == AST_ARRAY_SECTION)
-                {
-                    uniquestr_sprintf(&array_subscript, "[%s:%s]%s",
-                            prettyprint_in_buffer(ASTSon1(subscript_item)),
-                            prettyprint_in_buffer(ASTSon2(subscript_item)),
-                            array_subscript);
-                }
-                else if (ASTType(subscript_item) == AST_ARRAY_SECTION_SIZE)
-                {
-                    uniquestr_sprintf(&array_subscript, "[%s;%s]%s",
-                            prettyprint_in_buffer(ASTSon1(subscript_item)),
-                            prettyprint_in_buffer(ASTSon2(subscript_item)),
-                            array_subscript);
-                }
-                else
-                {
-                    break;
-                }
-                subscript_item = ASTSon0(subscript_item);
-            }
-
-            info_printf("%s: info: did you actually mean '(%s%s)%s'?\n",
-                    ast_location(expression),
-                    prettyprint_shape(shape_list),
-                    prettyprint_in_buffer(subscripted_item),
-                    array_subscript);
+            subscripted_item = ASTSon0(subscripted_item);
         }
+
+        AST subscript_item = shaped_expr;
+        const char* array_subscript = "";
+        for (;;)
+        {
+            if (ASTType(subscript_item) == AST_ARRAY_SUBSCRIPT)
+            {
+                uniquestr_sprintf(&array_subscript, "[%s]%s",
+                        prettyprint_in_buffer(ASTSon1(subscript_item)),
+                        array_subscript);
+            }
+            else if (ASTType(subscript_item) == AST_ARRAY_SECTION)
+            {
+                uniquestr_sprintf(&array_subscript, "[%s:%s]%s",
+                        prettyprint_in_buffer(ASTSon1(subscript_item)),
+                        prettyprint_in_buffer(ASTSon2(subscript_item)),
+                        array_subscript);
+            }
+            else if (ASTType(subscript_item) == AST_ARRAY_SECTION_SIZE)
+            {
+                uniquestr_sprintf(&array_subscript, "[%s;%s]%s",
+                        prettyprint_in_buffer(ASTSon1(subscript_item)),
+                        prettyprint_in_buffer(ASTSon2(subscript_item)),
+                        array_subscript);
+            }
+            else
+            {
+                break;
+            }
+            subscript_item = ASTSon0(subscript_item);
+        }
+
+        info_printf("%s: info: did you actually mean '(%s%s)%s'?\n",
+                ast_location(expression),
+                prettyprint_shape(shape_list),
+                prettyprint_in_buffer(subscripted_item),
+                array_subscript);
     }
 
 
@@ -19352,11 +19030,8 @@ static char check_default_initialization_(scope_entry_t* entry,
             && !is_rebindable_reference_type(t))
     {
         // References cannot be default initialized
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: reference '%s' has not been initialized\n",
-                    locus_to_str(locus), get_qualified_symbol_name(entry, entry->decl_context));
-        }
+        error_printf("%s: error: reference '%s' has not been initialized\n",
+                locus_to_str(locus), get_qualified_symbol_name(entry, entry->decl_context));
         return 0;
     }
 
@@ -19383,13 +19058,10 @@ static char check_default_initialization_(scope_entry_t* entry,
         {
             if (entry_list_size(candidates) != 0)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no default constructor for class type '%s' when initializing '%s'\n",
-                            locus_to_str(locus),
-                            print_type_str(t, decl_context),
-                            get_qualified_symbol_name(entry, entry->decl_context));
-                }
+                error_printf("%s: error: no default constructor for class type '%s' when initializing '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(t, decl_context),
+                        get_qualified_symbol_name(entry, entry->decl_context));
             }
             entry_list_free(candidates);
             return 0;
@@ -19466,12 +19138,9 @@ char check_copy_constructor(scope_entry_t* entry,
         {
             if (entry_list_size(candidates) != 0)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no copy constructor for type '%s'\n",
-                            locus_to_str(locus),
-                            print_type_str(t, decl_context));
-                }
+                error_printf("%s: error: no copy constructor for type '%s'\n",
+                        locus_to_str(locus),
+                        print_type_str(t, decl_context));
             }
             entry_list_free(candidates);
             return 0;
@@ -19569,18 +19238,15 @@ char check_copy_assignment_operator(scope_entry_t* entry,
 
         if (overloaded_call == NULL)
         {
-            if (!checking_ambiguity())
-            {
-                const char*  c = NULL;;
-                uniquestr_sprintf(&c, "copy assignment operator of class %s", entry->symbol_name);
-                error_message_overload_failed(candidate_set, 
-                        c,
-                        decl_context,
-                        num_arguments, arguments,
-                        /* implicit_argument */ NULL,
-                        locus);
-                entry_list_free(operator_overload_set);
-            }
+            const char*  c = NULL;;
+            uniquestr_sprintf(&c, "copy assignment operator of class %s", entry->symbol_name);
+            error_message_overload_failed(candidate_set, 
+                    c,
+                    decl_context,
+                    num_arguments, arguments,
+                    /* implicit_argument */ NULL,
+                    locus);
+            entry_list_free(operator_overload_set);
             candidate_set_free(&candidate_set);
             return 0;
         }
@@ -19678,18 +19344,15 @@ char check_move_assignment_operator(scope_entry_t* entry,
 
         if (overloaded_call == NULL)
         {
-            if (!checking_ambiguity())
-            {
-                const char*  c = NULL;;
-                uniquestr_sprintf(&c, "move assignment operator of class %s", entry->symbol_name);
-                error_message_overload_failed(candidate_set, 
-                        c,
-                        decl_context,
-                        num_arguments, arguments,
-                        /* implicit_argument */ NULL,
-                        locus);
-                entry_list_free(operator_overload_set);
-            }
+            const char*  c = NULL;;
+            uniquestr_sprintf(&c, "move assignment operator of class %s", entry->symbol_name);
+            error_message_overload_failed(candidate_set, 
+                    c,
+                    decl_context,
+                    num_arguments, arguments,
+                    /* implicit_argument */ NULL,
+                    locus);
+            entry_list_free(operator_overload_set);
             candidate_set_free(&candidate_set);
             return 0;
         }
@@ -20862,12 +20525,9 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
 
     if (!valid)
     {
-        if (!checking_ambiguity())
-        {
             error_printf("%s: error: invalid template argument '%s' for a nontype template parameter\n",
                     nodecl_locus_to_str(nodecl_expr),
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)));
-        }
 
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
         nodecl_free(nodecl_expr);
@@ -20877,12 +20537,9 @@ char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl_expr,
     if (should_be_a_constant_expression
             && !nodecl_is_constant(nodecl_expr))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: nontype template argument '%s' is not constant\n",
-                    nodecl_locus_to_str(nodecl_expr),
-                    codegen_to_str(nodecl_expr, decl_context));
-        }
+        error_printf("%s: error: nontype template argument '%s' is not constant\n",
+                nodecl_locus_to_str(nodecl_expr),
+                codegen_to_str(nodecl_expr, decl_context));
         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
         nodecl_free(nodecl_expr);
         return 0;

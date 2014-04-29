@@ -47,10 +47,18 @@ void warn_or_error_printf(char emit_error, const char* format, ...)  CHECK_PRINT
 // Change diagnosting context
 
 diagnostic_context_t* diagnostic_context_get_current(void);
+
+void diagnostic_context_push(diagnostic_context_t*);
+void diagnostic_context_pop(void);
+
 void diagnostic_context_commit(diagnostic_context_t*);
 void diagnostic_context_discard(diagnostic_context_t*);
 
 diagnostic_context_t* diagnostic_context_new_buffered(void);
+
+diagnostic_context_t* diagnostic_context_push_buffered(void);
+void diagnostic_context_pop_and_discard(void);
+void diagnostic_context_pop_and_commit(void);
 
 MCXX_END_DECLS
 

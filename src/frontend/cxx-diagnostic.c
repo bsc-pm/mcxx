@@ -24,7 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdarg.h>
 #include <signal.h>
@@ -60,7 +59,10 @@ struct diagnostic_context_tag
     int num_warning;
 };
 
-static diagnostic_context_t* current_diagnostic;
+static int max_diagnostic_contexts = 0;
+static int current_diagnostic_idx = 0;
+static diagnostic_context_t** diagnostic_stack = 0;
+#define current_diagnostic_context (diagnostic_stack[current_diagnostic_idx])
 
 //
 // Diagnose to stderr
@@ -75,7 +77,6 @@ struct diagnostic_context_stderr_tag
 static void diagnose_to_stderr(diagnostic_context_stderr_t* ctx, diagnostic_severity_t severity, const char* message)
 {
     fprintf(stderr, message);
-    xfree((char*)message);
 
     switch (severity)
     {
@@ -87,6 +88,8 @@ static void diagnose_to_stderr(diagnostic_context_stderr_t* ctx, diagnostic_seve
             break;
         case DS_ERROR:
             ctx->_base.num_error++;
+            if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+                raise(SIGABRT);
             break;
         default:
             internal_error("Invalid severity value %d", severity);
@@ -147,6 +150,13 @@ struct severity_message_pair_tag
     const char* message;
 };
 
+char same_diag_pair(struct severity_message_pair_tag m1, struct severity_message_pair_tag m2)
+{
+    return (m1.severity == m2.severity
+            && m1.message == m2.message);
+}
+
+
 typedef struct diagnostic_buffered_tag diagnostic_context_buffered_t;
 
 struct diagnostic_buffered_tag
@@ -161,21 +171,26 @@ static void diagnose_to_buffer(diagnostic_context_buffered_t* ctx,
         const char* message)
 {
     struct severity_message_pair_tag pair = { severity, message };
-    P_LIST_ADD(ctx->diagnostics, ctx->num_diagnostics, pair);
+    int prev = ctx->num_diagnostics;
+    P_LIST_ADD_ONCE_FUN(ctx->diagnostics, ctx->num_diagnostics, pair, same_diag_pair);
 
-    switch (severity)
+    if (prev < ctx->num_diagnostics)
     {
-        case DS_INFO:
-            ctx->_base.num_info++;
-            break;
-        case DS_WARNING:
-            ctx->_base.num_warning++;
-            break;
-        case DS_ERROR:
-            ctx->_base.num_error++;
-            break;
-        default:
-            internal_error("Invalid severity value %d", severity);
+        // Was it actually added?
+        switch (severity)
+        {
+            case DS_INFO:
+                ctx->_base.num_info++;
+                break;
+            case DS_WARNING:
+                ctx->_base.num_warning++;
+                break;
+            case DS_ERROR:
+                ctx->_base.num_error++;
+                break;
+            default:
+                internal_error("Invalid severity value %d", severity);
+        }
     }
 }
 
@@ -197,11 +212,6 @@ static int diagnose_to_buffer_count(diagnostic_context_buffered_t* ctx,
 
 static void diagnose_to_buffer_discard(diagnostic_context_buffered_t* ctx)
 {
-    int i;
-    for (i = 0; i < ctx->num_diagnostics; i++)
-    {
-        xfree((char*)ctx->diagnostics[i].message);
-    }
     xfree(ctx->diagnostics);
     xfree(ctx);
 }
@@ -229,78 +239,143 @@ diagnostic_context_t* diagnostic_context_new_buffered(void)
     return (diagnostic_context_t*)result;
 }
 
+
 //
-// Generic interface
+// Diagnostic context manipulation
 //
+
+void diagnostic_context_discard(diagnostic_context_t* ctx)
+{
+    ERROR_CONDITION(ctx == current_diagnostic_context, "Trying to discard the current context", 0);
+    (ctx->discard)(ctx);
+}
+
+void diagnostic_context_commit(diagnostic_context_t* ctx)
+{
+    ERROR_CONDITION(ctx == current_diagnostic_context, "Trying to commit the current context to itself", 0);
+    (ctx->commit)(ctx, current_diagnostic_context);
+}
+
+void diagnostic_context_push(diagnostic_context_t* ctx)
+{
+    current_diagnostic_idx++;
+
+    if (current_diagnostic_idx == max_diagnostic_contexts)
+    {
+        max_diagnostic_contexts *= 2;
+        diagnostic_stack = xrealloc(diagnostic_stack, sizeof(*diagnostic_stack)*max_diagnostic_contexts);
+    }
+
+    diagnostic_stack[current_diagnostic_idx] = ctx;
+}
+
+void diagnostic_context_pop(void)
+{
+    current_diagnostic_idx--;
+    ERROR_CONDITION(current_diagnostic_idx < 0, "Underflow of diagnostic contexts", 0);
+}
+
+diagnostic_context_t* diagnostic_context_push_buffered(void)
+{
+    diagnostic_context_t *ctx = diagnostic_context_new_buffered();
+    diagnostic_context_push(ctx);
+
+    return ctx;
+}
+
+void diagnostic_context_pop_and_discard()
+{
+    diagnostic_context_t* ctx = current_diagnostic_context;
+    diagnostic_context_pop();
+    diagnostic_context_discard(ctx);
+}
+
+void diagnostic_context_pop_and_commit()
+{
+    diagnostic_context_t* ctx = current_diagnostic_context;
+    diagnostic_context_pop();
+    diagnostic_context_commit(ctx);
+}
+
 void diagnostics_reset(void)
 {
-    current_diagnostic = (diagnostic_context_t*)&diagnostic_context_stderr;
+    xfree(diagnostic_stack);
 
-    current_diagnostic->num_info
-        = current_diagnostic->num_warning
-        = current_diagnostic->num_error
+    max_diagnostic_contexts = 4;
+    current_diagnostic_idx = 0;
+    diagnostic_stack = xcalloc(sizeof(*diagnostic_stack), max_diagnostic_contexts);
+
+    diagnostic_stack[current_diagnostic_idx] = (diagnostic_context_t*)&diagnostic_context_stderr;
+
+    current_diagnostic_context->num_info
+        = current_diagnostic_context->num_warning
+        = current_diagnostic_context->num_error
         = 0;
 }
 
-diagnostic_context_t* diagnostic_context_get_current(void)
+extern inline diagnostic_context_t* diagnostic_context_get_current(void)
 {
-    return current_diagnostic;
+    return current_diagnostic_context;
 }
 
 int diagnostics_get_error_count(void)
 {
-    return (current_diagnostic->get_count)(current_diagnostic, DS_ERROR);
+    return (current_diagnostic_context->get_count)(current_diagnostic_context, DS_ERROR);
 }
 
 int diagnostics_get_warn_count(void)
 {
-    return (current_diagnostic->get_count)(current_diagnostic, DS_WARNING);
+    return (current_diagnostic_context->get_count)(current_diagnostic_context, DS_WARNING);
 }
+
+//
+// Generic interface
+//
 
 void error_printf(const char* format, ...)
 {
     va_list va;
     va_start(va, format);
-    char* message = NULL;
-    vasprintf(&message, format, va);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
     va_end(va);
 
-    (current_diagnostic->diagnose)(current_diagnostic, DS_ERROR, message);
+    (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_ERROR, message);
 }
 
 void warn_printf(const char* format, ...)
 {
     va_list va;
     va_start(va, format);
-    char* message = NULL;
-    vasprintf(&message, format, va);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
     va_end(va);
 
-    (current_diagnostic->diagnose)(current_diagnostic, DS_WARNING, message);
+    (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_WARNING, message);
 }
 
 void info_printf(const char* format, ...)
 {
     va_list va;
     va_start(va, format);
-    char* message = NULL;
-    vasprintf(&message, format, va);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
     va_end(va);
 
-    (current_diagnostic->diagnose)(current_diagnostic, DS_INFO, message);
+    (current_diagnostic_context->diagnose)(current_diagnostic_context, DS_INFO, message);
 }
 
 void warn_or_error_printf(char emit_error, const char* format, ...)
 {
     va_list va;
     va_start(va, format);
-    char* message = NULL;
-    vasprintf(&message, format, va);
+    const char* message = NULL;
+    uniquestr_vsprintf(&message, format, va);
     va_end(va);
 
     diagnostic_severity_t severity = DS_WARNING;
     if (emit_error)
         severity = DS_ERROR;
 
-    (current_diagnostic->diagnose)(current_diagnostic, severity, message);
+    (current_diagnostic_context->diagnose)(current_diagnostic_context, severity, message);
 }

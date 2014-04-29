@@ -157,11 +157,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
             if (updated_template_parameters->arguments[i] == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: could not instantiate template arguments of template type\n", 
-                            locus_to_str(locus));
-                }
+                error_printf("%s: could not instantiate template arguments of template type\n", 
+                        locus_to_str(locus));
                 return NULL;
             }
 

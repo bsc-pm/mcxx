@@ -186,14 +186,11 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
 
         if (!is_convertible)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                        nodecl_locus_to_str(nodecl_arg),
-                        kernel_args[i].position,
-                        codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
-                        print_type_str(dest_type, decl_context));
-            }
+            error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                    nodecl_locus_to_str(nodecl_arg),
+                    kernel_args[i].position,
+                    codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
+                    print_type_str(dest_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }

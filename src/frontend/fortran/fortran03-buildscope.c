@@ -3013,12 +3013,9 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 result = get_derived_type_name(ASTSon0(a), decl_context);
                 if (result == NULL)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: invalid type-specifier '%s'\n",
-                                ast_location(a),
-                                fortran_prettyprint_in_buffer(a));
-                    }
+                    error_printf("%s: error: invalid type-specifier '%s'\n",
+                            ast_location(a),
+                            fortran_prettyprint_in_buffer(a));
                     result = get_error_type();
                 }
                 break;
@@ -3032,21 +3029,15 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_PIXEL_TYPE:
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
-                            ast_location(a));
-                }
+                error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
+                        ast_location(a));
                 result = get_error_type();
                 break;
             }
         case AST_CLASS_NAME:
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: sorry: CLASS type-specifier not implemented\n",
-                            ast_location(a));
-                }
+                error_printf("%s: sorry: CLASS type-specifier not implemented\n",
+                        ast_location(a));
                 result = get_error_type();
                 break;
             }
@@ -6733,12 +6724,9 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
                 && new_namelist->kind != SK_UNDEFINED
                 && new_namelist->kind != SK_NAMELIST)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
-                        ast_location(name),
-                        ASTText(name));
-            }
+            error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
+                    ast_location(name),
+                    ASTText(name));
             // This will cause an ambiguity later
             new_namelist = NULL;
         }
@@ -9947,10 +9935,10 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
         }
     }
 
-    enter_test_expression();
+    diagnostic_context_push_buffered();
     nodecl_t nodecl_dummy = nodecl_null();
     fortran_check_expression(expr, decl_context, &nodecl_dummy);
-    leave_test_expression();
+    diagnostic_context_pop_and_discard();
 
     if (nodecl_is_err_expr(nodecl_dummy))
         return 0;
@@ -9984,11 +9972,11 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                     index_expr = i;
                     if (!is_declaration)
                     {
-                        enter_test_expression();
+                        diagnostic_context_push_buffered();
                         nodecl_t nodecl_dummy = nodecl_null();
                         fortran_check_expression(ASTSon0(stmt), decl_context, &nodecl_dummy);
                         ok = !nodecl_is_err_expr(nodecl_dummy);
-                        leave_test_expression();
+                        diagnostic_context_pop_and_discard();
                     }
                     break;
                 }
