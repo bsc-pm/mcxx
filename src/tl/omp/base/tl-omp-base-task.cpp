@@ -773,7 +773,6 @@ namespace TL { namespace OpenMP {
 
         TL::Analysis::AnalysisStaticInfo a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
-        std::cerr << "expr: " << expr.prettyprint() << " is_reduction? " << is_reduc << std::endl;
         return is_reduc;
 
         // // FIXME: How to know if a expression is a reduction will be implemented by
