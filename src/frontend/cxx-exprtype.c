@@ -642,8 +642,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_DESTRUCTOR_ID :
         case AST_DESTRUCTOR_TEMPLATE_ID :
             {
-                AST symbol = ASTSon0(expression);
-                check_symbol(symbol, decl_context, nodecl_output);
+                // AST symbol = ASTSon0(expression);
+                // check_symbol(symbol, decl_context, nodecl_output);
+                // This is an error of the grammar
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
