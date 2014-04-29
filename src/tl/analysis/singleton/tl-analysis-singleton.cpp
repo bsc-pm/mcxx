@@ -32,16 +32,17 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-auto-scope.hpp"
+#include "tl-cyclomatic-complexity.hpp"
 #include "tl-iv-analysis.hpp"
 #include "tl-liveness.hpp"
 #include "tl-loop-analysis.hpp"
 #include "tl-pcfg-visitor.hpp"
-#include "tl-reaching-definitions.hpp"
-#include "tl-range-analysis.hpp"
-#include "tl-task-sync.hpp"
 #include "tl-pointer-size.hpp"
-#include "tl-use-def.hpp"
+#include "tl-range-analysis.hpp"
+#include "tl-reaching-definitions.hpp"
+#include "tl-task-sync.hpp"
 #include "tl-task-syncs-tune.hpp"
+#include "tl-use-def.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -53,7 +54,8 @@ namespace Analysis {
         : _pcfgs( ), _tdgs( ),
           _pcfg(false), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
-          _tune_task_syncs( false ), _range( false ), _auto_scoping( false ), _auto_deps( false ), _tdg( false )
+          _tune_task_syncs( false ), _range( false ), _cyclomatic_complexity(false),
+          _auto_scoping( false ), _auto_deps( false ), _tdg( false )
     {}
 
     ExtensibleGraph* PCFGAnalysis_memento::get_pcfg( std::string name )
@@ -192,6 +194,16 @@ namespace Analysis {
         _range = true;
     }
 
+    bool PCFGAnalysis_memento::is_cyclomatic_complexity_computed() const
+    {
+        return _cyclomatic_complexity;
+    }
+    
+    void PCFGAnalysis_memento::set_cyclomatic_complexity_computed()
+    {
+        _cyclomatic_complexity = true;
+    }
+    
     bool PCFGAnalysis_memento::is_auto_scoping_computed( ) const
     {
         return _auto_scoping;
@@ -671,6 +683,31 @@ namespace Analysis {
         return pcfgs;
     }
 
+    ObjectList<ExtensibleGraph*> AnalysisSingleton::cyclomatic_complexity(PCFGAnalysis_memento& memento, 
+                                                                          const Nodecl::NodeclBase& ast)
+    {
+        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph(memento, ast);
+        
+        if(!memento.is_cyclomatic_complexity_computed())
+        {
+            memento.set_cyclomatic_complexity_computed();
+            
+            for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            {
+                if(VERBOSE)
+                    printf("Cyclomatic Complexity of PCFG '%s'", (*it)->get_name().c_str());
+                
+                // Compute the cyclomatic complexity of each PCFG
+                CyclomaticComplexity cc(*it);
+                unsigned int res = cc.compute_cyclomatic_complexity();
+                if(VERBOSE)
+                    printf(" = %d\n", res);
+            }
+        }
+        
+        return pcfgs;
+    }
+    
     ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping( PCFGAnalysis_memento& memento,
                                                                   const Nodecl::NodeclBase& ast )
     {

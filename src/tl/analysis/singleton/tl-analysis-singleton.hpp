@@ -71,6 +71,7 @@ namespace Analysis {
         bool _induction_variables;  //!<True when induction variable analysis has been applied
         bool _tune_task_syncs;      //!<True when the task synchronization has been tuned
         bool _range;                //!<True when range analysis has been applied
+        bool _cyclomatic_complexity;//!<True when cyclomatic complexity has been computed
         bool _auto_scoping;         //!<True when tasks auto-scoping has been calculated
         bool _auto_deps;            //!<True when tasks auto-dependencies has been calculated
         bool _tdg;                  //!<True when PCFG's tasks dependency graphs have been created
@@ -120,6 +121,8 @@ namespace Analysis {
         void set_tune_task_synchronizations( );
         bool is_range_analysis_computed( ) const;
         void set_range_analysis_computed( );
+        bool is_cyclomatic_complexity_computed() const;
+        void set_cyclomatic_complexity_computed();
         bool is_auto_scoping_computed( ) const;
         void set_auto_scoping_computed( );
         bool is_auto_deps_computed( ) const;
@@ -220,6 +223,8 @@ namespace Analysis {
 
         ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
+        ObjectList<ExtensibleGraph*> cyclomatic_complexity(PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast);
+        
         ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
