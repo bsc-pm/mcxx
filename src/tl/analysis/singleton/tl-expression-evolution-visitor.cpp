@@ -771,7 +771,8 @@ namespace Analysis
                 for(Utils::ext_sym_map::iterator it = def_nodes.first; it != def_nodes.second; ++it)
                 {
                     Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
-                    if(stmt_reach_def.is<Nodecl::Unknown>())
+                    if(stmt_reach_def.is_null() || 
+                            stmt_reach_def.is<Nodecl::Unknown>())
                         continue;
                     Node* reach_def_node = _pcfg->find_nodecl_pointer(stmt_reach_def);
                     if(reach_def_node == NULL)

@@ -45,18 +45,37 @@ namespace Analysis {
     {
         private:
             nodecl_to_node_map_t _scope_nodecl_to_node_map;     
+ 
+            bool nodecl_has_property_in_scope(
+                    Node* const scope_node,
+                    Node* const stmt_node,
+                    const Nodecl::NodeclBase& n,
+                    ExtensibleGraph* const pcfg,
+                    const bool consider_control_structures);
        
         protected:
             Node* retrieve_scope_node_from_nodecl(const Nodecl::NodeclBase& scope,
                     ExtensibleGraph* pcfg);
             ExtensibleGraph* retrieve_pcfg_from_func(const Nodecl::NodeclBase& n) const;
-
+/*
             bool nodecl_is_constant_at_statement(
                     Node* const scope_node,
                     Node* const stmt_node,
                     const Nodecl::NodeclBase& n,
                     ExtensibleGraph* const pcfg);
-
+*/
+            bool nodecl_is_invariant_in_scope(
+                    Node* const scope_node,
+                    Node* const stmt_node,
+                    const Nodecl::NodeclBase& n,
+                    ExtensibleGraph* const pcfg);
+ 
+            bool nodecl_value_is_invariant_in_scope(
+                    Node* const scope_node,
+                    Node* const stmt_node,
+                    const Nodecl::NodeclBase& n,
+                    ExtensibleGraph* const pcfg);
+ 
         public:
             // *** Constructors *** //
             //! Constructor useful to make queries that do not require previous analyses
@@ -71,13 +90,22 @@ namespace Analysis {
             DEPRECATED bool reach_defs_depend_on_iv(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-
+            /*
             virtual bool nodecl_is_constant_at_statement(
                     const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& n); */
+
+            bool nodecl_is_invariant_in_scope(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
- 
+
+            bool nodecl_value_is_invariant_in_scope(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& stmt,
+                    const Nodecl::NodeclBase& n);
     };
 }
 }
 
-#endif // TL_ANALYSIS_INTERFACE_HPP
+#endif 

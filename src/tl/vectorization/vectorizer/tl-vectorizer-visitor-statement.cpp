@@ -72,31 +72,23 @@ namespace Vectorization
                 _cache_enabled);
 
         // PROCESING LOOP CONTROL
+        bool init_next_need_vectorization =
+            loop_info.ivs_values_are_invariant_in_simd_scope();
+        bool condition_needs_vectorization =
+            loop_info.condition_is_invariant_in_simd_scope();
+
         // Init
-        bool ivs_lb_depend_on_simd_iv =
-            loop_info.ivs_lb_depend_on_simd_iv();
 
-        if (ivs_lb_depend_on_simd_iv)
+        if (init_next_need_vectorization)
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "VECTORIZER: IVs init depend on SIMD IV\n");
-            }
-        }
-        // Step
-        bool ivs_step_depend_on_simd_iv =
-            loop_info.ivs_step_depend_on_simd_iv();
-
-        if (ivs_step_depend_on_simd_iv)
-        {
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: IVs step depend on SIMD IV\n");
+                fprintf(stderr, "VECTORIZER: Init and Next need vectorization\n");
             }
         }
 
         // If Init or Step depends on SIMD IV both need to be vectorized
-        if (ivs_lb_depend_on_simd_iv || ivs_step_depend_on_simd_iv)
+        if (init_next_need_vectorization)
         {
             VECTORIZATION_DEBUG()
             {
@@ -114,20 +106,14 @@ namespace Vectorization
         }
 
         // Condition
-        bool condition_depends_on_simd_iv =
-            loop_info.condition_depends_on_simd_iv();
-
-        if (condition_depends_on_simd_iv)
+        if (condition_needs_vectorization)
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "VECTORIZER: Condition '%s' depends on SIMD IV\n",
+                fprintf(stderr, "VECTORIZER: Condition '%s' needs vectorization\n",
                         loop_control.get_cond().prettyprint().c_str());
             }
-        }
-
-        if (condition_depends_on_simd_iv)
-        {
+        
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Vectorizing loop condition\n");
@@ -169,7 +155,7 @@ namespace Vectorization
         _environment._analysis_scopes.pop_back();
 
 
-        if(condition_depends_on_simd_iv) // Remove mask pushed by loop control
+        if(condition_needs_vectorization) // Remove mask pushed by loop control
         {
             _environment._mask_list.pop_back();
         }

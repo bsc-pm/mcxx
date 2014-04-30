@@ -73,7 +73,7 @@ namespace Analysis
             for(; it != subscript.end() - 1 && result; ++it )
             {   
                 // All dimensions but the less significant must be constant
-                if(!nodecl_is_constant_at_statement(scope_node, n_node, n, pcfg) )
+                if(!nodecl_is_invariant_in_scope(scope_node, n_node, n, pcfg))
                 {
                     result = false;
                 }

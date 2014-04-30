@@ -50,11 +50,14 @@ namespace Vectorization
                     const VectorizerEnvironment& environment);
             VectorizerLoopInfo(const Nodecl::WhileStatement& n,
                     const VectorizerEnvironment& environment);
-
+/*
             bool ivs_lb_depend_on_simd_iv();
             bool condition_depends_on_simd_iv();
             bool ivs_ub_depend_on_simd_iv();
             bool ivs_step_depend_on_simd_iv();
+*/
+            bool ivs_values_are_invariant_in_simd_scope();
+            bool condition_is_invariant_in_simd_scope();
 
             int get_epilog_info(const Nodecl::ForStatement& for_statement,
                     VectorizerEnvironment& environment, bool& only_epilog);

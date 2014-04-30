@@ -170,13 +170,14 @@ namespace Vectorization
 
             // Get the registered node
             //it = _orig_to_copy_nodes.find(n);
-
+            /*
             for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it3 = _orig_to_copy_nodes.begin();
                     it3 != _orig_to_copy_nodes.end();
                     it3++)
             {
                 std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
             }
+            */
 
 
             internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy, %p %s",
@@ -282,7 +283,7 @@ namespace Vectorization
         return it->second;
     }
 
-    Nodecl::Utils::NodeclDeepCopyMap::iterator
+    DEPRECATED Nodecl::Utils::NodeclDeepCopyMap::iterator
         VectorizationAnalysisInterface::find_equal_nodecl(
             const Nodecl::NodeclBase& n,
             Nodecl::Utils::NodeclDeepCopyMap& map)
@@ -301,7 +302,7 @@ namespace Vectorization
         return map.end();
     }
 
-    Nodecl::NodeclBase VectorizationAnalysisInterface::get_translated_copy(
+    DEPRECATED Nodecl::NodeclBase VectorizationAnalysisInterface::get_translated_copy(
             const Nodecl::NodeclBase& n)
     {
         Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
@@ -331,7 +332,7 @@ namespace Vectorization
         }
     }
 
-    void VectorizationAnalysisInterface::register_node(
+    DEPRECATED void VectorizationAnalysisInterface::register_node(
             const Nodecl::NodeclBase& n)
     {
         if (_orig_to_copy_nodes.find(n) != _orig_to_copy_nodes.end())
@@ -413,7 +414,7 @@ namespace Vectorization
          */
     }
 
-    void VectorizationAnalysisInterface::unregister_nodes()
+    DEPRECATED void VectorizationAnalysisInterface::unregister_nodes()
     {
         for(std::list<Nodecl::NodeclBase>::iterator it =
                 _registered_nodes.begin();
@@ -689,14 +690,32 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizationAnalysisInterface::nodecl_is_constant_at_statement(
+    bool VectorizationAnalysisInterface::nodecl_is_invariant_in_scope(
             const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
     {
         bool result;
 
-        result = Analysis::AnalysisInterface::nodecl_is_constant_at_statement(
-                translate_input(scope), translate_input(n));
+        result = Analysis::AnalysisInterface::nodecl_is_invariant_in_scope(
+                translate_input(scope), translate_input(stmt),
+                translate_input(n));
+
+        //unregister_nodes();
+
+        return result;
+    }
+
+    bool VectorizationAnalysisInterface::nodecl_value_is_invariant_in_scope(
+            const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& stmt,
+            const Nodecl::NodeclBase& n)
+    {
+        bool result;
+
+        result = Analysis::AnalysisInterface::nodecl_value_is_invariant_in_scope(
+                translate_input(scope), translate_input(stmt),
+                translate_input(n));
 
         //unregister_nodes();
 

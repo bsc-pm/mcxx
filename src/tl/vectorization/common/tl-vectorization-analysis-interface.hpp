@@ -165,9 +165,15 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& ivs_scope);
 
-            virtual bool nodecl_is_constant_at_statement(
+            virtual bool nodecl_is_invariant_in_scope(
                     const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
+            virtual bool nodecl_value_is_invariant_in_scope(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& stmt,
+                    const Nodecl::NodeclBase& n);
+
 
             //
             // SIMD-specific methods

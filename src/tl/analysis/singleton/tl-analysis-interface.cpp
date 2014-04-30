@@ -23,6 +23,7 @@
  
 #include "tl-analysis-interface.hpp"
 
+#include "tl-induction-variables-data.hpp"
 //#include "cxx-process.h"
 //#include "tl-analysis-utils.hpp"
 //#include "tl-analysis-static-info.hpp"
@@ -91,26 +92,9 @@ namespace Analysis {
         return it->second;
     }
 
-    /* Example:
-     *
-     * if( i < 5 ) k = N;
-     * else k = M;
-     *
-     * k; <--- target
-     *
-     * reach_defs_depends_on_iv analyzes reaching definitions, 'N' and 'M' in the example,
-     * and their enclosing scopes, 'if( i < 5 )' in the example, to determine if any IV
-     * is involved in the evolution of 'k'.
-     *
-     * In this example, being 'i' and IV, the result is 'true'.
-     * Note the different between this query and reach_defs_contain_iv, where the result
-     * would be 'false'.
-     */
- 
-    // Beter name: evolution_depends_on_iv??
     DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
     {
-        if(n.is<Nodecl::Unknown>())
+        if(n.is_null() || n.is<Nodecl::Unknown>())
             return false;
             
         // Get reaching definitions for 'n' in its corresponding node
@@ -120,7 +104,8 @@ namespace Analysis {
         // Get the PCFG nodes where the reaching definitions where produced
         ObjectList<Node*> reach_defs_nodes;
         for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-            if(!it->second.first.is<Nodecl::Unknown>())
+            if(!it->second.first.is_null() &&
+                    !it->second.first.is<Nodecl::Unknown>())
             {
                 Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
                 reach_defs_nodes.append(pcfg->find_nodecl_pointer(stmt_reach_def));
@@ -196,6 +181,7 @@ end_depends:
         return result;
     }
 
+    /*
     bool AnalysisInterface::nodecl_is_constant_at_statement(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
@@ -214,7 +200,9 @@ end_depends:
 
         return nodecl_is_constant_at_statement(scope_node, stmt_node, n, pcfg);
     }
+    */
 
+    /*
     bool AnalysisInterface::nodecl_is_constant_at_statement(
             Node* const scope_node,
             Node* const stmt_node,
@@ -297,6 +285,193 @@ end_depends:
         }
         
         return true;
+    }*/
+
+    bool AnalysisInterface::nodecl_has_property_in_scope(
+            Node* const scope_node,
+            Node* const stmt_node,
+            const Nodecl::NodeclBase& n,
+            ExtensibleGraph* const pcfg,
+            const bool consider_control_structures)
+    {
+        // Base cases for INVARIANT: If the same structure is needed with
+        // another property, please use a template or pass a function pointer
+        // as parameter to implement the base cases
+        if(Nodecl::Utils::nodecl_is_literal(n))
+            return true;
+
+        if(n.is<Nodecl::FunctionCall>()) 
+            return false;
+
+        ObjectList<Utils::InductionVariableData *> scope_ivs =
+            scope_node->get_induction_variables();
+
+        for(ObjectList<Utils::InductionVariableData *>::iterator it = scope_ivs.begin();
+                it != scope_ivs.end();
+                it++)
+        {
+            if(Nodecl::Utils::structurally_equal_nodecls(n,
+                    (*it)->get_variable().get_nodecl(), true))
+                return false;
+        }
+        // End of base cases
+
+        
+        Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
+
+        // Get all memory accesses and study their RDs 
+        // Note that we want all memory access, not only the symbols.
+        // Example: a[i]
+        // retrieving all symbols will return: a, i
+        // retrieving all memory accesses will return: a, i, a[i]
+        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
+ 
+        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
+                n_mem_accesses.begin(); 
+                n_ma_it != n_mem_accesses.end();
+                n_ma_it++)
+        {
+            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
+
+            if(reach_defs_in.find(n_ma_es)==reach_defs_in.end())
+            {
+                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
+                {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
+                    continue;
+                }
+                else
+                {
+                    WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
+                                    n_ma_it->prettyprint().c_str());
+                }
+            }
+
+            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
+                reach_defs_in.equal_range(*n_ma_it);
+
+            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
+                rd_it != bounds.second;
+                rd_it++)
+            {
+                if(rd_it->second.first.is<Nodecl::Unknown>())
+                    continue;
+
+                // Get the PCFG nodes where the reaching definitions where produced
+                Nodecl::NodeclBase stmt_reach_def = 
+                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+
+                // Skip recursive RD (IV step)
+                if (stmt_reach_def == n)
+                    continue;
+
+                Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
+
+                // RD out of target scope
+                if(!ExtensibleGraph::node_contains_node(scope_node, reach_defs_node))
+                {
+                    continue;
+                }
+                
+                if (!nodecl_has_property_in_scope(scope_node, reach_defs_node, 
+                            stmt_reach_def, pcfg, consider_control_structures))
+                    return false;
+
+                // Look inside control structures if enabled
+                if (consider_control_structures)
+                {
+                    Node* control_structure = 
+                        ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
+
+                    if((control_structure != NULL) && 
+                            (scope_node == control_structure ||
+                             ExtensibleGraph::node_contains_node(scope_node, control_structure)))
+                    {
+                        Node* cond_node = control_structure->get_condition_node();
+                        ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+                        for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
+                                it != cond_node_stmts.end(); 
+                                ++it)
+                        {
+                            const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
+                                Nodecl::Utils::get_all_memory_accesses(*it);
+                            for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
+                                    itt != stms_mem_accesses.end();
+                                    ++itt)
+                            {
+                                if(!nodecl_has_property_in_scope(scope_node,
+                                            cond_node, *itt, pcfg,
+                                            consider_control_structures))
+                                    return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    bool AnalysisInterface::nodecl_is_invariant_in_scope(
+            Node* const scope_node,
+            Node* const stmt_node,
+            const Nodecl::NodeclBase& n,
+            ExtensibleGraph* const pcfg)
+    {
+        return nodecl_has_property_in_scope(scope_node,
+                stmt_node, n, pcfg, true /*control structures*/);
+
+    }
+
+    bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
+            Node* const scope_node,
+            Node* const stmt_node,
+            const Nodecl::NodeclBase& n,
+            ExtensibleGraph* const pcfg)
+    {
+        return nodecl_has_property_in_scope(scope_node,
+                stmt_node, n, pcfg, false /*control structures*/);
+
+    }
+
+    bool AnalysisInterface::nodecl_is_invariant_in_scope(
+            const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& stmt,
+            const Nodecl::NodeclBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+
+        // Retrieve node
+        Node* stmt_node = pcfg->find_nodecl_pointer(stmt);
+        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for statement '%s:%s'. \n",
+                stmt.get_locus_str().c_str(), stmt.prettyprint().c_str());
+
+        //has_property implements is_invariant so far
+        return nodecl_is_invariant_in_scope(scope_node, stmt_node, n, pcfg);
+    }
+
+    // nodecl_value means that control structures are not taking into account.
+    // Only the value (definition) of the nodecl
+    bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
+            const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& stmt,
+            const Nodecl::NodeclBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+
+        // Retrieve node
+        Node* stmt_node = pcfg->find_nodecl_pointer(stmt);
+        ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for statement '%s:%s'. \n",
+                stmt.get_locus_str().c_str(), stmt.prettyprint().c_str());
+
+        //has_property implements is_invariant so far
+        return nodecl_value_is_invariant_in_scope(scope_node, stmt_node, n, pcfg);
     }
 }
 }

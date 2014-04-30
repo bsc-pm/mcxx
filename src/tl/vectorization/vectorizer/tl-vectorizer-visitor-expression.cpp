@@ -812,8 +812,9 @@ namespace Vectorization
             // Vector Store
             // Constant ArraySubscript, nothing to do
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    nodecl_is_constant_at_statement(
+                    nodecl_is_invariant_in_scope(
                         _environment._analysis_simd_scope,
+                        lhs,
                         lhs))
             {
                 std::cerr << "Constant store: " << lhs.prettyprint()
@@ -1191,9 +1192,9 @@ namespace Vectorization
 
         // Vector Promotion from constant ArraySubscript
         if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                nodecl_is_constant_at_statement(
+                nodecl_is_invariant_in_scope(
                     _environment._analysis_simd_scope,
-                    n))
+                    n, n))
         {
             std::cerr << "Constant load: " << n.prettyprint() << "\n";
 
@@ -1549,7 +1550,8 @@ namespace Vectorization
                 symbol_type_promotion(n);
             }
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    nodecl_is_constant_at_statement(_environment._analysis_simd_scope, n))
+                    nodecl_is_invariant_in_scope(
+                        _environment._analysis_simd_scope, n, n))
             {
                 VECTORIZATION_DEBUG()
                 {

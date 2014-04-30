@@ -26,10 +26,10 @@
 
 #include "tl-vectorizer-loop-info.hpp"
 
-#include "cxx-cexpr.h"
-
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
+
+#include "cxx-cexpr.h"
 
 namespace TL
 {
@@ -57,7 +57,55 @@ namespace Vectorization
     {
     }
 
-    bool VectorizerLoopInfo::ivs_lb_depend_on_simd_iv()
+    bool VectorizerLoopInfo::ivs_values_are_invariant_in_simd_scope()
+    {
+        bool ivs_values_invariant = true;
+
+        if (_loop.is<ForStatement>())
+        {
+            Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
+            Nodecl::NodeclBase statements = for_stmt.get_statement();
+
+            for(objlist_nodecl_t::const_iterator it = _ivs.begin();
+                    ivs_values_invariant && it != _ivs.end();
+                    it ++)
+            {
+                // Use for statements as statement
+                ivs_values_invariant = VectorizationAnalysisInterface::
+                    _vectorizer_analysis->nodecl_value_is_invariant_in_scope(
+                        _environment._analysis_simd_scope,
+                        statements,
+                        *it);
+            }
+        }
+        else
+        {
+            running_error("VectorizerLoopInfo: While not supported yet");
+        }
+
+        return ivs_values_invariant;
+    }
+
+    bool VectorizerLoopInfo::condition_is_invariant_in_simd_scope()
+    {
+        if (_loop.is<ForStatement>())
+        {
+            Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
+            Nodecl::NodeclBase statements = for_stmt.get_statement();
+
+            return VectorizationAnalysisInterface::_vectorizer_analysis->
+                nodecl_is_invariant_in_scope(
+                        _environment._analysis_simd_scope,
+                        statements,
+                        _condition);
+        }
+        else
+        {
+            running_error("VectorizerLoopInfo: While not supported yet");
+        }
+    }
+/*
+    DEPRECATED bool VectorizerLoopInfo::ivs_lb_depend_on_simd_iv()
     {
         bool result = false;
 
@@ -75,14 +123,14 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerLoopInfo::condition_depends_on_simd_iv()
+    DEPRECATED bool VectorizerLoopInfo::condition_depends_on_simd_iv()
     {
         return VectorizationAnalysisInterface::_vectorizer_analysis->
            is_induction_variable_dependent_expression(
                     _environment._analysis_simd_scope, _condition);
     }
 
-    bool VectorizerLoopInfo::ivs_ub_depend_on_simd_iv()
+    DEPRECATED bool VectorizerLoopInfo::ivs_ub_depend_on_simd_iv()
     {
         internal_error("ivs_ub_depend_on_simd_iv is not working", 0);
 
@@ -102,7 +150,7 @@ namespace Vectorization
         return result;
     }
 
-    bool VectorizerLoopInfo::ivs_step_depend_on_simd_iv()
+    DEPRECATED bool VectorizerLoopInfo::ivs_step_depend_on_simd_iv()
     {
         bool result = false;
 
@@ -119,7 +167,7 @@ namespace Vectorization
 
         return result;
     }
-
+*/
     int VectorizerLoopInfo::get_epilog_info(
             const Nodecl::ForStatement& for_statement,
             VectorizerEnvironment& environment,

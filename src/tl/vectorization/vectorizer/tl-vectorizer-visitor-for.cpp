@@ -190,11 +190,11 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
         bool lhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->nodecl_is_constant_at_statement(
-                    _environment._analysis_simd_scope, lhs);
+            _vectorizer_analysis->nodecl_is_invariant_in_scope(
+                    _environment._analysis_simd_scope, lhs, lhs);
         bool rhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->nodecl_is_constant_at_statement(
-                    _environment._analysis_simd_scope, rhs);
+            _vectorizer_analysis->nodecl_is_invariant_in_scope(
+                    _environment._analysis_simd_scope, rhs, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
 
