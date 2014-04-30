@@ -174,7 +174,7 @@ namespace Utils {
             ext_sym_map::iterator it2 = c2.begin( );
             for( ; it1 != c1.end( ); ++it1, ++it2 )
             {
-                if( (it1->first.get_nodecl( ) != it2->first.get_nodecl( )) ||
+                if( !Nodecl::Utils::structurally_equal_nodecls(it1->first.get_nodecl( ), it2->first.get_nodecl( )) ||
                     (it1->second.first != it2->second.first) )
                 {
                     result = false;

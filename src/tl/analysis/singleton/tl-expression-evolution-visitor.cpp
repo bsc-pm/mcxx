@@ -771,10 +771,23 @@ namespace Analysis
                 for(Utils::ext_sym_map::iterator it = def_nodes.first; it != def_nodes.second; ++it)
                 {
                     Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
-                    if(stmt_reach_def.is<Nodecl::Undefined>())
+                    if(stmt_reach_def.is<Nodecl::Unknown>())
                         continue;
                     Node* reach_def_node = _pcfg->find_nodecl_pointer(stmt_reach_def);
-                    ERROR_CONDITION(reach_def_node==NULL, "Nodecl corresponding to reaching definition %s not found\n", stmt_reach_def.prettyprint().c_str() );
+                    if(reach_def_node == NULL)
+                    {
+                        Nodecl::NodeclBase stmt_reach_def_no_conv = stmt_reach_def.no_conv();
+                        if(stmt_reach_def_no_conv.is<Nodecl::ArraySubscript>() || 
+                            stmt_reach_def_no_conv.is<Nodecl::ClassMemberAccess>())
+                        {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
+                            continue;
+                        }
+                        else
+                        {
+                            WARNING_MESSAGE("Nodecl corresponding to reaching definition %s not found\n", 
+                                            stmt_reach_def.prettyprint().c_str() );
+                        }
+                    }
                     // FIXME This comparison is not enough because we can have cycles in the reaching definitions of the variables
                     // A solution might be to store the list of nodes we have visited. In that case, this list must be reseted each time we initiate a walk
                     if(reach_def_node!=_n_node)
