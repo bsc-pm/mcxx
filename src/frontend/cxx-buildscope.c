@@ -1512,7 +1512,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context,
             && decl_context.current_scope->kind != NAMESPACE_SCOPE
             && decl_context.current_scope->kind != BLOCK_SCOPE)
     {
-        error_printf("%s: error: using-declaration not in a class, namespace or block scope",
+        error_printf("%s: error: using-declaration not in a class, namespace or block scope\n",
                 ast_location(a));
         return;
     }
@@ -15327,7 +15327,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (current_gather_info.is_static)
                         {
-                            error_printf("%s: error: a bitfield declaration cannot be static",
+                            error_printf("%s: error: a bitfield declaration cannot be static\n",
                                     ast_location(declarator));
                             return;
                         }

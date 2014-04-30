@@ -1433,7 +1433,7 @@ static void character_literal_type(AST expr, nodecl_t* nodecl_output)
                                {
                                    char ill_literal[11];
                                    strncpy(ill_literal, &literal[1], /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                   error_printf("%s: error: invalid universal literal character name '%s'", 
+                                   error_printf("%s: error: invalid universal literal character name '%s'\n",
                                            ast_location(expr),
                                            ill_literal);
                                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
@@ -1865,7 +1865,7 @@ static void compute_length_of_literal_string(AST expr,
                                         {
                                             char ill_literal[11];
                                             strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                            error_printf("%s: error: invalid universal literal name '%s'", 
+                                            error_printf("%s: error: invalid universal literal name '%s'\n", 
                                                     ast_location(expr),
                                                     ill_literal);
                                             *num_codepoints = -1;
@@ -14844,7 +14844,7 @@ static char update_stack_to_designator(type_t* declared_type,
             nodecl_t expr = nodecl_get_child(current_designator, 0);
             if (!nodecl_is_constant(expr))
             {
-                error_printf("%s: error: index designator [%s] is not constant", nodecl_locus_to_str(expr),
+                error_printf("%s: error: index designator [%s] is not constant\n", nodecl_locus_to_str(expr),
                         codegen_to_str(expr, nodecl_retrieve_context(expr)));
             }
             else
@@ -18075,7 +18075,7 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
     }
     else
     {
-        error_printf("%s: error: __builtin_types_compatible_p is not implemented for dependent expressions",
+        error_printf("%s: error: __builtin_types_compatible_p is not implemented for dependent expressions\n",
                 ast_location(expression));
     }
 }
@@ -19408,23 +19408,16 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
         const locus_t* locus UNUSED_PARAMETER)
 {
     entry = entry_advance_aliases(entry);
-    info_printf("%s: note:    %s%s",
+    info_printf("%s: note:    %s%s%s%s\n",
             locus_to_str(entry->locus),
             (entry->entity_specs.is_member && entry->entity_specs.is_static) ? "static " : "",
             !is_computed_function_type(entry->type_information)
             ?  print_decl_type_str(entry->type_information, entry->decl_context,
                 get_qualified_symbol_name(entry, entry->decl_context)) 
-            : " <<generic function>>");
-
-    if (entry->entity_specs.is_builtin)
-    {
-        info_printf(" [built-in]");
-    }
-    if (!entry->entity_specs.is_user_declared)
-    {
-        info_printf(" [implicit]");
-    }
-    info_printf("\n");
+            : " <<generic function>>",
+            entry->entity_specs.is_builtin ? " [built-in]" : "",
+            entry->entity_specs.is_user_declared ? " [implicit]" : ""
+            );
 }
 
 void diagnostic_candidates(scope_entry_list_t* candidates, const locus_t* locus)

@@ -4380,7 +4380,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
                                     " the type of the template parameter\n");
                         }
-                        error_printf("%s: error: cannot solve address of overload function in template argument number %d",
+                        error_printf("%s: error: cannot solve address of overload function in template argument number %d\n",
                                 locus_to_str(locus), i);
                         free_template_parameter_list(result);
                         return NULL;
@@ -4530,7 +4530,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                     fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
                                             " the type of the template parameter\n");
                                 }
-                                error_printf("%s: error: cannot solve address of overload function in template argument number %d",
+                                error_printf("%s: error: cannot solve address of overload "
+                                        "function in template argument number %d\n",
                                         locus_to_str(locus), i);
                                 free_template_parameter_list(result);
                                 return NULL;

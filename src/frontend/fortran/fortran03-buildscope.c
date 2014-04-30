@@ -5160,7 +5160,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (is_sequence)
                 {
-                    error_printf("%s: error: SEQUENCE statement specified twice", 
+                    error_printf("%s: error: SEQUENCE statement specified twice\n", 
                             ast_location(private_or_sequence));
                 }
                 is_sequence = 1;
@@ -5169,7 +5169,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (fields_are_private)
                 {
-                    error_printf("%s: error: PRIVATE statement specified twice", 
+                    error_printf("%s: error: PRIVATE statement specified twice\n", 
                             ast_location(private_or_sequence));
                 }
                 // This can only be a private_stmt, no need to check it here
@@ -7421,7 +7421,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     if (decl_context.current_scope->related_entry == NULL
             || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
     {
-        error_printf("%s: error: RETURN statement not valid in this context", ast_location(a));
+        error_printf("%s: error: RETURN statement not valid in this context\n", ast_location(a));
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
                 );

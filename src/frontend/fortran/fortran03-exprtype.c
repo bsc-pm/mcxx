@@ -2054,7 +2054,8 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             {
                 if (member_index < 0)
                 {
-                    error_printf("%s: error: component specifier at position %d lacks a component name", ast_location(component_spec),
+                    error_printf("%s: error: component specifier at position %d lacks a component name\n",
+                            ast_location(component_spec),
                             component_position);
                     *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
                     return;

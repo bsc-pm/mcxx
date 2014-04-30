@@ -326,7 +326,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size),
                                         const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
-                            error_printf("%s: error: invalid bitfield of size '%d'",
+                            error_printf("%s: error: invalid bitfield of size '%d'\n",
                                     locus_to_str(new_member->locus),
                                     const_value_cast_to_4(
                                         nodecl_get_constant(new_member->entity_specs.bitfield_size)));
