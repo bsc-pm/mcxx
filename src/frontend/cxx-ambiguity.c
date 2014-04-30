@@ -590,11 +590,13 @@ static int solve_ambiguous_statement_choose_interpretation(AST current_interpret
             AST_DECLARATION_STATEMENT);
 }
 
+#if 0
 static char solve_ambiguous_statement_fallback(AST a, decl_context_t decl_context UNUSED_PARAMETER,
         int position UNUSED_PARAMETER, void *p UNUSED_PARAMETER)
 {
     return (ASTType(a) == AST_EXPRESSION_STATEMENT);
 }
+#endif
 
 void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 {
@@ -1882,11 +1884,13 @@ static char solve_ambiguous_for_init_statement_check_interpretation(AST for_init
     return current;
 }
 
+#if 0
 static char solve_ambiguous_for_init_statement_fallback(AST a, decl_context_t decl_context,
         int position, void *p)
 {
     return solve_ambiguous_statement_fallback(a, decl_context, position, p);
 }
+#endif
 
 void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
 {
