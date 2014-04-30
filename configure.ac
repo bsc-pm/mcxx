@@ -1335,6 +1335,21 @@ AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
 
+
+CORRECTNESS_LOG_DIR=""
+
+if test x$disable_analysis = xno;
+then
+    AC_ARG_WITH([correctness-logs],
+        AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
+            [
+                CORRECTNESS_LOG_DIR="${withval}"
+            ]
+    )
+fi
+
+AC_SUBST([CORRECTNESS_LOG_DIR])
+
 dnl ------------------------------------
 
 

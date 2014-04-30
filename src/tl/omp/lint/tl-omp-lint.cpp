@@ -24,17 +24,56 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-omp-lint.hpp"
-#include "tl-datareference.hpp"
-#include "tl-tribool.hpp"
 #include "cxx-diagnostic.h"
+#include "tl-datareference.hpp"
+#include "tl-omp-lint.hpp"
+#include "tl-tribool.hpp"
+
+#include <stdio.h>
+#include <time.h>
 
 namespace TL { 
 namespace OpenMP {
     
+namespace {
+    std::string log_file_path;
+    char log_file_name[256];
+    std::string usr_name;
+    
+    #define CORRECTNESS_WARN_TYPE_LIST \
+    CORRECTNESS_WARN_TYPE(Dead) \
+    CORRECTNESS_WARN_TYPE(Incoherent) \
+    CORRECTNESS_WARN_TYPE(Race) \
+    CORRECTNESS_WARN_TYPE(SharedAutoStorage) \
+    CORRECTNESS_WARN_TYPE(Unused)
+    
+    enum CorrectnessWarn_type {
+        #undef CORRECTNESS_WARN_TYPE
+        #define CORRECTNESS_WARN_TYPE(X) __##X,
+        CORRECTNESS_WARN_TYPE_LIST
+        #undef CORRECTNESS_WARN_TYPE
+    };
+    
+    inline std::string correctness_warn_type_str(CorrectnessWarn_type cwt)
+    {
+        std::string warn_t = "";
+        switch(cwt)
+        {
+            #undef CORRECTNESS_WARN_TYPE
+            #define CORRECTNESS_WARN_TYPE(X) case __##X : return #X;
+            CORRECTNESS_WARN_TYPE_LIST
+            #undef CORRECTNESS_WARN_TYPE
+            default: WARNING_MESSAGE( "Unexpected type of correctness warnign type '%d'", cwt );
+        };
+        return warn_t;
+    }
+}
+    
     struct FunctionCodeVisitor : Nodecl::ExhaustiveVisitor<void>
     {
         typedef TL::ObjectList<TL::Analysis::Node*> PCFG_Node_list;
+        
+        FILE* log_file;
         
         std::string get_nodecl_list_str( const Nodecl::List& nodecl_list )
         {
@@ -47,6 +86,20 @@ namespace OpenMP {
                     result += ", ";
             }
             return result;
+        }
+        
+        inline void print_warn_to_file(const Nodecl::NodeclBase& task, CorrectnessWarn_type warn_t)
+        {
+            if(!log_file_path.empty())
+            {
+                std::stringstream line_ss; line_ss << task.get_line();
+                std::string log = usr_name + " # " 
+                                + task.get_filename() + " # "
+                                + line_ss.str() + " # " 
+                                + correctness_warn_type_str(warn_t) + "\n";
+                if(fputs(log.c_str(), log_file) == EOF)
+                    internal_error("Unable to write to file '%s', to store a correctness log.", log_file_name);
+            }
         }
         
         void visit( const Nodecl::FunctionCode& function_code )
@@ -63,6 +116,49 @@ namespace OpenMP {
             
             if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
                 graph->print_graph_to_dot( );
+            
+            // Create the log file that will store the logs
+            if(!log_file_path.empty())
+            {
+                // 1.- Get user name
+                char* tmp_usr_name = getenv("USER");
+                usr_name = std::string(tmp_usr_name);
+                if(usr_name.empty())
+                    usr_name = "undefined";
+                
+                // 2.- Get time
+                std::string date_str;
+                {
+                    time_t t = time(NULL);
+                    struct tm* tmp = localtime(&t);
+                    if(tmp == NULL)
+                    {
+                        internal_error("localtime failed", 0);
+                    }
+                    char outstr[200];
+                    if(strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+                    {
+                        internal_error("strftime failed", 0);
+                    }
+                    outstr[199] = '\0';
+                    date_str = outstr;
+                }
+                
+                // 3.- Build the name of the file
+                snprintf(log_file_name, 255, "%s__correctness_%s_%lu_%s.log",
+                         log_file_path.c_str(),
+                         usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
+                log_file_name[255] = '\0';
+                
+                // 4.- Create and open the file
+                DEBUG_CODE()
+                {
+                    std::cerr << "OMP-LINT_ The correctness log files for this compilation will be stored in file: '" << log_file_name << "'" << std::endl;
+                }
+                log_file = fopen(log_file_name, "a+");
+                if(log_file == NULL)
+                    internal_error("Unable to open the file '%s' to store the correctness logs.", log_file_name);
+            }
             
             // Get all task nodes
             PCFG_Node_list tasks = graph->get_tasks_list();
@@ -81,7 +177,8 @@ namespace OpenMP {
                     {
                         if( task_only_synchronizes_in_enclosing_scopes(*it).is_false( ) )
                         {
-                            std::string task_locus = (*it)->get_graph_related_ast( ).get_locus_str();
+                            Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
+                            std::string task_locus = task.get_locus_str();
                             std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                             std::string local_vars_str = get_nodecl_list_str( local_vars );
                             warn_printf( "%s: warning: OpenMP task defines as shared local data '%s' "
@@ -89,6 +186,7 @@ namespace OpenMP {
                                          "%sConsider privatizing the variable or synchronizing "
                                          "the task before the local data is deallocated.\n", 
                                          task_locus.c_str(), local_vars_str.c_str(), tabulation.c_str() );
+                            print_warn_to_file(task, __SharedAutoStorage);
                         }
                     }
                 }
@@ -107,7 +205,7 @@ namespace OpenMP {
                         warn_printf( "%s: warning: OpenMP task uses data '%s' "
                                      "which is in a race condition with another usage of the same variable\n",
                                      task.get_locus_str().c_str(), race_cond_vars_str.c_str() );
-                        
+                        print_warn_to_file(task, __Race);
                     }
                 }
                 
@@ -116,10 +214,13 @@ namespace OpenMP {
                 // #pragma omp task private(x)
                 //    x++;
                 {
-                    std::string task_locus = (*it)->get_graph_related_ast().get_locus_str().c_str();
-                    check_task_incoherent_data_sharing( *it, task_locus );
+                    check_task_incoherent_data_sharing(*it);
                 }
             }
+            
+            // Close the logs file
+            if(!log_file_path.empty())
+                fclose(log_file);
         }
         
         // If this function returns false it may mean both unknown/no
@@ -341,8 +442,8 @@ namespace OpenMP {
                                 concurrently_used_vars[*it].insert( source );
                             else
                                 concurrently_used_vars.insert( 
-                                std::pair<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >( 
-                                *it, TL::ObjectList<TL::Analysis::Node*>( 1, source ) ) );
+                                        std::pair<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >( 
+                                        *it, TL::ObjectList<TL::Analysis::Node*>( 1, source ) ) );
                         }
                     }
                 }
@@ -487,8 +588,10 @@ namespace OpenMP {
                         std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator tmp = task_used_vars.find( it->first );
                         if( tmp == task_used_vars.end( ) )
                         {
+                            // FIXME Not really sure about the case being covered within this branch
                             warn_printf( "%s: warning: Variable %s is marked as shared in a task but it is not used inside the task\n", 
                                          task.get_locus_str().c_str(), it->first.prettyprint( ).c_str( ) );
+                            print_warn_to_file(task, __Unused);
                         }
                         else
                         {
@@ -652,7 +755,7 @@ namespace OpenMP {
             return result;
         }
         
-        void check_task_incoherent_data_sharing( TL::Analysis::Node *task, std::string task_locus )
+        void check_task_incoherent_data_sharing(TL::Analysis::Node* task)
         {
             // Collect all symbols/data references appearing in data-sharing clauses
             Nodecl::List firstprivate_vars, private_vars, all_private_vars, task_scoped_vars;
@@ -719,10 +822,12 @@ namespace OpenMP {
             }
             if( !unnecessarily_scoped_vars.empty( ) ) 
             {
+                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
                 unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
                 warn_printf( "%s: warning: OpenMP task defines the scope of the variables '%s' "
                              "which are not used at all within the task\n",
-                             task_locus.c_str(), unnecessarily_scoped_vars.c_str() );
+                             task_nodecl.get_locus_str().c_str(), unnecessarily_scoped_vars.c_str() );
+                print_warn_to_file(task_nodecl, __Unused);
             }
             
             // Case2: Any private|firstprivate variable defined within the task must use that definition.
@@ -739,6 +844,8 @@ namespace OpenMP {
             }
             if( !dead_code_vars.empty( ) )
             {
+                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
+                std::string task_locus = task_nodecl.get_locus_str();
                 dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as (first)private the variables '%s' "
@@ -746,6 +853,7 @@ namespace OpenMP {
                              "%sConsider defining them as shared or "
                              "removing the statement writing them because it is dead code.\n",
                              task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
+                print_warn_to_file(task_nodecl, __Dead);
             }
             
             // Case3: Private variables must never be read before they are written
@@ -758,12 +866,15 @@ namespace OpenMP {
             }
             if( !incoherent_private_vars.empty( ) )
             {
+                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
+                std::string task_locus = task_nodecl.get_locus_str();
                 incoherent_private_vars = incoherent_private_vars.substr(0, incoherent_private_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as private the variables '%s' "
                              "but those variables are upwards exposed.\n"
                              "%sConsider defining them as firstprivate instead.\n",
                              task_locus.c_str(), incoherent_private_vars.c_str(), tabulation.c_str() );
+                print_warn_to_file(task_nodecl, __Incoherent);
             }
             
             // Case4: Firstprivate variables must never be written before they are read
@@ -778,12 +889,15 @@ namespace OpenMP {
             }
             if( !incoherent_firstprivate_vars.empty( ) )
             {
+                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
+                std::string task_locus = task_nodecl.get_locus_str();
                 incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as firstprivate the variables '%s' "
                              "but those variables are not upwards exposed.\n"
                              "%sConsider defining them as private instead.\n",
                              task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
+                print_warn_to_file(task_nodecl, __Incoherent);
             }
         }
     };
@@ -954,7 +1068,7 @@ namespace OpenMP {
     // ******************************** OpenMP scope checking phase ******************************** //
     
     Lint::Lint()
-        : _disable_phase("0")
+        : _disable_phase("0"), _correctness_log_path("")
     {
         set_phase_name("OpenMP Lint");
         set_phase_description("This phase is able to detect some common pitfalls when using OpenMP");
@@ -963,6 +1077,10 @@ namespace OpenMP {
                 "Disables this phase. You should not need this. If you do, then it is an error. Please fill a bug",
                 _disable_phase,
                 "0");
+        register_parameter("correctness_log_dir",
+                "Sets the path where correctness logs will be stored, in addition to showing them in the standard output",
+                _correctness_log_path,
+                "");
     }
 
     void Lint::run(TL::DTO& dto)
@@ -971,6 +1089,9 @@ namespace OpenMP {
 
         if (_disable_phase == "0")
         {
+            // Get the path to the file where we will store the logs (in addition to showing them in the stdout)
+            log_file_path = _correctness_log_path;
+            
             FunctionCodeVisitor function_codes;
             function_codes.walk(top_level);
         }

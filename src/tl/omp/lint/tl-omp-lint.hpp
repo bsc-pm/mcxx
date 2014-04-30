@@ -83,6 +83,7 @@ namespace OpenMP {
     {
     private:
         std::string _disable_phase;
+        std::string _correctness_log_path;
         
     public:
         Lint();
