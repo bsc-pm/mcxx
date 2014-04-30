@@ -54,7 +54,7 @@ namespace Analysis {
 
     void ReachingDefinitions::generate_undefined_reaching_definitions( )
     {
-        // Take car of the function parameters
+        // Take care of the function parameters
         Symbol func_sym = _graph->get_function_symbol();
         if(!func_sym.is_valid())
             return;
@@ -67,7 +67,7 @@ namespace Analysis {
             Utils::ExtendedSymbol es(s);
             _undefined_reach_defs.insert(
                     std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
-                            es, Utils::NodeclPair(Nodecl::Undefined::make(), Nodecl::Undefined::make())));
+                            es, Utils::NodeclPair(Nodecl::Unknown::make(), Nodecl::Unknown::make())));
         }
         
         // Take care of the global variables
@@ -75,7 +75,7 @@ namespace Analysis {
         for(std::set<Symbol>::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
             // Compute the reaching definition: the initialization value if the symbol is constant or undefined otherwise
-            Nodecl::NodeclBase reach_def = Nodecl::Undefined::make();
+            Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
             if(it->get_type().is_const())
             {
                 Nodecl::NodeclBase sym_val = it->get_value();
@@ -89,6 +89,36 @@ namespace Analysis {
             _undefined_reach_defs.insert(
                     std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
                             es, Utils::NodeclPair(reach_def, Nodecl::NodeclBase::null())));
+        }
+        
+        // Initialize as undefined all variables
+        ObjectList<Nodecl::NodeclBase> nodecls;
+        Node* pcfg = _graph->get_graph();
+        if(pcfg->is_graph_node())
+        {
+            nodecls.append(pcfg->get_graph_related_ast());
+        }
+        else if(pcfg->has_statements())
+        {
+            ObjectList<Nodecl::NodeclBase> stmts = pcfg->get_statements();
+            for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                nodecls.append(*it);
+        }
+        
+        for(ObjectList<Nodecl::NodeclBase>::iterator it = nodecls.begin(); it != nodecls.end(); ++it)
+        {
+            ObjectList<Nodecl::Symbol> all_syms = Nodecl::Utils::get_all_symbols_first_occurrence(*it);
+            for(ObjectList<Nodecl::Symbol>:: iterator itt = all_syms.begin(); itt != all_syms.end(); ++itt)
+            {
+                Utils::ExtendedSymbol es(*itt);
+                if(_undefined_reach_defs.find(es) == _undefined_reach_defs.end())
+                {
+                    Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
+                    _undefined_reach_defs.insert(
+                            std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
+                                    es, Utils::NodeclPair(reach_def, Nodecl::NodeclBase::null())));
+                }
+            }
         }
     }
     

@@ -4083,9 +4083,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
     *(file) << ")";
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::Undefined& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Unknown& node)
 {
-    *(file) << "_undef_value_";
+    *(file) << "UNKNOWN";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)

@@ -362,7 +362,9 @@ namespace Utils {
         {
             if( it->second.first.is_null( ) )
             {
-                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=UNKNOWN VALUE; ";
+                WARNING_MESSAGE("No Null Reaching Definition expected for any variable. "
+                                "This should fail because we may be reporting a wrong result", 0);
+                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "= UNDEFINED; ";
                 if( line_size + it_str.size( ) > 100 )
                 {
                     result += "$$";

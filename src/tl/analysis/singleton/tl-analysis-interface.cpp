@@ -85,7 +85,7 @@ namespace Analysis {
 
         // TODO Check 'func' is a valid nodecl
 
-        nodecl_to_pcfg_map_t::const_iterator it =_func_to_pcfg_map.find(func);
+        nodecl_to_pcfg_map_t::const_iterator it = _func_to_pcfg_map.find(func);
         ERROR_CONDITION(it == _func_to_pcfg_map.end(), 
                 "No PCFG found corresponding to function %s\n", func.get_symbol().get_name().c_str());
         return it->second;
@@ -110,7 +110,7 @@ namespace Analysis {
     // Beter name: evolution_depends_on_iv??
     DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
     {
-        if(n.is<Nodecl::Undefined>())
+        if(n.is<Nodecl::Unknown>())
             return false;
             
         // Get reaching definitions for 'n' in its corresponding node
@@ -120,7 +120,7 @@ namespace Analysis {
         // Get the PCFG nodes where the reaching definitions where produced
         ObjectList<Node*> reach_defs_nodes;
         for(Utils::ext_sym_map::iterator it = reach_defs.begin(); it != reach_defs.end(); ++it)
-            if(!it->second.first.is<Nodecl::Undefined>())
+            if(!it->second.first.is<Nodecl::Unknown>())
             {
                 Nodecl::NodeclBase stmt_reach_def = it->second.second.is_null() ? it->second.first : it->second.second;
                 reach_defs_nodes.append(pcfg->find_nodecl_pointer(stmt_reach_def));
@@ -227,32 +227,45 @@ end_depends:
         Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
 
         // Get all memory accesses and study their RDs 
-        const ObjectList<Nodecl::Symbol> n_mem_accesses = 
-            Nodecl::Utils::get_all_symbols_first_occurrence(n);
+        // Note that we want all memory access, not only the symbols.
+        // Example: a[i]
+        // retrieving all symbols will return: a, i
+        // retrieving all memory accesses will return: a, i, a[i]
+        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
  
-        for(ObjectList<Nodecl::Symbol>::const_iterator n_ma_it =
+        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
                 n_mem_accesses.begin(); 
                 n_ma_it != n_mem_accesses.end();
                 n_ma_it++)
         {
-            Nodecl::Symbol n_ma = *n_ma_it;
+            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
 
-            ERROR_CONDITION(reach_defs_in.find(n_ma)==reach_defs_in.end(),
-                    "No reaching definition arrives for nodecl %s.\n", n_ma.prettyprint().c_str());
+            if(reach_defs_in.find(n_ma_es)==reach_defs_in.end())
+            {
+                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
+                {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
+                    continue;
+                }
+                else
+                {
+                    WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
+                                    n_ma_it->prettyprint().c_str());
+                }
+            }
 
             std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
-                reach_defs_in.equal_range(n_ma);
+                reach_defs_in.equal_range(*n_ma_it);
 
             for(Utils::ext_sym_map::iterator rd_it = bounds.first;
                 rd_it != bounds.second;
                 rd_it++)
             {
-                if(rd_it->second.first.is<Nodecl::Undefined>())
+                if(rd_it->second.first.is<Nodecl::Unknown>())
                     continue;
 
                 // Get the PCFG nodes where the reaching definitions where produced
-                Nodecl::NodeclBase stmt_reach_def = rd_it->second.second.is_null() ? 
-                    rd_it->second.first : rd_it->second.second;
+                Nodecl::NodeclBase stmt_reach_def = 
+                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
                 Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
                 if(ExtensibleGraph::node_contains_node(scope_node, stmt_node))
                 {

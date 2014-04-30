@@ -654,7 +654,7 @@ constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [uppe
 constraint : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
            | constraint_expression
 
-expression : NODECL_UNDEFINED()
+expression : NODECL_UNKNOWN()
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
