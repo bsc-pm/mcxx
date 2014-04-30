@@ -433,6 +433,11 @@ char nodecl_is_err_expr(nodecl_t n)
     return nodecl_get_kind(n) == NODECL_ERR_EXPR;
 }
 
+char nodecl_is_err_stmt(nodecl_t n)
+{
+    return nodecl_get_kind(n) == NODECL_ERR_STATEMENT;
+}
+
 nodecl_t nodecl_generic_make(node_t kind, const locus_t* location)
 {
     return _nodecl_wrap(ASTLeaf(kind, location, NULL));
