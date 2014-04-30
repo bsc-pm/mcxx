@@ -827,5 +827,61 @@ namespace Vectorization
 
         return result;
     }
+    Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
+            const Nodecl::NodeclBase& n)
+    {
+        Nodecl::NodeclBase n_copy = n.shallow_copy();
+        
+        shallow_copy_rec(n, n_copy);
+
+        return n_copy;
+    }
+ 
+    void VectorizationAnalysisInterface::shallow_copy_rec(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& n_copy)
+    {
+        // Skip List translation
+        if (!n.is<Nodecl::List>())
+        {
+            Nodecl::Utils::NodeclDeepCopyMap::iterator it =
+                _orig_to_copy_nodes.find(n);
+
+            // There is equal node in origin and, therefore, in copy
+            // Insert the new copy
+            if (it != _orig_to_copy_nodes.end())
+            {
+                _orig_to_copy_nodes.insert(
+                        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(
+                            n_copy, it->second));
+
+                // We don't insert a pair in copy_to_origin because it->second
+                // is already binded to the original 'n'
+                //_copy_to_orig_nodes.insert(
+                //        std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(
+                //            it->second, n_copy));
+            }
+            // There is NO equal node in origin
+            else
+            {
+                internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
+            }
+        }
+        // Register also children
+        objlist_nodecl_t children_list = n.children();
+        objlist_nodecl_t children_copy_list = n_copy.children();
+
+        for(objlist_nodecl_t::iterator children_it = children_list.begin(),
+                children_copy_it = children_copy_list.begin();
+                children_it != children_list.end();
+                children_it++, children_copy_it++)
+        {
+            if(!children_it->is_null())
+            {
+
+                shallow_copy_rec(*children_it, *children_copy_it);
+            }
+        }
+    }
 }
 }

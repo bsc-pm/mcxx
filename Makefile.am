@@ -1524,8 +1524,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-loop-info.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-info.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
@@ -1538,6 +1538,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-for.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-for.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp \

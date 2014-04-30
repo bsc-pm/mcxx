@@ -33,6 +33,7 @@
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
+#include "tl-vectorizer-visitor-postprocessor.hpp"
 #include "tl-vectorizer-visitor-for.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
@@ -84,6 +85,16 @@ namespace Vectorization
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
         TL::Optimizations::canonicalize_and_fold(environment._suitable_expr_list,
                 _fast_math_enabled);
+    }
+
+    void Vectorizer::postprocess_code(const Nodecl::NodeclBase& n)
+    {
+        TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
+
+        VectorizerVisitorPostprocessor vectorizer_postproc;
+        vectorizer_postproc.walk(n);
+
+        TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
     }
 
     void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,

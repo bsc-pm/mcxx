@@ -84,6 +84,9 @@ namespace Vectorization
             void unregister_node(const Nodecl::NodeclBase& n);
             void unregister_nodes();
 
+            void shallow_copy_rec(const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
+
         public:
             static void initialize_analysis(
                     const Nodecl::FunctionCode& enclosing_function);
@@ -174,6 +177,9 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n);
             virtual bool is_nested_non_reduction_basic_induction_variable(
                     const VectorizerEnvironment& environment,
+                    const Nodecl::NodeclBase& n);
+
+            virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 
             friend class VectorizerEnvironment;

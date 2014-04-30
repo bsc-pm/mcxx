@@ -427,9 +427,9 @@ namespace TL {
             // Free analysis
             _vectorizer.finalize_analysis();
 
-            // Final optimisation step
-//            TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
-//            TL::Optimizations::strength_reduce(for_statement, _fast_math_enabled);
+            // Prostprocess code
+            _vectorizer.postprocess_code(
+                        Nodecl::Utils::get_enclosing_list(simd_node));
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
@@ -675,9 +675,9 @@ namespace TL {
             // Free analysis
             _vectorizer.finalize_analysis();
 
-            // Final optimisation step
-//            TL::Optimizations::canonicalize_and_fold(for_epilog, _fast_math_enabled);
-//            TL::Optimizations::strength_reduce(for_epilog, _fast_math_enabled);
+            // Prostprocess code
+            _vectorizer.postprocess_code(
+                    Nodecl::Utils::get_enclosing_list(simd_node));
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
@@ -826,41 +826,8 @@ namespace TL {
             // Free analysis
             _vectorizer.finalize_analysis();
 
-            // Final optimisation step
-//            TL::Optimizations::canonicalize_and_fold(vector_func_code, _fast_math_enabled);
-//            TL::Optimizations::strength_reduce(vector_func_code, _fast_math_enabled);
-        }
-
-        void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
-                aligned_expr_map_t& aligned_expressions_map)
-        {
-            TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
-                environment.find_all<Nodecl::OpenMP::Aligned>();
-
-            for(TL::ObjectList<Nodecl::OpenMP::Aligned>::iterator it = omp_aligned_list.begin();
-                    it != omp_aligned_list.end();
-                    it++)
-            {
-                Nodecl::OpenMP::Aligned& omp_aligned = *it;
-
-                TL::ObjectList<Nodecl::NodeclBase> aligned_expressions_list =
-                    omp_aligned.get_aligned_expressions().as<Nodecl::List>().to_object_list();
-
-                int alignment = const_value_cast_to_signed_int(
-                        omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
-
-                for(TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = aligned_expressions_list.begin();
-                        it2 != aligned_expressions_list.end();
-                        it2++)
-                {
-
-                    if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
-                                    it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
-                    {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
-                    }
-                }
-            }
+            // Prostprocess code
+            _vectorizer.postprocess_code(simd_node);
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
@@ -1015,6 +982,41 @@ namespace TL {
 
             // Free analysis
             _vectorizer.finalize_analysis();
+
+            // Prostprocess code
+            _vectorizer.postprocess_code(simd_node);
+        }
+
+        void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
+                aligned_expr_map_t& aligned_expressions_map)
+        {
+            TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
+                environment.find_all<Nodecl::OpenMP::Aligned>();
+
+            for(TL::ObjectList<Nodecl::OpenMP::Aligned>::iterator it = omp_aligned_list.begin();
+                    it != omp_aligned_list.end();
+                    it++)
+            {
+                Nodecl::OpenMP::Aligned& omp_aligned = *it;
+
+                TL::ObjectList<Nodecl::NodeclBase> aligned_expressions_list =
+                    omp_aligned.get_aligned_expressions().as<Nodecl::List>().to_object_list();
+
+                int alignment = const_value_cast_to_signed_int(
+                        omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
+
+                for(TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = aligned_expressions_list.begin();
+                        it2 != aligned_expressions_list.end();
+                        it2++)
+                {
+
+                    if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
+                                    it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                    {
+                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
+                    }
+                }
+            }
         }
 
         void SimdVisitor::process_uniform_clause(const Nodecl::List& environment,

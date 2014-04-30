@@ -67,6 +67,7 @@ namespace TL
 
                 void preprocess_code(const Nodecl::NodeclBase& n,
                         const VectorizerEnvironment& environment);
+                void postprocess_code(const Nodecl::NodeclBase& n);
 
                 void vectorize(Nodecl::ForStatement& for_statement,
                         VectorizerEnvironment& environment);

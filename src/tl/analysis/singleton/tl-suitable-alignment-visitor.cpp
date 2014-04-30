@@ -64,6 +64,14 @@ namespace Analysis
         TL::Type element_type = subscripted.get_type( );
 
         subscripted = Nodecl::Utils::advance_conversions(subscripted);
+
+        // Linearized multidimensional arrays
+        if (subscripted.is<Nodecl::Cast>())
+        {
+            subscripted = Nodecl::Utils::advance_conversions(
+                    subscripted.as<Nodecl::Cast>().get_rhs());
+        }
+
         ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Subscripted is not a Nodecl::Symbol", 0);
 
         std::map<TL::Symbol, int>::const_iterator alignment_info = aligned_expressions.find(

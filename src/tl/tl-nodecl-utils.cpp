@@ -732,6 +732,10 @@ namespace Nodecl
             n = n.get_parent();
         }
 
+        // We want the whole list
+        if (!n.is_null())
+            n =  get_all_list_from_list_node(n.as<Nodecl::List>());
+
         return n;
     }
 
@@ -1283,6 +1287,7 @@ namespace Nodecl
 
     Nodecl::ArraySubscript Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
     {
+        int i;
         Nodecl::List indexes = n.get_subscripts().as<Nodecl::List>();
         int num_dimensions = indexes.size();
 
@@ -1292,7 +1297,7 @@ namespace Nodecl
         {
             TL::Type subscripted_type = n.get_subscripted().get_type();
 
-            for(int i=0; i<num_dimensions; i++)
+            for(i=0; i<num_dimensions; i++)
             {
                 if(subscripted_type.is_pointer() && (i == 0))
                 {
@@ -1348,12 +1353,18 @@ namespace Nodecl
         // Subscripted
         Nodecl::NodeclBase new_subscripted = n.get_subscripted().shallow_copy();
 
-        // Dereferencing subscripted for num_dimensions >= 2
-        for(int i=0; i < num_dimensions-1; i++)
+        // Dereferencing subscripted for num_dimensions > 1
+        TL::Type deref_type = new_subscripted.get_type().basic_type();
+
+        if (num_dimensions > 1)
         {
-            new_subscripted = Nodecl::Dereference::make(
+            TL::Type deref_type = new_subscripted.get_type().basic_type().
+                get_pointer_to();
+
+            new_subscripted = Nodecl::Cast::make(
                     new_subscripted.shallow_copy(),
-                    new_subscripted.get_type().points_to());
+                    deref_type,
+                    "C");
         }
 
         Nodecl::ArraySubscript result_array =

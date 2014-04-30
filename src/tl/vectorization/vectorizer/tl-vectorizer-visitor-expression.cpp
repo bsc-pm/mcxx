@@ -26,7 +26,7 @@
 
 #include "tl-vectorizer-visitor-expression.hpp"
 
-#include "tl-vectorizer-gather-scatter-info.hpp"
+//#include "tl-vectorizer-gather-scatter-info.hpp"
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-analysis-interface.hpp"
 
@@ -792,6 +792,15 @@ namespace Vectorization
         {
             Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(
                     lhs.as<Nodecl::ArraySubscript>().get_subscripted());
+
+            TL::Type subscripted_type = subscripted.get_type();
+
+            if (subscripted.is<Nodecl::Cast>())
+            {
+                subscripted = Nodecl::Utils::advance_conversions(
+                        subscripted.as<Nodecl::Cast>().get_rhs());
+            }
+
             ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                     "Vectorizer: ArraySubscript form not supported yet: %s",
                     lhs.prettyprint().c_str());
@@ -829,15 +838,21 @@ namespace Vectorization
             else
             {
                 // Get a scatter for real scatter or unaligned store extra flag
-                const Nodecl::ArraySubscript lhs_array =
-                    lhs.as<Nodecl::ArraySubscript>();
+                const Nodecl::ArraySubscript lhs_array_copy =
+                    VectorizationAnalysisInterface::_vectorizer_analysis->shallow_copy(
+                            lhs).as<Nodecl::ArraySubscript>();
 
-                VectorizerGatherScatterInfo scatter_access(_environment);
+                /*VectorizerGatherScatterInfo scatter_access(_environment);
 
                 const Nodecl::NodeclBase base =
-                    scatter_access.get_base(lhs_array);
+                    scatter_access.get_base(lhs_array_copy);
                 Nodecl::NodeclBase strides =
-                    scatter_access.get_strides(lhs_array);
+                    scatter_access.get_strides(lhs_array_copy);
+                */
+                const Nodecl::NodeclBase base = 
+                    lhs_array_copy.get_subscripted();
+                Nodecl::NodeclBase strides =  // The array must have been linearized
+                    lhs_array_copy.get_subscripts().as<Nodecl::List>().front();
 
                 // Vectorize strides
                 walk(strides);
@@ -979,7 +994,7 @@ namespace Vectorization
                     VECTORIZATION_DEBUG()
                     {
                         fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
-                                lhs_array.prettyprint().c_str());
+                                lhs.prettyprint().c_str());
                     }
 
                     n.replace(vector_scatter);
@@ -1250,11 +1265,20 @@ namespace Vectorization
         // Vector Load
         else
         {
-            // Get a gather for real gather or unaligned load extra flag
-            VectorizerGatherScatterInfo gather_access(_environment);
+            Nodecl::ArraySubscript array_copy = VectorizationAnalysisInterface::
+                _vectorizer_analysis->shallow_copy(n).as<Nodecl::ArraySubscript>();
 
-            Nodecl::NodeclBase base = gather_access.get_base(n);
-            Nodecl::NodeclBase strides = gather_access.get_strides(n);
+            // Get a gather for real gather or unaligned load extra flag
+            /*VectorizerGatherScatterInfo gather_access(_environment);
+
+            Nodecl::NodeclBase base = gather_access.get_base(array_copy);
+            Nodecl::NodeclBase strides = gather_access.get_strides(array_copy);
+            */
+            Nodecl::NodeclBase base = array_copy.get_subscripted();
+                             // The array must have been linearized
+            Nodecl::NodeclBase strides = array_copy.get_subscripts().
+                as<Nodecl::List>().front();
+ 
             // Vectorize strides
             walk(strides);
 
