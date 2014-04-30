@@ -30,14 +30,17 @@
 #include "tl-tribool.hpp"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <time.h>
 
 namespace TL { 
 namespace OpenMP {
     
 namespace {
+    #define PATH_LENGTH 512
     std::string log_file_path;
-    char log_file_name[256];
+    char log_file_name[PATH_LENGTH];
     std::string usr_name;
     
     #define CORRECTNESS_WARN_TYPE_LIST \
@@ -118,6 +121,7 @@ namespace {
                 graph->print_graph_to_dot( );
             
             // Create the log file that will store the logs
+            int old_mask;
             if(!log_file_path.empty())
             {
                 // 1.- Get user name
@@ -145,16 +149,20 @@ namespace {
                 }
                 
                 // 3.- Build the name of the file
-                snprintf(log_file_name, 255, "%s__correctness_%s_%lu_%s.log",
-                         log_file_path.c_str(),
+                char absolute_path[PATH_LENGTH];
+                char* path_ptr = realpath(log_file_path.c_str(), absolute_path);
+                ERROR_CONDITION(path_ptr == NULL, "Error retrieving the real path of path %s.\n", log_file_path.c_str());
+                snprintf(log_file_name, PATH_LENGTH, "%s__correctness_%s_%lu_%s.log",
+                         absolute_path,
                          usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
-                log_file_name[255] = '\0';
+                log_file_name[PATH_LENGTH-1] = '\0';
                 
                 // 4.- Create and open the file
                 DEBUG_CODE()
                 {
                     std::cerr << "OMP-LINT_ The correctness log files for this compilation will be stored in file: '" << log_file_name << "'" << std::endl;
                 }
+                old_mask = umask(0003);
                 log_file = fopen(log_file_name, "a+");
                 if(log_file == NULL)
                     internal_error("Unable to open the file '%s' to store the correctness logs.", log_file_name);
@@ -220,7 +228,10 @@ namespace {
             
             // Close the logs file
             if(!log_file_path.empty())
+            {
+                umask(old_mask);
                 fclose(log_file);
+            }
         }
         
         // If this function returns false it may mean both unknown/no
