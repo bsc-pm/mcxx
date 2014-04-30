@@ -18086,7 +18086,7 @@ static void check_gcc_label_addr(AST expression,
 {
     AST label = ASTSon0(expression);
 
-    scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
+    scope_entry_t* sym_label = add_label_if_not_found(ASTText(label), decl_context, ast_get_locus(label));
 
     // Codegen will take care of this symbol and print &&label instead of &label
     *nodecl_output = nodecl_make_reference(

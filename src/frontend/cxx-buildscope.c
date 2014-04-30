@@ -16820,17 +16820,16 @@ static void build_scope_switch_statement(AST a,
                 ast_get_locus(a)));
 }
 
-scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
+scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus)
 {
-    const char* label_text = ASTText(label);
     scope_entry_list_t* entry_list = query_name_str_flags(decl_context, label_text, NULL, DF_LABEL);
 
     scope_entry_t* sym_label = NULL;
     if (entry_list == NULL)
     {
-        sym_label = new_symbol(decl_context, decl_context.function_scope, ASTText(label));
+        sym_label = new_symbol(decl_context, decl_context.function_scope, label_text);
         sym_label->kind = SK_LABEL;
-        sym_label->locus = ast_get_locus(label);
+        sym_label->locus = locus;
     }
     else
     {
@@ -16846,7 +16845,7 @@ static void build_scope_goto_statement(AST a,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
-    scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
+    scope_entry_t* sym_label = add_label_if_not_found(ASTText(label), decl_context, ast_get_locus(label));
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_goto_statement(sym_label, ast_get_locus(a)));
@@ -16857,7 +16856,7 @@ static void build_scope_labeled_statement(AST a,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
-    scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
+    scope_entry_t* sym_label = add_label_if_not_found(ASTText(label), decl_context, ast_get_locus(label));
 
     AST statement = ASTSon1(a);
 
@@ -18247,12 +18246,10 @@ static void instantiate_return_statement(
 
 static scope_entry_t* instantiate_declaration_common(
         nodecl_instantiate_stmt_visitor_t* v,
-        nodecl_t node)
+        scope_entry_t* orig_entry,
+        const locus_t* locus,
+        char is_definition)
 {
-    scope_entry_t* orig_entry = nodecl_get_symbol(node);
-
-    char is_definition = !(nodecl_get_kind(node) == NODECL_CXX_DECL);
-
     scope_entry_t* new_entry = instantiation_symbol_do_map(v->instantiation_symbol_map, orig_entry);
     if (new_entry == NULL)
     {
@@ -18271,7 +18268,7 @@ static scope_entry_t* instantiate_declaration_common(
                     new_entry->type_information = update_type_for_instantiation(
                             orig_entry->type_information,
                             v->new_decl_context,
-                            nodecl_get_locus(node),
+                            locus,
                             v->instantiation_symbol_map,
                             /* pack */ -1);
                     new_entry->entity_specs = orig_entry->entity_specs;
@@ -18287,7 +18284,7 @@ static scope_entry_t* instantiate_declaration_common(
                     new_entry->type_information = update_type_for_instantiation(
                             orig_entry->type_information,
                             v->new_decl_context,
-                            nodecl_get_locus(node),
+                            locus,
                             v->instantiation_symbol_map,
                             /* pack */ -1);
                     break;
@@ -18303,9 +18300,10 @@ static scope_entry_t* instantiate_declaration_common(
 static void instantiate_cxx_def_or_decl(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node,
-        nodecl_t (*fun)(nodecl_t, scope_entry_t*, const locus_t*))
+        nodecl_t (*fun)(nodecl_t, scope_entry_t*, const locus_t*),
+        char is_definition)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, node);
+    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), is_definition);
 
     nodecl_t orig_nodecl_context = nodecl_get_child(node, 0);
     nodecl_t new_nodecl_context = nodecl_null();
@@ -18322,23 +18320,30 @@ static void instantiate_cxx_decl(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    instantiate_cxx_def_or_decl(v, node, nodecl_make_cxx_decl);
+    instantiate_cxx_def_or_decl(v, node, nodecl_make_cxx_decl, /* is_definition */ 0);
 }
 
 static void instantiate_cxx_def(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    instantiate_cxx_def_or_decl(v, node, nodecl_make_cxx_def);
+    instantiate_cxx_def_or_decl(v, node, nodecl_make_cxx_def, /* is_definition */ 1);
+}
+
+static nodecl_t instantiate_object_init_node(
+        nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t node)
+{
+    scope_entry_t* new_entry = instantiate_declaration_common(v, nodecl_get_symbol(node), nodecl_get_locus(node), /* is_definition */ 1);
+
+    return nodecl_make_object_init(new_entry, nodecl_get_locus(node));
 }
 
 static void instantiate_object_init(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    scope_entry_t* new_entry = instantiate_declaration_common(v, node);
-
-    v->nodecl_result = nodecl_make_object_init(new_entry, nodecl_get_locus(node));
+    v->nodecl_result = instantiate_object_init_node(v, node);
 }
 
 static void instantiate_cxx_member_init(
@@ -18394,6 +18399,267 @@ static void instantiate_cxx_member_init(
     }
 }
 
+static void instantiate_do_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_stmt = nodecl_get_child(node, 0);
+    nodecl_stmt = instantiate_stmt_walk(v, nodecl_stmt);
+
+    if (nodecl_is_err_stmt(nodecl_stmt))
+    {
+        v->nodecl_result = nodecl_stmt;
+        return;
+    }
+
+    nodecl_t nodecl_expr = nodecl_get_child(node, 1);
+
+    nodecl_expr = instantiate_expression(nodecl_expr,
+            v->new_decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ 1);
+
+    v->nodecl_result = nodecl_make_do_statement(
+            nodecl_stmt,
+            nodecl_expr,
+            nodecl_get_locus(node));
+}
+
+static void instantiate_context(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    decl_context_t existing_context = v->new_decl_context;
+    v->new_decl_context = new_block_context(existing_context);
+
+    nodecl_t nodecl_in_context = nodecl_get_child(node, 0);
+    nodecl_in_context = instantiate_stmt_walk(v, nodecl_in_context);
+
+    v->nodecl_result = nodecl_make_context(
+            nodecl_in_context,
+            v->new_decl_context,
+            nodecl_get_locus(node));
+
+    v->new_decl_context = existing_context;
+}
+
+static nodecl_t instantiate_condition(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    if (nodecl_get_kind(node) == NODECL_OBJECT_INIT)
+    {
+        return instantiate_object_init_node(v, node);
+    }
+    else
+    {
+        // This should be a regular expression
+        return instantiate_expression(node,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+    }
+}
+
+static void instantiate_while_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_condition = nodecl_get_child(node, 0);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+
+    nodecl_condition = instantiate_condition(v, nodecl_condition);
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_while_statement(
+            nodecl_condition,
+            nodecl_statement,
+            /* loop_name */ nodecl_null(),
+            nodecl_get_locus(node));
+}
+
+static void instantiate_if_else_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_condition = nodecl_get_child(node, 0);
+    nodecl_t nodecl_then = nodecl_get_child(node, 1);
+    nodecl_t nodecl_else = nodecl_get_child(node, 2);
+
+    nodecl_condition = instantiate_condition(v, nodecl_condition);
+    nodecl_then = instantiate_stmt_walk(v, nodecl_then);
+    nodecl_else = instantiate_stmt_walk(v, nodecl_else);
+
+    v->nodecl_result = nodecl_make_if_else_statement(
+            nodecl_condition,
+            nodecl_then,
+            nodecl_else,
+            nodecl_get_locus(node));
+}
+
+static nodecl_t instantiate_loop_control(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    if (nodecl_get_kind(node) == NODECL_LOOP_CONTROL)
+    {
+        nodecl_t nodecl_init = nodecl_get_child(node, 0);
+        nodecl_t cond = nodecl_get_child(node, 1);
+        nodecl_t next = nodecl_get_child(node, 2);
+
+        nodecl_t new_expr_list = nodecl_null();
+        int i, n;
+        nodecl_t* expr_list = nodecl_unpack_list(nodecl_init, &n);
+        for (i = 0; i < n; i++)
+        {
+            // We can expect object-inits here, the name of the tree is misleading
+            nodecl_t expr = expr_list[i];
+            nodecl_t new_expr = nodecl_null();
+
+            if (nodecl_get_kind(expr) == NODECL_OBJECT_INIT)
+            {
+                new_expr = instantiate_object_init_node(v, expr);
+            }
+            else
+            {
+                new_expr = instantiate_expression(expr,
+                        v->new_decl_context,
+                        v->instantiation_symbol_map,
+                        /* pack_index */ -1);
+            }
+
+            new_expr_list = nodecl_append_to_list(new_expr_list, new_expr);
+        }
+        xfree(expr_list);
+
+        cond = instantiate_expression(cond,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+        
+        next = instantiate_expression(cond,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+
+        return nodecl_make_loop_control(new_expr_list, cond, next, nodecl_get_locus(node));
+    }
+    else if (nodecl_get_kind(node) == NODECL_ITERATOR_LOOP_CONTROL)
+    {
+        instantiate_stmt_not_implemented_yet(v, node);
+    }
+    else
+    {
+        internal_error("Unexpected loop control '%s' at '%s'\n", ast_print_node_type(nodecl_get_kind(node)), nodecl_locus_to_str(node));
+    }
+
+    return nodecl_null();
+}
+
+static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_loop_control = nodecl_get_child(node, 0);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+
+    nodecl_loop_control = instantiate_loop_control(v, nodecl_loop_control);
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_for_statement(
+            nodecl_loop_control,
+            nodecl_statement,
+            /* loop_name */ nodecl_null(),
+            nodecl_get_locus(node));
+}
+
+static void instantiate_labeled_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_statement = nodecl_get_child(node, 0);
+
+    scope_entry_t* new_label = add_label_if_not_found(nodecl_get_symbol(node)->symbol_name,
+            v->new_decl_context,
+            nodecl_get_locus(node));
+
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_labeled_statement(nodecl_statement, new_label, nodecl_get_locus(node));
+}
+
+static void instantiate_default_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_default_statement(nodecl_statement, nodecl_get_locus(node));
+}
+
+static void instantiate_case_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t expr_list = nodecl_get_child(node, 0);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+
+    nodecl_t new_expr_list = nodecl_null();
+    int i, n;
+    nodecl_t* list = nodecl_unpack_list(expr_list, &n);
+    for (i = 0; i < n; i++)
+    {
+        nodecl_t expr = list[i];
+        nodecl_t new_expr = instantiate_expression(expr,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+
+        new_expr_list = nodecl_append_to_list(new_expr_list, new_expr);
+    }
+    xfree(list);
+
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_case_statement(
+            new_expr_list,
+            nodecl_statement,
+            nodecl_get_locus(node));
+}
+
+static void instantiate_try_block(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    instantiate_stmt_not_implemented_yet(v, node);
+}
+
+static void instantiate_switch_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_condition = nodecl_get_child(node, 0);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 1);
+
+    nodecl_condition = instantiate_condition(v, nodecl_condition);
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+    v->nodecl_result = nodecl_make_switch_statement(
+            nodecl_condition,
+            nodecl_statement,
+            nodecl_get_locus(node));
+}
+
+static void instantiate_empty_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    v->nodecl_result = nodecl_make_empty_statement(nodecl_get_locus(node));
+}
+
+static void instantiate_break_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    v->nodecl_result = nodecl_make_break_statement(/* construct-name */ nodecl_null(), nodecl_get_locus(node));
+}
+
+static void instantiate_continue_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    v->nodecl_result = nodecl_make_continue_statement(/* construct-name */ nodecl_null(), nodecl_get_locus(node));
+}
+
+static void instantiate_goto_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    scope_entry_t* label = add_label_if_not_found(nodecl_get_symbol(node)->symbol_name, v->new_decl_context, nodecl_get_locus(node));
+    
+    v->nodecl_result = nodecl_make_goto_statement(label, nodecl_get_locus(node));
+}
+
+static void instantiate_pragma_custom_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    instantiate_stmt_not_implemented_yet(v, node);
+}
+
+static void instantiate_pragma_custom_declaration(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    instantiate_stmt_not_implemented_yet(v, node);
+}
+
+
 // Initialization
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
         decl_context_t orig_decl_context,
@@ -18429,6 +18695,24 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_compound_statement = instantiate_stmt_visitor_fun(instantiate_compound_statement);
     NODECL_VISITOR(v)->visit_expression_statement = instantiate_stmt_visitor_fun(instantiate_expression_statement);
     NODECL_VISITOR(v)->visit_return_statement = instantiate_stmt_visitor_fun(instantiate_return_statement);
+    NODECL_VISITOR(v)->visit_do_statement = instantiate_stmt_visitor_fun(instantiate_do_statement);
+    NODECL_VISITOR(v)->visit_while_statement = instantiate_stmt_visitor_fun(instantiate_while_statement);
+    NODECL_VISITOR(v)->visit_if_else_statement = instantiate_stmt_visitor_fun(instantiate_if_else_statement);
+    NODECL_VISITOR(v)->visit_for_statement = instantiate_stmt_visitor_fun(instantiate_for_statement);
+    NODECL_VISITOR(v)->visit_labeled_statement = instantiate_stmt_visitor_fun(instantiate_labeled_statement);
+    NODECL_VISITOR(v)->visit_default_statement = instantiate_stmt_visitor_fun(instantiate_default_statement);
+    NODECL_VISITOR(v)->visit_case_statement = instantiate_stmt_visitor_fun(instantiate_case_statement);
+    NODECL_VISITOR(v)->visit_try_block = instantiate_stmt_visitor_fun(instantiate_try_block);
+    NODECL_VISITOR(v)->visit_switch_statement = instantiate_stmt_visitor_fun(instantiate_switch_statement);
+    NODECL_VISITOR(v)->visit_empty_statement = instantiate_stmt_visitor_fun(instantiate_empty_statement);
+    NODECL_VISITOR(v)->visit_break_statement = instantiate_stmt_visitor_fun(instantiate_break_statement);
+    NODECL_VISITOR(v)->visit_continue_statement = instantiate_stmt_visitor_fun(instantiate_continue_statement);
+    NODECL_VISITOR(v)->visit_goto_statement = instantiate_stmt_visitor_fun(instantiate_goto_statement);
+
+    NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context);
+
+    NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
+    NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);
 }
 
 nodecl_t instantiate_statement(nodecl_t orig_tree,
