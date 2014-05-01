@@ -41,13 +41,13 @@ namespace {
     {
         bool is_iv = false;
 
-        Optimizations::ReduceExpressionVisitor v;
-        Nodecl::NodeclBase st = stmt.shallow_copy( );
-        v.walk( st );
+//        Optimizations::ReduceExpressionVisitor v;
+//        Nodecl::NodeclBase st = stmt.shallow_copy( );
+//        v.walk( st );
 
-        if( st.is<Nodecl::Assignment>( ) )
+        if( stmt.is<Nodecl::Assignment>( ) )
         {
-            Nodecl::Assignment st_ = st.as<Nodecl::Assignment>( );
+            Nodecl::Assignment st_ = stmt.as<Nodecl::Assignment>( );
             Nodecl::NodeclBase lhs = st_.get_lhs( );
             Nodecl::NodeclBase rhs = st_.get_rhs( );
 
@@ -72,9 +72,9 @@ namespace {
                 }
             }
         }
-        else if( st.is<Nodecl::AddAssignment>( ) )
+        else if( stmt.is<Nodecl::AddAssignment>( ) )
         {   // Expression accepted: iv += x;
-            Nodecl::AddAssignment st_ = st.as<Nodecl::AddAssignment>( );
+            Nodecl::AddAssignment st_ = stmt.as<Nodecl::AddAssignment>( );
             Nodecl::NodeclBase lhs = st_.get_lhs( );
             if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
                 && ( !lhs.is<Nodecl::ArraySubscript>( )
@@ -86,9 +86,9 @@ namespace {
                 is_iv = true;
             }
         }
-        else if( st.is<Nodecl::MinusAssignment>( ) )
+        else if( stmt.is<Nodecl::MinusAssignment>( ) )
         {   // Expression accepted: iv -= x;
-            Nodecl::MinusAssignment st_ = st.as<Nodecl::MinusAssignment>( );
+            Nodecl::MinusAssignment st_ = stmt.as<Nodecl::MinusAssignment>( );
             Nodecl::NodeclBase lhs = st_.get_lhs( );
             Nodecl::NodeclBase rhs = st_.get_rhs( );
             if( ExtensibleGraph::is_constant_in_context( loop, st_.get_rhs( ) )
@@ -103,30 +103,30 @@ namespace {
                 is_iv = true;
             }
         }
-        else if( st.is<Nodecl::Preincrement>( ) )
+        else if( stmt.is<Nodecl::Preincrement>( ) )
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Preincrement>( ).get_rhs( );
+            Nodecl::NodeclBase rhs = stmt.as<Nodecl::Preincrement>( ).get_rhs( );
             iv = rhs;
             incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
             is_iv = true;
         }
-        else if( st.is<Nodecl::Postincrement>( ) )
+        else if( stmt.is<Nodecl::Postincrement>( ) )
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Postincrement>( ).get_rhs( );
+            Nodecl::NodeclBase rhs = stmt.as<Nodecl::Postincrement>( ).get_rhs( );
             iv = rhs;
             incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_one( /* bytes */ 4, /* signed */ 1 ) );
             is_iv = true;
         }
-        else if( st.is<Nodecl::Predecrement>( ) )
+        else if( stmt.is<Nodecl::Predecrement>( ) )
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Predecrement>( ).get_rhs( );
+            Nodecl::NodeclBase rhs = stmt.as<Nodecl::Predecrement>( ).get_rhs( );
             iv = rhs;
             incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_minus_one( /* bytes */ 4, /* signed */ 1 ) );
             is_iv = true;
         }
-        else if( st.is<Nodecl::Postdecrement>( ) )
+        else if( stmt.is<Nodecl::Postdecrement>( ) )
         {
-            Nodecl::NodeclBase rhs = st.as<Nodecl::Postdecrement>( ).get_rhs( );
+            Nodecl::NodeclBase rhs = stmt.as<Nodecl::Postdecrement>( ).get_rhs( );
             iv = rhs;
             incr = Nodecl::IntegerLiteral::make( rhs.get_type( ), const_value_get_minus_one( /* bytes */ 4, /* signed */ 1 ) );
             is_iv = true;
