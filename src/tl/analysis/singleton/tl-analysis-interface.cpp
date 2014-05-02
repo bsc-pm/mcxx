@@ -91,7 +91,7 @@ namespace Analysis {
                 "No PCFG found corresponding to function %s\n", func.get_symbol().get_name().c_str());
         return it->second;
     }
-
+/*
     DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
     {
         if(n.is_null() || n.is<Nodecl::Unknown>())
@@ -180,6 +180,7 @@ end_depends:
         
         return result;
     }
+    */
 
     /*
     bool AnalysisInterface::nodecl_is_constant_at_statement(
@@ -294,15 +295,17 @@ end_depends:
             ExtensibleGraph* const pcfg,
             const bool consider_control_structures)
     {
-        // Base cases for INVARIANT: If the same structure is needed with
-        // another property, please use a template or pass a function pointer
-        // as parameter to implement the base cases
+        //std::cerr << "N: " << n.prettyprint() << " - " << nodecl_get_ast(n.get_internal_nodecl()) << std::endl;
+
+        // Start of base cases for Invariant.
+        // If any other is necessary, we could use a function pointer
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
-        if(n.is<Nodecl::FunctionCall>()) 
+        if(Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::FunctionCall>(n)) 
             return false;
-
+        
+        // Check if n contains an IV of the scope
         ObjectList<Utils::InductionVariableData *> scope_ivs =
             scope_node->get_induction_variables();
 
@@ -310,14 +313,22 @@ end_depends:
                 it != scope_ivs.end();
                 it++)
         {
-            if(Nodecl::Utils::structurally_equal_nodecls(n,
-                    (*it)->get_variable().get_nodecl(), true))
+            if(Nodecl::Utils::stmtexpr_contains_nodecl_structurally(n,
+                    (*it)->get_variable().get_nodecl()))
                 return false;
         }
+
+        // TODO: n instead of stmt_node.
+        // If the 'n' is not contained in the scope node,
+        // then n is invariant in the scope
+        if(!ExtensibleGraph::node_contains_node(
+                    scope_node, stmt_node))
+            return true;
+
         // End of base cases
 
         
-        Utils::ext_sym_map reach_defs_in = stmt_node->get_reaching_definitions_in();
+        Utils::ext_sym_map all_reach_defs_in = stmt_node->get_reaching_definitions_in();
 
         // Get all memory accesses and study their RDs 
         // Note that we want all memory access, not only the symbols.
@@ -331,9 +342,11 @@ end_depends:
                 n_ma_it != n_mem_accesses.end();
                 n_ma_it++)
         {
-            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
+            //std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " - " 
+            //    << nodecl_get_ast(n_ma_it->get_internal_nodecl()) << std::endl;
 
-            if(reach_defs_in.find(n_ma_es)==reach_defs_in.end())
+            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
+            if(all_reach_defs_in.find(n_ma_es) == all_reach_defs_in.end())
             {
                 if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
                 {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
@@ -347,7 +360,7 @@ end_depends:
             }
 
             std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
-                reach_defs_in.equal_range(*n_ma_it);
+                all_reach_defs_in.equal_range(*n_ma_it);
 
             for(Utils::ext_sym_map::iterator rd_it = bounds.first;
                 rd_it != bounds.second;
@@ -357,23 +370,23 @@ end_depends:
                     continue;
 
                 // Get the PCFG nodes where the reaching definitions where produced
-                Nodecl::NodeclBase stmt_reach_def = 
+                const Nodecl::NodeclBase& reach_def_nodecl = 
                         rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
 
                 // Skip recursive RD (IV step)
-                if (stmt_reach_def == n)
-                    continue;
+                // std::cerr << "      RD of " << n.prettyprint() <<": " << stmt_reach_def.prettyprint() << " - " 
+                //    << nodecl_get_ast(stmt_reach_def.get_internal_nodecl()) << std::endl << std::endl;
 
-                Node* reach_defs_node = pcfg->find_nodecl_pointer(stmt_reach_def);
-
-                // RD out of target scope
-                if(!ExtensibleGraph::node_contains_node(scope_node, reach_defs_node))
+                if (reach_def_nodecl == n)
                 {
                     continue;
                 }
-                
+
+                Node* reach_defs_node = pcfg->find_nodecl_pointer(reach_def_nodecl);
+
+               
                 if (!nodecl_has_property_in_scope(scope_node, reach_defs_node, 
-                            stmt_reach_def, pcfg, consider_control_structures))
+                            reach_def_nodecl, pcfg, consider_control_structures))
                     return false;
 
                 // Look inside control structures if enabled
@@ -383,11 +396,22 @@ end_depends:
                         ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
 
                     if((control_structure != NULL) && 
-                            (scope_node == control_structure ||
-                             ExtensibleGraph::node_contains_node(scope_node, control_structure)))
+                             //(scope_node == control_structure || Condition of the SIMD scope must me skipped!
+                             ExtensibleGraph::node_contains_node(scope_node, control_structure))
                     {
                         Node* cond_node = control_structure->get_condition_node();
                         ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+
+                        // if cond_node == stmt_node means that we are in a loop asking for the condition,
+                        // let say j < 10. We get the RD of 'j' and then we get the conditon node of them,
+                        // which is again the j < 10.
+                        if (cond_node == stmt_node)
+                            continue;
+
+                        // Sara? Will be there more than one statement here? If so, the previous condition
+                        // will have to be more sophisticated
+                        ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
+
                         for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
                                 it != cond_node_stmts.end(); 
                                 ++it)

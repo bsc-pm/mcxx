@@ -50,12 +50,8 @@ namespace Analysis {
     {
         bool result = false;
 
-        Optimizations::ReduceExpressionVisitor v;
-        Nodecl::NodeclBase s = n.shallow_copy( );
-        v.walk( s );
-
         ExpressionEvolutionVisitor iv_v( scope_node,  NULL, NULL );
-        iv_v.walk( s );
+        iv_v.walk( n );
         result = iv_v.depends_on_induction_vars( );
 
         return result;

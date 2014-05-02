@@ -96,6 +96,12 @@ namespace Vectorization
                 it != _orig_to_copy_nodes.end();
                 it ++)
         {
+            /*
+            if (it->second.is<Nodecl::Symbol>())
+            std::cerr << "Inserting " << it->second.prettyprint() << ": " << &(it->second.get_internal_nodecl()) << std::endl 
+                << it->first.prettyprint() << ": " << &(it->first.get_internal_nodecl()) << std::endl;
+            */
+
             std::pair<Nodecl::Utils::NodeclDeepCopyMap::const_iterator, bool>
                 ret_insert = _copy_to_orig_nodes.insert(
                         std::pair<Nodecl::NodeclBase, Nodecl::NodeclBase>(
@@ -245,8 +251,9 @@ namespace Vectorization
         if (it == _copy_to_orig_nodes.end())
         {
             //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
-            //internal_error("VectorizerAnalysis: Error translating "
-            //"Nodecl from copy to origin", 0);
+
+            internal_error("VectorizerAnalysis: Error translating "\
+            "Nodecl from copy to origin", 0);
             return n;
         }
 

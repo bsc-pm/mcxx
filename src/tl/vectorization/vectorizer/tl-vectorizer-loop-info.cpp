@@ -64,7 +64,8 @@ namespace Vectorization
         if (_loop.is<ForStatement>())
         {
             Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
-            Nodecl::NodeclBase statements = for_stmt.get_statement();
+            Nodecl::NodeclBase statements = for_stmt.get_statement().
+                as<Nodecl::List>().front();
 
             for(objlist_nodecl_t::const_iterator it = _ivs.begin();
                     ivs_values_invariant && it != _ivs.end();
@@ -91,7 +92,8 @@ namespace Vectorization
         if (_loop.is<ForStatement>())
         {
             Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
-            Nodecl::NodeclBase statements = for_stmt.get_statement();
+            Nodecl::NodeclBase statements = for_stmt.get_statement().as<Nodecl::List>()
+                .front();
 
             return VectorizationAnalysisInterface::_vectorizer_analysis->
                 nodecl_is_invariant_in_scope(

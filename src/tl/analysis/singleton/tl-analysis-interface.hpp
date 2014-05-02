@@ -87,9 +87,11 @@ namespace Analysis {
             ~AnalysisInterface();
 
 
+            /*
             DEPRECATED bool reach_defs_depend_on_iv(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
+            */
             /*
             virtual bool nodecl_is_constant_at_statement(
                     const Nodecl::NodeclBase& scope,

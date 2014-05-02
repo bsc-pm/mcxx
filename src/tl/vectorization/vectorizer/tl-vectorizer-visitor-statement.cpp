@@ -73,9 +73,9 @@ namespace Vectorization
 
         // PROCESING LOOP CONTROL
         bool init_next_need_vectorization =
-            loop_info.ivs_values_are_invariant_in_simd_scope();
+            !loop_info.ivs_values_are_invariant_in_simd_scope();
         bool condition_needs_vectorization =
-            loop_info.condition_is_invariant_in_simd_scope();
+            !loop_info.condition_is_invariant_in_simd_scope();
 
         // Init
 
