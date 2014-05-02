@@ -80,7 +80,7 @@ namespace Analysis {
             {
                 Nodecl::NodeclBase sym_val = it->get_value();
                 if(!sym_val.is_null())
-                    reach_def = sym_val.shallow_copy();
+                    reach_def = sym_val; //.shallow_copy();
             }
             // Build the nodecl symbol
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
