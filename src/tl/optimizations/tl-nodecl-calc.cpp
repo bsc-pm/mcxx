@@ -655,6 +655,10 @@ namespace Optimizations {
     
     Calculator::Ret Calculator::visit(const Nodecl::Sizeof& n)
     {
+        if (n.is_constant())
+        {
+            return TL::ObjectList<const_value_t*>(1, n.get_constant());
+        }
         return TL::ObjectList<const_value_t*>();
     }
 
