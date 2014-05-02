@@ -381,6 +381,58 @@ namespace Utils {
     typedef ExprFinderVisitor<std::equal_to<Nodecl::NodeclBase> > ExprPointerFinderVisitor;
     typedef ExprFinderVisitor<Nodecl_structural_equal> ExprStructuralFinderVisitor;
 
+    template <typename Kind>
+    struct SimpleFinderVisitorHelper : ExhaustiveVisitor<void>
+    {
+            bool found;
+            SimpleFinderVisitorHelper()
+                : found(false) {}
+
+            virtual void visitor(const Nodecl::ObjectInit& n)
+            {
+                walk(n.get_symbol().get_value());
+            }
+
+            virtual void visitor(const Kind& k)
+            {
+                found = true;
+            }
+    };
+
+    template <typename Kind>
+    bool nodecl_contains_nodecl_of_kind(const Nodecl::NodeclBase& n)
+    {
+        SimpleFinderVisitorHelper<Kind> finder;
+        finder.walk(n);
+        return finder.found;
+    }
+
+    template <typename Kind>
+    struct CollectFinderVisitorHelper : ExhaustiveVisitor<void>
+    {
+            TL::ObjectList<Nodecl::NodeclBase> found_nodes;
+            CollectFinderVisitorHelper()
+                : found_nodes() {}
+
+            virtual void visitor(const Nodecl::ObjectInit& n)
+            {
+                walk(n.get_symbol().get_value());
+            }
+
+            virtual void visitor_pre(const Kind& k)
+            {
+                found_nodes.append(k);
+            }
+    };
+
+    template <typename Kind>
+    TL::ObjectList<Nodecl::NodeclBase> nodecl_get_all_nodecls_of_kind(const Nodecl::NodeclBase& n)
+    {
+        CollectFinderVisitorHelper<Kind> finder;
+        finder.walk(n);
+        return finder.found_nodes;
+    }
+
     void print_ast(Nodecl::NodeclBase n);
 }
 }
