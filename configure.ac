@@ -1566,7 +1566,7 @@ AC_MSG_CHECKING([default typing environment])
 
 AC_ARG_WITH([type-environment],
         AS_HELP_STRING([--with-type-environment=type_environment],
-            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64 and linux-spu]),
+            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64, linux-spu, linux-arm, linux-arm64]),
         [
            if test x"$withval" != x;
            then
@@ -1610,8 +1610,13 @@ dnl We try to figure a sensible default environment based on the configure envir
             default_type_environ="solaris-sparcv9"
             RPATH_PARAMETER="-R"
             ;;
-       arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
+       armv[67]l-*-linux-gnueabi*)
+            # 32 bit ARM
             default_type_environ="linux-arm"
+            ;;
+       aarch64-*-linux-gnu|aarch64-linux-gnu)
+            # 64 bit ARM
+            default_type_environ="linux-arm64"
             ;;
        spu)
            default_type_environ="linux-spu"
