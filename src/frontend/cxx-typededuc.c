@@ -42,6 +42,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 #include "cxx-exprtype.h"
+#include "cxx-diagnostic.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -1022,11 +1023,13 @@ char deduce_template_arguments_common(
                     = type_template_parameters->arguments[i_tpl_parameters];
                 ERROR_CONDITION(default_template_argument == NULL, "We need a default template argument here", 0);
 
+                diagnostic_context_push_buffered();
                 template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                         updated_context,
                         /* instantiation_symbol_map */ NULL,
                         locus,
                         /* index_pack */ -1);
+                diagnostic_context_pop_and_discard();
 
                 if (new_template_argument == NULL)
                 {

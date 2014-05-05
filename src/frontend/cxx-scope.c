@@ -2220,12 +2220,9 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
     if (!nodecl_is_constant(nodecl)
             && !nodecl_expr_is_value_dependent(nodecl))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: expression '%s' is not constant\n",
-                    nodecl_locus_to_str(nodecl),
-                    codegen_to_str(nodecl, decl_context));
-        }
+        error_printf("%s: error: expression '%s' is not constant\n",
+                nodecl_locus_to_str(nodecl),
+                codegen_to_str(nodecl, decl_context));
     }
 
     return nodecl;
@@ -3153,13 +3150,11 @@ static type_t* update_type_aux_(type_t* orig_type,
             expanded_template_parameters->parameters = xcalloc(expanded_template_parameters->num_parameters,
                     sizeof(*(expanded_template_parameters->parameters)));
 
-            enter_test_expression();
             template_parameter_list_t* updated_template_arguments = complete_template_parameters_of_template_class(
                     decl_context,
                     template_type,
                     expanded_template_parameters,
                     locus);
-            leave_test_expression();
 
             xfree(expanded_template_parameters->arguments);
             xfree(expanded_template_parameters);
@@ -3618,10 +3613,8 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         nodecl_t nodecl_expr = typeof_expr_type_get_expression(orig_type);
 
-        enter_test_expression();
         nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context,
                 instantiation_symbol_map, /* pack_index */ -1);
-        leave_test_expression();
 
         if (nodecl_is_err_expr(nodecl_new_expr))
         {
@@ -3798,11 +3791,8 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
-                    locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
-        }
+        error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
+                locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
         result = get_error_type();
     }
 
@@ -3818,13 +3808,13 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
         decl_context_t template_parameters_context, int position);
 
 static char check_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context, void* info)
+        decl_context_t template_parameters_context,
+        int position UNUSED_PARAMETER,
+        void* info)
 {
-    enter_test_expression();
     template_parameter_value_t* res = get_single_template_argument_from_syntax(template_parameter,
             template_parameters_context,
             *(int*)info);
-    leave_test_expression();
 
     if (res != NULL)
     {
@@ -3913,12 +3903,9 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(type_info))
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: invalid template-argument number %d\n",
-                                ast_location(template_parameter),
-                                position);
-                    }
+                    error_printf("%s: error: invalid template-argument number %d\n",
+                            ast_location(template_parameter),
+                            position);
                     return NULL;
                 }
 
@@ -3928,12 +3915,9 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(declarator_type))
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: invalid template-argument number %d\n",
-                                ast_location(template_parameter),
-                                position);
-                    }
+                    error_printf("%s: error: invalid template-argument number %d\n",
+                            ast_location(template_parameter),
+                            position);
                     return NULL;
                 }
 
@@ -3944,12 +3928,9 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     if (abstract_decl != NULL)
                     {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: invalid template-argument number %d\n",
-                                    ast_location(template_parameter),
-                                    position);
-                        }
+                        error_printf("%s: error: invalid template-argument number %d\n",
+                                ast_location(template_parameter),
+                                position);
                         return NULL;
                     }
                     t_argument->kind = TPK_TEMPLATE;
@@ -4023,6 +4004,8 @@ static void get_template_arguments_from_syntax_rec(
 
         int valid = -1;
 
+        diagnostic_context_t* ambig_diag[num_ambiguities + 1];
+
         int i;
         for (i = 0; i < num_ambiguities; i++)
         {
@@ -4034,14 +4017,14 @@ static void get_template_arguments_from_syntax_rec(
             copy_template_parameter_list(potential_results[i], *result);
             potential_positions[i] = *position;
 
-            enter_test_expression();
+            ambig_diag[i] = diagnostic_context_push_buffered();
             get_template_arguments_from_syntax_rec(
                     current_interpretation,
                     template_parameters_context,
 
                     &potential_results[i],
                     &potential_positions[i]);
-            leave_test_expression();
+            diagnostic_context_pop();
 
             if (potential_results[i] != NULL)
             {
@@ -4062,12 +4045,32 @@ static void get_template_arguments_from_syntax_rec(
 
         if (valid < 0)
         {
+            // Commit everything
+            diagnostic_context_t* combine_diagnostics = diagnostic_context_push_buffered();
+            for (i = 0; i < num_ambiguities; i++)
+            {
+                diagnostic_context_commit(ambig_diag[i]);
+            }
+            diagnostic_context_pop();
+            diagnostic_context_commit(combine_diagnostics);
+
             free_template_parameter_list(*result);
             *result = NULL;
             return;
         }
         else
         {
+            for (i = 0; i < num_ambiguities; i++)
+            {
+                if (i == valid)
+                {
+                    diagnostic_context_commit(ambig_diag[i]);
+                }
+                else
+                {
+                    diagnostic_context_discard(ambig_diag[i]);
+                }
+            }
             ast_replace_with_ambiguity(template_parameters_list_tree, valid);
 
             // Update the result with the new ones
@@ -4221,11 +4224,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     primary_template_parameters->num_parameters);
         }
 
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: too many template-arguments for template class\n",
-                    locus_to_str(locus));
-        }
+        error_printf("%s: error: too many template-arguments for template class\n",
+                locus_to_str(locus));
 
         free_template_parameter_list(result);
         return NULL;
@@ -4257,11 +4257,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Template argument %d is missing", i);
                     }
 
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: template argument number %d is missing and there is no default template argument for it\n",
-                                locus_to_str(locus), i);
-                    }
+                    error_printf("%s: error: template argument number %d is missing and there is no default template argument for it\n",
+                            locus_to_str(locus), i);
 
                     free_template_parameter_list(result);
                     return NULL;
@@ -4323,12 +4320,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     fprintf(stderr, "SCOPE: Template parameter kind and template argument kind do not match\n");
                 }
 
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: kind of template argument number %d does not match "
-                            "that of the corresponding template parameter\n",
-                            locus_to_str(locus), i + 1);
-                }
+                error_printf("%s: error: kind of template argument number %d does not match "
+                        "that of the corresponding template parameter\n",
+                        locus_to_str(locus), i + 1);
 
                 free_template_parameter_list(result);
                 return NULL;
@@ -4386,11 +4380,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
                                     " the type of the template parameter\n");
                         }
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: cannot solve address of overload function in template argument number %d",
-                                    locus_to_str(locus), i);
-                        }
+                        error_printf("%s: error: cannot solve address of overload function in template argument number %d\n",
+                                locus_to_str(locus), i);
                         free_template_parameter_list(result);
                         return NULL;
                     }
@@ -4414,15 +4405,12 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                             {
                                 fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
                             }
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
-                                        "type '%s' of the corresponding template parameter\n",
-                                        locus_to_str(locus),
-                                        print_type_str(arg_type, template_name_context),
-                                        i + 1,
-                                        print_type_str(dest_type, template_name_context));
-                            }
+                            error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                                    "type '%s' of the corresponding template parameter\n",
+                                    locus_to_str(locus),
+                                    print_type_str(arg_type, template_name_context),
+                                    i + 1,
+                                    print_type_str(dest_type, template_name_context));
                             free_template_parameter_list(result);
                             return NULL;
                         }
@@ -4464,12 +4452,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         fprintf(stderr, "SCOPE: Template parameter pack kind and template argument kind do not match\n");
                     }
 
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: kind of template argument number %d does not match "
-                                "that of the corresponding template parameter pack\n",
-                                locus_to_str(locus), i + 1);
-                    }
+                    error_printf("%s: error: kind of template argument number %d does not match "
+                            "that of the corresponding template parameter pack\n",
+                            locus_to_str(locus), i + 1);
 
 
                     free_template_parameter_list(result);
@@ -4510,12 +4495,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                         "but there are too many elements (this is element %d)\n",
                                         print_declarator(parameter_type), index_of_type);
                             }
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: too many template arguments for"
-                                        " the template parameter pack\n",
-                                        locus_to_str(locus));
-                            }
+                            error_printf("%s: error: too many template arguments for"
+                                    " the template parameter pack\n",
+                                    locus_to_str(locus));
 
                             free_template_parameter_list(result);
                             return NULL;
@@ -4548,11 +4530,9 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                     fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
                                             " the type of the template parameter\n");
                                 }
-                                if (!checking_ambiguity())
-                                {
-                                    error_printf("%s: error: cannot solve address of overload function in template argument number %d",
-                                            locus_to_str(locus), i);
-                                }
+                                error_printf("%s: error: cannot solve address of overload "
+                                        "function in template argument number %d\n",
+                                        locus_to_str(locus), i);
                                 free_template_parameter_list(result);
                                 return NULL;
                             }
@@ -4576,15 +4556,12 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                                     {
                                         fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
                                     }
-                                    if (!checking_ambiguity())
-                                    {
-                                        error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
-                                                "type '%s' of the corresponding template parameter pack\n",
-                                                locus_to_str(locus),
-                                                print_type_str(arg_type, template_name_context),
-                                                i + 1,
-                                                print_type_str(parameter_type, template_name_context));
-                                    }
+                                    error_printf("%s: error: type '%s' of template argument %d cannot be converted to "
+                                            "type '%s' of the corresponding template parameter pack\n",
+                                            locus_to_str(locus),
+                                            print_type_str(arg_type, template_name_context),
+                                            i + 1,
+                                            print_type_str(parameter_type, template_name_context));
                                     free_template_parameter_list(result);
                                     return NULL;
                                 }
@@ -6119,11 +6096,8 @@ static scope_entry_list_t* query_nodecl_conversion_name(
     // We need a class scope around that we will check first
     if (decl_context.class_scope == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: conversion-id requires an enclosing class scope\n", 
-                    nodecl_locus_to_str(nodecl_name));
-        }
+        error_printf("%s: error: conversion-id requires an enclosing class scope\n", 
+                nodecl_locus_to_str(nodecl_name));
         return NULL;
     }
 
@@ -6160,17 +6134,17 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         // Lookup in class scope if available
         class_context.current_scope = class_context.class_scope;
 
-        enter_test_expression();
+        diagnostic_context_push_buffered();
         type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context,
                 /* out_simple_type */ NULL, /* out_gather_info */ NULL);
-        leave_test_expression();
+        diagnostic_context_pop_and_discard();
     }
 
-    enter_test_expression();
+    diagnostic_context_push_buffered();
     type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
             /* out_simple_type */ NULL, /* out_gather_info */ NULL
             );
-    leave_test_expression();
+    diagnostic_context_pop_and_discard();
 
     type_t* t = type_looked_up_in_class;
     if (is_error_type(t))
@@ -6183,15 +6157,12 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         {
             if (!equivalent_types(t, type_looked_up_in_enclosing))
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: type of conversion found in class scope (%s) and the type in "
-                            "scope of the id-expression (%s) should match\n",
-                            nodecl_locus_to_str(nodecl_name),
-                            print_type_str(type_looked_up_in_class, class_context),
-                            print_type_str(type_looked_up_in_enclosing, top_level_decl_context)
-                            );
-                }
+                error_printf("%s: error: type of conversion found in class scope (%s) and the type in "
+                        "scope of the id-expression (%s) should match\n",
+                        nodecl_locus_to_str(nodecl_name),
+                        print_type_str(type_looked_up_in_class, class_context),
+                        print_type_str(type_looked_up_in_enclosing, top_level_decl_context)
+                        );
                 return NULL;
             }
         }
@@ -6200,23 +6171,17 @@ static scope_entry_list_t* query_nodecl_conversion_name(
     // If still not found, error
     if (is_error_type(t))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: type-id %s of conversion-id not found\n",
-                    nodecl_locus_to_str(nodecl_name),
-                    prettyprint_in_buffer(type_id));
-        }
+        error_printf("%s: error: type-id %s of conversion-id not found\n",
+                nodecl_locus_to_str(nodecl_name),
+                prettyprint_in_buffer(type_id));
         return NULL;
     }
 
     if (class_context.class_scope == NULL)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: 'operator %s' requires a class scope\n", 
-                    nodecl_locus_to_str(nodecl_name),
-                    prettyprint_in_buffer(type_id));
-        }
+        error_printf("%s: error: 'operator %s' requires a class scope\n", 
+                nodecl_locus_to_str(nodecl_name),
+                prettyprint_in_buffer(type_id));
         return NULL;
     }
 
@@ -6336,11 +6301,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         {
             // We only allow enums to be the previous symbol of the last component
             // of the nested name specifier.
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid nested-name-specifier\n",
-                        nodecl_locus_to_str(current_name));
-            }
+            error_printf("%s: error: invalid nested-name-specifier\n",
+                    nodecl_locus_to_str(current_name));
         }
         else
         {
@@ -6398,20 +6360,17 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
 
                 if (!is_named_type(t))
                 {
-                    if (!checking_ambiguity())
+                    CXX03_LANGUAGE()
                     {
-                        CXX03_LANGUAGE()
-                        {
-                            error_printf("%s: typedef name '%s' is not a namespace or class\n", 
-                                    nodecl_locus_to_str(current_name),
-                                    codegen_to_str(current_name, decl_context));
-                        }
-                        CXX11_LANGUAGE()
-                        {
-                            error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
-                                    nodecl_locus_to_str(current_name),
-                                    codegen_to_str(current_name, decl_context));
-                        }
+                        error_printf("%s: typedef name '%s' is not a namespace or class\n", 
+                                nodecl_locus_to_str(current_name),
+                                codegen_to_str(current_name, decl_context));
+                    }
+                    CXX11_LANGUAGE()
+                    {
+                        error_printf("%s: typedef name '%s' is not a namespace, class or enum\n", 
+                                nodecl_locus_to_str(current_name),
+                                codegen_to_str(current_name, decl_context));
                     }
                     return NULL;
                 }
@@ -6482,30 +6441,24 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         else if (current_symbol->kind == SK_TEMPLATE
                 || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: template-name '%s' used without template arguments\n", 
-                        nodecl_locus_to_str(current_name),
-                        nodecl_get_text(current_name));
-            }
+            error_printf("%s: error: template-name '%s' used without template arguments\n", 
+                    nodecl_locus_to_str(current_name),
+                    nodecl_get_text(current_name));
             return NULL;
         }
         else
         {
-            if (!checking_ambiguity())
+            CXX03_LANGUAGE()
             {
-                CXX03_LANGUAGE()
-                {
-                    error_printf("%s: error: name '%s' is not a namespace or class\n", 
-                            nodecl_locus_to_str(current_name),
-                            codegen_to_str(current_name, decl_context));
-                }
-                CXX11_LANGUAGE()
-                {
-                    error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
-                            nodecl_locus_to_str(current_name),
-                            codegen_to_str(current_name, decl_context));
-                }
+                error_printf("%s: error: name '%s' is not a namespace or class\n", 
+                        nodecl_locus_to_str(current_name),
+                        codegen_to_str(current_name, decl_context));
+            }
+            CXX11_LANGUAGE()
+            {
+                error_printf("%s: error: name '%s' is not a namespace, class or enum\n", 
+                        nodecl_locus_to_str(current_name),
+                        codegen_to_str(current_name, decl_context));
             }
             return NULL;
         }
@@ -6545,11 +6498,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         }
         else if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_CONVERSION)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: conversion-id is not valid in a non-class scope\n",
-                        nodecl_locus_to_str(last_name));
-            }
+            error_printf("%s: error: conversion-id is not valid in a non-class scope\n",
+                    nodecl_locus_to_str(last_name));
             return NULL;
         }
         else
@@ -6602,11 +6552,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
         else
         {
             // Anything else is ill-formed
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid name in nested-name specifier\n",
-                        nodecl_locus_to_str(last_name));
-            }
+            error_printf("%s: error: invalid name in nested-name specifier\n",
+                    nodecl_locus_to_str(last_name));
             return NULL;
         }
     }
@@ -6935,12 +6882,9 @@ static char check_symbol_is_base_or_member(
 
     if (class_symbol->kind != SK_CLASS)
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' must be a class\n",
-                    locus_to_str(locus),
-                    class_symbol->symbol_name);
-        }
+        error_printf("%s: error: '%s' must be a class\n",
+                locus_to_str(locus),
+                class_symbol->symbol_name);
         return 0;
     }
 
@@ -6948,12 +6892,9 @@ static char check_symbol_is_base_or_member(
     {
         if (nested_name_spec_symbol->kind != SK_CLASS)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' must be a class\n",
-                        locus_to_str(locus),
-                        nested_name_spec_symbol->symbol_name);
-            }
+            error_printf("%s: error: '%s' must be a class\n",
+                    locus_to_str(locus),
+                    nested_name_spec_symbol->symbol_name);
             return 0;
         }
         else if (!class_type_is_base_instantiating(
@@ -6961,26 +6902,20 @@ static char check_symbol_is_base_or_member(
                     class_symbol->type_information,
                     locus))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' is not a base of '%s'\n",
-                        locus_to_str(locus),
-                        get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
-                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
-            }
+            error_printf("%s: error: '%s' is not a base of '%s'\n",
+                    locus_to_str(locus),
+                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
         else if (class_type_is_ambiguous_base_of_derived_class(
                     nested_name_spec_symbol->type_information,
                     class_symbol->type_information))
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
-                        locus_to_str(locus),
-                        get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
-                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
-            }
+            error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
+                    locus_to_str(locus),
+                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
     }
@@ -6992,13 +6927,10 @@ static char check_symbol_is_base_or_member(
                     get_user_defined_type(class_symbol),
                     locus)))
     {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: '%s' is not a member of '%s'\n",
-                    locus_to_str(locus),
-                    current_symbol->symbol_name,
-                    get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
-        }
+        error_printf("%s: error: '%s' is not a member of '%s'\n",
+                locus_to_str(locus),
+                current_symbol->symbol_name,
+                get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
         return 0;
     }
 
@@ -7507,12 +7439,9 @@ scope_entry_list_t* query_dependent_entity_in_context(
                 }
                 else if (!is_class_type(new_class_type))
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: '%s' does not name a class type\n",
-                                locus_to_str(locus),
-                                print_type_str(dependent_entity->type_information, dependent_entity->decl_context));
-                    }
+                    error_printf("%s: error: '%s' does not name a class type\n",
+                            locus_to_str(locus),
+                            print_type_str(dependent_entity->type_information, dependent_entity->decl_context));
                     return NULL;
                 }
                 else
