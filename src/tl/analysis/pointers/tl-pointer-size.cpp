@@ -64,7 +64,7 @@ namespace Analysis{
                             s = Nodecl::Symbol::make(tmp);
                             t = tmp.get_type();
                             s.set_type(t);
-                            value = tmp.get_value();
+                            value = tmp.get_value().no_conv();
                         }
                         else if(it->is<Nodecl::Assignment>())
                         {
