@@ -1,0 +1,54 @@
+ORIGINAL_MCC_COMPILER=mpimcc_base
+NANOX_INSTALL=@NANOX@/
+if [[ "$*" == *--mmic* ]] 
+then
+   MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mmic"
+   NANOX_INSTALL=@NANOX_MIC@/
+fi
+ORIGINAL_MPI_COMPILER=@MPICC@
+ORIGINAL_CXX_MPI_COMPILER=@MPICXX@
+OLDPPWD=$PWD
+if [[ "$*" == *-c* ]]
+then
+	$ORIGINAL_MCC_COMPILER $*
+elif [ $# -eq 0 ]
+then
+	$ORIGINAL_MCC_COMPILER $*
+   echo "This Offload compiler is using $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change that (between mpiicc/mpicc), either use an alias or reconfigure mercurium
+         with only mpiicc/mpicc (the one you want to be used) in your PATH"
+elif [ $# == *-help* ]
+then
+	$ORIGINAL_MCC_COMPILER $*
+   echo "This Offload compiler is using $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change that (between mpiicc/mpicc), either use an alias or reconfigure mercurium
+         with only mpiicc/mpicc (the one you want to be used) in your PATH"
+else
+	type=performance
+   mpi_plugin_disable=
+	if [[ "$*" == *--instrument* ]]
+	then
+		type=instrumentation
+	fi
+	if [[ "$*" == *--debug* ]]
+	then
+		type=debug
+	fi
+	if [[ "$*" == *--instrumentation*--debug* ]]
+	then
+		type=instrumentation_debug
+	fi
+	if [[ "$*" == *--debug*--instrumentation* ]]
+	then
+		type=instrumentation_debug
+	fi
+	if [[ "$*" == *--verbose* ]]
+	then
+		mpi_plugin_disable=">/dev/null 2>&1"
+	fi
+	MPI_PLUGIN_FLAGS_FILE=`cat $NANOX_INSTALL/src/arch/mpi/${type}_flags`
+	MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS_FILE $MPI_PLUGIN_FLAGS"
+   @DISABLEMPI_ICC@MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mt_mpi"
+   @DISABLEMPI_GCC@MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -lmpi -lmpi_cxx"
+	$ORIGINAL_CXX_MPI_COMPILER -c $NANOX_INSTALL/src/arch/mpi/mpiall.cpp $MPI_PLUGIN_FLAGS -o $OLDPPWD/mpiplugin$$.o $mpi_plugin_disable
+	$ORIGINAL_MCC_COMPILER $OLDPPWD/mpiplugin$$.o $*
+	rm -f $OLDPPWD/mpiplugin$$.o
+fi

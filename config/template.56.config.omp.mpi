@@ -1,5 +1,5 @@
-@DISABLEMPI_ICC@[mpimcc : imcc]
-@DISABLEMPI_GCC@[mpimcc : mcc]
+@DISABLEMPI_ICC@[mpimcc_base : imcc]
+@DISABLEMPI_GCC@[mpimcc_base : mcc]
 language = C
 options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICC@
@@ -7,14 +7,14 @@ preprocessor_name = @MPICC@
 {mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -include string.h -DMIC_ARCH
 compiler_name = @MPICC@
 @DISABLEMPI_ICC@compiler_options=  -mt_mpi
-linker_name = @MPICC@
+linker_name = @MPICXX@
 @DISABLEMPI_ICC@linker_options = -mt_mpi
 {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
 
 
-@DISABLEMPI_ICC@[mpimcxx : imcxx]
-@DISABLEMPI_GCC@[mpimcxx : mcxx]
+@DISABLEMPI_ICC@[mpimcxx_base : imcxx]
+@DISABLEMPI_GCC@[mpimcxx_base : mcxx]
 language = C++
 options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICXX@
@@ -27,8 +27,8 @@ linker_name = @MPICXX@
 {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
 
-@DISABLEMPI_ICC@[mpimfc : imfc]
-@DISABLEMPI_GCC@[mpimfc : mfc]
+@DISABLEMPI_ICC@[mpimfc_base : imfc]
+@DISABLEMPI_GCC@[mpimfc_base : mfc]
 language = Fortran
 options = --variable=nanos_main_enabled:1
 preprocessor_name = @MPICC@
@@ -41,6 +41,6 @@ fortran_preprocessor_name = @MPIFORT@
 @DISABLEMPI_ICC@{mmic} fortran_preprocessor_options = -mt_mpi
 compiler_name = @MPIFORT@
 @DISABLEMPI_ICC@compiler_options= -mt_mpi
-linker_name = @MPIFORT@
+linker_name = @MPICXX@
 @DISABLEMPI_ICC@linker_options = -mt_mpi
 compiler_phase = libtlnanox-mpi.so
