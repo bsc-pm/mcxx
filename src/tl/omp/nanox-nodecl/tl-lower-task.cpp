@@ -803,8 +803,8 @@ void LoweringVisitor::visit_task(
     Nodecl::NodeclBase environment = construct.get_environment();
     Nodecl::NodeclBase statements = construct.get_statements();
 
-    // This copied_statements will be used when we are generating the code for the 'final' clause
-    Nodecl::NodeclBase copied_statements = Nodecl::Utils::deep_copy(statements, construct);
+    // This final_statements will be used when we are generating the code for the 'final' clause
+    Nodecl::NodeclBase final_statements = Nodecl::Utils::deep_copy(statements, construct);
 
     walk(statements);
 
@@ -815,6 +815,9 @@ void LoweringVisitor::visit_task(
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(environment,function_symbol);
+
+    // If the current task contains a reduction clause, the final statements will be modified
+    handle_reductions_on_task(construct, outline_info, statements, final_statements);
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE
@@ -850,7 +853,7 @@ void LoweringVisitor::visit_task(
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
 
-        Nodecl::NodeclBase copied_statements_placeholder;
+        Nodecl::NodeclBase final_statements_placeholder;
 
 
         code
@@ -860,7 +863,7 @@ void LoweringVisitor::visit_task(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          statement_placeholder(copied_statements_placeholder)
+            <<          statement_placeholder(final_statements_placeholder)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -879,19 +882,16 @@ void LoweringVisitor::visit_task(
 
         construct.replace(if_else_tree);
 
-        copied_statements_placeholder.replace(copied_statements);
+        final_statements_placeholder.replace(final_statements);
 
         RemoveOpenMPTasks visitor;
-        visitor.walk(copied_statements);
-        walk(copied_statements);
-
+        visitor.walk(final_statements);
+        walk(final_statements);
     }
     else
     {
         new_construct = construct;
     }
-
-    handle_reductions_on_task(new_construct, outline_info, statements);
 
     Symbol called_task_dummy = Symbol::invalid();
     emit_async_common(

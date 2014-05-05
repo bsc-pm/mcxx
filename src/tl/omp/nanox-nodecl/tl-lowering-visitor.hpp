@@ -96,7 +96,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         void handle_reductions_on_task(
                 Nodecl::NodeclBase construct,
                 OutlineInfo& outline_info,
-                Nodecl::NodeclBase statements);
+                Nodecl::NodeclBase statements,
+                Nodecl::NodeclBase& final_statements);
 
         void fill_arguments(
                 Nodecl::NodeclBase ctr,

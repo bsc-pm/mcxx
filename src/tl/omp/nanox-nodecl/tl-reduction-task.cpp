@@ -390,13 +390,14 @@ namespace TL { namespace Nanox {
     };
 
     void LoweringVisitor::handle_reductions_on_task(
-            Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements)
+            Nodecl::NodeclBase construct, OutlineInfo& outline_info, Nodecl::NodeclBase statements,
+            Nodecl::NodeclBase& final_statements)
     {
         if (Nanos::Version::interface_is_at_least("task_reduction", 1000)
                 || (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)))
         {
             bool there_are_reductions_on_task = false;
-            TL::Source new_statements_src, reductions_stuff;
+            TL::Source reductions_stuff;
             std::map<TL::Symbol, std::string> reduction_symbols_map;
 
             TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
@@ -487,48 +488,118 @@ namespace TL { namespace Nanox {
 
             if (there_are_reductions_on_task)
             {
-                Nodecl::NodeclBase placeholder;
-                new_statements_src
-                    << "{"
-                    <<      "nanos_err_t err;"
-                    <<      reductions_stuff
-                    <<      statement_placeholder(placeholder)
-                    << "}"
-                    ;
-
-                if (IS_FORTRAN_LANGUAGE)
-                    Source::source_language = SourceLanguage::C;
-
-                Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
-
-                if (IS_FORTRAN_LANGUAGE)
-                    Source::source_language = SourceLanguage::Current;
-
-
-                TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
-                std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
-                for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
-                        it != reduction_symbols_map.end();
-                        ++it)
                 {
-                    TL::Symbol reduction_sym = it->first;
-                    std::string storage_name = it->second;
-                    TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
-                    ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
+                    Nodecl::NodeclBase placeholder;
+                    TL::Source new_statements_src;
+                    new_statements_src
+                        << "{"
+                        <<      "nanos_err_t err;"
+                        <<      reductions_stuff
+                        <<      statement_placeholder(placeholder)
+                        << "}"
+                        ;
 
-                    Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
-                            storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
-                            storage_sym.get_type().points_to());
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::C;
 
-                    reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
+                    Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::Current;
+
+
+                    TL::Source final_statements_src;
+
+                    TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                    std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                    for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                            it != reduction_symbols_map.end();
+                            ++it)
+                    {
+                        TL::Symbol reduction_sym = it->first;
+                        std::string storage_name = it->second;
+                        TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
+                        ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
+                        final_statements_src
+                            << "if (" << storage_sym.get_name() << " == 0)"
+                            << "{"
+                            <<      storage_sym.get_name() << " = &" << reduction_sym.get_name() << ";"
+                            << "}"
+                            ;
+                        Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
+                                storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
+                                storage_sym.get_type().points_to());
+
+                        reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
+                    }
+
+                    Nodecl::NodeclBase placeholder2;
+
+                    ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+                    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                    visitor.walk(copied_statements);
+
+                    final_statements_src << as_statement(copied_statements);
+
+
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::C;
+
+                    Nodecl::NodeclBase new_final_statements = final_statements_src.parse_statement(new_scope);
+
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::Current;
+
+                    placeholder.replace(new_final_statements);
+
+                    final_statements = new_statements;
                 }
 
-                ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
-                Nodecl::NodeclBase copied_statements = statements.shallow_copy();
-                visitor.walk(copied_statements);
+                {
+                    TL::Source new_statements_src;
+                    Nodecl::NodeclBase placeholder;
+                    new_statements_src
+                        << "{"
+                        <<      "nanos_err_t err;"
+                        <<      reductions_stuff
+                        <<      statement_placeholder(placeholder)
+                        << "}"
+                        ;
 
-                placeholder.replace(copied_statements);
-                statements.replace(new_statements);
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::C;
+
+                    Nodecl::NodeclBase new_statements = new_statements_src.parse_statement(construct);
+
+                    if (IS_FORTRAN_LANGUAGE)
+                        Source::source_language = SourceLanguage::Current;
+
+
+                    TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
+                    std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
+                    for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
+                            it != reduction_symbols_map.end();
+                            ++it)
+                    {
+                        TL::Symbol reduction_sym = it->first;
+                        std::string storage_name = it->second;
+                        TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
+                        ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
+
+                        Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
+                                storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
+                                storage_sym.get_type().points_to());
+
+                        reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
+                    }
+
+                    ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
+                    Nodecl::NodeclBase copied_statements = statements.shallow_copy();
+                    visitor.walk(copied_statements);
+
+                    placeholder.replace(copied_statements);
+                    statements.replace(new_statements);
+                }
             }
         }
     }
