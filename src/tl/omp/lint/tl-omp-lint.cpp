@@ -29,6 +29,7 @@
 #include "tl-omp-lint.hpp"
 #include "tl-tribool.hpp"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -38,9 +39,8 @@ namespace TL {
 namespace OpenMP {
     
 namespace {
-    #define PATH_LENGTH 512
     std::string log_file_path;
-    char log_file_name[PATH_LENGTH];
+    char log_file_name[PATH_MAX+1];
     std::string usr_name;
     
     #define CORRECTNESS_WARN_TYPE_LIST \
@@ -149,13 +149,13 @@ namespace {
                 }
                 
                 // 3.- Build the name of the file
-                char absolute_path[PATH_LENGTH];
+                char absolute_path[PATH_MAX+1];
                 char* path_ptr = realpath(log_file_path.c_str(), absolute_path);
                 ERROR_CONDITION(path_ptr == NULL, "Error retrieving the real path of path %s.\n", log_file_path.c_str());
-                snprintf(log_file_name, PATH_LENGTH, "%s__correctness_%s_%lu_%s.log",
+                snprintf(log_file_name, PATH_MAX, "%s__correctness_%s_%lu_%s.log",
                          absolute_path,
                          usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
-                log_file_name[PATH_LENGTH-1] = '\0';
+                log_file_name[PATH_MAX-1] = '\0';
                 
                 // 4.- Create and open the file
                 DEBUG_CODE()
