@@ -23,7 +23,6 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
-
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
@@ -873,14 +872,23 @@ void LoweringVisitor::visit_task(
 
         construct.replace(if_else_tree);
 
+        // We obtain the list node which contains the placeholder used to store
+        // the final stmts. This must be done before the replace because at
+        // this point the parent of the copied_statements_placeholder is the
+        // first (and the unique) list node
+        Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
+
+        // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
         copied_statements_placeholder.replace(copied_statements);
 
-        // Remove the OmpSs/OpenMP tasks from the tree
-        RemoveOpenMPTasks visitor;
-        visitor.walk(copied_statements_placeholder);
+        ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
 
-        // Walk over the tree, transforming OpenMP/OmpSs pragmas
-        walk(copied_statements_placeholder);
+        // Remove the OmpSs/OpenMP task stuff from the tree
+        RemoveOpenMPTaskStuff visitor;
+        visitor.walk(final_stmt_list);
+
+        // Walk over the tree transforming OpenMP/OmpSs pragmas
+        walk(final_stmt_list);
     }
     else
     {
