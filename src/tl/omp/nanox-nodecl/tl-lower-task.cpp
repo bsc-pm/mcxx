@@ -23,7 +23,6 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
-
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
@@ -337,8 +336,7 @@ Source LoweringVisitor::fill_const_wd_info(
             Nanos::Version::interface_is_at_least("master", 5022))
     {
         result
-            // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
@@ -853,9 +851,7 @@ void LoweringVisitor::visit_task(
         new_construct = Nodecl::OpenMP::Task::make(environment, statements);
         TL::Source code;
 
-        Nodecl::NodeclBase final_statements_placeholder;
-
-
+        Nodecl::NodeclBase copied_statements_placeholder;
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
@@ -863,7 +859,7 @@ void LoweringVisitor::visit_task(
             <<      "if (mcc_err_in_final != NANOS_OK) nanos_handle_error(mcc_err_in_final);"
             <<      "if (mcc_is_in_final)"
             <<      "{"
-            <<          statement_placeholder(final_statements_placeholder)
+            <<          statement_placeholder(copied_statements_placeholder)
             <<      "}"
             <<      "else"
             <<      "{"
@@ -882,11 +878,23 @@ void LoweringVisitor::visit_task(
 
         construct.replace(if_else_tree);
 
-        final_statements_placeholder.replace(final_statements);
+        // We obtain the list node which contains the placeholder used to store
+        // the final stmts. This must be done before the replace because at
+        // this point the parent of the copied_statements_placeholder is the
+        // first (and the unique) list node
+        Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
 
-        RemoveOpenMPTasks visitor;
-        visitor.walk(final_statements);
-        walk(final_statements);
+        // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
+        copied_statements_placeholder.replace(final_statements);
+
+        ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
+
+        // Remove the OmpSs/OpenMP task stuff from the tree
+        RemoveOpenMPTaskStuff visitor;
+        visitor.walk(final_stmt_list);
+
+        // Walk over the tree transforming OpenMP/OmpSs pragmas
+        walk(final_stmt_list);
     }
     else
     {
@@ -1752,28 +1760,31 @@ void LoweringVisitor::fill_copies_region(
 
                 while (t.is_array())
                 {
-                    Nodecl::NodeclBase lower, upper, region_size;
+                    Nodecl::NodeclBase array_lb, array_ub;
+                    Nodecl::NodeclBase region_lb, region_ub;
+                    Nodecl::NodeclBase region_size;
                     if (t.array_is_region())
                     {
-                        t.array_get_region_bounds(lower, upper);
+                        t.array_get_bounds(array_lb, array_ub);
+                        t.array_get_region_bounds(region_lb, region_ub);
                         region_size = t.array_get_size();
                     }
                     else
                     {
-                        t.array_get_bounds(lower, upper);
+                        t.array_get_bounds(array_lb, array_ub);
                         region_size = t.array_get_size();
                     }
 
                     if (IS_FORTRAN_LANGUAGE
                             && t.is_fortran_array())
                     {
-                        if (lower.is_null())
+                        if (array_lb.is_null())
                         {
-                            lower = get_lower_bound(data_ref, rank);
+                            array_lb = get_lower_bound(data_ref, rank);
                         }
-                        if (upper.is_null())
+                        if (array_ub.is_null())
                         {
-                            upper = get_upper_bound(data_ref, rank);
+                            array_ub = get_upper_bound(data_ref, rank);
                         }
                         if (region_size.is_null())
                         {
@@ -1781,8 +1792,22 @@ void LoweringVisitor::fill_copies_region(
                         }
                     }
 
-                    lower_bounds.append(lower);
-                    upper_bounds.append(upper);
+                    // The region is the whole array
+                    if (region_lb.is_null())
+                        region_lb = array_lb;
+                    if (region_ub.is_null())
+                        region_ub = array_ub;
+
+                    // Adjust bounds to be 0-based
+                    Nodecl::NodeclBase adjusted_region_lb =
+                        (Source() << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")").
+                        parse_expression(ctr);
+                    Nodecl::NodeclBase adjusted_region_ub =
+                        (Source() << "(" << as_expression(region_ub) << ") - (" << as_expression(array_lb) << ")").
+                        parse_expression(ctr);
+
+                    lower_bounds.append(adjusted_region_lb);
+                    upper_bounds.append(adjusted_region_ub);
                     total_sizes.append(region_size);
 
                     t = t.array_element();
@@ -1802,7 +1827,6 @@ void LoweringVisitor::fill_copies_region(
 
             num_dimensions
                 << num_dimensions_count;
-
 
             for (int dim = num_dimensions_count - 1; dim >= 0; dim--, current_dimension_descriptor++)
             {
@@ -1856,75 +1880,75 @@ void LoweringVisitor::fill_copies_region(
                 }
             }
 
-            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
-            {
-                bool has_serializer=false;
-                TL::Type ser_type = copy_type;
-                //If the object is a class, generate everything so nanox can it
-                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
-                        TL::Symbol sym_serializer = ser_type.get_symbol();
-                        if (sym_serializer.get_type().is_pointer_to_class()){
-                            ser_type= sym_serializer.get_type().get_pointer_to();
-                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-                        }
-                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
-                        ObjectList<TL::Symbol>::iterator ser_it;
-                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
-                            if (ser_it->get_name()=="serialize") has_serializer=true;
-                        }    
-                }
-                //If its serializable and input, create serialization adapters and fill copy info
-                //if it's not input, the device should warn the programmer in case it's needed
-                if (has_serializer && input) {
-                    TL::Symbol sym_serializer = ser_type.get_symbol();
-                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
-
-                    Source serialize_adapters;
-
-                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
-                            << "{  "
-                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
-                            << "} ;";
-                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
-                            << "{ "
-                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
-                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
-                            << "} ;";
-                    
-                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
-                            << "{"
-                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
-                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
-                            << "} ;";
-
-                    copy_ol_setup
-                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
-                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
-                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
-                        ;
-
-                    copy_imm_setup
-                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
-                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
-                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
-                        ;
-
-                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
-                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
-                } else {
-                    copy_ol_setup
-                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
-                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
-                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
-                        ;
-
-                    copy_imm_setup
-                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
-                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
-                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
-                        ;
-                }
-            }
+//            if (Nanos::Version::interface_is_at_least("copies_api", 1003))
+//            {
+//                bool has_serializer=false;
+//                TL::Type ser_type = copy_type;
+//                //If the object is a class, generate everything so nanox can it
+//                if (IS_CXX_LANGUAGE && (ser_type.is_class() || ser_type.is_pointer_to_class())) {  
+//                        TL::Symbol sym_serializer = ser_type.get_symbol();
+//                        if (sym_serializer.get_type().is_pointer_to_class()){
+//                            ser_type= sym_serializer.get_type().get_pointer_to();
+//                            sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+//                        }
+//                        ObjectList<TL::Symbol> ser_members = ser_type.get_all_members();
+//                        ObjectList<TL::Symbol>::iterator ser_it;
+//                        for (ser_it=ser_members.begin(); ser_it!=ser_members.end() && !has_serializer; ++ser_it){
+//                            if (ser_it->get_name()=="serialize") has_serializer=true;
+//                        }    
+//                }
+//                //If its serializable and input, create serialization adapters and fill copy info
+//                //if it's not input, the device should warn the programmer in case it's needed
+//                if (has_serializer && input) {
+//                    TL::Symbol sym_serializer = ser_type.get_symbol();
+//                    std::string serialize_prefix_name= outline_info.get_implementation_table().begin()->second.get_outline_name() + sym_serializer.get_name() + data_ref.get_base_symbol().get_name();
+//
+//                    Source serialize_adapters;
+//
+//                    serialize_adapters << "static size_t " << serialize_prefix_name << "_ser_size_adapter(void* this_)"
+//                            << "{  "
+//                            << "   return (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize_size(); "
+//                            << "} ;";
+//                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_adapter(void * this_, void* buff)"
+//                            << "{ "
+//                            << "   nanos::omemstream* buff_ptr=(nanos::omemstream*) buff; "
+//                            << "   (("<< sym_serializer.get_qualified_name() << "*)this_)->serialize(*buff_ptr); "
+//                            << "} ;";
+//                    
+//                    serialize_adapters << "static void " << serialize_prefix_name << "_ser_assign_adapter(void* this_, void* buff)"
+//                            << "{"
+//                            << "  nanos::imemstream* buff_ptr=(nanos::imemstream*) buff; "
+//                            << "  (*("<< sym_serializer.get_qualified_name() << "*)this_)=(*buff_ptr);"
+//                            << "} ;";
+//
+//                    copy_ol_setup
+//                        << "ol_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+//                        << "ol_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+//                        << "ol_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+//                        ;
+//
+//                    copy_imm_setup
+//                        << "imm_copy_data[" << i << "].serialize_size_adapter = (typeSerSizeAdapter)" << serialize_prefix_name << "_ser_size_adapter;"
+//                        << "imm_copy_data[" << i << "].serialize_adapter = (typeSerAdapter)" << serialize_prefix_name << "_ser_adapter;"
+//                        << "imm_copy_data[" << i << "].serialize_assign_adapter = (typeSerAssignAdapter)" << serialize_prefix_name << "_ser_assign_adapter;"
+//                        ;
+//
+//                    Nodecl::NodeclBase serialize_tree = serialize_adapters.parse_global(ctr);
+//                    Nodecl::Utils::prepend_to_enclosing_top_level_location(ctr,serialize_tree);
+//                } else {
+//                    copy_ol_setup
+//                        << "ol_copy_data[" << i << "].serialize_size_adapter = 0;"
+//                        << "ol_copy_data[" << i << "].serialize_adapter = 0;"
+//                        << "ol_copy_data[" << i << "].serialize_assign_adapter = 0;"
+//                        ;
+//
+//                    copy_imm_setup
+//                        << "imm_copy_data[" << i << "].serialize_size_adapter = 0;"
+//                        << "imm_copy_data[" << i << "].serialize_adapter = 0;"
+//                        << "imm_copy_data[" << i << "].serialize_assign_adapter = 0;"
+//                        ;
+//                }
+//            }
         }
     }
     
@@ -2501,11 +2525,9 @@ void LoweringVisitor::handle_dependency_item(
             if (region_lb.is_null())
                 region_lb = array_lb;
 
-            Source diff;
-            diff
-                << "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")";
-
-            lb = diff.parse_expression(ctr);
+            // Adjust bounds to be 0-based
+            lb = (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
+                .parse_expression(ctr);
 
             size = contiguous_array_type.array_get_region_size();
 
@@ -2793,27 +2815,39 @@ void LoweringVisitor::fill_dimensions(
                 dep_type.array_element(), dims_description, dependency_regions_code, sc);
 
         Source dimension_size, dimension_lower_bound, dimension_accessed_length;
-        Nodecl::NodeclBase lb, ub, size;
+        Nodecl::NodeclBase array_lb, array_ub, size;
+        Nodecl::NodeclBase region_lb, region_ub;
 
         if (dep_type.array_is_region())
         {
-            dep_type.array_get_region_bounds(lb, ub);
+            dep_type.array_get_bounds(array_lb, array_ub);
+            dep_type.array_get_region_bounds(region_lb, region_ub);
             size = dep_type.array_get_region_size();
         }
         else
         {
-            dep_type.array_get_bounds(lb, ub);
-
-            if (lb.is_null() && IS_FORTRAN_LANGUAGE)
-            {
-                lb = get_lower_bound(dep_expr, current_dim);
-            }
-
+            dep_type.array_get_bounds(array_lb, array_ub);
             size = get_size_for_dimension(dep_type, current_dim, dep_expr);
         }
 
+        if (array_lb.is_null() && IS_FORTRAN_LANGUAGE)
+        {
+            array_lb = get_lower_bound(dep_expr, current_dim);
+        }
+
+        // The region is the whole array
+        if (region_lb.is_null())
+            region_lb = array_lb;
+        if (region_ub.is_null())
+            region_ub = array_ub;
+
+        // Adjust bounds to be 0-based
+        Nodecl::NodeclBase adjusted_lb = 
+            (Source() <<  "(" << as_expression(region_lb) << ") - (" << as_expression(array_lb) << ")")
+            .parse_expression(sc);
+
         dimension_size << as_expression(dim_sizes[n_dims - current_dim]);
-        dimension_lower_bound << as_expression(lb);
+        dimension_lower_bound << as_expression(adjusted_lb);
         dimension_accessed_length << as_expression(size);
 
         if (IS_C_LANGUAGE

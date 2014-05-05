@@ -112,6 +112,9 @@ namespace TL
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
                         bool is_combined_worksharing);
+
+                static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
+                        TL::Scope sc);
         };
     }
 }

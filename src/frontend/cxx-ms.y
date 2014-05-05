@@ -46,11 +46,11 @@ extended_decl_modifier_list0 : extended_decl_modifier
 }
 ;
 
-extended_decl_modifier : IDENTIFIER
+extended_decl_modifier : identifier_token
 {
     $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, NULL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| IDENTIFIER '(' expression_list ')'
+| identifier_token '(' expression_list ')'
 {
     $$ = ASTMake1(AST_MS_DECLSPEC_ITEM, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }

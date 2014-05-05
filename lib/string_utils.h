@@ -31,6 +31,7 @@
 #define STRING_UTILS_H
 
 #include "libutils-common.h"
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,6 +74,7 @@ LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned c
 
 // Like asprintf but returning a uniquestr
 LIBUTILS_EXTERN CHECK_PRINTF_STR int uniquestr_sprintf(const char** out_str, const char* format, ...);
+LIBUTILS_EXTERN int uniquestr_vsprintf(const char** out_str, const char* format, va_list args);
 
 LIBUTILS_EXTERN unsigned int simple_hash_str(const char *str);
 

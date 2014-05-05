@@ -441,6 +441,21 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    Nodecl::NodeclBase Base::wrap_in_block_context_if_needed(Nodecl::NodeclBase context, Scope sc)
+    {
+        ERROR_CONDITION(!context.is<Nodecl::List>(), "This is not a list", 0);
+
+        Nodecl::List l = context.as<Nodecl::List>();
+
+        if (l.size() != 1 || !l[0].is<Nodecl::Context>())
+        {
+            decl_context_t block_context = new_block_context(sc.get_decl_context());
+            return Nodecl::List::make(
+                    Nodecl::Context::make(l, block_context, context.get_locus()));
+        }
+
+        return context;
+    }
 
     // Inline tasks
     void Base::task_handler_pre(TL::PragmaCustomStatement) { }
@@ -534,9 +549,15 @@ namespace TL { namespace OpenMP {
 
         pragma_line.diagnostic_unused_clauses();
 
+        Nodecl::NodeclBase body_of_task = 
+            wrap_in_block_context_if_needed(
+                    directive.get_statements().shallow_copy(),
+                    directive.retrieve_context()
+                    );
+
         Nodecl::NodeclBase async_code =
             Nodecl::OpenMP::Task::make(execution_environment,
-                    directive.get_statements().shallow_copy(),
+                    body_of_task,
                     directive.get_locus());
 
         directive.replace(async_code);

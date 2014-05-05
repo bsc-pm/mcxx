@@ -298,15 +298,13 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     closure_info.nodecl_deep_copy_map = nodecl_deep_copy_map;
     closure_info.symbol_deep_copy_map = symbol_deep_copy_map;
 
+
     // First walk, sign in all the names but leave them empty
-    rb_tree_walk(original_scope->hash, (void (*)(const void*, void*, void*))register_symbols, &closure_info);
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)register_symbols, &closure_info);
     // Fill the created symbols
-    rb_tree_walk(original_scope->hash, (void (*)(const void*, void*, void*))fill_symbols, &closure_info);
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
     // xfree(closure_info.filled_symbols);
-    
-    new_decl_context.current_scope->related_entry 
-        = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map, original_scope->related_entry);
 }
 
 static decl_context_t copy_function_scope(decl_context_t new_decl_context,
@@ -330,6 +328,11 @@ static decl_context_t copy_function_scope(decl_context_t new_decl_context,
             nested_symbol_map,
             nodecl_deep_copy_map,
             symbol_deep_copy_map);
+
+    // Update related entry of the function scope
+    new_decl_context.function_scope->related_entry
+        = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map,
+                orig_decl_context.function_scope->related_entry);
 
     new_decl_context.current_scope = old_current;
 

@@ -1100,7 +1100,7 @@ x["][0-9a-f]+["] {
 
     if (count_hollerith_constant == 0)
     {
-        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0", 
+        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0\n",
                 fortran_scanning_now->current_filename,
                 fortran_scanning_now->line_number);
     }

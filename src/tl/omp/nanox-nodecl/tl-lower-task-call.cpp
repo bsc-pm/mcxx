@@ -398,7 +398,7 @@ static void handle_nonconstant_value_dimensions(TL::Type t,
             const char* vla_name = NULL;
             uniquestr_sprintf(&vla_name, "mcc_vla_%d", get_vla_counter());
 
-            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, vla_name);
+            scope_entry_t* new_vla_dim = new_symbol(new_decl_context.get_decl_context(), new_decl_context.get_decl_context().current_scope, uniquestr(vla_name));
             new_vla_dim->kind = SK_VARIABLE;
             new_vla_dim->type_information = old_vla_dim.get_internal_symbol()->type_information;
             new_vla_dim->value = nodecl_deep_copy(old_vla_dim.get_internal_symbol()->value, new_decl_context.get_decl_context(), symbol_map.get_symbol_map());

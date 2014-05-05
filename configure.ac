@@ -1320,6 +1320,7 @@ if test x$disable_analysis = xno;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
+  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
   if test x$disable_vectorization = xno
   then
@@ -1565,7 +1566,7 @@ AC_MSG_CHECKING([default typing environment])
 
 AC_ARG_WITH([type-environment],
         AS_HELP_STRING([--with-type-environment=type_environment],
-            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64 and linux-spu]),
+            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64, linux-spu, linux-arm, linux-arm64]),
         [
            if test x"$withval" != x;
            then
@@ -1609,8 +1610,13 @@ dnl We try to figure a sensible default environment based on the configure envir
             default_type_environ="solaris-sparcv9"
             RPATH_PARAMETER="-R"
             ;;
-       arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
+       arm*-*-gnueabi*)
+            # 32 bit ARM
             default_type_environ="linux-arm"
+            ;;
+       aarch64-*-linux-gnu|aarch64-linux-gnu)
+            # 64 bit ARM
+            default_type_environ="linux-arm64"
             ;;
        spu)
            default_type_environ="linux-spu"

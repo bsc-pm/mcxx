@@ -110,8 +110,14 @@ namespace TL { namespace Nanox {
         if (Nanos::Version::interface_is_at_least("master", 5019)
                 || Nanos::Version::interface_is_at_least("instrumentation_api", 1001))
         {
-            Source extended_descr, extra_cast, instrument_before_c,
+            Source val, extended_descr, extra_cast, instrument_before_c,
             instrument_after_c, function_name_instr;
+
+            // In some cases, the outline_function name is the same for two different tasks.
+            // For this reason we add also the filename and the line
+            val << outline_function.get_name()
+                << "_" << locus_get_filename(locus)
+                << "_" << locus_get_line(locus);
 
             std::string function_name;
             if (task_label.is_null())
@@ -145,6 +151,7 @@ namespace TL { namespace Nanox {
             //  We use '@' as a separator of fields: FUNC_DECL @ FILE @ LINE
             extended_descr << "@" << locus_get_filename(locus) << "@" << locus_get_line(locus);
 
+
             // GCC complains if you convert a pointer to an integer of different
             // size. Since we target an unsigned long long, in architectures of 32
             // bits we first cast to an unsigned int
@@ -166,8 +173,13 @@ namespace TL { namespace Nanox {
                 << "{"
                 <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-                <<    "err = nanos_instrument_register_value_with_val ((nanos_event_value_t) "<< extra_cast << function_name_instr << ","
-                <<               " \"user-funct-location\", \"" << outline_function.get_name() << "\", \"" << extended_descr << "\", 0);"
+                <<    "err = nanos_instrument_register_value_with_val("
+                <<          "(nanos_event_value_t) " << extra_cast << function_name_instr << ","
+                <<          "\"user-funct-location\","
+                <<          "\"" << val << "\","
+                <<          "\"" << extended_descr << "\","
+                <<          /* abort_when_registered */ "0);"
+
                 <<    "if (err != NANOS_OK) nanos_handle_error(err);"
                 <<    "nanos_funct_id_init = 1;"
                 << "}"
@@ -250,7 +262,7 @@ namespace TL { namespace Nanox {
 
         // Pointer to the real unpack function
         scope_entry_t* ptr_to_outline = ::new_symbol(function_context, function_context.current_scope,
-                "outline_ptr");
+                UNIQUESTR_LITERAL("outline_ptr"));
         ptr_to_outline->kind = SK_VARIABLE;
         ptr_to_outline->type_information = fortran_choose_int_type_from_kind(CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
         parameter_symbols.append(ptr_to_outline);
@@ -291,7 +303,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                name.c_str());
+                                uniquestr(name.c_str()));
                         private_sym->kind = SK_VARIABLE;
                         if ((*it)->get_field_type().is_pointer()
                                 && (*it)->get_field_type().points_to().is_void())
@@ -326,7 +338,7 @@ namespace TL { namespace Nanox {
         }
 
         // Now everything is set to register the function
-        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+        scope_entry_t* new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
         new_function_sym->entity_specs.is_user_declared = 1;
 
         new_function_sym->kind = SK_FUNCTION;
@@ -514,7 +526,7 @@ namespace TL { namespace Nanox {
                     }
                 case OutlineDataItem::SHARING_PRIVATE:
                     {
-                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, name.c_str());
+                        scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope, uniquestr(name.c_str()));
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
@@ -563,7 +575,7 @@ namespace TL { namespace Nanox {
                 case OutlineDataItem::SHARING_CONCURRENT_REDUCTION:
                     {
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                name.c_str());
+                                uniquestr(name.c_str()));
 
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_in_outline_type().get_internal_type();
@@ -593,7 +605,7 @@ namespace TL { namespace Nanox {
                         {
                             // Shape VLA
                             vla_private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                    ("vla_p_" + name).c_str());
+                                    uniquestr(("vla_p_" + name).c_str()));
 
                             vla_private_sym->kind = SK_VARIABLE;
                             vla_private_sym->type_information = (*it)->get_symbol().get_type().no_ref().get_internal_type();
@@ -705,7 +717,7 @@ namespace TL { namespace Nanox {
                         // Original reduced variable. Passed as we pass shared parameters
                         TL::Type param_type = (*it)->get_in_outline_type();
                         scope_entry_t* shared_reduction_sym = ::new_symbol(function_context, function_context.current_scope,
-                                (*it)->get_field_name().c_str());
+                                uniquestr((*it)->get_field_name().c_str()));
                         shared_reduction_sym->kind = SK_VARIABLE;
                         shared_reduction_sym->type_information = param_type.get_internal_type();
                         shared_reduction_sym->defined = shared_reduction_sym->entity_specs.is_user_declared = 1;
@@ -742,7 +754,7 @@ namespace TL { namespace Nanox {
                         }
 
                         scope_entry_t* private_reduction_vector_sym = ::new_symbol(function_context, function_context.current_scope,
-                                ("rdv_" + name).c_str());
+                                uniquestr(("rdv_" + name).c_str()));
                         private_reduction_vector_sym->kind = SK_VARIABLE;
                         private_reduction_vector_sym->type_information = private_reduction_vector_type.get_internal_type();
                         private_reduction_vector_sym->defined
@@ -758,7 +770,7 @@ namespace TL { namespace Nanox {
 
                         // Local variable (rdp stands for reduction private)
                         scope_entry_t* private_sym = ::new_symbol(function_context, function_context.current_scope,
-                                ("rdp_" + name).c_str());
+                                uniquestr(("rdp_" + name).c_str()));
                         private_sym->kind = SK_VARIABLE;
                         private_sym->type_information = (*it)->get_private_type().get_internal_type();
                         private_sym->defined = private_sym->entity_specs.is_user_declared = 1;
@@ -930,7 +942,7 @@ namespace TL { namespace Nanox {
         scope_entry_t* new_function_sym = NULL;
         if (!current_function.get_type().is_template_specialized_type())
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
@@ -939,7 +951,7 @@ namespace TL { namespace Nanox {
         else
         {
             scope_entry_t* new_template_sym =
-                new_symbol(decl_context, decl_context.current_scope, function_name.c_str());
+                new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 

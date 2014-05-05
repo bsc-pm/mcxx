@@ -198,6 +198,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> TOKEN_GCC_ATTRIBUTE "__attribute__"
 %token<token_atrib> THREAD "__thread"
 
+%type<token_atrib> identifier_token
+
 // Nonterminals
 %type<ast> abstract_declarator
 %type<ast> abstract_declarator_not_started_with_attributes
@@ -484,12 +486,12 @@ label_declaration : LABEL label_declarator_seq ';'
 }
 ;
 
-label_declarator_seq : IDENTIFIER 
+label_declarator_seq : identifier_token 
 {
     AST symbol_holder = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	$$ = ASTListLeaf(symbol_holder);
 }
-| label_declarator_seq ',' IDENTIFIER
+| label_declarator_seq ',' identifier_token
 {
 	AST label = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 	$$ = ASTList($1, label);
@@ -545,7 +547,7 @@ gcc_attribute_list : gcc_attribute_value
 ;
 
 // Why on earth ASTSon1 is always null ?
-gcc_attribute_value : IDENTIFIER
+gcc_attribute_value : identifier_token
 {
 	AST identif = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -557,7 +559,7 @@ gcc_attribute_value : IDENTIFIER
 
 	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER '(' expression_list ')'
+| identifier_token '(' expression_list ')'
 {
 	AST identif1 = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	
@@ -626,7 +628,7 @@ asm_operand : string_literal '(' expression ')'
 {
 	$$ = ASTMake3(AST_GCC_ASM_OPERAND, NULL, $1, $3, ast_get_locus($1), NULL);
 }
-| '[' IDENTIFIER ']' string_literal '(' expression ')'
+| '[' identifier_token ']' string_literal '(' expression ')'
 {
     AST symbol_tree = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -931,7 +933,7 @@ simple_type_specifier : type_name
 ;
 
 // Simplified rule
-type_name : IDENTIFIER
+type_name : identifier_token
 {
 	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -975,13 +977,13 @@ builtin_types : TOKEN_CHAR
 }
 ;
 
-elaborated_type_specifier : class_key attribute_specifier_seq_opt IDENTIFIER
+elaborated_type_specifier : class_key attribute_specifier_seq_opt identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
 	$$ = ASTMake3(AST_ELABORATED_TYPE_CLASS_SPEC, $1, identifier, $2, ast_get_locus($1), NULL);
 }
-| enum_key attribute_specifier_seq_opt IDENTIFIER
+| enum_key attribute_specifier_seq_opt identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -1306,7 +1308,7 @@ enum_head : enum_key attribute_specifier_seq_opt identifier_opt
 }
 ;
 
-identifier_opt : IDENTIFIER
+identifier_opt : identifier_token
 {
 	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -1342,13 +1344,13 @@ enumeration_list: enumeration_list ',' enumeration_definition
 }
 ;
 
-enumeration_definition : IDENTIFIER
+enumeration_definition : identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
 	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER '=' constant_expression
+| identifier_token '=' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -1438,13 +1440,13 @@ identifier_list : identifier_list_kr
 }
 ;
 
-identifier_list_kr : IDENTIFIER
+identifier_list_kr : identifier_token
 {
     AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
     $$ = ASTListLeaf(symbol);
 }
-| identifier_list_kr ',' IDENTIFIER 
+| identifier_list_kr ',' identifier_token 
 {
     AST symbol = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -1524,7 +1526,7 @@ initializer_list : initializer_clause
     $$ = ASTList($1, designated_initializer);
 }
 // GNU Extensions
-| IDENTIFIER ':' initializer_clause
+| identifier_token ':' initializer_clause
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -1532,7 +1534,7 @@ initializer_list : initializer_clause
 
 	$$ = ASTListLeaf(gcc_initializer_clause);
 }
-| initializer_list ',' IDENTIFIER ':' initializer_clause
+| initializer_list ',' identifier_token ':' initializer_clause
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -1562,7 +1564,7 @@ designator : '[' constant_expression ']'
 {
     $$ = ASTMake1(AST_INDEX_DESIGNATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '.' IDENTIFIER
+| '.' identifier_token
 {
     AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -1630,7 +1632,7 @@ class_head : class_key
 {
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, NULL, ast_get_locus($1), NULL);
 }
-| class_key IDENTIFIER
+| class_key identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -1643,7 +1645,7 @@ class_head : class_key
 
 	$$ = ASTMake4(AST_CLASS_HEAD_SPEC, $1, NULL, NULL, class_head_extra, ast_get_locus($1), NULL);
 }
-| class_key attribute_specifier_seq IDENTIFIER
+| class_key attribute_specifier_seq identifier_token
 {
     AST class_head_extra = ASTMake3(AST_CLASS_HEAD_EXTRA, $2, NULL, NULL, ast_get_locus($1), NULL);
 
@@ -1724,7 +1726,7 @@ member_declarator_first : declarator_not_started_with_attributes attribute_speci
 {
     $$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER attribute_specifier_seq_opt ':' constant_expression
+| identifier_token attribute_specifier_seq_opt ':' constant_expression
 {
     AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
     AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
@@ -1745,7 +1747,7 @@ member_declarator : declarator attribute_specifier_seq_opt
 {
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3, $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER attribute_specifier_seq_opt ':' constant_expression
+| identifier_token attribute_specifier_seq_opt ':' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
@@ -1804,7 +1806,7 @@ nondeclarating_statement : labeled_statement
 }
 ;
 
-labeled_statement : IDENTIFIER ':' statement
+labeled_statement : identifier_token ':' statement
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	
@@ -1955,7 +1957,7 @@ jump_statement : BREAK ';'
 {
 	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| GOTO IDENTIFIER ';'
+| GOTO identifier_token ';'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 	
@@ -2023,13 +2025,13 @@ primary_expression : literal
      offsetof-member-designator . identifier
      offsetof-member-designator [ expression ]
 */
-offsetof_member_designator :  IDENTIFIER designator_list
+offsetof_member_designator :  identifier_token designator_list
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
             ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
             $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER
+| identifier_token
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
             ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
@@ -2043,7 +2045,7 @@ id_expression : unqualified_id
 }
 ;
 
-unqualified_id : IDENTIFIER
+unqualified_id : identifier_token
 {
 	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -2159,7 +2161,7 @@ unary_expression : postfix_expression
 {
 	$$ = ASTMake1(AST_GCC_IMAG_PART, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| ANDAND IDENTIFIER
+| ANDAND identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -2481,6 +2483,12 @@ string_literal : STRING_LITERAL
 	strcat(text, str2);
 
 	$$ = ASTLeaf(AST_STRING_LITERAL, ast_get_locus($1), text);
+}
+;
+
+identifier_token : IDENTIFIER
+{
+    $$ = $1;
 }
 ;
 
