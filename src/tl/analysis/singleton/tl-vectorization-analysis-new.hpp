@@ -49,7 +49,7 @@ namespace Analysis {
 
             virtual bool is_adjacent_access(const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-
+/*
             virtual bool is_simd_aligned_access(const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                     const std::map<TL::Symbol, int>& aligned_expressions,
                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
@@ -59,6 +59,7 @@ namespace Analysis {
                     const Nodecl::NodeclBase& n,
                     const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
+*/
     };
 }
 }

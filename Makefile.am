@@ -1392,8 +1392,6 @@ src_tl_analysis_singleton_libanalysis_singleton_la_SOURCES= \
                                   src/tl/analysis/singleton/tl-analysis-interface.cpp \
                                   src/tl/analysis/singleton/tl-expression-evolution-visitor.hpp \
                                   src/tl/analysis/singleton/tl-expression-evolution-visitor.cpp \
-                                  src/tl/analysis/singleton/tl-suitable-alignment-visitor.hpp \
-                                  src/tl/analysis/singleton/tl-suitable-alignment-visitor.cpp \
                                   src/tl/analysis/singleton/tl-vectorization-analysis-new.hpp \
                                   src/tl/analysis/singleton/tl-vectorization-analysis-new.cpp \
                                   $(END)
@@ -1489,6 +1487,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-vectorization-common.hpp \
                            src/tl/vectorization/common/tl-vectorization-utils.hpp \
                            src/tl/vectorization/common/tl-vectorization-utils.cpp \
+                           src/tl/vectorization/common/tl-suitable-alignment-visitor.hpp \
+                           src/tl/vectorization/common/tl-suitable-alignment-visitor.cpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.cpp \
                            $(END)

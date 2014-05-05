@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-expression-evolution-visitor.hpp"
+#include "tl-tribool.hpp"
 
 #include "cxx-cexpr.h"
 //#include "tl-analysis-utils.hpp"
@@ -36,10 +37,12 @@ namespace TL
 {
 namespace Analysis
 {
-    ExpressionEvolutionVisitor::ExpressionEvolutionVisitor( Node* scope, Node* n_node, ExtensibleGraph* pcfg )
+    ExpressionEvolutionVisitor::ExpressionEvolutionVisitor( Node* scope, Node* n_node, ExtensibleGraph* pcfg,
+           std::set<Nodecl::NodeclBase> adjacency_visited_nodes )
             : _induction_variables( scope->get_induction_variables() ), _killed( scope->get_killed_vars() ),
               _pcfg( pcfg ), _scope_node( scope ), _n_node( n_node ),
-              _ivs( ), _is_adjacent_access( false ), _has_constant_evolution( false )
+              _ivs( ), _is_adjacent_access( false ), _has_constant_evolution( false ),
+              _adjacency_visited_nodes(adjacency_visited_nodes)
     {}
 
     bool ExpressionEvolutionVisitor::variable_is_iv( const Nodecl::NodeclBase& n )
@@ -385,28 +388,28 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
-        //std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_const
-        //    << " and rhs is constant " << rhs_is_const << std::endl;
+        //std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_invariant
+        //    << " and rhs is constant " << rhs_is_invariant << std::endl;
 
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
-                           || ( lhs_is_const && rhs_is_adjacent_access )
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_invariant )
+                           || ( lhs_is_invariant && rhs_is_adjacent_access )
                            || ( lhs_is_adjacent_access && rhs_has_constant_evolution )
                            || ( lhs_has_constant_evolution && rhs_is_adjacent_access );
 
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( rhs_is_const && lhs_is_const );
+        return ( rhs_is_invariant && lhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ArraySubscript& n )
@@ -425,29 +428,29 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         // lhs does not affect adjacency
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
 
-        return ( rhs_is_const && lhs_is_const );
+        return ( rhs_is_invariant && lhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BitwiseShl& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_zero = false;
-        if( rhs_is_const )
+        if( rhs_is_invariant )
             rhs_is_zero = nodecl_is_zero( rhs );
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
@@ -457,22 +460,22 @@ namespace Analysis
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( lhs_is_const && rhs_is_const );
+        return ( lhs_is_invariant && rhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BitwiseShr& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_zero = false;
-        if( rhs_is_const )
+        if( rhs_is_invariant )
             rhs_is_zero = nodecl_is_zero( rhs );
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
@@ -482,7 +485,7 @@ namespace Analysis
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( lhs_is_const && rhs_is_const );
+        return ( lhs_is_invariant && rhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BooleanLiteral& n )
@@ -511,15 +514,15 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_const )
+        if( rhs_is_invariant )
             rhs_is_one = nodecl_is_one( rhs );
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
@@ -529,7 +532,7 @@ namespace Analysis
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( lhs_is_const && rhs_is_const );
+        return ( lhs_is_invariant && rhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::FloatingLiteral& n )
@@ -559,12 +562,12 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Adjacency is not applicable
@@ -573,7 +576,7 @@ namespace Analysis
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( rhs_is_const && lhs_is_const );
+        return ( rhs_is_invariant && lhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::MaskLiteral& n )
@@ -585,42 +588,42 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_const )
-                           || ( lhs_is_const && rhs_is_adjacent_access );
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_invariant )
+                           || ( lhs_is_invariant && rhs_is_adjacent_access );
 
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( rhs_is_const && lhs_is_const );
+        return ( rhs_is_invariant && lhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Mul& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_one = false;
-        if( lhs_is_const )
+        if( lhs_is_invariant )
             lhs_is_one = nodecl_is_one( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_const )
+        if( rhs_is_invariant )
             rhs_is_one = nodecl_is_one( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
         bool rhs_has_constant_evolution = _has_constant_evolution;
@@ -632,7 +635,7 @@ namespace Analysis
          // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( lhs_is_const && rhs_is_const );
+        return ( lhs_is_invariant && rhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Neg& n )
@@ -681,25 +684,25 @@ namespace Analysis
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_const = walk( lhs );
+        bool lhs_is_invariant = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
         bool lhs_has_constant_evolution = _has_constant_evolution;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_const = walk( rhs );
+        bool rhs_is_invariant = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_const )
+        if( rhs_is_invariant )
             rhs_is_one = nodecl_is_one( rhs );
         bool rhs_has_constant_evolution = _has_constant_evolution;
 
         // Compute adjacency info
-        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_const && rhs_is_one;
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_invariant && rhs_is_one;
 
         // Compute evolution info
         _has_constant_evolution = lhs_has_constant_evolution && rhs_has_constant_evolution;
 
-        return ( lhs_is_const && rhs_is_const );
+        return ( lhs_is_invariant && rhs_is_invariant );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Predecrement& n )
@@ -731,13 +734,13 @@ namespace Analysis
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Sizeof& n )
     {
-        bool n_is_const = walk( n.get_expr( ) );
+        bool n_is_invariant = walk( n.get_expr( ) );
 
         _is_adjacent_access = false;
         //TODO: evolution true?
         _has_constant_evolution = false;
 
-        return n_is_const;
+        return n_is_invariant;
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::StringLiteral& n )
@@ -745,19 +748,90 @@ namespace Analysis
         return true;
     }
 
+    struct adjacency_property
+    {
+        private:
+            ExpressionEvolutionVisitor* _visitor;
+        public:
+            adjacency_property(ExpressionEvolutionVisitor* visitor) : _visitor(visitor) {}
+
+            TL::tribool operator()(
+                    Node* const scope_node,
+                    Node* const stmt_node,
+                    const Nodecl::NodeclBase& n,
+                    ExtensibleGraph* const pcfg,
+                    std::set<Nodecl::NodeclBase> visited_nodes)
+            {
+                if (n.is<Nodecl::Symbol>())
+                {
+                    // FIXME: This looks weird to me. Can we avoid asking
+                    // visitor about IVs?
+                    if (_visitor->variable_is_iv(n))
+                    {
+                        if (_visitor->_ivs.back()->is_increment_one())
+                        {
+                            return true;
+                        }
+                        else
+                        { 
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        return TL::tribool::unknown;
+                    }
+                }
+                else
+                {
+                    // TODO: n instead of stmt_node.
+                    // If the 'n' is not contained in the scope node,
+                    // then n is invariant in the scope, so is not
+                    // adjacent
+                    if(!ExtensibleGraph::node_contains_node(
+                                scope_node, stmt_node))
+                        return false;
+
+                    ExpressionEvolutionVisitor expression_evolution(
+                            scope_node, stmt_node, pcfg, visited_nodes);
+                    expression_evolution.walk(n);
+
+                    return expression_evolution.is_adjacent_access();
+                }
+            }
+    };
+
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Symbol& n )
     {
         // Collect information about the induction variables contained in the node
-        bool n_is_iv = variable_is_iv( n );
+        // bool n_is_iv = variable_is_iv( n );
 
         //std::cerr << "Studying " << n.prettyprint() << std::endl;
 
-        bool is_constant = false;
-        bool reach_def_is_adjacent = false;
-        bool reach_def_has_constant_evolution = false;
+        bool n_is_invariant = false;
+        // bool reach_defs_are_adjacent = false;
+        // bool reach_defs_are_invariant = false;
 
-        if(!n_is_iv && (_n_node!=NULL))
-        {
+        TL::tribool is_adjacent_tribool = 
+            nodecl_has_property_in_scope(
+                _scope_node, _n_node, _n_node, n, _pcfg,
+                adjacency_property(this),
+                _adjacency_visited_nodes);
+
+        ERROR_CONDITION(is_adjacent_tribool.is_unknown(), 
+                "ExpressionEvolutionVisitor: nodecl_has_property unknown", 0);
+
+        _is_adjacent_access = is_adjacent_tribool.is_true();
+
+        n_is_invariant = nodecl_is_invariant_in_scope(
+                _scope_node, _n_node, _n_node, n, _pcfg);
+                
+        return n_is_invariant;
+    }
+
+#if 0
+    void ExpressionEvolutionVisitor::visit_reaching_definitions()
+    {
             Utils::ext_sym_map reach_def_in = _n_node->get_reaching_definitions_in( );
             //         Utils::ext_sym_map reach_def_out = _n_node->get_reaching_definitions_out( );
             // FIXME Compare the two maps.
@@ -804,70 +878,149 @@ namespace Analysis
                     }
                 }
             }
-
-            // OLD Constant evolution
-            /*
-            Utils::InductionVariableData* iv = NodeclStaticInfo::get_nested_induction_variable(_scope_node, _n_node, n);
-            if(iv!=NULL)
-            {
-                std::cerr << "is nested IV" << std::endl;
-
-                _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed );
-                // check the lower boun of the induction variable
-                Nodecl::NodeclBase lb = iv->get_lb();
-                if(lb.is<Nodecl::Symbol>())
-                {
-                    _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(lb.as<Nodecl::Symbol>());
-                }
-                else if(lb.is_constant())
-                {
-                    _has_constant_evolution = true;
-                }
-                else
-                {
-                    internal_error("Induction variable has lb %s. Required a symbol to call method "\
-                            "var_is_iv_dependent_in_scope. We have to implement this case.\n",
-                            lb.prettyprint().c_str());
-                }
-
-                std::cerr << "LB _has_constant_evolution " << _has_constant_evolution << std::endl;
-
-                // check the increment of the induction variable
-                Nodecl::NodeclBase increment = iv->get_increment();
-                if(increment.is<Nodecl::Symbol>())
-                {
-                    _has_constant_evolution = _has_constant_evolution || !var_is_iv_dependent_in_scope(increment.as<Nodecl::Symbol>());
-                    std::cerr << "Increment _has_constant_evolution " << _has_constant_evolution << std::endl;
-                }
-                else if(increment.is_constant())
-                {
-                    _has_constant_evolution = true;
-                }
-                else
-                {
-                    internal_error("Induction variable has increment %s. Required a symbol to call method "\
-                            "var_is_iv_dependent_in_scope. We have to implement this case.\n",
-                            increment.prettyprint().c_str());
-                }
-
-                std::cerr << "Increment _has_constant_evolution " << _has_constant_evolution << std::endl;
             }
+
+    bool ExpressionEvolutionVisitor::symbol_is_adjacent_access_in_scope(
+            Node* const scope_node,
+            Node* const stmt_node,
+            const Nodecl::NodeclBase& n,
+            ExtensibleGraph* const pcfg,
+            const bool consider_control_structures)
+    {
+        //std::cerr << "N: " << n.prettyprint() << " - " << nodecl_get_ast(n.get_internal_nodecl()) << std::endl;
+
+        if(var_is_iv(n))
+        {
+            if(_ivs.back()->is_increment_one())
+                return true;
             else
-            {
-                _has_constant_evolution = !Utils::ext_sym_set_contains_nodecl( n, _killed ) ||
-                    ((iv==NULL) && !var_is_iv_dependent_in_scope( n ));
-            }
-            */
+                return false
         }
+ 
+        ExpressionEvolutionVisitor expression_evolution(
+                _scope_node, stmt_node, _pcfg);
+        
+        expression_evolution.walk(n);
+        reach_def_is_adjacent |= eev.is_adjacent_access();
 
-        _is_adjacent_access = ( n_is_iv && _ivs.back( )->is_increment_one( ) ) || reach_def_is_adjacent;
-        _has_constant_evolution = reach_def_has_constant_evolution;
-        is_constant = !Utils::ext_sym_set_contains_nodecl( n, _killed ) || !var_is_iv_dependent_in_scope( n );
+        // TODO: n instead of stmt_node.
+        // If 'n' is not contained in the scope node,
+        // then stop looking for IVs
+        if(!ExtensibleGraph::node_contains_node(
+                    scope_node, stmt_node))
+            return false;
 
-        //std::cerr << n.prettyprint() << ": is adj " << _is_adjacent_access << ", has constant evolution " 
-        //    << _has_constant_evolution << ", is constant " << is_constant << std::endl;
+        // End of base cases
 
-        return is_constant;
+        
+        Utils::ext_sym_map all_reach_defs_in = stmt_node->get_reaching_definitions_in();
+
+        // Get all memory accesses and study their RDs 
+        // Note that we want all memory access, not only the symbols.
+        // Example: a[i]
+        // retrieving all symbols will return: a, i
+        // retrieving all memory accesses will return: a, i, a[i]
+        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
+ 
+        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
+                n_mem_accesses.begin(); 
+                n_ma_it != n_mem_accesses.end();
+                n_ma_it++)
+        {
+            //std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " - " 
+            //    << nodecl_get_ast(n_ma_it->get_internal_nodecl()) << std::endl;
+
+            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
+            if(all_reach_defs_in.find(n_ma_es) == all_reach_defs_in.end())
+            {
+                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
+                {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
+                    continue;
+                }
+                else
+                {
+                    WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
+                                    n_ma_it->prettyprint().c_str());
+                }
+            }
+
+            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
+                all_reach_defs_in.equal_range(*n_ma_it);
+
+            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
+                rd_it != bounds.second;
+                rd_it++)
+            {
+                if(rd_it->second.first.is<Nodecl::Unknown>())
+                    continue;
+
+                // Get the PCFG nodes where the reaching definitions where produced
+                const Nodecl::NodeclBase& reach_def_nodecl = 
+                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+
+                // Skip recursive RD (IV step)
+                // std::cerr << "      RD of " << n.prettyprint() <<": " << stmt_reach_def.prettyprint() << " - " 
+                //    << nodecl_get_ast(stmt_reach_def.get_internal_nodecl()) << std::endl << std::endl;
+
+                if (reach_def_nodecl == n)
+                {
+                    continue;
+                }
+
+                Node* reach_defs_node = pcfg->find_nodecl_pointer(reach_def_nodecl);
+
+               
+                if (!nodecl_is_iv_stride_one_in_scope(scope_node, reach_defs_node, 
+                            reach_def_nodecl, pcfg, consider_control_structures))
+                    return false;
+
+                // Look inside control structures if enabled
+                if (consider_control_structures)
+                {
+                    Node* control_structure = 
+                        ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
+
+                    if((control_structure != NULL) && 
+                             //(scope_node == control_structure || Condition of the SIMD scope must me skipped!
+                             ExtensibleGraph::node_contains_node(scope_node, control_structure))
+                    {
+                        Node* cond_node = control_structure->get_condition_node();
+                        ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+
+                        // if cond_node == stmt_node means that we are in a loop asking for the condition,
+                        // let say j < 10. We get the RD of 'j' and then we get the conditon node of them,
+                        // which is again the j < 10.
+                        if (cond_node == stmt_node)
+                            continue;
+
+                        // Sara? Will be there more than one statement here? If so, the previous condition
+                        // will have to be more sophisticated
+                        ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
+
+                        for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
+                                it != cond_node_stmts.end(); 
+                                ++it)
+                        {
+                            const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
+                                Nodecl::Utils::get_all_memory_accesses(*it);
+                            for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
+                                    itt != stms_mem_accesses.end();
+                                    ++itt)
+                            {
+                                if(!nodecl_is_iv_stride_one_in_scope(scope_node,
+                                            cond_node, *itt, pcfg,
+                                            consider_control_structures))
+                                    return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return true;
     }
+#endif
+
 }
 }

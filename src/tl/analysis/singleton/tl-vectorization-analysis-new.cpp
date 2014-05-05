@@ -27,7 +27,6 @@
 #include "tl-vectorization-analysis-new.hpp"
 
 #include "tl-expression-evolution-visitor.hpp"
-#include "tl-suitable-alignment-visitor.hpp"
 
 namespace TL  
 {
@@ -73,7 +72,8 @@ namespace Analysis
             for(; it != subscript.end() - 1 && result; ++it )
             {   
                 // All dimensions but the less significant must be constant
-                if(!nodecl_is_invariant_in_scope(scope_node, n_node, n, pcfg))
+                if(!nodecl_is_invariant_in_scope(
+                            scope_node, n_node, n_node, n, pcfg))
                 {
                     result = false;
                 }
@@ -93,16 +93,17 @@ namespace Analysis
                 }
                 else
                 {
-                    ExpressionEvolutionVisitor iv_v(scope_node, n_node, pcfg);
-                    iv_v.walk(last_dim_n);
-                    result = iv_v.is_adjacent_access( );
+                    ExpressionEvolutionVisitor expr_evolution_info(
+                            scope_node, n_node, pcfg);
+                    expr_evolution_info.walk(last_dim_n);
+                    result = expr_evolution_info.is_adjacent_access( );
                 }
             }
         }
 
         return result;
     }
-
+/*
     bool VectorizationAnalysis::is_simd_aligned_access(const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
             const std::map<TL::Symbol, int>& aligned_expressions,
@@ -171,5 +172,6 @@ namespace Analysis
 
         return result;
     }
+    */
 }
 }

@@ -72,8 +72,9 @@ namespace Vectorization
                     it ++)
             {
                 // Use for statements as statement
+                // nodecl_value
                 ivs_values_invariant = VectorizationAnalysisInterface::
-                    _vectorizer_analysis->nodecl_value_is_invariant_in_scope(
+                    _vectorizer_analysis->nodecl_is_invariant_in_scope(
                         _environment._analysis_simd_scope,
                         statements,
                         *it);
@@ -186,9 +187,12 @@ namespace Vectorization
         TL::ForStatementHelper<TL::NoNewNodePolicy> tl_for(for_statement);
 
         Nodecl::NodeclBase lb = tl_for.get_lower_bound();
-        Nodecl::NodeclBase ub = tl_for.get_upper_bound();
         Nodecl::NodeclBase step = tl_for.get_step();
-
+        Nodecl::NodeclBase ub = tl_for.get_upper_bound();
+        ub = Nodecl::Add::make(VectorizationAnalysisInterface::
+                _vectorizer_analysis->shallow_copy(ub),
+                const_value_to_nodecl(const_value_get_one(1, 4)),
+                ub.get_type()); 
 
         if(step.is_constant())
         {
@@ -247,8 +251,7 @@ namespace Vectorization
 
             if (ub.is_constant())
             {
-                // Closed interval: + 1
-                const_ub = const_value_cast_to_8(ub.get_constant()) + 1;
+                const_ub = const_value_cast_to_8(ub.get_constant());
             }
             else
             {
@@ -257,10 +260,11 @@ namespace Vectorization
                 environment._analysis_scopes.push_back(for_statement);
 
                 // Suitable UB
+                // ub is normalized to <= so +1 is needed
                 ub_is_suitable = VectorizationAnalysisInterface::
                     _vectorizer_analysis->is_suitable_expression(
                         for_statement, ub, environment._suitable_expr_list,
-                        environment._unroll_factor,environment._vector_length,
+                        environment._unroll_factor, environment._vector_length,
                         ub_vector_size_module);
 
                 environment._analysis_scopes.pop_back();

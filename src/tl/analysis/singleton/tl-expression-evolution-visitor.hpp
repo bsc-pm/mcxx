@@ -29,6 +29,7 @@
 
 #include "tl-expression-evolution-visitor.hpp"
 
+#include "tl-analysis-interface.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-extensible-graph.hpp"
 
@@ -36,10 +37,13 @@
 //#include "tl-objectlist.hpp"
 //#include "tl-omp.hpp"
 
+#include <set>
+
 namespace TL {
 namespace Analysis {
 
-    class LIBTL_CLASS ExpressionEvolutionVisitor : public Nodecl::NodeclVisitor<bool>
+    class LIBTL_CLASS ExpressionEvolutionVisitor : public Nodecl::NodeclVisitor<bool>, 
+                                                          Analysis::AnalysisInterface
     {
     private:
         const ObjectList<Utils::InductionVariableData*> _induction_variables;   /* All IVs in the containing loop */
@@ -47,11 +51,18 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;
         Node* _scope_node;                                                      /* Scope from which the node is being analyzed */
         Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
+        std::set<Nodecl::NodeclBase> _adjacency_visited_nodes;
+    public:
         ObjectList<Utils::InductionVariableData*> _ivs;                         /* IVs found during traversal */
+    private:
+
         bool _is_adjacent_access;
         bool _has_constant_evolution;
 
+    public:
+        // This is weird
         bool variable_is_iv( const Nodecl::NodeclBase& n );
+    private:
         bool node_uses_iv( Node* node );
         bool node_stmts_depend_on_iv( Node* node, int recursion_level,
                                       std::map<Node*, std::set<int> >& visits,
@@ -68,7 +79,8 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        ExpressionEvolutionVisitor( Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg );
+        ExpressionEvolutionVisitor( Node* scope, Node* pcfg_node, ExtensibleGraph* pcfg,
+               std::set<Nodecl::NodeclBase> adjacency_visited_nodes = std::set<Nodecl::NodeclBase>());
 
         // *** Consultants *** //
         bool has_constant_evolution( );

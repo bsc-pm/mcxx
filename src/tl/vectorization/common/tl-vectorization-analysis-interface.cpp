@@ -26,12 +26,14 @@
 
 #include "tl-vectorization-analysis-interface.hpp"
 
-#include <algorithm>
-
-#include "cxx-cexpr.h"
+#include "tl-suitable-alignment-visitor.hpp"
+#include "tl-vectorizer.hpp"
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorization-common.hpp"
-#include "tl-vectorizer.hpp"
+
+#include "cxx-cexpr.h"
+
+#include <algorithm>
 
 namespace TL
 {
@@ -658,6 +660,7 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment)
     {
+        /*
         bool result;
 
         std::map<TL::Symbol, int> translated_aligned_expressions =
@@ -675,6 +678,24 @@ namespace Vectorization
         //unregister_nodes();
 
         return result;
+        */
+
+        if( !n.is<Nodecl::ArraySubscript>( ) )
+        {
+            std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
+                      << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
+            return false;
+        }
+
+        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
+        Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
+
+        int type_size = subscripted.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
+                unroll_factor, type_size, alignment );
+
+        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
     }
 
     bool VectorizationAnalysisInterface::is_suitable_expression(
@@ -682,6 +703,7 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment, int& vector_size_module)
     {
+/*        
         bool result;
 
         objlist_nodecl_t translated_suitable_expressions =
@@ -693,6 +715,17 @@ namespace Vectorization
                 unroll_factor, alignment, vector_size_module);
 
         //unregister_nodes();
+*/
+        bool result = false;
+        int type_size = n.get_type().basic_type().get_size();
+
+        SuitableAlignmentVisitor sa_v( scope, suitable_expressions, unroll_factor, type_size, alignment );
+        int subscript_alignment = sa_v.walk( n );
+
+        vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :
+                                                               subscript_alignment % alignment );
+        if( vector_size_module == 0 )
+            result = true;
 
         return result;
     }
@@ -712,7 +745,7 @@ namespace Vectorization
 
         return result;
     }
-
+/*
     bool VectorizationAnalysisInterface::nodecl_value_is_invariant_in_scope(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
@@ -728,7 +761,7 @@ namespace Vectorization
 
         return result;
     }
-
+*/
 
     //
     // SIMD-specific methods

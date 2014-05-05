@@ -71,7 +71,7 @@ namespace Vectorization
 
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr,"VECTORIZER: Type promotion '%s' from '%s'"\
+                fprintf(stderr,"VECTORIZER: TL::Type promotion '%s' from '%s'"\
                        " to '%s'\n", n.prettyprint().c_str(),
                        tl_sym_type.get_simple_declaration(
                            n.retrieve_context(), "").c_str(),
@@ -824,6 +824,7 @@ namespace Vectorization
 
             }
             // ArraySubscript indexed by nested IV, nothing to do
+            /*
             else if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_nested_induction_variable_dependent_access(
                         _environment, lhs) &&
@@ -836,6 +837,7 @@ namespace Vectorization
                 running_error("Vectorizer: Extract operation is not "\
                         "supported yet (%s).", lhs.prettyprint().c_str());
             }
+            */
             else
             {
                 // Get a scatter for real scatter or unaligned store extra flag
@@ -1542,14 +1544,9 @@ namespace Vectorization
             {
                 vectorize_basic_induction_variable(n);
             }
-            // Vectorize symbols declared in the SIMD scope
-            else if (Utils::is_declared_in_inner_scope(
-                        _environment._analysis_simd_scope,
-                        n.get_symbol()))
-            {
-                symbol_type_promotion(n);
-            }
-            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            // Invariants                // visiting RHS of an assignment
+            else if (!encapsulated_symbol_type.is_lvalue_reference() &&
+                    VectorizationAnalysisInterface::_vectorizer_analysis->
                     nodecl_is_invariant_in_scope(
                         _environment._analysis_simd_scope, n, n))
             {
@@ -1576,6 +1573,14 @@ namespace Vectorization
 
                 encapsulated_symbol.replace(vector_prom);
             }
+            // Vectorize symbols declared in the SIMD scope
+            else if (Utils::is_declared_in_inner_scope(
+                        _environment._analysis_simd_scope,
+                        n.get_symbol()))
+            {
+                symbol_type_promotion(n);
+            }
+ 
 /*
             // Vectorize NESTED IV
             else if (// Is nested IV and

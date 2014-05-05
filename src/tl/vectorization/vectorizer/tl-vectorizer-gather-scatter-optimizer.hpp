@@ -57,6 +57,10 @@ namespace Vectorization
     {
         private:
             template <typename VECTOR_NODE, typename SCALAR_NODE>
+            stride_splitter_ret_t visit_distributive_binary_op(
+                    const Nodecl::NodeclBase& n);
+
+            template <typename VECTOR_NODE, typename SCALAR_NODE>
             stride_splitter_ret_t visit_non_distributive_binary_op(
                     const Nodecl::NodeclBase& n);
 

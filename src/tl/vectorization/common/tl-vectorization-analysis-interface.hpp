@@ -152,15 +152,15 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n,
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module );
-            virtual bool iv_lb_depends_on_ivs_from_scope(
+            DEPRECATED virtual bool iv_lb_depends_on_ivs_from_scope(
                     const Nodecl::NodeclBase& n_scope,
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& ivs_scope);
-            virtual bool iv_ub_depends_on_ivs_from_scope(
+            DEPRECATED virtual bool iv_ub_depends_on_ivs_from_scope(
                     const Nodecl::NodeclBase& n_scope,
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& ivs_scope);
-            virtual bool iv_step_depends_on_ivs_from_scope(
+            DEPRECATED virtual bool iv_step_depends_on_ivs_from_scope(
                     const Nodecl::NodeclBase& n_scope,
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& ivs_scope);
@@ -169,19 +169,19 @@ namespace Vectorization
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
-            virtual bool nodecl_value_is_invariant_in_scope(
+/*            virtual bool nodecl_value_is_invariant_in_scope(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
-
+*/
 
             //
             // SIMD-specific methods
             //
-            virtual bool is_nested_induction_variable_dependent_access(
+            DEPRECATED virtual bool is_nested_induction_variable_dependent_access(
                     const VectorizerEnvironment& environment,
                     const Nodecl::NodeclBase& n);
-            virtual bool is_nested_non_reduction_basic_induction_variable(
+            DEPRECATED virtual bool is_nested_non_reduction_basic_induction_variable(
                     const VectorizerEnvironment& environment,
                     const Nodecl::NodeclBase& n);
 
@@ -199,6 +199,7 @@ namespace Vectorization
             friend class VectorizerVisitorExpression;
             friend class VectorizerVisitorLoopHeader;
             friend class StrideSplitterVisitor;
+            friend class SuitableAlignmentVisitor;
     };
 }
 }

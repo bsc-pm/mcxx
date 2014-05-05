@@ -46,7 +46,8 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: GatherScatterInfo %s\n",
-                    n.prettyprint().c_str());
+                    n.get_base().prettyprint().c_str());
+                    //n.prettyprint().c_str());
         }
 
         optimize_gather_scatter(n.get_base(), n.get_strides());
@@ -66,7 +67,8 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: GatherScatterInfo %s\n",
-                    n.prettyprint().c_str());
+                    n.get_base().prettyprint().c_str());
+                    //n.prettyprint().c_str());
         }
 
         optimize_gather_scatter(n.get_base(), n.get_strides());
@@ -117,170 +119,12 @@ namespace Vectorization
         return list.front();
     }
 
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::VectorAdd& n)
-    {
-        return visit_non_distributive_binary_op<Nodecl::VectorAdd,
-              Nodecl::Add>(n);
 
-        /*
-        Nodecl::NodeclBase lhs = n.get_lhs();
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase lhs_no_conv = Nodecl::Utils::advance_conversions(lhs);
-        Nodecl::NodeclBase rhs_no_conv = Nodecl::Utils::advance_conversions(rhs);
-
-        bool lhs_is_base_suitable = lhs_no_conv.is<Nodecl::VectorPromotion>();
-        bool rhs_is_base_suitable = rhs_no_conv.is<Nodecl::VectorPromotion>();
-
-        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
-        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
-
-        if (lhs_is_base_suitable && rhs_is_base_suitable)
-        {
-            base = Nodecl::Add::make(
-                    lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs(),
-                    rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs(),
-                    n.get_type().basic_type());
-        }
-        else if (lhs_is_base_suitable)
-        {
-            stride_splitter_ret_t rhs_ret = walk(rhs);
-
-            base = Nodecl::Add::make(lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs(),
-                    rhs_ret.first,
-                    n.get_type().basic_type());
-
-            strides = rhs_ret.second;
-        }
-        else if (rhs_is_base_suitable)
-        {
-            stride_splitter_ret_t lhs_ret = walk(lhs);
-
-            base = Nodecl::Add::make(lhs_ret.first,
-                    rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs(),
-                    n.get_type().basic_type());
-
-            strides = lhs_ret.second;
-        }
-        else
-        {
-            stride_splitter_ret_t lhs_ret = walk(lhs);
-            stride_splitter_ret_t rhs_ret = walk(rhs);
-
-            // Base
-            if (!lhs_ret.first.is_null() && !rhs_ret.first.is_null())
-            {
-                base = Nodecl::Add::make(lhs_ret.first,
-                        rhs_ret.first,
-                        n.get_type().basic_type());
-            }
-            else if (!lhs_ret.first.is_null())
-            {
-                base = lhs_ret.first;
-            }
-            else if (!rhs_ret.first.is_null())
-            {
-                base = rhs_ret.first;
-            }
-
-            // Strides
-            if (!lhs_ret.second.is_null() && !rhs_ret.second.is_null())
-            {
-                strides = Nodecl::VectorAdd::make(lhs_ret.second,
-                        rhs_ret.second,
-                        n.get_mask(),
-                        n.get_type());
-            }
-            else if (!lhs_ret.second.is_null())
-            {
-                base = lhs_ret.second;
-            }
-            else if (!rhs_ret.second.is_null())
-            {
-                base = rhs_ret.second;
-            }
-        }
-        */
-/*
-        stride_splitter_ret_t lhs_ret = walk(n.get_lhs());
-        stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
-
-        // Base
-        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
-
-        if (!lhs_ret.first.is_null() && !rhs_ret.first.is_null())
-        {
-            base = Nodecl::Add::make(lhs_ret.first,
-                    rhs_ret.first,
-                    n.get_type());
-        }
-        else if (!lhs_ret.first.is_null())
-        {
-            base = lhs_ret.first;
-        }
-        else if (!rhs_ret.first.is_null())
-        {
-            base = rhs_ret.first;
-        }
-
-        // Strides
-        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
-
-        if (!lhs_ret.second.is_null() && !rhs_ret.second.is_null())
-        {
-            strides = Nodecl::Add::make(lhs_ret.second,
-                    rhs_ret.second,
-                    n.get_type());
-        }
-        else if (!lhs_ret.second.is_null())
-        {
-            strides = lhs_ret.second;
-        }
-        else if (!rhs_ret.second.is_null())
-        {
-            strides = rhs_ret.second;
-        }
-
-        // pair<n, null>
-        return stride_splitter_ret_t(base, strides);
-        */
-
-//        return stride_splitter_ret_t(base, strides);
-    }
-
-    stride_splitter_ret_t StrideSplitterVisitor::visit(
-            const Nodecl::Neg& n)
-    {
-        running_error("NEG");
-        stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
-
-        // Base
-        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
-
-        if (!rhs_ret.first.is_null())
-        {
-            base = Nodecl::Neg::make(rhs_ret.first,
-                    n.get_type());
-        }
-
-        // Strides
-        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
-
-        if (!rhs_ret.second.is_null())
-        {
-            strides = Nodecl::Neg::make(rhs_ret.second,
-                    n.get_type());
-        }
-
-        // pair<n, null>
-        return stride_splitter_ret_t(base, strides);
-    }
- 
     template <typename VECTOR_NODE, typename SCALAR_NODE>
-    stride_splitter_ret_t StrideSplitterVisitor::visit_non_distributive_binary_op(
+    stride_splitter_ret_t StrideSplitterVisitor::visit_distributive_binary_op(
             const Nodecl::NodeclBase& n)
     {
-        VECTOR_NODE node = n.as<VECTOR_NODE>();
+        VECTOR_NODE vector_node = n.as<VECTOR_NODE>();
         
         /* 
         std::cerr << "Mul: [ "
@@ -291,8 +135,8 @@ namespace Vectorization
             << std::endl;
         */
 
-        Nodecl::NodeclBase lhs = node.get_lhs();
-        Nodecl::NodeclBase rhs = node.get_rhs();
+        Nodecl::NodeclBase lhs = vector_node.get_lhs();
+        Nodecl::NodeclBase rhs = vector_node.get_rhs();
         Nodecl::NodeclBase lhs_no_conv = Nodecl::Utils::advance_conversions(lhs);
         Nodecl::NodeclBase rhs_no_conv = Nodecl::Utils::advance_conversions(rhs);
 
@@ -369,6 +213,132 @@ namespace Vectorization
             {
                 strides = VECTOR_NODE::make(lhs_ret.second.shallow_copy(),
                         rhs_ret.second.shallow_copy(),
+                        vector_node.get_mask().shallow_copy(),
+                        n.get_type());
+            }
+            else if (!lhs_ret.second.is_null())
+            {
+                strides = lhs_ret.second;
+            }
+            else if (!rhs_ret.second.is_null())
+            {
+                strides = rhs_ret.second;
+            }
+        }
+
+        // pair<n, null>
+        return stride_splitter_ret_t(base, strides);
+    }
+
+    template <typename VECTOR_NODE, typename SCALAR_NODE>
+    stride_splitter_ret_t StrideSplitterVisitor::visit_non_distributive_binary_op(
+            const Nodecl::NodeclBase& n)
+    {
+        VECTOR_NODE vector_node = n.as<VECTOR_NODE>();
+        
+        /* 
+        std::cerr << "Mul: [ "
+            << (lhs_ret.first.is_null() ? " - " : lhs_ret.first.prettyprint()) << " , "
+            << (lhs_ret.second.is_null() ? " - " : lhs_ret.second.prettyprint()) << " ] * [ "
+            << (rhs_ret.first.is_null() ? " - " : rhs_ret.first.prettyprint()) << " , "
+            << (rhs_ret.second.is_null() ? " - " : rhs_ret.second.prettyprint()) << " ]"
+            << std::endl;
+        */
+
+        Nodecl::NodeclBase lhs = vector_node.get_lhs();
+        Nodecl::NodeclBase rhs = vector_node.get_rhs();
+        Nodecl::NodeclBase lhs_no_conv = Nodecl::Utils::advance_conversions(lhs);
+        Nodecl::NodeclBase rhs_no_conv = Nodecl::Utils::advance_conversions(rhs);
+
+        bool lhs_is_base_suitable = lhs_no_conv.is<Nodecl::VectorPromotion>();
+        bool rhs_is_base_suitable = rhs_no_conv.is<Nodecl::VectorPromotion>();
+
+        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
+        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
+
+        if (lhs_is_base_suitable && rhs_is_base_suitable)
+        {
+            base = SCALAR_NODE::make(
+                    lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                    rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                    n.get_type().basic_type());
+        }
+        else if (lhs_is_base_suitable)
+        {
+            stride_splitter_ret_t rhs_ret = walk(rhs);
+
+            if (!rhs_ret.first.is_null())
+            {
+                base = SCALAR_NODE::make(lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                        rhs_ret.first.shallow_copy(),
+                        n.get_type().basic_type());
+            }
+            else
+            {
+                base = lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
+            }
+
+            if (!rhs_ret.second.is_null())
+            {
+                strides = VECTOR_NODE::make(lhs.shallow_copy(),
+                        rhs_ret.second.shallow_copy(),
+                        vector_node.get_mask().shallow_copy(),
+                        n.get_type());
+            }
+        }
+        else if (rhs_is_base_suitable)
+        {
+            stride_splitter_ret_t lhs_ret = walk(lhs);
+
+            if (!lhs_ret.first.is_null())
+            {
+                base = SCALAR_NODE::make(lhs_ret.first.shallow_copy(),
+                        rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                        n.get_type().basic_type());
+            }
+            else
+            {
+                base = rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs();
+            }
+
+            if (!lhs_ret.second.is_null())
+            {
+                strides = VECTOR_NODE::make(rhs.shallow_copy(),
+                        lhs_ret.second.shallow_copy(),
+                        vector_node.get_mask().shallow_copy(),
+                        n.get_type());
+            }
+        }
+        else
+        {
+            internal_error("StrideSplitter: Too complicated gather/scatter %s at %s.",
+                    n.prettyprint().c_str(),
+                    n.get_locus());
+            /*
+            stride_splitter_ret_t lhs_ret = walk(lhs);
+            stride_splitter_ret_t rhs_ret = walk(rhs);
+
+            // Base
+            if (!lhs_ret.first.is_null() && !rhs_ret.first.is_null())
+            {
+                base = SCALAR_NODE::make(lhs_ret.first.shallow_copy(),
+                        rhs_ret.first.shallow_copy(),
+                        n.get_type().basic_type());
+            }
+            else if (!lhs_ret.first.is_null())
+            {
+                base = lhs_ret.first;
+            }
+            else if (!rhs_ret.first.is_null())
+            {
+                base = rhs_ret.first;
+            }
+
+            // Strides
+            if (!lhs_ret.second.is_null() && !rhs_ret.second.is_null())
+            {
+                strides = VECTOR_NODE::make(lhs_ret.second.shallow_copy(),
+                        rhs_ret.second.shallow_copy(),
                         node.get_mask().shallow_copy(),
                         n.get_type());
             }
@@ -380,6 +350,42 @@ namespace Vectorization
             {
                 strides = rhs_ret.second;
             }
+            */
+        }
+
+        // pair<n, null>
+        return stride_splitter_ret_t(base, strides);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorAdd& n)
+    {
+        return visit_distributive_binary_op<Nodecl::VectorAdd,
+              Nodecl::Add>(n);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::Neg& n)
+    {
+        running_error("NEG");
+        stride_splitter_ret_t rhs_ret = walk(n.get_rhs());
+
+        // Base
+        Nodecl::NodeclBase base = Nodecl::NodeclBase::null();
+
+        if (!rhs_ret.first.is_null())
+        {
+            base = Nodecl::Neg::make(rhs_ret.first,
+                    n.get_type());
+        }
+
+        // Strides
+        Nodecl::NodeclBase strides = Nodecl::NodeclBase::null();
+
+        if (!rhs_ret.second.is_null())
+        {
+            strides = Nodecl::Neg::make(rhs_ret.second,
+                    n.get_type());
         }
 
         // pair<n, null>

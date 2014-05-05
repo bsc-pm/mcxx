@@ -24,6 +24,8 @@
 #include "tl-analysis-interface.hpp"
 
 #include "tl-induction-variables-data.hpp"
+#include "tl-tribool.hpp"
+
 //#include "cxx-process.h"
 //#include "tl-analysis-utils.hpp"
 //#include "tl-analysis-static-info.hpp"
@@ -288,17 +290,15 @@ end_depends:
         return true;
     }*/
 
-    bool AnalysisInterface::nodecl_has_property_in_scope(
+
+    TL::tribool invariant_property(
             Node* const scope_node,
             Node* const stmt_node,
             const Nodecl::NodeclBase& n,
             ExtensibleGraph* const pcfg,
-            const bool consider_control_structures)
+            std::set<Nodecl::NodeclBase> visited_nodes)
     {
-        //std::cerr << "N: " << n.prettyprint() << " - " << nodecl_get_ast(n.get_internal_nodecl()) << std::endl;
-
         // Start of base cases for Invariant.
-        // If any other is necessary, we could use a function pointer
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
@@ -306,16 +306,20 @@ end_depends:
             return false;
         
         // Check if n contains an IV of the scope
-        ObjectList<Utils::InductionVariableData *> scope_ivs =
-            scope_node->get_induction_variables();
-
-        for(ObjectList<Utils::InductionVariableData *>::iterator it = scope_ivs.begin();
-                it != scope_ivs.end();
-                it++)
+        // TODO: if it's not loop, return empty list?
+        if(scope_node->is_loop_node())
         {
-            if(Nodecl::Utils::stmtexpr_contains_nodecl_structurally(n,
-                    (*it)->get_variable().get_nodecl()))
-                return false;
+            ObjectList<Utils::InductionVariableData *> scope_ivs =
+                scope_node->get_induction_variables();
+
+            for(ObjectList<Utils::InductionVariableData *>::iterator it = scope_ivs.begin();
+                    it != scope_ivs.end();
+                    it++)
+            {
+                if(Nodecl::Utils::stmtexpr_contains_nodecl_structurally(n,
+                            (*it)->get_variable().get_nodecl()))
+                    return false;
+            }
         }
 
         // TODO: n instead of stmt_node.
@@ -325,139 +329,45 @@ end_depends:
                     scope_node, stmt_node))
             return true;
 
-        // End of base cases
-
-        
-        Utils::ext_sym_map all_reach_defs_in = stmt_node->get_reaching_definitions_in();
-
-        // Get all memory accesses and study their RDs 
-        // Note that we want all memory access, not only the symbols.
-        // Example: a[i]
-        // retrieving all symbols will return: a, i
-        // retrieving all memory accesses will return: a, i, a[i]
-        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
- 
-        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
-                n_mem_accesses.begin(); 
-                n_ma_it != n_mem_accesses.end();
-                n_ma_it++)
-        {
-            //std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " - " 
-            //    << nodecl_get_ast(n_ma_it->get_internal_nodecl()) << std::endl;
-
-            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
-            if(all_reach_defs_in.find(n_ma_es) == all_reach_defs_in.end())
-            {
-                if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
-                {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
-                    continue;
-                }
-                else
-                {
-                    WARNING_MESSAGE("No reaching definition arrives for nodecl %s.\n", 
-                                    n_ma_it->prettyprint().c_str());
-                }
-            }
-
-            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
-                all_reach_defs_in.equal_range(*n_ma_it);
-
-            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
-                rd_it != bounds.second;
-                rd_it++)
-            {
-                if(rd_it->second.first.is<Nodecl::Unknown>())
-                    continue;
-
-                // Get the PCFG nodes where the reaching definitions where produced
-                const Nodecl::NodeclBase& reach_def_nodecl = 
-                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
-
-                // Skip recursive RD (IV step)
-                // std::cerr << "      RD of " << n.prettyprint() <<": " << stmt_reach_def.prettyprint() << " - " 
-                //    << nodecl_get_ast(stmt_reach_def.get_internal_nodecl()) << std::endl << std::endl;
-
-                if (reach_def_nodecl == n)
-                {
-                    continue;
-                }
-
-                Node* reach_defs_node = pcfg->find_nodecl_pointer(reach_def_nodecl);
-
-               
-                if (!nodecl_has_property_in_scope(scope_node, reach_defs_node, 
-                            reach_def_nodecl, pcfg, consider_control_structures))
-                    return false;
-
-                // Look inside control structures if enabled
-                if (consider_control_structures)
-                {
-                    Node* control_structure = 
-                        ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
-
-                    if((control_structure != NULL) && 
-                             //(scope_node == control_structure || Condition of the SIMD scope must me skipped!
-                             ExtensibleGraph::node_contains_node(scope_node, control_structure))
-                    {
-                        Node* cond_node = control_structure->get_condition_node();
-                        ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
-
-                        // if cond_node == stmt_node means that we are in a loop asking for the condition,
-                        // let say j < 10. We get the RD of 'j' and then we get the conditon node of them,
-                        // which is again the j < 10.
-                        if (cond_node == stmt_node)
-                            continue;
-
-                        // Sara? Will be there more than one statement here? If so, the previous condition
-                        // will have to be more sophisticated
-                        ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
-
-                        for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
-                                it != cond_node_stmts.end(); 
-                                ++it)
-                        {
-                            const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
-                                Nodecl::Utils::get_all_memory_accesses(*it);
-                            for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
-                                    itt != stms_mem_accesses.end();
-                                    ++itt)
-                            {
-                                if(!nodecl_has_property_in_scope(scope_node,
-                                            cond_node, *itt, pcfg,
-                                            consider_control_structures))
-                                    return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        return true;
+        return TL::tribool::unknown;
     }
 
     bool AnalysisInterface::nodecl_is_invariant_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
+            Node* const n_node,
             const Nodecl::NodeclBase& n,
-            ExtensibleGraph* const pcfg)
+            ExtensibleGraph* const pcfg,
+            std::set<Nodecl::NodeclBase> visited_nodes)
     {
-        return nodecl_has_property_in_scope(scope_node,
-                stmt_node, n, pcfg, true /*control structures*/);
+        TL::tribool result = nodecl_has_property_in_scope(scope_node,
+                stmt_node, n_node, n, pcfg,
+                invariant_property,
+                visited_nodes);
 
+        ERROR_CONDITION(result.is_unknown(),
+                "nodecl_is_invariant_in_scope returns unknown!", 0);
+
+        return result.is_true();
     }
-
+#if 0
     bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
             const Nodecl::NodeclBase& n,
             ExtensibleGraph* const pcfg)
     {
-        return nodecl_has_property_in_scope(scope_node,
-                stmt_node, n, pcfg, false /*control structures*/);
+        TL::tribool result = nodecl_has_property_in_scope(scope_node,
+                stmt_node, n, pcfg, 
+                false /*control structures*/,
+                invariant_property);
 
+        ERROR_CONDITION(result.is_unknown(),
+                "nodecl_value_is_invariant_in_scope returns unknown!", 0);
+
+        return result.is_true();
     }
-
+#endif
     bool AnalysisInterface::nodecl_is_invariant_in_scope(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
@@ -468,17 +378,26 @@ end_depends:
         // Retrieve scope
         Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
 
-        // Retrieve node
+        // Retrieve stmt node
         Node* stmt_node = pcfg->find_nodecl_pointer(stmt);
         ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for statement '%s:%s'. \n",
                 stmt.get_locus_str().c_str(), stmt.prettyprint().c_str());
 
+        // Retrieve node
+        Node* n_node = pcfg->find_nodecl_pointer(n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for n Nodecl '%s:%s'. \n",
+                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+
+        std::set<Nodecl::NodeclBase> visited_nodes;
+
         //has_property implements is_invariant so far
-        return nodecl_is_invariant_in_scope(scope_node, stmt_node, n, pcfg);
+        return nodecl_is_invariant_in_scope(
+                scope_node, stmt_node, n_node,n, pcfg, visited_nodes);
     }
 
     // nodecl_value means that control structures are not taking into account.
     // Only the value (definition) of the nodecl
+#if 0    
     bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
@@ -497,5 +416,6 @@ end_depends:
         //has_property implements is_invariant so far
         return nodecl_value_is_invariant_in_scope(scope_node, stmt_node, n, pcfg);
     }
+#endif
 }
 }

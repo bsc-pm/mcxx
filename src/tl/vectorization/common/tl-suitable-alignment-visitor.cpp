@@ -26,20 +26,21 @@
 
 #include "tl-suitable-alignment-visitor.hpp"
 
+#include "tl-vectorization-analysis-interface.hpp"
+
 #include "cxx-cexpr.h"
-#include "tl-analysis-utils.hpp"
 //#include "tl-analysis-static-info.hpp"
 //#include "tl-expression-reduction.hpp"
 //#include <algorithm>
 
 namespace TL
 {
-namespace Analysis
+namespace Vectorization
 {
-    SuitableAlignmentVisitor::SuitableAlignmentVisitor( Node* scope,
+    SuitableAlignmentVisitor::SuitableAlignmentVisitor(const Nodecl::NodeclBase& scope,
             const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor,
             int type_size, int alignment )
-        : _induction_variables( scope->get_induction_variables() ), _suitable_expressions( suitable_expressions ),
+        : _scope( scope ), _suitable_expressions( suitable_expressions ),
         _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
     {
     }
@@ -387,13 +388,13 @@ namespace Analysis
         {
             return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
-        else if( Utils::induction_variable_list_contains_variable( _induction_variables, n ) )
+        else if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                is_non_reduction_basic_induction_variable(_scope, n))
         {
-            Utils::InductionVariableData* iv = Utils::get_induction_variable_from_list( _induction_variables, n );
-            //Optimizations::ReduceExpressionVisitor v;
-
-            Nodecl::NodeclBase lb = iv->get_lb(); //.shallow_copy( );
-            Nodecl::NodeclBase incr = iv->get_increment();
+            Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
+                get_induction_variable_lower_bound(_scope, n);
+            Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
+                get_induction_variable_increment(_scope, n);
 
             int lb_mod = walk(lb);
             int incr_mod = walk(incr);

@@ -37,12 +37,12 @@
 //#include "tl-omp.hpp"
 
 namespace TL {
-namespace Analysis {
+namespace Vectorization{
 
     class LIBTL_CLASS SuitableAlignmentVisitor : public Nodecl::NodeclVisitor<int>
     {
     private:
-        const ObjectList<Utils::InductionVariableData*> _induction_variables;
+        const Nodecl::NodeclBase _scope;
         const TL::ObjectList<Nodecl::NodeclBase> _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
@@ -53,7 +53,7 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        SuitableAlignmentVisitor( Node* scope,
+        SuitableAlignmentVisitor( const Nodecl::NodeclBase& scope,
                                   const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
                                   int unroll_factor, int type_size, int alignment );
 

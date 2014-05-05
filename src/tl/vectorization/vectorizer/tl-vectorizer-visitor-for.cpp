@@ -610,7 +610,6 @@ namespace Vectorization
             Nodecl::NodeclBase &induction_variable,
             Nodecl::NodeclBase &iv_init)
     {
-        // Add IV initialization after vectorization
         TL::ForStatementHelper<TL::NoNewNodePolicy> tl_for_statement(for_statement);
 
         if(!tl_for_statement.is_omp_valid_loop())
@@ -619,7 +618,12 @@ namespace Vectorization
         }
 
         // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)
+
         Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
+        Nodecl::NodeclBase upper_bound_plus_one = Nodecl::Add::make(
+                upper_bound.shallow_copy(),
+                const_value_to_nodecl(const_value_get_one(1, 4)),
+                upper_bound.get_type());
         Nodecl::NodeclBase lower_bound = tl_for_statement.get_lower_bound();
 
         TL::Symbol iv = tl_for_statement.get_induction_variable();
@@ -630,10 +634,10 @@ namespace Vectorization
 
         // Induction Variable Init
         iv_init = Nodecl::Minus::make(
-                upper_bound.shallow_copy(),
+                upper_bound_plus_one.shallow_copy(),
                 Nodecl::Mod::make(
                     Nodecl::Minus::make(
-                        upper_bound.shallow_copy(),
+                        upper_bound_plus_one.shallow_copy(),
                         lower_bound.shallow_copy(),
                         iv_type),
                     Nodecl::IntegerLiteral::make(
