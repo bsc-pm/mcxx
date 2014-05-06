@@ -678,6 +678,7 @@ void LoweringVisitor::emit_async_common(
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     copy_ol_decl
         <<     "nanos_err_t " << err_name <<";"
+        <<     register_reductions_opt
         <<     if_condition_begin_opt
         <<     err_name << " = nanos_create_wd_compact(&nanos_wd_, &(nanos_wd_const_data.base), &nanos_wd_dyn_props, "
         <<                 struct_size << ", (void**)&ol_args, nanos_current_wd(),"
@@ -687,7 +688,6 @@ void LoweringVisitor::emit_async_common(
         <<     update_alloca_decls_opt
         <<     placeholder_task_expression_opt
         <<     dependences_info
-        <<     register_reductions_opt
         <<     "if (nanos_wd_ != (nanos_wd_t)0)"
         <<     "{"
                   // This is a placeholder because arguments are filled using the base language (possibly Fortran)
