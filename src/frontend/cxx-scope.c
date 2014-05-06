@@ -785,30 +785,6 @@ static void build_dependent_parts_for_symbol_rec(
         scope_entry_t** dependent_entry,
         nodecl_t* nodecl_output);
 
-static char class_has_dependent_bases(scope_entry_t* class_symbol)
-{
-    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-    int num_bases = class_type_get_num_bases(class_symbol->type_information);
-    int i;
-    for (i = 0; i < num_bases; i++)
-    {
-        char current_base_is_virtual = 0;
-        char current_base_is_dependent = 0;
-        char current_base_is_expansion = 0;
-        access_specifier_t access_specifier = AS_UNKNOWN;
-        class_type_get_base_num(class_symbol->type_information, i,
-                &current_base_is_virtual,
-                &current_base_is_dependent,
-                &current_base_is_expansion,
-                &access_specifier);
-
-        if (current_base_is_dependent)
-            return 1;
-    }
-
-    return 0;
-}
-
 char symbol_is_member_of_dependent_class(scope_entry_t* entry)
 {
     return entry->entity_specs.is_member 
@@ -847,6 +823,32 @@ scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol)
         return class_symbol->entity_specs.alias_to;
 
     return class_symbol;
+}
+
+static char class_is_immediate_lexical_scope(decl_context_t decl_context,
+        scope_entry_t* class_symbol)
+{
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+    if (class_symbol->entity_specs.is_injected_class_name)
+    {
+        class_symbol = named_type_get_symbol(class_symbol->entity_specs.class_type);
+    }
+
+    if (decl_context.class_scope == NULL)
+        return 0;
+
+    scope_entry_t* class_in_scope = decl_context.class_scope->related_entry;
+
+    if (class_in_scope->kind == SK_ENUM)
+        return 0;
+
+    if (class_symbol_get_canonical_symbol(class_symbol)
+            == class_symbol_get_canonical_symbol(class_in_scope))
+    {
+        return 1;
+    }
+
+    return 0;
 }
 
 char class_is_in_lexical_scope(decl_context_t decl_context, 
@@ -5734,9 +5736,8 @@ static scope_entry_list_t* query_nodecl_simple_name(
 
         if (head->entity_specs.is_member)
         {
-            if (class_is_in_lexical_scope(top_level_decl_context, 
-                        named_type_get_symbol(head->entity_specs.class_type))
-                    && !class_has_dependent_bases(named_type_get_symbol(head->entity_specs.class_type)))
+            if (class_is_immediate_lexical_scope(top_level_decl_context,
+                        named_type_get_symbol(head->entity_specs.class_type)))
             {
                 // Do nothing if the class is in scope
             }
@@ -5842,16 +5843,31 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(
             return NULL;
         }
     }
-    if (class_is_in_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry)
-            // Do not give up if there are dependent bases as they might be
-            // providing this entity during instantiation
-            && !class_has_dependent_bases(decl_context.current_scope->related_entry))
-    {
-        // Do nothing if the class is in lexical scope
-    }
-    else if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+    if (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
             && is_dependent_type(decl_context.current_scope->related_entry->type_information))
     {
+        if (class_is_immediate_lexical_scope(top_level_decl_context, decl_context.current_scope->related_entry))
+        {
+            // Do nothing if the class is in lexical scope
+            diagnostic_context_t* dc = diagnostic_context_push_buffered();
+            scope_entry_list_t* first_attempt = query_in_class(decl_context.current_scope,
+                    name,
+                    field_path,
+                    decl_flags,
+                    NULL,
+                    locus);
+            diagnostic_context_pop();
+            if (first_attempt != NULL)
+            {
+                diagnostic_context_commit(dc);
+                return first_attempt;
+            }
+            else
+            {
+                diagnostic_context_discard(dc);
+            }
+        }
+
         scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->decl_context = decl_context;
