@@ -594,9 +594,11 @@ char deduce_template_arguments_common(
                 && j < num_arguments; j++)
         {
             type_t* updated_parameter = NULL;
+            diagnostic_context_push_buffered();
             updated_parameter = update_type(parameters[j],
                     updated_context,
                     locus);
+            diagnostic_context_pop_and_discard();
 
             if (updated_parameter == NULL
                     || !is_sound_type(updated_parameter, updated_context))
@@ -1499,10 +1501,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             }
         }
 
+        diagnostic_context_push_buffered();
         type_t* updated_type =
             update_type(adjusted_parameter_type,
                     updated_context,
                     locus);
+        diagnostic_context_pop_and_discard();
 
         // The type failed to be updated
         if (updated_type == NULL)
@@ -1796,9 +1800,11 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     if (function_return_type != NULL)
     {
         // Now update it, if it returns NULL, everything was wrong :)
+        diagnostic_context_push_buffered();
         function_return_type = update_type(function_return_type,
                 updated_context,
                 locus);
+        diagnostic_context_pop_and_discard();
 
         if (function_return_type == NULL)
         {

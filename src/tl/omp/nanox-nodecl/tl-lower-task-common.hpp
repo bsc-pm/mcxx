@@ -82,8 +82,8 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
 };
 
 // This visitor is used during the transformation of the 'final' clause to
-// obtain a tree without tasks
-struct RemoveOpenMPTasks : public Nodecl::ExhaustiveVisitor<void>
+// obtain a tree without tasks and without taskwaits
+struct RemoveOpenMPTaskStuff : public Nodecl::ExhaustiveVisitor<void>
 {
     void visit(const Nodecl::OpenMP::Task & node)
     {
@@ -99,6 +99,11 @@ struct RemoveOpenMPTasks : public Nodecl::ExhaustiveVisitor<void>
     {
         Nodecl::NodeclBase expr_stmt = node.get_parent();
         expr_stmt.replace(node.get_sequential_code());
+    }
+
+    void visit(const Nodecl::OpenMP::TaskwaitShallow& node)
+    {
+        Nodecl::Utils::remove_from_enclosing_list(node);
     }
 };
 

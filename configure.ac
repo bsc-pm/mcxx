@@ -1626,7 +1626,7 @@ dnl We try to figure a sensible default environment based on the configure envir
             default_type_environ="solaris-sparcv9"
             RPATH_PARAMETER="-R"
             ;;
-       armv[67]l-*-linux-gnueabi*)
+       arm*-*-gnueabi*)
             # 32 bit ARM
             default_type_environ="linux-arm"
             ;;
