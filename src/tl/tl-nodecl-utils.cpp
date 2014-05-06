@@ -301,13 +301,13 @@ namespace Nodecl
         return get_all_symbols_first_occurrence(n).filter(local);
     }
 
-    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, bool in_ref, bool only_subscripts,
+    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, bool in_ref, bool in_class_member,
                                             TL::ObjectList<Nodecl::NodeclBase>& result)
     {
         if (n.is_null())
             return;
 
-        if (!in_ref && !only_subscripts &&
+        if (!in_ref && !in_class_member &&
             (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
                 || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::Dereference>()
                 || n.is<Nodecl::ArraySubscript>() || n.is<Nodecl::ClassMemberAccess>()))
@@ -322,33 +322,33 @@ namespace Nodecl
         if (n.is<Nodecl::ArraySubscript>())
         {
             Nodecl::ArraySubscript as = n.as<Nodecl::ArraySubscript>();
-            if (!only_subscripts)
+            if (!in_class_member)
             {
                 Nodecl::NodeclBase subscripted = as.get_subscripted();
-                if (!subscripted.get_type().is_pointer())
+                if (!in_ref && !subscripted.get_type().is_pointer())
                 {    // a[...] (if a array) only access memory for the subscripts
-                    get_all_memory_accesses_rec(subscripted, /*in_ref*/false, only_subscripts, result);
+                    get_all_memory_accesses_rec(subscripted, /*in_ref*/false, in_class_member, result);
                 }
             }
             Nodecl::List subscripts = as.get_subscripts().as<Nodecl::List>( );
             for (Nodecl::List::iterator it = subscripts.begin(); it != subscripts.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, /*in_ref*/false, /*only_subscripts*/false, result);
+                get_all_memory_accesses_rec(*it, /*in_ref*/false, /*in_class_member*/false, result);
             }
 
         }
         else
         {
             // Check if we have to take care only of the subscripts (in case we were taking care of everything so far)
-            if (!only_subscripts)
+            if (!in_class_member)
                 if (n.is<Nodecl::ClassMemberAccess>())
-                    only_subscripts = true;
+                    in_class_member = true;
 
             TL::ObjectList<Nodecl::NodeclBase> children = n.children();
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
                 it != children.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, in_ref, only_subscripts, result);
+                get_all_memory_accesses_rec(*it, in_ref, in_class_member, result);
             }
         }
     }
