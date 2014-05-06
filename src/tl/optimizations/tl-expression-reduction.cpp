@@ -818,7 +818,14 @@ namespace Optimizations {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
-        if((lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
+
+        // R7
+        if (n.is_constant())
+        {
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+
+        else if((lhs.is_constant() && const_value_is_zero(lhs.get_constant()))
             || (rhs.is_constant() && const_value_is_zero(rhs.get_constant())))
         {   // 0 * t = t , t * 0 = t
             Nodecl::Utils::replace(n, const_value_to_nodecl(const_value_make_vector_from_scalar(
@@ -833,11 +840,11 @@ namespace Optimizations {
         {   // t * 1 = t
             Nodecl::Utils::replace(n, lhs.shallow_copy());
         }
-        else if(lhs.is_constant() && rhs.is_constant())
-        {   // R7
-            const_value_t* c_value = _calc.compute_const_value(n);
-            Nodecl::Utils::replace(n, const_value_to_nodecl(c_value));
-        }
+//        else if(lhs.is_constant() && rhs.is_constant())
+//        {   // R7
+//            const_value_t* c_value = _calc.compute_const_value(n);
+//            Nodecl::Utils::replace(n, const_value_to_nodecl(c_value));
+//        }
         else if (rhs.is_constant())
         {
             if(const_value_is_zero(rhs.get_constant()))
