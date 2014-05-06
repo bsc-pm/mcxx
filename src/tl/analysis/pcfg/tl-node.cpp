@@ -1339,6 +1339,26 @@ namespace Analysis {
         set_data( _PRIVATE_UNDEF, private_undef_vars );
     }
     
+    Utils::ext_sym_set Node::get_used_addresses()
+    {
+        Utils::ext_sym_set used_addresses;
+        if(has_key(_USED_ADDRESSES))
+            used_addresses = get_data<Utils::ext_sym_set>(_USED_ADDRESSES);
+        return used_addresses;
+    }
+    
+    void Node::add_used_address(const Utils::ExtendedSymbol& es)
+    {
+        Utils::ext_sym_set used_addresses = get_used_addresses();
+        used_addresses.insert(es);
+        set_data(_USED_ADDRESSES, used_addresses);
+    }
+    
+    void Node::add_used_addresses(const Utils::ext_sym_set& used_addresses)
+    {
+        set_data(_USED_ADDRESSES, used_addresses);
+    }
+    
     // ************* END getters and setters for use-definition analysis ************ //
     // ****************************************************************************** //
 

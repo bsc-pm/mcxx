@@ -62,7 +62,7 @@ namespace OpenMP {
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
             
             if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
-                graph->print_graph_to_dot( );
+                graph->print_graph_to_dot(/*use_def_computed*/true, /*liveness_computed*/true);
             
             // Get all task nodes
             PCFG_Node_list tasks = graph->get_tasks_list();
@@ -702,23 +702,22 @@ namespace OpenMP {
             if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
                 dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_args());
             
+            // Collect the addresses used within the task
+            TL::Analysis::Utils::ext_sym_set used_addresses = task->get_used_addresses( );
+            
             // Case1: No variable should be scoped if it is not used at all inside the task 
             std::string unnecessarily_scoped_vars;
             for( Nodecl::List::iterator it = task_scoped_vars.begin( ); it != task_scoped_vars.end( ); ++it )
             {
-                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, killed_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, undef_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_killed_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_undef_vars ) && 
-                    !list_elements_contain_nodecl(dependency_vars, *it) )
+                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl(*it, all_vars) && 
+                    !list_elements_contain_nodecl(dependency_vars, *it) && 
+                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, used_addresses).is_null() )
                 {
                     unnecessarily_scoped_vars += it->prettyprint() + ", ";
                 }
             }
             if( !unnecessarily_scoped_vars.empty( ) ) 
-            {
+            {  
                 unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
                 warn_printf( "%s: warning: OpenMP task defines the scope of the variables '%s' "
                              "which are not used at all within the task\n",
@@ -773,6 +772,7 @@ namespace OpenMP {
             {
                 if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
                     !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
+                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, used_addresses).is_null() && 
                     !list_elements_contain_nodecl(dependency_vars, *it) )
                     incoherent_firstprivate_vars += it->prettyprint() + ", ";
             }
