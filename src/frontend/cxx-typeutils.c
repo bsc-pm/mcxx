@@ -50,6 +50,7 @@
 
 #include "fortran03-scope.h"
 
+#include "dhash_ptr.h"
 #include "red_black_tree.h"
 
 /*
@@ -306,6 +307,7 @@ struct simple_type_tag {
     int num_specialized_types;
     // These are a STK_INDIRECT
     type_t** specialized_types;
+    rb_red_blk_tree* canonical_specialization_set;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
@@ -477,6 +479,14 @@ struct type_tag
     // (all types)
     common_type_info_t* info;
 
+    // Unqualified type, itself if the type is not qualified
+    // (all types)
+    type_t* unqualified_type;
+
+    // For parameter types, if not null it means some adjustement was done
+    // (all types)
+    type_t* original_type;
+
     // Pointer
     // (kind == TK_POINTER)
     // (kind == TK_POINTER_TO_MEMBER)
@@ -502,13 +512,6 @@ struct type_tag
     // (kind == TK_BRACED_LIST)
     braced_list_info_t* braced_type;
 
-    // Unqualified type, itself if the type is not qualified
-    // (all types)
-    type_t* unqualified_type;
-
-    // For parameter types, if not null it means some adjustement was done
-    // (all types)
-    type_t* original_type;
 
     // For template specialized parameters and template types
     // (kind == TK_DIRECT && (type->kind == STK_CLASS || type->kind == STK_TEMPLATE_TYPE))
@@ -561,6 +564,7 @@ static type_t* copy_type_for_variant(type_t* t)
 {
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
+
     result->info = copy_common_type_info(t->info);
 
     return result;
@@ -1362,30 +1366,6 @@ static void* rb_tree_query_uint(rb_red_blk_tree* tree, unsigned int u)
     return result;
 }
 
-static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
-{
-    type_t* result = NULL;
-    rb_red_blk_node* n = rb_tree_query(tree, t);
-    if (n != NULL)
-    {
-        result = (type_t*)rb_node_get_info(n);
-    }
-
-    return result;
-}
-
-static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
-{
-    type_t* result = NULL;
-    rb_red_blk_node* n = rb_tree_query(tree, sym);
-    if (n != NULL)
-    {
-        result = (type_t*)rb_node_get_info(n);
-    }
-
-    return result;
-}
-
 static int intptr_t_comp(const void *v1, const void *v2)
 {
     intptr_t p1 = (intptr_t)(v1);
@@ -1414,16 +1394,16 @@ static int uint_comp(const void *v1, const void *v2)
 
 static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
-    static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
+    static dhash_ptr_t *_user_defined_types_arr[2] = { NULL, NULL };
 
     if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        _user_defined_types_arr[!!indirect] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _user_defined_types_arr[!!indirect] = dhash_ptr_new(5);
     }
 
-    rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
+    dhash_ptr_t * _user_defined_types = _user_defined_types_arr[!!indirect];
     
-    type_t* type_info = rb_tree_query_symbol(_user_defined_types, entry);
+    type_t* type_info = dhash_ptr_query(_user_defined_types, (const char*)entry);
 
     if (type_info == NULL)
     {
@@ -1450,7 +1430,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
             type_info->info->is_dependent = is_dependent_type(entry->type_information);
         }
 
-        rb_tree_insert(_user_defined_types, entry, type_info);
+        dhash_ptr_insert(_user_defined_types, (const char*)entry, type_info);
     }
 
     return type_info;
@@ -1742,27 +1722,22 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
             symbol_kind_name(dependent_entry));
 
     // Try to reuse an existing type
-    static rb_red_blk_tree *_dependent_entries = NULL;
+    static dhash_ptr_t *_dependent_entries = NULL;
     if (_dependent_entries == NULL)
     {
-        _dependent_entries = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _dependent_entries = dhash_ptr_new(5);
     }
 
-    rb_red_blk_tree * dependent_entry_hash = NULL;
-    rb_red_blk_node * n = rb_tree_query(_dependent_entries, dependent_entry);
-    if (n != NULL)
-    {
-        dependent_entry_hash = rb_node_get_info(n);
-    }
+    rb_red_blk_tree * dependent_entry_hash = dhash_ptr_query(_dependent_entries, (const char*)dependent_entry);
 
     if (dependent_entry_hash == NULL)
     {
         dependent_entry_hash = rb_tree_create(compare_dependent_parts, null_dtor, null_dtor);
 
-        rb_tree_insert(_dependent_entries, dependent_entry, dependent_entry_hash);
+        dhash_ptr_insert(_dependent_entries, (const char*)dependent_entry, dependent_entry_hash);
     }
 
-    n = rb_tree_query(dependent_entry_hash, nodecl_get_ast(dependent_parts));
+    rb_red_blk_node* n = rb_tree_query(dependent_entry_hash, nodecl_get_ast(dependent_parts));
 
     type_t* result = NULL;
     if (n != NULL)
@@ -2017,6 +1992,8 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
     return result;
 }
 
+static int template_argument_list_identical_comp(const void*, const void*);
+
 type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
@@ -2053,6 +2030,11 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    rb_red_blk_tree* canonical_specialization_set = rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
+    rb_tree_insert(canonical_specialization_set, primary_type->template_arguments, type_info->type->primary_specialization);
+
+    type_info->type->canonical_specialization_set = canonical_specialization_set;
 
     return type_info;
 }
@@ -2114,6 +2096,11 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
+
+    rb_red_blk_tree* canonical_specialization_set = rb_tree_create(template_argument_list_identical_comp, null_dtor, null_dtor);
+    rb_tree_insert(canonical_specialization_set, primary_type->template_arguments, type_info->type->primary_specialization);
+
+    type_info->type->canonical_specialization_set = canonical_specialization_set;
 
     return type_info;
 }
@@ -2333,6 +2320,7 @@ char is_template_explicit_specialization(template_parameter_list_t* template_par
     return is_explicit_specialization;
 }
 
+#if 0
 static char types_are_identical_in_template_argument(type_t* t1,
         type_t* t2);
 
@@ -2420,6 +2408,121 @@ static char template_arguments_are_identical(
 
     return 1;
 }
+#endif
+
+static char template_nontype_argument_nodecl_cmp(nodecl_t n1, nodecl_t n2)
+{
+    if (nodecl_is_null(n1) && nodecl_is_null(n2))
+        return 0;
+
+    if (nodecl_is_null(n1) != nodecl_is_null(n2))
+        return nodecl_is_null(n1) ? -1 : 1;
+
+    int k1 = nodecl_get_kind(n1);
+    int k2 = nodecl_get_kind(n2);
+    if (k1 < k2)
+        return -1;
+    else if (k1 > k2)
+        return 1;
+
+    int cmp;
+    cmp = intptr_t_comp(nodecl_get_symbol(n1), nodecl_get_symbol(n2));
+    if (cmp != 0)
+        return cmp;
+
+    cmp = intptr_t_comp(nodecl_get_constant(n1), nodecl_get_constant(n2));
+    if (cmp != 0)
+        return cmp;
+
+    cmp = intptr_t_comp(nodecl_get_type(n1), nodecl_get_type(n2)); 
+    if (cmp != 0)
+        return cmp;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        cmp = template_nontype_argument_nodecl_cmp(
+                    nodecl_get_child(n1, i),
+                    nodecl_get_child(n2, i));
+
+        if (cmp != 0)
+            return cmp;
+    }
+
+    return 0;
+}
+
+static int template_argument_identical_comp(template_parameter_value_t* targ_1, template_parameter_value_t* targ_2)
+{
+    ERROR_CONDITION(targ_1 == NULL || targ_2 == NULL, "Invalid parameter value", 0);
+
+    if (targ_1->kind < targ_2->kind)
+        return -1;
+    else if (targ_1->kind > targ_2->kind)
+        return 1;
+
+    switch (targ_1->kind)
+    {
+        case TPK_TYPE:
+        case TPK_TEMPLATE:
+            {
+                int cmp = intptr_t_comp(targ_1->type, targ_2->type);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        case TPK_NONTYPE:
+            {
+                int cmp = intptr_t_comp(targ_1->type, targ_2->type);
+                if (cmp != 0)
+                    return cmp;
+
+                cmp = template_nontype_argument_nodecl_cmp(targ_1->value, targ_2->value);
+                if (cmp != 0)
+                    return cmp;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid template argument kind", 0);
+            }
+    }
+
+    return 0;
+}
+
+static int template_argument_list_identical_comp(const void* v1, const void* v2)
+{
+    template_parameter_list_t* template_parameter_list_1 = (template_parameter_list_t*)v1;
+    template_parameter_list_t* template_parameter_list_2 = (template_parameter_list_t*)v2;
+
+    int m = template_parameter_list_1->num_parameters < template_parameter_list_2->num_parameters ?
+        template_parameter_list_1->num_parameters : template_parameter_list_2->num_parameters;
+
+
+    // Lexicographical order
+    int i;
+    for (i = 0; i < m; i++)
+    {
+        template_parameter_value_t* targ_1 = template_parameter_list_1->arguments[i];
+        template_parameter_value_t* targ_2 = template_parameter_list_2->arguments[i];
+
+        int cmp = template_argument_identical_comp(targ_1, targ_2);
+        if (cmp != 0)
+            return cmp;
+    }
+
+    // No one is different up to this point but maybe they share a prefix
+    if (template_parameter_list_1->num_parameters < template_parameter_list_2->num_parameters)
+        return -1;
+    else if (template_parameter_list_1->num_parameters > template_parameter_list_2->num_parameters)
+        return 1;
+
+    return 0;
+}
+
+
+static rb_red_blk_tree* template_type_get_canonical_specialization_set_(type_t* t);
 
 static type_t* template_type_get_identical_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
@@ -2427,47 +2530,36 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
-    // Search an existing specialization
-    DEBUG_CODE()
+    if (template_type_get_template_parameters(t)->num_parameters == 0)
     {
-        fprintf(stderr, "TYPEUTILS: Searching an identic specialization that matches the requested one\n");
-        fprintf(stderr, "TYPEUTILS: There are '%d' specializations of this template type\n", 
-                template_type_get_num_specializations(t));
-    }
-    int i;
-    for (i = 0; i < template_type_get_num_specializations(t); i++)
-    {
-        type_t* specialization = template_type_get_specialization_num(t, i);
-
-        scope_entry_t* entry = named_type_get_symbol(specialization);
-        template_parameter_list_t* specialization_template_parameters = 
-            template_specialized_type_get_template_arguments(entry->type_information);
-
-        DEBUG_CODE()
+        // Special handling for 0-parameterized templates. These template types
+        // only have two specializations: a primary (the proper template) and
+        // the specialization (the only instantiation possible)
+        int num_specializations = template_type_get_num_specializations(t);
+        if (num_specializations == 1)
         {
-            fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s'\n",
-                    print_type_str(specialization, entry->decl_context),
-                    entry->type_information,
-                    locus_to_str(entry->locus));
+            return NULL;
         }
-
-        if (template_arguments_are_identical(template_parameters, specialization_template_parameters)
-                // If this template type is 0-parameterized, the primary never matches
-                && !(specialization == template_type_get_primary_type(t)
-                    && template_type_get_template_parameters(t)->num_parameters == 0))
+        else if (num_specializations == 2)
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
-                fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
-                        print_type_str(specialization, entry->decl_context),
-                        entry->type_information);
-            }
-
-            return specialization;
+            return template_type_get_specialization_num(t, 1);
+        }
+        else
+        {
+            internal_error("Wrong number of specializations (%d) for a 0-parameterized template type", num_specializations);
         }
     }
-    return NULL;
+
+    rb_red_blk_tree* specialization_identical_set = template_type_get_canonical_specialization_set_(t);
+
+    rb_red_blk_node * n = rb_tree_query(specialization_identical_set, template_parameters);
+
+    type_t* specialization = NULL;
+
+    if (n != NULL)
+        specialization = rb_node_get_info(n);
+
+    return specialization;
 }
 
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
@@ -2774,10 +2866,15 @@ static type_t* template_type_get_specialized_type_(
         }
     }
 
-    // Register this new specialization
+    // Register this new specialization in the specialization list
     P_LIST_ADD(t->type->specialized_types,
             t->type->num_specialized_types,
             result);
+
+    // Register this new specialization in the canonical set
+    rb_red_blk_tree* canonical_specialization_set = template_type_get_canonical_specialization_set_(t);
+    rb_tree_insert(canonical_specialization_set, template_arguments, result);
+
 
     return result;
 }
@@ -2838,6 +2935,14 @@ type_t* template_type_get_specialization_num(type_t* t, int i)
     {
         return t->type->specialized_types[i-1];
     }
+}
+
+static rb_red_blk_tree* template_type_get_canonical_specialization_set_(type_t* t)
+{
+    ERROR_CONDITION(!is_template_type(t),
+            "This is not a template type", 0);
+
+    return t->type->canonical_specialization_set;
 }
 
 void template_type_update_template_parameters(type_t* t, template_parameter_list_t* new_template_parameters)
@@ -2915,14 +3020,14 @@ type_t* get_complex_type(type_t* t)
 {
     ERROR_CONDITION(t == NULL, "Invalid base type for complex type", 0);
 
-    static rb_red_blk_tree *_complex_hash = NULL;
+    static dhash_ptr_t *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _complex_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = rb_tree_query_type(_complex_hash, t);
+    type_t* result = dhash_ptr_query(_complex_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -2937,7 +3042,7 @@ type_t* get_complex_type(type_t* t)
 
         result->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_insert(_complex_hash, t, result);
+        dhash_ptr_insert(_complex_hash, (const char*)t, result);
     }
 
     return result;
@@ -2952,7 +3057,7 @@ type_t* complex_type_get_base_type(type_t* t)
     return t->type->complex_element;
 }
 
-static rb_red_blk_tree *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
+static dhash_ptr_t *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
 static void init_qualification_hash(void)
 {
     static char _qualif_hash_initialized = 0;
@@ -2964,7 +3069,7 @@ static void init_qualification_hash(void)
                 i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
                 i++)
         {
-            _qualification[i] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+            _qualification[i] = dhash_ptr_new(5);
         }
         _qualif_hash_initialized = 1;
     }
@@ -3075,9 +3180,9 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     }
 
     // Lookup based on the unqualified type
-    type_t* qualified_type = (type_t*)rb_tree_query_type(
+    type_t* qualified_type = (type_t*)dhash_ptr_query(
             _qualification[(int)(cv_qualification)], 
-            original->unqualified_type);
+            (const char*)original->unqualified_type);
 
     if (qualified_type == NULL)
     {
@@ -3087,8 +3192,8 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
-        rb_tree_insert(_qualification[(int)(cv_qualification)], 
-                original->unqualified_type, 
+        dhash_ptr_insert(_qualification[(int)(cv_qualification)], 
+                (const char*)original->unqualified_type, 
                 qualified_type);
     }
 
@@ -3119,14 +3224,14 @@ type_t* get_pointer_type(type_t* t)
 {
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
 
-    static rb_red_blk_tree *_pointer_types = NULL;
+    static dhash_ptr_t *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _pointer_types = dhash_ptr_new(5);
     }
 
-    type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
+    type_t* pointed_type = dhash_ptr_query(_pointer_types, (const char*)t);
 
     if (pointed_type == NULL)
     {
@@ -3161,15 +3266,15 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_insert(_pointer_types, t, pointed_type);
+        dhash_ptr_insert(_pointer_types, (const char*)t, pointed_type);
     }
 
     return pointed_type;
 }
 
-static rb_red_blk_tree *_lvalue_reference_types = NULL;
-static rb_red_blk_tree *_rvalue_reference_types = NULL;
-static rb_red_blk_tree *_rebindable_reference_types = NULL;
+static dhash_ptr_t *_lvalue_reference_types = NULL;
+static dhash_ptr_t *_rvalue_reference_types = NULL;
+static dhash_ptr_t *_rebindable_reference_types = NULL;
 
 static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_kind)
 {
@@ -3184,7 +3289,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    rb_red_blk_tree **reference_types = NULL;
+    dhash_ptr_t **reference_types = NULL;
     switch (reference_kind)
     {
         case TK_LVALUE_REFERENCE:
@@ -3210,10 +3315,12 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
 
     if ((*reference_types) == NULL)
     {
-        (*reference_types) = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        (*reference_types) = dhash_ptr_new(5);
     }
 
-    type_t* referenced_type = rb_tree_query_type((*reference_types), t);
+    dhash_ptr_t *reference_hash = *reference_types;
+
+    type_t* referenced_type = dhash_ptr_query(reference_hash, (const char*)t);
 
     if (referenced_type == NULL)
     {
@@ -3226,7 +3333,7 @@ static type_t* get_internal_reference_type(type_t* t, enum type_kind reference_k
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_insert((*reference_types), t, referenced_type);
+        dhash_ptr_insert(reference_hash, (const char*)t, referenced_type);
     }
 
     return referenced_type;
@@ -3251,29 +3358,24 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
 {
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
 
-    static rb_red_blk_tree *_class_types = NULL;
+    static dhash_ptr_t *_class_types = NULL;
 
     if (_class_types == NULL)
     {
-        _class_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _class_types = dhash_ptr_new(5);
     }
 
-    // First lookup using the class symbol
-    rb_red_blk_tree * class_type_hash = NULL;
-    rb_red_blk_node * n = rb_tree_query(_class_types, class_type);
-    if (n != NULL)
-    {
-        class_type_hash = rb_node_get_info(n);
-    }
+    // First lookup using the class type
+    dhash_ptr_t * class_type_hash = dhash_ptr_query(_class_types, (const char*)class_type);
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        class_type_hash = dhash_ptr_new(5);
 
-        rb_tree_insert(_class_types, class_type, class_type_hash);
+        dhash_ptr_insert(_class_types, (const char*)class_type, class_type_hash);
     }
 
-    type_t* pointer_to_member = rb_tree_query_type(class_type_hash, t);
+    type_t* pointer_to_member = dhash_ptr_query(class_type_hash, (const char*)t);
 
     if (pointer_to_member == NULL)
     {
@@ -3305,7 +3407,7 @@ type_t* get_pointer_to_member_type(type_t* t, type_t* class_type)
         pointer_to_member->info->is_dependent = is_dependent_type(t) 
             || is_dependent_type(class_type);
 
-        rb_tree_insert(class_type_hash, t, pointer_to_member);
+        dhash_ptr_insert(class_type_hash, (const char*)t, pointer_to_member);
     }
 
     return pointer_to_member;
@@ -3318,13 +3420,13 @@ typedef struct array_sized_hash
     _size_t upper_bound;
     char with_descriptor;
     char is_string_literal;
-    rb_red_blk_tree *element_hash;
+    dhash_ptr_t *element_hash;
 } array_sized_hash_t;
 
 static array_sized_hash_t *_array_sized_hash = NULL;
 static int _array_sized_hash_size = 0;
 
-static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, 
+static dhash_ptr_t* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, 
         _size_t whole_size,
         _size_t lower_bound,
         _size_t upper_bound,
@@ -3336,7 +3438,7 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
     array_sized_hash_elem->upper_bound = upper_bound;
     array_sized_hash_elem->with_descriptor = with_descriptor;
     array_sized_hash_elem->is_string_literal = is_string_literal;
-    array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    array_sized_hash_elem->element_hash = dhash_ptr_new(5);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -3413,7 +3515,7 @@ int array_hash_compar(const void* v1, const void* v2)
     return 0;
 }
 
-static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound, 
+static dhash_ptr_t* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound, 
         char with_descriptor,
         char is_string_literal)
 {
@@ -3434,7 +3536,7 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_b
         _array_sized_hash_size++;
         _array_sized_hash = xrealloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
-        rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
+        dhash_ptr_t* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
                 whole_size, lower_bound, upper_bound, with_descriptor, is_string_literal);
 
         // So we can use bsearch again
@@ -3547,11 +3649,11 @@ static type_t* _get_array_type(type_t* element_type,
         // Use the same strategy we use for pointers when all components (size,
         // lower, upper) of the array are null otherwise create a new array
         // every time (it is safer)
-        static rb_red_blk_tree *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
+        static dhash_ptr_t *_undefined_array_types[2][2] = { { NULL, NULL}, {NULL, NULL} };
 
         if (_undefined_array_types[!!with_descriptor][!!is_string_literal] == NULL)
         {
-            _undefined_array_types[!!with_descriptor][!!is_string_literal] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+            _undefined_array_types[!!with_descriptor][!!is_string_literal] = dhash_ptr_new(5);
         }
 
         type_t* undefined_array_type = NULL;
@@ -3559,7 +3661,8 @@ static type_t* _get_array_type(type_t* element_type,
                 && nodecl_is_null(upper_bound)
                 && array_region == NULL)
         {
-            undefined_array_type = rb_tree_query_type(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type);
+            undefined_array_type = dhash_ptr_query(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                    (const char*)element_type);
         }
         if (undefined_array_type == NULL)
         {
@@ -3604,7 +3707,8 @@ static type_t* _get_array_type(type_t* element_type,
                     && nodecl_is_null(upper_bound)
                     && array_region == NULL)
             {
-                rb_tree_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal], element_type, result);
+                dhash_ptr_insert(_undefined_array_types[!!with_descriptor][!!is_string_literal],
+                        (const char*)element_type, result);
             }
         }
         else
@@ -3620,13 +3724,13 @@ static type_t* _get_array_type(type_t* element_type,
                 && upper_bound_is_constant
                 && array_region == NULL)
         {
-            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k,
+            dhash_ptr_t* array_sized_hash = get_array_sized_hash(whole_size_k,
                     lower_bound_k,
                     upper_bound_k,
                     with_descriptor,
                     is_string_literal);
 
-            type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
+            type_t* array_type = dhash_ptr_query(array_sized_hash, (const char*)element_type);
 
             if (array_type == NULL)
             {
@@ -3658,7 +3762,7 @@ static type_t* _get_array_type(type_t* element_type,
 
                 result->array->is_string_literal = is_string_literal;
 
-                rb_tree_insert(array_sized_hash, element_type, result);
+                dhash_ptr_insert(array_sized_hash, (const char*)element_type, result);
             }
             else
             {
@@ -3901,7 +4005,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
             array_region, /* with_descriptor */ 0, /* is_string_literal */ 0);
 }
 
-static rb_red_blk_tree* get_vector_sized_hash(unsigned int vector_size)
+static dhash_ptr_t* get_vector_sized_hash(unsigned int vector_size)
 {
     static rb_red_blk_tree *_vector_size_hash = NULL;
 
@@ -3910,11 +4014,11 @@ static rb_red_blk_tree* get_vector_sized_hash(unsigned int vector_size)
         _vector_size_hash = rb_tree_create(uint_comp, null_dtor, null_dtor);
     }
 
-    rb_red_blk_tree* result = (rb_red_blk_tree*)rb_tree_query_uint(_vector_size_hash, vector_size);
+    dhash_ptr_t* result = (dhash_ptr_t*)rb_tree_query_uint(_vector_size_hash, vector_size);
 
     if (result == NULL)
     {
-        rb_red_blk_tree* new_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        dhash_ptr_t* new_hash = dhash_ptr_new(5);
 
         unsigned int *k = xcalloc(sizeof(*k), 1);
         *k = vector_size;
@@ -3930,9 +4034,9 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
 
-    rb_red_blk_tree *_vector_hash = get_vector_sized_hash(vector_size);
+    dhash_ptr_t *_vector_hash = get_vector_sized_hash(vector_size);
 
-    type_t* result = rb_tree_query_type(_vector_hash, element_type);
+    type_t* result = dhash_ptr_query(_vector_hash, (const char*)element_type);
 
     if (result == NULL)
     {
@@ -3948,7 +4052,7 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 
         result->info->is_dependent = is_dependent_type(element_type);
 
-        rb_tree_insert(_vector_hash, element_type, result);
+        dhash_ptr_insert(_vector_hash, (const char*)element_type, result);
     }
 
     return result;
@@ -4050,6 +4154,7 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
 
     type_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
     *result = *class_type;
+
     result->unqualified_type = result;
 
     // These are the parts relevant for duplication
@@ -5300,39 +5405,39 @@ void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed)
     enum_type->enum_info->underlying_type_is_fixed = is_fixed;
 }
 
-type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
+extern inline type_t* advance_over_typedefs_with_cv_qualif(type_t* t, cv_qualifier_t* cv_qualif)
 {
-    if (t1 == NULL)
+    type_t* result = t;
+    if (result == NULL)
         return NULL;
 
-    if (cv_qualif != NULL)
-    {
-        *cv_qualif |= t1->cv_qualifier;
-    }
+    cv_qualifier_t cv_qualifier_result = result->cv_qualifier;
 
     // Advance over typedefs
-    while (t1->kind == TK_DIRECT
-            && t1->type->kind == STK_INDIRECT
-            && t1->type->user_defined_type != NULL
-            && t1->type->is_indirect)
+    while (result->kind == TK_DIRECT
+            && result->type->kind == STK_INDIRECT
+            && result->type->user_defined_type != NULL
+            && result->type->is_indirect)
     {
-        t1 = t1->type->user_defined_type->type_information;
-        if (cv_qualif != NULL)
-        {
-            *cv_qualif |= t1->cv_qualifier;
-        }
+        result = result->type->user_defined_type->type_information;
+        cv_qualifier_result |= result->cv_qualifier;
     }
 
     // Arrays add the element qualification 
     //
     // Note: DO NOT use is_array because it uses advance_over_typedefs which
     // ends using advance_over_typedefs_with_cv_qualif
-    if (t1->kind == TK_ARRAY)
+    if (result->kind == TK_ARRAY)
     {
-        advance_over_typedefs_with_cv_qualif(t1->array->element_type, cv_qualif);
+        advance_over_typedefs_with_cv_qualif(result->array->element_type, &cv_qualifier_result);
     }
 
-    return t1;
+    if (cv_qualif != NULL)
+    {
+        *cv_qualif |= cv_qualifier_result;
+    }
+
+    return result;
 }
 
 
@@ -5584,7 +5689,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     return this_class_conversors;
 }
 
-type_t* advance_over_typedefs(type_t* t1)
+extern inline type_t* advance_over_typedefs(type_t* t1)
 {
     cv_qualifier_t cv = CV_NONE;
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv);
@@ -8639,12 +8744,12 @@ static const char* get_simple_type_name_string_internal_impl(decl_context_t decl
             }
         case STK_CLASS :
             {
-                result = uniquestr("class <anonymous>");
+                result = UNIQUESTR_LITERAL("class <anonymous>");
                 break;
             }
         case STK_ENUM :
             {
-                result = uniquestr("enum <anonymous>");
+                result = UNIQUESTR_LITERAL("enum <anonymous>");
                 break;
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -8835,11 +8940,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
     if (is_unresolved_overloaded_type(type_info))
     {
-        result = uniquestr("<unresolved overloaded function type>");
+        result = UNIQUESTR_LITERAL("<unresolved overloaded function type>");
     }
     else if (is_error_type(type_info))
     {
-        result = uniquestr("<error-type>");
+        result = UNIQUESTR_LITERAL("<error-type>");
     }
     else if (is_sequence_of_types(type_info))
     {
@@ -8869,7 +8974,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     }
     else if (is_auto_type(type_info))
     {
-        result = uniquestr("auto");
+        result = UNIQUESTR_LITERAL("auto");
     }
     else if (is_braced_list_type(type_info))
     {
@@ -9319,7 +9424,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 {
                     if (nodecl_is_null(type_info->array->whole_size))
                     {
-                        whole_size = uniquestr("[]");
+                        whole_size = UNIQUESTR_LITERAL("[]");
                     }
                     // If this is a saved expression and it IS a parameter we use its saved expression instead
                     else if (nodecl_get_kind(type_info->array->whole_size) == NODECL_SYMBOL
@@ -9343,7 +9448,7 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 {
                     if (nodecl_is_null(type_info->array->whole_size))
                     {
-                        whole_size = uniquestr("[]");
+                        whole_size = UNIQUESTR_LITERAL("[]");
                     }
                     // A saved expression that is not user declared means that we have to ignore it
                     // when printing it
@@ -9568,7 +9673,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 {
     ERROR_CONDITION(user_defined_type == NULL, "This cannot be null", 0);
 
-    const char* result = uniquestr("");
+    const char* result = UNIQUESTR_LITERAL("");
 
     const int MAX_LENGTH = 1023;
     char* user_defined_str = counted_xcalloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
@@ -9745,7 +9850,7 @@ static const char* get_builtin_type_name(type_t* type_info)
 {
     simple_type_t* simple_type_info = type_info->type;
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
-    const char* result = uniquestr("");
+    const char* result = UNIQUESTR_LITERAL("");
 
     if (simple_type_info->is_long == 1)
     {
@@ -11528,7 +11633,7 @@ scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(ty
     return result;
 }
 
-static rb_red_blk_tree *_zero_types_hash = NULL;
+static dhash_ptr_t *_zero_types_hash = NULL;
 
 type_t* get_variant_type_zero(type_t* t)
 {
@@ -11542,10 +11647,10 @@ type_t* get_variant_type_zero(type_t* t)
 
     if (_zero_types_hash == NULL)
     {
-        _zero_types_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _zero_types_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = rb_tree_query_type(_zero_types_hash, t);
+    type_t* result = dhash_ptr_query(_zero_types_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -11560,7 +11665,7 @@ type_t* get_variant_type_zero(type_t* t)
 
         result->info->is_zero_type = 1;
 
-        rb_tree_insert(_zero_types_hash, t, result);
+        dhash_ptr_insert(_zero_types_hash, (const char*)t, result);
     }
 
     return get_cv_qualified_type(result, cv_qualif);;
@@ -13090,7 +13195,7 @@ const char* print_type_str(type_t* t, decl_context_t decl_context)
 {
     if (t == NULL)
     {
-        return uniquestr("< unknown type >");
+        return UNIQUESTR_LITERAL("< unknown type >");
     }
     else
     {
@@ -13122,17 +13227,17 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         }
         else
         {
-            return uniquestr("<unresolved overload>");
+            return UNIQUESTR_LITERAL("<unresolved overload>");
         }
         entry_list_free(overload_set);
     }
     else if (is_braced_list_type(t))
     {
-        return uniquestr("<brace-enclosed initializer list>");
+        return UNIQUESTR_LITERAL("<brace-enclosed initializer list>");
     }
     else if (is_error_type(t))
     {
-        return uniquestr("<error-type>");
+        return UNIQUESTR_LITERAL("<error-type>");
     }
     else
     {
@@ -13490,7 +13595,7 @@ type_t* type_deep_copy(type_t* orig,
             /* symbol_deep_copy_map_t */ NULL);
 }
 
-static rb_red_blk_tree *_interoperable_hash = NULL;
+static dhash_ptr_t *_interoperable_hash = NULL;
 
 // This function constructs an interoperable variant
 // This is used only in Fortran
@@ -13504,10 +13609,10 @@ type_t* get_variant_type_interoperable(type_t* t)
 
     if (_interoperable_hash == NULL)
     {
-        _interoperable_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _interoperable_hash = dhash_ptr_new(5);
     }
 
-    type_t* result = rb_tree_query_type(_interoperable_hash, t);
+    type_t* result = dhash_ptr_query(_interoperable_hash, (const char*)t);
 
     if (result == NULL)
     {
@@ -13522,7 +13627,7 @@ type_t* get_variant_type_interoperable(type_t* t)
 
         result->info->is_interoperable = 1;
 
-        rb_tree_insert(_interoperable_hash, t, result);
+        dhash_ptr_insert(_interoperable_hash, (const char*)t, result);
     }
 
     return result;
@@ -13684,14 +13789,14 @@ type_t* get_pack_type(type_t* t)
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
     ERROR_CONDITION(is_pack_type(t), "Cannot build a pack type of a pack type", 0);
 
-    static rb_red_blk_tree *_pack_types = NULL;
+    static dhash_ptr_t *_pack_types = NULL;
 
     if (_pack_types == NULL)
     {
-        _pack_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+        _pack_types = dhash_ptr_new(5);
     }
 
-    type_t* pack_type = rb_tree_query_type(_pack_types, t);
+    type_t* pack_type = dhash_ptr_query(_pack_types, (const char*)t);
 
     if (pack_type == NULL)
     {
@@ -13704,7 +13809,7 @@ type_t* get_pack_type(type_t* t)
 
         pack_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_insert(_pack_types, t, pack_type);
+        dhash_ptr_insert(_pack_types, (const char*)t, pack_type);
     }
 
     return pack_type;

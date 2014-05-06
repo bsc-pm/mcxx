@@ -118,6 +118,8 @@ namespace TL
                         const TL::PragmaCustomLine& pragma_line,
                         Nodecl::List& environment);
 
+                static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
+                        TL::Scope sc);
         };
     }
 }

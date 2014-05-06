@@ -1080,11 +1080,10 @@ def generate_routines_impl(rule_map):
              print " {"
              print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s\\n\", locus_to_str(location));" % (i, key)
              print " }"
-             print "int i, num_items = 0;"
-             print "nodecl_t* list_items = nodecl_unpack_list(checked_tree, &num_items);"
-             print "for (i = 0; i < num_items; i++)"
+             print "AST list = nodecl_get_ast(checked_tree), it;"
+             print "for_each_element(list, it)"
              print "{"
-             print     "checked_tree = list_items[i];"
+             print "  checked_tree = _nodecl_wrap(ASTSon1(it));"
           checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
           print "if (%s)" % (string.join(checks, "\n&& "))
           print "{"
@@ -1092,20 +1091,25 @@ def generate_routines_impl(rule_map):
           print "}"
           if subrule_ref.is_seq():
              print "}"
-             print "xfree(list_items);"
           if subrule_ref.is_nullable():
              print "}"
           i = i + 1
           print "}"
 
+       if rhs_rule.needs_text:
+           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s\", locus_to_str(location));"
+           text_value = "text";
+       else:
+           text_value = "NULL"
+
        # Build the node
        print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result.tree = ASTLeaf(%s, location, NULL);" % (rhs_rule.name_to_underscore())
+          print "  result.tree = ASTLeaf(%s, location, %s);" % (rhs_rule.name_to_underscore(), text_value)
        else:
-          print "  result.tree = ASTMake%d(%s, %s, location, NULL);" % (num_children, rhs_rule.name_to_underscore(), \
-                 string.join(map(lambda x : x + ".tree", param_name_list), ", "));
+          print "  result.tree = ASTMake%d(%s, %s, location, %s);" % (num_children, rhs_rule.name_to_underscore(), \
+                 string.join(map(lambda x : x + ".tree", param_name_list), ", "), text_value);
 
        if rhs_rule.needs_symbol:
            print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s\", locus_to_str(location));"
@@ -1113,9 +1117,6 @@ def generate_routines_impl(rule_map):
        if rhs_rule.needs_type:
            print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_type(result, type);"
-       if rhs_rule.needs_text:
-           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s\", locus_to_str(location));"
-           print "  nodecl_set_text(result, text);"
        if rhs_rule.needs_cval:
            print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s\", locus_to_str(location));"
            print "  nodecl_set_constant(result, cval);"

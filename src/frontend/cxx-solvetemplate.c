@@ -142,7 +142,7 @@ type_t* solve_class_template(type_t* template_type,
 
         if (is_unresolved_overloaded_type(more_specialized))
         {
-            fprintf(stderr, "%s: note: template specialization candidate list\n", locus_to_str(locus));
+            info_printf("%s: note: template specialization candidate list\n", locus_to_str(locus));
 
             scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
 
@@ -152,7 +152,7 @@ type_t* solve_class_template(type_t* template_type,
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                fprintf(stderr, "%s: note:   %s\n",
+                info_printf("%s: note:   %s\n",
                         locus_to_str(entry->locus),
                         print_type_str(get_user_defined_type(entry), entry->decl_context));
             }

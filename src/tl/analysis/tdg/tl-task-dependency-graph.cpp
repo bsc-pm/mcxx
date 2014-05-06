@@ -83,7 +83,10 @@ namespace{
         ERROR_CONDITION(!pcfg_edge_type.is<Nodecl::StringLiteral>(), 
                         "Expected StringLiteral as attribute of a task edge, but %s found.\n", 
                         ast_print_node_type(pcfg_edge_type.get_kind()));
-        std::string type_str = std::string(const_value_string_unpack_to_string(pcfg_edge_type.get_constant()));
+        char is_null_ended = 0;
+        std::string type_str = std::string(const_value_string_unpack_to_string(
+                    pcfg_edge_type.get_constant(),
+                    &is_null_ended));
         if(type_str == "strict")
             result = Strict;
         else if(type_str == "static") 

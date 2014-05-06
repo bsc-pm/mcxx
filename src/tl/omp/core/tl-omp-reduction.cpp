@@ -319,12 +319,9 @@ namespace TL { namespace OpenMP {
 
             if (entry_list == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: unknown '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            prettyprint_in_buffer(id_expr));
-                }
+                error_printf("%s: error: unknown '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        prettyprint_in_buffer(id_expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
@@ -333,12 +330,9 @@ namespace TL { namespace OpenMP {
             if (strcmp(entry->symbol_name, "omp_priv") != 0
                     || entry->kind != SK_VARIABLE)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            get_qualified_symbol_name(entry, decl_context));
-                }
+                error_printf("%s: error: invalid '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        get_qualified_symbol_name(entry, decl_context));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
@@ -363,9 +357,9 @@ namespace TL { namespace OpenMP {
             for (i = 0; i < ast_get_num_ambiguities(a); i++)
             {
                 *nodecl_output = nodecl_null();
-                enter_test_expression();
+                diagnostic_context_push_buffered();
                 check_omp_initializer(ast_get_ambiguity(a, i), decl_context, nodecl_output);
-                leave_test_expression();
+                diagnostic_context_pop_and_discard();
                 if (!nodecl_is_err_expr(*nodecl_output))
                 {
                     if (valid < 0)
@@ -657,7 +651,7 @@ namespace TL { namespace OpenMP {
         scope_entry_t* omp_udr_function = ::new_symbol(
                 sc.get_decl_context(), 
                 sc.get_decl_context().current_scope,
-                ".omp_udr_function");
+                UNIQUESTR_LITERAL(".omp_udr_function"));
         omp_udr_function->kind = SK_FUNCTION;
         omp_udr_function->related_decl_context = sc.get_decl_context();
 
@@ -678,7 +672,7 @@ namespace TL { namespace OpenMP {
             scope_entry_t* omp_sym = ::new_symbol(
                     _expr_scope.get_decl_context(), 
                     _expr_scope.get_decl_context().current_scope,
-                    it->first.c_str());
+                    uniquestr(it->first.c_str()));
 
             omp_sym->kind = SK_VARIABLE;
             omp_sym->do_not_print = 1;
@@ -748,13 +742,13 @@ namespace TL { namespace OpenMP {
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
             new_red = new Reduction(sc, name, t);
 
-            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, internal_name.c_str());
+            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(internal_name.c_str()));
             new_red_sym->kind = SK_OTHER;
 
             OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
@@ -948,7 +942,7 @@ namespace TL { namespace OpenMP {
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {

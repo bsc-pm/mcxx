@@ -77,7 +77,7 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()), NULL);
+        scope_entry_list_t* entry_list = query_name_str(_decl_context, uniquestr(str.c_str()), NULL);
 
         convert_to_vector(entry_list, result);
 
@@ -170,7 +170,7 @@ namespace TL
         ObjectList<Symbol> result;
 
         walk_scope_data_t walk_data(result, include_hidden);
-        rb_tree_walk(_decl_context.current_scope->hash, walk_scope, &walk_data);
+        dhash_ptr_walk(_decl_context.current_scope->dhash, (dhash_ptr_walk_fn*)walk_scope, &walk_data);
 
         return result;
     }
@@ -180,7 +180,7 @@ namespace TL
         scope_entry_t* sym_res = NULL;
         if (reuse_symbol)
         {
-            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str(), NULL);
+            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, uniquestr(artificial_name.c_str()), NULL);
 
             if (sym_res_list != NULL)
             {

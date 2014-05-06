@@ -83,8 +83,11 @@ struct AST_tag
     struct nodecl_expr_info_tag* expr_info;
 };
 
-static int count_bitmap(unsigned int bitmap)
+static inline int count_bitmap(unsigned int bitmap)
 {
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+    return __builtin_popcount(bitmap);
+#else
     int i;
     int s = 0;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
@@ -94,13 +97,17 @@ static int count_bitmap(unsigned int bitmap)
     }
 
     return s;
+#endif
 }
 
-static int bitmap_to_index(unsigned int bitmap, int num)
+static inline int bitmap_to_index(unsigned int bitmap, int num)
 {
     ERROR_CONDITION(((1 << num) & bitmap) == 0,
             "Invalid bitmap!", 0);
-
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+    bitmap = bitmap & (~(~0U << num));
+    return __builtin_popcount(bitmap);
+#else
     int i;
     int s = 0;
     for (i = 0; i < num; i++)
@@ -110,15 +117,16 @@ static int bitmap_to_index(unsigned int bitmap, int num)
     }
 
     return s;
+#endif
 }
 
 
-static int ast_son_num_to_son_index(const_AST a, int num_son)
+static inline int ast_son_num_to_son_index(const_AST a, int num_son)
 {
     return bitmap_to_index(a->bitmap_sons, num_son);
 }
 
-static char ast_has_son(const_AST a, int son)
+static inline char ast_has_son(const_AST a, int son)
 {
     return (((1 << son) & a->bitmap_sons) != 0);
 }
@@ -136,20 +144,50 @@ long long unsigned int ast_instantiation_used_memory(void)
     return _bytes_due_to_instantiation;
 }
 
-AST ast_make(node_t type, int num_children UNUSED_PARAMETER, 
+AST ast_make(node_t type, int __num_children UNUSED_PARAMETER, 
         AST child0, AST child1, AST child2, AST child3, 
         const locus_t* location, const char *text)
 {
-    AST result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_astmake);
-
-    result->parent = NULL;
+    AST result = counted_xmalloc(1, sizeof(*result), &_bytes_due_to_astmake);
+    // ERROR_CONDITION(result & 0x1 != 0, "Invalid pointer for AST", 0);
 
     result->node_type = type;
 
+    int num_children = 0;
+    unsigned int bitmap_sons = 0;
+#define COUNT_SON(n) \
+    if (child##n != NULL) \
+    { \
+        num_children++; \
+        bitmap_sons |= (1 << n); \
+    }
+
+    result->bitmap_sons = bitmap_sons;
+    result->parent = NULL;
     result->locus = location;
 
+    result->text = text;
+
+    COUNT_SON(0);
+    COUNT_SON(1);
+    COUNT_SON(2);
+    COUNT_SON(3);
+#undef COUNT_SON
+
+    result->bitmap_sons = bitmap_sons;
+    result->children = counted_xmalloc(
+            sizeof(*result->children), 
+            num_children,
+            &_bytes_due_to_astmake);
+
+    int idx = 0;
 #define ADD_SON(n) \
-    ast_set_child(result, n, child##n);
+    if (child##n != NULL) \
+    { \
+        result->children[idx] = child##n; \
+        child##n->parent = result; \
+        idx++; \
+    }
 
     ADD_SON(0);
     ADD_SON(1);
@@ -157,11 +195,7 @@ AST ast_make(node_t type, int num_children UNUSED_PARAMETER,
     ADD_SON(3);
 #undef ADD_SON
 
-    result->text = NULL;
-    if (text != NULL)
-    {
-        result->text = uniquestr(text);
-    }
+    result->expr_info = NULL;
 
     return result;
 }
@@ -181,14 +215,14 @@ const char* ast_get_text(const_AST a)
     return a->text;
 }
 
-node_t ast_get_type(const_AST a)
+extern inline node_t ast_get_type(const_AST a)
 {
     return a->node_type;
 }
 
 void ast_set_text(AST a, const char* str)
 {
-    a->text = uniquestr(str);
+    a->text = str;
 }
 
 void ast_set_type(AST a, node_t node_type)
@@ -196,7 +230,7 @@ void ast_set_type(AST a, node_t node_type)
     a->node_type = node_type;
 }
 
-AST ast_get_child(const_AST a, int num_child)
+extern inline AST ast_get_child(const_AST a, int num_child)
 {
     if (ast_has_son(a, num_child))
     {
@@ -232,7 +266,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
         a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
     }
 
-    a->children = counted_xcalloc(sizeof(*a->children), 
+    a->children = counted_xmalloc(sizeof(*a->children), 
             (count_bitmap(a->bitmap_sons)), 
             &_bytes_due_to_astmake);
 
@@ -301,19 +335,7 @@ void ast_set_child(AST a, int num_child, AST new_child)
 
 int ast_num_children(const_AST a)
 {
-    // We return the maximum
-    int max = 0;
-    int i;
-    unsigned int bitmap = a->bitmap_sons;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        if ((1 << i) & bitmap)
-        {
-            max = i + 1;
-        }
-    }
-
-    return max;
+    return count_bitmap(a->bitmap_sons);
 }
 
 /**
@@ -412,7 +434,7 @@ AST ast_copy(const_AST a)
 
     if (a->text != NULL)
     {
-        result->text = uniquestr(a->text);
+        result->text = a->text;
     }
 
     result->parent = NULL;
@@ -575,47 +597,6 @@ const char* ast_location(const_AST a)
     return locus_to_str(a->locus);
 }
 
-#if 0
-// Note that we use expr_info to mark visited nodes since AST involved
-// in ambiguities do not have expr_info
-static void ast_mark_visit(AST a, char visited)
-{
-    if (a == NULL)
-        return;
-
-    if (ast_get_type(a) == AST_AMBIGUITY)
-    {
-        int i;
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            AST current = ast_get_ambiguity(a, i);
-            current->expr_info = (struct nodecl_expr_info_tag*)(intptr_t)visited;
-
-            ast_mark_visit(current, visited);
-        }
-    }
-    else
-    {
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            AST current = ast_get_child(a, i);
-            if (current != NULL)
-            {
-                current->expr_info = (struct nodecl_expr_info_tag*)(intptr_t)visited;
-                ast_mark_visit(current, visited);
-            }
-        }
-    }
-}
-
-static char ast_has_been_visited(AST a)
-{
-    // We will piggy back the expr_info to keep the visited mark
-    return a->expr_info != NULL;
-}
-#endif
-
 int ast_get_num_ambiguities(const_AST a)
 {
     return a->num_ambig;
@@ -625,49 +606,6 @@ AST ast_get_ambiguity(const_AST a, int num)
 {
     return a->ambig[num];
 }
-
-#if 0
-static void ast_set_ambiguity(AST a, int num, AST child)
-{
-    a->ambig[num] = child;
-}
-
-static AST unshare_nodes_rec(AST a)
-{
-    if (a == NULL)
-        return NULL;
-
-    if (node_has_been_visited(a))
-    {
-        return ast_copy(a);
-    }
-    else
-    {
-        if (ast_get_type(a) == AST_AMBIGUITY)
-        {
-            int i;
-            for (i = 0; i < ast_get_num_ambiguities(a); i++)
-            {
-                AST current = ast_get_ambiguity(a, i);
-
-                ast_set_ambiguity(a, i, unshare_nodes_rec(current));
-            }
-        }
-        else
-        {
-            int i;
-            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-            {
-                AST current = ast_get_child(a, i);
-
-                ast_set_child(a, i, unshare_nodes_rec(current));
-            }
-        }
-
-        return a;
-    }
-}
-#endif
 
 void ast_fix_parents_inside_intepretation(AST node)
 {
@@ -732,7 +670,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, make_locus("", 0, 0), NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_xcalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
+        result->ambig = counted_xmalloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
         result->ambig[0] = son0;
         result->ambig[1] = son1;
         result->locus = son0->locus;
@@ -749,34 +687,44 @@ void ast_replace(AST dest, const_AST src)
 
 void ast_free(AST a)
 {
-    if (a != NULL)
+    if (a == NULL)
+        return;
+
+    // Already visited. See below
+    if (__builtin_expect(((((intptr_t)a->parent) & 0x1) == 0x1), 0))
+        return;
+
+    // Tag this node as visited to avoid infinite recursion under the presence
+    // of cycles (note that this works as long as AST pointers are at least
+    // aligned to two bytes)
+    a->parent = (struct AST_tag*)(((intptr_t)a->parent) | 0x1);
+
+    if (ast_get_type(a) == AST_AMBIGUITY)
     {
-        if (ast_get_type(a) == AST_AMBIGUITY)
+        int i;
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
-            int i;
-            for (i = 0; i < ast_get_num_ambiguities(a); i++)
-            {
-                ast_free(ast_get_ambiguity(a, i));
-            }
+            ast_free(ast_get_ambiguity(a, i));
         }
-        else
-        {
-            int i;
-            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-            {
-                ast_free(ast_get_child(a, i));
-            }
-        }
-
-        // This will uncover dangling references
-        xfree(a->expr_info);
-        xfree(a->children);
-        _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
-        memset(a, 0, sizeof(*a));
-        xfree(a);
-
-        _bytes_due_to_astmake -= sizeof(*a);
+        _bytes_due_to_astmake -= sizeof(*(a->ambig[0])) * a->num_ambig;
     }
+    else
+    {
+        int i;
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+        {
+            ast_free(ast_get_child(a, i));
+        }
+        _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
+    }
+
+    xfree(a->expr_info);
+    xfree(a->children);
+    // Clear the node for safety
+    memset(a, 0, sizeof(*a));
+    xfree(a);
+
+    _bytes_due_to_astmake -= sizeof(*a);
 }
 
 void ast_replace_with_ambiguity(AST a, int n)
