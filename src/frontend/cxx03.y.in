@@ -403,6 +403,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> handler
 %type<ast> handler_seq
 %type<ast> id_expression
+%type<ast> id_expression_no_destructor
 %type<ast> id_expression_of_template_id
 %type<ast> id_type_expr
 %type<ast> if_statement
@@ -489,17 +490,23 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> primary_expression
 %type<ast> ptr_operator
 %type<ast> qualified_id
+%type<ast> qualified_id_no_destructor
 %type<ast> qualified_id_globals
+%type<ast> qualified_id_globals_no_destructor
+%type<ast> global_unqualified_id
 %type<ast> global_qualified_id_no_template
+%type<ast> global_qualified_id_no_template_no_destructor
 %type<ast> global_qualified_id_operator
 %type<ast> global_qualified_id_template
 %type<ast> global_qualified_operator_function_id_name_and_template_args
 %type<ast> nonglobal_qualified_id_no_template
+%type<ast> nonglobal_qualified_id_no_template_no_destructor
 %type<ast> nonglobal_qualified_id_template
 %type<ast> nonglobal_qualified_operator_function_id_name_and_template_args
 %type<ast> qualified_id_type_name
 %type<ast> qualified_id_type_expr
 %type<ast> unqualified_id_funct
+%type<ast> unqualified_id_funct_no_destructor
 %type<ast> unqualified_id_type_name
 %type<ast> unqualified_name
 %type<ast> relational_expression
@@ -551,6 +558,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
+%type<ast> unqualified_id_no_destructor
 %type<ast> alias_declaration
 %type<ast> using_declaration
 %type<ast> using_directive
@@ -3929,7 +3937,7 @@ primary_expression : literal
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| id_expression
+| id_expression_no_destructor
 {
 	$$ = $1;
 }
@@ -4101,6 +4109,16 @@ id_expression : qualified_id
 }
 ;
 
+id_expression_no_destructor : qualified_id_no_destructor
+{
+	$$ = $1;
+}
+| unqualified_id_no_destructor
+{
+	$$ = $1;
+}
+;
+
 id_expression_of_template_id : template_id
 {
     $$ = $1;
@@ -4201,6 +4219,34 @@ qualified_id : nonglobal_qualified_id_no_template
 }
 ;
 
+qualified_id_no_destructor : nonglobal_qualified_id_no_template_no_destructor
+{
+    $$ = $1;
+}
+| qualified_id_globals_no_destructor
+{
+    $$ = $1;
+}
+| nonglobal_qualified_id_template
+{
+    $$ = $1;
+}
+;
+
+qualified_id_globals_no_destructor : global_qualified_id_no_template_no_destructor
+{
+    $$ = $1;
+}
+| global_qualified_id_template
+{
+    $$ = $1;
+}
+| global_qualified_id_operator
+{
+    $$ = $1;
+}
+;
+
 qualified_id_globals : global_qualified_id_no_template
 {
     $$ = $1;
@@ -4225,18 +4271,35 @@ qualified_id_type_name : global_qualified_id_no_template
 }
 ;
 
+global_unqualified_id : TWO_COLONS identifier_token
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+};
+
 global_qualified_id_no_template : TWO_COLONS nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS identifier_token
+| global_unqualified_id
+{
+    $$ = $1;
+}
+;
+
+global_qualified_id_no_template_no_destructor : TWO_COLONS nested_name_specifier unqualified_id_no_destructor
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| global_unqualified_id
+{
+    $$ = $1;
 }
 ;
 
@@ -4265,6 +4328,12 @@ global_qualified_id_template : TWO_COLONS nested_name_specifier TEMPLATE templat
 ;
 
 nonglobal_qualified_id_no_template : nested_name_specifier unqualified_id
+{
+	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+nonglobal_qualified_id_no_template_no_destructor : nested_name_specifier unqualified_id_no_destructor
 {
 	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
 }
@@ -4334,6 +4403,16 @@ unqualified_id : unqualified_id_type_name
 }
 ;
 
+unqualified_id_no_destructor : unqualified_id_type_name
+{
+    $$ = $1;
+}
+| unqualified_id_funct_no_destructor
+{
+    $$ = $1;
+}
+;
+
 unqualified_id_type_name : unqualified_name
 {
 	$$ = $1;
@@ -4350,11 +4429,17 @@ unqualified_name : identifier_token
 }
 ;
 
-unqualified_id_funct : operator_function_id
+unqualified_id_funct_no_destructor : operator_function_id
 {
 	$$ = $1;
 }
 | conversion_function_id
+{
+	$$ = $1;
+}
+;
+
+unqualified_id_funct : unqualified_id_funct_no_destructor
 {
 	$$ = $1;
 }

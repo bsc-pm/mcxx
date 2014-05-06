@@ -133,6 +133,7 @@ char nodecl_expr_is_type_dependent(nodecl_t);
 void nodecl_expr_set_is_type_dependent(nodecl_t, char);
 
 char nodecl_is_err_expr(nodecl_t);
+char nodecl_is_err_stmt(nodecl_t);
 
 // Retrieve the context from a node (or the currently compiled file global
 // context if not context is found)
