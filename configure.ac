@@ -1044,6 +1044,11 @@ then
        if test x$mpi_forced = xyes; then
           AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
        fi
+       #fill with dummy variables, the ones in user's PATH at compilation time will be used
+       mpi_found=yes
+       MPICC=mpicc
+       MPICXX=mpicxx
+       MPIFORT=mpif90
     fi
 
    DISABLE_MPI=""
@@ -1054,9 +1059,7 @@ then
        CFLAGSBACKUP="$CFLAGS"
        CPPFLAGSBACKUP="$CPPFLAGS"
        CXXFLAGSBACKUP="$CXXFLAGS"
-       CCBACKUP="$CC"
 
-       CC=$MPICC
        CFLAGS="$CFLAGS -I$nanox_include"
        CPPFLAGS="$CPPFLAGS -I$nanox_include"
        CXXFLAGS="$CXXFLAGS -I$nanox_include"
@@ -1065,7 +1068,6 @@ then
        CFLAGS="$CFLAGSBACKUP"
        CPPFLAGS="$CPPFLAGSBACKUP"
        CXXFLAGS="$CXXFLAGSBACKUP"
-       CC="$CCBACKUP"
    fi
 fi
 
@@ -1075,7 +1077,6 @@ then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcc"
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcxx"
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimfc"
-    COMPILER_NAMES="${COMPILER_NAMES} mpimcc_base mpimcxx_base mpimfc_base"
     COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
     DISABLE_MPI="\#do not uncomment"
