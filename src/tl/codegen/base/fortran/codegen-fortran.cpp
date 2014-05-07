@@ -3338,7 +3338,10 @@ OPERATOR_TABLE
                 TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                if (class_type.is_in_module())
+                // If the class type is defined in a module
+                if (class_type.is_in_module()
+                        // and this module is not the current one, we should emit a use stmt
+                        && class_type.in_module() != get_current_declaring_module())
                     continue;
 
                 // The symbol should not come from a module unless at this
@@ -3508,7 +3511,7 @@ OPERATOR_TABLE
                 current_context.current_scope = sc_scope;
                 current_context.block_scope = sc_scope;
 
-                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str(), NULL);
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_internal_symbol()->symbol_name, NULL);
 
                 if (query != NULL
                         && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3526,7 +3529,7 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str(), NULL);
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_internal_symbol()->symbol_name, NULL);
 
         if (query != NULL
                 && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3980,7 +3983,7 @@ OPERATOR_TABLE
                 {
                     // Get the generic symbol
                     TL::Symbol generic_entry = 
-                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_internal_symbol()->symbol_name);
 
                     if (TL::Symbol(generic_entry) == entry)
                     {
@@ -5660,28 +5663,28 @@ OPERATOR_TABLE
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
             {
-                Nodecl::NodeclBase upper_bound = array_type_get_array_upper_bound(t.get_internal_type());
-                if (upper_bound.is_constant())
+                Nodecl::NodeclBase string_size = array_type_get_array_size_expr(t.get_internal_type());
+                if (string_size.is_constant())
                 {
-                    upper_bound = const_value_to_nodecl(nodecl_get_constant(upper_bound.get_internal_nodecl()));
+                    string_size = const_value_to_nodecl(nodecl_get_constant(string_size.get_internal_nodecl()));
                 }
                 else
                 {
-                    declare_everything_needed(upper_bound);
+                    declare_everything_needed(string_size);
                 }
 
                 if (state.emit_interoperable_types)
                 {
                     ss << "CHARACTER(KIND=C_CHAR,LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
                 else
                 {
                     ss << "CHARACTER(LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
             }

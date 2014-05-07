@@ -126,7 +126,8 @@ static void fortran_init_globals(decl_context_t decl_context)
     int i;
     for (i = 0; intrinsic_globals[i].symbol_name != NULL; i++)
     {
-        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope, intrinsic_globals[i].symbol_name);
+        scope_entry_t* mercurium_intptr = new_symbol(decl_context, decl_context.global_scope,
+                uniquestr(intrinsic_globals[i].symbol_name));
         mercurium_intptr->kind = SK_VARIABLE;
         mercurium_intptr->type_information = get_const_qualified_type(fortran_get_default_integer_type());
         _size_t size = 0;
@@ -228,27 +229,27 @@ static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, 
 
 static scope_entry_t* get_untyped_symbols_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".untyped_symbols");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".untyped_symbols"));
 }
 
 static scope_entry_t* get_or_create_untyped_symbols_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".untyped_symbols");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".untyped_symbols"));
 }
 
 scope_entry_t* fortran_get_data_symbol_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".data");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".data"));
 }
 
 static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".data");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".data"));
 }
 
 scope_entry_t* fortran_get_equivalence_symbol_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".equivalence");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".equivalence"));
 }
 
 scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_context)
@@ -263,7 +264,7 @@ scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_contex
         scope_entry_t* new_sym = new_symbol(
                 function_context,
                 function_context.current_scope,
-                ".used_modules");
+                UNIQUESTR_LITERAL(".used_modules"));
         new_sym->kind = SK_OTHER;
 
         decl_context.current_scope->related_entry->entity_specs.used_modules = new_sym;
@@ -273,37 +274,37 @@ scope_entry_t* get_or_create_used_modules_symbol_info(decl_context_t decl_contex
 
 static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".equivalence");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".equivalence"));
 }
 
 static scope_entry_t* get_or_create_not_fully_defined_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".not_fully_defined");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".not_fully_defined"));
 }
 
 static scope_entry_t* get_not_fully_defined_symbol_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".not_fully_defined");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".not_fully_defined"));
 }
 
 static scope_entry_t* get_or_create_unknown_kind_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".unknown_kind");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".unknown_kind"));
 }
 
 static scope_entry_t* get_unknown_kind_symbol_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".unknown_kind");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".unknown_kind"));
 }
 
 static scope_entry_t* get_or_create_intent_declared_symbol_info(decl_context_t decl_context)
 {
-    return get_or_create_special_symbol(decl_context, ".intent_declared");
+    return get_or_create_special_symbol(decl_context, UNIQUESTR_LITERAL(".intent_declared"));
 }
 
 static scope_entry_t* get_intent_declared_symbol_info(decl_context_t decl_context)
 {
-    return get_special_symbol(decl_context, ".intent_declared");
+    return get_special_symbol(decl_context, UNIQUESTR_LITERAL(".intent_declared"));
 }
 
 void add_untyped_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -3012,12 +3013,9 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
                 result = get_derived_type_name(ASTSon0(a), decl_context);
                 if (result == NULL)
                 {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: invalid type-specifier '%s'\n",
-                                ast_location(a),
-                                fortran_prettyprint_in_buffer(a));
-                    }
+                    error_printf("%s: error: invalid type-specifier '%s'\n",
+                            ast_location(a),
+                            fortran_prettyprint_in_buffer(a));
                     result = get_error_type();
                 }
                 break;
@@ -3031,21 +3029,15 @@ static type_t* fortran_gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_PIXEL_TYPE:
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
-                            ast_location(a));
-                }
+                error_printf("%s: sorry: PIXEL type-specifier not implemented\n",
+                        ast_location(a));
                 result = get_error_type();
                 break;
             }
         case AST_CLASS_NAME:
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: sorry: CLASS type-specifier not implemented\n",
-                            ast_location(a));
-                }
+                error_printf("%s: sorry: CLASS type-specifier not implemented\n",
+                        ast_location(a));
                 result = get_error_type();
                 break;
             }
@@ -5168,7 +5160,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (is_sequence)
                 {
-                    error_printf("%s: error: SEQUENCE statement specified twice", 
+                    error_printf("%s: error: SEQUENCE statement specified twice\n", 
                             ast_location(private_or_sequence));
                 }
                 is_sequence = 1;
@@ -5177,7 +5169,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
             {
                 if (fields_are_private)
                 {
-                    error_printf("%s: error: PRIVATE statement specified twice", 
+                    error_printf("%s: error: PRIVATE statement specified twice\n", 
                             ast_location(private_or_sequence));
                 }
                 // This can only be a private_stmt, no need to check it here
@@ -6732,12 +6724,9 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
                 && new_namelist->kind != SK_UNDEFINED
                 && new_namelist->kind != SK_NAMELIST)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
-                        ast_location(name),
-                        ASTText(name));
-            }
+            error_printf("%s: error: name '%s' cannot be used as a namelist\n", 
+                    ast_location(name),
+                    ASTText(name));
             // This will cause an ambiguity later
             new_namelist = NULL;
         }
@@ -7432,7 +7421,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     if (decl_context.current_scope->related_entry == NULL
             || decl_context.current_scope->related_entry->kind != SK_FUNCTION)
     {
-        error_printf("%s: error: RETURN statement not valid in this context", ast_location(a));
+        error_printf("%s: error: RETURN statement not valid in this context\n", ast_location(a));
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
                 );
@@ -9946,10 +9935,10 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
         }
     }
 
-    enter_test_expression();
+    diagnostic_context_push_buffered();
     nodecl_t nodecl_dummy = nodecl_null();
     fortran_check_expression(expr, decl_context, &nodecl_dummy);
-    leave_test_expression();
+    diagnostic_context_pop_and_discard();
 
     if (nodecl_is_err_expr(nodecl_dummy))
         return 0;
@@ -9983,11 +9972,11 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                     index_expr = i;
                     if (!is_declaration)
                     {
-                        enter_test_expression();
+                        diagnostic_context_push_buffered();
                         nodecl_t nodecl_dummy = nodecl_null();
                         fortran_check_expression(ASTSon0(stmt), decl_context, &nodecl_dummy);
                         ok = !nodecl_is_err_expr(nodecl_dummy);
-                        leave_test_expression();
+                        diagnostic_context_pop_and_discard();
                     }
                     break;
                 }

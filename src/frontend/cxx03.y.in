@@ -121,6 +121,8 @@ static AST duplicate_nested_name_specifier_list(AST);
 %token<token_atrib> GOTO "goto"
 %token<token_atrib> HEXADECIMAL_LITERAL "hexadecimal-integer-literal"
 %token<token_atrib> IDENTIFIER "identifier"
+%token<token_atrib> TOK_FINAL "final"
+%token<token_atrib> TOK_OVERRIDE "override"
 %token<token_atrib> IF "if"
 %token<token_atrib> INLINE "inline"
 %token<token_atrib> TOKEN_INT "int"
@@ -265,6 +267,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<token_atrib> right_assign_token
 %type<token_atrib> greater_equal_token
 %type<token_atrib> right_bracket_token
+%type<token_atrib> identifier_token
 
 // GNU Extensions
 %token<token_atrib> BUILTIN_VA_ARG "__builtin_va_arg"
@@ -400,6 +403,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> handler
 %type<ast> handler_seq
 %type<ast> id_expression
+%type<ast> id_expression_no_destructor
 %type<ast> id_expression_of_template_id
 %type<ast> id_type_expr
 %type<ast> if_statement
@@ -486,17 +490,23 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> primary_expression
 %type<ast> ptr_operator
 %type<ast> qualified_id
+%type<ast> qualified_id_no_destructor
 %type<ast> qualified_id_globals
+%type<ast> qualified_id_globals_no_destructor
+%type<ast> global_unqualified_id
 %type<ast> global_qualified_id_no_template
+%type<ast> global_qualified_id_no_template_no_destructor
 %type<ast> global_qualified_id_operator
 %type<ast> global_qualified_id_template
 %type<ast> global_qualified_operator_function_id_name_and_template_args
 %type<ast> nonglobal_qualified_id_no_template
+%type<ast> nonglobal_qualified_id_no_template_no_destructor
 %type<ast> nonglobal_qualified_id_template
 %type<ast> nonglobal_qualified_operator_function_id_name_and_template_args
 %type<ast> qualified_id_type_name
 %type<ast> qualified_id_type_expr
 %type<ast> unqualified_id_funct
+%type<ast> unqualified_id_funct_no_destructor
 %type<ast> unqualified_id_type_name
 %type<ast> unqualified_name
 %type<ast> relational_expression
@@ -548,6 +558,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
+%type<ast> unqualified_id_no_destructor
 %type<ast> alias_declaration
 %type<ast> using_declaration
 %type<ast> using_directive
@@ -757,7 +768,7 @@ namespace_inline_opt : /* empty */
 
 // extension_namespace_definition generates exactly the same
 // so it is not repeated
-named_namespace_definition : namespace_inline_opt NAMESPACE IDENTIFIER gcc_attributes_opt '{' declaration_sequence_opt '}'
+named_namespace_definition : namespace_inline_opt NAMESPACE identifier_token gcc_attributes_opt '{' declaration_sequence_opt '}'
 {
 	AST identif = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -835,7 +846,7 @@ common_block_declaration : asm_definition
 }
 ;
 
-alias_declaration : USING IDENTIFIER '=' type_id ';'
+alias_declaration : USING identifier_token '=' type_id ';'
 {
     AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -850,12 +861,12 @@ label_declaration : LABEL label_declarator_seq ';'
 }
 ;
 
-label_declarator_seq : IDENTIFIER 
+label_declarator_seq : identifier_token 
 {
     AST symbol_holder = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	$$ = ASTListLeaf(symbol_holder);
 }
-| label_declarator_seq ',' IDENTIFIER
+| label_declarator_seq ',' identifier_token
 {
 	AST label = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 	$$ = ASTList($1, label);
@@ -905,7 +916,7 @@ gcc_attribute_list : gcc_attribute_value
 ;
 
 // Why on earth ASTSon1 is always null ?
-gcc_attribute_value : IDENTIFIER
+gcc_attribute_value : identifier_token
 {
 	AST identif = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -917,7 +928,7 @@ gcc_attribute_value : IDENTIFIER
 
 	$$ = ASTMake2(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER '(' expression_list ')'
+| identifier_token '(' expression_list ')'
 {
 	AST identif1 = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	
@@ -1035,7 +1046,7 @@ asm_operand : string_literal '(' expression ')'
 {
 	$$ = ASTMake3(AST_GCC_ASM_OPERAND, NULL, $1, $3, ast_get_locus($1), NULL);
 }
-| '[' IDENTIFIER ']' string_literal '(' expression ')'
+| '[' identifier_token ']' string_literal '(' expression ')'
 {
     AST symbol_tree = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -1128,7 +1139,7 @@ static_assert_declaration : STATIC_ASSERT '(' constant_expression ',' string_lit
 }
 ;
 
-namespace_alias_definition : NAMESPACE IDENTIFIER '=' id_expression ';'
+namespace_alias_definition : NAMESPACE identifier_token '=' id_expression ';'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -2316,7 +2327,7 @@ enum_head : enum_key attribute_specifier_seq_opt identifier_opt enum_base_opt
 {
     $$ = ASTMake4(AST_ENUM_HEAD, $1, $2, $3, $4, ast_get_locus($1), NULL);
 }
-| enum_key attribute_specifier_seq_opt nested_name_specifier IDENTIFIER enum_base_opt
+| enum_key attribute_specifier_seq_opt nested_name_specifier identifier_token enum_base_opt
 {
 	AST name = ASTMake3(AST_QUALIFIED_ID, NULL, $3, 
                 ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text),
@@ -2360,7 +2371,7 @@ enum_base_type_specifier_seq : type_specifier_seq_0
 }
 ;
 
-identifier_opt : IDENTIFIER
+identifier_opt : identifier_token
 {
 	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -2400,13 +2411,13 @@ enumeration_list: enumeration_list ',' enumeration_definition
 }
 ;
 
-enumeration_definition : IDENTIFIER
+enumeration_definition : identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
 	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER '=' constant_expression
+| identifier_token '=' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -2854,12 +2865,12 @@ nonabstract_main_declarator : nonabstract_direct_declarator
 }
 ;
 
-nonabstract_direct_declarator : IDENTIFIER std_attribute_specifier_seq_opt
+nonabstract_direct_declarator : identifier_token std_attribute_specifier_seq_opt
 {
 	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
     $$ = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $2, ast_get_locus(symbol), NULL);
 }
-| ELLIPSIS IDENTIFIER std_attribute_specifier_seq_opt
+| ELLIPSIS identifier_token std_attribute_specifier_seq_opt
 {
 	AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
     AST declarator_id_expr = ASTMake2(AST_DECLARATOR_ID_EXPR, symbol, $3, ast_get_locus(symbol), NULL);
@@ -2983,7 +2994,7 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
     $$ = ASTList($1, designated_initializer);
 }
 // GNU Extensions
-| IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
+| identifier_token ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -2991,7 +3002,7 @@ initializer_list : initializer_clause %merge<ambiguityHandler>
 
 	$$ = ASTListLeaf(gcc_initializer_clause);
 }
-| initializer_list ',' IDENTIFIER ':' initializer_clause %merge<ambiguityHandler>
+| initializer_list ',' identifier_token ':' initializer_clause %merge<ambiguityHandler>
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -3021,7 +3032,7 @@ designator : '[' constant_expression ']'
 {
     $$ = ASTMake1(AST_INDEX_DESIGNATOR, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| '.' IDENTIFIER
+| '.' identifier_token
 {
     AST symbol = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -3166,17 +3177,9 @@ class_virt_specifier : EXPLICIT
 {
     $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| IDENTIFIER
+| TOK_FINAL
 {
-    // Only "final" is allowed
-    if (strcmp($1.token_text, "final") == 0)
-    {
-        $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-    }
-    else
-    {
-        $$ = ASTLeaf(AST_INVALID_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-    }
+    $$ = ASTLeaf(AST_CLASS_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
@@ -3341,7 +3344,7 @@ member_declarator_first : declarator_not_started_with_attributes gcc_attr_or_vir
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
         $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
+| identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
@@ -3369,7 +3372,7 @@ member_declarator : declarator gcc_attr_or_virt_specifier_seq_opt
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
         $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
+| identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
@@ -3400,18 +3403,13 @@ virt_specifier_seq : virt_specifier
 }
 ;
 
-virt_specifier : IDENTIFIER
+virt_specifier : TOK_FINAL
 {
-    // Only 'override' and 'final' are allowed
-    if (strcmp($1.token_text, "final") == 0
-        || strcmp($1.token_text, "override") == 0)
-    {
-        $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-    }
-    else
-    {
-        $$ = ASTLeaf(AST_INVALID_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
-    }
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOK_OVERRIDE
+{
+    $$ = ASTLeaf(AST_MEMBER_VIRT_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | TOKEN_NEW
 {
@@ -3466,7 +3464,7 @@ nonglobal_member_declarator_first : nonglobal_declarator gcc_attr_or_virt_specif
 	$$ = ASTMake3(AST_BITFIELD_DECLARATOR, NULL, $3,
         $1, make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| IDENTIFIER attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
+| identifier_token attribute_specifier_seq_and_virt_specifier_seq_opt ':' constant_expression %dprec 2
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ast_get_locus(identifier), NULL);
@@ -3600,7 +3598,7 @@ nondeclarating_statement : labeled_statement
 }
 ;
 
-labeled_statement : IDENTIFIER ':' statement
+labeled_statement : identifier_token ':' statement
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 	
@@ -3815,7 +3813,7 @@ jump_statement : BREAK ';'
 {
 	$$ = ASTMake1(AST_RETURN_STATEMENT, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| GOTO IDENTIFIER ';'
+| GOTO identifier_token ';'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 	
@@ -3939,7 +3937,7 @@ primary_expression : literal
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_EXPRESSION, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| id_expression
+| id_expression_no_destructor
 {
 	$$ = $1;
 }
@@ -4087,13 +4085,13 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
      offsetof-member-designator . identifier
      offsetof-member-designator [ expression ]
 */
-offsetof_member_designator :  IDENTIFIER designator_list
+offsetof_member_designator :  identifier_token designator_list
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
             ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
             $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER
+| identifier_token
 {
     $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
             ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text),
@@ -4106,6 +4104,16 @@ id_expression : qualified_id
 	$$ = $1;
 }
 | unqualified_id
+{
+	$$ = $1;
+}
+;
+
+id_expression_no_destructor : qualified_id_no_destructor
+{
+	$$ = $1;
+}
+| unqualified_id_no_destructor
 {
 	$$ = $1;
 }
@@ -4211,6 +4219,34 @@ qualified_id : nonglobal_qualified_id_no_template
 }
 ;
 
+qualified_id_no_destructor : nonglobal_qualified_id_no_template_no_destructor
+{
+    $$ = $1;
+}
+| qualified_id_globals_no_destructor
+{
+    $$ = $1;
+}
+| nonglobal_qualified_id_template
+{
+    $$ = $1;
+}
+;
+
+qualified_id_globals_no_destructor : global_qualified_id_no_template_no_destructor
+{
+    $$ = $1;
+}
+| global_qualified_id_template
+{
+    $$ = $1;
+}
+| global_qualified_id_operator
+{
+    $$ = $1;
+}
+;
+
 qualified_id_globals : global_qualified_id_no_template
 {
     $$ = $1;
@@ -4235,18 +4271,35 @@ qualified_id_type_name : global_qualified_id_no_template
 }
 ;
 
+global_unqualified_id : TWO_COLONS identifier_token
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+};
+
 global_qualified_id_no_template : TWO_COLONS nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TWO_COLONS IDENTIFIER
+| global_unqualified_id
+{
+    $$ = $1;
+}
+;
+
+global_qualified_id_no_template_no_destructor : TWO_COLONS nested_name_specifier unqualified_id_no_destructor
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, make_locus($1.token_file, $1.token_line, 0), NULL);
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+| global_unqualified_id
+{
+    $$ = $1;
 }
 ;
 
@@ -4275,6 +4328,12 @@ global_qualified_id_template : TWO_COLONS nested_name_specifier TEMPLATE templat
 ;
 
 nonglobal_qualified_id_no_template : nested_name_specifier unqualified_id
+{
+	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+nonglobal_qualified_id_no_template_no_destructor : nested_name_specifier unqualified_id_no_destructor
 {
 	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ast_get_locus($1), NULL);
 }
@@ -4344,6 +4403,16 @@ unqualified_id : unqualified_id_type_name
 }
 ;
 
+unqualified_id_no_destructor : unqualified_id_type_name
+{
+    $$ = $1;
+}
+| unqualified_id_funct_no_destructor
+{
+    $$ = $1;
+}
+;
+
 unqualified_id_type_name : unqualified_name
 {
 	$$ = $1;
@@ -4354,17 +4423,23 @@ unqualified_id_type_name : unqualified_name
 }
 ;
 
-unqualified_name : IDENTIFIER
+unqualified_name : identifier_token
 {
 	$$ = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 ;
 
-unqualified_id_funct : operator_function_id
+unqualified_id_funct_no_destructor : operator_function_id
 {
 	$$ = $1;
 }
 | conversion_function_id
+{
+	$$ = $1;
+}
+;
+
+unqualified_id_funct : unqualified_id_funct_no_destructor
 {
 	$$ = $1;
 }
@@ -4374,13 +4449,13 @@ unqualified_id_funct : operator_function_id
 }
 ;
 
-destructor_id : '~' IDENTIFIER
+destructor_id : '~' identifier_token
 {
 	// Construct an artificial name for it
-    char c[256];
-    snprintf(c, 255, "~%s", $2.token_text);
+    const char* destructor_name = NULL;
+    uniquestr_sprintf(&destructor_name, "~%s", $2.token_text);
 
-	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), uniquestr(c));
+	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), destructor_name);
 
 	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
@@ -4396,10 +4471,10 @@ destructor_template_id : '~' template_id
 	AST symbol = ASTSon0($2);
 
 	// Construct an artificial name for it
-    char c[256];
-    snprintf(c, 255, "~%s", ASTText(symbol));
+    const char* destructor_name = NULL;
+    uniquestr_sprintf(&destructor_name, "~%s", ASTText(symbol));
 
-	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus($1.token_file, $1.token_line, 0), uniquestr(c));
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, make_locus($1.token_file, $1.token_line, 0), destructor_name);
 }
 ;
 
@@ -4526,7 +4601,7 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_SIZEOF_TYPEID, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| SIZEOF ELLIPSIS '(' IDENTIFIER ')'
+| SIZEOF ELLIPSIS '(' identifier_token ')'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 
@@ -4569,7 +4644,7 @@ unary_expression : postfix_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_IMAG_PART, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| ANDAND IDENTIFIER
+| ANDAND identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -5096,11 +5171,11 @@ lambda_capture_list : lambda_capture_item
 }
 ;
 
-lambda_capture_item : IDENTIFIER
+lambda_capture_item : identifier_token
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_VALUE, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
-| '&' IDENTIFIER
+| '&' identifier_token
 {
 	$$ = ASTLeaf(AST_LAMBDA_CAPTURE_ADDRESS, make_locus($1.token_file, $1.token_line, 0), $2.token_text);
 }
@@ -5208,7 +5283,7 @@ operator_function_id_name : OPERATOR operator
 {
 	$$ = ASTMake1(AST_OPERATOR_FUNCTION_ID, $2, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| OPERATOR_LITERAL IDENTIFIER
+| OPERATOR_LITERAL identifier_token
 {
     $$ = ASTMake1(AST_LITERAL_OPERATOR_ID,
             ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
@@ -5224,14 +5299,14 @@ operator_function_id_name_and_template_args : OPERATOR operator '<' template_arg
 {
 	$$ = ASTMake2(AST_OPERATOR_FUNCTION_ID_TEMPLATE, $2, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| OPERATOR_LITERAL IDENTIFIER '<' '>'
+| OPERATOR_LITERAL identifier_token '<' '>'
 {
     $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
             ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
             NULL,
             make_locus($2.token_file, $2.token_line, 0), NULL);
 }
-| OPERATOR_LITERAL IDENTIFIER '<' template_argument_list '>'
+| OPERATOR_LITERAL identifier_token '<' template_argument_list '>'
 {
     $$ = ASTMake2(AST_LITERAL_OPERATOR_ID_TEMPLATE,
             ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text),
@@ -5428,13 +5503,13 @@ operator : TOKEN_NEW
 // A.12 - Templates
 // *********************************************************
 
-template_id : IDENTIFIER '<' template_argument_list right_bracket_token
+template_id : identifier_token '<' template_argument_list right_bracket_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
 	$$ = ASTMake2(AST_TEMPLATE_ID, identifier, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| IDENTIFIER '<' right_bracket_token
+| identifier_token '<' right_bracket_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 
@@ -5494,11 +5569,11 @@ template_parameter_list : template_parameter
 }
 ;
 
-template_parameter : type_parameter %merge<ambiguityHandler>
+template_parameter : type_parameter %dprec 2
 {
 	$$ = $1;
 }
-| parameter_declaration %merge<ambiguityHandler>
+| parameter_declaration %dprec 1
 {
 	$$ = $1;
 }
@@ -5508,7 +5583,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| CLASS IDENTIFIER
+| CLASS identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -5518,7 +5593,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| CLASS IDENTIFIER '=' type_id
+| CLASS identifier_token '=' type_id
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -5528,7 +5603,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TYPENAME IDENTIFIER
+| TYPENAME identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -5538,7 +5613,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME, NULL, $3, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TYPENAME IDENTIFIER '=' type_id
+| TYPENAME identifier_token '=' type_id
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($2.token_file, $2.token_line, 0), $2.token_text);
 
@@ -5548,7 +5623,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TEMPLATE '<' template_parameter_list '>' CLASS IDENTIFIER
+| TEMPLATE '<' template_parameter_list '>' CLASS identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($6.token_file, $6.token_line, 0), $6.token_text);
 
@@ -5558,7 +5633,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE, $3, NULL, $7, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TEMPLATE '<' template_parameter_list '>' CLASS IDENTIFIER '=' id_expression
+| TEMPLATE '<' template_parameter_list '>' CLASS identifier_token '=' id_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($6.token_file, $6.token_line, 0), $6.token_text);
 
@@ -5569,7 +5644,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_CLASS_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| CLASS ELLIPSIS IDENTIFIER
+| CLASS ELLIPSIS identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -5579,7 +5654,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake2(AST_TYPE_PARAMETER_TYPENAME_PACK, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TYPENAME ELLIPSIS IDENTIFIER
+| TYPENAME ELLIPSIS identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($3.token_file, $3.token_line, 0), $3.token_text);
 
@@ -5589,7 +5664,7 @@ type_parameter : CLASS
 {
 	$$ = ASTMake3(AST_TYPE_PARAMETER_TEMPLATE_PACK, $3, NULL, NULL, make_locus($1.token_file, $1.token_line, 0), NULL);
 }
-| TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS IDENTIFIER
+| TEMPLATE '<' template_parameter_list '>' CLASS ELLIPSIS identifier_token
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, make_locus($7.token_file, $7.token_line, 0), $7.token_text);
 
@@ -6006,6 +6081,22 @@ string_literal : STRING_LITERAL
 }
 ;
 
+identifier_token : IDENTIFIER
+{
+    $$ = $1;
+}
+// Keywords
+| TOK_FINAL
+{
+    $$ = $1;
+}
+| TOK_OVERRIDE
+{
+    $$ = $1;
+}
+;
+
+
 // *******************************************************
 // * Crazy tokens implemented in grammar
 // * We synthesize some fake tokens here
@@ -6015,7 +6106,7 @@ right_token : AB1 '>'
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">>");
+    $$.token_text = UNIQUESTR_LITERAL(">>");
 }
 | RIGHT
 {
@@ -6028,7 +6119,7 @@ right_assign_token : AB1 AB2 '='
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">>=");
+    $$.token_text = UNIQUESTR_LITERAL(">>=");
 }
 | RIGHT_ASSIGN
 {
@@ -6041,7 +6132,7 @@ greater_equal_token : AB2 '='
 {
     // C++2011
     $$.token_line = $1.token_line;
-    $$.token_text = uniquestr(">=");
+    $$.token_text = UNIQUESTR_LITERAL(">=");
 }
 | GREATER_OR_EQUAL
 {

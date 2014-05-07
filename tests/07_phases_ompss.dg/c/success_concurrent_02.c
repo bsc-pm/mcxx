@@ -28,53 +28,25 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium-ompss
 </testinfo>
 */
 
-#include <stdlib.h>
+#include<assert.h>
 
-int a;
-
-struct A
+#define N 10
+int main()
 {
-    int b;
-    static int c;
+    int i;
+    int v[N], res = 0;
 
-    A() : b(0) { }
-
-    void g() { }
-
-    void f(void)
+    for ( i = 0; i < N; ++i) v[i] = i;
+    for (int  i = 0; i < N; ++i)
     {
-#pragma omp parallel
-        {
-            g();
-            a = 3;
-            this->b = 3;
-            b = 4;
-            c = 5;
-        }
+        #pragma omp task shared(v) concurrent(res) no_copy_deps
+        #pragma omp atomic
+        res += v[i];
     }
-};
-
-int A::c;
-
-int main(int argc, char *argv[])
-{
-    A obj_a;
-
-    a = 0;
-    A::c = 0;
-
-    obj_a.f();
-
-    if (a != 3)
-        abort();
-    if (obj_a.b != 4)
-        abort();
-    if (A::c != 5)
-        abort();
-
-    return 0;
+    #pragma omp taskwait
+    assert(res == (((N - 1) * (N + 1 - 1)) / 2));
 }

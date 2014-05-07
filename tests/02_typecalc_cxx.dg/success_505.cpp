@@ -28,53 +28,28 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-
-int a;
-
+template < typename T >
 struct A
 {
-    int b;
-    static int c;
+};
 
-    A() : b(0) { }
-
-    void g() { }
-
-    void f(void)
+template < typename T>
+struct B : public A<T>
+{
+    struct C { };
+    void foo()
     {
-#pragma omp parallel
-        {
-            g();
-            a = 3;
-            this->b = 3;
-            b = 4;
-            c = 5;
-        }
+         (__alignof__(::B<T>::C));
+         (sizeof(::B<T>::C));
     }
 };
 
-int A::c;
-
-int main(int argc, char *argv[])
+void m()
 {
-    A obj_a;
-
-    a = 0;
-    A::c = 0;
-
-    obj_a.f();
-
-    if (a != 3)
-        abort();
-    if (obj_a.b != 4)
-        abort();
-    if (A::c != 5)
-        abort();
-
-    return 0;
+    B<int> a;
+    a.foo();
 }

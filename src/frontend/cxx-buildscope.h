@@ -65,7 +65,7 @@ LIBMCXX_EXTERN struct AST_tag* get_declarator_name(struct AST_tag* a, decl_conte
 LIBMCXX_EXTERN struct AST_tag* get_declarator_id_expression(struct AST_tag* a, decl_context_t decl_context);
 LIBMCXX_EXTERN struct AST_tag* get_function_declarator_parameter_list(struct AST_tag* funct_declarator, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
+LIBMCXX_EXTERN const char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id,
         struct type_tag** result_conversion_type);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
@@ -142,8 +142,6 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type,
         AST declarator);
 
-LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
-
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);
 LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type);
 
@@ -190,6 +188,7 @@ char check_constexpr_function(scope_entry_t* entry,
 char check_constexpr_function_code(scope_entry_t* entry,
         nodecl_t nodecl_body,
         char emit_error);
+scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus);
 
 
 MCXX_END_DECLS

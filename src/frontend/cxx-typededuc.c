@@ -42,6 +42,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 #include "cxx-exprtype.h"
+#include "cxx-diagnostic.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -593,9 +594,11 @@ char deduce_template_arguments_common(
                 && j < num_arguments; j++)
         {
             type_t* updated_parameter = NULL;
+            diagnostic_context_push_buffered();
             updated_parameter = update_type(parameters[j],
                     updated_context,
                     locus);
+            diagnostic_context_pop_and_discard();
 
             if (updated_parameter == NULL
                     || !is_sound_type(updated_parameter, updated_context))
@@ -1022,11 +1025,13 @@ char deduce_template_arguments_common(
                     = type_template_parameters->arguments[i_tpl_parameters];
                 ERROR_CONDITION(default_template_argument == NULL, "We need a default template argument here", 0);
 
+                diagnostic_context_push_buffered();
                 template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                         updated_context,
                         /* instantiation_symbol_map */ NULL,
                         locus,
                         /* index_pack */ -1);
+                diagnostic_context_pop_and_discard();
 
                 if (new_template_argument == NULL)
                 {
@@ -1496,10 +1501,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             }
         }
 
+        diagnostic_context_push_buffered();
         type_t* updated_type =
             update_type(adjusted_parameter_type,
                     updated_context,
                     locus);
+        diagnostic_context_pop_and_discard();
 
         // The type failed to be updated
         if (updated_type == NULL)
@@ -1793,9 +1800,11 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     if (function_return_type != NULL)
     {
         // Now update it, if it returns NULL, everything was wrong :)
+        diagnostic_context_push_buffered();
         function_return_type = update_type(function_return_type,
                 updated_context,
                 locus);
+        diagnostic_context_pop_and_discard();
 
         if (function_return_type == NULL)
         {
@@ -1822,7 +1831,7 @@ char deduce_arguments_of_auto_initialization(
 
     // Fake type template parameter
     scope_entry_t* fake_template_parameter_symbol = xcalloc(1, sizeof(*fake_template_parameter_symbol));
-    fake_template_parameter_symbol->symbol_name = uniquestr("FakeTypeTemplateParameter");
+    fake_template_parameter_symbol->symbol_name = UNIQUESTR_LITERAL("FakeTypeTemplateParameter");
     fake_template_parameter_symbol->kind = SK_TEMPLATE_TYPE_PARAMETER;
     fake_template_parameter_symbol->entity_specs.is_template_parameter = 1;
     fake_template_parameter_symbol->locus = locus;

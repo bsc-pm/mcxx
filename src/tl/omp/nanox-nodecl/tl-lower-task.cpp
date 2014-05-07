@@ -23,7 +23,6 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
-
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanos.hpp"
 #include "tl-source.hpp"
@@ -337,8 +336,7 @@ Source LoweringVisitor::fill_const_wd_info(
             Nanos::Version::interface_is_at_least("master", 5022))
     {
         result
-            // This \0 is required as we do not keep the 0 in the constant value
-            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\\0\";\n"
+            << "static char nanos_wd_const_data_description[] = \"" << wd_description << "\";\n"
             << "nanos_wd_const_data.base.description = &nanos_wd_const_data_description;\n"
             ;
     }
@@ -848,8 +846,6 @@ void LoweringVisitor::visit_task(
         TL::Source code;
 
         Nodecl::NodeclBase copied_statements_placeholder;
-
-
         code
             << "{"
             <<      as_type(TL::Type::get_bool_type()) << "mcc_is_in_final;"
@@ -876,12 +872,23 @@ void LoweringVisitor::visit_task(
 
         construct.replace(if_else_tree);
 
+        // We obtain the list node which contains the placeholder used to store
+        // the final stmts. This must be done before the replace because at
+        // this point the parent of the copied_statements_placeholder is the
+        // first (and the unique) list node
+        Nodecl::NodeclBase final_stmt_list = copied_statements_placeholder.get_parent();
+
+        // We need to replace the placeholder before transforming the OpenMP/OmpSs pragmas
         copied_statements_placeholder.replace(copied_statements);
 
-        RemoveOpenMPTasks visitor;
-        visitor.walk(copied_statements);
-        walk(copied_statements);
+        ERROR_CONDITION(!copied_statements_placeholder.is_in_list(), "Unreachable code\n", 0);
 
+        // Remove the OmpSs/OpenMP task stuff from the tree
+        RemoveOpenMPTaskStuff visitor;
+        visitor.walk(final_stmt_list);
+
+        // Walk over the tree transforming OpenMP/OmpSs pragmas
+        walk(final_stmt_list);
     }
     else
     {
