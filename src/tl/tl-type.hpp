@@ -368,6 +368,10 @@ namespace TL
              * 'wchar_t'. In C, it also includes enum types.
              */
             bool is_integral_type() const;
+            //! States whether this type is a signed integral type
+            bool is_signed_integral() const;
+            //! States whether this type is a unsigned integral type
+            bool is_unsigned_integral() const;
             //! States whether this type is 'int' or 'signed int'
             bool is_signed_int() const;
             //! States whether this type is 'unsigned int'

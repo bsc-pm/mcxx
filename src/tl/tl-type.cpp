@@ -837,6 +837,16 @@ namespace TL
         return ::is_integral_type(_type_info);
     }
 
+    bool Type::is_signed_integral() const
+    {
+        return is_signed_integral_type(_type_info);
+    }
+
+    bool Type::is_unsigned_integral() const
+    {
+        return is_unsigned_integral_type(_type_info);
+    }
+
     bool Type::is_signed_int() const
     {
         return is_signed_int_type(_type_info);
