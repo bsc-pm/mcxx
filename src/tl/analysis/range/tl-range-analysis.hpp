@@ -34,16 +34,141 @@ namespace TL {
 namespace Analysis {
 
     // **************************************************************************************************** //
-    // ******************************** Class implementing range analysis ********************************* //
+    // ****************************** Classes implementing constraint graph ******************************* //
+    
+    class CGEdge;
+    class LIBTL_CLASS CGNode
+    {
+    private:
+        // *** Members *** //
+        unsigned int _id;
+        Nodecl::NodeclBase _value;
+        ObjectList<CGEdge*> _entries;
+        ObjectList<CGEdge*> _exits;
+        
+        int _scc_index;
+        int _scc_lowlink_index;
+        
+    public:    
+        // *** Constructor *** //
+        CGNode(const Nodecl::NodeclBase& value);
+        
+        // *** Getters and setters *** //
+        unsigned int get_id() const;
+        Nodecl::NodeclBase get_value() const;
+        
+        ObjectList<CGEdge*> get_entries() const;
+        ObjectList<CGNode*> get_parents();
+        void add_entry(CGEdge* e);
+        CGEdge* add_parent(CGNode* parent, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        
+        ObjectList<CGEdge*> get_exits() const;
+        ObjectList<CGNode*> get_children();
+        void add_exit(CGEdge* e);
+        CGEdge* add_child(CGNode* child, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        
+        int get_scc_index() const;
+        void set_scc_index(int scc_index);
+        int get_scc_lowlink_index() const;
+        void set_scc_lowlink_index(int scc_lowlink_index);
+    };
+    
+    class LIBTL_CLASS CGEdge
+    {
+    private:
+        // *** Members *** //
+        CGNode* _source;
+        CGNode* _target;
+        Nodecl::NodeclBase _predicate;
+        
+    public:
+        // *** Constructor *** //
+        CGEdge(CGNode* source, CGNode* target, const Nodecl::NodeclBase& predicate);
+        
+        // *** Getters and setters *** //
+        CGNode* get_source() const;
+        CGNode* get_target() const;
+        Nodecl::NodeclBase get_predicate() const;
+    };
+    
+    typedef std::map<Nodecl::NodeclBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGNode_map;
+    
+    class LIBTL_CLASS SCC
+    {
+    private:
+        // *** Members *** //
+        std::vector<CGNode*> _nodes;
+        
+    public:
+        // *** Getters and setters *** //
+        bool empty() const;
+        std::vector<CGNode*> get_nodes() const;
+        void add_node(CGNode* n);
+    };
+    
+    class LIBTL_CLASS ConstraintGraph
+    {
+    private:
+        // *** Members *** //
+        std::string _name;
+        CGNode_map _nodes;
+        
+        void print_graph_rec(std::ofstream& dot_file);
+        
+    public:
+        // *** Constructor *** //
+        ConstraintGraph(std::string name);
+        
+        // *** Modifiers *** //
+        //! Insert, if it is not yet there, a new node in the CG with the value #value
+        CGNode* insert_node(const Nodecl::NodeclBase& value);
+        
+        //! Returns the node in the CG corresponding to the value #value
+        CGNode* get_node(const Nodecl::NodeclBase& value);
+        
+        //! Connects nodes #source and #target with a directed edge extended with #predicate
+        void connect_nodes(CGNode* source, CGNode* target, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        
+        // Decompose the Constraint Graph in a set of Strongly Connected Components
+        std::vector<SCC> extract_strongly_connected_components();
+        
+        //! Generates a dot file with the structure of the graph
+        void print_graph();
+    };
+    
+    // **************************** END classes implementing constraint graph ***************************** //
+    // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
+    // **************************** Visitor implementing constraint building ****************************** //
+    
+    class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        Utils::ConstraintMap _constraints_map;
+        
+    public:
+        // *** Constructor *** //
+        ConstraintReplacement(Utils::ConstraintMap constraints_map);
+        
+        // *** Visiting methods *** //
+        Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::ClassMemberAccess& n);
+        Ret visit(const Nodecl::Symbol& n);
+    };
     
     class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<Utils::Constraint>
     {
     private:
         // map containing the constraints arriving at the nodecl being visited
-        Utils::ConstraintMap _input_constraints;        // Constraints coming from the parents or from previous statements in the current node
-        Utils::ConstraintMap _output_constraints;       // Constraints computed so far for the current node
-        Utils::ConstraintMap _output_true_constraints;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
-        Utils::ConstraintMap _output_false_constraints; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        Utils::ConstraintMap _input_constraints_map;        // Constraints coming from the parents or from previous statements in the current node
+        Utils::ConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
+        Utils::ConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
+        Utils::ConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        
+        Ret visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
         
     public:
         
@@ -55,38 +180,48 @@ namespace Analysis {
         void compute_constraints(const Nodecl::NodeclBase& n);
         
         // *** Getters and setters *** //
-        Utils::ConstraintMap get_output_constraints();
-        Utils::ConstraintMap get_output_true_constraints();
-        Utils::ConstraintMap get_output_false_constraints();
+        Utils::ConstraintMap get_output_constraints_map();
+        Utils::ConstraintMap get_output_true_constraints_map();
+        Utils::ConstraintMap get_output_false_constraints_map();
         
         // *** Consultants *** //
         bool new_constraint_is_repeated(const Utils::Constraint& c);
         
         // *** Visiting methods *** //
         Ret join_list(TL::ObjectList<Utils::Constraint>& list);
+        Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::Mod& n);
+        Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::Preincrement& n);
     };
+    
+    // ************************** END Visitor implementing constraint building **************************** //
+    // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
+    // ******************************** Class implementing range analysis ********************************* //
     
     class LIBTL_CLASS RangeAnalysis
     {
     private:
-        ExtensibleGraph* _graph;
+        ExtensibleGraph* _pcfg;
+        ConstraintGraph* _cg;
         
-        void compute_initial_constraints(Node* n);
-        
+        void set_parameters_constraints();
+        void compute_initial_constraints(Node* entry);
+        void propagate_constraints_from_backwards_edges(Node* n);
+        void create_constraint_graph(Node* n);
         
     public:
         //! Constructor
-        RangeAnalysis(ExtensibleGraph* graph);
+        RangeAnalysis(ExtensibleGraph* pcfg);
         
-        //! Method computing the Ranges information on the member #graph
+        //! Method computing the Ranges information on the member #pcfg
         void compute_range_analysis();
-        
-        void propagate_constraints_from_backwards_edges(Node* n);
-        void recompute_node_constraints(Node* n, Utils::ConstraintMap new_constraint_map);
-        
     };
 
     // ****************************** End class implementing range analysis ******************************* //

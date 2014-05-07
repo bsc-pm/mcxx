@@ -509,13 +509,13 @@ namespace Analysis {
         {
             analysis.auto_scoping( analysis_state, n );
         }
-        if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
-        {
-            analysis.induction_variables( analysis_state, n );
-        }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
             analysis.reaching_definitions( analysis_state, n );
+        }
+        if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
+        {
+            analysis.induction_variables( analysis_state, n );
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {

@@ -417,7 +417,7 @@ pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 
 /*!ifnot FORTRAN2003*/
 // Verbatim construct
-verbatim_construct : VERBATIM_PRAGMA VERBATIM_TYPE '(' IDENTIFIER ')' VERBATIM_TEXT
+verbatim_construct : VERBATIM_PRAGMA VERBATIM_TYPE '(' identifier_token ')' VERBATIM_TEXT
 {
     AST ident = ASTLeaf(AST_SYMBOL, make_locus($4.token_file, $4.token_line, 0), $4.token_text);
 

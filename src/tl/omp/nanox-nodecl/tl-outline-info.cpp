@@ -443,14 +443,40 @@ namespace TL { namespace Nanox {
         // Add a new symbol just to hold the address
         TL::Symbol new_addr_symbol = _sc.new_symbol(sym.get_name() + "_addr");
         new_addr_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-        new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            new_addr_symbol.get_internal_symbol()->type_information = t.get_pointer_to().get_internal_type();
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            new_addr_symbol.get_internal_symbol()->type_information = get_pointer_type(get_void_type());
+        }
 
-        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym, make_locus("", 0, 0));
+        Nodecl::Symbol sym_ref = Nodecl::Symbol::make(sym);
         sym_ref.set_type(t.get_lvalue_reference_to());
+
+        Nodecl::NodeclBase value =
+                Nodecl::Reference::make(sym_ref, t.get_pointer_to());
+
+        FORTRAN_LANGUAGE()
+        {
+            value = Nodecl::Dereference::make(
+                    value,
+                    t.get_lvalue_reference_to());
+        }
 
         this->add_capture_with_value(
                 new_addr_symbol,
-                Nodecl::Reference::make(sym_ref, t.get_pointer_to(), make_locus("", 0, 0)));
+                value);
+
+        FORTRAN_LANGUAGE()
+        {
+            OutlineDataItem &new_outline_info = _outline_info.get_entity_for_symbol(new_addr_symbol);
+
+            TL::Type new_type = add_extra_dimensions(sym, sym.get_type());
+            new_outline_info.set_in_outline_type(new_type.no_ref().get_lvalue_reference_to());
+        }
     }
 
     TL::Type OutlineInfoRegisterEntities::add_extra_dimensions(TL::Symbol sym, TL::Type t)
@@ -901,7 +927,8 @@ namespace TL { namespace Nanox {
             }
 
             if (IS_CXX_LANGUAGE
-                    && !t.is_pod())
+                    && (t.is_dependent()
+                        || !t.is_pod()))
             {
                 outline_info.set_allocation_policy(
                         outline_info.get_allocation_policy() |
@@ -942,7 +969,8 @@ namespace TL { namespace Nanox {
             _outline_info.move_at_end(outline_info);
 
             if (IS_CXX_LANGUAGE
-                    && !t.is_pod())
+                    && (t.is_dependent()
+                        || !t.is_pod()))
             {
                 outline_info.set_allocation_policy(
                         outline_info.get_allocation_policy() |

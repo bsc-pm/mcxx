@@ -761,10 +761,10 @@ void unificate_two_types(type_t* t1,
                 char added = deduction_add_type_parameter_deduction(deduction, &current_deduced_parameter);
                 DEBUG_CODE()
                 {
-                    if (added) 
+                    if (added)
                     {
 
-                        fprintf(stderr, "TYPEUNIF: Type deduction for template template parameter (%s) (%d,%d) with value '%s' \n", 
+                        fprintf(stderr, "TYPEUNIF: Type deduction for template template parameter (%s) (%d,%d) with value '%s' \n",
                                 t1_related_symbol->symbol_name,
                                 t1_related_symbol->entity_specs.template_parameter_nesting,
                                 t1_related_symbol->entity_specs.template_parameter_position,
@@ -775,9 +775,9 @@ void unificate_two_types(type_t* t1,
                 }
             }
 
-            template_parameter_list_t *targ_list_1 
+            template_parameter_list_t *targ_list_1
                 = template_specialized_type_get_template_arguments(get_actual_class_type(t1));
-            template_parameter_list_t *targ_list_2 
+            template_parameter_list_t *targ_list_2
                 = template_specialized_type_get_template_arguments(get_actual_class_type(t2));
 
             char template_args_are_deduced = 1;
@@ -792,7 +792,8 @@ void unificate_two_types(type_t* t1,
                     template_args_are_deduced = 0;
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "TYPEUNIF: Template arguments will not be deduced because we found a template pack not at the last position\n");
+                        fprintf(stderr, "TYPEUNIF: Template arguments will not be deduced because we found "
+                                "a template pack not at the last position\n");
                     }
                     break;
                 }
@@ -800,13 +801,27 @@ void unificate_two_types(type_t* t1,
 
             if (template_args_are_deduced)
             {
-                for (i = 0;
-                        i < targ_list_1->num_parameters
-                        && i < targ_list_2->num_parameters;
-                        i++)
+                int i1 = 0, i2 = 0;
+                int index_in_sequence = 0;
+
+                type_t* type_sequence = NULL;
+                nodecl_t value_sequence = nodecl_null();
+
+                while (i1 < targ_list_1->num_parameters
+                        && i2 < targ_list_2->num_parameters)
                 {
-                    template_parameter_value_t* current_arg_1 = targ_list_1->arguments[i];
-                    template_parameter_value_t* current_arg_2 = targ_list_2->arguments[i];
+                    template_parameter_value_t* current_arg_1 = targ_list_1->arguments[i1];
+                    template_parameter_value_t* current_arg_2 = targ_list_2->arguments[i2];
+
+                    // Give up this deduction
+                    if (current_arg_1->kind
+                            != current_arg_2->kind)
+                    {
+                        index_in_sequence = 0;
+                        i1 = targ_list_1->num_parameters;
+                        i2 = targ_list_2->num_parameters;
+                        break;
+                    }
 
                     switch (current_arg_1->kind)
                     {
@@ -815,61 +830,129 @@ void unificate_two_types(type_t* t1,
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n", i);
+                                    fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d <- %d\n", i1, i2);
                                 }
 
-                                // If we are unificating T... <- S... and S is
-                                // the last pack, do not unificate T... <- {S...}
-                                if (is_pack_type(current_arg_1->type))
+                                if (is_pack_type(current_arg_1->type)
+                                        && !is_sequence_of_types(current_arg_2->type))
                                 {
-                                    int num_t2_types = 0;
-                                    int k;
-                                    for (k = i; k < targ_list_2->num_parameters; k++)
+                                    // Note that current_arg_2->type could be a pack
+                                    DEBUG_CODE()
                                     {
-                                        if (is_sequence_of_types(targ_list_2->arguments[k]->type))
-                                        {
-                                            num_t2_types += sequence_of_types_get_num_types(targ_list_2->arguments[k]->type);
-                                        }
-                                        else
-                                        {
-                                            num_t2_types++;
-                                        }
+                                        fprintf(stderr, "TYPEUNIF: Unificating to pack in %d without a sequence in %d\n", i1, i2);
                                     }
 
-                                    type_t* types[num_t2_types + 1];
-                                    int type_idx = 0;
-                                    for (k = i; k < targ_list_2->num_parameters; k++)
-                                    {
-                                        if (is_sequence_of_types(targ_list_2->arguments[k]->type))
-                                        {
-                                            int z, num_seq_types = sequence_of_types_get_num_types(targ_list_2->arguments[k]->type);
-                                            for (z = 0; z < num_seq_types; z++)
-                                            {
-                                                types[type_idx] = sequence_of_types_get_type_num(
-                                                        targ_list_2->arguments[k]->type,
-                                                        z);
-                                                type_idx++;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            types[type_idx] = targ_list_2->arguments[k]->type;
-                                            type_idx++;
-                                        }
-                                    }
+                                    type_sequence = get_sequence_of_types_append_type(type_sequence, current_arg_2->type);
+                                    i2++;
 
-                                    unificate_two_types(current_arg_1->type,
-                                            get_sequence_of_types(num_t2_types, types),
-                                            deduction_set,
-                                            decl_context,
-                                            locus,
-                                            flags);
+                                    if (i2 == targ_list_2->num_parameters)
+                                    {
+                                        unificate_two_types(current_arg_1->type,
+                                                type_sequence,
+                                                deduction_set, decl_context, locus, flags);
+
+                                        type_sequence = NULL;
+                                    }
                                 }
-                                else
+                                else if (is_sequence_of_types(current_arg_1->type)
+                                        && is_sequence_of_types(current_arg_2->type))
                                 {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to sequence %d from sequence in %d\n", i1, i2);
+                                    }
                                     unificate_two_types(current_arg_1->type,
                                             current_arg_2->type,
                                             deduction_set, decl_context, locus, flags);
+
+                                    i1++;
+                                    i2++;
+                                }
+                                // template <typename ...T>
+                                // struct A;
+                                //
+                                // template <typename T, typename ...R>
+                                // struct A<T, R...>;
+                                //
+                                // A<int, float, double> has a single argument of sequence type {int, float, double}
+                                // but two parameters T and R...
+                                else if (!is_pack_type(current_arg_1->type)
+                                        && is_sequence_of_types(current_arg_2->type))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to non pack %d from sequence in %d\n", i1, i2);
+                                    }
+                                    // The case of T
+                                    if (index_in_sequence == sequence_of_types_get_num_types(current_arg_2->type))
+                                    {
+                                        // We are done with this sequence
+                                        i2++;
+                                        index_in_sequence = 0;
+                                    }
+                                    else
+                                    {
+                                        unificate_two_types(current_arg_1->type,
+                                                sequence_of_types_get_type_num(current_arg_2->type, index_in_sequence),
+                                                deduction_set, decl_context, locus, flags);
+                                        index_in_sequence++;
+                                        i1++;
+                                    }
+                                }
+                                else if (is_pack_type(current_arg_1->type)
+                                        && is_sequence_of_types(current_arg_2->type))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to pack %d from sequence in %d\n", i1, i2);
+                                    }
+                                    // The case of R...
+                                    // Engulf all the remaining types
+                                    int N = sequence_of_types_get_num_types(current_arg_2->type);
+
+                                    while (index_in_sequence < N)
+                                    {
+                                        type_sequence = get_sequence_of_types_append_type(type_sequence,
+                                                sequence_of_types_get_type_num(current_arg_2->type,
+                                                    index_in_sequence));
+                                        index_in_sequence++;
+                                    }
+
+                                    index_in_sequence = 0;
+
+                                    i1++;
+                                    i2++;
+
+                                    if (i2 == targ_list_2->num_parameters)
+                                    {
+                                        unificate_two_types(current_arg_1->type,
+                                                type_sequence,
+                                                deduction_set, decl_context, locus, flags);
+
+                                        type_sequence = NULL;
+                                    }
+                                }
+                                else if (!is_pack_type(current_arg_1->type)
+                                        && is_pack_type(current_arg_2->type))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to non pack %d from pack in %d "
+                                                "(this does not deduce anything)\n", i1, i2);
+                                    }
+                                    // Cannot deduce anything here
+                                    i1++;
+                                    i2++;
+                                }
+                                else
+                                {
+                                    // Common case (and the only one in C++2003)
+                                    unificate_two_types(current_arg_1->type,
+                                            current_arg_2->type,
+                                            deduction_set, decl_context, locus, flags);
+
+                                    i1++;
+                                    i2++;
                                 }
                             }
                             break;
@@ -877,13 +960,140 @@ void unificate_two_types(type_t* t1,
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "TYPEUNIF: Unificating nontype-template argument %d\n",
-                                            i);
+                                    fprintf(stderr, "TYPEUNIF: Unificating nontype-template argument %d <- %d\n",
+                                            i1, i2);
                                 }
-                                unificate_two_expressions(deduction_set, 
-                                        current_arg_1->value,
-                                        current_arg_2->value,
-                                        flags);
+
+                                if (template_argument_is_pack(current_arg_1)
+                                        && !nodecl_is_list(current_arg_2->value))
+                                {
+                                    // Note that current_arg_2->value could be a pack
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to pack in %d without a sequence in %d\n", i1, i2);
+                                    }
+
+                                    value_sequence = nodecl_append_to_list(value_sequence,
+                                           nodecl_shallow_copy(current_arg_2->value));
+                                    i2++;
+
+                                    if (i2 == targ_list_2->num_parameters)
+                                    {
+                                        unificate_two_expressions(
+                                                deduction_set,
+                                                current_arg_1->value,
+                                                value_sequence,
+                                                flags);
+
+                                        value_sequence = nodecl_null();
+                                    }
+                                }
+                                else if (nodecl_is_list(current_arg_1->value)
+                                        && nodecl_is_list(current_arg_2->value))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to sequence %d from sequence in %d\n", i1, i2);
+                                    }
+                                    unificate_two_expressions(
+                                            deduction_set,
+                                            current_arg_1->value,
+                                            current_arg_2->value,
+                                            flags);
+
+                                    i1++;
+                                    i2++;
+                                }
+                                else if (!template_argument_is_pack(current_arg_1)
+                                        && nodecl_is_list(current_arg_2->value))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to non pack %d from sequence in %d\n", i1, i2);
+                                    }
+
+                                    int list2_length = 0;
+                                    // Having to do this is rather unfortunate
+                                    nodecl_t* list2 = nodecl_unpack_list(current_arg_2->value, &list2_length);
+
+                                    // The case of T
+                                    if (index_in_sequence == list2_length)
+                                    {
+                                        // We are done with this sequence
+                                        i2++;
+                                        index_in_sequence = 0;
+                                    }
+                                    else
+                                    {
+                                        unificate_two_expressions(
+                                                deduction_set,
+                                                current_arg_1->value,
+                                                list2[index_in_sequence],
+                                                flags);
+                                        index_in_sequence++;
+                                        i1++;
+                                    }
+
+                                    xfree(list2);
+                                }
+                                else if (template_argument_is_pack(current_arg_1)
+                                        && nodecl_is_list(current_arg_2->value))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to pack %d from sequence in %d\n", i1, i2);
+                                    }
+                                    // Engulf all the remaining values
+                                    int list2_length = 0;
+                                    nodecl_t* list2 = nodecl_unpack_list(current_arg_2->value, &list2_length);
+
+                                    while (index_in_sequence < list2_length)
+                                    {
+                                        value_sequence = nodecl_append_to_list(value_sequence,
+                                                nodecl_shallow_copy(list2[index_in_sequence]));
+                                        index_in_sequence++;
+                                    }
+
+                                    index_in_sequence = 0;
+
+                                    xfree(list2);
+
+                                    i1++;
+                                    i2++;
+
+                                    if (i2 == targ_list_2->num_parameters)
+                                    {
+                                        unificate_two_expressions(
+                                                deduction_set,
+                                                current_arg_1->value,
+                                                value_sequence,
+                                                flags);
+
+                                        value_sequence = nodecl_null();
+                                    }
+                                }
+                                else if (!template_argument_is_pack(current_arg_1)
+                                        && template_argument_is_pack(current_arg_2))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "TYPEUNIF: Unificating to non pack %d from pack in %d "
+                                                "(this does not deduce anything)\n", i1, i2);
+                                    }
+                                    // Cannot deduce anything here
+                                    i1++;
+                                    i2++;
+                                }
+                                else
+                                {
+                                    // Common case (and the only one in C++2003)
+                                    unificate_two_expressions(deduction_set,
+                                            current_arg_1->value,
+                                            current_arg_2->value,
+                                            flags);
+                                    i1++;
+                                    i2++;
+                                }
                             }
                             break;
                         default:
@@ -892,6 +1102,7 @@ void unificate_two_types(type_t* t1,
                             }
                     }
                 }
+
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEUNIF: Arguments unificated\n");
@@ -1171,6 +1382,17 @@ void unificate_two_expressions(deduction_set_t **deduction_set,
         nodecl_t right_tree, 
         deduction_flags_t flags)
 {
+    if (nodecl_is_null(left_tree)
+            || nodecl_is_null(right_tree))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUNIF: Attempting to unificate expression but %s null\n",
+                    (nodecl_is_null(left_tree) ? (nodecl_is_null(right_tree) ? "both are" : "left is") : "right is"));
+        }
+        return;
+    }
+
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Attempting to unificate expression '%s' <- '%s'\n",
@@ -1200,6 +1422,16 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags)
 {
+    if (nodecl_is_null(left_tree)
+            || nodecl_is_null(right_tree))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUNIF: Checking whether two expressions are equivalent but %s null\n",
+                    (nodecl_is_null(left_tree) ? (nodecl_is_null(right_tree) ? "both are" : "first is") : "second is"));
+        }
+        return nodecl_is_null(left_tree) == nodecl_is_null(right_tree);
+    }
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Checking whether %s and %s are equivalent\n",
@@ -1554,7 +1786,10 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     {
         fprintf(stderr, "TYPEUNIF: Unifying with an unresolved overloaded type. Unfolding it\n");
     }
-    scope_entry_list_t* overloaded_set = unresolved_overloaded_type_get_overload_set(t2);
+
+    scope_entry_list_t* overloaded_set =
+        unresolved_overloaded_type_compute_set_of_specializations(
+                t2, decl_context, locus);
 
     char contains_templates = 0;
     scope_entry_list_iterator_t* it = NULL;

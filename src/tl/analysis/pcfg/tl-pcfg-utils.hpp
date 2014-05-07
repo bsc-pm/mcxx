@@ -104,6 +104,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpSimd) \
     GRAPH_TYPE(OmpSimdFor) \
     GRAPH_TYPE(OmpSimdFunction) \
+    GRAPH_TYPE(OmpSimdParallel) \
     GRAPH_TYPE(OmpSimdParallelFor) \
     GRAPH_TYPE(OmpSingle) \
     GRAPH_TYPE(OmpWorkshare) \
@@ -357,6 +358,12 @@ namespace Analysis {
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
     #define _PRIVATE_UNDEF                  "private_undefined_behaviour_vars"
+    
+    /*! \def _USED_ADDRESSES
+     * Set of addresses being used within a node
+     * Available in all nodes (Mandatory once the UseDef analysis is performed)
+     */
+    #define _USED_ADDRESSES                 "used_addresses"
     
     // Liveness attributes
     //////////////////////
@@ -718,6 +725,7 @@ namespace Analysis {
     CLAUSE(shared) \
     CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
+    CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
     CLAUSE(unroll) \

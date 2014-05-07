@@ -27,6 +27,23 @@
 #include <stdlib.h>
 #include "mem.h"
 
+void *counted_xmalloc(size_t nmemb, size_t size, unsigned long long *counter)
+{
+    if (size == 0
+            || nmemb == 0)
+    {
+        // Ensure a NULL when we allocate 0 bytes
+        return NULL;
+    }
+
+    if (counter != NULL)
+    {
+        (*counter) += (size * nmemb);
+    }
+
+    return xmalloc(nmemb * size);
+}
+
 void *counted_xcalloc(size_t nmemb, size_t size, unsigned long long *counter)
 {
     if (size == 0

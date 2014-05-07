@@ -1119,7 +1119,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
   { \
       if (COND) \
       { \
-      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, NAME); \
+      scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, uniquestr(NAME)); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
       new_builtin->entity_specs.is_builtin = 1; \
@@ -1605,9 +1605,10 @@ static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_argu
             && nodecl_is_constant(arguments[0])
             && const_value_is_string(nodecl_get_constant(arguments[0])))
     {
+        char is_null_ended = 0;
         return const_value_to_nodecl(
                 const_value_get_double(
-                __builtin_nan(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                __builtin_nan(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0]), &is_null_ended))
                 ));
     }
 
@@ -1620,9 +1621,10 @@ static nodecl_t simplify_nanf(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             && nodecl_is_constant(arguments[0])
             && const_value_is_string(nodecl_get_constant(arguments[0])))
     {
+        char is_null_ended = 0;
         return const_value_to_nodecl(
                 const_value_get_float(
-                __builtin_nanf(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                __builtin_nanf(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0]), &is_null_ended))
                 ));
     }
 
@@ -1635,9 +1637,10 @@ static nodecl_t simplify_nanl(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
             && nodecl_is_constant(arguments[0])
             && const_value_is_string(nodecl_get_constant(arguments[0])))
     {
+        char is_null_ended = 0;
         return const_value_to_nodecl(
                 const_value_get_long_double(
-                    __builtin_nanl(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0])))
+                    __builtin_nanl(const_value_string_unpack_to_string(nodecl_get_constant(arguments[0]), &is_null_ended))
                     ));
     }
 
@@ -2510,7 +2513,8 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
 { \
     if (pred) \
     { \
-    scope_entry_list_t* generic_list = query_name_str(global_context, generic_name, NULL); \
+        const char* generic_name_str = UNIQUESTR_LITERAL(generic_name); \
+    scope_entry_list_t* generic_list = query_name_str(global_context, generic_name_str, NULL); \
     ERROR_CONDITION(generic_list == NULL, "Generic '" generic_name "' not found", 0); \
     scope_entry_t* generic = entry_list_head(generic_list); \
     entry_list_free(generic_list); \
@@ -2530,10 +2534,11 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values", NO_EXPAND
     { \
         nodecl_free(nodecl_args[i]); \
     } \
-    insert_alias(global_context.current_scope, specific, generic_name "_" #bytes); \
+    const char* alias_str = UNIQUESTR_LITERAL(generic_name "_" #bytes); \
+    insert_alias(global_context.current_scope, specific, alias_str); \
     if (!CURRENT_CONFIGURATION->xl_compatibility) \
     { /* We use the specific name always, except under XL compatibility */ \
-        specific->symbol_name = uniquestr(generic_name "_" #bytes); \
+        specific->symbol_name = alias_str; \
     } \
     } \
 }
@@ -3199,6 +3204,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
 {
     type_t* integer_types[] =
     {
+        get_char_type(),
         get_signed_char_type(),
         get_unsigned_char_type(),
         get_signed_short_int_type(),
@@ -3264,6 +3270,20 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             scope_entry_list_t* entry_list = query_name_str(overloaded_function->decl_context,
                     builtin_name, NULL);
 
+            parameter_info_t parameter_info[num_arguments + 1];
+            for (j = 0; j < num_arguments; j++)
+            {
+                parameter_info[j].is_ellipsis = 0;
+                parameter_info[j].type_info = get_unqualified_type(no_ref(types[j]));
+                parameter_info[j].nonadjusted_type_info = NULL;
+            }
+
+            type_t* deduced_function_type = get_new_function_type(
+                    function_type_get_return_type(current_function_type),
+                    parameter_info,
+                    num_arguments,
+                    function_type_get_ref_qualifier(current_function_type));
+
             scope_entry_t* matching_entry = NULL;
             scope_entry_list_iterator_t* it;
             for (it = entry_list_iterator_begin(entry_list);
@@ -3272,7 +3292,7 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             {
                 scope_entry_t* existing_entry = entry_list_iterator_current(it);
 
-                if (equivalent_types(existing_entry->type_information, current_function_type))
+                if (equivalent_types(existing_entry->type_information, deduced_function_type))
                 {
                     matching_entry = existing_entry;
                     break;
@@ -3292,7 +3312,9 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
             return_symbol->locus = overloaded_function->locus;
             return_symbol->symbol_name = overloaded_function->symbol_name;
             return_symbol->kind = SK_FUNCTION;
-            return_symbol->type_information = current_function_type;
+
+
+            return_symbol->type_information = deduced_function_type;
 
             return_symbol->do_not_print = 1;
             return_symbol->entity_specs.is_builtin = 1;
@@ -3359,7 +3381,7 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
                 name = uniquestr(name);
             }
 
-            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
             sym->locus = make_locus("(builtin-simd-type)", 0, 0);
             sym->kind = SK_CLASS;
             sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);

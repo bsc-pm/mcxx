@@ -657,7 +657,7 @@ namespace TL { namespace OpenMP {
         scope_entry_t* omp_udr_function = ::new_symbol(
                 sc.get_decl_context(), 
                 sc.get_decl_context().current_scope,
-                ".omp_udr_function");
+                UNIQUESTR_LITERAL(".omp_udr_function"));
         omp_udr_function->kind = SK_FUNCTION;
         omp_udr_function->related_decl_context = sc.get_decl_context();
 
@@ -678,7 +678,7 @@ namespace TL { namespace OpenMP {
             scope_entry_t* omp_sym = ::new_symbol(
                     _expr_scope.get_decl_context(), 
                     _expr_scope.get_decl_context().current_scope,
-                    it->first.c_str());
+                    uniquestr(it->first.c_str()));
 
             omp_sym->kind = SK_VARIABLE;
             omp_sym->do_not_print = 1;
@@ -748,13 +748,13 @@ namespace TL { namespace OpenMP {
         std::string internal_name = get_internal_name_for_reduction(name, t);
 
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_in_scope_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {
             new_red = new Reduction(sc, name, t);
 
-            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, internal_name.c_str());
+            scope_entry_t* new_red_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(internal_name.c_str()));
             new_red_sym->kind = SK_OTHER;
 
             OpenMP::Core::reduction_map_info[new_red_sym] = new_red;
@@ -948,7 +948,7 @@ namespace TL { namespace OpenMP {
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_list_t* entry_list = query_name_str(decl_context, internal_name.c_str(), NULL);
+        scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(internal_name.c_str()), NULL);
 
         if (entry_list == NULL)
         {

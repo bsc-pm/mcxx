@@ -1113,6 +1113,12 @@ type {
  /*!endif*/
 
  /*!if CPLUSPLUS*/
+ /* C++2011 keywords that are not reserved words */
+"final"         { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_FINAL; else return IDENTIFIER; }
+"override"      { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOK_OVERRIDE; else return IDENTIFIER; }
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
  /* Alternative tokens */
 "<%" { parse_token_text(); return '{'; }
 "%>" { parse_token_text(); return '}'; }
@@ -1782,7 +1788,7 @@ static int compute_length_match(const char* lexed_directive,
     char* available = xstrdup(available_directive);
 
     char *next_lexed_info = NULL;
-    char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
+    char *next_lexed = strtok_r(lexed, " \r", &next_lexed_info);
     char *next_available_info = NULL;
     char *next_available = strtok_r(available, "|", &next_available_info);
 
@@ -1792,7 +1798,7 @@ static int compute_length_match(const char* lexed_directive,
         if (strcmp(next_lexed, next_available) == 0)
         {
             num_matches++;
-            next_lexed = strtok_r(NULL, " ", &next_lexed_info);
+            next_lexed = strtok_r(NULL, " \r", &next_lexed_info);
             next_available = strtok_r(NULL, "|", &next_available_info);
         }
         else

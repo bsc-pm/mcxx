@@ -32,7 +32,7 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph( std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils )
         : _name( name ), _graph( NULL ), _utils( utils ),
           _nodecl( nodecl ), _sc( nodecl.retrieve_context( ) ),
-          _global_vars( ), _function_sym( NULL ), nodes_m( ),
+          _global_vars( ), _function_sym( NULL ), _pointer_to_size_map(), nodes_m( ),
           _task_nodes_l( ), _func_calls( ),
           _concurrent_tasks( ), _last_sync( ), _next_sync( ),
           _cluster_to_entry_map( )
@@ -872,6 +872,38 @@ namespace Analysis {
         return _function_sym;
     }
 
+    void ExtensibleGraph::set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size)
+    {
+        if(_pointer_to_size_map.find(s)==_pointer_to_size_map.end())
+            _pointer_to_size_map[s] = size;
+        else
+            _pointer_to_size_map[s] = Nodecl::NodeclBase::null();
+    }
+    
+    Nodecl::NodeclBase ExtensibleGraph::get_pointer_n_elems(const Nodecl::NodeclBase& s)
+    {
+        Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
+        if(_pointer_to_size_map.find(s)!=_pointer_to_size_map.end())
+            result = _pointer_to_size_map[s];
+        return result;
+    }
+    
+    SizeMap ExtensibleGraph::get_pointer_n_elements_map()
+    {
+        return _pointer_to_size_map;
+    }
+    
+    void ExtensibleGraph::purge_non_constant_pointer_n_elems()
+    {
+        for(SizeMap::iterator it = _pointer_to_size_map.begin(); it != _pointer_to_size_map.end(); )
+        {
+            if(it->second.is_null())
+                _pointer_to_size_map.erase(it++);
+            else
+                ++it;
+        }
+    }
+    
     Node* ExtensibleGraph::get_graph( ) const
     {
         return _graph;
@@ -1335,9 +1367,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 
@@ -1385,9 +1416,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl_pointer( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_pointer_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_pointer_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 

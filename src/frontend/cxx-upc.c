@@ -34,13 +34,14 @@
 #include "cxx-driver.h"
 #include "cxx-buildscope.h"
 #include "cxx-exprtype.h"
+#include "uniquestr.h"
 
 void upc_sign_in_builtins(decl_context_t decl_context)
 {
     // THREADS
     scope_entry_t* upc_THREADS;
 
-    upc_THREADS = new_symbol(decl_context, decl_context.global_scope, "THREADS");
+    upc_THREADS = new_symbol(decl_context, decl_context.global_scope, UNIQUESTR_LITERAL("THREADS"));
     upc_THREADS->kind = SK_VARIABLE;
     upc_THREADS->type_information = get_const_qualified_type(get_signed_int_type());
     upc_THREADS->defined = 1;
@@ -55,7 +56,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     // MYTHREAD
     scope_entry_t* upc_MYTHREAD;
 
-    upc_MYTHREAD = new_symbol(decl_context, decl_context.global_scope, "MYTHREAD");
+    upc_MYTHREAD = new_symbol(decl_context, decl_context.global_scope, UNIQUESTR_LITERAL("MYTHREAD"));
     upc_MYTHREAD->kind = SK_VARIABLE;
     upc_MYTHREAD->type_information = get_const_qualified_type(get_signed_int_type());
     upc_MYTHREAD->defined = 1;
@@ -66,7 +67,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     // UPC_MAX_BLOCK_SIZE
     scope_entry_t* upc_UPC_MAX_BLOCK_SIZE;
 
-    upc_UPC_MAX_BLOCK_SIZE = new_symbol(decl_context, decl_context.global_scope, "UPC_MAX_BLOCK_SIZE");
+    upc_UPC_MAX_BLOCK_SIZE = new_symbol(decl_context, decl_context.global_scope, UNIQUESTR_LITERAL("UPC_MAX_BLOCK_SIZE"));
     upc_UPC_MAX_BLOCK_SIZE->kind = SK_VARIABLE;
     upc_UPC_MAX_BLOCK_SIZE->type_information = get_const_qualified_type(get_signed_int_type());
     upc_UPC_MAX_BLOCK_SIZE->defined = 1;
@@ -77,7 +78,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     // upc_lock_t
     scope_entry_t* upc_lock_t;
 
-    upc_lock_t = new_symbol(decl_context, decl_context.global_scope, "upc_lock_t");
+    upc_lock_t = new_symbol(decl_context, decl_context.global_scope, UNIQUESTR_LITERAL("upc_lock_t"));
     upc_lock_t->kind = SK_TYPEDEF;
     upc_lock_t->defined = 1;
     upc_lock_t->type_information = get_void_type();

@@ -507,7 +507,7 @@ namespace Analysis {
         Graph_type gt = get_graph_type( );
         return ( is_graph_node( ) 
                  && ( ( gt == __OmpSimd ) || ( gt == __OmpSimdFor ) 
-                        || ( gt == __OmpSimdFunction ) || ( gt == __OmpSimdParallelFor ) ) );
+                 || ( gt == __OmpSimdFunction ) || ( gt == __OmpSimdParallelFor ) || ( gt == __OmpSimdParallel ) ) );
     }
     
     bool Node::is_omp_single_node( )
@@ -1339,6 +1339,26 @@ namespace Analysis {
         set_data( _PRIVATE_UNDEF, private_undef_vars );
     }
     
+    Utils::ext_sym_set Node::get_used_addresses()
+    {
+        Utils::ext_sym_set used_addresses;
+        if(has_key(_USED_ADDRESSES))
+            used_addresses = get_data<Utils::ext_sym_set>(_USED_ADDRESSES);
+        return used_addresses;
+    }
+    
+    void Node::add_used_address(const Utils::ExtendedSymbol& es)
+    {
+        Utils::ext_sym_set used_addresses = get_used_addresses();
+        used_addresses.insert(es);
+        set_data(_USED_ADDRESSES, used_addresses);
+    }
+    
+    void Node::add_used_addresses(const Utils::ext_sym_set& used_addresses)
+    {
+        set_data(_USED_ADDRESSES, used_addresses);
+    }
+    
     // ************* END getters and setters for use-definition analysis ************ //
     // ****************************************************************************** //
 
@@ -1616,35 +1636,35 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    Utils::ConstraintMap Node::get_constraints( )
+    Utils::ConstraintMap Node::get_constraints_map( )
     {
-        Utils::ConstraintMap constraints;
+        Utils::ConstraintMap constraints_map;
         if( has_key( _CONSTRAINTS ) )
-            constraints = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
-        return constraints;
+            constraints_map = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
+        return constraints_map;
     }
     
-    Utils::ConstraintMap Node::get_propagated_constraints( )
+    Utils::ConstraintMap Node::get_propagated_constraints_map( )
     {
-        Utils::ConstraintMap constraints;
+        Utils::ConstraintMap constraints_map;
         if( has_key( _PROPAGATED_CONSTRAINTS ) )
-            constraints = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
-        return constraints;
+            constraints_map = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
+        return constraints_map;
     }
     
-    Utils::ConstraintMap Node::get_all_constraints( )
+    Utils::ConstraintMap Node::get_all_constraints_map( )
     {
-        Utils::ConstraintMap constraints;
+        Utils::ConstraintMap constraints_map;
         if( has_key( _PROPAGATED_CONSTRAINTS ) )
-            constraints = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
+            constraints_map = get_data<Utils::ConstraintMap>( _PROPAGATED_CONSTRAINTS );
         if( has_key( _CONSTRAINTS ) )
         {
             Utils::ConstraintMap tmp = get_data<Utils::ConstraintMap>( _CONSTRAINTS );
             for(Utils::ConstraintMap::iterator it = tmp.begin(); it != tmp.end(); ++it )
-                constraints[it->first] = it->second;
+                constraints_map[it->first] = it->second;
             
         }
-        return constraints;
+        return constraints_map;
     }
     
     Utils::Constraint Node::get_constraint( const Nodecl::NodeclBase& var )
@@ -1658,14 +1678,30 @@ namespace Analysis {
         return var_constraint;
     }
     
-    void Node::set_constraints( Utils::ConstraintMap constraints )
+    void Node::add_constraints_map( Utils::ConstraintMap new_constraints_map )
     {
-        set_data( _CONSTRAINTS, constraints );
+        Utils::ConstraintMap constraints_map = get_constraints_map();
+        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
+            constraints_map[it->first] = it->second;
+        set_data( _CONSTRAINTS, constraints_map );
     }
     
-    void Node::set_propagated_constraints( Utils::ConstraintMap constraints )
+    void Node::set_constraints_map( Utils::ConstraintMap constraints_map )
     {
-        set_data( _PROPAGATED_CONSTRAINTS, constraints );
+        set_data( _CONSTRAINTS, constraints_map );
+    }
+    
+    void Node::add_propagated_constraints_map( Utils::ConstraintMap new_constraints_map )
+    {
+        Utils::ConstraintMap constraints_map = get_propagated_constraints_map();
+        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
+            constraints_map[it->first] = it->second;
+        set_data( _PROPAGATED_CONSTRAINTS, constraints_map );
+    }
+    
+    void Node::set_propagated_constraints_map( Utils::ConstraintMap constraints_map )
+    {
+        set_data( _PROPAGATED_CONSTRAINTS, constraints_map );
     }
     
     Utils::RangeValuesMap Node::get_ranges_in( )

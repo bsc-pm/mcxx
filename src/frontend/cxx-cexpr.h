@@ -188,13 +188,25 @@ LIBMCXX_EXTERN const_value_t* const_value_make_range(const_value_t* lower, const
 LIBMCXX_EXTERN const_value_t* const_value_make_vector_from_scalar(int num_elements, const_value_t* value);
 LIBMCXX_EXTERN const_value_t* const_value_make_array_from_scalar(int num_elements, const_value_t* value);
 
-LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
-LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
+// If you want to create a null ended string with this one you will have to
+// explicitly pass the null value as the last element (i.e. num_elements > 1)
 LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);
 
-LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*);
-LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v);
+// This constants are not null-ended (these are for Fortran mainly)
+LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 
+// This constants are null-ended (these are for C/C++)
+// Do not count the null in num_elems (i.e. an empty string literal will have num_elems == 0)
+LIBMCXX_EXTERN const_value_t* const_value_make_string_null_ended(const char* literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring_null_ended(int * literal, int num_elems);
+
+// These functions never return the trailing null, instead they set
+// is_null_ended if the last value is a zero.
+LIBMCXX_EXTERN void const_value_string_unpack_to_int(const_value_t* v, int**, int*, char* is_null_ended);
+LIBMCXX_EXTERN const char *const_value_string_unpack_to_string(const_value_t* v, char* is_null_ended);
+
+// Note that this function will NOT ignore any null at the end of v1 and v2
 LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
 
 LIBMCXX_EXTERN const_value_t* const_value_complex_get_real_part(const_value_t* value);

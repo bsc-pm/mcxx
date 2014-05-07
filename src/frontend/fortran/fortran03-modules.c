@@ -78,7 +78,7 @@ static const char* full_name_of_symbol(scope_entry_t* entry)
 {
     if (entry == NULL)
     {
-        return uniquestr("<<NULL>>");
+        return UNIQUESTR_LITERAL("<<NULL>>");
     }
 
     const char* result = NULL;

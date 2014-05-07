@@ -39,12 +39,9 @@ namespace Utils {
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
-    bool is_empty_range( const Nodecl::Analysis::Range& r );
-    Nodecl::Analysis::Range get_empty_range( const TL::Type& t );
-    
-    Nodecl::NodeclBase range_sub( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
-    Nodecl::NodeclBase range_intersection( const Nodecl::Analysis::Range& r, const Nodecl::Analysis::Range& r2 );
-    Nodecl::NodeclBase range_union( const Nodecl::Analysis::Range& r1, const Nodecl::Analysis::Range& r2 );
+    Nodecl::NodeclBase range_sub( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
+    Nodecl::NodeclBase range_intersection( const Nodecl::NodeclBase& r, const Nodecl::NodeclBase& r2 );
+    Nodecl::NodeclBase range_union( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
 
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
@@ -62,21 +59,19 @@ namespace Utils {
      */
     struct Constraint {
         TL::Symbol _constr_sym;               /*!< symbol associated to a given variable at this point of the program */
-        Nodecl::NodeclBase _original_var;     /*!< variable from the program to whom this constraint applies */
         Nodecl::NodeclBase _constraint;       /*!< actual constraint applying to the variable */
         
         // *** Constructors *** //
         Constraint();
-        Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& orig_var, 
-                    const Nodecl::NodeclBase& constraint );
+        Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& constraint );
         
         // *** Getters and Setters *** //
         TL::Symbol get_symbol() const;
-        Nodecl::NodeclBase get_var() const;
         Nodecl::NodeclBase get_constraint() const;
         
         // *** Comparators *** //
-        bool operator!=(const Constraint& c);
+        bool operator!=(const Constraint& c) const;
+        bool operator==(const Constraint& c) const;
     };
     
     typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;

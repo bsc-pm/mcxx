@@ -1320,6 +1320,7 @@ if test x$disable_analysis = xno;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
+  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
   if test x$disable_vectorization = xno
   then
@@ -1332,6 +1333,7 @@ AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
 
 dnl ------------------------------------
 
@@ -1844,6 +1846,8 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-ompss
            tests/config/mercurium-serial-simd
            tests/config/mercurium-parallel-simd
+           tests/config/mercurium-serial-simd-avx2
+           tests/config/mercurium-parallel-simd-avx2
            tests/config/mercurium-serial-simd-mic
            tests/config/mercurium-parallel-simd-mic
            tests/config/mercurium-cuda

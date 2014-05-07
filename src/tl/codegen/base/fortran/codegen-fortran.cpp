@@ -842,7 +842,8 @@ OPERATOR_TABLE
 
             int length = 0;
             int *bytes = NULL;
-            const_value_string_unpack_to_int(v, &bytes, &length);
+            char is_null_ended = 0;
+            const_value_string_unpack_to_int(v, &bytes, &length, &is_null_ended);
 
             if (length == 0
                     || (::isprint(bytes[0])))
@@ -891,6 +892,11 @@ OPERATOR_TABLE
                     || (::isprint(bytes[length - 1])))
             {
                 *(file) << "\"";
+            }
+
+            if (is_null_ended)
+            {
+                *(file) << " // ACHAR(0)";
             }
 
             xfree(bytes);
@@ -1161,7 +1167,7 @@ OPERATOR_TABLE
         }
 
         if (const_value_is_floating(value))
-            emit_floating_constant(value, node.get_type());
+            emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
         else
@@ -1190,23 +1196,24 @@ OPERATOR_TABLE
         const_value_t* cval_imag = const_value_complex_get_imag_part(complex_cval);
 
         *(file) << "(";
-        emit_floating_constant(cval_real, t);
+        emit_floating_constant(cval_real);
         *(file) << ", ";
-        emit_floating_constant(cval_imag, t);
+        emit_floating_constant(cval_imag);
         *(file) << ")";
 
         state.in_data_value = in_data;
     }
 
-    void FortranBase::emit_floating_constant(const_value_t* value, TL::Type t)
+    void FortranBase::emit_floating_constant(const_value_t* value)
     {
         ERROR_CONDITION(value == NULL, "Invalid constant", 0);
 
-        int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
-        int precision = floating_type_get_info(t.get_internal_type())->p + 1;
-
         if (const_value_is_float(value))
         {
+            TL::Type t = get_float_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             float f = const_value_cast_to_float(value);
             uniquestr_sprintf(&result, "%.*E_%d", precision, f, kind);
@@ -1221,6 +1228,10 @@ OPERATOR_TABLE
         }
         else if (const_value_is_double(value))
         {
+            TL::Type t = get_double_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             double d = const_value_cast_to_double(value);
             uniquestr_sprintf(&result, "%.*E_%d", precision, d, kind);
@@ -1235,6 +1246,10 @@ OPERATOR_TABLE
         }
         else if (const_value_is_long_double(value))
         {
+            TL::Type t = get_long_double_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             const char* result = NULL;
             long double ld = const_value_cast_to_long_double(value);
             uniquestr_sprintf(&result, "%.*LE_%d", precision, ld, kind);
@@ -1250,6 +1265,10 @@ OPERATOR_TABLE
 #ifdef HAVE_QUADMATH_H
         else if (const_value_is_float128(value))
         {
+            TL::Type t = get_float128_type();
+            int kind = floating_type_get_info(t.get_internal_type())->bits / 8;
+            int precision = floating_type_get_info(t.get_internal_type())->p + 1;
+
             __float128 f128 = const_value_cast_to_float128(value);
             int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
             char c[n+1];
@@ -1338,7 +1357,7 @@ OPERATOR_TABLE
         }
 
         if (const_value_is_floating(value))
-            emit_floating_constant(value, node.get_type());
+            emit_floating_constant(value);
         else if (const_value_is_integer(value))
             emit_integer_constant(value, node.get_type());
         else
@@ -1613,56 +1632,7 @@ OPERATOR_TABLE
                 }
             }
 
-            if (pos < (signed int)parameter_types.size())
-            {
-                parameter_type = parameter_types[pos];
-            }
-
-            if (!parameter_type.is_valid())
-            {
-                walk(arg);
-            }
-            else
-            {
-                if (parameter_type.is_pointer())
-                {
-                    // Several cases:
-                    //        Parameter       Argument         Pass
-                    //         non-Fortran     non-Fortran     Do nothing
-                    //         non-Fortran     Fortran         LOC
-                    //
-                    TL::Type arg_type = arg.get_type();
-                    bool is_ref = arg_type.is_any_reference();
-                    if (is_ref)
-                        arg_type = arg_type.references_to();
-                    if ((arg_type.is_pointer()
-                                && !is_fortran_representable_pointer(arg_type))
-                            || !is_ref)
-                    {
-                        if (parameter_type.points_to().get_unqualified_type().is_char())
-                        {
-                            *(file) << "(";
-                            walk(arg);
-                            *(file) << ") // ACHAR(0)";
-                        }
-                        else
-                        {
-                            walk(arg);
-                        }
-                    }
-                    else
-                    {
-                        *(file) << "LOC(";
-                        arg = advance_parenthesized_expression(arg);
-                        walk(arg);
-                        *(file) << ")";
-                    }
-                }
-                else
-                {
-                    walk(arg);
-                }
-            }
+            walk(arg);
         }
     }
 
@@ -2603,6 +2573,15 @@ OPERATOR_TABLE
         walk(initializer);
     }
 
+    void FortranBase::visit(const Nodecl::IndexDesignator& node)
+    {
+        // Nodecl::NodeclBase name = node.get_name();
+        Nodecl::NodeclBase initializer = node.get_next();
+        // This is Fortran 2003
+        // walk(name);
+        walk(initializer);
+    }
+
     void FortranBase::visit(const Nodecl::Conversion& node)
     {
         codegen_casting(
@@ -2733,31 +2712,17 @@ OPERATOR_TABLE
         TL::Type dest_type = orig_dest_type;
         TL::Type source_type = orig_source_type;
 
-        if (dest_type.is_any_reference())
-            dest_type = dest_type.references_to();
-        if (source_type.is_any_reference())
-            source_type = source_type.references_to();
-
-        // If the cast is of the same type as the source expression
-        // we ignore it, unless for pointer types where we will
-        // cast to integer
-        if (source_type.is_same_type(dest_type))
-        {
-            walk(nest);
-            return;
-        }
-
         // C-style casts from/to int
         // or integers of different size
         if ((dest_type.is_integral_type()
                     && !dest_type.is_bool()
-                    && (source_type.is_pointer() 
-                        || (source_type.is_integral_type()
-                            && !source_type.is_bool())))
+                    && (source_type.no_ref().is_pointer() 
+                        || (source_type.no_ref().is_integral_type()
+                            && !source_type.no_ref().is_bool())))
                 // T* <- int
                 || (dest_type.is_pointer() 
-                    && source_type.is_integral_type()
-                    && !source_type.is_bool()))
+                    && source_type.no_ref().is_integral_type()
+                    && !source_type.no_ref().is_bool()))
         {
             *(file) << "INT(";
             walk(nest);
@@ -2791,17 +2756,23 @@ OPERATOR_TABLE
             *(file) << ", KIND=" << dest_type.get_size() << ")";
         }
         else if (dest_type.is_pointer()
-                && nest.get_type().is_any_reference()
-                && !nest.get_type().references_to().is_pointer()
-                && !is_string_literal_type(nest.get_type().get_internal_type()))
+                && source_type.is_any_reference()
+                && source_type.no_ref().is_pointer()
+                && is_fortran_representable_pointer(dest_type))
         {
             // We need a LOC here
             *(file) << "LOC(";
-            nest = advance_parenthesized_expression(nest);
-            while (nest.is<Nodecl::Conversion>())
-            {
-                nest = nest.as<Nodecl::Conversion>().get_nest();
-            }
+            nest = nest.no_conv();
+            walk(nest);
+            *(file) << ")";
+        }
+        else if (dest_type.is_pointer()
+                && source_type.no_ref().is_array()
+                && !is_string_literal_type(source_type.get_internal_type()))
+        {
+            // We need a LOC here
+            *(file) << "LOC(";
+            nest = nest.no_conv();
             walk(nest);
 
             if (nest.get_symbol().is_valid()
@@ -2828,9 +2799,9 @@ OPERATOR_TABLE
         else if (
                 //  T() -> T (*)() (function to pointer)
                 (dest_type.is_pointer()
-                 && source_type.is_function())
+                 && source_type.no_ref().is_function())
                 //  T() -> int (function to integral...)
-                ||(source_type.is_function()
+                ||(source_type.no_ref().is_function()
                     && dest_type.is_integral_type()))
         {
             // We need a LOC here
@@ -2871,7 +2842,11 @@ OPERATOR_TABLE
 
     void FortranBase::visit(const Nodecl::Alignof& node)
     {
-        *(file) << node.get_type().get_alignment_of();
+        const_value_t* cval = const_value_get_integer(
+                node.get_type().get_alignment_of(),
+                node.get_type().get_size(),
+                /* sign */ 0);
+        emit_integer_constant(cval, node.get_type());
     }
 
     void FortranBase::set_codegen_status(TL::Symbol sym, codegen_status_t status)
@@ -3363,7 +3338,10 @@ OPERATOR_TABLE
                 TL::Symbol class_type  = t.get_symbol();
                 decl_context_t class_context = class_type.get_scope().get_decl_context();
 
-                if (class_type.is_in_module())
+                // If the class type is defined in a module
+                if (class_type.is_in_module()
+                        // and this module is not the current one, we should emit a use stmt
+                        && class_type.in_module() != get_current_declaring_module())
                     continue;
 
                 // The symbol should not come from a module unless at this
@@ -3533,7 +3511,7 @@ OPERATOR_TABLE
                 current_context.current_scope = sc_scope;
                 current_context.block_scope = sc_scope;
 
-                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_name().c_str(), NULL);
+                scope_entry_list_t* query = query_in_scope_str(current_context, entry.get_internal_symbol()->symbol_name, NULL);
 
                 if (query != NULL
                         && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3551,7 +3529,7 @@ OPERATOR_TABLE
         // Maybe the symbol is not declared in the current scope but its name
         // is in the current scope (because of an insertion)
         decl_context_t decl_context = sc.get_decl_context();
-        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_name().c_str(), NULL);
+        scope_entry_list_t* query = query_in_scope_str(decl_context, entry.get_internal_symbol()->symbol_name, NULL);
 
         if (query != NULL
                 && entry_list_contains(query, entry.get_internal_symbol()))
@@ -3735,6 +3713,8 @@ OPERATOR_TABLE
                     attribute_list += ", PRIVATE";
                 }
             }
+            if (entry.is_contiguous())
+                attribute_list += ", CONTIGUOUS";
             if (entry.get_type().is_volatile()
                     && !entry.is_member())
                 attribute_list += ", VOLATILE";
@@ -4003,7 +3983,7 @@ OPERATOR_TABLE
                 {
                     // Get the generic symbol
                     TL::Symbol generic_entry = 
-                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_name().c_str());
+                        ::fortran_query_intrinsic_name_str(entry.get_scope().get_decl_context(), entry.get_internal_symbol()->symbol_name);
 
                     if (TL::Symbol(generic_entry) == entry)
                     {
@@ -5380,6 +5360,10 @@ OPERATOR_TABLE
         else if (entry.is_in_module())
         {
             module = entry.in_module();
+
+            // Make sure it has been loaded
+            if (!module.get_internal_symbol()->entity_specs.is_builtin)
+                fortran_load_module(module.get_internal_symbol()->symbol_name, /* intrinsic */ 0, make_locus("", 0, 0));
         }
         else
         {
@@ -5679,28 +5663,28 @@ OPERATOR_TABLE
             std::stringstream ss;
             if (!array_type_is_unknown_size(t.get_internal_type()))
             {
-                Nodecl::NodeclBase upper_bound = array_type_get_array_upper_bound(t.get_internal_type());
-                if (upper_bound.is_constant())
+                Nodecl::NodeclBase string_size = array_type_get_array_size_expr(t.get_internal_type());
+                if (string_size.is_constant())
                 {
-                    upper_bound = const_value_to_nodecl(nodecl_get_constant(upper_bound.get_internal_nodecl()));
+                    string_size = const_value_to_nodecl(nodecl_get_constant(string_size.get_internal_nodecl()));
                 }
                 else
                 {
-                    declare_everything_needed(upper_bound);
+                    declare_everything_needed(string_size);
                 }
 
                 if (state.emit_interoperable_types)
                 {
                     ss << "CHARACTER(KIND=C_CHAR,LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
                 else
                 {
                     ss << "CHARACTER(LEN=" 
                         << (array_type_is_unknown_size(t.get_internal_type()) ? "*" : 
-                                this->codegen_to_str(upper_bound, upper_bound.retrieve_context()))
+                                this->codegen_to_str(string_size, string_size.retrieve_context()))
                         << ")";
                 }
             }
@@ -5992,7 +5976,8 @@ OPERATOR_TABLE
     {
         TL::Symbol symbol = node.get_member().get_symbol();
 
-        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(), "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
+        ERROR_CONDITION(!symbol.is_valid() || !symbol.is_bitfield(),
+                "Symbol '%s' must be a bitfield!\n", symbol.get_name().c_str());
 
         Nodecl::NodeclBase lhs = node.get_lhs();
 

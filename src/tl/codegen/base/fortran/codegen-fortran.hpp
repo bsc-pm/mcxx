@@ -127,6 +127,7 @@ namespace Codegen
             void visit(const Nodecl::FortranUse& node);
             void visit(const Nodecl::FortranUseOnly& node);
             void visit(const Nodecl::FieldDesignator& node);
+            void visit(const Nodecl::IndexDesignator& node);
             void visit(const Nodecl::Conversion& node);
             void visit(const Nodecl::UnknownPragma& node);
             void visit(const Nodecl::PragmaCustomDeclaration& node);
@@ -440,7 +441,7 @@ namespace Codegen
 
             void if_else_body(Nodecl::NodeclBase then, Nodecl::NodeclBase else_);
 
-            void emit_floating_constant(const_value_t* value, TL::Type t);
+            void emit_floating_constant(const_value_t* value);
             void emit_integer_constant(const_value_t* value, TL::Type t);
 
             void emit_only_list(Nodecl::List only_items);

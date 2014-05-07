@@ -946,7 +946,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, context_node );
         return ObjectList<Node*>( 1, context_node );
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
         Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Continue );
@@ -1347,7 +1347,7 @@ namespace Analysis {
         }
         return func;
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
     {
         // Create the asm definition graph node
@@ -2244,6 +2244,11 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_app_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n )
+    {
+        return walk(n.get_context());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( __if, n.get_condition( ) );
@@ -2530,6 +2535,36 @@ namespace Analysis {
         return walk( n.get_statement( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdParallel& n )
+    {
+        // Create the new graph node containing the parallel
+        Node* simd_parallel_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpSimdParallel );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_node );
+        
+        Node* simd_parallel_entry = simd_parallel_node->get_graph_entry_node( );
+        Node* simd_parallel_exit = simd_parallel_node->get_graph_exit_node( );
+        
+        // Traverse the statements of the current sections
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_entry );
+        walk( n.get_openmp_parallel( ) );
+        
+        simd_parallel_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_parallel_entry, simd_parallel_exit ) );
+        walk( n.get_environment( ) );
+        simd_parallel_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_node );
+        return ObjectList<Node*>( 1, simd_parallel_node );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdReduction& n )
     {
         _utils->_is_simd = true;
@@ -2708,6 +2743,13 @@ namespace Analysis {
         return walk( n.get_join_task( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskLabel& n )
+    {
+        PCFGClause current_clause( __task_label, Nodecl::Text::make(n.get_text(), n.get_locus()));
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
     {
         return visit_taskwait( n );
@@ -2774,6 +2816,12 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaContext& n )
+    {
+        // No need to store the context of a clause parameter in the PCFG (so far)
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
         if( VERBOSE )

@@ -35,10 +35,12 @@
 #include "cxx-locus.h"
 
 #include "red_black_tree.h"
+#include "dhash_ptr.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-locus.h"
+#include "cxx-instantiation-decls.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
@@ -105,6 +107,8 @@ enum decl_flags_tag
     DF_IGNORE_FRIEND_DECL = BITMAP(10),
     // The queries will not create dependent entities for unqualified names
     DF_DO_NOT_CREATE_UNQUALIFIED_DEPENDENT_ENTITY = BITMAP(11),
+    // The query is the first unqualified-id of the nested-name-specifier
+    DF_NESTED_NAME_FIRST = BITMAP(12),
 } decl_flags_t;
 
 #undef BITMAP
@@ -361,7 +365,8 @@ struct scope_tag
     enum scope_kind kind;
 
     // Hash of scope_entry_list
-    rb_red_blk_tree *hash;
+    // rb_red_blk_tree *hash;
+    dhash_ptr_t* dhash;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is

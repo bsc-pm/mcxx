@@ -1,7 +1,5 @@
 #!@BASH@
 
-# They do not work
-
 cat <<EOF
 test_ignore=yes
 EOF

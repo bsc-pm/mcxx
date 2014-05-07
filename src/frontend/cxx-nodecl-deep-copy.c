@@ -298,10 +298,11 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     closure_info.nodecl_deep_copy_map = nodecl_deep_copy_map;
     closure_info.symbol_deep_copy_map = symbol_deep_copy_map;
 
+
     // First walk, sign in all the names but leave them empty
-    rb_tree_walk(original_scope->hash, (void (*)(const void*, void*, void*))register_symbols, &closure_info);
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)register_symbols, &closure_info);
     // Fill the created symbols
-    rb_tree_walk(original_scope->hash, (void (*)(const void*, void*, void*))fill_symbols, &closure_info);
+    dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
     // xfree(closure_info.filled_symbols);
     

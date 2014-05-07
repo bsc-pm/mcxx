@@ -361,6 +361,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::ForAppendix& n );
+        Ret visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Lastprivate& n );
         Ret visit( const Nodecl::OpenMP::Mask& n );
@@ -380,6 +381,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Simd& n );
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
+        Ret visit( const Nodecl::OpenMP::SimdParallel& n );
         Ret visit( const Nodecl::OpenMP::SimdReduction& n );
         Ret visit( const Nodecl::OpenMP::Single& n );
         Ret visit( const Nodecl::OpenMP::Suitable& n );
@@ -387,6 +389,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Task& n );
         Ret visit( const Nodecl::OpenMP::TaskCall& n );
         Ret visit( const Nodecl::OpenMP::TaskExpression& n );
+        Ret visit( const Nodecl::OpenMP::TaskLabel& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
         Ret visit( const Nodecl::OpenMP::Unroll& n );
@@ -400,6 +403,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
+        Ret visit( const Nodecl::PragmaContext& n );
 //         Ret visit( const Nodecl::PragmaCustomClause& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::PragmaCustomStatement& n );
