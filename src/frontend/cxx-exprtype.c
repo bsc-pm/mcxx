@@ -20831,6 +20831,17 @@ static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodec
     v->nodecl_result = result;
 }
 
+static void instantiate_compound_expression(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t new_context = instantiate_statement(node,
+            v->decl_context,
+            v->decl_context,
+            v->instantiation_symbol_map);
+
+    check_nodecl_gcc_parenthesized_expression(new_context, v->decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
 
 static void add_namespaces_rec(scope_entry_t* sym, nodecl_t *nodecl_extended_parts, const locus_t* locus)
 {
@@ -22279,6 +22290,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_floating_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
     NODECL_VISITOR(v)->visit_string_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
     NODECL_VISITOR(v)->visit_boolean_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
+
+    // Compound expression
+    NODECL_VISITOR(v)->visit_compound_expression = instantiate_expr_visitor_fun(instantiate_compound_expression);
 
     // Symbol
     NODECL_VISITOR(v)->visit_symbol = instantiate_expr_visitor_fun(instantiate_symbol);
