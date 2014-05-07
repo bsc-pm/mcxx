@@ -152,7 +152,7 @@ namespace {
                 char absolute_path[PATH_MAX+1];
                 char* path_ptr = realpath(log_file_path.c_str(), absolute_path);
                 ERROR_CONDITION(path_ptr == NULL, "Error retrieving the real path of path %s.\n", log_file_path.c_str());
-                snprintf(log_file_name, PATH_MAX, "%s__correctness_%s_%lu_%s.log",
+                snprintf(log_file_name, PATH_MAX, "%s/__correctness_%s_%lu_%s.log",
                          absolute_path,
                          usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
                 log_file_name[PATH_MAX-1] = '\0';
