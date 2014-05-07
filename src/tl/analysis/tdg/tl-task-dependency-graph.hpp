@@ -137,7 +137,7 @@ namespace Analysis {
         ObjectList<TDG_Node*> _tdg_nodes;                       /*!< List of nodes in the TDG */
         
         std::map<Symbol, unsigned int> _syms;                   /*!< Map of symbols appearing in the TDG associated to their identifier */
-        std::map<Node*, int> _pcfg_control_structure_to_id;     /*!< Map of PCFG control structure nodes to their TDG identifier */
+        std::map<Node*, unsigned int> _pcfg_control_st_to_id;   /*!< Map of PCFG control structure nodes to their TDG identifier */
         
         // *** Not allowed construction methods *** //
         TaskDependencyGraph(const TaskDependencyGraph& n);
@@ -160,6 +160,7 @@ namespace Analysis {
         void print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
                              std::ofstream& json_tdg, std::string indent, 
                              Nodecl::NodeclBase& dependency_size);
+        void print_tdg_control_structs_to_json(std::ofstream& json_tdg);
         void print_tdg_syms_to_json(std::ofstream& json_tdg);
         void print_tdg_nodes_to_json(std::ofstream& json_tdg);
         void print_tdg_edges_to_json(std::ofstream& json_tdg);

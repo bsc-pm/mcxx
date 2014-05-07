@@ -43,7 +43,6 @@ namespace Analysis {
     
     static int id = 0;
     static int control_id = 0;
-    std::map<Node*, int> control_struct_node_to_id;
     
 namespace{
     
@@ -663,7 +662,7 @@ end_get_switch_cond:
     // ********************** Task Dependency Graph ********************** //
     
     TaskDependencyGraph::TaskDependencyGraph(ExtensibleGraph* pcfg)
-        : _pcfg(pcfg), _tdg_nodes(), _syms(), _pcfg_control_structure_to_id()
+        : _pcfg(pcfg), _tdg_nodes(), _syms(), _pcfg_control_st_to_id()
     {
         Node* pcfg_node = _pcfg->get_graph();
         
@@ -818,12 +817,12 @@ end_get_switch_cond:
                                     "No Switch node found wrapping Case node %d.\n", control_structure->get_id());
                 }
                 int cs_id;
-                if(control_struct_node_to_id.find(real_control_structure)!=control_struct_node_to_id.end())
-                    cs_id = control_struct_node_to_id[real_control_structure];
+                if(_pcfg_control_st_to_id.find(real_control_structure)!=_pcfg_control_st_to_id.end())
+                    cs_id = _pcfg_control_st_to_id[real_control_structure];
                 else
                 {
                     cs_id = ++control_id;
-                    control_struct_node_to_id[real_control_structure] = cs_id;
+                    _pcfg_control_st_to_id[real_control_structure] = cs_id;
                 }
                 ControlStructure cs(cs_id, cs_t, condition, real_control_structure, taken_branches);
                 (*it)->add_control_structure(cs);
@@ -1058,11 +1057,35 @@ end_get_switch_cond:
         ExtensibleGraph::clear_visits(_pcfg->get_graph());
     }
     
+    void TaskDependencyGraph::print_tdg_control_structs_to_json(std::ofstream& json_tdg)
+    {
+        if(!_pcfg_control_st_to_id.empty())
+        {
+            json_tdg << "\t\t\"control_structures\" : [\n";
+            for(std::map<Node*, unsigned int>::iterator it = _pcfg_control_st_to_id.begin(); 
+                it != _pcfg_control_st_to_id.end(); )
+            {
+                json_tdg << "\t\t\t{\n";
+                
+                    json_tdg << "\t\t\t\t\"id\" : " << it->second << ",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << (it->first->is_loop_node() ? "Loop" : "Select") << "\",\n";
+                    json_tdg << "\t\t\t\t\"locus\" : \"" << it->first->get_graph_related_ast().get_locus_str() << "\",\n";
+                
+                ++it;
+                if(it != _pcfg_control_st_to_id.end())
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
+            }
+            json_tdg << "\t\t],\n" ;
+        }
+    }
+    
     void TaskDependencyGraph::print_tdg_syms_to_json(std::ofstream& json_tdg)
     {
         if(!_syms.empty())
         {
-            json_tdg << "\t\t\"defvars\" : [\n" ;
+            json_tdg << "\t\t\"defvars\" : [\n";
             unsigned int i = 1;
             for(std::map<Symbol, unsigned int>::iterator it = _syms.begin(); it != _syms.end(); ++i)
             {
@@ -1171,7 +1194,6 @@ end_get_switch_cond:
                 for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); )
                 {
                     json_tdg << "\t\t\t\t\t{\n";
-                    json_tdg << "\t\t\t\t\t\t\"type\" : \"" << ((itt->get_type()==Loop) ? "loop" : "select") << "\",\n";
                     json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->get_id() << ",\n";
                     if(itt->get_type()!=Loop)
                         json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << itt->get_branch_ids_as_string() << "],\n";
@@ -1271,6 +1293,7 @@ end_get_switch_cond:
                 TL::Symbol sym = _pcfg->get_function_symbol();
                 json_tdg << "\t\t\"function\" : \"" << (sym.is_valid() ? sym.get_name() : "") << "\",\n";
                 json_tdg << "\t\t\"locus\" : \"" << _pcfg->get_nodecl().get_locus_str() << "\",\n";
+                print_tdg_control_structs_to_json(json_tdg);
                 print_tdg_syms_to_json(json_tdg);
                 print_tdg_nodes_to_json(json_tdg);
                 print_tdg_edges_to_json(json_tdg);
