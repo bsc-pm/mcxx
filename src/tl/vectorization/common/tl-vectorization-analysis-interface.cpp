@@ -718,12 +718,19 @@ namespace Vectorization
 */
         bool result = false;
         int type_size = n.get_type().basic_type().get_size();
+        
+        std::cerr << "SUIT: " << n.prettyprint() << std::endl;
 
         SuitableAlignmentVisitor sa_v( scope, suitable_expressions, unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
+        std::cerr << "    subscript_alignment: " << subscript_alignment << std::endl;
+
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :
-                                                               subscript_alignment % alignment );
+                                                               (subscript_alignment % alignment)/type_size );
+
+        std::cerr << "    vector_size_module: " << vector_size_module << std::endl;
+
         if( vector_size_module == 0 )
             result = true;
 

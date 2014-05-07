@@ -44,6 +44,10 @@ namespace TL
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
                 void symbol_type_promotion(const Nodecl::Symbol& n);
 
+                template <typename ScalarNode,
+                         typename VectorNode>
+                    void visit_binary_op(const ScalarNode& n);
+
             public:
                 VectorizerVisitorExpression(VectorizerEnvironment& environment,
                         const bool cache_enabled);

@@ -166,114 +166,63 @@ namespace Vectorization
         return false;
     }
 
-    void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
+    template <typename ScalarNode, typename VectorNode>
+    void VectorizerVisitorExpression::visit_binary_op(const ScalarNode& n)
     {
-        if(!process_fmul_op(n))
+        if(!((n.template is<Nodecl::Add>() || n.template is<Nodecl::Minus>()) &&
+                    process_fmul_op(n)))
         {
             Nodecl::NodeclBase mask = Utils::get_proper_mask(
                     _environment._mask_list.back());
 
-            walk(n.get_lhs());
-            walk(n.get_rhs());
+            Nodecl::NodeclBase lhs = n.get_lhs();
+            Nodecl::NodeclBase rhs = n.get_rhs();
 
-            const Nodecl::VectorAdd vector_add =
-                Nodecl::VectorAdd::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
+            walk(lhs);
+            walk(rhs);
+
+            VectorNode vector_node =
+                VectorNode::make(
+                        lhs.shallow_copy(),
+                        rhs.shallow_copy(),
                         mask,
                         Utils::get_qualified_vector_to(n.get_type(),
                             _environment._unroll_factor),
                         n.get_locus());
 
-            n.replace(vector_add);
+            if (n.is_constant())
+                vector_node.set_constant(
+                        const_value_make_vector_from_scalar(
+                            _environment._unroll_factor,
+                            n.get_constant()));
+
+            n.replace(vector_node);
         }
+    }
+
+    void VectorizerVisitorExpression::visit(const Nodecl::Add& n)
+    {
+        visit_binary_op<Nodecl::Add, Nodecl::VectorAdd>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Minus& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        if(!process_fmul_op(n))
-        {
-            walk(n.get_lhs());
-            walk(n.get_rhs());
-
-            const Nodecl::VectorMinus vector_minus =
-                Nodecl::VectorMinus::make(
-                        n.get_lhs().shallow_copy(),
-                        n.get_rhs().shallow_copy(),
-                        mask,
-                        Utils::get_qualified_vector_to(n.get_type(),
-                            _environment._unroll_factor),
-                        n.get_locus());
-
-            n.replace(vector_minus);
-        }
+        visit_binary_op<Nodecl::Minus, Nodecl::VectorMinus>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Mul& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorMul vector_mul =
-            Nodecl::VectorMul::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_mul);
+        visit_binary_op<Nodecl::Mul, Nodecl::VectorMul>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Div& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        Nodecl::NodeclBase lhs = n.get_lhs();
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-
-        const Nodecl::VectorDiv vector_div =
-            Nodecl::VectorDiv::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_div);
+        visit_binary_op<Nodecl::Div, Nodecl::VectorDiv>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Mod& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-
-        const Nodecl::VectorMod vector_mod =
-            Nodecl::VectorMod::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_mod);
+        visit_binary_op<Nodecl::Mod, Nodecl::VectorMod>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Neg& n)
@@ -323,256 +272,69 @@ namespace Vectorization
 
     void VectorizerVisitorExpression::visit(const Nodecl::LowerThan& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorLowerThan vector_lt =
-            Nodecl::VectorLowerThan::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_lt);
+        visit_binary_op<Nodecl::LowerThan, Nodecl::VectorLowerThan>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LowerOrEqualThan& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorLowerOrEqualThan vector_lt =
-            Nodecl::VectorLowerOrEqualThan::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_lt);
+        visit_binary_op<Nodecl::LowerOrEqualThan,
+            Nodecl::VectorLowerOrEqualThan>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::GreaterThan& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorGreaterThan vector_gt =
-            Nodecl::VectorGreaterThan::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_gt);
+        visit_binary_op<Nodecl::GreaterThan, Nodecl::VectorGreaterThan>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::GreaterOrEqualThan& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorGreaterOrEqualThan vector_gt =
-            Nodecl::VectorGreaterOrEqualThan::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_gt);
+        visit_binary_op<Nodecl::GreaterOrEqualThan,
+            Nodecl::VectorGreaterOrEqualThan>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Equal& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorEqual vector_eq =
-            Nodecl::VectorEqual::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_eq);
+        visit_binary_op<Nodecl::Equal, Nodecl::VectorEqual>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Different& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorDifferent vector_dif =
-            Nodecl::VectorDifferent::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    TL::Type::get_mask_type(_environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_dif);
+        visit_binary_op<Nodecl::Different, Nodecl::VectorDifferent>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseAnd& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorBitwiseAnd vector_ba =
-            Nodecl::VectorBitwiseAnd::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_ba);
+        visit_binary_op<Nodecl::BitwiseAnd, Nodecl::VectorBitwiseAnd>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseOr& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorBitwiseOr vector_bo =
-            Nodecl::VectorBitwiseOr::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_bo);
+        visit_binary_op<Nodecl::BitwiseOr, Nodecl::VectorBitwiseOr>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShl& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorBitwiseShl vector_bshl =
-            Nodecl::VectorBitwiseShl::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_bshl);
+        visit_binary_op<Nodecl::BitwiseShl, Nodecl::VectorBitwiseShl>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::ArithmeticShr& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorArithmeticShr vector_ashr =
-            Nodecl::VectorArithmeticShr::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_ashr);
+        visit_binary_op<Nodecl::ArithmeticShr, Nodecl::VectorArithmeticShr>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::BitwiseShr& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorBitwiseShr vector_bshr =
-            Nodecl::VectorBitwiseShr::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_bshr);
+        visit_binary_op<Nodecl::BitwiseShr, Nodecl::VectorBitwiseShr>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LogicalAnd& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorLogicalAnd vector_lo =
-            Nodecl::VectorLogicalAnd::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_lo);
+        visit_binary_op<Nodecl::LogicalAnd, Nodecl::VectorLogicalAnd>(n);
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::LogicalOr& n)
     {
-        Nodecl::NodeclBase mask = Utils::get_proper_mask(
-                _environment._mask_list.back());
-
-        walk(n.get_lhs());
-        walk(n.get_rhs());
-
-        const Nodecl::VectorLogicalOr vector_lo =
-            Nodecl::VectorLogicalOr::make(
-                    n.get_lhs().shallow_copy(),
-                    n.get_rhs().shallow_copy(),
-                    mask,
-                    Utils::get_qualified_vector_to(n.get_type(),
-                        _environment._unroll_factor),
-                    n.get_locus());
-
-        n.replace(vector_lo);
+        visit_binary_op<Nodecl::LogicalOr, Nodecl::VectorLogicalOr>(n);
     }
 
     void VectorizerVisitorExpression::visit(
@@ -675,6 +437,9 @@ namespace Vectorization
             walk(n.get_true());
             walk(n.get_false());
         }
+
+        std::cerr << "CN: " << print_declarator(n.get_type().get_internal_type()) << std::endl
+            << n.prettyprint() << std::endl;
 
         const Nodecl::VectorConditionalExpression vector_cond =
             Nodecl::VectorConditionalExpression::make(
@@ -1121,32 +886,34 @@ namespace Vectorization
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
 
-        walk(n.get_nest());
+        Nodecl::NodeclBase nest = n.get_nest();
+        walk(nest);
 
         // If false, someone (TL::Symbol) moves/replaces my tree.
         // Therefore do nothing, I'm no longer a Conversion!!
         if (n.is<Nodecl::Conversion>())
         {
-            TL::Type src_post_type = n.get_nest().get_type().no_ref();
-            //                TL::Type dst_type = n.get_nest().get_type().no_ref();
+            TL::Type src_type = n.get_nest().get_type();
+            TL::Type dst_type = n.get_type();
 
-            if (src_post_type.is_vector())
+            if (src_type.no_ref().is_vector())
             {
                 // Remove rvalue conversions. In a vector code they are
                 // explicit loads ops.
                 //                    if (src_type != dst_type)
-                {
+                Nodecl::VectorConversion vector_conv =
+                    Nodecl::VectorConversion::make(
+                            n.get_nest().shallow_copy(),
+                            mask,
+                            Utils::get_qualified_vector_to(dst_type,
+                                _environment._unroll_factor),
+                            n.get_locus());
 
-                    const Nodecl::VectorConversion vector_conv =
-                        Nodecl::VectorConversion::make(
-                                n.get_nest().shallow_copy(),
-                                mask,
-                                Utils::get_qualified_vector_to(n.get_type(),
-                                    _environment._unroll_factor),
-                                n.get_locus());
+                vector_conv.set_constant(
+                        Vectorization::Utils::get_const_conversion(
+                            n.get_nest().get_constant(), dst_type));
 
-                    n.replace(vector_conv);
-                }
+                n.replace(vector_conv);
             }
         }
     }
@@ -1156,15 +923,20 @@ namespace Vectorization
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
 
-        walk(n.get_rhs());
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        walk(rhs);
 
-        const Nodecl::VectorConversion vector_conv =
+        Nodecl::VectorConversion vector_conv =
             Nodecl::VectorConversion::make(
-                    n.get_rhs().shallow_copy(),
+                    rhs.shallow_copy(),
                     mask,
                     Utils::get_qualified_vector_to(n.get_type(),
                         _environment._unroll_factor),
                     n.get_locus());
+
+        if(rhs.is_constant())
+            vector_conv.set_constant(rhs.get_constant());
+
         /*
            printf("Casting %s %s\n",
            Utils::get_qualified_vector_to(n.get_type(), _environment._unroll_factor).get_simple_declaration(n.retrieve_context(), "").c_str(),

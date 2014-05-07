@@ -27,6 +27,7 @@
 #include "tl-vectorizer-gather-scatter-optimizer.hpp"
 
 #include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorization-utils.hpp"
 
 #include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
@@ -45,7 +46,7 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: GatherScatterInfo %s\n",
+            fprintf(stderr, "VECTORIZER: GatherScatterOptimizer %s\n",
                     n.get_base().prettyprint().c_str());
                     //n.prettyprint().c_str());
         }
@@ -66,7 +67,7 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr, "VECTORIZER: GatherScatterInfo %s\n",
+            fprintf(stderr, "VECTORIZER: GatherScatterOptimizer %s\n",
                     n.get_base().prettyprint().c_str());
                     //n.prettyprint().c_str());
         }
@@ -86,23 +87,34 @@ namespace Vectorization
             const Nodecl::NodeclBase& base,
             const Nodecl::NodeclBase& strides)
     {
-        StrideSplitterVisitor stride_splitter;
-        stride_splitter_ret_t result = stride_splitter.walk(strides);
-
-        if(!result.first.is_null())
+        if (!Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::ArraySubscript>(base))
         {
-            Nodecl::ArraySubscript array_base =
-                Nodecl::ArraySubscript::make(base.shallow_copy(),
-                        Nodecl::List::make(result.first.shallow_copy()),
-                        base.get_type().basic_type());
+            StrideSplitterVisitor stride_splitter;
+            stride_splitter_ret_t result = stride_splitter.walk(strides);
 
-            base.replace(Nodecl::Reference::make(array_base,
-                        array_base.get_type().get_pointer_to()));
+            if(!result.first.is_null())
+            {
+                Nodecl::ArraySubscript array_base =
+                    Nodecl::ArraySubscript::make(base.shallow_copy(),
+                            Nodecl::List::make(result.first.shallow_copy()),
+                            base.get_type().basic_type());
 
-            ERROR_CONDITION(result.second.is_null(), 
-                    "StrideSplitterVisitor: Strides cannot be empty", 0);
+                base.replace(Nodecl::Reference::make(array_base,
+                            array_base.get_type().get_pointer_to()));
 
-            strides.replace(result.second.shallow_copy());
+                ERROR_CONDITION(result.second.is_null(), 
+                        "StrideSplitterVisitor: Strides cannot be empty", 0);
+
+                strides.replace(result.second.shallow_copy());
+            }
+        }
+        else
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER:    Gather/Scatter already optimized\n");
+            }
         }
     }
 
@@ -416,15 +428,27 @@ namespace Vectorization
 
         if (!result.first.is_null())
         {
+            TL::Type dst_type = n.get_type().no_ref();
+
             base = Nodecl::Conversion::make(result.first.shallow_copy(),
-                    n.get_type().basic_type());
-        }
+                    dst_type);
+
+            base.set_constant(Vectorization::Utils::
+                    get_const_conversion(result.first.get_constant(),
+                        dst_type));
+       }
 
         if (!result.second.is_null())
         {
             strides = Nodecl::VectorConversion::make(result.second.shallow_copy(),
                     n.get_mask().shallow_copy(),
                     n.get_type());
+
+            TL::Type dst_type = n.get_type().no_ref().vector_element();
+
+            strides.set_constant(Vectorization::Utils::
+                    get_const_conversion(result.second.get_constant(),
+                        dst_type));
         }
 
         return stride_splitter_ret_t(base, strides);

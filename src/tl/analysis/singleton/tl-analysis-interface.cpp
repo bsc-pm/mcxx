@@ -302,6 +302,13 @@ end_depends:
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
+        // TODO: n instead of stmt_node.
+        // If the 'n' is not contained in the scope node,
+        // then n is invariant in the scope
+        if(!ExtensibleGraph::node_contains_node(
+                    scope_node, stmt_node))
+            return true;
+
         if(Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::FunctionCall>(n)) 
             return false;
         
@@ -321,13 +328,6 @@ end_depends:
                     return false;
             }
         }
-
-        // TODO: n instead of stmt_node.
-        // If the 'n' is not contained in the scope node,
-        // then n is invariant in the scope
-        if(!ExtensibleGraph::node_contains_node(
-                    scope_node, stmt_node))
-            return true;
 
         return TL::tribool::unknown;
     }

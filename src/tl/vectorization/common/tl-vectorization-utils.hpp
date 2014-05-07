@@ -122,6 +122,9 @@ namespace TL
                     const TL::ObjectList<Nodecl::NodeclBase>& list);
 
             Nodecl::NodeclBase get_denormalized_ub(Nodecl::ForStatement for_statement);
+
+            const_value_t* get_const_conversion(
+                    const_value_t* const_value, TL::Type dst_type);
         }
     }
 }

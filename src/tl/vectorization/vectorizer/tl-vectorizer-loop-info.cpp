@@ -188,11 +188,18 @@ namespace Vectorization
 
         Nodecl::NodeclBase lb = tl_for.get_lower_bound();
         Nodecl::NodeclBase step = tl_for.get_step();
-        Nodecl::NodeclBase ub = tl_for.get_upper_bound();
-        ub = Nodecl::Add::make(VectorizationAnalysisInterface::
-                _vectorizer_analysis->shallow_copy(ub),
-                const_value_to_nodecl(const_value_get_one(1, 4)),
-                ub.get_type()); 
+        Nodecl::NodeclBase closed_ub = tl_for.get_upper_bound();
+
+        const_value_t* one = const_value_get_one(1, 4);
+
+        Nodecl::NodeclBase ub = Nodecl::Add::make(VectorizationAnalysisInterface::
+                _vectorizer_analysis->shallow_copy(closed_ub),
+                const_value_to_nodecl(one),
+                closed_ub.get_type());
+
+        if (closed_ub.is_constant())
+            ub.set_constant(const_value_add(closed_ub.get_constant(), one));
+
 
         if(step.is_constant())
         {
@@ -234,7 +241,7 @@ namespace Vectorization
                 }
                 else if (lb_vector_size_module != -1) // Is not suitable but is constant in some way
                 {
-                    const_lb = lb_vector_size_module / environment._target_type.get_size();
+                    const_lb = lb_vector_size_module;
 //                    printf("VECTOR MODULE LB EPILOG %lld\n", const_lb);
                 }
                 else // We cannot say anything about the number of iterations of the epilog
@@ -277,7 +284,7 @@ namespace Vectorization
                 }
                 else if (ub_vector_size_module != -1) // Is not suitable but is constant in some way
                 {
-                    const_ub = ub_vector_size_module / environment._target_type.get_size();
+                    const_ub = ub_vector_size_module;
 
                     if (const_lb > const_ub)
                         const_ub += environment._unroll_factor;
@@ -300,6 +307,10 @@ namespace Vectorization
             // Compute epilog its
             long long int num_its = (((const_ub - const_lb)%const_step) == 0) ?
                 ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
+
+            std::cerr << num_its << " " << const_ub << " " << const_lb << " " << const_step << " " << ub_vector_size_module << " "
+                << lb_vector_size_module << " " << ub_is_suitable << " "
+                << lb_is_suitable << std::endl;
 
             if ((num_its < environment._unroll_factor) &&
                     (!ub_is_suitable) && (!lb_is_suitable) &&

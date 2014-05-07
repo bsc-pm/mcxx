@@ -50,7 +50,7 @@ void foo_simd(float * __restrict__ __attribute__((__aligned__(VECTOR_SIZE))) b,
             tmp += b[i+j];
         }
 
-        b[i] = tmp / (N-i);
+        b[i] = tmp / (N-i); //j;
     }
 }
 
