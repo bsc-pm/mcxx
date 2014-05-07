@@ -2003,6 +2003,11 @@ static void instantiate_nontemplate_member_of_template_class(scope_entry_t* entr
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
 static int num_being_instantiated_now = 0;
 
+static char compare_gcc_attribute(gcc_attribute_t current_item, gcc_attribute_t new_item)
+{
+    return current_item.attribute_name == new_item.attribute_name;
+}
+
 static void instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus)
 {
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
@@ -2041,6 +2046,12 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     {
         internal_error("This function cannot be instantiated", 0);
     }
+
+    gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
+    P_LIST_ADD_ONCE_FUN(entry->entity_specs.gcc_attributes,
+            entry->entity_specs.num_gcc_attributes,
+            gcc_attr,
+            compare_gcc_attribute);
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
