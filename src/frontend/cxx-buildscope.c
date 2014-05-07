@@ -18292,10 +18292,21 @@ static scope_entry_t* instantiate_declaration_common(
                             v->instantiation_symbol_map,
                             /* pack */ -1);
                     new_entry->entity_specs = orig_entry->entity_specs;
-                    new_entry->value = instantiate_expression(orig_entry->value,
+                    nodecl_t value = instantiate_expression(orig_entry->value,
                             v->new_decl_context,
                             v->instantiation_symbol_map,
                             /* pack_index */ -1);
+
+                    nodecl_t nodecl_init = nodecl_null();
+                    check_nodecl_initialization(
+                            value,
+                            v->new_decl_context,
+                            new_entry,
+                            get_unqualified_type(new_entry->type_information),
+                            &nodecl_init,
+                            /* FIXME is_auto */ 0);
+
+                    new_entry->value = nodecl_init;
 
                     break;
                 }
@@ -18373,7 +18384,6 @@ static void instantiate_cxx_member_init(
     nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
     nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
 
-    // FIXME - What about classes?
     scope_entry_list_t *entry_list = query_nodecl_name_in_class(
             v->new_decl_context,
             v->new_decl_context.class_scope->related_entry,
