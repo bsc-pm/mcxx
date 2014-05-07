@@ -388,12 +388,12 @@ namespace Utils {
             SimpleFinderVisitorHelper()
                 : found(false) {}
 
-            virtual void visitor(const Nodecl::ObjectInit& n)
+            virtual void visit(const Nodecl::ObjectInit& n)
             {
                 walk(n.get_symbol().get_value());
             }
 
-            virtual void visitor(const Kind& k)
+            virtual void visit(const Kind& k)
             {
                 found = true;
             }
@@ -414,12 +414,12 @@ namespace Utils {
             CollectFinderVisitorHelper()
                 : found_nodes() {}
 
-            virtual void visitor(const Nodecl::ObjectInit& n)
+            virtual void visit(const Nodecl::ObjectInit& n)
             {
                 walk(n.get_symbol().get_value());
             }
 
-            virtual void visitor_pre(const Kind& k)
+            virtual void visit_pre(const Kind& k)
             {
                 found_nodes.append(k);
             }

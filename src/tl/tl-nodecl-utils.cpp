@@ -1337,13 +1337,28 @@ namespace Nodecl
             }
             else
             {
-                new_linearized_subscript = Nodecl::Add::make(
-                        Nodecl::Mul::make(
+                Nodecl::Mul dim_offset =
+                    Nodecl::Mul::make(
                             it_sizes->shallow_copy(),
                             new_linearized_subscript.shallow_copy(),
-                            get_ptrdiff_t_type()),
+                            get_ptrdiff_t_type());
+                
+                if (it_sizes->is_constant() &&
+                        new_linearized_subscript.is_constant())
+                    dim_offset.set_constant(const_value_mul(
+                                it_sizes->get_constant(),
+                                new_linearized_subscript.get_constant()));
+
+
+                new_linearized_subscript = Nodecl::Add::make(
+                        dim_offset,
                         it_indexes->shallow_copy(),
                         get_ptrdiff_t_type());
+
+                if (dim_offset.is_constant() && it_indexes->is_constant())
+                    new_linearized_subscript.set_constant(const_value_add(
+                                dim_offset.get_constant(),
+                                it_indexes->get_constant()));
             }
 
             it_indexes++;
