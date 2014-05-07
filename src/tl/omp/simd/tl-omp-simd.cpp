@@ -206,10 +206,15 @@ namespace TL {
             }
         }
 
-        void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_node)
+        void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_input_node)
         {
-            Nodecl::ForStatement for_statement = simd_node.get_statement().as<Nodecl::ForStatement>();
-            Nodecl::List simd_environment = simd_node.get_environment().as<Nodecl::List>();
+            Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
+            Nodecl::OpenMP::Simd simd_node_for = simd_input_node.shallow_copy().
+                as<Nodecl::OpenMP::Simd>();
+            Nodecl::ForStatement for_statement = simd_node_for.get_statement().
+                as<Nodecl::ForStatement>();
+            Nodecl::List simd_environment = simd_node_for.get_environment().
+                as<Nodecl::List>();
 
             // Aligned clause
             aligned_expr_map_t aligned_expressions;
@@ -242,9 +247,10 @@ namespace TL {
             // Reduction and simd_reduction clauses
             objlist_tlsymbol_t reductions;
 
-            Nodecl::List omp_reduction_list = process_reduction_clause(simd_environment,
-                    reductions, new_external_vector_symbol_map,
-                    for_statement.retrieve_context());
+            Nodecl::List omp_reduction_list = process_reduction_clause(
+                    simd_environment, reductions, 
+                    new_external_vector_symbol_map,
+                    simd_enclosing_node.retrieve_context());
 
             // Vectorizer Environment
             VectorizerEnvironment for_environment(
@@ -270,13 +276,25 @@ namespace TL {
 
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
-                    simd_node, simd_node).as<Nodecl::OpenMP::Simd>();
+                    simd_node_for, simd_enclosing_node)
+                .as<Nodecl::OpenMP::Simd>();
 
-            simd_node.append_sibling(simd_node_epilog);
+            // OUTPUT CODE STRUCTURE
+            Nodecl::List output_code_list;
+            output_code_list.append(simd_node_for);      // Main For
+            output_code_list.append(simd_node_epilog);   // Epilog
+
+            Nodecl::CompoundStatement output_code =
+                Nodecl::CompoundStatement::make(
+                        output_code_list, Nodecl::NodeclBase::null());
+
+            // Replace input code by output and update output pointer
+            simd_input_node.replace(output_code);
+            output_code = simd_input_node.as<Nodecl::CompoundStatement>();
 
             // Initialize analysis info
             Nodecl::NodeclBase enclosing_func =
-                Nodecl::Utils::get_enclosing_function(for_statement).get_function_code();
+                Nodecl::Utils::get_enclosing_function(output_code).get_function_code();
 
             _vectorizer.initialize_analysis(enclosing_func.as<Nodecl::FunctionCode>());
 
@@ -288,9 +306,10 @@ namespace TL {
             // Cache init
             vectorizer_cache.declare_cache_symbols(
                     for_statement.retrieve_context(), for_environment);
-            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
+            output_code_list.prepend(
+                    vectorizer_cache.get_init_statements(for_environment));
 
-            // Call to vectorizer
+            // MAIN LOOP VECTORIZATION
             if (!only_epilog)
             {
                 _vectorizer.vectorize(for_statement, for_environment);
@@ -346,9 +365,9 @@ namespace TL {
                     }
                 }
 
-                simd_node.prepend_sibling(pre_for_nodecls);
+                output_code_list.prepend(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
-                simd_node_epilog.append_sibling(post_for_nodecls);
+                output_code_list.append(post_for_nodecls);
 
                 // TODO:
                 // firstprivate in SIMD
@@ -383,16 +402,16 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(simd_node_epilog);
             }
 
-            // Remove Simd node from for_statement
-            simd_node.replace(for_statement);
-
             // For statement is not necessary
             if (only_epilog)
             {
-                Nodecl::Utils::remove_from_enclosing_list(simd_node);
+                Nodecl::Utils::remove_from_enclosing_list(simd_node_for);
             }
             else
             {
+                // Remove Simd node from for_statement
+                simd_node_for.replace(for_statement);
+
                 // Unroll clause
                 int unroll_clause_arg = process_unroll_clause(simd_environment);
                 if (unroll_clause_arg > 0)
@@ -405,7 +424,7 @@ namespace TL {
                     Nodecl::UnknownPragma unroll_pragma =
                         Nodecl::UnknownPragma::make(unroll_pragma_strm.str());
 
-                    simd_node.prepend_sibling(unroll_pragma);
+                    simd_node_for.prepend_sibling(unroll_pragma);
                 }
 
                 // Unroll and Jam clause
@@ -420,7 +439,7 @@ namespace TL {
                     Nodecl::UnknownPragma unroll_and_jam_pragma =
                         Nodecl::UnknownPragma::make(unroll_and_jam_pragma_strm.str());
 
-                    simd_node.prepend_sibling(unroll_and_jam_pragma);
+                    simd_node_for.prepend_sibling(unroll_and_jam_pragma);
                 }
             }
 
@@ -428,15 +447,23 @@ namespace TL {
             _vectorizer.finalize_analysis();
 
             // Prostprocess code
-            _vectorizer.postprocess_code(
-                        Nodecl::Utils::get_enclosing_list(simd_node));
+            _vectorizer.postprocess_code(output_code);
         }
 
-        void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_node)
+        void SimdVisitor::visit(const Nodecl::OpenMP::SimdFor& simd_input_node)
         {
-            Nodecl::OpenMP::For omp_for = simd_node.get_openmp_for().as<Nodecl::OpenMP::For>();
-            Nodecl::List omp_simd_for_environment = simd_node.get_environment().as<Nodecl::List>();
-            Nodecl::List omp_for_environment = omp_for.get_environment().as<Nodecl::List>();
+            Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
+
+            // With SimdFor we don't need to use a CompoundStatement as output
+            // because we need to use the special node ForAppendix
+            Nodecl::OpenMP::SimdFor simd_node_for = simd_input_node; // No shallow_copy
+            Nodecl::OpenMP::For omp_for = simd_node_for.get_openmp_for()
+                .as<Nodecl::OpenMP::For>();
+
+            Nodecl::List omp_simd_for_environment = simd_node_for.get_environment().
+                as<Nodecl::List>();
+            Nodecl::List omp_for_environment = omp_for.get_environment().
+                as<Nodecl::List>();
 
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase loop = omp_for.get_loop();
@@ -479,7 +506,7 @@ namespace TL {
             Nodecl::List omp_reduction_list =
                 process_reduction_clause(omp_for_environment,
                         reductions, new_external_vector_symbol_map,
-                        for_statement.retrieve_context());
+                        simd_enclosing_node.retrieve_context());
 
             // Vectorizer Environment
             VectorizerEnvironment for_environment(
@@ -505,9 +532,9 @@ namespace TL {
 
             // Add epilog before vectorization
             Nodecl::OpenMP::SimdFor simd_node_epilog = Nodecl::Utils::deep_copy(
-                    simd_node, simd_node).as<Nodecl::OpenMP::SimdFor>();
+                    simd_node_for, simd_enclosing_node).as<Nodecl::OpenMP::SimdFor>();
 
-            simd_node.append_sibling(simd_node_epilog);
+            simd_node_for.append_sibling(simd_node_epilog);
 
             // Initialize analysis info
             Nodecl::NodeclBase enclosing_func =
@@ -522,8 +549,8 @@ namespace TL {
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
-                    for_statement.retrieve_context(), for_environment);
-            simd_node.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
+                    simd_enclosing_node.retrieve_context(), for_environment);
+            simd_node_for.prepend_sibling(vectorizer_cache.get_init_statements(for_environment));
 
             // VECTORIZE FOR
             if(!only_epilog)
@@ -578,11 +605,12 @@ namespace TL {
                     {
                         running_error("SIMD: reduction '%s:%s' (%s) is not supported",
                                 reduction_name.c_str(), scalar_tl_symbol.get_name().c_str(),
-                                reduction_type.get_simple_declaration(for_statement.retrieve_context(), "").c_str());
+                                reduction_type.get_simple_declaration(
+                                    simd_enclosing_node.retrieve_context(), "").c_str());
                     }
                 }
 
-                simd_node.prepend_sibling(pre_for_nodecls);
+                simd_node_for.prepend_sibling(pre_for_nodecls);
                 // Final reduction after the epilog (to reduce also elements from masked epilogs)
                 //single_epilog.append_sibling(post_for_nodecls);
             }
@@ -670,14 +698,14 @@ namespace TL {
                 Nodecl::Utils::remove_from_enclosing_list(flush);
 
             // Remove Simd nodes
-            simd_node.replace(for_epilog);
+            simd_node_for.replace(for_epilog);
 
             // Free analysis
             _vectorizer.finalize_analysis();
 
             // Prostprocess code
             _vectorizer.postprocess_code(
-                    Nodecl::Utils::get_enclosing_list(simd_node));
+                    Nodecl::Utils::get_enclosing_list(simd_node_for));
         }
 
         void SimdVisitor::visit(const Nodecl::OpenMP::SimdFunction& simd_node)
