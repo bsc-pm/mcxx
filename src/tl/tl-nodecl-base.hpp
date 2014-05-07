@@ -686,11 +686,17 @@ namespace Nodecl {
         private:
             void push_back_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->end(), n);
             }
 
             void push_front_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->begin(), n);
             }
         public:
