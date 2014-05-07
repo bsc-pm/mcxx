@@ -1186,11 +1186,12 @@ end_get_switch_cond:
             
             // node control structures
             ObjectList<ControlStructure> control_structures = n->get_control_structures();
+            json_tdg << ",\n";
+            json_tdg << "\t\t\t\t\"control\" : [\n";
             if(!control_structures.empty())
             {
                 Nodecl::NodeclBase dependency_size;
-                json_tdg << ",\n";
-                json_tdg << "\t\t\t\t\"control\" : [\n";
+                
                 for(ObjectList<ControlStructure>::iterator itt = control_structures.begin(); itt != control_structures.end(); )
                 {
                     json_tdg << "\t\t\t\t\t{\n";
@@ -1207,10 +1208,17 @@ end_get_switch_cond:
                     else
                         json_tdg << "\t\t\t\t\t}\n";
                 }
-                json_tdg << "\t\t\t\t]\n";
             }
             else
-                json_tdg << "\n";
+            {   // Create dummy control structure
+                json_tdg << "\t\t\t\t\t{\n";
+                    json_tdg << "\t\t\t\t\t\t\"control_id\" : 0,\n";
+                    if(n->_type == Task)
+                    {   // TODO Add here variables' values for those variables involved in current node
+                    }
+                json_tdg << "\t\t\t\t\t}\n";
+            }
+            json_tdg << "\t\t\t\t]\n";
             
             ++it;
             if(it != _tdg_nodes.end())
