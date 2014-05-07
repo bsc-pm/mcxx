@@ -62,7 +62,7 @@ namespace Analysis {
         Name_to_tdg_map _tdgs;
 
         bool _pcfg;                 //!<True when parallel control flow graph have bee build
-        bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
+//         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
         bool _use_def;              //!<True when use-definition chains have been calculated
         bool _liveness;             //!<True when liveness analysis has been applied
@@ -103,8 +103,8 @@ namespace Analysis {
         
         bool is_pcfg_computed() const;
         void set_pcfg_computed();
-        bool is_constants_propagation_computed( ) const;
-        void set_constants_propagation_computed( );
+//         bool is_constants_propagation_computed( ) const;
+//         void set_constants_propagation_computed( );
         bool is_canonical_computed( ) const;
         void set_canonical_computed( );
         bool is_usage_computed( ) const;
@@ -200,12 +200,10 @@ namespace Analysis {
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
          * that takes conditional branches into account applying Unreachable Code Elimination.
          */
-        void conditional_constant_propagation( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+//         void conditional_constant_propagation( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
-        void conditional_constant_propagation( );
-
-        void expression_canonicalization( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+//         void conditional_constant_propagation( );
 
         ObjectList<ExtensibleGraph*> use_def( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
@@ -231,7 +229,6 @@ namespace Analysis {
         
         ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
         
-        ObjectList<ExtensibleGraph*> constants_analysis( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
 
         // ********************* Utils ******************** //
 

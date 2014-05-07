@@ -1458,23 +1458,6 @@ src_tl_analysis_libanalysis_check_la_SOURCES = \
 			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
 						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
 						$(END)
-
-##########################################################################
-# src/tl/analysis/constants
-##########################################################################
-
-phases_LTLIBRARIES += src/tl/analysis/constants/libconstants_folding.la
-
-
-src_tl_analysis_constants_libconstants_folding_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_constants_libconstants_folding_la_CXXFLAGS = $(phases_cflags)
-src_tl_analysis_constants_libconstants_folding_la_LDFLAGS = $(phases_ldflags)
-src_tl_analysis_constants_libconstants_folding_la_LIBADD = $(phases_libadd)
-
-src_tl_analysis_constants_libconstants_folding_la_SOURCES = \
-								 src/tl/analysis/constants/tl-constants-folding.hpp \
-								 src/tl/analysis/constants/tl-constants-folding.cpp \
-								 $(END)
 endif
 
 ##########################################################################
@@ -2085,7 +2068,6 @@ lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
 
 HLT_ANALYSIS_CFLAGS= \
 			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/constants \
 			  -I $(srcdir)/src/tl/analysis/liveness \
 			  -I $(srcdir)/src/tl/analysis/loops \
 			  -I $(srcdir)/src/tl/analysis/pcfg \
