@@ -1455,18 +1455,7 @@ namespace Nodecl
     {
         if( _comparator( n, _n ) )
         {
-            if (n.is_constant() && _n.is_constant())
-            {
-                if(const_value_eq(n.get_constant(),
-                            _n.get_constant()))
-                    _nodecl_is_found = true;
-                else
-                    _nodecl_is_found = false;
-            }
-            else if(n.is_constant() || _n.is_constant())
-                _nodecl_is_found = false;
-            else
-                _nodecl_is_found = true;
+            _nodecl_is_found = true;
         }
         else
         {
@@ -1479,7 +1468,7 @@ namespace Nodecl
                 if (!it->is_null())
                 {
                     walk(*it);
-                    if (_nodecl_is_found == true)
+                    if (_nodecl_is_found)
                         break;
                 }
             }
@@ -1764,7 +1753,13 @@ namespace Nodecl
     {
         generic_visitor(n);
     }
-    
+ 
+    template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::StringLiteral& n )
+    {
+        generic_visitor(n);
+    }
+   
     template <class Comparator>
     void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Sizeof& n )
     {
@@ -1773,6 +1768,12 @@ namespace Nodecl
 
     template <class Comparator>
     void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Symbol& n )
+    {
+        generic_visitor(n);
+    }
+
+    template <class Comparator>
+    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Type& n )
     {
         generic_visitor(n);
     }
