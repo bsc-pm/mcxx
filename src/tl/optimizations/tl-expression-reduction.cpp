@@ -328,7 +328,7 @@ namespace Optimizations {
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {
-                            n.replace(Nodecl::Minus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
+                            n.replace(Nodecl::Add::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
                                                           rhs.get_type(), n.get_locus()));
                         }
                         else
@@ -548,7 +548,7 @@ namespace Optimizations {
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {
-                            n.replace(Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
+                            n.replace(Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                 lhs_lhs.get_type(), n.get_locus()));
                         }
                         else
