@@ -205,7 +205,7 @@ namespace Vectorization
             // Step
             // TODO: Not only the trivial case
             Nodecl::NodeclBase step;
-            Nodecl::Mul new_step;
+            Nodecl::NodeclBase new_step;
 
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
@@ -217,14 +217,13 @@ namespace Vectorization
                         _environment._analysis_scopes.back(),
                         lhs);
 
-                new_step = Nodecl::Mul::make(
-                        step.shallow_copy(),
-                        Nodecl::IntegerLiteral::make(
+                new_step = Vectorization::Utils::make_scalar_binary_node
+                    <Nodecl::Mul>(
+                            step.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_signed_int(
+                                _environment._unroll_factor)),
                             TL::Type::get_int_type(),
-                            const_value_get_signed_int(_environment._unroll_factor),
-                            node.get_locus()),
-                        TL::Type::get_int_type(),
-                        node.get_locus());
+                            const_value_mul);
             }
             else
             {
@@ -234,20 +233,18 @@ namespace Vectorization
 
             result = rhs.shallow_copy();
 
-            // rhs = (rhs-(step-1))
-            const Nodecl::Minus new_node =
-                Nodecl::Minus::make(
+            // rhs => (rhs-(step-1))
+            const Nodecl::NodeclBase new_node =
+                Vectorization::Utils::make_scalar_binary_node<Nodecl::Minus>(
                         rhs.shallow_copy(),
-                        Nodecl::Minus::make(
+                        Vectorization::Utils::make_scalar_binary_node
+                        <Nodecl::Minus>(
                             new_step,
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(1),
-                                node.get_locus()),
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
                             rhs_type,
-                            node.get_locus()),
+                            const_value_sub),
                         rhs_type,
-                        node.get_locus());
+                        const_value_sub);
 
             rhs.replace(new_node);
         }
@@ -269,14 +266,12 @@ namespace Vectorization
                         _environment._analysis_scopes.back(),
                         rhs);
 
-                new_step = Nodecl::Mul::make(
+                new_step = Vectorization::Utils::make_scalar_binary_node<Nodecl::Mul>(
                         step.shallow_copy(),
-                        Nodecl::IntegerLiteral::make(
-                            TL::Type::get_int_type(),
-                            const_value_get_signed_int(_environment._unroll_factor),
-                            node.get_locus()),
+                        const_value_to_nodecl(
+                            const_value_get_signed_int(_environment._unroll_factor)),
                         step.get_type(),
-                        node.get_locus());
+                        const_value_mul);
             }
             else
             {
@@ -288,18 +283,15 @@ namespace Vectorization
 
             // lhs = (lhs-(step-1))
             const Nodecl::Minus new_node =
-                Nodecl::Minus::make(
+                Vectorization::Utils::make_scalar_binary_node<Nodecl::Minus>(
                         lhs.shallow_copy(),
-                        Nodecl::Minus::make(
+                        Vectorization::Utils::make_scalar_binary_node<Nodecl::Minus>(
                             new_step,
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(1),
-                                node.get_locus()),
+                            const_value_to_nodecl(const_value_get_one(4, 1)),
                             lhs_type,
-                            node.get_locus()),
+                            const_value_sub),
                         lhs_type,
-                        node.get_locus());
+                        const_value_sub);
 
             lhs.replace(new_node);
         }
