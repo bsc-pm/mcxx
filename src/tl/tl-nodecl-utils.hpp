@@ -64,8 +64,6 @@ namespace Utils {
     bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
     bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
-    bool stmtexpr_contains_nodecl_structurally( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
-    bool stmtexpr_contains_nodecl_pointer( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
     bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
     bool structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
                                     const bool skip_conversion_nodecls = false);
@@ -279,103 +277,26 @@ namespace Utils {
             const Nodecl::NodeclBase& ref_scope);
 
     template <class Comparator>
-        class LIBTL_CLASS ExprFinderVisitor : public Nodecl::NodeclVisitor<void>
+    class LIBTL_CLASS FinderVisitor : public Nodecl::NodeclVisitor<void>
     {
         private:
             Comparator _comparator;
-            Nodecl::NodeclBase _scope;
-            Nodecl::NodeclBase _n;
-            bool _nodecl_is_found;
+            Nodecl::NodeclBase _needle;
 
-            void generic_visitor( const Nodecl::NodeclBase& n );
+            void generic_finder(const Nodecl::NodeclBase& n);
 
         public:
+            bool found;
             // *** Constructor *** //
-            ExprFinderVisitor( const Nodecl::NodeclBase& stmt);
-
-            // *** Consultants *** //
-            bool find( const Nodecl::NodeclBase& n );
+            FinderVisitor( const Nodecl::NodeclBase& needle) : _needle(needle), found(false) { }
 
             // *** Visitors *** //
-            Ret unhandled_node( const Nodecl::NodeclBase& n );
-            Ret visit( const Nodecl::Add& n );
-            Ret visit( const Nodecl::AddAssignment& n );
-            Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-            Ret visit( const Nodecl::ArraySubscript& n );
-            Ret visit( const Nodecl::Assignment& n );
-            Ret visit( const Nodecl::BitwiseAndAssignment& n );
-            Ret visit( const Nodecl::BitwiseOrAssignment& n );
-            Ret visit( const Nodecl::BitwiseShl& n );
-            Ret visit( const Nodecl::BitwiseShlAssignment& n );
-            Ret visit( const Nodecl::BitwiseShr& n );
-            Ret visit( const Nodecl::BitwiseShrAssignment& n );
-            Ret visit( const Nodecl::BitwiseXorAssignment& n );
-            Ret visit( const Nodecl::Cast& n );
-            Ret visit( const Nodecl::ClassMemberAccess& n );
-            Ret visit( const Nodecl::ConditionalExpression& n );
-            Ret visit( const Nodecl::Conversion& n );
-            Ret visit( const Nodecl::Dereference& n );
-            Ret visit( const Nodecl::Different& n );
-            Ret visit( const Nodecl::Div& n );
-            Ret visit( const Nodecl::DivAssignment& n );
-            Ret visit( const Nodecl::Equal& n );
-            Ret visit( const Nodecl::FloatingLiteral& n );
-            Ret visit( const Nodecl::FunctionCall& n );
-            Ret visit( const Nodecl::GreaterThan& n );
-            Ret visit( const Nodecl::GreaterOrEqualThan& n );
-            Ret visit( const Nodecl::IntegerLiteral& n );
-            Ret visit( const Nodecl::LowerThan& n );
-            Ret visit( const Nodecl::LowerOrEqualThan& n );
-            Ret visit( const Nodecl::MaskLiteral& n );
-            Ret visit( const Nodecl::Minus& n );
-            Ret visit( const Nodecl::MinusAssignment& n );
-            Ret visit( const Nodecl::Mod& n );
-            Ret visit( const Nodecl::ModAssignment& n );
-            Ret visit( const Nodecl::Mul& n );
-            Ret visit( const Nodecl::MulAssignment& n );
-            Ret visit( const Nodecl::Neg& n );
-            Ret visit( const Nodecl::ObjectInit& n );
-            Ret visit( const Nodecl::Postdecrement& n );
-            Ret visit( const Nodecl::Postincrement& n );
-            Ret visit( const Nodecl::Predecrement& n );
-            Ret visit( const Nodecl::Preincrement& n );
-            Ret visit( const Nodecl::Range& n );
-            Ret visit( const Nodecl::Reference& n );
-            Ret visit( const Nodecl::ReturnStatement& n );
-            Ret visit( const Nodecl::Sizeof& n );
-            Ret visit( const Nodecl::StringLiteral& n );
-            Ret visit( const Nodecl::Symbol& n );
-            Ret visit( const Nodecl::Type& n );
-            Ret visit( const Nodecl::UnalignedVectorLoad& n );
-            Ret visit( const Nodecl::UnalignedVectorStore& n );
-            Ret visit( const Nodecl::VectorAdd& n );
-            Ret visit( const Nodecl::VectorAssignment& n );
-            Ret visit( const Nodecl::VectorBitwiseShl& n );
-            Ret visit( const Nodecl::VectorBitwiseShlI& n );
-            Ret visit( const Nodecl::VectorBitwiseShr& n );
-            Ret visit( const Nodecl::VectorBitwiseShrI& n );
-            Ret visit( const Nodecl::VectorConversion& n );
-            Ret visit( const Nodecl::VectorDiv& n );
-            Ret visit( const Nodecl::VectorFabs& n );
-            Ret visit( const Nodecl::VectorFunctionCall& n );
-            Ret visit( const Nodecl::VectorGather& n );
-            Ret visit( const Nodecl::VectorGreaterThan& n );
-            Ret visit( const Nodecl::VectorGreaterOrEqualThan& n );
-            Ret visit( const Nodecl::VectorLiteral& n );
-            Ret visit( const Nodecl::VectorLoad& n );
-            Ret visit( const Nodecl::VectorLowerThan& n );
-            Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
-            Ret visit( const Nodecl::VectorMaskAssignment& n );
-            Ret visit( const Nodecl::VectorMul& n );
-            Ret visit( const Nodecl::VectorNeg& n );
-            Ret visit( const Nodecl::VectorPromotion& n );
-            Ret visit( const Nodecl::VectorReductionAdd& n );
-            Ret visit( const Nodecl::VectorScatter& n );
-            Ret visit( const Nodecl::VectorStore& n );
+            void unhandled_node( const Nodecl::NodeclBase& n );
+            void visit( const Nodecl::ObjectInit& n );
     };
 
-    typedef ExprFinderVisitor<std::equal_to<Nodecl::NodeclBase> > ExprPointerFinderVisitor;
-    typedef ExprFinderVisitor<Nodecl_structural_equal> ExprStructuralFinderVisitor;
+    typedef FinderVisitor<std::equal_to<Nodecl::NodeclBase> > PointerFinderVisitor;
+    typedef FinderVisitor<Nodecl_structural_equal> StructuralFinderVisitor;
 
     template <typename Kind>
     struct SimpleFinderVisitorHelper : ExhaustiveVisitor<void>
@@ -402,6 +323,9 @@ namespace Utils {
         finder.walk(n);
         return finder.found;
     }
+
+    bool find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
+    bool find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
 
     template <typename Kind>
     struct CollectFinderVisitorHelper : ExhaustiveVisitor<void>

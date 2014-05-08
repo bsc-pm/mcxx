@@ -323,7 +323,7 @@ end_depends:
                     it != scope_ivs.end();
                     it++)
             {
-                if(Nodecl::Utils::stmtexpr_contains_nodecl_structurally(n,
+                if(Nodecl::Utils::find_nodecl_by_structure(n,
                             (*it)->get_variable().get_nodecl()))
                     return false;
             }

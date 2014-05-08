@@ -100,14 +100,14 @@ namespace Analysis
         for( ObjectList<Utils::InductionVariableData*>::const_iterator it = _induction_variables.begin( );
              it != _induction_variables.end( ) && !result; ++it )
         {   // Check whether the expression used to modify it depends on an induction variable
-            result = Nodecl::Utils::stmtexpr_contains_nodecl_structurally( n, ( *it )->get_variable( ).get_nodecl( ) );
+            result = Nodecl::Utils::find_nodecl_by_structure( n, ( *it )->get_variable( ).get_nodecl( ) );
         }
         if( !result )
         {
             Utils::ext_sym_map reaching_defs_in = node->get_reaching_definitions_in( );
             for( Utils::ext_sym_map::iterator it = reaching_defs_in.begin( ); it != reaching_defs_in.end( ) && !result; ++it )
             {
-                if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
+                if( Nodecl::Utils::find_nodecl_by_structure( it->first.get_nodecl( ), n ) )
                 {   // n has been defined previously
                     result = definition_depends_on_iv( it->second.first, node );
                 }
@@ -189,7 +189,7 @@ namespace Analysis
                         for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( );
                              it != reaching_defs_out.end( ) && !result; ++it )
                         {
-                            if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
+                            if( Nodecl::Utils::find_nodecl_by_structure( it->first.get_nodecl( ), n ) )
                             {   // 'n' is being modified
                                 result = definition_depends_on_iv( it->second.first, current );
                             }
@@ -286,7 +286,7 @@ namespace Analysis
                         for( Utils::ext_sym_map::iterator it = reaching_defs_out.begin( );
                              it != reaching_defs_out.end( ) && !result; ++it )
                         {
-                            if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( it->first.get_nodecl( ), n ) )
+                            if( Nodecl::Utils::find_nodecl_by_structure( it->first.get_nodecl( ), n ) )
                             {   // 'n' is being modified
                                 result = definition_depends_on_iv( it->second.first, current );
                             }

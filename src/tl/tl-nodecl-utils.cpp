@@ -523,6 +523,21 @@ namespace Nodecl
         return n.get_type().is_lvalue_reference( );
     }
 
+    bool Utils::find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    {
+        StructuralFinderVisitor finder(needle);
+        finder.walk(haystack);
+        return finder.found;
+    }
+
+    bool Utils::find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    {
+        PointerFinderVisitor finder(needle);
+        finder.walk(haystack);
+        return finder.found;
+    }
+
+
     bool Utils::nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
         bool result = false;
@@ -602,18 +617,6 @@ namespace Nodecl
         }
 
         return result;
-    }
-
-    bool Utils::stmtexpr_contains_nodecl_structurally( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
-    {
-        ExprStructuralFinderVisitor efv( container );
-        return efv.find( contained );
-    }
-
-    bool Utils::stmtexpr_contains_nodecl_pointer( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
-    {
-        ExprPointerFinderVisitor efv( container );
-        return efv.find( contained );
     }
 
     bool Utils::nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l )
@@ -1435,27 +1438,11 @@ namespace Nodecl
     // *************** Visitor looking for a nodecl contained in a scope *************** //
 
     template <class Comparator>
-    Utils::ExprFinderVisitor<Comparator>::ExprFinderVisitor( const Nodecl::NodeclBase& stmt_expr)
-        : _scope( stmt_expr ), _n( Nodecl::NodeclBase::null( ) ),
-        _nodecl_is_found( false )
-    {}
-
-    template <class Comparator>
-    bool Utils::ExprFinderVisitor<Comparator>::find( const Nodecl::NodeclBase& n )
+    void Utils::FinderVisitor<Comparator>::generic_finder(const Nodecl::NodeclBase& n)
     {
-        _nodecl_is_found = false;
-        _n = n;
-        walk( _scope );
-        return _nodecl_is_found;
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::generic_visitor(
-            const Nodecl::NodeclBase& n)
-    {
-        if( _comparator( n, _n ) )
+        if( _comparator( n, _needle ) )
         {
-            _nodecl_is_found = true;
+            found = true;
         }
         else
         {
@@ -1468,7 +1455,7 @@ namespace Nodecl
                 if (!it->is_null())
                 {
                     walk(*it);
-                    if (_nodecl_is_found)
+                    if (found)
                         break;
                 }
             }
@@ -1476,233 +1463,16 @@ namespace Nodecl
     }
 
     template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
+    void Utils::FinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        WARNING_MESSAGE( "Unhandled node '%s' during ExprFinderVisitor",
-                ast_print_node_type(n.get_kind()));
+        generic_finder(n);
     }
 
     template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Add& n )
+    void Utils::FinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
     {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::AddAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ArithmeticShrAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ArraySubscript& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Assignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseAndAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseOrAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShl& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShlAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShr& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShrAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseXorAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Cast& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ConditionalExpression& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Conversion& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Dereference& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Different& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Div& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::DivAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Equal& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::FloatingLiteral& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::FunctionCall& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::GreaterThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::GreaterOrEqualThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::IntegerLiteral& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::LowerThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::LowerOrEqualThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MaskLiteral& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Minus& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MinusAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Mod& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ModAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Mul& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MulAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Neg& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
-    {
-        generic_visitor(n);
-        if( !_nodecl_is_found )
+        generic_finder(n);
+        if( !found )
         {
             TL::Symbol sym = n.get_symbol( );
             Nodecl::NodeclBase val = sym.get_value( );
@@ -1710,228 +1480,6 @@ namespace Nodecl
             if( !val.is_null( ) )
                 walk(val);
         }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Postdecrement& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Postincrement& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Predecrement& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Preincrement& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Range& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Reference& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ReturnStatement& n )
-    {
-        generic_visitor(n);
-    }
- 
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::StringLiteral& n )
-    {
-        generic_visitor(n);
-    }
-   
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Sizeof& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Symbol& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Type& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::UnalignedVectorLoad& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::UnalignedVectorStore& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorAdd& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShl& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShlI& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShr& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShrI& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorConversion& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorDiv& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorFabs& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorFunctionCall& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGather& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGreaterThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGreaterOrEqualThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLiteral& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLoad& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLowerThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLowerOrEqualThan& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMaskAssignment& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMul& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorNeg& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorPromotion& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorReductionAdd& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorScatter& n )
-    {
-        generic_visitor(n);
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorStore& n )
-    {
-        generic_visitor(n);
     }
 
     // ************* END visitor looking for a nodecl contained in a scope ************* //

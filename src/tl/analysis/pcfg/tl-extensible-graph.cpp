@@ -1368,7 +1368,7 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                          ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( *it, n ) )
+                        if( Nodecl::Utils::find_nodecl_by_structure( *it, n ) )
                             result = current;
                     }
                 }
@@ -1417,7 +1417,7 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                         ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::stmtexpr_contains_nodecl_pointer( *it, n ) )
+                        if( Nodecl::Utils::find_nodecl_by_pointer( *it, n ) )
                             result = current;
                     }
                 }
