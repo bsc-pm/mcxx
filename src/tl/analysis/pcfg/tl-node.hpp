@@ -562,6 +562,15 @@ namespace Analysis {
             //! Adds a new private undefined behaviour variable to the node
             void add_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars );
             
+            //! Returns the list of used addresses within the node
+            Utils::ext_sym_set get_used_addresses();
+            
+            //! Adds a new address to the list of used addresses of the node
+            void add_used_address(const Utils::ExtendedSymbol& es);
+            
+            //! Sets a new set of used addresses to the node
+            void add_used_addresses(const Utils::ext_sym_set& used_addresses);
+            
             // ************* END getters and setters for use-definition analysis ************ //
             // ****************************************************************************** //
 

@@ -233,6 +233,10 @@ namespace Utils {
         {
             return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Conversion>( ).get_nest( ), sym_set );
         }
+        else if( n.is<Nodecl::Reference>( ) )
+        {
+            return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Reference>( ).get_rhs( ), sym_set );
+        }
         else
         {
             if( ext_sym_set_contains_nodecl( n, sym_set ) )

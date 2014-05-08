@@ -948,7 +948,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, context_node );
         return ObjectList<Node*>( 1, context_node );
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
         Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Continue );
@@ -1349,7 +1349,7 @@ namespace Analysis {
         }
         return func;
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
     {
         // Create the asm definition graph node
@@ -2246,6 +2246,11 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_app_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n )
+    {
+        return walk(n.get_context());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( __if, n.get_condition( ) );
@@ -2813,6 +2818,12 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaContext& n )
+    {
+        // No need to store the context of a clause parameter in the PCFG (so far)
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
         if( VERBOSE )

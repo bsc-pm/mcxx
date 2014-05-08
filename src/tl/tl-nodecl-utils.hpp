@@ -287,15 +287,7 @@ namespace Utils {
             Nodecl::NodeclBase _n;
             bool _nodecl_is_found;
 
-            void unary_visitor( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& rhs );
-            void binary_visitor( const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
-            void ternary_visitor( const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
-                    const Nodecl::NodeclBase& third );
-            void quaternary_visitor( const Nodecl::NodeclBase& n,
-                    const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
-                    const Nodecl::NodeclBase& third, const Nodecl::NodeclBase& fourth );
+            void generic_visitor( const Nodecl::NodeclBase& n );
 
         public:
             // *** Constructor *** //
@@ -350,6 +342,7 @@ namespace Utils {
             Ret visit( const Nodecl::Range& n );
             Ret visit( const Nodecl::Reference& n );
             Ret visit( const Nodecl::ReturnStatement& n );
+            Ret visit( const Nodecl::Sizeof& n );
             Ret visit( const Nodecl::Symbol& n );
             Ret visit( const Nodecl::UnalignedVectorLoad& n );
             Ret visit( const Nodecl::UnalignedVectorStore& n );
@@ -372,6 +365,7 @@ namespace Utils {
             Ret visit( const Nodecl::VectorLowerOrEqualThan& n );
             Ret visit( const Nodecl::VectorMaskAssignment& n );
             Ret visit( const Nodecl::VectorMul& n );
+            Ret visit( const Nodecl::VectorNeg& n );
             Ret visit( const Nodecl::VectorPromotion& n );
             Ret visit( const Nodecl::VectorReductionAdd& n );
             Ret visit( const Nodecl::VectorScatter& n );

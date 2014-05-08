@@ -62,15 +62,17 @@ namespace {
             std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ), /*dot*/ true );
             std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ), /*dot*/ true );
             std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ), /*dot*/ true );
+            std::string used_addresses = prettyprint_ext_sym_set( current->get_used_addresses( ), /*dot*/ true );
             std::string assert_ue = prettyprint_ext_sym_set( current->get_assert_ue_vars( ), /*dot*/ true );
             std::string assert_killed = prettyprint_ext_sym_set( current->get_assert_killed_vars( ), /*dot*/ true );
-
-            usage = ( killed.empty( )          ? "" : ( "KILL: "          + killed        + "\\n" ) )
-                    + ( ue.empty( )            ? "" : ( "UE: "            + ue            + "\\n" ) )
-                    + ( undef.empty( )         ? "" : ( "UNDEF: "         + undef         + "\\n" ) )
-                    + ( assert_ue.empty( )     ? "" : ( "ASSERT_UE: "     + assert_ue     + "\\n" ) )
-                    + ( assert_killed.empty( ) ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
-
+            
+            usage = ( killed.empty( )           ? "" : ( "KILL: "          + killed         + "\\n" ) )
+                    + ( ue.empty( )             ? "" : ( "UE: "            + ue             + "\\n" ) )
+                    + ( undef.empty( )          ? "" : ( "UNDEF: "         + undef          + "\\n" ) )
+                    + ( used_addresses.empty( ) ? "" : ( "USED_ADDRS: "    + used_addresses + "\\n" ) )
+                    + ( assert_ue.empty( )      ? "" : ( "ASSERT_UE: "     + assert_ue      + "\\n" ) ) 
+                    + ( assert_killed.empty( )  ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
+            
             int u_size = usage.size( );
             if( ( u_size > 3 ) && ( usage.substr( u_size - 2, u_size - 1 ) == "\\n" ) )
                 usage = usage.substr( 0, u_size - 2 );
