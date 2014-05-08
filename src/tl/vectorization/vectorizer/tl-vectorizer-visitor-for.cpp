@@ -612,10 +612,12 @@ namespace Vectorization
         // i = (upper_bound) - ((upper_bound) % UnrollFactor) + (lower_bound)
 
         Nodecl::NodeclBase upper_bound = tl_for_statement.get_upper_bound();
-        Nodecl::NodeclBase upper_bound_plus_one = Nodecl::Add::make(
+        Nodecl::NodeclBase upper_bound_plus_one = 
+            Vectorization::Utils::make_scalar_binary_node<Nodecl::Add>(
                 upper_bound.shallow_copy(),
                 const_value_to_nodecl(const_value_get_one(1, 4)),
-                upper_bound.get_type());
+                upper_bound.get_type(),
+                const_value_add);
         Nodecl::NodeclBase lower_bound = tl_for_statement.get_lower_bound();
 
         TL::Symbol iv = tl_for_statement.get_induction_variable();
@@ -625,18 +627,20 @@ namespace Vectorization
         induction_variable = iv.make_nodecl(true);
 
         // Induction Variable Init
-        iv_init = Nodecl::Minus::make(
+        iv_init = Vectorization::Utils::make_scalar_binary_node<Nodecl::Minus>(
                 upper_bound_plus_one.shallow_copy(),
-                Nodecl::Mod::make(
-                    Nodecl::Minus::make(
+                Vectorization::Utils::make_scalar_binary_node<Nodecl::Mod>(
+                    Vectorization::Utils::make_scalar_binary_node<Nodecl::Minus>(
                         upper_bound_plus_one.shallow_copy(),
                         lower_bound.shallow_copy(),
-                        iv_type),
-                    Nodecl::IntegerLiteral::make(
-                        TL::Type::get_int_type(),
+                        iv_type,
+                        const_value_sub),
+                    const_value_to_nodecl(
                         const_value_get_signed_int(_environment._unroll_factor)),
-                    iv_type),
-                iv_type);
+                    iv_type,
+                    const_value_mod),
+                iv_type,
+                const_value_sub);
     }
 }
 }
