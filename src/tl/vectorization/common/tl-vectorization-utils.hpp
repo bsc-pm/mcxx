@@ -125,6 +125,24 @@ namespace TL
 
             const_value_t* get_const_conversion(
                     const_value_t* const_value, TL::Type dst_type);
+
+            template <typename ScalarNode, typename Functor>
+                ScalarNode make_scalar_binary_node(
+                        const Nodecl::NodeclBase& lhs,
+                        const Nodecl::NodeclBase& rhs,
+                        const TL::Type& type,
+                        const Functor const_operation)
+                {
+                    ScalarNode result = ScalarNode::make(lhs, rhs, type);
+
+                    if (lhs.is_constant() && rhs.is_constant())
+                    {
+                        result.set_constant(const_operation(lhs.get_constant(),
+                                    rhs.get_constant()));
+                    }
+
+                    return result;
+                }
         }
     }
 }
