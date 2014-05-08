@@ -193,6 +193,8 @@ namespace Codegen
             Ret visit(const Nodecl::Unknown &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::VectorLaneId &);
+            Ret visit(const Nodecl::VectorLiteral &);
+            Ret visit(const Nodecl::VectorPromotion &);
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::AsmDefinition& node);

@@ -4107,6 +4107,33 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
     *(file) << "VECTOR_LANE_ID";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
+{
+    indent();
+    *(file) << "{";
+    
+    Nodecl::List scalar_values = node.get_scalar_values().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = scalar_values.begin();
+            it != scalar_values.end();
+            it++)
+    {
+        walk(*it);
+
+        if ((it+1) != scalar_values.end())
+            *(file) << ", ";
+    }
+
+    *(file) << "}";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
+{
+    indent();
+    *(file) << "{";
+    walk(node.get_rhs());
+    *(file) << "}";
+}
+
 // Bug in GCC 4.4
 template CxxBase::Ret CxxBase::visit_function_call<Nodecl::VirtualFunctionCall>(const Nodecl::VirtualFunctionCall& node, bool is_virtual_call);
 
