@@ -14306,16 +14306,16 @@ static void build_scope_function_definition_body(
 
     linkage_pop();
 
-    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
-
-    ptr_nodecl_make_func_code = is_dependent_function(entry)
-        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
-
     if (entry->entity_specs.is_constexpr)
     {
         check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
         check_constexpr_function_body(entry, body_nodecl, /* emit_error */ 1);
     }
+
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+
+    ptr_nodecl_make_func_code = is_dependent_function(entry)
+        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
 
     // Create nodecl
     nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
@@ -14327,7 +14327,26 @@ static void build_scope_function_definition_body(
             entry,
             ast_get_locus(function_definition));
 
-    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
+    if (CURRENT_CONFIGURATION->explicit_instantiation
+                && is_dependent_function(entry))
+    {
+        // If we are going to instantiate later, emit only a declaration if not
+        // a member
+        if (!entry->entity_specs.is_member)
+        {
+            nodecl_t nodecl_context =
+                nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                        entry->decl_context, ast_get_locus(function_definition));
+            *nodecl_output =
+                nodecl_make_list_1(
+                        nodecl_make_cxx_decl(nodecl_context, entry, ast_get_locus(function_definition))
+                        );
+        }
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_list_1(nodecl_function_def);
+    }
 
     entry->entity_specs.function_code = nodecl_function_def;
 }
