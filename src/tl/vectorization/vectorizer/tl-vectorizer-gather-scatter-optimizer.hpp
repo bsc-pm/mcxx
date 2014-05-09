@@ -56,13 +56,18 @@ namespace Vectorization
                                   stride_splitter_ret_t> 
     {
         private:
-            template <typename VECTOR_NODE, typename SCALAR_NODE>
+            template <typename VectorNode, typename ScalarNode,
+                     typename Functor>
             stride_splitter_ret_t visit_distributive_binary_op(
-                    const Nodecl::NodeclBase& n);
-
-            template <typename VECTOR_NODE, typename SCALAR_NODE>
+                    const Nodecl::NodeclBase& n,
+                    Functor const_operation);
+ 
+            template <typename VectorNode, typename ScalarNode,
+                     typename Functor>
             stride_splitter_ret_t visit_non_distributive_binary_op(
-                    const Nodecl::NodeclBase& n);
+                    const Nodecl::NodeclBase& n,
+                    Functor const_operation);
+ 
 
         public:
             StrideSplitterVisitor();
@@ -70,6 +75,9 @@ namespace Vectorization
             stride_splitter_ret_t visit(const Nodecl::VectorAdd& n);
             stride_splitter_ret_t visit(const Nodecl::Neg& n);
             stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShl& n);
+            stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShlI& n);
+            stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShr& n);
+            stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShrI& n);
             stride_splitter_ret_t visit(const Nodecl::VectorMul& n);
             stride_splitter_ret_t visit(const Nodecl::VectorConversion& n);
             stride_splitter_ret_t visit(const Nodecl::VectorLiteral& n);

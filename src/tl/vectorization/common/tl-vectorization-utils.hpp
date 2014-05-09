@@ -143,6 +143,25 @@ namespace TL
 
                     return result;
                 }
+
+            template <typename VectorNode, typename Functor>
+                VectorNode make_vector_binary_node(
+                        const Nodecl::NodeclBase& lhs,
+                        const Nodecl::NodeclBase& rhs,
+                        const Nodecl::NodeclBase& mask,
+                        const TL::Type& type,
+                        const Functor const_operation)
+                {
+                    VectorNode result = VectorNode::make(lhs, rhs, mask, type);
+
+                    if (lhs.is_constant() && rhs.is_constant())
+                    {
+                        result.set_constant(const_operation(lhs.get_constant(),
+                                    rhs.get_constant()));
+                    }
+
+                    return result;
+                }
         }
     }
 }

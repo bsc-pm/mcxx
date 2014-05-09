@@ -132,11 +132,13 @@ namespace Vectorization
     }
 
 
-    template <typename VECTOR_NODE, typename SCALAR_NODE>
+    template <typename VectorNode, typename ScalarNode,
+             typename Functor>
     stride_splitter_ret_t StrideSplitterVisitor::visit_distributive_binary_op(
-            const Nodecl::NodeclBase& n)
+            const Nodecl::NodeclBase& n,
+            Functor const_operation)
     {
-        VECTOR_NODE vector_node = n.as<VECTOR_NODE>();
+        VectorNode vector_node = n.as<VectorNode>();
         
         /* 
         std::cerr << "Mul: [ "
@@ -160,10 +162,11 @@ namespace Vectorization
 
         if (lhs_is_base_suitable && rhs_is_base_suitable)
         {
-            base = SCALAR_NODE::make(
+            base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
                     lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
                     rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                    n.get_type().basic_type());
+                    n.get_type().basic_type(),
+                    const_operation);
         }
         else if (lhs_is_base_suitable)
         {
@@ -171,9 +174,11 @@ namespace Vectorization
 
             if (!rhs_ret.first.is_null())
             {
-                base = SCALAR_NODE::make(lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+                        lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
                         rhs_ret.first.shallow_copy(),
-                        n.get_type().basic_type());
+                        n.get_type().basic_type(),
+                        const_operation);
             }
             else
             {
@@ -188,9 +193,11 @@ namespace Vectorization
 
             if (!lhs_ret.first.is_null())
             {
-                base = SCALAR_NODE::make(lhs_ret.first.shallow_copy(),
+                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+                        lhs_ret.first.shallow_copy(),
                         rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        n.get_type().basic_type());
+                        n.get_type().basic_type(),
+                        const_operation);
             }
             else
             {
@@ -207,9 +214,11 @@ namespace Vectorization
             // Base
             if (!lhs_ret.first.is_null() && !rhs_ret.first.is_null())
             {
-                base = SCALAR_NODE::make(lhs_ret.first.shallow_copy(),
+                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+                        lhs_ret.first.shallow_copy(),
                         rhs_ret.first.shallow_copy(),
-                        n.get_type().basic_type());
+                        n.get_type().basic_type(),
+                        const_operation);
             }
             else if (!lhs_ret.first.is_null())
             {
@@ -223,10 +232,12 @@ namespace Vectorization
             // Strides
             if (!lhs_ret.second.is_null() && !rhs_ret.second.is_null())
             {
-                strides = VECTOR_NODE::make(lhs_ret.second.shallow_copy(),
+                strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
+                        lhs_ret.second.shallow_copy(),
                         rhs_ret.second.shallow_copy(),
                         vector_node.get_mask().shallow_copy(),
-                        n.get_type());
+                        n.get_type(),
+                        const_operation);
             }
             else if (!lhs_ret.second.is_null())
             {
@@ -242,11 +253,13 @@ namespace Vectorization
         return stride_splitter_ret_t(base, strides);
     }
 
-    template <typename VECTOR_NODE, typename SCALAR_NODE>
+    template <typename VectorNode, typename ScalarNode,
+             typename Functor>
     stride_splitter_ret_t StrideSplitterVisitor::visit_non_distributive_binary_op(
-            const Nodecl::NodeclBase& n)
+            const Nodecl::NodeclBase& n,
+            Functor const_operation)
     {
-        VECTOR_NODE vector_node = n.as<VECTOR_NODE>();
+        VectorNode vector_node = n.as<VectorNode>();
         
         /* 
         std::cerr << "Mul: [ "
@@ -270,10 +283,11 @@ namespace Vectorization
 
         if (lhs_is_base_suitable && rhs_is_base_suitable)
         {
-            base = SCALAR_NODE::make(
+            base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
                     lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
                     rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                    n.get_type().basic_type());
+                    n.get_type().basic_type(),
+                    const_operation);
         }
         else if (lhs_is_base_suitable)
         {
@@ -281,9 +295,11 @@ namespace Vectorization
 
             if (!rhs_ret.first.is_null())
             {
-                base = SCALAR_NODE::make(lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
+                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+                        lhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
                         rhs_ret.first.shallow_copy(),
-                        n.get_type().basic_type());
+                        n.get_type().basic_type(),
+                        const_operation);
             }
             else
             {
@@ -292,10 +308,12 @@ namespace Vectorization
 
             if (!rhs_ret.second.is_null())
             {
-                strides = VECTOR_NODE::make(lhs.shallow_copy(),
+                strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
+                        lhs.shallow_copy(),
                         rhs_ret.second.shallow_copy(),
                         vector_node.get_mask().shallow_copy(),
-                        n.get_type());
+                        n.get_type(),
+                        const_operation);
             }
         }
         else if (rhs_is_base_suitable)
@@ -304,9 +322,11 @@ namespace Vectorization
 
             if (!lhs_ret.first.is_null())
             {
-                base = SCALAR_NODE::make(lhs_ret.first.shallow_copy(),
+                base = Vectorization::Utils::make_scalar_binary_node<ScalarNode>(
+                        lhs_ret.first.shallow_copy(),
                         rhs_no_conv.as<Nodecl::VectorPromotion>().get_rhs().shallow_copy(),
-                        n.get_type().basic_type());
+                        n.get_type().basic_type(),
+                        const_operation);
             }
             else
             {
@@ -315,10 +335,12 @@ namespace Vectorization
 
             if (!lhs_ret.second.is_null())
             {
-                strides = VECTOR_NODE::make(rhs.shallow_copy(),
+                strides = Vectorization::Utils::make_vector_binary_node<VectorNode>(
                         lhs_ret.second.shallow_copy(),
+                        rhs.shallow_copy(),
                         vector_node.get_mask().shallow_copy(),
-                        n.get_type());
+                        n.get_type(),
+                        const_operation);
             }
         }
         else
@@ -373,7 +395,7 @@ namespace Vectorization
             const Nodecl::VectorAdd& n)
     {
         return visit_distributive_binary_op<Nodecl::VectorAdd,
-              Nodecl::Add>(n);
+              Nodecl::Add>(n, const_value_add);
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
@@ -408,14 +430,35 @@ namespace Vectorization
             const Nodecl::VectorBitwiseShl& n)
     {
         return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShl,
-               Nodecl::BitwiseShl>(n);
+               Nodecl::BitwiseShl>(n, const_value_bitshl);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorBitwiseShlI& n)
+    {
+        return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShlI,
+               Nodecl::BitwiseShl>(n, const_value_bitshl);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorBitwiseShr& n)
+    {
+        return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShr,
+               Nodecl::BitwiseShr>(n, const_value_shr);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorBitwiseShrI& n)
+    {
+        return visit_non_distributive_binary_op<Nodecl::VectorBitwiseShrI,
+               Nodecl::BitwiseShr>(n, const_value_shr);
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::VectorMul& n)
     {
         return visit_non_distributive_binary_op<Nodecl::VectorMul,
-               Nodecl::Mul>(n);
+               Nodecl::Mul>(n, const_value_mul);
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
