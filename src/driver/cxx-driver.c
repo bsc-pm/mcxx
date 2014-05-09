@@ -3437,7 +3437,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        run_codegen_phase(prettyprint_file, translation_unit);
+        run_codegen_phase(prettyprint_file, translation_unit, output_filename);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -3449,7 +3449,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            run_codegen_phase(raw_prettyprint_file, translation_unit);
+            run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
 
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
@@ -3462,7 +3462,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         }
         else
         {
-            run_codegen_phase(prettyprint_file, translation_unit);
+            run_codegen_phase(prettyprint_file, translation_unit, output_filename);
         }
     }
     else

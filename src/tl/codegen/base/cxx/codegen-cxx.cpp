@@ -232,6 +232,18 @@ void CxxBase::emit_line_marker(const locus_t* locus)
     if (!last_is_newline())
         *file << "\n";
 
+    std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+    if (filename.size() >= internal_source.size())
+    {
+        std::string prefix = filename.substr(0, internal_source.size());
+
+        if (prefix == internal_source)
+        {
+            filename = this->get_output_filename();
+            line = get_current_line() + 1;
+        }
+    }
+
     *file << "# " << line << " \"" << filename << "\"\n";
 }
 

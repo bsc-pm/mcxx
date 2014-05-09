@@ -180,7 +180,10 @@ namespace TL { namespace Nanox {
             load_compiler_phases(configuration);
 
             Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-            phase->codegen_top_level(extra_c_code, this->get_ancillary_file());
+
+            FILE* ancillary = get_ancillary_file();
+            std::string ancillary_filename = get_ancillary_filename();
+            phase->codegen_top_level(extra_c_code, ancillary, ancillary_filename);
 
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
         }
@@ -203,6 +206,7 @@ namespace TL { namespace Nanox {
             TL::CompilationProcess::add_file(file_name, "auxcc");
 
             ::mark_file_for_cleanup(file_name.c_str());
+            _ancillary_filename = file_name;
         }
         return _ancillary_file;
     }

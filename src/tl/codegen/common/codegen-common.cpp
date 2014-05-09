@@ -36,7 +36,7 @@ namespace Codegen
 {
 
 CodegenVisitor::CodegenVisitor()
-: _is_file_output(false), _last_is_newline(true), file(NULL)
+: _is_file_output(false), _last_is_newline(true), _current_line(1), file(NULL)
 {
 }
 
@@ -76,6 +76,10 @@ class CodegenStreambuf:
     private:
         virtual int_type overflow(int_type c)
         {
+            if (c == '\n')
+            {
+                _v->set_current_line(_v->get_current_line() + 1);
+            }
             _v->set_last_is_newline(c == '\n');
             return _sb->sputc(c);
         }
@@ -90,9 +94,10 @@ class CodegenStreambuf:
         CodegenVisitor* _v;
 };
 
-void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
+void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f, const std::string& output_filename_)
 {
     this->set_is_file_output(true);
+    this->set_output_filename(output_filename_);
     this->push_scope( n.retrieve_context() );
 
     this->codegen_cleanup();
