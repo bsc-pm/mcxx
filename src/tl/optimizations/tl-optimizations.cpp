@@ -29,14 +29,16 @@
 #include "tl-expression-reduction.hpp"
 
 
-void TL::Optimizations::strength_reduce(const Nodecl::NodeclBase& node, bool fast_math)
+void TL::Optimizations::strength_reduce(
+        const Nodecl::NodeclBase& node, bool fast_math)
 {
     StrengthReduction strength_reduction(fast_math);
     strength_reduction.walk(node);
     strength_reduction.walk(node);
 }
 
-void TL::Optimizations::strength_reduce(TL::ObjectList<Nodecl::NodeclBase>& list, 
+void TL::Optimizations::strength_reduce(
+        TL::ObjectList<Nodecl::NodeclBase>& list, 
         bool fast_math)
 {
     for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = list.begin();
@@ -47,17 +49,20 @@ void TL::Optimizations::strength_reduce(TL::ObjectList<Nodecl::NodeclBase>& list
     }
 }
 
-void TL::Optimizations::canonicalize_and_fold(const Nodecl::NodeclBase& node, bool fast_math)
+void TL::Optimizations::canonicalize_and_fold(
+        const Nodecl::NodeclBase& node, bool fast_math)
 {
     ReduceExpressionVisitor exp_reducer;
 
     exp_reducer.walk(node);
     strength_reduce(node, fast_math);
+    exp_reducer.walk(node);
     strength_reduce(node, fast_math);
     exp_reducer.walk(node);
 }
 
-void TL::Optimizations::canonicalize_and_fold(const TL::ObjectList<Nodecl::NodeclBase>& list, 
+void TL::Optimizations::canonicalize_and_fold(
+        const TL::ObjectList<Nodecl::NodeclBase>& list, 
         bool fast_math)
 {
     ReduceExpressionVisitor exp_reducer;

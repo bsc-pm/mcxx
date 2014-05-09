@@ -302,26 +302,27 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
         else if (lhs.is<Nodecl::VectorLiteral>())
         {
             //TODO: It could be a different type than int
-            Nodecl::List const_list = lhs.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
-            Nodecl::List result_list;
+            Nodecl::List const_list = lhs.as<Nodecl::VectorLiteral>().
+                get_scalar_values().as<Nodecl::List>();
+            int size = const_list.size();
 
             bool all_pow2 = true;
+            const_value_t** value_set = new const_value_t*[size];
 
+            int i = 0;
             for(Nodecl::List::const_iterator it = const_list.begin();
                     it != const_list.end();
-                    it++)
+                    it++, i++)
             {
-                int integer_value = const_value_cast_to_signed_int(it->as<Nodecl::IntegerLiteral>().get_constant());
+                int integer_value = const_value_cast_to_signed_int(
+                        it->as<Nodecl::IntegerLiteral>().get_constant());
 
                 // C * V, C == Pow2
                 if (__builtin_popcount(integer_value) == 1) //Pow2
                 {
                     int ctz = __builtin_ctz(integer_value);
 
-                    result_list.prepend(Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(ctz),
-                                it->get_locus()));
+                    value_set[i] = const_value_get_signed_int(ctz);
                 }
                 else
                 {
@@ -332,11 +333,14 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
 
             if (all_pow2)
             {
+                const_value_t* const_result = const_value_make_vector(size, value_set);
+                Nodecl::List offset_list = const_value_to_nodecl(const_result);
+
                 // lhs << (cv>>ctz)
                 Nodecl::VectorBitwiseShl shl =
                     Nodecl::VectorBitwiseShl::make(
                             rhs.shallow_copy(),
-                            Nodecl::VectorLiteral::make(result_list,
+                            Nodecl::VectorLiteral::make(offset_list,
                                 node.get_mask().shallow_copy(),
                                 node.get_type()),
                             node.get_mask().shallow_copy(),
@@ -345,7 +349,6 @@ void TL::Optimizations::StrengthReduction::visit(const Nodecl::VectorMul& node)
 
                 node.replace(shl);
             }
-
         }
     }
 }
