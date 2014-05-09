@@ -36,7 +36,7 @@ namespace Codegen
 {
 
 CodegenVisitor::CodegenVisitor()
-: _is_file_output(false), file(NULL)
+: _is_file_output(false), _last_is_newline(true), file(NULL)
 {
 }
 
@@ -61,6 +61,35 @@ std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n, TL::Scop
     return out.str();
 }
 
+// Inspired from an example in http://wordaligned.org/articles/cpp-streambufs
+template <typename char_type,
+          typename traits = std::char_traits<char_type> >
+class CodegenStreambuf:
+    public std::basic_streambuf<char_type, traits>
+{
+    public:
+        typedef typename traits::int_type int_type;
+
+        CodegenStreambuf(std::basic_streambuf<char_type, traits> * sb, CodegenVisitor* v)
+            : _sb(sb), _v(v) { }
+
+    private:
+        virtual int_type overflow(int_type c)
+        {
+            _v->set_last_is_newline(c == '\n');
+            return _sb->sputc(c);
+        }
+
+        virtual int sync()
+        {
+            return _sb->pubsync();
+        }
+
+    private:
+        std::basic_streambuf<char_type, traits> * _sb;
+        CodegenVisitor* _v;
+};
+
 void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
 {
     this->set_is_file_output(true);
@@ -74,9 +103,20 @@ void CodegenVisitor::codegen_top_level(const Nodecl::NodeclBase& n, FILE* f)
 
     // g++ extension
     __gnu_cxx::stdio_filebuf<char> filebuf(f, std::ios::out | std::ios::app);
-    std::ostream out(&filebuf);
 
-    this->codegen(n, &out);
+    if (CURRENT_CONFIGURATION->line_markers)
+    {
+        CodegenStreambuf<char> codegen_streambuf(&filebuf, this);
+        std::ostream out(&codegen_streambuf);
+
+        this->codegen(n, &out);
+    }
+    else
+    {
+        std::ostream out(&filebuf);
+        this->codegen(n, &out);
+    }
+
     this->pop_scope();
 
     this->set_is_file_output(false);

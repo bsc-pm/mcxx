@@ -48,6 +48,7 @@ namespace Codegen
     {
         private:
             bool _is_file_output;
+            bool _last_is_newline;
         protected:
             std::ostream *file;
             virtual void codegen(const Nodecl::NodeclBase&, std::ostream *out) = 0;
@@ -58,6 +59,9 @@ namespace Codegen
 
             bool is_file_output() const;
             void set_is_file_output(bool b);
+
+            void set_last_is_newline(bool b) { _last_is_newline = b; }
+            bool last_is_newline() const { return _last_is_newline; }
 
             void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
             std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);

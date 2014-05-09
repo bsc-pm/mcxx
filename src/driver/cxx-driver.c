@@ -276,6 +276,7 @@
 "  --xl-compat              Enables compatibility features with\n" \
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
+"  --line-markers           Adds line markers to the generated file\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -387,6 +388,7 @@ typedef enum
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_XL_COMPATIBILITY,
+    OPTION_LINE_MARKERS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -468,6 +470,7 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     // sentinel
     {NULL, 0, 0}
 };
@@ -1514,6 +1517,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_XL_COMPATIBILITY:
                     {
                         CURRENT_CONFIGURATION->xl_compatibility = 1;
+                        break;
+                    }
+                case OPTION_LINE_MARKERS:
+                    {
+                        CURRENT_CONFIGURATION->line_markers = 1;
                         break;
                     }
                 default:
