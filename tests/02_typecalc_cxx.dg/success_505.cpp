@@ -24,29 +24,32 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "codegen-phase.hpp"
-#include "tl-builtin.hpp"
 
-namespace Codegen
+
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+
+template < typename T >
+struct A
 {
-    void CodegenPhase::run(TL::DTO& dto)
+};
+
+template < typename T>
+struct B : public A<T>
+{
+    struct C { };
+    void foo()
     {
-        TL::File output_file = dto["output_file"];
-        FILE* f = output_file.get_file();
-
-        TL::String output_filename = dto["output_filename"];
-
-        Nodecl::NodeclBase n = dto["nodecl"];
-
-        this->codegen_top_level(n, f, output_filename);
+         (__alignof__(::B<T>::C));
+         (sizeof(::B<T>::C));
     }
-    void CodegenPhase::handle_parameter(int n, void* data)
-    {}
-}
+};
 
-Codegen::CodegenPhase& Codegen::get_current()
+void m()
 {
-    CodegenPhase* result = reinterpret_cast<CodegenPhase*>(CURRENT_CONFIGURATION->codegen_phase);
-
-    return *result;
+    B<int> a;
+    a.foo();
 }

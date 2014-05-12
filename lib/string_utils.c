@@ -30,7 +30,6 @@
 #include "uniquestr.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -267,7 +266,7 @@ void  merge_sort_list_str(const char** list, int size,unsigned char ascending_or
    private_merge_sort_str(list, 0, size-1, ascending_order);
 }
 
-static int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
+int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
 {
     int result;
     int size = 512;

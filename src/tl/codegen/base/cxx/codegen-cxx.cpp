@@ -169,6 +169,7 @@ TL::Scope CxxBase::get_current_scope() const
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         *(file) << _operand; \
@@ -202,6 +203,53 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
         return is_non_language_reference_variable(n.get_symbol());
     }
     return false;
+}
+
+void CxxBase::emit_line_marker(const locus_t* locus)
+{
+    if (!CURRENT_CONFIGURATION->line_markers)
+        return;
+
+    // We do not emit line markers in prettyprint
+    if (!is_file_output())
+        return;
+
+    // Avoid nodes without locus
+    if (locus == NULL)
+        return;
+
+    // Avoid 0-th line
+    int line = locus_get_line(locus);
+    if (line == 0)
+        return;
+
+    // Avoid ""
+    std::string filename = locus_get_filename(locus);
+    if (filename == "")
+        return;
+
+    // Do we need a newline?
+    if (!last_is_newline())
+        *file << "\n";
+
+    std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+    if (filename.size() >= internal_source.size())
+    {
+        std::string prefix = filename.substr(0, internal_source.size());
+
+        if (prefix == internal_source)
+        {
+            filename = this->get_output_filename();
+            line = get_current_line() + 1;
+        }
+    }
+
+    *file << "# " << line << " \"" << filename << "\"\n";
+}
+
+void CxxBase::emit_line_marker(Nodecl::NodeclBase n)
+{
+    emit_line_marker(n.get_locus());
 }
 
 void CxxBase::visit(const Nodecl::Reference &node)
@@ -272,6 +320,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         if (needs_parentheses) \
@@ -293,6 +342,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    char needs_parentheses = operand_has_lower_priority(node, lhs); \
@@ -345,6 +395,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    if (state.in_condition && state.condition_top == node) \
@@ -407,6 +458,7 @@ OPERATOR_TABLE
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase subscripted = node.get_subscripted();
     Nodecl::List subscript = node.get_subscripts().as<Nodecl::List>();
 
@@ -434,6 +486,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 {
+    emit_line_marker(node);
     const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
     if (const_value_is_zero(val))
@@ -448,6 +501,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BreakStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "break;\n";
 }
@@ -477,6 +531,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
     Nodecl::NodeclBase expression = node.get_case();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "case ";
     walk(expression);
@@ -487,6 +542,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
+    emit_line_marker(node);
     std::string cast_kind = node.get_text();
     TL::Type t = fix_references(node.get_type());
     Nodecl::NodeclBase nest = node.get_rhs();
@@ -560,6 +616,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
     Nodecl::NodeclBase statement = node.get_statement();
     TL::Type type = node.get_type();
 
+    emit_line_marker(node);
     indent();
     *(file) << "catch (";
 
@@ -592,6 +649,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
     Nodecl::NodeclBase member_literal = node.get_member_literal();
@@ -730,6 +788,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
 void CxxBase::visit(const Nodecl::Comma & node)
 {
+    emit_line_marker(node);
     *(file) << "(";
 
     Nodecl::NodeclBase lhs = node.children()[0];
@@ -794,6 +853,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 {
+    emit_line_marker(node);
     *(file) << " (";
 
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
@@ -833,6 +893,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "{\n";
     inc_indent();
@@ -856,6 +917,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase cond = node.get_condition();
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
@@ -910,6 +972,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "continue;\n";
 }
@@ -1144,6 +1207,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "default :\n";
 
@@ -1155,6 +1219,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
     Nodecl::NodeclBase statement = node.get_statement();
     Nodecl::NodeclBase condition = node.get_condition();
 
+    emit_line_marker(node);
     indent();
     *(file) << "do\n";
 
@@ -1170,6 +1235,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << ";\n";
 }
@@ -1182,7 +1248,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     }
     else
     {
-        internal_error("%s: error: <<error expression>> found when the output is a *(file)",
+        internal_error("%s: error: <<error expression>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -1190,6 +1256,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
+
+    emit_line_marker(node);
     indent();
 
     bool need_extra_parentheses = false;
@@ -1331,6 +1399,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 
     if (loop_control.is<Nodecl::LoopControl>())
     {
+        emit_line_marker(node);
         indent();
         *(file) << "for (";
         walk(loop_control);
@@ -1343,6 +1412,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
     else if (loop_control.is<Nodecl::UnboundedLoopControl>())
     {
         // This only happens for DO without loop-control
+        emit_line_marker(node);
         indent();
         *(file) << "for (;;)\n";
         inc_indent();
@@ -1379,6 +1449,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         }
         else
         {
+            emit_line_marker(node);
             indent();
             *(file) << "if (";
             walk(step);
@@ -2673,6 +2744,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    emit_line_marker(node);
     indent();
     *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
         << exception_spec << trailing_type_specifier << "\n";
@@ -2743,6 +2815,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GotoStatement& node)
 {
     TL::Symbol label_sym = node.get_symbol();
 
+    emit_line_marker(node);
     indent();
     *(file) << "goto " << label_sym.get_name() << ";\n";
 }
@@ -2753,6 +2826,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
     Nodecl::NodeclBase then = node.get_then();
     Nodecl::NodeclBase _else = node.get_else();
 
+    emit_line_marker(node);
     indent();
 
     *(file) << "if (";
@@ -3034,6 +3108,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LabeledStatement& node)
     TL::Symbol label_sym = node.get_symbol();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << label_sym.get_name() << " : ";
 
@@ -3406,6 +3481,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
     Nodecl::NodeclBase statement = node.get_statements();
 
+    emit_line_marker(node);
     indent();
     // FIXME  parallel|for must be printed as parallel for
     *(file) << "#pragma " << node.get_text() << " ";
@@ -3465,6 +3541,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_value();
 
+    emit_line_marker(node);
     indent();
     *(file) << "return ";
     walk(expression);
@@ -3911,6 +3988,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
     Nodecl::NodeclBase expression = node.get_switch();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "switch (";
     Nodecl::NodeclBase old_condition_top = state.condition_top;
@@ -4104,6 +4182,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     Nodecl::NodeclBase condition = node.get_condition();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "while (";
 
@@ -4114,6 +4193,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     state.in_condition = 1;
     state.condition_top = condition;
 
+    emit_line_marker(condition);
     walk(condition);
 
     set_indent_level(old_indent);

@@ -319,12 +319,9 @@ namespace TL { namespace OpenMP {
 
             if (entry_list == NULL)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: unknown '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            prettyprint_in_buffer(id_expr));
-                }
+                error_printf("%s: error: unknown '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        prettyprint_in_buffer(id_expr));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
@@ -333,12 +330,9 @@ namespace TL { namespace OpenMP {
             if (strcmp(entry->symbol_name, "omp_priv") != 0
                     || entry->kind != SK_VARIABLE)
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid '%s' in initializer clause\n",
-                            ast_location(id_expr),
-                            get_qualified_symbol_name(entry, decl_context));
-                }
+                error_printf("%s: error: invalid '%s' in initializer clause\n",
+                        ast_location(id_expr),
+                        get_qualified_symbol_name(entry, decl_context));
                 *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
                 return;
             }
@@ -363,9 +357,9 @@ namespace TL { namespace OpenMP {
             for (i = 0; i < ast_get_num_ambiguities(a); i++)
             {
                 *nodecl_output = nodecl_null();
-                enter_test_expression();
+                diagnostic_context_push_buffered();
                 check_omp_initializer(ast_get_ambiguity(a, i), decl_context, nodecl_output);
-                leave_test_expression();
+                diagnostic_context_pop_and_discard();
                 if (!nodecl_is_err_expr(*nodecl_output))
                 {
                     if (valid < 0)

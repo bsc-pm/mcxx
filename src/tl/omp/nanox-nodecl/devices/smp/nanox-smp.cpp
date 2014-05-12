@@ -691,7 +691,7 @@ namespace TL { namespace Nanox {
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-        phase->codegen_top_level(_extra_c_code, ancillary_file);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 

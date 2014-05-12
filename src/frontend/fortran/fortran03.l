@@ -1100,7 +1100,7 @@ x["][0-9a-f]+["] {
 
     if (count_hollerith_constant == 0)
     {
-        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0", 
+        error_printf("%s:%d: error: ignoring invalid Hollerith constant of length 0\n",
                 fortran_scanning_now->current_filename,
                 fortran_scanning_now->line_number);
     }
@@ -2768,7 +2768,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 	return 0;
 }
 
-char* TL_SOURCE_STRING = "(tl-source-string)";
+char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 // maybe this is not the best place to change the configuration but it must work
 compilation_configuration_t* string_scanning_configuration = 0;
 
@@ -2791,7 +2791,7 @@ int mf03_prepare_string_for_scanning(const char* str)
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 	fortran_scanning_now->filename = xcalloc(strlen(TL_SOURCE_STRING) + strlen(current_filename) + 10, sizeof(char));
     char filename[256];
-	snprintf(filename, 255, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+	snprintf(filename, 255, "%s-%s-%d", TL_SOURCE_STRING, current_filename, num_string);
     filename[255] = '\0';
     fortran_scanning_now->filename = uniquestr(filename);
 	
