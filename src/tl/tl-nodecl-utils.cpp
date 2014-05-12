@@ -30,6 +30,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-nodecl-deep-copy.h"
 #include "cxx-utils.h"
+#include "cxx-graphviz.h"
 #include <algorithm>
 
 namespace Nodecl
@@ -301,13 +302,13 @@ namespace Nodecl
         return get_all_symbols_first_occurrence(n).filter(local);
     }
 
-    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, bool in_ref, bool only_subscripts,
+    static void get_all_memory_accesses_rec(Nodecl::NodeclBase n, bool in_ref, bool in_class_member,
                                             TL::ObjectList<Nodecl::NodeclBase>& result)
     {
         if (n.is_null())
             return;
 
-        if (!in_ref && !only_subscripts &&
+        if (!in_ref && !in_class_member &&
             (n.is<Nodecl::Symbol>() || n.is<Nodecl::ObjectInit>()
                 || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::Dereference>()
                 || n.is<Nodecl::ArraySubscript>() || n.is<Nodecl::ClassMemberAccess>()))
@@ -322,33 +323,33 @@ namespace Nodecl
         if (n.is<Nodecl::ArraySubscript>())
         {
             Nodecl::ArraySubscript as = n.as<Nodecl::ArraySubscript>();
-            if (!only_subscripts)
+            if (!in_class_member)
             {
                 Nodecl::NodeclBase subscripted = as.get_subscripted();
-                if (!subscripted.get_type().is_pointer())
+                if (!in_ref && !subscripted.get_type().is_pointer())
                 {    // a[...] (if a array) only access memory for the subscripts
-                    get_all_memory_accesses_rec(subscripted, /*in_ref*/false, only_subscripts, result);
+                    get_all_memory_accesses_rec(subscripted, /*in_ref*/false, in_class_member, result);
                 }
             }
             Nodecl::List subscripts = as.get_subscripts().as<Nodecl::List>( );
             for (Nodecl::List::iterator it = subscripts.begin(); it != subscripts.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, /*in_ref*/false, /*only_subscripts*/false, result);
+                get_all_memory_accesses_rec(*it, /*in_ref*/false, /*in_class_member*/false, result);
             }
 
         }
         else
         {
             // Check if we have to take care only of the subscripts (in case we were taking care of everything so far)
-            if (!only_subscripts)
+            if (!in_class_member)
                 if (n.is<Nodecl::ClassMemberAccess>())
-                    only_subscripts = true;
+                    in_class_member = true;
 
             TL::ObjectList<Nodecl::NodeclBase> children = n.children();
             for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
                 it != children.end(); it++)
             {
-                get_all_memory_accesses_rec(*it, in_ref, only_subscripts, result);
+                get_all_memory_accesses_rec(*it, in_ref, in_class_member, result);
             }
         }
     }
@@ -522,6 +523,21 @@ namespace Nodecl
         return n.get_type().is_lvalue_reference( );
     }
 
+    bool Utils::find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    {
+        StructuralFinderVisitor finder(needle);
+        finder.walk(haystack);
+        return finder.found;
+    }
+
+    bool Utils::find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    {
+        PointerFinderVisitor finder(needle);
+        finder.walk(haystack);
+        return finder.found;
+    }
+
+
     bool Utils::nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
         bool result = false;
@@ -603,18 +619,6 @@ namespace Nodecl
         return result;
     }
 
-    bool Utils::stmtexpr_contains_nodecl_structurally( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
-    {
-        ExprStructuralFinderVisitor efv( container );
-        return efv.find( contained );
-    }
-
-    bool Utils::stmtexpr_contains_nodecl_pointer( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
-    {
-        ExprPointerFinderVisitor efv( container );
-        return efv.find( contained );
-    }
-
     bool Utils::nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l )
     {
         bool res = false;
@@ -642,12 +646,14 @@ namespace Nodecl
         nodecl_t n1_ = n1.get_internal_nodecl();
         nodecl_t n2_ = n2.get_internal_nodecl();
 
+        /*
         if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
         {
             std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
                       << " no lists inside. The method returns false but they can be the same tree" << std::endl;
             return false;
         }
+        */
 
         bool equals = equal_trees_rec(n1_, n2_, skip_conversion_nodecls);
         return equals;
@@ -665,12 +671,12 @@ namespace Nodecl
     {
         return nodecl_hash_table(n.get_internal_nodecl());
     }
-    
+
     bool Utils::Nodecl_structural_equal::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
         return structurally_equal_nodecls(n1, n2);
     }
-    
+
     bool Utils::Nodecl_structural_less::operator() (const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2) const
     {
         return (structurally_cmp_nodecls(n1, n2, /*skip_conversion_nodes*/true) < 0);
@@ -728,6 +734,10 @@ namespace Nodecl
         {
             n = n.get_parent();
         }
+
+        // We want the whole list
+        if (!n.is_null())
+            n =  get_all_list_from_list_node(n.as<Nodecl::List>());
 
         return n;
     }
@@ -1280,6 +1290,7 @@ namespace Nodecl
 
     Nodecl::ArraySubscript Utils::linearize_array_subscript(const Nodecl::ArraySubscript& n)
     {
+        int i;
         Nodecl::List indexes = n.get_subscripts().as<Nodecl::List>();
         int num_dimensions = indexes.size();
 
@@ -1289,7 +1300,7 @@ namespace Nodecl
         {
             TL::Type subscripted_type = n.get_subscripted().get_type();
 
-            for(int i=0; i<num_dimensions; i++)
+            for(i=0; i<num_dimensions; i++)
             {
                 if(subscripted_type.is_pointer() && (i == 0))
                 {
@@ -1329,23 +1340,54 @@ namespace Nodecl
             }
             else
             {
+                Nodecl::Mul dim_offset =
+                    Nodecl::Mul::make(
+                            it_sizes->shallow_copy(),
+                            new_linearized_subscript.shallow_copy(),
+                            get_ptrdiff_t_type());
+                
+                if (it_sizes->is_constant() &&
+                        new_linearized_subscript.is_constant())
+                    dim_offset.set_constant(const_value_mul(
+                                it_sizes->get_constant(),
+                                new_linearized_subscript.get_constant()));
+
+
                 new_linearized_subscript = Nodecl::Add::make(
-                        Nodecl::ParenthesizedExpression::make(
-                            Nodecl::Mul::make(
-                                Nodecl::ParenthesizedExpression::make(it_sizes->shallow_copy(), it_sizes->get_type()),
-                                Nodecl::ParenthesizedExpression::make(new_linearized_subscript, new_linearized_subscript.get_type()),
-                                get_ptrdiff_t_type()), get_ptrdiff_t_type()),
-                        Nodecl::ParenthesizedExpression::make(it_indexes->shallow_copy(), it_indexes->get_type()),
+                        dim_offset,
+                        it_indexes->shallow_copy(),
                         get_ptrdiff_t_type());
+
+                if (dim_offset.is_constant() && it_indexes->is_constant())
+                    new_linearized_subscript.set_constant(const_value_add(
+                                dim_offset.get_constant(),
+                                it_indexes->get_constant()));
             }
 
             it_indexes++;
             it_sizes++;
         }
 
+        // Subscripted
+        Nodecl::NodeclBase new_subscripted = n.get_subscripted().shallow_copy();
+
+        // Dereferencing subscripted for num_dimensions > 1
+        TL::Type deref_type = new_subscripted.get_type().basic_type();
+
+        if (num_dimensions > 1)
+        {
+            TL::Type deref_type = new_subscripted.get_type().basic_type().
+                get_pointer_to();
+
+            new_subscripted = Nodecl::Cast::make(
+                    new_subscripted.shallow_copy(),
+                    deref_type,
+                    "C");
+        }
+
         Nodecl::ArraySubscript result_array =
-            ArraySubscript::make(n.get_subscripted().shallow_copy(),
-                    Nodecl::List::make(new_linearized_subscript),
+            ArraySubscript::make(new_subscripted.shallow_copy(),
+                    Nodecl::List::make(new_linearized_subscript.shallow_copy()),
                     n.get_type(),
                     n.get_locus());
 
@@ -1396,533 +1438,62 @@ namespace Nodecl
     // *************** Visitor looking for a nodecl contained in a scope *************** //
 
     template <class Comparator>
-    Utils::ExprFinderVisitor<Comparator>::ExprFinderVisitor( const Nodecl::NodeclBase& stmt_expr)
-        : _scope( stmt_expr ), _n( Nodecl::NodeclBase::null( ) ),
-        _nodecl_is_found( false )
-    {}
-
-    template <class Comparator>
-    bool Utils::ExprFinderVisitor<Comparator>::find( const Nodecl::NodeclBase& n )
+    void Utils::FinderVisitor<Comparator>::generic_finder(const Nodecl::NodeclBase& n)
     {
-        _nodecl_is_found = false;
-        _n = n;
-        walk( _scope );
-        return _nodecl_is_found;
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::binary_visitor( const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs )
-    {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-        else
+        if( _comparator( n, _needle ) )
         {
-            walk( lhs );
-            if( !_nodecl_is_found )
-                walk( rhs );
+            found = true;
         }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::ternary_visitor( const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
-            const Nodecl::NodeclBase& third )
-    {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
         else
         {
-            walk( first );
-            if( !_nodecl_is_found )
-            {
-                walk( second );
-                if( !_nodecl_is_found )
-                    walk( third );
-            }
-        }
-    }
+            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
 
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::quaternary_visitor( const Nodecl::NodeclBase& n,
-            const Nodecl::NodeclBase& first, const Nodecl::NodeclBase& second,
-            const Nodecl::NodeclBase& third, const Nodecl::NodeclBase& fourth )
-    {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-        else
-        {
-            walk( first );
-            if( !_nodecl_is_found )
+            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
             {
-                walk( second );
-                if( !_nodecl_is_found )
+                if (!it->is_null())
                 {
-                    walk( third );
-                    if( !_nodecl_is_found )
-                        walk( fourth );
+                    walk(*it);
+                    if (found)
+                        break;
                 }
             }
         }
     }
 
-
     template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::unary_visitor( const Nodecl::NodeclBase& n,
-                                                  const Nodecl::NodeclBase& rhs )
+    void Utils::FinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
     {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-        else
-            walk( rhs );
+        generic_finder(n);
     }
 
     template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
+    void Utils::FinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
     {
-        WARNING_MESSAGE( "Unhandled node '%s' during ExprFinderVisitor",
-                ast_print_node_type(n.get_kind()));
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Add& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::AddAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ArithmeticShrAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ArraySubscript& n )
-    {
-        binary_visitor( n, n.get_subscripted( ), n.get_subscripts( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Assignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseAndAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseOrAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShl& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShlAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShr& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseShrAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::BitwiseXorAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Cast& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ClassMemberAccess& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_member( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Conversion& n )
-    {
-        unary_visitor( n, n.get_nest( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Dereference& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Different& n )
-    {
-        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Div& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::DivAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Equal& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::FloatingLiteral& n )
-    {
-        if( _comparator( n, _n ) )
+        generic_finder(n);
+        if( !found )
         {
-            if (const_value_eq(n.get_constant(),
-                        _n.get_constant()))
-                _nodecl_is_found = true;
-        }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::FunctionCall& n )
-    {
-        binary_visitor( n, n.get_called( ), n.get_arguments( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::IntegerLiteral& n )
-    {
-        if( _comparator( n, _n ) )
-        {
-            if (const_value_eq(n.get_constant(),
-                        _n.get_constant()))
-                _nodecl_is_found = true;
-        }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::LowerThan& n )
-    {
-        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::LowerOrEqualThan& n )
-    {
-        binary_visitor(n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MaskLiteral& n )
-    {
-        if( _comparator( n, _n ) )
-        {
-            if (const_value_eq(n.get_constant(),
-                        _n.get_constant()))
-                _nodecl_is_found = true;
-        }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Minus& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MinusAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Mod& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ModAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Mul& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::MulAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs( ), n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Neg& n )
-    {
-        unary_visitor( n, n.get_rhs( ));
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
-    {
-        TL::Symbol sym = n.get_symbol( );
-        Nodecl::Symbol n_sym = Nodecl::Symbol::make( sym, n.get_locus( ) );
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-        else
-        {
+            TL::Symbol sym = n.get_symbol( );
             Nodecl::NodeclBase val = sym.get_value( );
+
             if( !val.is_null( ) )
-                walk( val );
+                walk(val);
         }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Postdecrement& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Postincrement& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Predecrement& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Preincrement& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Range& n )
-    {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-        else
-        {
-            walk( n.get_lower( ) );
-            if( !_nodecl_is_found )
-            {
-                walk( n.get_upper( ) );
-                if( !_nodecl_is_found )
-                    walk( n.get_stride( ) );
-            }
-        }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Reference& n )
-    {
-        unary_visitor( n, n.get_rhs( ) );
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::Symbol& n )
-    {
-        if( _comparator( n, _n ) )
-            _nodecl_is_found = true;
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::UnalignedVectorLoad& n )
-    {
-        binary_visitor( n, n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::UnalignedVectorStore& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorAdd& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorAssignment& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShl& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShlI& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShr& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorBitwiseShrI& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorConversion& n )
-    {
-        binary_visitor( n, n.get_nest(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorDiv& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorFabs& n )
-    {
-        binary_visitor(n, n.get_argument(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorFunctionCall& n )
-    {
-        walk(n.get_function_call());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGather& n )
-    {
-        ternary_visitor( n, n.get_base(), n.get_strides(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGreaterThan& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorGreaterOrEqualThan& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLiteral& n )
-    {
-        if( _comparator( n, _n ) )
-        {
-            if (const_value_eq(n.get_constant(),
-                        _n.get_constant()))
-                _nodecl_is_found = true;
-        }
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLoad& n )
-    {
-        binary_visitor( n, n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLowerThan& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorLowerOrEqualThan& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMaskAssignment& n )
-    {
-        binary_visitor( n, n.get_lhs(), n.get_rhs());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorMul& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorPromotion& n )
-    {
-        binary_visitor( n, n.get_rhs(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorReductionAdd& n )
-    {
-        ternary_visitor( n, n.get_scalar_dst(), n.get_vector_src(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorScatter& n )
-    {
-        quaternary_visitor( n, n.get_base(), n.get_strides(), n.get_source(), n.get_mask());
-    }
-
-    template <class Comparator>
-    void Utils::ExprFinderVisitor<Comparator>::visit( const Nodecl::VectorStore& n )
-    {
-        ternary_visitor( n, n.get_lhs(), n.get_rhs(), n.get_mask());
     }
 
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
+
+// #################
+//  DEBUG FUNCTIONS
+// #################
+
+    void Utils::print_ast(Nodecl::NodeclBase n)
+    {
+        ast_dump_graphviz(n.get_internal_nodecl().tree, stderr);
+    }
+
 }
 
 namespace TL
@@ -1931,7 +1502,8 @@ namespace TL
     // Lower bound and upper bound are closed ranges:
     //      [lower_bound, upper_bound] if step is positive
     //      [upper_bound, lower_bound] if step is negative
-    void ForStatement::analyze_loop_header()
+    template <typename CopyPolicy>
+    void ForStatementHelper<CopyPolicy>::analyze_loop_header()
     {
         Nodecl::NodeclBase lc = this->get_loop_header();
         if (lc.is<Nodecl::RangeLoopControl>())
@@ -1947,9 +1519,9 @@ namespace TL
             }
 
             _induction_var = loop_control.get_induction_variable();
-            _lower_bound = loop_control.get_lower().shallow_copy();
-            _upper_bound = loop_control.get_upper().shallow_copy();
-            _step = loop_control.get_step().shallow_copy();
+            _lower_bound = CopyPolicy::shallow_copy(loop_control.get_lower());
+            _upper_bound = CopyPolicy::shallow_copy(loop_control.get_upper());
+            _step = CopyPolicy::shallow_copy(loop_control.get_step());
 
             _is_omp_valid = true;
         }
@@ -1989,7 +1561,7 @@ namespace TL
                 }
 
                 Nodecl::NodeclBase rhs = init_expr.as<Nodecl::Assignment>().get_rhs();
-                _lower_bound = rhs.shallow_copy();
+                _lower_bound = CopyPolicy::shallow_copy(rhs);
             }
             // T _induction_var = lb
             else if (init_expr.is<Nodecl::ObjectInit>())
@@ -1997,7 +1569,7 @@ namespace TL
                 _induction_variable_in_separate_scope = true;
                 _induction_var = init_expr;
 
-                _lower_bound = _induction_var.get_symbol().get_value().shallow_copy();
+                _lower_bound = CopyPolicy::shallow_copy(_induction_var.get_symbol().get_value());
             }
             else
             {
@@ -2042,18 +1614,21 @@ namespace TL
 
                         if (rhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
                                     const_value_sub(
                                         rhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                                        const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Minus::make(
-                                    rhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    rhs.get_locus());
+                            _upper_bound =
+                                CopyPolicy::new_node(
+                                        Nodecl::Minus::make(
+                                            CopyPolicy::shallow_copy(rhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            rhs.get_locus()));
                         }
                     }
                     else
@@ -2066,18 +1641,21 @@ namespace TL
 
                         if (lhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
-                                    const_value_add(
-                                        lhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_add(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Add::make(
-                                    lhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    lhs.get_locus());
+                            _upper_bound = 
+                                CopyPolicy::new_node(
+                                        Nodecl::Add::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
                         }
                     }
                 }
@@ -2086,12 +1664,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x <= E
-                        _upper_bound = rhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
                     }
                     else
                     {
                         // E <= x this is like x >= E
-                        _upper_bound = lhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
                     }
                 }
                 else if (test_expr.is<Nodecl::GreaterThan>())
@@ -2107,18 +1685,20 @@ namespace TL
 
                         if (rhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
                                     const_value_add(
                                         rhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                                        const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Add::make(
-                                    rhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    rhs.get_locus());
+                            _upper_bound = CopyPolicy::new_node(
+                                    Nodecl::Add::make(
+                                        CopyPolicy::shallow_copy(rhs),
+                                        CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                        t,
+                                        rhs.get_locus()));
                         }
                     }
                     else
@@ -2131,18 +1711,21 @@ namespace TL
 
                         if (lhs.is_constant())
                         {
-                            _upper_bound = const_value_to_nodecl(
-                                    const_value_sub(
-                                        lhs.get_constant(),
-                                        const_value_get_one(4, 1)));
+                            _upper_bound = CopyPolicy::new_node(
+                                    const_value_to_nodecl(
+                                        const_value_sub(
+                                            lhs.get_constant(),
+                                            const_value_get_one(4, 1))));
                         }
                         else
                         {
-                            _upper_bound = Nodecl::Minus::make(
-                                    lhs.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_one(4, 1)),
-                                    t,
-                                    lhs.get_locus());
+                            _upper_bound = 
+                                CopyPolicy::new_node(
+                                        Nodecl::Minus::make(
+                                            CopyPolicy::shallow_copy(lhs),
+                                            CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1))),
+                                            t,
+                                            lhs.get_locus()));
                         }
                     }
                 }
@@ -2151,12 +1734,12 @@ namespace TL
                     if (lhs_is_var)
                     {
                         // x >= E
-                        _upper_bound = rhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(rhs);
                     }
                     else
                     {
                         // E >= x this is like x <= E
-                        _upper_bound = lhs.shallow_copy();
+                        _upper_bound = CopyPolicy::shallow_copy(lhs);
                     }
                 }
                 else
@@ -2176,35 +1759,35 @@ namespace TL
                     && incr_expr.as<Nodecl::Preincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
             }
             // _induction_var++
             else if (incr_expr.is<Nodecl::Postincrement>()
                     && incr_expr.as<Nodecl::Postincrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_one(4, 1)));
             }
             // --_induction_var
             else if (incr_expr.is<Nodecl::Predecrement>()
                     && incr_expr.as<Nodecl::Predecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
             }
             // _induction_var--
             else if (incr_expr.is<Nodecl::Postdecrement>()
                     && incr_expr.as<Nodecl::Postdecrement>().get_rhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = const_value_to_nodecl(const_value_get_minus_one(4, 1));
+                _step = CopyPolicy::new_node(const_value_to_nodecl(const_value_get_minus_one(4, 1)));
             }
             // _induction_var += incr
             else if (incr_expr.is<Nodecl::AddAssignment>()
                     && incr_expr.as<Nodecl::AddAssignment>().get_lhs().no_conv().get_symbol()
                     == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::AddAssignment>().get_rhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::AddAssignment>().get_rhs());
             }
             // _induction_var -= incr
             else if (incr_expr.is<Nodecl::MinusAssignment>()
@@ -2220,14 +1803,16 @@ namespace TL
 
                 if (rhs.is_constant())
                 {
-                    _step = const_value_to_nodecl(const_value_neg(rhs.get_constant()));
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(const_value_neg(rhs.get_constant())));
                 }
                 else
                 {
-                    _step = Nodecl::Neg::make(
-                            rhs,
-                            t,
-                            rhs.get_locus());
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                rhs,
+                                t,
+                                rhs.get_locus()));
                 }
             }
             // _induction_var = _induction_var + incr
@@ -2238,7 +1823,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
                         .as<Nodecl::Add>().get_lhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_rhs());
             }
             // _induction_var = incr + _induction_var
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -2248,7 +1833,7 @@ namespace TL
                     && incr_expr.as<Nodecl::Assignment>().get_rhs().no_conv()
                         .as<Nodecl::Add>().get_rhs().no_conv().get_symbol() == _induction_var.get_symbol())
             {
-                _step = incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs().shallow_copy();
+                _step = CopyPolicy::shallow_copy(incr_expr.as<Nodecl::Assignment>().get_rhs().as<Nodecl::Add>().get_lhs());
             }
             // _induction_var = _induction_var - incr
             else if (incr_expr.is<Nodecl::Assignment>()
@@ -2267,15 +1852,17 @@ namespace TL
 
                 if (rhs.is_constant())
                 {
-                    _step = const_value_to_nodecl(
-                            const_value_neg(rhs.get_constant()));
+                    _step = CopyPolicy::new_node(
+                            const_value_to_nodecl(
+                            const_value_neg(rhs.get_constant())));
                 }
                 else
                 {
-                    _step = Nodecl::Neg::make(
-                            rhs.shallow_copy(),
-                            t,
-                            rhs.get_locus());
+                    _step = CopyPolicy::new_node(
+                            Nodecl::Neg::make(
+                                CopyPolicy::shallow_copy(rhs),
+                                t,
+                                rhs.get_locus()));
                 }
             }
             else
@@ -2292,33 +1879,36 @@ namespace TL
         _is_omp_valid = true;
     }
 
-    bool ForStatement::is_omp_valid_loop() const
+    bool ForStatementHelperBase::is_omp_valid_loop() const
     {
         return _is_omp_valid;
     }
 
-    TL::Symbol ForStatement::get_induction_variable() const
+    TL::Symbol ForStatementHelperBase::get_induction_variable() const
     {
         return _induction_var.get_symbol();
     }
 
-    bool ForStatement::induction_variable_in_separate_scope() const
+    bool ForStatementHelperBase::induction_variable_in_separate_scope() const
     {
         return _induction_variable_in_separate_scope;
     }
 
-    Nodecl::NodeclBase ForStatement::get_lower_bound() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_lower_bound() const
     {
         return _lower_bound;
     }
 
-    Nodecl::NodeclBase ForStatement::get_upper_bound() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_upper_bound() const
     {
         return _upper_bound;
     }
 
-    Nodecl::NodeclBase ForStatement::get_step() const
+    Nodecl::NodeclBase ForStatementHelperBase::get_step() const
     {
         return _step;
     }
+
+    template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
+    template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
 }

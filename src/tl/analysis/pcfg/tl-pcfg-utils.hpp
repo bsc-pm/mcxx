@@ -359,6 +359,12 @@ namespace Analysis {
      */
     #define _PRIVATE_UNDEF                  "private_undefined_behaviour_vars"
     
+    /*! \def _USED_ADDRESSES
+     * Set of addresses being used within a node
+     * Available in all nodes (Mandatory once the UseDef analysis is performed)
+     */
+    #define _USED_ADDRESSES                 "used_addresses"
+    
     // Liveness attributes
     //////////////////////
     

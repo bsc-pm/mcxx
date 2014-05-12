@@ -43,7 +43,7 @@ namespace TL {
 namespace Analysis {
 
     static int _subgraph_id = 0;
-    
+
     static bool _usage;
     static bool _liveness;
     static bool _reaching_defs;
@@ -51,9 +51,9 @@ namespace Analysis {
     static bool _ranges;
     static bool _auto_scoping;
     static bool _auto_deps;
-    
+
 namespace {
-    
+
     std::string print_node_usage( Node* current )
     {
         std::string usage = "";
@@ -62,14 +62,16 @@ namespace {
             std::string ue = prettyprint_ext_sym_set( current->get_ue_vars( ), /*dot*/ true );
             std::string killed = prettyprint_ext_sym_set( current->get_killed_vars( ), /*dot*/ true );
             std::string undef = prettyprint_ext_sym_set( current->get_undefined_behaviour_vars( ), /*dot*/ true );
+            std::string used_addresses = prettyprint_ext_sym_set( current->get_used_addresses( ), /*dot*/ true );
             std::string assert_ue = prettyprint_ext_sym_set( current->get_assert_ue_vars( ), /*dot*/ true );
             std::string assert_killed = prettyprint_ext_sym_set( current->get_assert_killed_vars( ), /*dot*/ true );
             
-            usage = ( killed.empty( )          ? "" : ( "KILL: "          + killed        + "\\n" ) )
-                    + ( ue.empty( )            ? "" : ( "UE: "            + ue            + "\\n" ) )
-                    + ( undef.empty( )         ? "" : ( "UNDEF: "         + undef         + "\\n" ) )
-                    + ( assert_ue.empty( )     ? "" : ( "ASSERT_UE: "     + assert_ue     + "\\n" ) ) 
-                    + ( assert_killed.empty( ) ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
+            usage = ( killed.empty( )           ? "" : ( "KILL: "          + killed         + "\\n" ) )
+                    + ( ue.empty( )             ? "" : ( "UE: "            + ue             + "\\n" ) )
+                    + ( undef.empty( )          ? "" : ( "UNDEF: "         + undef          + "\\n" ) )
+                    + ( used_addresses.empty( ) ? "" : ( "USED_ADDRS: "    + used_addresses + "\\n" ) )
+                    + ( assert_ue.empty( )      ? "" : ( "ASSERT_UE: "     + assert_ue      + "\\n" ) ) 
+                    + ( assert_killed.empty( )  ? "" : ( "ASSERT_KILLED: " + assert_killed ) );
             
             int u_size = usage.size( );
             if( ( u_size > 3 ) && ( usage.substr( u_size - 2, u_size - 1 ) == "\\n" ) )
@@ -88,21 +90,21 @@ namespace {
             std::string assert_live_in = prettyprint_ext_sym_set( current->get_assert_live_in_vars( ), /*dot*/ true );
             std::string assert_live_out = prettyprint_ext_sym_set( current->get_assert_live_out_vars( ), /*dot*/ true );
             std::string assert_dead = prettyprint_ext_sym_set( current->get_assert_dead_vars( ), /*dot*/ true );
-        
+
             liveness = ( live_in.empty( )         ? "" : "LI: "          + live_in         + "\\n" )
-                     + ( live_out.empty( )        ? "" : "LO: "          + live_out        + "\\n" ) 
+                     + ( live_out.empty( )        ? "" : "LO: "          + live_out        + "\\n" )
                      + ( assert_live_in.empty( )  ? "" : "ASSERT_LI: "   + assert_live_in  + "\\n" )
                      + ( assert_live_out.empty( ) ? "" : "ASSERT_LO: "   + assert_live_out + "\\n")
                      + ( assert_dead.empty( )     ? "" : "ASSERT_DEAD: " + assert_dead );
-            
+
             int l_size = liveness.size( );
             if( ( l_size > 3 ) && ( liveness.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
                 liveness = liveness.substr( 0, l_size - 2 );
         }
-        
+
         return liveness;
     }
-    
+
     std::string print_node_reaching_defs( Node* current )
     {
         std::string reaching_defs = "";
@@ -113,20 +115,20 @@ namespace {
             std::string defs_out = prettyprint_ext_sym_map( current->get_reaching_definitions_out( ), /*dot*/ true );
             std::string assert_defs_in = prettyprint_ext_sym_map( current->get_assert_reaching_definitions_in( ), /*dot*/ true );
             std::string assert_defs_out = prettyprint_ext_sym_map( current->get_assert_reaching_definitions_out( ), /*dot*/ true );
-        
+
             reaching_defs = ( gen.empty( )               ? "" : "GEN: "        + gen             + "\\n" )
                             + ( defs_in.empty( )         ? "" : "RDI: "        + defs_in         + "\\n" )
                             + ( defs_out.empty( )        ? "" : "RDO: "        + defs_out        + "\\n" )
                             + ( assert_defs_in.empty( )  ? "" : "ASSERT_RDI: " + assert_defs_in  + "\\n" )
                             + ( assert_defs_out.empty( ) ? "" : "ASSERT_RDO: " + assert_defs_out );
-        
+
             int l_size = reaching_defs.size( );
             if( ( l_size > 3 ) && ( reaching_defs.substr( l_size - 2, l_size - 1 ) == "\\n" ) )
                 reaching_defs = reaching_defs.substr( 0, l_size - 2 );
         }
         return reaching_defs;
     }
-    
+
     std::string print_node_induction_variables( Node* current )
     {
         std::string induction_vars = "";
@@ -148,7 +150,7 @@ namespace {
                 int l_incrs_size = list_of_incrs.size( );
                 if( !list_of_incrs.empty( ) )
                     list_of_incrs = list_of_incrs.substr( 0, l_incrs_size - 2 );
-                induction_vars += iv->get_variable( ).get_nodecl( ).prettyprint( ) 
+                induction_vars += iv->get_variable( ).get_nodecl( ).prettyprint( )
                                   + " [ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
                                   + ":"   + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
                                   + ":"   + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
@@ -161,7 +163,7 @@ namespace {
             induction_vars = induction_vars.substr( 0, l_size - 2 );
         return induction_vars;
     }
-    
+
     std::string print_node_ranges( Node* current )
     {
         std::string ranges = "";
@@ -234,14 +236,14 @@ namespace {
         return auto_deps;
     }
 }
-    
+
     static int id_ = 0;
-    
+
     void ExtensibleGraph::print_graph_to_dot( bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                               bool ranges, bool auto_scoping, bool auto_deps )
     {
         std::ofstream dot_pcfg;
-        
+
         // Create the directory of dot files if it has not been previously created
         char buffer[1024];
         char* err = getcwd(buffer, 1024);
@@ -282,7 +284,7 @@ namespace {
         dot_pcfg.open( dot_file_name.c_str( ) );
         if( !dot_pcfg.good( ) )
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str( ) );
-            
+
         // Create the dot graphs
         if( VERBOSE )
             std::cerr << "- PCFG File '" << dot_file_name << "'" << std::endl;
@@ -294,7 +296,7 @@ namespace {
         _ranges = ranges;
         _auto_scoping = auto_scoping;
         _auto_deps = auto_deps;
-        
+
         dot_pcfg << "digraph CFG {\n";
             dot_pcfg << "\tcompound=true;\n";
             std::string dot_graph = "";
@@ -316,13 +318,13 @@ namespace {
 
     // Preorder traversal
     void ExtensibleGraph::get_nodes_dot_data( Node* current, std::string& dot_graph, std::string& dot_analysis_info,
-                                              std::vector<std::vector<std::string> >& outer_edges, 
+                                              std::vector<std::vector<std::string> >& outer_edges,
                                               std::vector<std::vector<Node*> >& outer_nodes, std::string indent )
     {
         if( !current->is_visited( ) )
         {
             current->set_visited( true );
-            
+
             // Generate the node
             if( current->is_graph_node( ) )
             {
@@ -341,7 +343,7 @@ namespace {
                 outer_nodes.push_back( std::vector<Node*>() );
                 get_dot_subgraph( current, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent + "\t" );
                 dot_graph += indent + "}\n";
-                
+
                 // Print additional information attached to the node
                 dot_graph += print_pragma_node_clauses( current, indent, cluster_name );
                 print_node_analysis_info( current, dot_analysis_info, cluster_name );
@@ -350,24 +352,24 @@ namespace {
             {
                 get_node_dot_data( current, dot_graph, dot_analysis_info, indent );
             }
-            
-            // Connect the current node and the possible inner nodes (when current is a graph) 
+
+            // Connect the current node and the possible inner nodes (when current is a graph)
             // with the nodes in the current nesting level
             bool connect_current = true;
             std::stringstream ss_source_id;
             if( current->is_graph_node( ) ) {
-                // It may happen that the exit of a graph node has no entry edges 
+                // It may happen that the exit of a graph node has no entry edges
                 // when there is a break point inside the graph that avoid reaching the exit of the graph.
                 // In these cases, we do not need to print this edge because it will never occur
                 Node* exit = current->get_graph_exit_node( );
                 if( exit->get_entry_edges( ).empty( ) )
                     connect_current = false;
-                
+
                 ss_source_id << exit->get_id( );
             } else {
                 ss_source_id << current->get_id( );
             }
-                
+
             // Connect current children
             if( connect_current )
             {
@@ -379,18 +381,18 @@ namespace {
                         ss_target_id << ( *it )->get_graph_entry_node( )->get_id( );
                     else
                         ss_target_id << ( *it )->get_id( );
-                    
+
                     std::string direction = "";
                     if( ss_source_id.str( ) == ss_target_id.str( ) )
                         direction = ", headport=n, tailport=s";
-                    
+
                     std::string extra_edge_attrs = "";
                     Edge* current_edge = ExtensibleGraph::get_edge_between_nodes( current, *it );
                     if( current_edge->is_task_edge( ) )
                         extra_edge_attrs = ", style=dashed";
-                    
+
                     std::string edge = ss_source_id.str( ) + " -> " + ss_target_id.str( )
-                                        + " [label=\"" + current_edge->get_label_as_string( ) 
+                                        + " [label=\"" + current_edge->get_label_as_string( )
                                         + "\"" + direction + extra_edge_attrs + "];\n";
                     Node* source_outer = current->get_outer_node( );
                     Node* target_outer = ( *it )->get_outer_node( );
@@ -413,7 +415,7 @@ namespace {
                     }
                 }
             }
-            
+
             // Connect all edges and nodes corresponding to the current level of nesting
             if( current->is_graph_node( ) && !outer_edges.empty( ) )
             {
@@ -421,7 +423,7 @@ namespace {
                 std::vector<Node*> current_outer_nodes = outer_nodes[outer_nodes.size( )-1];
                 for( std::vector<Node*>::iterator it = current_outer_nodes.begin( ); it != current_outer_nodes.end( ); ++it )
                     get_nodes_dot_data( *it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent );
-                // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level, 
+                // Calling recursively to get_nodes_dot_data can add new nodes to the same nesting level,
                 // so we have to iterate over again
                 unsigned int last_nodes_size = current_outer_nodes.size( );
                 while( current_outer_nodes.size( ) < outer_nodes[outer_nodes.size( )-1].size( ) )
@@ -432,7 +434,7 @@ namespace {
                     last_nodes_size = current_outer_nodes.size( );
                 }
                 outer_nodes.pop_back( );
-                
+
                 // Printing the edges
                 std::vector<std::string> current_outer_edges = outer_edges[outer_edges.size( )-1];
                 for( std::vector<std::string>::iterator it = current_outer_edges.begin( ); it != current_outer_edges.end( ); ++it )
@@ -443,7 +445,7 @@ namespace {
     }
 
     void ExtensibleGraph::get_dot_subgraph( Node* current, std::string& dot_graph, std::string& graph_analysis_info,
-                                            std::vector<std::vector< std::string> >& outer_edges, 
+                                            std::vector<std::vector< std::string> >& outer_edges,
                                             std::vector<std::vector<Node*> >& outer_nodes, std::string indent )
     {
         switch( current->get_graph_type( ) )
@@ -611,7 +613,7 @@ namespace {
 
     static std::string pcfgclause_to_str( PCFGClause clause )
     {
-        std::string clauses_str = ""; 
+        std::string clauses_str = "";
         int i = 0;
         Nodecl::List args = clause.get_args( );
         int n_args = args.size( );
@@ -620,7 +622,7 @@ namespace {
             if( it->is<Nodecl::OpenMP::ReductionItem>( ) )
             {
                 Nodecl::OpenMP::ReductionItem red = it->as<Nodecl::OpenMP::ReductionItem>( );
-                clauses_str += clause.get_clause_as_string( ) + "(" 
+                clauses_str += clause.get_clause_as_string( ) + "("
                              + red.get_reductor( ).prettyprint( ) + ":" + red.get_reduced_symbol( ).prettyprint( ) + ")";
             }
             else if( it->is<Nodecl::OpenMP::Final>( ) )
@@ -697,15 +699,15 @@ namespace {
             else
             {
                 clauses_str += clause.get_clause_as_string( ) + "(" + it->prettyprint( ) + ")";
-            }   
-            
+            }
+
             if( i < n_args-1 )
                 clauses_str += ", ";
         }
-        
+
         return clauses_str;
     }
-    
+
     std::string ExtensibleGraph::print_pragma_node_clauses( Node* current, std::string indent, std::string cluster_name )
     {
         std::string pragma_info_str = "";
@@ -734,7 +736,7 @@ namespace {
         }
         return pragma_info_str;
     }
-    
+
     void ExtensibleGraph::print_node_analysis_info( Node* current, std::string& dot_analysis_info,
                                                     std::string cluster_name )
     {

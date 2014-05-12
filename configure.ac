@@ -305,6 +305,7 @@ then
                 then
                    AC_MSG_RESULT([yes])
                    mic_testing_device="$enableval"
+                   mic_testing="yes"
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi
@@ -434,12 +435,16 @@ AC_ARG_ENABLE([tl-openmp-nanox],
 
 nanox_include=""
 nanox_lib=""
+nanox=""
 nanox_mic_include=""
-nanox__mic_lib=""
+nanox_mic_lib=""
+nanox=""
+NANOX=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
 NANOX_GNU_LDFLAGS=""
 NANOX_IBM_LDFLAGS=""
+NANOX_MIC=""
 NANOX_MIC_INCLUDES=""
 NANOX_MIC_LIBS=""
 nanox_mic_enabled=no
@@ -460,6 +465,7 @@ then
            [
             nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
+            nanox="${withval}"
             if test -d "${withval}/lib64";
             then
              nanox_lib="${withval}/lib64"
@@ -486,6 +492,7 @@ then
            [
             nanox_mic_include="${withval}/include/nanox"
             nanox_mic_lib="${withval}/lib"
+            nanox_mic="${withval}"
             nanox_mic_enabled=yes
             if test -d "${withval}/lib64";
             then
@@ -517,6 +524,7 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
+   NANOX_MIC="${nanox}"
    
 
    AC_ARG_WITH([mic-tools],
@@ -549,6 +557,7 @@ then
 
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
+   NANOX="${nanox}"
 
    COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
 
@@ -587,12 +596,14 @@ then
   NANOX_MIC_INSTRUMENTATION="yes"
 fi
 
+AC_SUBST([NANOX])
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_GNU_LDFLAGS])
 AC_SUBST([NANOX_IBM_LDFLAGS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 AC_SUBST([NANOX_MIC_INCLUDES])
+AC_SUBST([NANOX_MIC])
 AC_SUBST([NANOX_MIC_LIBS])
 AC_SUBST([NANOX_MIC_INSTRUMENTATION])
 AC_SUBST([MIC_TOOLS])
@@ -675,19 +686,23 @@ then
     AC_ARG_WITH([intel-omp],
             AS_HELP_STRING([--with-intel-omp=dir], [Directory of Intel OpenMP RTL]),
             [
-             intel_omp_include="${withval}/exports/common/include"
+dnl             intel_omp_include="${withval}/exports/common/include"
+             intel_omp_include="${withval}/include"
 
-             case "$target" in
-                i?86-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32/lib"
-                    ;;
-                x86_64-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32e/lib"
-                    ;;
-                *)
-                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
-                    ;;
-             esac
+dnl             intel_omp_lib="${withval}/exports/lrb_32e.knc.lin.off/lib"
+             intel_omp_lib="${withval}/lib"
+
+dnl             case "$target" in
+dnl                i?86-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32/lib"
+dnl                    ;;
+dnl                x86_64-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32e/lib"
+dnl                    ;;
+dnl                *)
+dnl                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
+dnl                    ;;
+dnl             esac
             ]
     )
 
@@ -902,7 +917,7 @@ then
    CPPFLAGS="$CPPFLAGS -I$nanox_include"
    CXXFLAGS="$CXXFLAGS -I$nanox_include"
 
-   AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[ opencl_valid=no])
+   AC_CHECK_HEADER([nanos-opencl.h], [opencl_valid=yes],[opencl_valid=no])
 
    CFLAGS="$CFLAGSBACKUP"
    CPPFLAGS="$CPPFLAGSBACKUP"
@@ -927,6 +942,7 @@ dnl --------------------- Start MPI support in Mercurium -----------------------
 
 mpi_enabled=yes
 mpi_valid=no
+mpi_forced=no
 
 AC_MSG_CHECKING([if the use of MPI devices was disabled])
 AC_ARG_ENABLE([nanox-mpi-device],
@@ -956,78 +972,89 @@ then
 
    mpi_found=no
    MPIMODULE=""
+   MPIPATH=""
 
    #check the directory and get the right compiler path and name
    AC_ARG_WITH([mpi],
    AS_HELP_STRING([--with-mpi=dir], [Directory of mpi installation]),
       [
          MPIPATH="${withval}"
-         MPI_CNAME=mpiicc
-         MPI_CXXNAME=mpiicpc
-         MPI_FORTNAME=mpiifort
-         if test -f $MPIPATH/$MPI_CNAME; then
-                       mpi_found=yes
-                       MPICC=$MPIPATH/$MPI_CNAME
-                       MPICXX=$MPIPATH/$MPI_CXXNAME
-                       MPIFORT=$MPIPATH/$MPI_FORTNAME
-                       MPIMODULE=mpich
-                       DISABLEMPI_GCC="\#do not uncomment"
-         else
-                       mpi_valid=no
-         fi
-         #search in the path without bin
-         if test x$mpi_found = xno; then		
-            mpi_found=no
-            if test -f $MPIPATH/bin/$MPI_CNAME; then 
-                         mpi_found=yes
-                         MPICC=$MPIPATH/bin/$MPI_CNAME
-                         MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-                         MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-                         MPIMODULE=mpich
-                         DISABLEMPI_GCC="\#do not uncomment"
-            else
-                         mpi_valid=no
-            fi
-         fi		
-
-         if test x$mpi_found = xno; then
-            MPI_CNAME=mpicc
-            MPI_CXXNAME=mpicxx
-            MPI_FORTNAME=mpif90
-            if test -f $MPIPATH/$MPI_CNAME; then	
-                 mpi_found=yes 
-                 MPICC=$MPIPATH/$MPI_CNAME
-                 MPICXX=$MPIPATH/$MPI_CXXNAME
-                 MPIFORT=$MPIPATH/$MPI_FORTNAME                            
-                 MPIMODULE=openmpi
-                 DISABLEMPI_ICC="\#do not uncomment"
-            else
-                 mpi_valid=no
-            fi
-            #search in the path without bin
-            if test x$mpi_found = xno; then		
-               mpi_found=no
-               if test -f $MPIPATH/bin/$MPI_CNAME; then           
-                 mpi_found=yes 
-                 MPICC=$MPIPATH/bin/$MPI_CNAME
-                 MPICXX=$MPIPATH/bin/$MPI_CXXNAME
-                 MPIFORT=$MPIPATH/bin/$MPI_FORTNAME
-                 MPIMODULE=openmpi
-                 DISABLEMPI_ICC="\#do not uncomment"
-               else
-                 mpi_valid=no
-               fi
-            fi
-          fi
-
-          if test x$mpi_found = xno; then
-             AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
-          fi
+         mpi_forced=yes
    	],
-   	[
-   		MPIPATH=""
+   	[   		
+        AC_PATH_PROG([MPIICC], [mpiicc], [$MPIICC])
+        MPIPATH=${MPIICC%mpiicc}
+        if test x$MPIPATH = x; then		
+            AC_PATH_PROG([MPICC], [mpicc], [$MPICC])
+            MPIPATH=${MPICC%mpicc}
+        fi
    	]
    )
+
+   MPI_CNAME=mpiicc
+   MPI_CXXNAME=mpiicpc
+   MPI_FORTNAME=mpiifort
+   if test -f $MPIPATH/$MPI_CNAME; then
+      mpi_found=yes
+      MPICC=$MPI_CNAME
+      MPICXX=$MPI_CXXNAME
+      MPIFORT=$MPI_FORTNAME
+      DISABLEMPI_GCC="\#do not uncomment"
+   else
+      mpi_valid=no
+   fi
+   #search in the path without bin
+   if test x$mpi_found = xno; then		
+      mpi_found=no
+      if test -f $MPIPATH/bin/$MPI_CNAME; then 
+         mpi_found=yes
+         MPICC=$MPI_CNAME
+         MPICXX=$MPI_CXXNAME
+         MPIFORT=$MPI_FORTNAME
+         DISABLEMPI_GCC="\#do not uncomment"
+       else
+                    mpi_valid=no
+       fi
+   fi		
+
+   if test x$mpi_found = xno; then
+      MPI_CNAME=mpicc
+      MPI_CXXNAME=mpicxx
+      MPI_FORTNAME=mpif90
+      if test -f $MPIPATH/$MPI_CNAME; then	
+           mpi_found=yes 
+           MPICC=$MPI_CNAME
+           MPICXX=$MPI_CXXNAME
+           MPIFORT=$MPI_FORTNAME                            
+           DISABLEMPI_ICC="\#do not uncomment"
+      else
+           mpi_valid=no
+      fi
+      #search in the path without bin
+      if test x$mpi_found = xno; then		
+         mpi_found=no
+         if test -f $MPIPATH/bin/$MPI_CNAME; then           
+           mpi_found=yes 
+           MPICC=$MPI_CNAME
+           MPICXX=$MPI_CXXNAME
+           MPIFORT=$MPI_FORTNAME
+           DISABLEMPI_ICC="\#do not uncomment"
+         else
+           mpi_valid=no
+         fi
+      fi
+   fi
+
+   if test x$mpi_found = xno; then
+       if test x$mpi_forced = xyes; then
+          AC_MSG_ERROR([MPI Compiler not found in --with-mpi directory $MPIPATH or $MPIPATH/bin])
+       fi
+       #fill with dummy variables, the ones in user's PATH at compilation time will be used
+       mpi_found=yes
+       MPICC=mpicc
+       MPICXX=mpicxx
+       MPIFORT=mpif90
+    fi
 
    DISABLE_MPI=""
    if test x$mpi_found = xyes; then
@@ -1037,9 +1064,7 @@ then
        CFLAGSBACKUP="$CFLAGS"
        CPPFLAGSBACKUP="$CPPFLAGS"
        CXXFLAGSBACKUP="$CXXFLAGS"
-       CCBACKUP="$CC"
 
-       CC=$MPICC
        CFLAGS="$CFLAGS -I$nanox_include"
        CPPFLAGS="$CPPFLAGS -I$nanox_include"
        CXXFLAGS="$CXXFLAGS -I$nanox_include"
@@ -1048,13 +1073,15 @@ then
        CFLAGS="$CFLAGSBACKUP"
        CPPFLAGS="$CPPFLAGSBACKUP"
        CXXFLAGS="$CXXFLAGSBACKUP"
-       CC="$CCBACKUP"
    fi
 fi
 
 if test x$mpi_valid = xyes;
 then
     INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcc"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcxx"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimfc"
     COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
     DISABLE_MPI="\#do not uncomment"
@@ -1067,7 +1094,6 @@ AC_SUBST([MPICC])
 AC_SUBST([MIC_LIBS])
 AC_SUBST([MPICXX])
 AC_SUBST([MPIFORT])
-AC_SUBST([MPIMODULE])
 AC_SUBST([DISABLE_MPI])
 
 dnl --------------------- End MPI support in Mercurium --------------------------------
@@ -1320,6 +1346,7 @@ if test x$disable_analysis = xno;
 then
   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.analysis-base"
   COMPILER_NAMES="${COMPILER_NAMES} analysiscc analysiscxx analysisfc analysisfc"
+  AC_DEFINE([ANALYSIS_ENABLED], 1, [Define to 1 if Analysis is enabled])
 else
   if test x$disable_vectorization = xno
   then
@@ -1332,6 +1359,7 @@ AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
 
 dnl ------------------------------------
 
@@ -1565,7 +1593,7 @@ AC_MSG_CHECKING([default typing environment])
 
 AC_ARG_WITH([type-environment],
         AS_HELP_STRING([--with-type-environment=type_environment],
-            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64 and linux-spu]),
+            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64, linux-spu, linux-arm, linux-arm64]),
         [
            if test x"$withval" != x;
            then
@@ -1609,8 +1637,13 @@ dnl We try to figure a sensible default environment based on the configure envir
             default_type_environ="solaris-sparcv9"
             RPATH_PARAMETER="-R"
             ;;
-       arm*-*-linux-gnueabi|arm*-*-linux-gnueabihf)
+       arm*-*-gnueabi*)
+            # 32 bit ARM
             default_type_environ="linux-arm"
+            ;;
+       aarch64-*-linux-gnu|aarch64-linux-gnu)
+            # 64 bit ARM
+            default_type_environ="linux-arm64"
             ;;
        spu)
            default_type_environ="linux-spu"

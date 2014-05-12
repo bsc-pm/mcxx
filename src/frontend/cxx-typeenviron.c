@@ -2435,12 +2435,18 @@ void init_type_environments(void)
     linux_arm64.type_of_sizeof = get_unsigned_long_int_type;
     linux_arm64.type_of_ptrdiff_t = get_signed_long_int_type;
 
-    // In ARM 'char' == 'unsigned char'
-    // ?check this?
+    // In ARM64 'char' == 'unsigned char'
     linux_arm64.char_type = get_unsigned_char_type;
 
-    // FIXME - ?
-    linux_arm64.sizeof_builtin_va_list = 8;
+    // ARM64 __builtin_va_list
+    // typedef struct __va_list {
+    //     void *__stack;
+    //     void *__gr_top;
+    //     void *__vr_top;
+    //     int __gr_offs;
+    //     int __vr_offs;
+    // } va_list;
+    linux_arm64.sizeof_builtin_va_list = 32;
     linux_arm64.alignof_builtin_va_list = 8;
 }
 

@@ -98,7 +98,7 @@ namespace SymbolUtils
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
             param->entity_specs.is_user_declared = 1;
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
@@ -130,7 +130,7 @@ namespace SymbolUtils
         scope_entry_t* new_function_sym = NULL;
         if (!current_function.get_type().is_template_specialized_type())
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
@@ -139,7 +139,7 @@ namespace SymbolUtils
         else
         {
             scope_entry_t* new_template_sym = new_symbol(
-                    decl_context, decl_context.current_scope, name.c_str());
+                    decl_context, decl_context.current_scope, uniquestr(name.c_str()));
             new_template_sym->kind = SK_TEMPLATE;
             new_template_sym->locus = make_locus("", 0, 0);
 
@@ -220,7 +220,7 @@ namespace SymbolUtils
             {
                 result_name = new_function_sym->symbol_name;
             }
-            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, result_name);
+            scope_entry_t* result_sym = new_symbol(function_context, function_context.current_scope, uniquestr(result_name));
             result_sym->kind = SK_VARIABLE;
             result_sym->type_information = function_type_get_return_type(new_function_sym->type_information);
             result_sym->entity_specs.is_result_var = 1;
@@ -242,7 +242,7 @@ namespace SymbolUtils
     {
         decl_context_t decl_context = sc.get_decl_context();
 
-        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, name.c_str());
+        scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
         entry->entity_specs.is_user_declared = 1;
 
         entry->kind = SK_FUNCTION;
@@ -273,7 +273,7 @@ namespace SymbolUtils
                 it != parameter_names.end();
                 it++, it_ptypes++, type_it++)
         {
-            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, it->c_str());
+            scope_entry_t* param = new_symbol(function_context, function_context.current_scope, uniquestr(it->c_str()));
             param->entity_specs.is_user_declared = 1;
             param->kind = SK_VARIABLE;
             param->locus = make_locus("", 0, 0);
@@ -303,7 +303,7 @@ namespace SymbolUtils
         if (has_return)
         {
             // Return symbol
-            scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, return_symbol_name.c_str());
+            scope_entry_t* return_sym = new_symbol(function_context, function_context.current_scope, uniquestr(return_symbol_name.c_str()));
             return_sym->entity_specs.is_user_declared = 1;
             return_sym->kind = SK_VARIABLE;
             return_sym->locus = make_locus("", 0, 0);

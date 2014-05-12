@@ -1368,7 +1368,7 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                          ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::stmtexpr_contains_nodecl_structurally( *it, n ) )
+                        if( Nodecl::Utils::find_nodecl_by_structure( *it, n ) )
                             result = current;
                     }
                 }
@@ -1387,9 +1387,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 
@@ -1418,7 +1417,7 @@ namespace Analysis {
                     for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( );
                         ( it != stmts.end( ) ) && ( result == NULL ); ++it )
                     {
-                        if( Nodecl::Utils::stmtexpr_contains_nodecl_pointer( *it, n ) )
+                        if( Nodecl::Utils::find_nodecl_by_pointer( *it, n ) )
                             result = current;
                     }
                 }
@@ -1437,9 +1436,8 @@ namespace Analysis {
 
     Node* ExtensibleGraph::find_nodecl_pointer( const Nodecl::NodeclBase& n )
     {
-        Node* entry = _graph->get_graph_entry_node( );
-        Node* result = find_nodecl_pointer_rec( entry, n );
-        ExtensibleGraph::clear_visits_extgraph( entry );
+        Node* result = find_nodecl_pointer_rec( _graph, n );
+        ExtensibleGraph::clear_visits_extgraph( _graph );
         return result;
     }
 

@@ -2389,7 +2389,8 @@ static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     if (!const_value_is_string(cval))
         return nodecl_null();
 
-    const char* str = const_value_string_unpack_to_string(cval);
+    char is_null_ended = 0;
+    const char* str = const_value_string_unpack_to_string(cval, &is_null_ended);
 
     // Should not happen
     if (str == NULL)
@@ -2469,7 +2470,8 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int num_elements = 0;
     int *values = NULL;
 
-    const_value_string_unpack_to_int(str, &values, &num_elements);
+    char is_null_ended = 0;
+    const_value_string_unpack_to_int(str, &values, &num_elements, &is_null_ended);
 
     if (num_elements == 0)
         return nodecl_null();

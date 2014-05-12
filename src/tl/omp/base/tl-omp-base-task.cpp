@@ -32,7 +32,7 @@
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -770,11 +770,13 @@ namespace TL { namespace OpenMP {
     {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
-
-        TL::Analysis::AnalysisStaticInfo a;
+#ifdef ANALYSIS_ENABLED
+        TL::Analysis::AnalysisInterface a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
-        std::cerr << "expr: " << expr.prettyprint() << " is_reduction? " << is_reduc << std::endl;
         return is_reduc;
+#else
+        return 0;
+#endif
 
         // // FIXME: How to know if a expression is a reduction will be implemented by
         // // the analysis phase. Related ticket: https://pm.bsc.es/projects/mcxx/ticket/1873

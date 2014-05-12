@@ -27,7 +27,7 @@
 #ifndef TL_OMP_AUTO_SCOPE_HPP
 #define TL_OMP_AUTO_SCOPE_HPP
 
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 #include "tl-pragmasupport.hpp"
 
 namespace TL {
@@ -68,7 +68,7 @@ namespace OpenMP {
     class AutoScopeVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            static Analysis::AnalysisStaticInfo *_analysis_info;
+            static Analysis::AnalysisInterface *_analysis_info;
 
         public:
             // *** Constructor & Destructor *** //

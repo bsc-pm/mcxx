@@ -361,6 +361,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::FlushMemory& n );
         Ret visit( const Nodecl::OpenMP::For& n );
         Ret visit( const Nodecl::OpenMP::ForAppendix& n );
+        Ret visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Lastprivate& n );
         Ret visit( const Nodecl::OpenMP::Mask& n );
@@ -402,6 +403,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Postdecrement& n );
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Power& n );
+        Ret visit( const Nodecl::PragmaContext& n );
 //         Ret visit( const Nodecl::PragmaCustomClause& n );
         Ret visit( const Nodecl::PragmaCustomDirective& n );
         Ret visit( const Nodecl::PragmaCustomStatement& n );

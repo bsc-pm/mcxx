@@ -40,7 +40,7 @@
 
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
-    scope_entry_list_t* entry_list = query_name_str(decl_context, name, NULL);
+    scope_entry_list_t* entry_list = query_name_str(decl_context, uniquestr(name), NULL);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
 
     scope_entry_t* entry = entry_list_head(entry_list);
@@ -108,7 +108,7 @@ void cuda_kernel_symbols_for_function_body(
         {
             scope_entry_t* cuda_sym = new_symbol(block_context, 
                     block_context.current_scope, 
-                    cuda_builtins[i].name);
+                    uniquestr(cuda_builtins[i].name));
 
             cuda_sym->locus = ast_get_locus(function_body);
 
@@ -186,14 +186,11 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
 
         if (!is_convertible)
         {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                        nodecl_locus_to_str(nodecl_arg),
-                        kernel_args[i].position,
-                        codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
-                        print_type_str(dest_type, decl_context));
-            }
+            error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                    nodecl_locus_to_str(nodecl_arg),
+                    kernel_args[i].position,
+                    codegen_to_str(nodecl_arg, nodecl_retrieve_context(nodecl_arg)),
+                    print_type_str(dest_type, decl_context));
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }

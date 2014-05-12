@@ -84,7 +84,7 @@ namespace OpenMP {
     // ****************************************************************************** //
     // ******************** Function Visitor looking for Tasks ********************** //
 
-    Analysis::AnalysisStaticInfo *AutoScopeVisitor::_analysis_info = 0;
+    Analysis::AnalysisInterface *AutoScopeVisitor::_analysis_info = 0;
 
     AutoScopeVisitor::AutoScopeVisitor( )
     {}
@@ -98,8 +98,7 @@ namespace OpenMP {
     {
         // Automatically set the scope of the variables involved in the task, if possible
         AutoScopeVisitor::_analysis_info
-                = new Analysis::AnalysisStaticInfo( n, Analysis::WhichAnalysis::AUTO_SCOPING,
-                                                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, INT_MAX );
+                = new Analysis::AnalysisInterface(n, Analysis::WhichAnalysis::AUTO_SCOPING );
 
         // Print the results for each task with a default(AUTO) clause
         std::cerr << "***********************************************************" << std::endl;
@@ -111,10 +110,10 @@ namespace OpenMP {
     void AutoScopeVisitor::visit( const Nodecl::OpenMP::Task& n )
     {
         // Retrieve the results of the Auto-Scoping process to the user
-        _analysis_info->print_auto_scoping_results( n );
+        //_analysis_info->print_auto_scoping_results( n );
 
         // Modify the Nodecl with the new variables' scope
-        Analysis::Utils::AutoScopedVariables autosc_vars = _analysis_info->get_auto_scoped_variables( n );
+        Analysis::Utils::AutoScopedVariables autosc_vars; // = _analysis_info->get_auto_scoped_variables( n );
         Analysis::Utils::ext_sym_set private_ext_syms, firstprivate_ext_syms, race_ext_syms,
                                      shared_ext_syms, undef_ext_syms;
         Nodecl::NodeclBase user_private_vars, user_firstprivate_vars, user_shared_vars;

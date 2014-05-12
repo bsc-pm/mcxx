@@ -3,7 +3,7 @@
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -169,6 +169,7 @@ TL::Scope CxxBase::get_current_scope() const
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         *(file) << _operand; \
@@ -202,6 +203,53 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
         return is_non_language_reference_variable(n.get_symbol());
     }
     return false;
+}
+
+void CxxBase::emit_line_marker(const locus_t* locus)
+{
+    if (!CURRENT_CONFIGURATION->line_markers)
+        return;
+
+    // We do not emit line markers in prettyprint
+    if (!is_file_output())
+        return;
+
+    // Avoid nodes without locus
+    if (locus == NULL)
+        return;
+
+    // Avoid 0-th line
+    int line = locus_get_line(locus);
+    if (line == 0)
+        return;
+
+    // Avoid ""
+    std::string filename = locus_get_filename(locus);
+    if (filename == "")
+        return;
+
+    // Do we need a newline?
+    if (!last_is_newline())
+        *file << "\n";
+
+    std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+    if (filename.size() >= internal_source.size())
+    {
+        std::string prefix = filename.substr(0, internal_source.size());
+
+        if (prefix == internal_source)
+        {
+            filename = this->get_output_filename();
+            line = get_current_line() + 1;
+        }
+    }
+
+    *file << "# " << line << " \"" << filename << "\"\n";
+}
+
+void CxxBase::emit_line_marker(Nodecl::NodeclBase n)
+{
+    emit_line_marker(n.get_locus());
 }
 
 void CxxBase::visit(const Nodecl::Reference &node)
@@ -272,6 +320,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         if (needs_parentheses) \
@@ -293,6 +342,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    char needs_parentheses = operand_has_lower_priority(node, lhs); \
@@ -345,6 +395,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    if (state.in_condition && state.condition_top == node) \
@@ -407,6 +458,7 @@ OPERATOR_TABLE
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase subscripted = node.get_subscripted();
     Nodecl::List subscript = node.get_subscripts().as<Nodecl::List>();
 
@@ -434,6 +486,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 {
+    emit_line_marker(node);
     const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
     if (const_value_is_zero(val))
@@ -448,6 +501,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BreakStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "break;\n";
 }
@@ -477,6 +531,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
     Nodecl::NodeclBase expression = node.get_case();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "case ";
     walk(expression);
@@ -487,6 +542,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
+    emit_line_marker(node);
     std::string cast_kind = node.get_text();
     TL::Type t = fix_references(node.get_type());
     Nodecl::NodeclBase nest = node.get_rhs();
@@ -560,6 +616,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
     Nodecl::NodeclBase statement = node.get_statement();
     TL::Type type = node.get_type();
 
+    emit_line_marker(node);
     indent();
     *(file) << "catch (";
 
@@ -592,6 +649,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
     Nodecl::NodeclBase member_literal = node.get_member_literal();
@@ -730,6 +788,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
 void CxxBase::visit(const Nodecl::Comma & node)
 {
+    emit_line_marker(node);
     *(file) << "(";
 
     Nodecl::NodeclBase lhs = node.children()[0];
@@ -794,6 +853,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 {
+    emit_line_marker(node);
     *(file) << " (";
 
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
@@ -833,6 +893,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "{\n";
     inc_indent();
@@ -856,6 +917,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase cond = node.get_condition();
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
@@ -910,6 +972,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "continue;\n";
 }
@@ -1144,6 +1207,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "default :\n";
 
@@ -1155,6 +1219,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
     Nodecl::NodeclBase statement = node.get_statement();
     Nodecl::NodeclBase condition = node.get_condition();
 
+    emit_line_marker(node);
     indent();
     *(file) << "do\n";
 
@@ -1170,6 +1235,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << ";\n";
 }
@@ -1182,7 +1248,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     }
     else
     {
-        internal_error("%s: error: <<error expression>> found when the output is a *(file)",
+        internal_error("%s: error: <<error expression>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -1190,6 +1256,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
+
+    emit_line_marker(node);
     indent();
 
     bool need_extra_parentheses = false;
@@ -1331,6 +1399,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 
     if (loop_control.is<Nodecl::LoopControl>())
     {
+        emit_line_marker(node);
         indent();
         *(file) << "for (";
         walk(loop_control);
@@ -1343,6 +1412,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
     else if (loop_control.is<Nodecl::UnboundedLoopControl>())
     {
         // This only happens for DO without loop-control
+        emit_line_marker(node);
         indent();
         *(file) << "for (;;)\n";
         inc_indent();
@@ -1379,6 +1449,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         }
         else
         {
+            emit_line_marker(node);
             indent();
             *(file) << "if (";
             walk(step);
@@ -1681,9 +1752,20 @@ void CxxBase::visit_function_call_form_template_id<Nodecl::CxxDepFunctionCall>(c
 {
 }
 
+Nodecl::NodeclBase CxxBase::advance_implicit_function_calls(Nodecl::NodeclBase node)
+{
+    while (node.is<Nodecl::FunctionCall>()
+            && is_implicit_function_call(node.as<Nodecl::FunctionCall>())
+            && !node.as<Nodecl::FunctionCall>().get_arguments().is_null())
+    {
+        node = node.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0];
+    }
+
+    return node;
+}
 
 template <typename Node>
-bool CxxBase::is_implicit_function_call(const Node& node) const
+bool CxxBase::is_implicit_function_call(const Node& node)
 {
     return (!node.get_function_form().is_null()
             && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicit>());
@@ -1691,7 +1773,7 @@ bool CxxBase::is_implicit_function_call(const Node& node) const
 
 // Explicit specialitzation for Nodecl::CxxDepFunctionCall because this kind of node has not a function form
 template <>
-bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node) const
+bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
 {
     return 0;
 }
@@ -2002,9 +2084,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
 
                 bool needs_parentheses = operand_has_lower_priority(node, arguments[0]);
                 if (assignment_operator)
-                    needs_parentheses = needs_parentheses || (same_operation(node, arguments[0])
-                            // Extra check for function calls
-                            && (arguments[0].get_kind() != node.get_kind()));
+                    needs_parentheses = needs_parentheses || same_operation(node, arguments[0]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -2017,9 +2097,7 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
                 needs_parentheses = operand_has_lower_priority(node, arguments[1]);
                 if (!assignment_operator)
                     needs_parentheses = needs_parentheses
-                        || (same_operation(node, arguments[1])
-                                // Extra check for function calls
-                                && (arguments[1].get_kind() != node.get_kind()));
+                        || same_operation(node, arguments[1]);
 
                 if (needs_parentheses)
                     *(file) << "(";
@@ -2666,6 +2744,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    emit_line_marker(node);
     indent();
     *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
         << exception_spec << trailing_type_specifier << "\n";
@@ -2736,6 +2815,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GotoStatement& node)
 {
     TL::Symbol label_sym = node.get_symbol();
 
+    emit_line_marker(node);
     indent();
     *(file) << "goto " << label_sym.get_name() << ";\n";
 }
@@ -2746,6 +2826,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
     Nodecl::NodeclBase then = node.get_then();
     Nodecl::NodeclBase _else = node.get_else();
 
+    emit_line_marker(node);
     indent();
 
     *(file) << "if (";
@@ -3027,6 +3108,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LabeledStatement& node)
     TL::Symbol label_sym = node.get_symbol();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << label_sym.get_name() << " : ";
 
@@ -3399,6 +3481,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
     Nodecl::NodeclBase statement = node.get_statements();
 
+    emit_line_marker(node);
     indent();
     // FIXME  parallel|for must be printed as parallel for
     *(file) << "#pragma " << node.get_text() << " ";
@@ -3458,6 +3541,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_value();
 
+    emit_line_marker(node);
     indent();
     *(file) << "return ";
     walk(expression);
@@ -3579,7 +3663,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
 
     int *bytes = NULL;
     int length = 0;
-    const_value_string_unpack_to_int(v, &bytes, &length);
+    char is_null_ended = 0;
+    const_value_string_unpack_to_int(v, &bytes, &length, &is_null_ended);
 
     type_t* base_type = get_unqualified_type(
             array_type_get_element_type(no_ref(nodecl_get_type(node.get_internal_nodecl())))
@@ -3903,6 +3988,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
     Nodecl::NodeclBase expression = node.get_switch();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "switch (";
     Nodecl::NodeclBase old_condition_top = state.condition_top;
@@ -4083,14 +4169,47 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
     *(file) << ")";
 }
 
-CxxBase::Ret CxxBase::visit(const Nodecl::Undefined& node)
+CxxBase::Ret CxxBase::visit(const Nodecl::Unknown& node)
 {
-    *(file) << "_undef_value_";
+    *(file) << "UNKNOWN";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
+{
+    indent();
+    *(file) << "VECTOR_LANE_ID";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
+{
+    indent();
+    *(file) << "{";
+    
+    Nodecl::List scalar_values = node.get_scalar_values().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = scalar_values.begin();
+            it != scalar_values.end();
+            it++)
+    {
+        walk(*it);
+
+        if ((it+1) != scalar_values.end())
+            *(file) << ", ";
+    }
+
+    *(file) << "}";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
+{
+    indent();
+    *(file) << "{";
+    walk(node.get_rhs());
+    *(file) << "}";
 }
 
 // Bug in GCC 4.4
@@ -4101,6 +4220,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     Nodecl::NodeclBase condition = node.get_condition();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "while (";
 
@@ -4111,6 +4231,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     state.in_condition = 1;
     state.condition_top = condition;
 
+    emit_line_marker(condition);
     walk(condition);
 
     set_indent_level(old_indent);
@@ -4237,15 +4358,28 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         if (is_extern)
             *(file) << "extern ";
 
-        *(file) << "template " << class_key << " " << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
+        *(file) << "template " << class_key << " " << gcc_attributes << this->get_qualified_name(sym, sym.get_scope()) << ";\n";
 
     }
     else if (sym.is_function())
     {
         decl_context_t decl_context = context.retrieve_context().get_decl_context();
         move_to_namespace(decl_context.namespace_scope->related_entry);
+
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
 
         TL::Type real_type = sym.get_type();
         if (sym.is_conversion_function()
@@ -4260,15 +4394,22 @@ void CxxBase::codegen_explicit_instantiation(TL::Symbol sym,
         }
 
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(real_type, sym.get_scope(), original_declarator_name) << ";\n";
     }
     else if (sym.is_variable())
     {
         // This should be a nonstatic member
         if (is_extern)
             *(file) << "extern ";
+
+        std::string gcc_attributes;
+        if (sym.has_gcc_attributes())
+        {
+            gcc_attributes = gcc_attributes_to_str(sym) + " ";
+        }
+
         std::string original_declarator_name = this->codegen_to_str(declarator_name, sym.get_scope());
-        *(file) << "template " << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
+        *(file) << "template " << gcc_attributes << this->get_declaration(sym.get_type(), sym.get_scope(), original_declarator_name) << ";\n";
     }
     else
     {
@@ -6814,7 +6955,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
-                    << " : " 
+                    << " : "
                     << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
                             symbol.get_scope().get_decl_context(),
                             /* we need to store the current codegen */ (void*) this)
@@ -7086,10 +7227,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 return;
             }
 
+
             if (!symbol.is_anonymous_union())
             {
+                std::string gcc_attributes;
+                if (symbol.has_gcc_attributes())
+                {
+                    gcc_attributes = gcc_attributes_to_str(symbol) + " ";
+                }
+
                 indent();
-                *(file) << class_key << " " << symbol.get_name();
+                *(file) << class_key << " " << gcc_attributes << symbol.get_name();
 
                 if (is_template_specialized
                         && !is_primary_template)
@@ -8314,7 +8462,7 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
 
 int CxxBase::get_rank(Nodecl::NodeclBase n)
 {
-    n = n.no_conv();
+    n = advance_implicit_function_calls(n.no_conv()).no_conv();
 
     node_t kind;
     if (n.is<Nodecl::FunctionCall>()
@@ -8379,8 +8527,7 @@ bool CxxBase::same_operation(Nodecl::NodeclBase current_operator, Nodecl::Nodecl
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
-    return (current_operator.get_kind() == operand.get_kind())
-        || (rank_current == rank_operand);
+    return (rank_current == rank_operand);
 }
 
 bool CxxBase::operand_has_lower_priority(Nodecl::NodeclBase current_operator, Nodecl::NodeclBase operand)
@@ -8882,12 +9029,15 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it != children.end();
             it++, i++)
     {
-        indent();
-        *(file) << start_inline_comment();
-        *(file) << "Children " << i;
-        *(file) << end_inline_comment() << "\n";
+        if (!it->is_null())
+        {
+            indent();
+            *(file) << start_inline_comment();
+            *(file) << "Children " << i;
+            *(file) << end_inline_comment() << "\n";
 
-        walk(*it);
+            walk(*it);
+        }
     }
 
     dec_indent();
@@ -8913,7 +9063,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
             && !_this->symbol_is_nested_in_defined_classes(sym)
             && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
-                || sym->kind == SK_ENUM))
+                || sym->kind == SK_ENUM)
+            && !(sym->entity_specs.is_member
+                && is_template_specialized_type(get_actual_class_type(sym->entity_specs.class_type))
+                && class_type_is_complete_independent(get_actual_class_type(sym->entity_specs.class_type))))
     {
         result = sym->symbol_name;
 
@@ -9112,7 +9265,7 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
-                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), 
+                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i),
                         current_param.get_scope());
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);

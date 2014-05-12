@@ -389,6 +389,7 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, case_node );
         Edge* e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_node, __Case );
+
         // case_val is a list (FORTRAN)
         ERROR_CONDITION( case_val.size()>1, "Case statement '%s' with more than one value per case is not yet supported\n",
                          case_stmt.prettyprint().c_str() );
@@ -406,6 +407,7 @@ namespace Analysis {
         _utils->_break_nodes.pop( );
 
         exit_node->set_id( ++( _utils->_nid ) );
+
         _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
 
         // Set Case node as _last_nodes when it does not end with a break statement
@@ -946,7 +948,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, context_node );
         return ObjectList<Node*>( 1, context_node );
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
         Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Continue );
@@ -1347,7 +1349,7 @@ namespace Analysis {
         }
         return func;
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
     {
         // Create the asm definition graph node
@@ -2244,6 +2246,11 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_app_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n )
+    {
+        return walk(n.get_context());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( __if, n.get_condition( ) );
@@ -2689,7 +2696,7 @@ namespace Analysis {
         _pcfg->_task_nodes_l.insert( task_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, task_creation );
         return ObjectList<Node*>( 1, task_creation );
-    }
+}
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
@@ -2811,6 +2818,12 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaContext& n )
+    {
+        // No need to store the context of a clause parameter in the PCFG (so far)
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
         if( VERBOSE )
