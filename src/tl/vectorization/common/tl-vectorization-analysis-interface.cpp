@@ -26,7 +26,7 @@
 
 #include "tl-vectorization-analysis-interface.hpp"
 
-#include "tl-vectorization-analysis-queries.hpp"
+#include "tl-vectorization-analysis-internals.hpp"
 #include "tl-suitable-alignment-visitor.hpp"
 #include "tl-extensible-graph.hpp"
 
@@ -370,22 +370,30 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment)
     {
-        if( !n.is<Nodecl::ArraySubscript>( ) )
+        Nodecl::NodeclBase translated_scope = translate_input(scope);
+        Nodecl::NodeclBase translated_n = translate_input(n);
+        const std::map<TL::Symbol, int>& translated_aligned_expressions = 
+            translate_input(aligned_expressions);
+        const objlist_nodecl_t& translated_suitable_expressions =
+            translate_input(suitable_expressions);
+
+        if( !translated_n.is<Nodecl::ArraySubscript>( ) )
         {
             std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
                       << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
             return false;
         }
 
-        Nodecl::ArraySubscript array_subscript = n.as<Nodecl::ArraySubscript>( );
+        Nodecl::ArraySubscript array_subscript = translated_n.as<Nodecl::ArraySubscript>( );
         Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
 
         int type_size = subscripted.get_type().basic_type().get_size();
 
-        SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
-                unroll_factor, type_size, alignment );
+        SuitableAlignmentVisitor sa_v( translated_scope,
+                translated_suitable_expressions, unroll_factor,
+                type_size, alignment );
 
-        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
+        return sa_v.is_aligned_access( array_subscript, translated_aligned_expressions );
     }
 
     bool VectorizationAnalysisInterface::is_suitable_expression(
@@ -393,28 +401,38 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment, int& vector_size_module)
     {
-        return is_suitable_expression_internal(scope, n, suitable_expressions,
-                unroll_factor, alignment, vector_size_module);
+        Nodecl::NodeclBase translated_scope = translate_input(scope);
+        const objlist_nodecl_t& translated_suitable_expressions =
+            translate_input(suitable_expressions);
+
+        return is_suitable_expression_internal(translated_scope, n,
+                translated_suitable_expressions, unroll_factor, alignment,
+                vector_size_module);
     }
 
     bool VectorizationAnalysisInterface::is_adjacent_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n) 
     {
+        Nodecl::NodeclBase translated_scope = translate_input(scope);
+        Nodecl::NodeclBase translated_n = translate_input(n);
+
         // Retrieve PCFG
-        Analysis::ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        Analysis::ExtensibleGraph* pcfg = retrieve_pcfg_from_func(
+                translated_scope);
         ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n",
                 n.prettyprint().c_str());
 
         // Retrieve nodes from PCFG
-        Analysis::Node* n_node = pcfg->find_nodecl_pointer(n);
+        Analysis::Node* n_node = pcfg->find_nodecl_pointer(translate_input(translated_n));
         ERROR_CONDITION(n_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", 
                 n.get_locus_str().c_str(), n.prettyprint().c_str());
-        Analysis::Node* scope_node = pcfg->find_nodecl_pointer(scope);
+        Analysis::Node* scope_node = pcfg->find_nodecl_pointer(
+                translated_scope);
         ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
                 scope.get_locus_str().c_str(), scope.prettyprint().c_str());
 
-        return is_adjacent_access_internal(scope_node, n_node, n, pcfg);
+        return is_adjacent_access_internal(scope_node, n_node, translated_n, pcfg);
     }
 
     Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(

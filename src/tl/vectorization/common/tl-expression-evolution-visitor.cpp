@@ -26,8 +26,8 @@
 
 #include "tl-expression-evolution-visitor.hpp"
 
-#include "tl-vectorization-analysis-queries.hpp"
-#include "tl-analysis-queries.hpp"
+#include "tl-vectorization-analysis-internals.hpp"
+#include "tl-analysis-internals.hpp"
 #include "tl-tribool.hpp"
 #include "cxx-cexpr.h"
 //#include "tl-analysis-utils.hpp"

@@ -1408,8 +1408,8 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 src_tl_analysis_interface_libanalysis_interface_la_SOURCES= \
                                   src/tl/analysis/interface/tl-analysis-singleton.hpp \
                                   src/tl/analysis/interface/tl-analysis-singleton.cpp \
-                                  src/tl/analysis/interface/tl-analysis-queries.hpp \
-                                  src/tl/analysis/interface/tl-analysis-queries.cpp \
+                                  src/tl/analysis/interface/tl-analysis-internals.hpp \
+                                  src/tl/analysis/interface/tl-analysis-internals.cpp \
                                   src/tl/analysis/interface/tl-analysis-interface.hpp \
                                   src/tl/analysis/interface/tl-analysis-interface.cpp \
                                   $(END)
@@ -1520,8 +1520,8 @@ src_tl_vectorization_common_libtlvectorization_common_la_SOURCES = \
                            src/tl/vectorization/common/tl-expression-evolution-visitor.cpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.hpp \
                            src/tl/vectorization/common/tl-vectorization-analysis-interface.cpp \
-                           src/tl/vectorization/common/tl-vectorization-analysis-queries.hpp \
-                           src/tl/vectorization/common/tl-vectorization-analysis-queries.cpp \
+                           src/tl/vectorization/common/tl-vectorization-analysis-internals.hpp \
+                           src/tl/vectorization/common/tl-vectorization-analysis-internals.cpp \
                            $(END)
 endif
 

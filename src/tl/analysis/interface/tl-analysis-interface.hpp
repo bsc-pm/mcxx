@@ -28,8 +28,9 @@
 #define TL_ANALYSIS_INTERFACE_HPP
 
 #include "tl-analysis-singleton.hpp"
-#include "tl-tribool.hpp"
 
+#include "tl-tribool.hpp"
+#include "tl-omp.hpp"
 #include <set>
 
 //#include "tl-induction-variables-data.hpp"
@@ -116,6 +117,9 @@ namespace Analysis {
 //            virtual void print_auto_scoping_results( const Nodecl::NodeclBase& scope );
 //            virtual Utils::AutoScopedVariables get_auto_scoped_variables( const Nodecl::NodeclBase scope );
 
+
+            bool is_ompss_reduction( const Nodecl::NodeclBase& n,
+                    RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const;
 
             /*
             DEPRECATED bool reach_defs_depend_on_iv(

@@ -21,7 +21,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
  
-#include "tl-analysis-queries.hpp"
+#include "tl-analysis-internals.hpp"
 
 #include "tl-tribool.hpp"
 

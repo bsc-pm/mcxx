@@ -1493,7 +1493,8 @@ namespace Analysis {
     ObjectList<Utils::InductionVariableData*> Node::get_induction_variables( )
     {
         ObjectList<Utils::InductionVariableData*> ivs;
-        if( is_loop_node( ) || is_omp_loop_node( ) )
+        if( is_loop_node( ) || is_omp_loop_node( ) ||
+                (is_graph_node() && get_graph_related_ast().is<Nodecl::FunctionCode>()))
         {
             if( has_key( _INDUCTION_VARS ))
                 ivs = get_data<ObjectList<Utils::InductionVariableData*> >( _INDUCTION_VARS );

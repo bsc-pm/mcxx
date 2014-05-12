@@ -24,11 +24,11 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-vectorization-analysis-queries.hpp"
+#include "tl-vectorization-analysis-internals.hpp"
 
 #include "tl-expression-evolution-visitor.hpp"
 #include "tl-suitable-alignment-visitor.hpp"
-#include "tl-analysis-queries.hpp"
+#include "tl-analysis-internals.hpp"
 
 namespace TL
 {

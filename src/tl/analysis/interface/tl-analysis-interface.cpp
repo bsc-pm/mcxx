@@ -23,7 +23,8 @@
  
 #include "tl-analysis-interface.hpp"
 
-#include "tl-analysis-queries.hpp"
+#include "tl-analysis-internals.hpp"
+#include "tl-expression-reduction.hpp"
 #include "tl-tribool.hpp"
 
 //#include "tl-induction-variables-data.hpp"
@@ -241,6 +242,81 @@ namespace Analysis {
         Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
 
         return scope_node->get_induction_variables();
+    }
+
+    static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    {
+        if( n.is_null( ) )
+            return false;
+
+        bool result = false;
+
+        // Check the current node
+        if( n.is<Nodecl::FunctionCall>( ) )
+        {
+            Symbol s( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) );
+            if( s.is_valid( ) && function_tasks->is_function_task( s ) )
+                result = true;
+        }
+
+        // Check its children
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            result = nodecl_calls_outline_task( *it, function_tasks );
+        }
+
+        return result;
+    }
+
+    static bool ompss_reduction_rhs_uses_lhs( const Nodecl::NodeclBase& n, const Nodecl::NodeclBase& lhs,
+                                              RefPtr<OpenMP::FunctionTaskSet> function_tasks )
+    {
+        if( n.is_null( ) || n.is<Nodecl::ArraySubscript>( ) ||
+            ( n.is<Nodecl::FunctionCall>( ) && ( !n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ).is_valid( ) ||
+                                                 !function_tasks->is_function_task( n.as<Nodecl::FunctionCall>( ).get_called( ).get_symbol( ) ) ) ) )
+            return false;
+
+        // Check the current node
+        if( Nodecl::Utils::structurally_equal_nodecls( n, lhs, /*skip conversion nodes*/ true ) )
+            return true;
+
+        // Check the children
+        bool result = false;
+        ObjectList<Nodecl::NodeclBase> children = n.children( );
+        for( ObjectList<Nodecl::NodeclBase>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+        {
+            result = ompss_reduction_rhs_uses_lhs( *it, lhs, function_tasks );
+        }
+        return result;
+    }
+
+    bool AnalysisInterface::is_ompss_reduction( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks ) const
+    {
+        bool result = false;
+
+        if( n.is<Nodecl::Assignment>( ) ||
+            n.is<Nodecl::AddAssignment>( ) || n.is<Nodecl::MinusAssignment>( ) ||
+            n.is<Nodecl::DivAssignment>( ) || n.is<Nodecl::MulAssignment>( ) || n.is<Nodecl::ModAssignment>( ) ||
+            n.is<Nodecl::BitwiseShlAssignment>( ) || n.is<Nodecl::BitwiseShrAssignment>( ) || n.is<Nodecl::ArithmeticShrAssignment>( ) ||
+            n.is<Nodecl::BitwiseAndAssignment>( ) || n.is<Nodecl::BitwiseOrAssignment>( ) || n.is<Nodecl::BitwiseXorAssignment>( ) )
+        {
+            Nodecl::Assignment n_assig = n.as<Nodecl::Assignment>( );
+            result = nodecl_calls_outline_task( n_assig.get_rhs( ), function_tasks );
+
+            if( result && n.is<Nodecl::Assignment>( ) )
+            {   // Check also if the LHS also contains the RHS
+                Nodecl::NodeclBase rhs_c = n_assig.get_rhs( ).shallow_copy( );
+                //TODO: This should be applied before calling the analysis 
+                // if PCFG is used at some point in the future.
+                TL::Optimizations::ReduceExpressionVisitor rev;
+                rev.walk( rhs_c );
+                if( !ompss_reduction_rhs_uses_lhs( rhs_c, n_assig.get_lhs( ), function_tasks ) )
+                    result = false;
+            }
+        }
+
+        return result;
     }
 
 
