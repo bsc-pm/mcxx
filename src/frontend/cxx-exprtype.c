@@ -2823,7 +2823,9 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(*lhs),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*lhs)),
-                            actual_type_of_conversor(conversors[0]), nodecl_get_locus(*lhs));
+                            actual_type_of_conversor(conversors[0]),
+                            decl_context,
+                            nodecl_get_locus(*lhs));
                 }
             }
         }
@@ -2875,7 +2877,9 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         /* called name */ nodecl_null(),
                         nodecl_make_list_1(*rhs),
                         nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*rhs)),
-                        actual_type_of_conversor(conversors[1]), nodecl_get_locus(*rhs));
+                        actual_type_of_conversor(conversors[1]),
+                        decl_context,
+                        nodecl_get_locus(*rhs));
             }
         }
 
@@ -3030,7 +3034,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(*op),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*op)),
-                            actual_type_of_conversor(conversors[0]), nodecl_get_locus(*op));
+                            actual_type_of_conversor(conversors[0]),
+                            decl_context,
+                            nodecl_get_locus(*op));
                 }
             }
         }
@@ -3448,7 +3454,9 @@ void compute_bin_operator_generic(
                     /* called name */ nodecl_null(),
                     nodecl_make_list_2(*lhs, *rhs),
                     nodecl_make_cxx_function_form_binary_infix(locus),
-                    result, locus);
+                    result,
+                    decl_context,
+                    locus);
         }
     }
     else
@@ -5110,7 +5118,9 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
                         /* called name */ nodecl_null(),
                         nodecl_make_list_2(*lhs, *rhs),
                         nodecl_make_cxx_function_form_binary_infix(nodecl_get_locus(*lhs)),
-                        result, locus);
+                        result,
+                        decl_context,
+                        locus);
         }
     }
     else
@@ -5528,7 +5538,9 @@ static void compute_unary_operator_generic(
                         /* called name */ nodecl_null(),
                         nodecl_make_list_1(*op),
                         nodecl_make_cxx_function_form_unary_prefix(locus),
-                        result, locus);
+                        result,
+                        decl_context,
+                        locus);
         }
     }
     else
@@ -7534,7 +7546,9 @@ static void check_nodecl_array_subscript_expression_cxx(
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(nodecl_subscript),
                             nodecl_make_cxx_function_form_implicit(locus),
-                            actual_type_of_conversor(conversors[1]), locus);
+                            actual_type_of_conversor(conversors[1]),
+                            decl_context,
+                            locus);
 
                 }
             }
@@ -7548,7 +7562,9 @@ static void check_nodecl_array_subscript_expression_cxx(
                     nodecl_make_list_2(nodecl_subscripted, nodecl_subscript),
                     // Ideally this should have a specific function form
                     /* function-form */ nodecl_null(),
-                    t , locus);
+                    t,
+                    decl_context,
+                    locus);
             return;
         }
     }
@@ -8432,6 +8448,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                             nodecl_make_list_1(nodecl_conditional[k]),
                             nodecl_make_cxx_function_form_implicit(locus),
                             actual_type_of_conversor(conversors[k]),
+                            decl_context,
                             locus);
                 }
             }
@@ -8922,6 +8939,7 @@ static void check_new_expression_impl(
                             nodecl_make_cxx_function_form_implicit(
                                 nodecl_get_locus(nodecl_expr)),
                             actual_type_of_conversor(conversors[j]),
+                            decl_context,
                             nodecl_get_locus(nodecl_expr));
                 }
             }
@@ -11149,6 +11167,7 @@ static void check_nodecl_function_call_c(nodecl_t nodecl_called,
             nodecl_argument_list_output,
             /* function_form */ nodecl_null(), // We don't need a function form in C language
             return_type,
+            decl_context,
             locus);
 }
 
@@ -11387,6 +11406,7 @@ static void check_nodecl_function_call_cxx(
                     nodecl_argument_list_output,
                     function_form,
                     return_type,
+                    decl_context,
                     locus);
             return;
         }
@@ -11714,6 +11734,7 @@ static void check_nodecl_function_call_cxx(
                 nodecl_make_list_1(nodecl_implicit_argument),
                 nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_implicit_argument)),
                 function_type_get_return_type(overloaded_call->entity_specs.alias_to->type_information),
+                decl_context,
                 nodecl_get_locus(nodecl_implicit_argument)
                 );
 
@@ -11849,7 +11870,9 @@ static void check_nodecl_function_call_cxx(
                                 nodecl_make_list_1(nodecl_arg),
                                 nodecl_make_cxx_function_form_implicit(
                                     nodecl_get_locus(nodecl_arg)),
-                                actual_type_of_conversor(conversors[arg_i]), nodecl_get_locus(nodecl_arg));
+                                actual_type_of_conversor(conversors[arg_i]),
+                                decl_context,
+                                nodecl_get_locus(nodecl_arg));
                     }
                 }
             }
@@ -11895,6 +11918,7 @@ static void check_nodecl_function_call_cxx(
             nodecl_argument_list_output, 
             function_form,
             return_type,
+            decl_context,
             locus);
 }
 
@@ -12179,6 +12203,7 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
                         // This should be a binary infix but comma breaks everything
                         /* function form */ nodecl_null(),
                         function_type_get_return_type(selected_operator->type_information),
+                        decl_context,
                         locus);
             return;
         }
@@ -13569,7 +13594,9 @@ static void check_nodecl_member_access(
                         nodecl_make_list_1(nodecl_accessed),
                         // Ideally this should be binary infix but this call does not fit in any cathegory
                         /* function form */ nodecl_null(), 
-                        t, nodecl_get_locus(nodecl_accessed)),
+                        t,
+                        decl_context,
+                        nodecl_get_locus(nodecl_accessed)),
                     pointer_type_get_pointee_type(t), nodecl_get_locus(nodecl_accessed));
     }
 
@@ -13995,6 +14022,7 @@ static void check_postoperator_user_defined(
                             nodecl_make_cxx_function_form_implicit(
                                 nodecl_get_locus(postoperated_expr)),
                             actual_type_of_conversor(conversors[0]), 
+                            decl_context,
                             nodecl_get_locus(postoperated_expr));
             }
         }
@@ -14020,6 +14048,7 @@ static void check_postoperator_user_defined(
                     nodecl_make_cxx_function_form_unary_postfix(
                         nodecl_get_locus(postoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information),
+                    decl_context,
                     nodecl_get_locus(postoperated_expr));
     }
 }
@@ -14145,7 +14174,9 @@ static void check_preoperator_user_defined(AST operator,
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(preoperated_expr),
                             nodecl_make_cxx_function_form_implicit(nodecl_get_locus(preoperated_expr)),
-                            actual_type_of_conversor(conversors[0]), nodecl_get_locus(preoperated_expr));
+                            actual_type_of_conversor(conversors[0]),
+                            decl_context,
+                            nodecl_get_locus(preoperated_expr));
             }
         }
     }
@@ -14167,6 +14198,7 @@ static void check_preoperator_user_defined(AST operator,
                     nodecl_make_list_1(preoperated_expr),
                     nodecl_make_cxx_function_form_unary_prefix(nodecl_get_locus(preoperated_expr)),
                     function_type_get_return_type(overloaded_call->type_information), 
+                    decl_context,
                     nodecl_get_locus(preoperated_expr));
     }
     return;
@@ -15488,6 +15520,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                     nodecl_arguments_output,
                     nodecl_make_cxx_function_form_implicit(locus),
                     declared_type,
+                    decl_context,
                     locus);
         }
         else
@@ -15626,6 +15659,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                     nodecl_make_list_1(nodecl_current),
                                     nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_current)),
                                     actual_type_of_conversor(conversors[i]),
+                                    decl_context,
                                     nodecl_get_locus(nodecl_current));
                     }
 
@@ -15642,6 +15676,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         nodecl_arguments_output,
                         nodecl_make_cxx_function_form_implicit(locus),
                         declared_type,
+                        decl_context,
                         locus);
                 return;
             }
@@ -15744,6 +15779,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                                     nodecl_make_cxx_function_form_implicit(
                                         nodecl_get_locus(nodecl_current)),
                                     actual_type_of_conversor(conversors[i]),
+                                    decl_context,
                                     nodecl_get_locus(nodecl_current));
                     }
 
@@ -15762,6 +15798,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         nodecl_make_cxx_function_form_implicit(
                             locus),
                         declared_type,
+                        decl_context,
                         locus);
 
                 return;
@@ -16081,7 +16118,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                                 /* called name */ nodecl_null(),
                                 nodecl_make_list_1(nodecl_arg),
                                 nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_arg)),
-                                actual_type_of_conversor(conversors[i]), nodecl_get_locus(nodecl_arg));
+                                actual_type_of_conversor(conversors[i]),
+                                decl_context,
+                                nodecl_get_locus(nodecl_arg));
                     }
                 }
                 else
@@ -16108,6 +16147,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     argument_list,
                     is_explicit ? nodecl_null() : nodecl_make_cxx_function_form_implicit(locus),
                     actual_type_of_conversor(chosen_constructor),
+                    decl_context,
                     locus);
         }
     }
@@ -16405,6 +16445,7 @@ static void check_nodecl_pointer_to_pointer_member(
                         nodecl_make_list_1(nodecl_lhs),
                         nodecl_make_cxx_function_form_unary_prefix(locus),
                         function_type_get_return_type(selected_operator->type_information),
+                        decl_context,
                         locus);
         }
 
@@ -16916,6 +16957,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     nodecl_make_cxx_function_form_implicit(
                         nodecl_get_locus(nodecl_expr)),
                     actual_type_of_conversor(conversor),
+                    decl_context,
                     nodecl_get_locus(nodecl_expr));
         }
         else
@@ -16991,6 +17033,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     nodecl_make_cxx_function_form_implicit(
                         nodecl_get_locus(nodecl_expr)),
                     actual_type_of_conversor(conversor),
+                    decl_context,
                     nodecl_get_locus(nodecl_expr));
         }
 
@@ -17001,6 +17044,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     nodecl_make_list_1(nodecl_expr),
                     nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_expr)),
                     declared_type_no_cv,
+                    decl_context,
                     nodecl_get_locus(nodecl_expr));
     }
 }
@@ -20050,6 +20094,7 @@ nodecl_t cxx_nodecl_make_function_call(
         nodecl_t arg_list,
         nodecl_t function_form,
         type_t* t,
+        decl_context_t decl_context,
         const locus_t* locus)
 {
     ERROR_CONDITION(!nodecl_is_null(arg_list)
@@ -20342,8 +20387,15 @@ nodecl_t cxx_nodecl_make_function_call(
                         converted_arg_list,
                         function_form, t,
                         locus);
-
                 nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+
+                if (!is_dependent_type(t)
+                        && is_named_class_type(t))
+                {
+                    scope_entry_t* class_sym_ret = named_type_get_symbol(t);
+                    instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                }
+
                 return result;
             }
             else
@@ -20409,6 +20461,14 @@ nodecl_t cxx_nodecl_make_function_call(
                 }
 
                 nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+
+                if (!is_dependent_type(t)
+                        && is_named_class_type(t))
+                {
+                    scope_entry_t* class_sym_ret = named_type_get_symbol(t);
+                    instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                }
+
                 return result;
             }
         }
@@ -20426,6 +20486,14 @@ nodecl_t cxx_nodecl_make_function_call(
                     t, locus);
 
             nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+
+            if (!is_dependent_type(t)
+                    && is_named_class_type(t))
+            {
+                scope_entry_t* class_sym_ret = named_type_get_symbol(t);
+                instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+            }
+
             return result;
         }
         else
@@ -20436,16 +20504,33 @@ nodecl_t cxx_nodecl_make_function_call(
                     function_form, t,
                     locus);
             nodecl_expr_set_is_value_dependent(result, any_arg_is_value_dependent);
+
+            if (!is_dependent_type(t)
+                    && is_named_class_type(t))
+            {
+                scope_entry_t* class_sym_ret = named_type_get_symbol(t);
+                instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+            }
+
             return result;
         }
     }
     else
     {
-        return nodecl_make_function_call(called,
+        nodecl_t result = nodecl_make_function_call(called,
                 converted_arg_list,
                 /* alternate_name */ nodecl_null(),
                 function_form, t,
                 locus);
+
+        if (!is_dependent_type(t)
+                && is_named_class_type(t))
+        {
+            scope_entry_t* class_sym_ret = named_type_get_symbol(t);
+            instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+        }
+
+        return result;
     }
 }
 
@@ -21541,6 +21626,7 @@ static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, node
             new_list,
             function_form,
             nodecl_get_type(node),
+            v->decl_context,
             nodecl_get_locus(node));
 }
 

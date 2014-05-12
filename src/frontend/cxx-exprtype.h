@@ -150,6 +150,7 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(
         nodecl_t arg_list,
         nodecl_t function_form,
         type_t* t,
+        decl_context_t,
         const locus_t* locus);
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const locus_t* locus);
  
