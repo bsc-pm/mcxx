@@ -424,7 +424,7 @@ namespace Vectorization
                 n.prettyprint().c_str());
 
         // Retrieve nodes from PCFG
-        Analysis::Node* n_node = pcfg->find_nodecl_pointer(translate_input(translated_n));
+        Analysis::Node* n_node = pcfg->find_nodecl_pointer(translated_n);
         ERROR_CONDITION(n_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", 
                 n.get_locus_str().c_str(), n.prettyprint().c_str());
         Analysis::Node* scope_node = pcfg->find_nodecl_pointer(

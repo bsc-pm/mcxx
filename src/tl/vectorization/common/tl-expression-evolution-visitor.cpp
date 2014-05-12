@@ -796,9 +796,9 @@ namespace Vectorization
         // bool reach_defs_are_adjacent = false;
         // bool reach_defs_are_invariant = false;
 
-        TL::tribool is_adjacent_tribool = is_adjacent_access_internal(
-                _scope_node, _n_node, n, _pcfg,
-                _adjacency_visited_nodes);
+        TL::tribool is_adjacent_tribool = nodecl_has_property_in_scope(
+                    _scope_node, _n_node, _n_node, n, _pcfg,
+                    adjacency_property(), _adjacency_visited_nodes);
 
         ERROR_CONDITION(is_adjacent_tribool.is_unknown(), 
                 "ExpressionEvolutionVisitor: nodecl_has_property unknown", 0);
