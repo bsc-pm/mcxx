@@ -84,7 +84,7 @@ namespace OpenMP {
     // ****************************************************************************** //
     // ******************** Function Visitor looking for Tasks ********************** //
 
-    Analysis::AnalysisStaticInfo *AutoScopeVisitor::_analysis_info = 0;
+    Analysis::AnalysisInterface *AutoScopeVisitor::_analysis_info = 0;
 
     AutoScopeVisitor::AutoScopeVisitor( )
     {}
@@ -98,8 +98,7 @@ namespace OpenMP {
     {
         // Automatically set the scope of the variables involved in the task, if possible
         AutoScopeVisitor::_analysis_info
-                = new Analysis::AnalysisStaticInfo( n, Analysis::WhichAnalysis::AUTO_SCOPING,
-                                                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, INT_MAX );
+                = new Analysis::AnalysisInterface(n, Analysis::WhichAnalysis::AUTO_SCOPING );
 
         // Print the results for each task with a default(AUTO) clause
         std::cerr << "***********************************************************" << std::endl;
