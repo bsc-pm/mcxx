@@ -16287,12 +16287,15 @@ static void build_scope_expression_statement(AST a,
     {
         if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
         {
-            error_printf("%s: error: invalid unresolved overloaded expression '%s'\n", 
+            const char* message = NULL;
+            uniquestr_sprintf(&message,
+                    "%s: error: invalid unresolved overloaded expression '%s'\n", 
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
-            diagnostic_candidates(candidates, ast_get_locus(expr));
+            diagnostic_candidates(candidates, &message, ast_get_locus(expr));
+            error_printf("%s", message);
 
             return;
         }

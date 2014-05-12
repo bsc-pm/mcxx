@@ -8845,12 +8845,15 @@ static void check_new_expression_impl(
         }
         argument_call = strappend(argument_call, ")");
 
-        error_printf("%s: error: no suitable '%s' found for new-expression\n",
+        const char* message = NULL;
+        uniquestr_sprintf(&message, "%s: error: no suitable '%s' found for new-expression\n",
                 locus_to_str(locus),
                 argument_call);
 
-        diagnostic_candidates(operator_new_list, locus);
+        diagnostic_candidates(operator_new_list, &message, locus);
         entry_list_free(operator_new_list);
+
+        error_printf("%s", message);
 
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_placement_list);
@@ -9940,7 +9943,8 @@ static void check_nodecl_cast_expr(
 
 #define CONVERSION_ERROR \
     do { \
-      error_printf("%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
+      const char* message = NULL; \
+      uniquestr_sprintf(&message, "%s: error: expression '%s' of type '%s' cannot be converted to '%s' using a %s\n", \
               locus_to_str(locus), \
               codegen_to_str(nodecl_casted_expr, decl_context), \
               print_type_str(nodecl_get_type(nodecl_casted_expr), decl_context), \
@@ -9948,8 +9952,9 @@ static void check_nodecl_cast_expr(
               cast_kind); \
       if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_casted_expr))) \
       { \
-          diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), locus); \
+          diagnostic_candidates(unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)), &message, locus); \
       } \
+      error_printf("%s", message); \
       *nodecl_output = nodecl_make_err_expr(locus); \
       nodecl_free(nodecl_casted_expr); \
       return; \
@@ -10026,7 +10031,8 @@ static void check_nodecl_cast_expr(
                 orig_type = no_ref(orig_type);
                 dest_type = no_ref(dest_type);
             }
-            error_printf("%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
+            const char* message = NULL;
+            uniquestr_sprintf(&message, "%s: error: invalid cast of expression '%s' of type '%s' to type '%s'\n",
                     locus_to_str(locus),
                     codegen_to_str(nodecl_casted_expr, decl_context),
                     print_type_str(orig_type, decl_context),
@@ -10035,8 +10041,10 @@ static void check_nodecl_cast_expr(
             {
                 diagnostic_candidates(
                         unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_casted_expr)),
+                        &message,
                         locus);
             }
+            error_printf("%s", message);
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_casted_expr);
 
@@ -16020,10 +16028,13 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         {
             if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: no suitable constructor for class type '%s'\n",
+                const char* message = NULL;
+                uniquestr_sprintf(&message,
+                        "%s: error: no suitable constructor for class type '%s'\n",
                         locus_to_str(locus),
                         print_type_str(declared_type, decl_context));
-                diagnostic_candidates(candidates, locus);
+                diagnostic_candidates(candidates, &message, locus);
+                error_printf("%s", message);
             }
             entry_list_free(candidates);
 
@@ -16944,12 +16955,15 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         {
             if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: no suitable constructor for direct initialization of type '%s' "
+                const char* message = NULL;
+                uniquestr_sprintf(&message,
+                        "%s: error: no suitable constructor for direct initialization of type '%s' "
                         "using an expression of type '%s'\n",
                         locus_to_str(nodecl_get_locus(nodecl_expr)),
                         print_type_str(initializer_expr_type, decl_context),
                         print_type_str(declared_type_no_cv, decl_context));
-                diagnostic_candidates(candidates, nodecl_get_locus(nodecl_expr));
+                diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
+                error_printf("%s", message);
             }
             entry_list_free(candidates);
 
@@ -19396,10 +19410,12 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 }
 
 static void diagnostic_single_candidate(scope_entry_t* entry, 
+        const char** message,
         const locus_t* locus UNUSED_PARAMETER)
 {
     entry = entry_advance_aliases(entry);
-    info_printf("%s: note:    %s%s%s%s\n",
+    const char *c = NULL;
+    uniquestr_sprintf(&c, "%s: note:    %s%s%s%s\n",
             locus_to_str(entry->locus),
             (entry->entity_specs.is_member && entry->entity_specs.is_static) ? "static " : "",
             !is_computed_function_type(entry->type_information)
@@ -19407,13 +19423,20 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
                 get_qualified_symbol_name(entry, entry->decl_context)) 
             : " <<generic function>>",
             entry->entity_specs.is_builtin ? " [built-in]" : "",
-            entry->entity_specs.is_user_declared ? " [implicit]" : ""
+            !entry->entity_specs.is_user_declared ? " [implicit]" : ""
             );
+
+    *message = strappend(*message, c);
 }
 
-void diagnostic_candidates(scope_entry_list_t* candidates, const locus_t* locus)
+void diagnostic_candidates(scope_entry_list_t* candidates,
+        const char** message,
+        const locus_t* locus)
 {
-    info_printf("%s: info: candidates are:\n", locus_to_str(locus));
+    const char* c = NULL;
+    uniquestr_sprintf(&c, "%s: info: candidates are:\n", locus_to_str(locus));
+    *message = strappend(*message, c);
+
     scope_entry_list_t* unrepeated_candidates = NULL;
 
     scope_entry_list_iterator_t* it;
@@ -19441,7 +19464,7 @@ void diagnostic_candidates(scope_entry_list_t* candidates, const locus_t* locus)
             entry_list_iterator_next(it))
     {
         scope_entry_t* candidate_fun = entry_list_iterator_current(it);
-        diagnostic_single_candidate(candidate_fun, locus);
+        diagnostic_single_candidate(candidate_fun, message, locus);
     }
     entry_list_iterator_free(it);
 
@@ -19476,7 +19499,8 @@ static void error_message_overload_failed(candidate_t* candidates,
 
     argument_types = strappend(argument_types, ")");
 
-    error_printf("%s: error: failed overload call to '%s%s'\n",
+    const char* message = NULL;
+    uniquestr_sprintf(&message, "%s: error: failed overload call to '%s%s'\n",
             locus_to_str(locus), name, argument_types);
 
     char there_are_nonstatic_members = 0;
@@ -19498,23 +19522,31 @@ static void error_message_overload_failed(candidate_t* candidates,
             it = it->next;
         }
 
-        diagnostic_candidates(candidate_list, locus);
+        diagnostic_candidates(candidate_list, &message, locus);
 
         entry_list_free(candidate_list);
     }
     else
     {
-        info_printf("%s: info: no candidate functions\n", locus_to_str(locus));
+        const char* c;
+        uniquestr_sprintf(&c, "%s: info: no candidate functions\n", locus_to_str(locus));
+
+        message = strappend(message, c);
     }
 
     if (there_are_nonstatic_members
             && implicit_argument != NULL)
     {
-        info_printf("%s: info: the type of the implicit argument for nonstatic member candidates is '%s'\n", 
+        const char *c;
+        uniquestr_sprintf(&c,
+                "%s: info: the type of the implicit argument for nonstatic member candidates is '%s'\n",
                 locus_to_str(locus),
                 print_type_str(implicit_argument, decl_context));
+
+        message = strappend(message, c);
     }
 
+    error_printf("%s", message);
 }
 
 static nodecl_t cxx_nodecl_make_conversion_internal(nodecl_t expr,

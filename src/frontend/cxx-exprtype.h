@@ -128,7 +128,7 @@ LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t d
 
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
-LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const locus_t* locus);
+LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char**, const locus_t* locus);
 
 LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const locus_t* locus);
