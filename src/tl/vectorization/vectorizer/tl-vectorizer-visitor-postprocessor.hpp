@@ -27,9 +27,8 @@
 #ifndef TL_VECTORIZER_VISITOR_POSTPROCESSOR_HPP 
 #define TL_VECTORIZER_VISITOR_POSTPROCESSOR_HPP
 
-#include "tl-nodecl-visitor.hpp" 
-#include "tl-analysis-static-info.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-nodecl-visitor.hpp" 
 
 namespace TL
 { 

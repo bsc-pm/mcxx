@@ -42,7 +42,7 @@ namespace Vectorization
         _condition(for_stmt.get_loop_header().as<Nodecl::LoopControl>().
                 get_cond()),
         _ivs(VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_ivs_nodecls(for_stmt, for_stmt))
+                get_ivs_nodecls(for_stmt))
     {
     }
 
@@ -52,7 +52,7 @@ namespace Vectorization
         : _environment(environment), _loop(while_stmt),
         _condition(while_stmt.get_condition()),
         _ivs(VectorizationAnalysisInterface::_vectorizer_analysis->
-            get_ivs_nodecls(while_stmt, while_stmt))
+            get_ivs_nodecls(while_stmt))
 
     {
     }
@@ -74,7 +74,7 @@ namespace Vectorization
                 // Use for statements as statement
                 // nodecl_value
                 ivs_values_invariant = VectorizationAnalysisInterface::
-                    _vectorizer_analysis->nodecl_is_invariant_in_scope(
+                    _vectorizer_analysis->is_invariant(
                         _environment._analysis_simd_scope,
                         statements,
                         *it);
@@ -97,7 +97,7 @@ namespace Vectorization
                 .front();
 
             return VectorizationAnalysisInterface::_vectorizer_analysis->
-                nodecl_is_invariant_in_scope(
+                is_invariant(
                         _environment._analysis_simd_scope,
                         statements,
                         _condition);

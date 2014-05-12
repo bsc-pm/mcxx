@@ -190,10 +190,10 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
         bool lhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->nodecl_is_invariant_in_scope(
+            _vectorizer_analysis->is_invariant(
                     _environment._analysis_simd_scope, lhs, lhs);
         bool rhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->nodecl_is_invariant_in_scope(
+            _vectorizer_analysis->is_invariant(
                     _environment._analysis_simd_scope, rhs, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
@@ -257,8 +257,8 @@ namespace Vectorization
             Nodecl::NodeclBase step;
             Nodecl::Mul new_step;
 
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->is_induction_variable(
-                        _environment._analysis_simd_scope,
+            if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                    is_induction_variable(_environment._analysis_simd_scope,
                         rhs))
             {
                 step = VectorizationAnalysisInterface::_vectorizer_analysis->

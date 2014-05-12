@@ -26,10 +26,10 @@
 
 #include "tl-vectorizer-cache.hpp"
 
-#include "cxx-cexpr.h"
-
-#include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorization-utils.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
 
 namespace TL
 {

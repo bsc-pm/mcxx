@@ -27,10 +27,8 @@
 #ifndef TL_VECTORIZER_VISITOR_STATEMENT_HPP
 #define TL_VECTORIZER_VISITOR_STATEMENT_HPP
 
-#include "tl-nodecl-visitor.hpp"
-
 #include "tl-vectorizer.hpp"
-#include "tl-analysis-static-info.hpp"
+#include "tl-nodecl-visitor.hpp"
 
 namespace TL
 {

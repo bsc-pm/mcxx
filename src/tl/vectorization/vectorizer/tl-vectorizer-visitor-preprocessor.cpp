@@ -26,6 +26,7 @@
 
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 
+#include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL
