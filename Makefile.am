@@ -2631,7 +2631,10 @@ driver-install-exec-hook:
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name}) ; \
+			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
+			if [[ -f $(DESTDIR)/${configdir}/$${real_compiler_name} ]] ; then\
+			    mv -f $(DESTDIR)/${configdir}/$${real_compiler_name} $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; \
+			fi) \
 		done
 
 driver-uninstall-local:
@@ -2755,6 +2758,9 @@ CONFIG_FILES =  \
        config/55.config.omp.nvidia \
        config/56.config.omp.mpi \
        config/57.config.omp.smp \
+       config/mpimcc \
+       config/mpimcxx \
+       config/mpimfc \
 	   $(END)
 
 INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
@@ -2784,10 +2790,12 @@ config_edit = \
      -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
      -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
      -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOX[@]|$(NANOX)|g' \
      -e 's|@NANOX_GNU_LDFLAGS[@]|$(NANOX_GNU_LDFLAGS)|g' \
      -e 's|@NANOX_IBM_LDFLAGS[@]|$(NANOX_IBM_LDFLAGS)|g' \
      -e 's|@NANOX_MIC_INCLUDES[@]|$(NANOX_MIC_INCLUDES)|g' \
      -e 's|@NANOX_MIC_LIBS[@]|$(NANOX_MIC_LIBS)|g' \
+     -e 's|@NANOX_MIC[@]|$(NANOX_MIC)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
      -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
@@ -2854,7 +2862,7 @@ BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 # This is valid in parallel make since we are generating one goal file at a time
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
-
+ 
 config-install-data-hook:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \

@@ -715,7 +715,8 @@ extern "C"
         TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
     }
 
-    void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit)
+    void run_codegen_phase(FILE *out_file, translation_unit_t* translation_unit,
+            const char* output_filename)
     {
         TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
         TL::DTO& dto = *_dto;
@@ -724,6 +725,9 @@ extern "C"
 
         TL::RefPtr<TL::File> output_file(new TL::File(out_file));
         dto.set_object("output_file", output_file);
+
+        TL::RefPtr<TL::String> output_filename_p(new TL::String(output_filename));
+        dto.set_object("output_filename", output_filename_p);
 
         codegen_phase->run(dto);
     }

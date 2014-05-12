@@ -53,8 +53,10 @@ namespace TL { namespace Nanox {
 
             static Nodecl::List _extra_c_code;
 
+            std::string _ancillary_filename;
             FILE* _ancillary_file;
             FILE* get_ancillary_file();
+            std::string get_ancillary_filename() { return _ancillary_filename; };
 
             std::string _static_weak_symbols_str;
             bool _static_weak_symbols;
