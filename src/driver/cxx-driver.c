@@ -308,6 +308,7 @@
 "  -shared\n" \
 "  -S\n" \
 "  -static\n" \
+"  -static-libgcc\n" \
 "  -std=<option>\n" \
 "  -v\n" \
 "  -V\n" \
@@ -1984,6 +1985,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
+                else if (strcmp(argument, "-static-libgcc") == 0) { }
                 else if (strcmp(argument, "-shared") == 0) { }
                 else
                 {

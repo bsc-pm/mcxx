@@ -1,5 +1,7 @@
 ! <testinfo>
-! test_generator=config/mercurium-ompss
+! #test_generator=config/mercurium-ompss
+! test_ignore=yes
+! test_ignore_reason="omp_get_max_threads does not work in OmpSs"
 ! </testinfo>
 PROGRAM MAIN
   IMPLICIT NONE

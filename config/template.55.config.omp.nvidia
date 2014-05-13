@@ -15,6 +15,7 @@ preprocessor_name = @NVCC@
 compiler_name = @NVCC@
 linker_name = @NVCC@
 options = --cuda
+{openmp} preprocessor_options = -include new
 {openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
 {openmp} linker_options = -lnanox-gpu-api
 {openmp} compiler_phase = libtlnanox-cuda.so

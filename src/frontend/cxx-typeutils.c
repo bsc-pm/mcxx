@@ -3815,14 +3815,14 @@ static type_t* _get_array_type(type_t* element_type,
 static nodecl_t get_zero_tree(const locus_t* locus) 
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_zero(type_get_size(get_signed_int_type()), 0), 
+            const_value_get_zero(type_get_size(get_signed_int_type()), 1), 
             locus);
 }
 
 static nodecl_t get_one_tree(const locus_t* locus)
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_one(type_get_size(get_signed_int_type()), 0), 
+            const_value_get_one(type_get_size(get_signed_int_type()), 1), 
             locus);
 }
 
