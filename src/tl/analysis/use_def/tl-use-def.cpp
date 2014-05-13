@@ -1595,20 +1595,14 @@ namespace {
                                         }
                                         Utils::ExtendedSymbol es_arg_points_to(arg_points_to);
                                         
-                                        if(par_t.is_valid())
-                                        {
-                                            if(par_t.is_any_reference())
-                                            {   // void foo(int *&v);
-                                                _node->add_undefined_behaviour_var(es_arg);
-                                                _node->add_undefined_behaviour_var(es_arg_points_to);
-                                            }
-                                            else
-                                            {   // void foo(int *v) || void foo(int v[2])
-                                                _node->add_undefined_behaviour_var(es_arg_points_to);
-                                            }
+                                        if(par_t.is_valid() && par_t.is_any_reference())
+                                        {   // void foo(int *&v);
+                                            _node->add_undefined_behaviour_var(es_arg);
+                                            _node->add_undefined_behaviour_var(es_arg_points_to);
                                         }
                                         else
-                                        {   // void foo(...);
+                                        {   // void foo(int *v); || void foo(int v[2]); || void foo(...);
+                                            _node->add_ue_var(es_arg);
                                             _node->add_undefined_behaviour_var(es_arg_points_to);
                                         }
                                     }
