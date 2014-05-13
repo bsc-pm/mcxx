@@ -549,6 +549,19 @@ void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_transparent_union = 1;
     }
+    else if (strcmp(attribute_name, "__may_alias__") == 0)
+    {
+        // This is usually defined for MMX and SSE (but not AVX or KNC) vectors
+        if (strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+        {
+            // We have to ignore this attribute in these architectures because
+            // of problems in gcc when we reorder the attribute __may_alias__ respect to vector_size.
+            // We will reemit it when we print a vector of size 8 or 16.
+            if (gather_info->is_vector)
+                do_not_keep_attribute = 1;
+        }
+    }
     // CUDA attributes
     else if (CURRENT_CONFIGURATION->enable_cuda && strcmp(attribute_name, "global") == 0)
     {
