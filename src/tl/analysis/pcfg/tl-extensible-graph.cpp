@@ -756,7 +756,8 @@ namespace Analysis {
     void ExtensibleGraph::clear_visits_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited( ) &&
-            ( current->node_is_enclosed_by( outer_node ) || current->is_omp_task_node( ) ) )
+            ( current->node_is_enclosed_by( outer_node ) || 
+              current->is_omp_task_node( ) || current->is_omp_virtual_tasksync( ) ) )
         {
             current->set_visited( false );
 

@@ -374,20 +374,19 @@ namespace {
                                        const Utils::ext_sym_set& undef_children, const Utils::ext_sym_set& used_addresses_children )
     {
         // Propagate the upwards exposed variables
-        Nodecl::NodeclBase non_ue_vars1, non_ue_vars2;
+        Nodecl::NodeclBase ue_previously_killed_subobject, ue_previously_undef_subobject;
         for( Utils::ext_sym_set::iterator it = ue_children.begin( ); it != ue_children.end( ); ++it )
         {
             Nodecl::NodeclBase n_it = it->get_nodecl( );
-            // UE vars can only be upwards propagated if the are not KILLED or UNDEF in the parent
+            // UE vars can only be upwards propagated if the are not already KILLED in the parent
             // or they (or an enclosing nodecl) are not yet in the result set
             if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) ||
-                !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, undef_vars ).is_null( ) || 
                 !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, ue_vars ).is_null( ) )
                 continue;
 
-            non_ue_vars1 = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-            non_ue_vars2 = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, undef_vars );
-            if( non_ue_vars1.is_null( ) && non_ue_vars2.is_null( ) )
+            ue_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
+            ue_previously_undef_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, undef_vars );
+            if( ue_previously_killed_subobject.is_null( ) && ue_previously_undef_subobject.is_null( ) )
             {   // Neither killed nor undef var sets contain the current ue var
                 Nodecl::NodeclBase tmp = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, ue_vars );
                 if( !tmp.is_null( ) )
@@ -396,28 +395,33 @@ namespace {
             }
             else
             {   // Here a part of the nodecl is KILLED|UNDEF and a part is UE
-                Nodecl::NodeclBase new_ue_vars1, new_ue_vars2;
-                if( !non_ue_vars1.is_null( ) )
-                    new_ue_vars1 = split_var_depending_on_usage( n_it, non_ue_vars1 );
-                if( !non_ue_vars2.is_null( ) )
-                    new_ue_vars2 = split_var_depending_on_usage( n_it, non_ue_vars2 );
+                Nodecl::NodeclBase non_killed_ue_vars, non_undef_ue_vars;
+                if( !ue_previously_killed_subobject.is_null( ) )
+                    non_killed_ue_vars = split_var_depending_on_usage( n_it, ue_previously_killed_subobject );
+                if( !ue_previously_undef_subobject.is_null( ) )
+                {   // A variable marked as UNDEF can still be UE
+                    if(Utils::ext_sym_set_contains_nodecl(n_it, undef_vars))
+                        non_undef_ue_vars = n_it;
+                    else
+                        non_undef_ue_vars = split_var_depending_on_usage( n_it, ue_previously_undef_subobject );
+                }
                 
-                if( (!non_ue_vars1.is_null( ) && new_ue_vars1.is_null( )) || 
-                    (!non_ue_vars2.is_null( ) && new_ue_vars2.is_null( )) )
+                if( (!ue_previously_killed_subobject.is_null( ) && non_killed_ue_vars.is_null( )) || 
+                    (!ue_previously_undef_subobject.is_null( ) && non_undef_ue_vars.is_null( )) )
                 {   // When the two sets are empty is because the separation has not been possible
                     // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
-                    if( !non_ue_vars1.is_null( ) )
-                        delete_enclosed_var_from_list( non_ue_vars1, killed_vars );
-                    if( !non_ue_vars2.is_null( ) )
-                        delete_enclosed_var_from_list( non_ue_vars2, undef_vars );
+                    if( !ue_previously_killed_subobject.is_null( ) )
+                        delete_enclosed_var_from_list( ue_previously_killed_subobject, killed_vars );
+                    if( !ue_previously_undef_subobject.is_null( ) )
+                        delete_enclosed_var_from_list( ue_previously_undef_subobject, undef_vars );
                     undef_vars.insert( n_it );
                 }
                 else
                 {   // new_ue_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
-                    if(!new_ue_vars1.is_null())
-                        ue_vars.insert( Utils::ExtendedSymbol( new_ue_vars1 ) );
-                    if(!new_ue_vars2.is_null())
-                        ue_vars.insert( Utils::ExtendedSymbol( new_ue_vars2 ) );
+                    if(!non_killed_ue_vars.is_null())
+                        ue_vars.insert( Utils::ExtendedSymbol( non_killed_ue_vars ) );
+                    if(!non_undef_ue_vars.is_null())
+                        ue_vars.insert( Utils::ExtendedSymbol( non_undef_ue_vars ) );
                 }
             }
         }
@@ -460,18 +464,18 @@ namespace {
         }
 
         // Propagate the undefined behavior variables of the children
-        Nodecl::NodeclBase non_undef_var1, non_undef_var2;
+        Nodecl::NodeclBase undef_previously_ue_subobject, undef_previously_killed_subobject;
         for( Utils::ext_sym_set::iterator it = undef_children.begin( ); it != undef_children.end( ); ++it )
         {
             Nodecl::NodeclBase n_it = it->get_nodecl( );
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, ue_vars ).is_null( ) ||
-                !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) )
+            // Variables marked as KILLED cannot be UNDEF
+            if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) )
                 continue;
-
-            non_undef_var1 = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, ue_vars );
-            non_undef_var2 = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-            if( non_undef_var1.is_null( ) && non_undef_var2.is_null( ) )
-            {   // Neither ue nor killed  var sets contain the current ue var
+            
+            undef_previously_ue_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, ue_vars );
+            undef_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
+            if( undef_previously_ue_subobject.is_null( ) && undef_previously_killed_subobject.is_null( ) )
+            {   // Neither ue nor killed var sets contain the current ue var
                 if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, undef_vars ).is_null( ) )
                     continue;
                 else
@@ -484,27 +488,32 @@ namespace {
             }
             else
             {
-                Nodecl::NodeclBase new_undef_vars1, new_undef_vars2;
-                if( !non_undef_var1.is_null( ) )
-                    new_undef_vars1 = split_var_depending_on_usage( n_it, non_undef_var1 );
-                if( !non_undef_var2.is_null( ) )
-                    new_undef_vars2 = split_var_depending_on_usage( n_it, non_undef_var2 );
+                Nodecl::NodeclBase non_ue_undef_vars, non_killed_undef_vars;
+                if( !undef_previously_ue_subobject.is_null( ) )
+                {
+                    if(Utils::ext_sym_set_contains_nodecl( n_it, ue_vars ))
+                        non_ue_undef_vars = n_it;
+                    else
+                        non_ue_undef_vars = split_var_depending_on_usage( n_it, undef_previously_ue_subobject );
+                }
+                if( !undef_previously_killed_subobject.is_null( ) )
+                    non_killed_undef_vars = split_var_depending_on_usage( n_it, undef_previously_killed_subobject );
 
-                if( new_undef_vars1.is_null( ) && new_undef_vars2.is_null( ) )
+                if( non_ue_undef_vars.is_null( ) && non_killed_undef_vars.is_null( ) )
                 {   // When the two sets are null is because the separation has not been possible
                     // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
-                    if( !non_undef_var1.is_null( ) )
-                        delete_enclosed_var_from_list( non_undef_var1, ue_vars );
-                    if( !non_undef_var2.is_null( ) )
-                        delete_enclosed_var_from_list( non_undef_var2, killed_vars );
+                    if( !undef_previously_ue_subobject.is_null( ) )
+                        delete_enclosed_var_from_list( undef_previously_ue_subobject, ue_vars );
+                    if( !undef_previously_killed_subobject.is_null( ) )
+                        delete_enclosed_var_from_list( undef_previously_killed_subobject, killed_vars );
                     undef_vars.insert( n_it );
                 }
                 else
                 {   // new_undef_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
-                    if(!new_undef_vars1.is_null())
-                        undef_vars.insert(new_undef_vars1);
-                    if(!new_undef_vars2.is_null())
-                        undef_vars.insert(new_undef_vars2);
+                    if(!non_ue_undef_vars.is_null())
+                        undef_vars.insert(non_ue_undef_vars);
+                    if(!non_killed_undef_vars.is_null())
+                        undef_vars.insert(non_killed_undef_vars);
                 }
             }
         }
