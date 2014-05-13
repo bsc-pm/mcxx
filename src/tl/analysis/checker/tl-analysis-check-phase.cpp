@@ -36,6 +36,8 @@ namespace Analysis {
 
 namespace {
 
+    const std::string analysis_none_sym_name = "__ANALYSIS_NONE__";
+    
     Nodecl::NodeclBase get_nodecl_from_string( std::string str, ReferenceScope sc )
     {
         Source src; src << str;
@@ -136,12 +138,25 @@ namespace {
     }
 
     void compare_assert_set_with_analysis_set( Utils::ext_sym_set assert_set, Utils::ext_sym_set analysis_set,
-                                                      std::string locus_str, int node_id,
-                                                      std::string clause_name, std::string analysis_name )
+                                               std::string locus_str, int node_id,
+                                               std::string clause_name, std::string analysis_name )
     {
         if( !assert_set.empty( ) )
         {
-            if( analysis_set.empty( ) )
+            if((assert_set.size() == 1) && 
+               (assert_set.begin()->get_nodecl().is<Nodecl::Symbol>()) && 
+               (assert_set.begin()->get_nodecl().get_symbol().get_name()==analysis_none_sym_name))
+            {
+                if(!analysis_set.empty())
+                {
+                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                   "There should not be %s variables associated to node %d\n",
+                                   locus_str.c_str( ),
+                                   clause_name.c_str( ), Utils::prettyprint_ext_sym_set( assert_set, /*dot*/ false ).c_str( ),
+                                   analysis_name.c_str( ), node_id );
+                }
+            }
+            else if( analysis_set.empty( ) )
             {
                 internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
                                 "There are no %s variables associated to node %d\n",
@@ -608,6 +623,16 @@ namespace {
         directive.replace( assert_nodecl );
     }
 
+    void AnalysisCheckPhase::pre_run( TL::DTO& dto )
+    {
+        // Add a new symbol to the empty translation unit that can be used in this phase
+        // to specify that an analysis set must be empty
+        TL::Scope sc = CURRENT_COMPILED_FILE->global_decl_context;
+        TL::Symbol none_symbol = sc.new_symbol(analysis_none_sym_name);
+        none_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        none_symbol.get_internal_symbol()->type_information = ::get_void_type();
+    }
+    
     void AnalysisCheckPhase::run( TL::DTO& dto )
     {
         PragmaCustomCompilerPhase::run(dto);

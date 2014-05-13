@@ -46,3 +46,7 @@ target_options[oclmfc] = no_sublink embed
 target_options[oclmf95] = no_sublink embed
 # nvidia
 target_options[mnvfc] = no_sublink embed
+# mpi
+target_options[mpimcc] = no_sublink embed
+target_options[mpimcxx] = no_sublink embed
+target_options[mpimfc] = no_sublink embed

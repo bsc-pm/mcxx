@@ -34,9 +34,11 @@ namespace Codegen
         TL::File output_file = dto["output_file"];
         FILE* f = output_file.get_file();
 
+        TL::String output_filename_ = dto["output_filename"];
+
         Nodecl::NodeclBase n = dto["nodecl"];
 
-        this->codegen_top_level(n, f);
+        this->codegen_top_level(n, f, output_filename_);
     }
     void CodegenPhase::handle_parameter(int n, void* data)
     {}

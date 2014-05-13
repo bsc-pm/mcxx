@@ -52,7 +52,7 @@ namespace Analysis {
 
     PCFGAnalysis_memento::PCFGAnalysis_memento( )
         : _pcfgs( ), _tdgs( ),
-          _pcfg(false), _constants_propagation( false ), _canonical( false ), _use_def( false ), _liveness( false ),
+          _pcfg(false), /*_constants_propagation( false ),*/ _canonical( false ), _use_def( false ), _liveness( false ),
           _loops( false ), _reaching_definitions( false ), _induction_variables( false ),
           _tune_task_syncs( false ), _range( false ), _cyclomatic_complexity(false),
           _auto_scoping( false ), _auto_deps( false ), _tdg( false )
@@ -104,15 +104,15 @@ namespace Analysis {
         _pcfg = true;
     }
 
-    bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
-    {
-        return _constants_propagation;
-    }
-
-    void PCFGAnalysis_memento::set_constants_propagation_computed( )
-    {
-        _constants_propagation = true;
-    }
+//     bool PCFGAnalysis_memento::is_constants_propagation_computed( ) const
+//     {
+//         return _constants_propagation;
+//     }
+// 
+//     void PCFGAnalysis_memento::set_constants_propagation_computed( )
+//     {
+//         _constants_propagation = true;
+//     }
 
     bool PCFGAnalysis_memento::is_canonical_computed( ) const
     {
@@ -385,7 +385,7 @@ namespace Analysis {
 
     void PCFGAnalysis_memento::reset_state( )
     {
-        _constants_propagation = false;
+//         _constants_propagation = false;
         _canonical = false;
         _use_def = false;
         _liveness = false;
@@ -483,32 +483,25 @@ namespace Analysis {
     }
 
     // TODO
-    void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
-                                                              const Nodecl::NodeclBase& ast )
-    {
-        if( !memento.is_constants_propagation_computed( ) )
-        {
-            memento.set_constants_propagation_computed( );
-
-            ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
-
-            for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
-            {
-                if( VERBOSE )
-                    printf( "Constants Propagation of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-                std::cerr << "Constants Propagation is not yet implemented" << std::endl;
-                // ConditionalConstantAnalysis ca( ipa );
-                // ca.conditional_constant_propagation( pcfg );
-            }
-        }
-    }
-
-    // TODO
-    void AnalysisSingleton::expression_canonicalization( PCFGAnalysis_memento& memento,
-                                                         const Nodecl::NodeclBase& ast )
-    {
-
-    }
+//     void AnalysisSingleton::conditional_constant_propagation( PCFGAnalysis_memento& memento,
+//                                                               const Nodecl::NodeclBase& ast )
+//     {
+//         if( !memento.is_constants_propagation_computed( ) )
+//         {
+//             memento.set_constants_propagation_computed( );
+// 
+//             ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph( memento, ast );
+// 
+//             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+//             {
+//                 if( VERBOSE )
+//                     printf( "Constants Propagation of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+//                 std::cerr << "Constants Propagation is not yet implemented" << std::endl;
+//                 // ConditionalConstantAnalysis ca( ipa );
+//                 // ca.conditional_constant_propagation( pcfg );
+//             }
+//         }
+//     }
 
     static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, ObjectList<ExtensibleGraph*>* pcfgs )
     {
