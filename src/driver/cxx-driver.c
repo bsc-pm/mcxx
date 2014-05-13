@@ -4134,6 +4134,18 @@ static void embed_files(void)
             compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
             compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
 
+            // If a .o file is introduced by a phase, then it will not have an
+            // output filename because we usually compute these very late in
+            // the linking step and we will end using the same name.
+            extension = get_extension_filename(secondary_compilation_file->translation_unit->input_filename);
+            current_extension = fileextensions_lookup(extension, strlen(extension));
+            if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                    && secondary_compilation_file->translation_unit->output_filename == NULL)
+            {
+                secondary_compilation_file->translation_unit->output_filename =
+                    secondary_compilation_file->translation_unit->input_filename;
+            }
+
             target_options_map_t* target_options = get_target_options(secondary_configuration, CURRENT_CONFIGURATION->configuration_name);
 
             if (target_options == NULL)
