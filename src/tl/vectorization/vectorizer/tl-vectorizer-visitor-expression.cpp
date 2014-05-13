@@ -461,422 +461,439 @@ namespace Vectorization
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
 
-        // Computing new vector type
-        TL::Type vector_type = Utils::get_qualified_vector_to(assignment_type,
-                _environment._unroll_factor);
-
-        // IV vectorization: i = i + 3 --> i = i + (unroll_factor * 3)
-        if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_non_reduction_basic_induction_variable(
-                    _environment._analysis_simd_scope,
-                    lhs))
+        // If lhs and rhs is invariant, keep scalar!
+        if(!VectorizationAnalysisInterface::_vectorizer_analysis->
+                is_invariant(_environment._analysis_simd_scope, lhs, lhs) ||
+                !VectorizationAnalysisInterface::_vectorizer_analysis->
+                is_invariant(_environment._analysis_simd_scope, rhs, rhs))
         {
-            VECTORIZATION_DEBUG()
+            // Computing new vector type
+            TL::Type vector_type = Utils::get_qualified_vector_to(assignment_type,
+                    _environment._unroll_factor);
+
+            // IV vectorization: i = i + 3 --> i = i + (unroll_factor * 3)
+            if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                    is_non_reduction_basic_induction_variable(
+                        _environment._analysis_simd_scope,
+                        lhs))
             {
-                fprintf(stderr, "VECTORIZER: Vectorizing IV update '%s'\n",
-                        lhs.prettyprint().c_str());
-            }
-
-            if (rhs.is<Nodecl::Add>())
-            {
-                Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
-
-                Nodecl::NodeclBase add_lhs = 
-                    Nodecl::Utils::advance_conversions(rhs_add.get_lhs());
-                Nodecl::NodeclBase add_rhs = 
-                    Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
-
-                // = i + 3
-                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs))
+                VECTORIZATION_DEBUG()
                 {
-                    Nodecl::Mul mul = Nodecl::Mul::make(
-                            add_rhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    _environment._unroll_factor),
-                                n.get_locus()),
-                            TL::Type::get_int_type(),
-                            n.get_locus());
-                    
-                    add_rhs.replace(mul);
+                    fprintf(stderr, "VECTORIZER: Vectorizing IV update '%s'\n",
+                            lhs.prettyprint().c_str());
                 }
-                // = 3 + i
-                else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+
+                if (rhs.is<Nodecl::Add>())
                 {
-                    Nodecl::Mul mul = Nodecl::Mul::make(
-                            add_lhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    _environment._unroll_factor),
-                                n.get_locus()),
-                            TL::Type::get_int_type(),
-                            n.get_locus());
-                    
-                    add_lhs.replace(mul);
-                }
-            }
-            else
-            {
-                running_error("Vectorizer: This IV update is not supported yet"\
-                        "(%s).", n.prettyprint().c_str());
-            }
+                    Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
 
-            /*
-            Nodecl::NodeclBase step = VectorizationAnalysisInterface::
-                _vectorizer_analysis->get_induction_variable_increment(
-                    _environment._analysis_simd_scope, lhs);
+                    Nodecl::NodeclBase add_lhs = 
+                        Nodecl::Utils::advance_conversions(rhs_add.get_lhs());
+                    Nodecl::NodeclBase add_rhs = 
+                        Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
 
-            //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
-            //    _environment._analysis_simd_scope, lhs);
-
-            objlist_nodecl_t step_list =
-                Nodecl::Utils::get_all_nodecl_occurrences(step, lhs);
-
-            for(objlist_nodecl_t::iterator it = step_list.begin();
-                    it != step_list.end();
-                    it ++)
-            {
-                Nodecl::Mul new_step =
-                    Nodecl::Mul::make(
-                            it->shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    _environment._unroll_factor),
-                                it->get_locus()),
-                            TL::Type::get_int_type(),
-                            it->get_locus());
-
-                it->replace(new_step);
-            }
-            */
-        }
-        else if(lhs.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(
-                    lhs.as<Nodecl::ArraySubscript>().get_subscripted());
-
-            TL::Type subscripted_type = subscripted.get_type();
-
-            if (subscripted.is<Nodecl::Cast>())
-            {
-                subscripted = Nodecl::Utils::advance_conversions(
-                        subscripted.as<Nodecl::Cast>().get_rhs());
-            }
-
-            ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
-                    "Vectorizer: ArraySubscript form not supported yet: %s",
-                    lhs.prettyprint().c_str());
-
-            Nodecl::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>();
-
-            walk(rhs);
-
-            // Vector Store
-            // Constant ArraySubscript, nothing to do
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_invariant(_environment._analysis_simd_scope,
-                        lhs, lhs))
-            {
-                std::cerr << "Constant store: " << lhs.prettyprint()
-                    << std::endl;
-                running_error("Vectorizer: Extract operation is not "\
-                        "supported yet (%s).", lhs.prettyprint().c_str());
-
-            }
-            // ArraySubscript indexed by nested IV, nothing to do
-            /*
-            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_nested_induction_variable_dependent_access(
-                        _environment, lhs) &&
-                    !VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_induction_variable_dependent_expression(
-                        _environment._analysis_simd_scope, lhs))
-            {
-                std::cerr << "Nested IV dependent store: " << lhs.prettyprint()
-                    << std::endl;
-                running_error("Vectorizer: Extract operation is not "\
-                        "supported yet (%s).", lhs.prettyprint().c_str());
-            }
-            */
-            else
-            {
-                // Get a scatter for real scatter or unaligned store extra flag
-                const Nodecl::ArraySubscript lhs_array_copy =
-                    VectorizationAnalysisInterface::_vectorizer_analysis->shallow_copy(
-                            lhs).as<Nodecl::ArraySubscript>();
-
-                /*VectorizerGatherScatterInfo scatter_access(_environment);
-
-                const Nodecl::NodeclBase base =
-                    scatter_access.get_base(lhs_array_copy);
-                Nodecl::NodeclBase strides =
-                    scatter_access.get_strides(lhs_array_copy);
-                */
-                const Nodecl::NodeclBase base = 
-                    lhs_array_copy.get_subscripted();
-                Nodecl::NodeclBase strides =  // The array must have been linearized
-                    lhs_array_copy.get_subscripts().as<Nodecl::List>().front();
-
-                // Vectorize strides
-                walk(strides);
-
-                const Nodecl::VectorScatter vector_scatter =
-                    Nodecl::VectorScatter::make(
-                            base,
-                            strides,
-                            rhs.shallow_copy(),
-                            mask.shallow_copy(),
-                            vector_type,
-                            n.get_locus());
-
-
-                // Adjacent access
-                if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                        is_adjacent_access(_environment._analysis_simd_scope, lhs))
-                {
-                    TL::Type basic_type = lhs.get_type();
-                    if (basic_type.is_lvalue_reference())
+                    // = i + 3
+                    if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs))
                     {
-                        basic_type = basic_type.references_to();
-                    }
-
-                    nontmp_expr_map_t::const_iterator nontemporal_it =
-                        _environment._nontemporal_expr_map.find(
-                                subscripted_symbol.get_symbol());
-
-                    bool nontemporal_store = (nontemporal_it !=
-                            _environment._nontemporal_expr_map.end());
-
-                    // Aligned
-                    if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                            is_simd_aligned_access(
-                                _environment._analysis_simd_scope,
-                                lhs,
-                                _environment._aligned_expr_map,
-                                _environment._suitable_expr_list,
-                                _environment._unroll_factor,
-                                _environment._unroll_factor * assignment_type.get_size()))
-                    {
-                        if (nontemporal_store)
-                        {
-                            VECTORIZATION_DEBUG()
-                            {
-                                fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
-                                        lhs.prettyprint().c_str());
-                            }
-
-                            const Nodecl::VectorStreamStore vector_stream_store =
-                                Nodecl::VectorStreamStore::make(
-                                        Nodecl::Reference::make(
-                                            lhs.shallow_copy(),
-                                            basic_type.get_pointer_to(),
-                                            n.get_locus()),
-                                        rhs.shallow_copy(),
-                                        mask.shallow_copy(),
-                                        Nodecl::List::make(
-                                            nontemporal_it->second).shallow_copy(),
-                                        vector_type,
-                                        n.get_locus());
-
-                            n.replace(vector_stream_store);
-                        }
-                        else
-                        {
-                            VECTORIZATION_DEBUG()
-                            {
-                                fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
-                                        lhs.prettyprint().c_str());
-                            }
-
-                            const Nodecl::VectorStore vector_store =
-                                Nodecl::VectorStore::make(
-                                        Nodecl::Reference::make(
-                                            lhs.shallow_copy(),
-                                            basic_type.get_pointer_to(),
-                                            n.get_locus()),
-                                        rhs.shallow_copy(),
-                                        mask.shallow_copy(),
-                                        Nodecl::List::make(vector_scatter),
-                                        vector_type,
-                                        n.get_locus());
-
-                            n.replace(vector_store);
-                        }
-                    }
-                    else // Unaligned
-                    {
-                        if (nontemporal_store)
-                        {
-                            VECTORIZATION_DEBUG()
-                            {
-                                fprintf(stderr, "VECTORIZER: Unaligned stream store '%s'\n",
-                                        lhs.prettyprint().c_str());
-                            }
-
-                            const Nodecl::UnalignedVectorStreamStore vector_stream_store =
-                                Nodecl::UnalignedVectorStreamStore::make(
-                                        Nodecl::Reference::make(
-                                            lhs.shallow_copy(),
-                                            basic_type.get_pointer_to(),
-                                            n.get_locus()),
-                                        rhs.shallow_copy(),
-                                        mask.shallow_copy(),
-                                        Nodecl::List::make(
-                                            nontemporal_it->second).shallow_copy(),
-                                        vector_type,
-                                        n.get_locus());
-
-                            n.replace(vector_stream_store);
-                        }
-                        else
-                        {
-                            VECTORIZATION_DEBUG()
-                            {
-                                fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
-                                        lhs.prettyprint().c_str());
-                            }
-
-                            const Nodecl::UnalignedVectorStore vector_store =
-                                Nodecl::UnalignedVectorStore::make(
-                                        Nodecl::Reference::make(
-                                            lhs.shallow_copy(),
-                                            basic_type.get_pointer_to(),
-                                            n.get_locus()),
-                                        rhs.shallow_copy(),
-                                        mask.shallow_copy(),
-                                        Nodecl::List::make(vector_scatter),
-                                        vector_type,
-                                        n.get_locus());
-
-                            n.replace(vector_store);
-                        }
-                    }
-                }
-                else // Vector Scatter
-                {
-                    VECTORIZATION_DEBUG()
-                    {
-                        fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
-                                lhs.prettyprint().c_str());
-                    }
-
-                    n.replace(vector_scatter);
-                }
-            }
-        }
-        else if (lhs.is<Nodecl::Symbol>())
-        {
-            Nodecl::Symbol sym = lhs.as<Nodecl::Symbol>();
-            
-            walk(lhs); // This only works because lhs is a symbol.
-                       // walk is only to visit RHS but in this
-                       // case LHS and RHS visits seems to be
-                       // equivalent
-
-            TL::Type tl_lhs_sym_type = sym.get_type().no_ref();
-
-            if (tl_lhs_sym_type.is_vector())  // Register
-            {
-                walk(rhs);
-
-                const Nodecl::VectorAssignment vector_assignment =
-                    Nodecl::VectorAssignment::make(
-                            lhs.shallow_copy(),
-                            rhs.shallow_copy(),
-                            mask.shallow_copy(),
-                            vector_type,
-                            n.get_locus());
-
-                n.replace(vector_assignment);
-            }
-            else if (tl_lhs_sym_type.is_mask())
-            {
-                walk(rhs);
-
-                const Nodecl::VectorMaskAssignment vector_mask_assignment =
-                    Nodecl::VectorMaskAssignment::make(
-                            lhs.shallow_copy(),
-                            rhs.shallow_copy(),
-                            vector_type,
-                            n.get_locus());
-
-                n.replace(vector_mask_assignment);
-            }
-            else
-            {
-                internal_error("Vectorizer: Unsupported assignment on %s at %s,"\
-                       " which is has no vector type.\n",
-                        lhs.prettyprint().c_str(), n.get_locus());
-            }
-        }
-        else if (lhs.is<Nodecl::ClassMemberAccess>())
-        {
-            Nodecl::ClassMemberAccess cma = lhs.as<Nodecl::ClassMemberAccess>();
-
-            Nodecl::NodeclBase class_object = cma.get_lhs();
-            Nodecl::NodeclBase member = cma.get_member();
-
-            ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
-                    "Member is not a Symbol. Unsupported case", 0);
-            ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
-                    "Lhs is not an array. Unsupported case", 0);
-
-            int access_size = cma.get_type().no_ref().get_size();
-            int class_size = class_object.get_type().no_ref().get_size();
-            int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
-
-            //TODO a.x[i] = 
-
-            // a[i].x --> Scatter
-
-            // Remove CMA and visit again
-            lhs.replace(class_object.shallow_copy());
-
-            walk(n);
-
-            // Update lhs
-            lhs = n.get_lhs();
-
-            if(lhs.is<Nodecl::VectorStore>() ||
-                    lhs.is<Nodecl::UnalignedVectorStore>())
-            {
-                Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
-
-                Nodecl::VectorScatter vector_scatter = vstore.get_flags().
-                    as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
-
-                // Add member to strides
-                Nodecl::NodeclBase strides = vector_scatter.get_strides();
-
-                strides.replace(Nodecl::Add::make(
-                            Nodecl::Mul::make(strides.shallow_copy(),
+                        Nodecl::Mul mul = Nodecl::Mul::make(
+                                add_rhs.shallow_copy(),
                                 Nodecl::IntegerLiteral::make(
                                     TL::Type::get_int_type(),
                                     const_value_get_signed_int(
-                                        class_size/access_size)),
-                                strides.get_type()),
-                            Nodecl::IntegerLiteral::make(
+                                        _environment._unroll_factor),
+                                    n.get_locus()),
                                 TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    member_offset/access_size)),
-                            strides.get_type()));
+                                n.get_locus());
 
-                n.replace(vector_scatter);
+                        add_rhs.replace(mul);
+                    }
+                    // = 3 + i
+                    else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+                    {
+                        Nodecl::Mul mul = Nodecl::Mul::make(
+                                add_lhs.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        _environment._unroll_factor),
+                                    n.get_locus()),
+                                TL::Type::get_int_type(),
+                                n.get_locus());
+
+                        add_lhs.replace(mul);
+                    }
+                }
+                else
+                {
+                    running_error("Vectorizer: This IV update is not supported yet"\
+                            "(%s).", n.prettyprint().c_str());
+                }
+
+                /*
+                   Nodecl::NodeclBase step = VectorizationAnalysisInterface::
+                   _vectorizer_analysis->get_induction_variable_increment(
+                   _environment._analysis_simd_scope, lhs);
+
+                //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                //    _environment._analysis_simd_scope, lhs);
+
+                objlist_nodecl_t step_list =
+                Nodecl::Utils::get_all_nodecl_occurrences(step, lhs);
+
+                for(objlist_nodecl_t::iterator it = step_list.begin();
+                it != step_list.end();
+                it ++)
+                {
+                Nodecl::Mul new_step =
+                Nodecl::Mul::make(
+                it->shallow_copy(),
+                Nodecl::IntegerLiteral::make(
+                TL::Type::get_int_type(),
+                const_value_get_signed_int(
+                _environment._unroll_factor),
+                it->get_locus()),
+                TL::Type::get_int_type(),
+                it->get_locus());
+
+                it->replace(new_step);
+                }
+                 */
+            }
+            else if(lhs.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(
+                        lhs.as<Nodecl::ArraySubscript>().get_subscripted());
+
+                TL::Type subscripted_type = subscripted.get_type();
+
+                if (subscripted.is<Nodecl::Cast>())
+                {
+                    subscripted = Nodecl::Utils::advance_conversions(
+                            subscripted.as<Nodecl::Cast>().get_rhs());
+                }
+
+                ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
+                        "Vectorizer: ArraySubscript form not supported yet: %s",
+                        lhs.prettyprint().c_str());
+
+                Nodecl::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>();
+
+                walk(rhs);
+
+                // Vector Store
+                // Constant ArraySubscript, nothing to do
+                if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                        is_invariant(_environment._analysis_simd_scope,
+                            lhs, lhs))
+                {
+                    std::cerr << "Vectorizer: Constant store: "
+                        << lhs.prettyprint()
+                        << std::endl;
+
+                    running_error("Vectorizer: Extract operation is not "\
+                            "supported yet (%s).", lhs.prettyprint().c_str());
+
+                }
+                // ArraySubscript indexed by nested IV, nothing to do
+                /*
+                   else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                   is_nested_induction_variable_dependent_access(
+                   _environment, lhs) &&
+                   !VectorizationAnalysisInterface::_vectorizer_analysis->
+                   is_induction_variable_dependent_expression(
+                   _environment._analysis_simd_scope, lhs))
+                   {
+                   std::cerr << "Nested IV dependent store: " << lhs.prettyprint()
+                   << std::endl;
+                   running_error("Vectorizer: Extract operation is not "\
+                   "supported yet (%s).", lhs.prettyprint().c_str());
+                   }
+                 */
+                else
+                {
+                    // Get a scatter for real scatter or unaligned store extra flag
+                    const Nodecl::ArraySubscript lhs_array_copy =
+                        VectorizationAnalysisInterface::_vectorizer_analysis->shallow_copy(
+                                lhs).as<Nodecl::ArraySubscript>();
+
+                    /*VectorizerGatherScatterInfo scatter_access(_environment);
+
+                      const Nodecl::NodeclBase base =
+                      scatter_access.get_base(lhs_array_copy);
+                      Nodecl::NodeclBase strides =
+                      scatter_access.get_strides(lhs_array_copy);
+                     */
+                    const Nodecl::NodeclBase base = 
+                        lhs_array_copy.get_subscripted();
+                    Nodecl::NodeclBase strides =  // The array must have been linearized
+                        lhs_array_copy.get_subscripts().as<Nodecl::List>().front();
+
+                    // Vectorize strides
+                    walk(strides);
+
+                    const Nodecl::VectorScatter vector_scatter =
+                        Nodecl::VectorScatter::make(
+                                base,
+                                strides,
+                                rhs.shallow_copy(),
+                                mask.shallow_copy(),
+                                vector_type,
+                                n.get_locus());
+
+
+                    // Adjacent access
+                    if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                            is_adjacent_access(_environment._analysis_simd_scope, lhs))
+                    {
+                        TL::Type basic_type = lhs.get_type();
+                        if (basic_type.is_lvalue_reference())
+                        {
+                            basic_type = basic_type.references_to();
+                        }
+
+                        nontmp_expr_map_t::const_iterator nontemporal_it =
+                            _environment._nontemporal_expr_map.find(
+                                    subscripted_symbol.get_symbol());
+
+                        bool nontemporal_store = (nontemporal_it !=
+                                _environment._nontemporal_expr_map.end());
+
+                        // Aligned
+                        if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                                is_simd_aligned_access(
+                                    _environment._analysis_simd_scope,
+                                    lhs,
+                                    _environment._aligned_expr_map,
+                                    _environment._suitable_expr_list,
+                                    _environment._unroll_factor,
+                                    _environment._unroll_factor * assignment_type.get_size()))
+                        {
+                            if (nontemporal_store)
+                            {
+                                VECTORIZATION_DEBUG()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
+
+                                const Nodecl::VectorStreamStore vector_stream_store =
+                                    Nodecl::VectorStreamStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask.shallow_copy(),
+                                            Nodecl::List::make(
+                                                nontemporal_it->second).shallow_copy(),
+                                            vector_type,
+                                            n.get_locus());
+
+                                n.replace(vector_stream_store);
+                            }
+                            else
+                            {
+                                VECTORIZATION_DEBUG()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
+
+                                const Nodecl::VectorStore vector_store =
+                                    Nodecl::VectorStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask.shallow_copy(),
+                                            Nodecl::List::make(vector_scatter),
+                                            vector_type,
+                                            n.get_locus());
+
+                                n.replace(vector_store);
+                            }
+                        }
+                        else // Unaligned
+                        {
+                            if (nontemporal_store)
+                            {
+                                VECTORIZATION_DEBUG()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Unaligned stream store '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
+
+                                const Nodecl::UnalignedVectorStreamStore vector_stream_store =
+                                    Nodecl::UnalignedVectorStreamStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask.shallow_copy(),
+                                            Nodecl::List::make(
+                                                nontemporal_it->second).shallow_copy(),
+                                            vector_type,
+                                            n.get_locus());
+
+                                n.replace(vector_stream_store);
+                            }
+                            else
+                            {
+                                VECTORIZATION_DEBUG()
+                                {
+                                    fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
+                                            lhs.prettyprint().c_str());
+                                }
+
+                                const Nodecl::UnalignedVectorStore vector_store =
+                                    Nodecl::UnalignedVectorStore::make(
+                                            Nodecl::Reference::make(
+                                                lhs.shallow_copy(),
+                                                basic_type.get_pointer_to(),
+                                                n.get_locus()),
+                                            rhs.shallow_copy(),
+                                            mask.shallow_copy(),
+                                            Nodecl::List::make(vector_scatter),
+                                            vector_type,
+                                            n.get_locus());
+
+                                n.replace(vector_store);
+                            }
+                        }
+                    }
+                    else // Vector Scatter
+                    {
+                        VECTORIZATION_DEBUG()
+                        {
+                            fprintf(stderr, "VECTORIZER: Scatter '%s'\n",
+                                    lhs.prettyprint().c_str());
+                        }
+
+                        n.replace(vector_scatter);
+                    }
+                }
+            }
+            else if (lhs.is<Nodecl::Symbol>())
+            {
+                Nodecl::Symbol sym = lhs.as<Nodecl::Symbol>();
+
+                walk(lhs); // This only works because lhs is a symbol.
+                // walk is only to visit RHS but in this
+                // case LHS and RHS visits seems to be
+                // equivalent
+
+                TL::Type tl_lhs_sym_type = sym.get_type().no_ref();
+
+                if (tl_lhs_sym_type.is_vector())  // Register
+                {
+                    walk(rhs);
+
+                    const Nodecl::VectorAssignment vector_assignment =
+                        Nodecl::VectorAssignment::make(
+                                lhs.shallow_copy(),
+                                rhs.shallow_copy(),
+                                mask.shallow_copy(),
+                                vector_type,
+                                n.get_locus());
+
+                    n.replace(vector_assignment);
+                }
+                else if (tl_lhs_sym_type.is_mask())
+                {
+                    walk(rhs);
+
+                    const Nodecl::VectorMaskAssignment vector_mask_assignment =
+                        Nodecl::VectorMaskAssignment::make(
+                                lhs.shallow_copy(),
+                                rhs.shallow_copy(),
+                                vector_type,
+                                n.get_locus());
+
+                    n.replace(vector_mask_assignment);
+                }
+                else
+                {
+                    internal_error("Vectorizer: Unsupported assignment on %s at %s,"\
+                            " which is has no vector type.\n",
+                            lhs.prettyprint().c_str(), n.get_locus());
+                }
+            }
+            else if (lhs.is<Nodecl::ClassMemberAccess>())
+            {
+                Nodecl::ClassMemberAccess cma = lhs.as<Nodecl::ClassMemberAccess>();
+
+                Nodecl::NodeclBase class_object = cma.get_lhs();
+                Nodecl::NodeclBase member = cma.get_member();
+
+                ERROR_CONDITION(!member.is<Nodecl::Symbol>(), 
+                        "Member is not a Symbol. Unsupported case", 0);
+                ERROR_CONDITION(!class_object.is<Nodecl::ArraySubscript>(),
+                        "Lhs is not an array. Unsupported case", 0);
+
+                int access_size = cma.get_type().no_ref().get_size();
+                int class_size = class_object.get_type().no_ref().get_size();
+                int member_offset = member.as<Nodecl::Symbol>().get_symbol().get_offset();
+
+                //TODO a.x[i] = 
+
+                // a[i].x --> Scatter
+
+                // Remove CMA and visit again
+                lhs.replace(class_object.shallow_copy());
+
+                walk(n);
+
+                // Update lhs
+                lhs = n.get_lhs();
+
+                if(lhs.is<Nodecl::VectorStore>() ||
+                        lhs.is<Nodecl::UnalignedVectorStore>())
+                {
+                    Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
+
+                    Nodecl::VectorScatter vector_scatter = vstore.get_flags().
+                        as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+
+                    // Add member to strides
+                    Nodecl::NodeclBase strides = vector_scatter.get_strides();
+
+                    strides.replace(Nodecl::Add::make(
+                                Nodecl::Mul::make(strides.shallow_copy(),
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(
+                                            class_size/access_size)),
+                                    strides.get_type()),
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        member_offset/access_size)),
+                                strides.get_type()));
+
+                    n.replace(vector_scatter);
+                }
+                else
+                {
+                    running_error("Vectorizer: ClassMemberAccess type is not "\
+                            "supported yet: '%s'", n.prettyprint().c_str());
+                }
             }
             else
             {
-                running_error("Vectorizer: ClassMemberAccess type is not "\
-                        "supported yet: '%s'", n.prettyprint().c_str());
+                internal_error("Vectorizer: Unsupported assignment on %s at %s.\n",
+                        lhs.prettyprint().c_str(), n.get_locus());
             }
-        }
+        } 
         else
         {
-            internal_error("Vectorizer: Unsupported assignment on %s at %s.\n",
-                    lhs.prettyprint().c_str(), n.get_locus());
-        } 
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "Vectorizer: Keep scalar %s\n",
+                        lhs.prettyprint().c_str());
+            }
+        }
     }
 
     void VectorizerVisitorExpression::visit(const Nodecl::Conversion& n)
@@ -968,7 +985,7 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     n, n))
         {
-            std::cerr << "Constant load: " << n.prettyprint() << "\n";
+            std::cerr << "Vectorizer: Vector promotion: " << n.prettyprint() << "\n";
 
             // Deal with Nodecl::Conversions
             Nodecl::NodeclBase encapsulated_symbol = n;

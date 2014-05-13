@@ -26,13 +26,14 @@
 
 #include "tl-vectorizer-visitor-statement.hpp"
 
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
-
-#include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorizer.hpp"
+#include "tl-vectorization-utils.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
+
 
 namespace TL
 {
@@ -434,26 +435,41 @@ namespace Vectorization
                     _environment._unroll_factor);
         }
 
-        // Vectorizing symbol type
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type vectorization "\
-                    "from '%s' to '%s'\n",
-                    sym.make_nodecl().prettyprint().c_str(),
-                    scalar_type.get_simple_declaration(
-                        n.retrieve_context(), "").c_str(),
-                    vector_type.get_simple_declaration(
-                        n.retrieve_context(), "").c_str());
-        }
 
-        sym.set_type(vector_type);
-
-        // Vectorizing initialization
         Nodecl::NodeclBase init = sym.get_value();
-        if(!init.is_null())
+
+        // If init value is invariant, keep it scalar!
+        if (!VectorizationAnalysisInterface::_vectorizer_analysis->is_invariant(
+                    _environment._analysis_simd_scope, init, init))
         {
-            VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
-            visitor_expression.walk(init);
+            // Vectorizing symbol type
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type vectorization "\
+                        "from '%s' to '%s'\n",
+                        sym.make_nodecl().prettyprint().c_str(),
+                        scalar_type.get_simple_declaration(
+                            n.retrieve_context(), "").c_str(),
+                        vector_type.get_simple_declaration(
+                            n.retrieve_context(), "").c_str());
+            }
+
+            sym.set_type(vector_type);
+
+            // Vectorizing initialization
+            if(!init.is_null())
+            {
+                VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
+                visitor_expression.walk(init);
+            }
+        }
+        else
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: '%s' TL::Symbol is kept scalar\n",
+                        sym.make_nodecl().prettyprint().c_str());
+            }
         }
     }
 
