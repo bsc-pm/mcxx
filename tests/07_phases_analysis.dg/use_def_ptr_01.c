@@ -25,41 +25,36 @@
 --------------------------------------------------------------------*/
 
 
+
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
  test_nolink=yes
  </testinfo>
- */
+*/
 
-// #include<iostream>
-// #include <assert.h>
-// #include <cstdarg>
+const int N = 100;
 
-void foo(int n, ...);
-// void foo(int n, int x, int y, int* res);
-// {
-//     va_list arg_ptr;
-//     va_start(arg_ptr, n);
-//     
-//     int tmp_res = 0;
-//     for(int i=0; i<n-1; ++i)
-//         tmp_res += va_arg(arg_ptr, int);
-//     int* res = va_arg(arg_ptr, int*);
-//     *res = tmp_res;
-//     
-//     va_end(arg_ptr);
-// }
-
-int main()
+int main(int argc, char** argv)
 {
-    int n = 3;
-    int x = 2, y = 2;
-    int empty_res;
-    int* res = &empty_res;
-    #pragma analysis_check assert upper_exposed(x, y, n) undefined(*res)
-    foo(n, x, y, res);
+    int v;
+    int *ptr;
+    int a[N];
     
-//     assert(*res == 4);
+    #pragma analysis_check assert upper_exposed(__ANALYSIS_NONE__) defined(ptr, *ptr)
+    {
+        ptr = &v;
+        *ptr = 10;
+    }
+    
+    #pragma analysis_check assert upper_exposed(__ANALYSIS_NONE__) defined(ptr)
+    ptr = &a[0];
+    
+    #pragma analysis_check assert upper_exposed(a) defined(ptr)
+    ptr = a;
+    
+    #pragma analysis_check assert upper_exposed(argc) defined(ptr)
+    ptr = &a[argc];
+    
     return 0;
 }

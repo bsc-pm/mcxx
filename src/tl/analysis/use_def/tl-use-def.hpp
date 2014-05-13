@@ -242,10 +242,18 @@ namespace Analysis {
         Utils::ext_sym_set get_ue_vars( );
         
         // Visitors
+        // FIXME : Implement Dereference visitor!!
         Ret visit( const Nodecl::ArraySubscript& n );
         Ret visit( const Nodecl::ClassMemberAccess& n );
         Ret visit( const Nodecl::Reference& n );
         Ret visit( const Nodecl::Symbol& n );
+    };
+    
+    class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret visit(const Nodecl::Dereference& n);
+        Ret visit(const Nodecl::Reference& n);
     };
     
     // *************************** End class implementing use-definition visitor ************************** //
