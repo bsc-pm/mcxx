@@ -29,7 +29,6 @@
 
 
 #include "tl-vectorizer-environment.hpp"
-
 #include "tl-analysis-interface.hpp"
 #include "tl-vectorization-common.hpp"
 #include "tl-nodecl-base.hpp"
@@ -58,8 +57,6 @@ namespace Vectorization
                                            public Analysis::AnalysisInterface
     {
         private:
-            static VectorizationAnalysisInterface *_vectorizer_analysis;
-
             Nodecl::NodeclBase _original_node;
 
             Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
@@ -79,6 +76,8 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n_copy);
 
         public:
+            static VectorizationAnalysisInterface *_vectorizer_analysis;
+
             static void initialize_analysis(
                     const Nodecl::FunctionCode& enclosing_function);
             static void finalize_analysis();
@@ -198,19 +197,6 @@ namespace Vectorization
             virtual bool is_constant_access( const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
                    */
-
-            friend class VectorizerEnvironment;
-            friend class VectorizerLoopInfo;
-            friend class VectorizerVisitorFor;
-            friend class VectorizerVisitorForEpilog;
-            friend class VectorizerVisitorLoopCond;
-            friend class VectorizerVisitorLoopNext;
-            friend class VectorizerVisitorFunction;
-            friend class VectorizerVisitorStatement;
-            friend class VectorizerVisitorExpression;
-            friend class VectorizerVisitorLoopHeader;
-            friend class StrideSplitterVisitor;
-            friend class SuitableAlignmentVisitor;
     };
 }
 }

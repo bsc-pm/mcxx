@@ -2223,8 +2223,13 @@ lib_LTLIBRARIES += src/tl/vectorization/vector-lowering/knc/libtlvector-lowering
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(tl_cflags)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
-    $(vector_lowering_cflags) \
-    $(END)
+                              $(vector_lowering_cflags) \
+                              -I $(top_srcdir)/src/tl/vectorization/common \
+                              -I $(top_srcdir)/src/tl/analysis/interface \
+                              -I $(top_srcdir)/src/tl/analysis/common \
+                              -I $(top_srcdir)/src/tl/analysis/pcfg \
+                              -I $(top_srcdir)/src/tl/analysis/tdg \
+                              $(END)
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LDFLAGS = $(tl_ldflags)
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_LIBADD = \

@@ -99,6 +99,7 @@ namespace TL
 
                 KNCVectorBackend();
 
+                virtual void visit(const Nodecl::FunctionCode& n);
                 virtual void visit(const Nodecl::ObjectInit& n);
 
                 virtual void visit(const Nodecl::VectorAdd& n);

@@ -26,9 +26,10 @@
 
 #include "tl-vector-backend-knc.hpp"
 
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-source.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
 
 #define KNC_VECTOR_BIT_SIZE 512
 #define KNC_VECTOR_BYTE_SIZE 64
@@ -196,6 +197,18 @@ namespace Vectorization
 
             mask_args << get_undef_intrinsic(type) << ", ";
         }
+    }
+
+
+    void KNCVectorBackend::visit(const Nodecl::FunctionCode& n)
+    {
+        // Initialize analisys
+        VectorizationAnalysisInterface::initialize_analysis(n);
+
+        walk(n.get_statements());
+        walk(n.get_initializers());
+
+        VectorizationAnalysisInterface::finalize_analysis();
     }
 
     void KNCVectorBackend::visit(const Nodecl::ObjectInit& n)
@@ -1353,7 +1366,8 @@ namespace Vectorization
 
         walk(lhs);
 
-        if (mask.is_null())
+        if (mask.is_null())// || !VectorizationAnalysisInterface::
+                //_vectorizer_analysis->has_been_defined(lhs))
         {
             walk(rhs);
             args << as_expression(rhs);
@@ -1366,19 +1380,19 @@ namespace Vectorization
             // Visit RHS with lhs as old
             walk(rhs);
 
-            // Nodes that needs implicit blending
+            // Nodes that needs implicit mask move
             if (!_old_m512.empty())
             {
                 if (lhs != _old_m512.back())
                 {
-                    internal_error("KNC Backend: Different old value and lhs in assignment with blend. LHS node '%s'. Old '%s'. At %s",
+                    internal_error("KNC Backend: Different old value and lhs "\
+                            "in assignment with mask mov. LHS node '%s'. Old '%s'. At %s",
                             lhs.prettyprint().c_str(),
                             _old_m512.back().prettyprint().c_str(),
                             locus_to_str(n.get_locus()));
                 }
 
-                process_mask_component(mask, mask_prefix, mask_args, type,
-                        Vectorization::KNCConfigMaskProcessing::ONLY_MASK);
+                process_mask_component(mask, mask_prefix, mask_args, type);
 
                 intrin_name << KNC_INTRIN_PREFIX
                     << mask_prefix
@@ -1388,26 +1402,23 @@ namespace Vectorization
                     << intrin_type_suffix
                     ;
 
-                args << mask_args
-                    << as_expression(lhs)
-                    << ", "
-                    << as_expression(rhs)
-                    ;
+                args << mask_args << as_expression(rhs);
 
                 if (type.is_float())
                 {
-                    intrin_op_name << "blend";
+                    intrin_op_name << "mov";
                     intrin_type_suffix << "ps";
                 }
                 else if (type.is_double())
                 {
-                    intrin_op_name << "blend";
+                    intrin_op_name << "mov";
                     intrin_type_suffix << "pd";
                 }
                 else if (type.is_integral_type())
                 {
-                    intrin_op_name << "blend";
+                    intrin_op_name << "swizzle";
                     intrin_type_suffix << "epi32";
+                    args << ", " << "_MM_SWIZ_REG_NONE";
                 }
             }
             else
