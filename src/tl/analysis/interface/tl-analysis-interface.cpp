@@ -319,6 +319,18 @@ namespace Analysis {
         return result;
     }
 
+    bool AnalysisInterface::has_been_defined( const Nodecl::NodeclBase& n )
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(n);
+
+        // Retrieve node
+        Node* n_node = pcfg->find_nodecl_pointer(n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for Nodecl '%s'. \n",
+                n.get_locus_str().c_str());
+
+        return has_been_defined_internal(n_node, n, pcfg->get_global_variables());
+    }
 
 /*
     DEPRECATED static bool reach_defs_depend_on_iv_rec(const Nodecl::NodeclBase& n, const ObjectList<Nodecl::NodeclBase>& ivs, ExtensibleGraph* pcfg)
