@@ -195,8 +195,11 @@ namespace Analysis {
                             ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
 
                         if((control_structure != NULL) && 
-                                //(scope_node == control_structure) || Condition of the SIMD scope must me skipped!
-                                ExtensibleGraph::node_contains_node(scope_node, control_structure))
+                                !(control_structure->is_loop_node() &&
+                                    ExtensibleGraph::node_contains_node(control_structure, original_n)))
+                                // If the original node (not any RD) is enclosed in the loop,
+                                // the condition of the loop doesn't define the value of that
+                                // node inside the loop
                         {
                             Node* cond_node = control_structure->get_condition_node();
                             ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
