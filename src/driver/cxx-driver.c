@@ -276,6 +276,7 @@
 "  --xl-compat              Enables compatibility features with\n" \
 "                           IBM XL C/C++/Fortran. This flag may be\n" \
 "                           required when using such compiler.\n" \
+"  --line-markers           Adds line markers to the generated file\n" \
 "\n" \
 "Compatibility parameters:\n" \
 "\n" \
@@ -307,6 +308,7 @@
 "  -shared\n" \
 "  -S\n" \
 "  -static\n" \
+"  -static-libgcc\n" \
 "  -std=<option>\n" \
 "  -v\n" \
 "  -V\n" \
@@ -387,6 +389,7 @@ typedef enum
     OPTION_DO_NOT_PROCESS_FILE,
     OPTION_DISABLE_FILE_LOCKING,
     OPTION_XL_COMPATIBILITY,
+    OPTION_LINE_MARKERS,
     OPTION_VERBOSE,
 } COMMAND_LINE_OPTIONS;
 
@@ -468,11 +471,12 @@ struct command_line_long_options command_line_long_options[] =
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
+    {"line-markers", CLP_NO_ARGUMENT, OPTION_LINE_MARKERS },
     // sentinel
     {NULL, 0, 0}
 };
 
-char* source_language_names[] =
+const char* source_language_names[] =
 {
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
@@ -802,7 +806,6 @@ int parse_arguments(int argc, const char* argv[],
     char native_verbose = 0; // -v
     char native_version = 0; // -V
 
-    const char **input_files = NULL;
     int num_input_files = 0;
 
     char linker_files_seen = 0;
@@ -894,9 +897,20 @@ int parse_arguments(int argc, const char* argv[],
                 }
                 else
                 {
-                    P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
-
                     struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+                    // Some files (e.g., OpenCL kernels) should be ignored because they don't
+                    // affect to the current compilation. Example:
+                    //
+                    //      oclmfc --ompss -o t1.o t1.c ./OCL/kernel.cl
+                    //
+                    // In this example, the 'kernel.cl' file is not processed, compiled,
+                    // embedded nor linked, it's only used to obtain the path to the kernel.
+                    // If we don't ignore these files the example is invalid
+                    if(!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                    {
+                        num_input_files++;
+                    }
 
                     compilation_configuration_t* current_configuration = CURRENT_CONFIGURATION;
 
@@ -1516,6 +1530,11 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->xl_compatibility = 1;
                         break;
                     }
+                case OPTION_LINE_MARKERS:
+                    {
+                        CURRENT_CONFIGURATION->line_markers = 1;
+                        break;
+                    }
                 default:
                     {
                         const char* unhandled_flag = "<<<unknown!>>>";
@@ -1976,6 +1995,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     }
                 }
                 else if (strcmp(argument, "-static") == 0) { }
+                else if (strcmp(argument, "-static-libgcc") == 0) { }
                 else if (strcmp(argument, "-shared") == 0) { }
                 else
                 {
@@ -3429,7 +3449,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        run_codegen_phase(prettyprint_file, translation_unit);
+        run_codegen_phase(prettyprint_file, translation_unit, output_filename);
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
@@ -3441,7 +3461,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            run_codegen_phase(raw_prettyprint_file, translation_unit);
+            run_codegen_phase(raw_prettyprint_file, translation_unit, output_filename);
             fclose(raw_prettyprint_file);
 
             raw_prettyprint_file = fopen(raw_prettyprint->name, "r");
@@ -3454,7 +3474,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         }
         else
         {
-            run_codegen_phase(prettyprint_file, translation_unit);
+            run_codegen_phase(prettyprint_file, translation_unit, output_filename);
         }
     }
     else
@@ -4123,6 +4143,18 @@ static void embed_files(void)
         {
             compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
             compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
+
+            // If a .o file is introduced by a phase, then it will not have an
+            // output filename because we usually compute these very late in
+            // the linking step and we will end using the same name.
+            extension = get_extension_filename(secondary_compilation_file->translation_unit->input_filename);
+            current_extension = fileextensions_lookup(extension, strlen(extension));
+            if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                    && secondary_compilation_file->translation_unit->output_filename == NULL)
+            {
+                secondary_compilation_file->translation_unit->output_filename =
+                    secondary_compilation_file->translation_unit->input_filename;
+            }
 
             target_options_map_t* target_options = get_target_options(secondary_configuration, CURRENT_CONFIGURATION->configuration_name);
 

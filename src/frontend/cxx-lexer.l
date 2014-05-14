@@ -1571,7 +1571,7 @@ static void parse_token_text_str(const char* c)
 #define TL_SOURCE_STRING mc99_tl_source_string
 /*!endif*/
 
-char* TL_SOURCE_STRING = "(tl-source-string)";
+char* TL_SOURCE_STRING = "MERCURIUM_INTERNAL_SOURCE";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {
@@ -1588,7 +1588,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 
     char c[MCXX_MAX_FILENAME];
-    snprintf(c, MCXX_MAX_FILENAME, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+    snprintf(c, MCXX_MAX_FILENAME, "%s-%s-%d", TL_SOURCE_STRING, current_filename, num_string);
     c[MCXX_MAX_FILENAME-1] = '\0';
     scanning_now.filename = uniquestr(c);
 

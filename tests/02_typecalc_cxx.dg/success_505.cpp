@@ -28,32 +28,28 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-int main(int argc, char** argv)
+template < typename T >
+struct A
 {
-    volatile unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
+};
+
+template < typename T>
+struct B : public A<T>
+{
+    struct C { };
+    void foo()
     {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
-
-        // Make all threads busy wait here
-        while (gate == 0);
+         (__alignof__(::B<T>::C));
+         (sizeof(::B<T>::C));
     }
+};
 
-    return 0;
+void m()
+{
+    B<int> a;
+    a.foo();
 }

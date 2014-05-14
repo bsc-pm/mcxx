@@ -553,6 +553,8 @@ namespace Codegen
 
             bool is_assignment_operator(const std::string& operator_name);
 
+            void emit_line_marker(Nodecl::NodeclBase n);
+            void emit_line_marker(const locus_t* locus);
         protected:
 
             void walk_list(const Nodecl::List&,
