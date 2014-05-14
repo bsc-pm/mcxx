@@ -47,6 +47,7 @@
 #include "cxx-gccbuiltins.h"
 #include "cxx-instantiation.h"
 #include "cxx-typededuc.h"
+#include "cxx-diagnostic.h"
 
 #include "fortran03-scope.h"
 
@@ -2720,15 +2721,18 @@ static type_t* template_type_get_specialized_type_(
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
+        diagnostic_context_push_buffered();
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context,
                 locus);
 
         // If we cannot update the type, give up, as probably this is SFINAE
         if (updated_function_type == NULL)
         {
+            diagnostic_context_pop_and_discard();
             free_template_parameter_list(template_arguments);
             return NULL;
         }
+        diagnostic_context_pop_and_commit();
 
         // This will give us a new function type
         specialized_type = _get_duplicated_function_type(updated_function_type);

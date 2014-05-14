@@ -600,8 +600,7 @@ char deduce_template_arguments_common(
                     locus);
             diagnostic_context_pop_and_discard();
 
-            if (updated_parameter == NULL
-                    || !is_sound_type(updated_parameter, updated_context))
+            if (updated_parameter == NULL)
             {
                 DEBUG_CODE()
                 {

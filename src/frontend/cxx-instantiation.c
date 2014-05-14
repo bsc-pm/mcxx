@@ -294,7 +294,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            locus,
+                            member_of_template->locus,
                             instantiation_symbol_map,
                             /* pack_index */ -1);
 
@@ -400,7 +400,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        locus,
+                        member_of_template->locus,
                         instantiation_symbol_map,
                         /* pack_index */ -1);
                 if (is_error_type(new_member->type_information))
@@ -537,7 +537,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         update_type_for_instantiation(
                                 enum_type_get_underlying_type(member_of_template->type_information),
                                 context_of_being_instantiated,
-                                locus,
+                                member_of_template->locus,
                                 instantiation_symbol_map,
                                 /* pack_index */ -1);
                 }
@@ -766,7 +766,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            locus,
+                            member_of_template->locus,
                             instantiation_symbol_map,
                             /* pack_index */ -1);
 
@@ -961,7 +961,7 @@ static void instantiate_dependent_friend_function(
     scope_entry_t* new_friend = NULL;
 
     type_t* new_type = update_type_for_instantiation(friend->type_information,
-            context_of_being_instantiated, locus,
+            context_of_being_instantiated, friend->locus,
             instantiation_symbol_map,
             /* pack_index */ -1);
 
@@ -1262,13 +1262,14 @@ static void instantiate_dependent_friend_function(
                 new_context.template_parameters = alineated_temp_params;
                 type_t* alineated_type = update_type_for_instantiation(new_type,
                         new_context,
-                        locus,
+                        friend->locus,
                         instantiation_symbol_map,
                         /* pack_index */ -1);
-                new_type = alineated_type;
 
-                if (is_error_type(alineated_type))
+                if (alineated_type == NULL)
                     return;
+
+                new_type = alineated_type;
             }
 
             scope_entry_list_t* filtered_entry_list = filter_symbol_kind(candidates_list, SK_TEMPLATE);
@@ -1354,7 +1355,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n", 
+        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n",
                 locus_to_str(locus),
                 print_declarator(being_instantiated),
                 print_declarator(selected_template));
@@ -1364,6 +1365,13 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
     scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
+
+    const char* instantiation_header = NULL;
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating class '%s'\n",
+            locus_to_str(locus),
+            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
+    diagnostic_context_push_instantiation(instantiation_header);
 
     // Update the template parameter with the deduced template parameters
     decl_context_t instantiation_context = being_instantiated_sym->decl_context;
@@ -1406,7 +1414,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             get_actual_class_type(being_instantiated),
             inner_decl_context,
             instantiation_symbol_map,
-            locus
+            being_instantiated_sym->locus
             );
 
     if (!being_instantiated_sym->entity_specs.is_unnamed)
@@ -1543,17 +1551,17 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             //
             // The symbol 'B<T2>' created in (1) has kind 'SK_CLASS' but his type is dependent
             // In the instantiation (2) we should modify his type
-            
+
             scope_entry_t* new_friend = friend;
             if (is_dependent_type(friend->type_information))
             {
                 type_t* new_type = update_type_for_instantiation(get_user_defined_type(friend),
                         inner_decl_context,
-                        locus,
+                        friend->locus,
                         instantiation_symbol_map,
                         /* pack_index */ -1);
-                if (is_error_type(new_type))
-                    return;
+                if (new_type == NULL)
+                    continue;
                 new_friend = named_type_get_symbol(new_type);
             }
 
@@ -1599,6 +1607,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated_sym,
                 /* is_definition */ 1);
     }
+
+    diagnostic_context_pop_and_commit();
 
     DEBUG_CODE()
     {
