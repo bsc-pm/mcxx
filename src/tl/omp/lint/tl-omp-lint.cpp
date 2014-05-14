@@ -120,19 +120,20 @@ namespace {
             if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
                 graph->print_graph_to_dot(/*use_def_computed*/true, /*liveness_computed*/true);
             
-            // Make sure the logs directory exists
-            struct stat st;
-            if(stat(log_file_path.c_str(), &st) != 0)
-            {   // the directory does not exist
-                int dot_directory = mkdir(log_file_path.c_str(), S_IRWXU);
-                if(dot_directory != 0)
-                    internal_error("An error occurred while creating the dot files directory in '%s'", log_file_path.c_str());
-            }
-            
             // Create the log file that will store the logs
-            int old_mask;
             if(!log_file_path.empty())
             {
+            	// Make sure the logs directory exists
+                struct stat st;
+                if(stat(log_file_path.c_str(), &st) != 0)
+                {   // the directory does not exist
+                    int old_mask = umask(0000);
+                    int dot_directory = mkdir(log_file_path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
+                    umask(old_mask);
+                    if(dot_directory != 0)
+                        internal_error("An error occurred while creating the dot files directory in '%s'", log_file_path.c_str());
+                }
+
                 // 1.- Get user name
                 char* tmp_usr_name = getenv("USER");
                 usr_name = std::string(tmp_usr_name);
@@ -171,8 +172,9 @@ namespace {
                 {
                     std::cerr << "OMP-LINT_ The correctness log files for this compilation will be stored in file: '" << log_file_name << "'" << std::endl;
                 }
-                old_mask = umask(0003);
+                int old_mask = umask(0022);
                 log_file = fopen(log_file_name, "a+");
+                umask(old_mask);
                 if(log_file == NULL)
                     internal_error("Unable to open the file '%s' to store the correctness logs.", log_file_name);
             }
@@ -238,7 +240,6 @@ namespace {
             // Close the logs file
             if(!log_file_path.empty())
             {
-                umask(old_mask);
                 fclose(log_file);
             }
         }
