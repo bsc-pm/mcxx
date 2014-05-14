@@ -215,6 +215,7 @@ LIBMCXX_EXTERN const_value_t* const_value_complex_get_imag_part(const_value_t* v
 LIBMCXX_EXTERN int const_value_get_num_elements(const_value_t* value);
 LIBMCXX_EXTERN const_value_t* const_value_get_element_num(const_value_t* value, int num);
 
+LIBMCXX_EXTERN const_value_t* const_value_convert_to_type(const_value_t* const_value, type_t* dst_type);
 LIBMCXX_EXTERN const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elements);
 LIBMCXX_EXTERN const_value_t* const_value_convert_to_array(const_value_t* value, int num_elements);
 
