@@ -8218,8 +8218,21 @@ const char* print_gnu_vector_type(
             print_symbol_data);
 
     const char* c = NULL;
-    uniquestr_sprintf(&c, "__attribute__((vector_size(%d))) %s",
+
+    const char* may_alias = "";
+
+    // Workaround for i386 and x86-64 MMX and SSE vectors, which happen to be may_alias
+    if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+            && (vector_type_get_vector_size(t) == 8
+                || vector_type_get_vector_size(t) == 16))
+    {
+        may_alias = " __attribute__((__may_alias__))";
+    }
+
+    uniquestr_sprintf(&c, "__attribute__((vector_size(%d)))%s %s",
             vector_type_get_vector_size(t),
+            may_alias,
             typename);
 
     return c;
