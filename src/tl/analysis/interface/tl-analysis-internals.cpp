@@ -122,10 +122,9 @@ namespace Analysis {
             else // n doesn't have RDs
             {
                 Nodecl::NodeclBase nodecl_base = Utils::get_nodecl_base(n);
-                if (nodecl_base.is<Nodecl::Symbol>())
+                if (!nodecl_base.is_null())
                 {
-                    Nodecl::Symbol sym = nodecl_base.as<Nodecl::Symbol>();
-                    if(global_variables.find(sym.get_symbol()) != 
+                    if(global_variables.find(nodecl_base.get_symbol()) != 
                                 global_variables.end()) // n is a global var
                         result = true;
                 }
