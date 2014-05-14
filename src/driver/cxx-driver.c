@@ -476,7 +476,7 @@ struct command_line_long_options command_line_long_options[] =
     {NULL, 0, 0}
 };
 
-char* source_language_names[] =
+const char* source_language_names[] =
 {
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
