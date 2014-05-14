@@ -3815,14 +3815,14 @@ static type_t* _get_array_type(type_t* element_type,
 static nodecl_t get_zero_tree(const locus_t* locus) 
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_zero(type_get_size(get_signed_int_type()), 0), 
+            const_value_get_zero(type_get_size(get_signed_int_type()), 1), 
             locus);
 }
 
 static nodecl_t get_one_tree(const locus_t* locus)
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_one(type_get_size(get_signed_int_type()), 0), 
+            const_value_get_one(type_get_size(get_signed_int_type()), 1), 
             locus);
 }
 
@@ -8218,8 +8218,21 @@ const char* print_gnu_vector_type(
             print_symbol_data);
 
     const char* c = NULL;
-    uniquestr_sprintf(&c, "__attribute__((vector_size(%d))) %s",
+
+    const char* may_alias = "";
+
+    // Workaround for i386 and x86-64 MMX and SSE vectors, which happen to be may_alias
+    if ((strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-x86_64") == 0
+                || strcmp(CURRENT_CONFIGURATION->type_environment->environ_id, "linux-i386") == 0)
+            && (vector_type_get_vector_size(t) == 8
+                || vector_type_get_vector_size(t) == 16))
+    {
+        may_alias = " __attribute__((__may_alias__))";
+    }
+
+    uniquestr_sprintf(&c, "__attribute__((vector_size(%d)))%s %s",
             vector_type_get_vector_size(t),
+            may_alias,
             typename);
 
     return c;

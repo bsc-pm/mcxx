@@ -6929,6 +6929,8 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (!symbol.is_user_declared())
         return;
 
+    emit_line_marker(symbol.get_locus());
+
     if (symbol.is_variable())
     {
         define_or_declare_variable(symbol, /* is definition */ true);
