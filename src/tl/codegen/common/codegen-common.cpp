@@ -52,11 +52,16 @@ void CodegenVisitor::set_is_file_output(bool b)
 
 std::string CodegenVisitor::codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc)
 {
+    bool prev_line_markers = CURRENT_CONFIGURATION->line_markers;
+    CURRENT_CONFIGURATION->line_markers = 0;
+
     std::stringstream out;
 
     this->push_scope(sc);
     this->codegen(n, &out);
     this->pop_scope();
+
+    CURRENT_CONFIGURATION->line_markers = prev_line_markers;
 
     return out.str();
 }

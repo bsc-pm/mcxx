@@ -476,7 +476,7 @@ struct command_line_long_options command_line_long_options[] =
     {NULL, 0, 0}
 };
 
-char* source_language_names[] =
+const char* source_language_names[] =
 {
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
@@ -806,7 +806,6 @@ int parse_arguments(int argc, const char* argv[],
     char native_verbose = 0; // -v
     char native_version = 0; // -V
 
-    const char **input_files = NULL;
     int num_input_files = 0;
 
     char linker_files_seen = 0;
@@ -898,9 +897,20 @@ int parse_arguments(int argc, const char* argv[],
                 }
                 else
                 {
-                    P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
-
                     struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+                    // Some files (e.g., OpenCL kernels) should be ignored because they don't
+                    // affect to the current compilation. Example:
+                    //
+                    //      oclmfc --ompss -o t1.o t1.c ./OCL/kernel.cl
+                    //
+                    // In this example, the 'kernel.cl' file is not processed, compiled,
+                    // embedded nor linked, it's only used to obtain the path to the kernel.
+                    // If we don't ignore these files the example is invalid
+                    if(!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_DO_NOT_LINK))
+                    {
+                        num_input_files++;
+                    }
 
                     compilation_configuration_t* current_configuration = CURRENT_CONFIGURATION;
 
@@ -4133,6 +4143,18 @@ static void embed_files(void)
         {
             compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
             compilation_configuration_t* secondary_configuration = secondary_compilation_file->compilation_configuration;
+
+            // If a .o file is introduced by a phase, then it will not have an
+            // output filename because we usually compute these very late in
+            // the linking step and we will end using the same name.
+            extension = get_extension_filename(secondary_compilation_file->translation_unit->input_filename);
+            current_extension = fileextensions_lookup(extension, strlen(extension));
+            if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA
+                    && secondary_compilation_file->translation_unit->output_filename == NULL)
+            {
+                secondary_compilation_file->translation_unit->output_filename =
+                    secondary_compilation_file->translation_unit->input_filename;
+            }
 
             target_options_map_t* target_options = get_target_options(secondary_configuration, CURRENT_CONFIGURATION->configuration_name);
 
