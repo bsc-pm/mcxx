@@ -85,7 +85,7 @@ typedef struct sublanguage_profile_tag
 
 extern sublanguage_profile_t sublanguage_profiles[];
 
-extern char* source_language_names[];
+extern const char* source_language_names[];
 
 // File extensions table
 struct extensions_table_t
