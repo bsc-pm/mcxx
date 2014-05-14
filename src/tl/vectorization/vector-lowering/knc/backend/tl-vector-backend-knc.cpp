@@ -202,13 +202,24 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::FunctionCode& n)
     {
-        // Initialize analisys
-        VectorizationAnalysisInterface::initialize_analysis(n);
+        // TODO: Do it more efficiently!
+        bool contains_vector_nodes =
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMinus>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
 
-        walk(n.get_statements());
-        walk(n.get_initializers());
+        if (contains_vector_nodes)
+        {
+            // Initialize analisys
+            VectorizationAnalysisInterface::initialize_analysis(n);
 
-        VectorizationAnalysisInterface::finalize_analysis();
+            walk(n.get_statements());
+
+            VectorizationAnalysisInterface::finalize_analysis();
+        }
     }
 
     void KNCVectorBackend::visit(const Nodecl::ObjectInit& n)
@@ -1366,8 +1377,19 @@ namespace Vectorization
 
         walk(lhs);
 
-        if (mask.is_null())// || !VectorizationAnalysisInterface::
-                //_vectorizer_analysis->has_been_defined(lhs))
+        bool lhs_has_been_defined = VectorizationAnalysisInterface::
+            _vectorizer_analysis->has_been_defined(lhs);
+
+        if (lhs_has_been_defined)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: '%s' has been defined\n",
+                        lhs.prettyprint().c_str());
+            }
+        }
+
+        if (mask.is_null() || !lhs_has_been_defined)
         {
             walk(rhs);
             args << as_expression(rhs);

@@ -296,6 +296,13 @@ namespace Vectorization
                 translate_input(n));
     }
 
+    bool VectorizationAnalysisInterface::has_been_defined(
+            const Nodecl::NodeclBase& n) 
+    {
+        return Analysis::AnalysisInterface::has_been_defined(
+                translate_input(n));
+    }
+
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {

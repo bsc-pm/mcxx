@@ -92,6 +92,8 @@ namespace Vectorization
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
 
+            virtual bool has_been_defined(const Nodecl::NodeclBase& n);
+ 
             // IVS 
             virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
