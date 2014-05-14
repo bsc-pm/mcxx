@@ -76,7 +76,7 @@ struct diagnostic_context_stderr_tag
 
 static void diagnose_to_stderr(diagnostic_context_stderr_t* ctx, diagnostic_severity_t severity, const char* message)
 {
-    fprintf(stderr, message);
+    fputs(message, stderr);
 
     switch (severity)
     {
