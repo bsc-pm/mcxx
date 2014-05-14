@@ -51,6 +51,11 @@ namespace Analysis {
             ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
 
+    bool has_been_defined_internal(Node* const n_node,
+            const Nodecl::NodeclBase& n,
+            const std::set<TL::Symbol>& global_variables);
+ 
+    // IVS
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n);
     bool is_non_reduction_basic_iv_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
@@ -59,6 +64,7 @@ namespace Analysis {
     Nodecl::NodeclBase get_iv_increment_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
 
+    // Generic queries
     template <typename PropertyFunctor>
     TL::tribool reach_defs_have_property_in_scope(
             Node* const scope_node,

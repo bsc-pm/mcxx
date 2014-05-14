@@ -33,7 +33,7 @@ namespace Analysis {
     // ************************** Class implementing reaching definition analysis ************************* //
 
     ReachingDefinitions::ReachingDefinitions( ExtensibleGraph* graph )
-        : _graph( graph ), _undefined_reach_defs()
+        : _graph( graph ), _unknown_reach_defs()
     {}
 
     void ReachingDefinitions::compute_reaching_definitions( )
@@ -41,7 +41,7 @@ namespace Analysis {
         Node* graph = _graph->get_graph( );
 
         // Set a fictitious reaching definition for each parameter 
-        generate_undefined_reaching_definitions( );
+        generate_unknown_reaching_definitions( );
         
         // Compute initial info (liveness only regarding the current node)
         gather_reaching_definitions_initial_information( graph );
@@ -52,7 +52,7 @@ namespace Analysis {
         ExtensibleGraph::clear_visits( graph );
     }
 
-    void ReachingDefinitions::generate_undefined_reaching_definitions( )
+    void ReachingDefinitions::generate_unknown_reaching_definitions( )
     {
         // Take care of the function parameters
         Symbol func_sym = _graph->get_function_symbol();
@@ -65,16 +65,17 @@ namespace Analysis {
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
             s.set_type(it->get_type());
             Utils::ExtendedSymbol es(s);
-            _undefined_reach_defs.insert(
+            _unknown_reach_defs.insert(
                     std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
                             es, Utils::NodeclPair(Nodecl::Unknown::make(), Nodecl::Unknown::make())));
         }
         
         // Take care of the global variables
+        /*
         const std::set<Symbol> global_vars = _graph->get_global_variables();
         for(std::set<Symbol>::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
-            // Compute the reaching definition: the initialization value if the symbol is constant or undefined otherwise
+            // Compute the reaching definition: the initialization value if the symbol is constant or unknown otherwise
             Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
             if(it->get_type().is_const())
             {
@@ -86,12 +87,14 @@ namespace Analysis {
             Nodecl::Symbol s = Nodecl::Symbol::make(*it);
             s.set_type(it->get_type());
             Utils::ExtendedSymbol es(s);
-            _undefined_reach_defs.insert(
+            _unknown_reach_defs.insert(
                     std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
                             es, Utils::NodeclPair(reach_def, Nodecl::NodeclBase::null())));
         }
+        */
         
-        // Initialize as undefined all variables
+        // Initialize as unknown all variables
+        /*
         ObjectList<Nodecl::NodeclBase> nodecls;
         Node* pcfg = _graph->get_graph();
         if(pcfg->is_graph_node())
@@ -111,15 +114,16 @@ namespace Analysis {
             for(ObjectList<Nodecl::Symbol>:: iterator itt = all_syms.begin(); itt != all_syms.end(); ++itt)
             {
                 Utils::ExtendedSymbol es(*itt);
-                if(_undefined_reach_defs.find(es) == _undefined_reach_defs.end())
+                if(_unknown_reach_defs.find(es) == _unknown_reach_defs.end())
                 {
                     Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
-                    _undefined_reach_defs.insert(
+                    _unknown_reach_defs.insert(
                             std::pair<Utils::ExtendedSymbol, Utils::NodeclPair>(
                                     es, Utils::NodeclPair(reach_def, Nodecl::NodeclBase::null())));
                 }
             }
         }
+        */
     }
     
     void ReachingDefinitions::gather_reaching_definitions_initial_information( Node* current )
@@ -215,7 +219,7 @@ namespace Analysis {
                         }
                         rd_in = Utils::ext_sym_map_union( rd_in, pred_rd_out );
                         if(_graph->is_first_statement_node(current))
-                            rd_in = Utils::ext_sym_map_union( rd_in, _undefined_reach_defs );
+                            rd_in = Utils::ext_sym_map_union( rd_in, _unknown_reach_defs );
                     }
 
                     // Computing Reach Defs Out
