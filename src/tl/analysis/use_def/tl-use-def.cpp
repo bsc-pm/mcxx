@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+(C) Copyright 2006-2013 Barcelona Supercomputing Center             *
 Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -45,7 +45,7 @@ SizeMap _pointer_to_size_map;
     
     void PointersSimplifierVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        WARNING_MESSAGE( "Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
+        WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
     }
     
     void PointersSimplifierVisitor::visit(const Nodecl::Dereference& n)
@@ -116,14 +116,14 @@ namespace {
     Nodecl::NodeclBase split_var_depending_on_usage_rec(Nodecl::NodeclBase container, Nodecl::NodeclBase contained)
     {
         Nodecl::NodeclBase result;
-        if( contained.is<Nodecl::ArraySubscript>( ) )
+        if(contained.is<Nodecl::ArraySubscript>())
         {   // Contained[...]
             // Get the 'container' and 'contained' accesses. If not a Range, transform it into a Range
             Nodecl::NodeclBase ctr_subscript, ctd_subscript;
             Nodecl::NodeclBase subscripted;
             Nodecl::NodeclBase ctr_lb;
             Nodecl::NodeclBase ctr_ub;
-            TL::Type ctr_t = container.is<Nodecl::Symbol>() ? container.get_symbol().get_type( ).no_ref() 
+            TL::Type ctr_t = container.is<Nodecl::Symbol>() ? container.get_symbol().get_type().no_ref() 
                                                             : container.get_type().no_ref();
             ERROR_CONDITION(!ctr_t.is_valid(), 
                             "Invalid type computed for container %s.\n", 
@@ -139,18 +139,18 @@ namespace {
             }
             else
             {
-                if( container.is<Nodecl::ArraySubscript>( ) )
+                if(container.is<Nodecl::ArraySubscript>())
                 {   // Container[...]
-                    subscripted = container.as<Nodecl::ArraySubscript>( ).get_subscripted( );
-                    Nodecl::List ctr_subscripts = container.as<Nodecl::ArraySubscript>( ).get_subscripts( ).as<Nodecl::List>( );
+                    subscripted = container.as<Nodecl::ArraySubscript>().get_subscripted();
+                    Nodecl::List ctr_subscripts = container.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
                     unsigned int i = 0;
-                    unsigned int size = std::min( ctd_subscripts.size(), ctr_subscripts.size() );
-                    while( i < size-1 )
+                    unsigned int size = std::min(ctd_subscripts.size(), ctr_subscripts.size());
+                    while(i < size-1)
                     {
-                        if( !Nodecl::Utils::structurally_equal_nodecls( ctr_subscripts[i], ctd_subscripts[i] ) )
+                        if(!Nodecl::Utils::structurally_equal_nodecls(ctr_subscripts[i], ctd_subscripts[i]))
                         {
-                            WARNING_MESSAGE( "Splitting usage of multidimensional arrays when dimensions other than "
-                                            "the less significant accessed differs is not yet supported\n", 0 );
+                            WARNING_MESSAGE("Splitting usage of multidimensional arrays when dimensions other than "
+                                            "the less significant accessed differs is not yet supported\n", 0);
                             return result;
                         }
                         i++;
@@ -159,10 +159,10 @@ namespace {
                     ctd_subscript = ctd_subscripts[i];
                     ctr_subscript = ctr_subscripts[i];
                     
-                    if( ctr_subscript.is<Nodecl::Range>( ) )
+                    if(ctr_subscript.is<Nodecl::Range>())
                     {   // Container[ctr_lb:ctr_ub]
-                        ctr_lb = ctr_subscript.as<Nodecl::Range>().get_lower( );
-                        ctr_ub = ctr_subscript.as<Nodecl::Range>().get_upper( );
+                        ctr_lb = ctr_subscript.as<Nodecl::Range>().get_lower();
+                        ctr_ub = ctr_subscript.as<Nodecl::Range>().get_upper();
                     }
                     else
                     {   // Container[ctr_index]  ->  Container[ctr_index:ctr_index]
@@ -172,20 +172,20 @@ namespace {
                 }
                 else
                 {
-                    if( ctd_subscripts.size( ) > 1 )
+                    if(ctd_subscripts.size() > 1)
                     {
                         WARNING_MESSAGE("Cannot split the multidimensional array access %s "
                                         "when its container expression other than an array access to the less significant dimension\n",
-                                        contained.prettyprint().c_str(), container.prettyprint().c_str() );
+                                        contained.prettyprint().c_str(), container.prettyprint().c_str());
                         return result;
                     }
                     
                     ctd_subscript = ctd_subscripts[0];
                     subscripted = container;
                     
-                    if( ctr_t.is_array( ) )
+                    if(ctr_t.is_array())
                     {
-                        ctr_t.array_get_bounds( ctr_lb, ctr_ub );
+                        ctr_t.array_get_bounds(ctr_lb, ctr_ub);
                     }
                     else if(ctr_t.is_pointer())
                     {
@@ -242,7 +242,7 @@ namespace {
                         Nodecl::ArraySubscript::make(subscripted.shallow_copy(), Nodecl::List::make(lhs), ctr_t), 
                         Nodecl::ArraySubscript::make(subscripted.shallow_copy(), Nodecl::List::make(rhs), ctr_t),
                         ctr_t
-                    );
+                   );
                 }
                 else if(range_subtraction.is<Nodecl::Analysis::RangeSub>())
                 {   // Assume 'contained' is actually contained in 'container', so ctr_lb<ctd_lb and ctd_ub>ctr_ub
@@ -261,7 +261,7 @@ namespace {
                                                                                            one_nodecl.shallow_copy(), ctr_t)), 
                                                     ctr_t),
                         ctr_t
-                    );
+                   );
                 }
                 else
                 {
@@ -272,36 +272,36 @@ namespace {
                 }
             }
         }
-        else if( contained.is<Nodecl::ClassMemberAccess>( ) )
+        else if(contained.is<Nodecl::ClassMemberAccess>())
         {
-            TL::Type ctr_t = container.get_type( );
-            if( ctr_t.is_lvalue_reference( ) )
-                ctr_t = ctr_t.references_to( );
-            if( ctr_t.is_class( ) )
+            TL::Type ctr_t = container.get_type();
+            if(ctr_t.is_lvalue_reference())
+                ctr_t = ctr_t.references_to();
+            if(ctr_t.is_class())
             {   // struct t { ... }
                 // Compute the nest of members accessed by 'contained'
                 ObjectList<Symbol> ctd_nested_syms;
-                ctd_nested_syms.append( contained.as<Nodecl::ClassMemberAccess>( ).get_member( ).get_symbol( ) );
-                Nodecl::NodeclBase tmp = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-                while( tmp.is<Nodecl::ClassMemberAccess>( ) )
+                ctd_nested_syms.append(contained.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
+                Nodecl::NodeclBase tmp = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                while(tmp.is<Nodecl::ClassMemberAccess>())
                 {
-                    ctd_nested_syms.append( tmp.as<Nodecl::ClassMemberAccess>( ).get_member( ).get_symbol( ) );
-                    tmp = tmp.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
+                    ctd_nested_syms.append(tmp.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
+                    tmp = tmp.as<Nodecl::ClassMemberAccess>().get_lhs();
                 }
 
                 // Travers the 'Container' adding all members that are not in the list just computed
-                ObjectList<Symbol> ctr_members = ctr_t.get_all_data_members( );
+                ObjectList<Symbol> ctr_members = ctr_t.get_all_data_members();
                 Nodecl::NodeclBase current_lhs = container;
                 Nodecl::NodeclBase next_cma_lhs;
-                while( !ctr_members.empty( ) )
+                while(!ctr_members.empty())
                 {
                     Symbol current_member_sym;      // We want this variable to be new at each iteration
-                    for( ObjectList<Symbol>::iterator it = ctr_members.begin(); it != ctr_members.end(); ++it )
+                    for(ObjectList<Symbol>::iterator it = ctr_members.begin(); it != ctr_members.end(); ++it)
                     {
-                        Nodecl::Symbol sym_n = Nodecl::Symbol::make( *it );
-                        Nodecl::ClassMemberAccess new_cma = Nodecl::ClassMemberAccess::make( current_lhs.shallow_copy(), sym_n,
-                                                                                             /* member-form */ Nodecl::NodeclBase::null( ), it->get_type( ) );
-                        if( !ctd_nested_syms.contains( *it ) )
+                        Nodecl::Symbol sym_n = Nodecl::Symbol::make(*it);
+                        Nodecl::ClassMemberAccess new_cma = Nodecl::ClassMemberAccess::make(current_lhs.shallow_copy(), sym_n,
+                                                                                             /*member-form*/ Nodecl::NodeclBase::null(), it->get_type());
+                        if(!ctd_nested_syms.contains(*it))
                         {
                             // Include the whole member, since 'Contained' is not a part of it
                             result = new_cma;
@@ -315,13 +315,13 @@ namespace {
                     ctr_members.clear();
 
                     // Compute the type of the next nesting level member
-                    if( current_member_sym.is_valid( ) )
+                    if(current_member_sym.is_valid())
                     {
                         // Get the next data members set
                         TL::Type mem_t = current_member_sym.get_type();
-                        if( mem_t.is_lvalue_reference( ) )
-                            mem_t = mem_t.references_to( );
-                        if( mem_t.is_class()  )
+                        if(mem_t.is_lvalue_reference())
+                            mem_t = mem_t.references_to();
+                        if(mem_t.is_class())
                             ctr_members = mem_t.get_all_data_members();
                         // Set the new lhs for the next members
                         current_lhs = next_cma_lhs;
@@ -330,17 +330,17 @@ namespace {
             }
             else
             {
-                WARNING_MESSAGE( "Container %s, of contained %s, has no class type. Instead it is %s\n",
-                                 container.prettyprint().c_str(), contained.prettyprint().c_str(),
-                                 print_declarator(ctr_t.get_internal_type()) );
+                WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
+                                container.prettyprint().c_str(), contained.prettyprint().c_str(),
+                                print_declarator(ctr_t.get_internal_type()));
                 return result;
             }
         }
         else
         {
-            WARNING_MESSAGE( "Unexpected type of nodecl '%s' when splitting an object into different subobjects.\n"
-                             "ArraySubscript or ClassMemberAccess expected\n",
-            ast_print_node_type( contained.get_kind( ) ) );
+            WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting an object into different subobjects.\n"
+                            "ArraySubscript or ClassMemberAccess expected\n",
+                            ast_print_node_type(contained.get_kind()));
         }
         return result;
     }
@@ -368,145 +368,145 @@ namespace {
      * - we are computing the usage of a node: since there may be more than one statement within the same node,
      *                                         we need to take into account the usage computed for the already treated statements
      */
-    void propagate_usage_to_ancestors( Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars,
+    void propagate_usage_to_ancestors(Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars,
                                        Utils::ext_sym_set& undef_vars, Utils::ext_sym_set& used_addresses,
                                        const Utils::ext_sym_set& ue_children, const Utils::ext_sym_set& killed_children, 
-                                       const Utils::ext_sym_set& undef_children, const Utils::ext_sym_set& used_addresses_children )
+                                       const Utils::ext_sym_set& undef_children, const Utils::ext_sym_set& used_addresses_children)
     {
         // Propagate the upwards exposed variables
         Nodecl::NodeclBase ue_previously_killed_subobject, ue_previously_undef_subobject;
-        for( Utils::ext_sym_set::iterator it = ue_children.begin( ); it != ue_children.end( ); ++it )
+        for(Utils::ext_sym_set::iterator it = ue_children.begin(); it != ue_children.end(); ++it)
         {
-            Nodecl::NodeclBase n_it = it->get_nodecl( );
+            Nodecl::NodeclBase n_it = it->get_nodecl();
             // UE vars can only be upwards propagated if the are not already KILLED in the parent
             // or they (or an enclosing nodecl) are not yet in the result set
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) ||
-                !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, ue_vars ).is_null( ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(n_it, killed_vars).is_null() ||
+                !Utils::ext_sym_set_contains_enclosing_nodecl(n_it, ue_vars).is_null())
                 continue;
 
-            ue_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-            ue_previously_undef_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, undef_vars );
-            if( ue_previously_killed_subobject.is_null( ) && ue_previously_undef_subobject.is_null( ) )
+            ue_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, killed_vars);
+            ue_previously_undef_subobject = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, undef_vars);
+            if(ue_previously_killed_subobject.is_null() && ue_previously_undef_subobject.is_null())
             {   // Neither killed nor undef var sets contain the current ue var
-                Nodecl::NodeclBase tmp = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, ue_vars );
-                if( !tmp.is_null( ) )
-                    ue_vars.erase( tmp );   // Delete the enclosed var from the list
-                ue_vars.insert( *it );      // Insert the new containing var
+                Nodecl::NodeclBase tmp = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, ue_vars);
+                if(!tmp.is_null())
+                    ue_vars.erase(tmp);   // Delete the enclosed var from the list
+                ue_vars.insert(*it);      // Insert the new containing var
             }
             else
             {   // Here a part of the nodecl is KILLED|UNDEF and a part is UE
                 Nodecl::NodeclBase non_killed_ue_vars, non_undef_ue_vars;
-                if( !ue_previously_killed_subobject.is_null( ) )
-                    non_killed_ue_vars = split_var_depending_on_usage( n_it, ue_previously_killed_subobject );
-                if( !ue_previously_undef_subobject.is_null( ) )
+                if(!ue_previously_killed_subobject.is_null())
+                    non_killed_ue_vars = split_var_depending_on_usage(n_it, ue_previously_killed_subobject);
+                if(!ue_previously_undef_subobject.is_null())
                 {   // A variable marked as UNDEF can still be UE
                     if(Utils::ext_sym_set_contains_nodecl(n_it, undef_vars))
                         non_undef_ue_vars = n_it;
                     else
-                        non_undef_ue_vars = split_var_depending_on_usage( n_it, ue_previously_undef_subobject );
+                        non_undef_ue_vars = split_var_depending_on_usage(n_it, ue_previously_undef_subobject);
                 }
                 
-                if( (!ue_previously_killed_subobject.is_null( ) && non_killed_ue_vars.is_null( )) || 
-                    (!ue_previously_undef_subobject.is_null( ) && non_undef_ue_vars.is_null( )) )
+                if((!ue_previously_killed_subobject.is_null() && non_killed_ue_vars.is_null()) || 
+                   (!ue_previously_undef_subobject.is_null() && non_undef_ue_vars.is_null()))
                 {   // When the two sets are empty is because the separation has not been possible
                     // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
-                    if( !ue_previously_killed_subobject.is_null( ) )
-                        delete_enclosed_var_from_list( ue_previously_killed_subobject, killed_vars );
-                    if( !ue_previously_undef_subobject.is_null( ) )
-                        delete_enclosed_var_from_list( ue_previously_undef_subobject, undef_vars );
-                    undef_vars.insert( n_it );
+                    if(!ue_previously_killed_subobject.is_null())
+                        delete_enclosed_var_from_list(ue_previously_killed_subobject, killed_vars);
+                    if(!ue_previously_undef_subobject.is_null())
+                        delete_enclosed_var_from_list(ue_previously_undef_subobject, undef_vars);
+                    undef_vars.insert(n_it);
                 }
                 else
                 {   // new_ue_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
                     if(!non_killed_ue_vars.is_null())
-                        ue_vars.insert( Utils::ExtendedSymbol( non_killed_ue_vars ) );
+                        ue_vars.insert(Utils::ExtendedSymbol(non_killed_ue_vars));
                     if(!non_undef_ue_vars.is_null())
-                        ue_vars.insert( Utils::ExtendedSymbol( non_undef_ue_vars ) );
+                        ue_vars.insert(Utils::ExtendedSymbol(non_undef_ue_vars));
                 }
             }
         }
 
         // Propagate the killed variables
         Nodecl::NodeclBase non_killed_var;
-        for( Utils::ext_sym_set::iterator it = killed_children.begin( ); it != killed_children.end( ); ++it )
+        for(Utils::ext_sym_set::iterator it = killed_children.begin(); it != killed_children.end(); ++it)
         {
-            Nodecl::NodeclBase n_it = it->get_nodecl( );
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, undef_vars ).is_null( ) ||
-                !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) )
+            Nodecl::NodeclBase n_it = it->get_nodecl();
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(n_it, undef_vars).is_null() ||
+               !Utils::ext_sym_set_contains_enclosing_nodecl(n_it, killed_vars).is_null())
                 continue;
 
-            non_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, undef_vars );
-            if( non_killed_var.is_null( ) )
+            non_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, undef_vars);
+            if(non_killed_var.is_null())
             {   // Undef var set does not contain the current killed var
-                Nodecl::NodeclBase already_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-                if( !already_killed_var.is_null( ) )
-                    killed_vars.erase( already_killed_var );    // A part of the variable was already killed: remove the subobject
-                killed_vars.insert( *it );                      // Insert the whole enclosing object
+                Nodecl::NodeclBase already_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, killed_vars);
+                if(!already_killed_var.is_null())
+                    killed_vars.erase(already_killed_var);    // A part of the variable was already killed: remove the subobject
+                killed_vars.insert(*it);                      // Insert the whole enclosing object
             }
             else
             {   // Here a part of the nodecl has already been marked as undefined
                 Nodecl::NodeclBase new_killed_vars;
-                new_killed_vars = split_var_depending_on_usage( n_it, non_killed_var );
-                if( new_killed_vars.is_null( ) )
+                new_killed_vars = split_var_depending_on_usage(n_it, non_killed_var);
+                if(new_killed_vars.is_null())
                 {   // When the set is null is because the separation has not been possible
                     // Then, we set to undefined the whole object and remove the partial object from the killed list
-                    Nodecl::NodeclBase already_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-                    if( !already_killed_var.is_null( ) )
-                        killed_vars.erase( already_killed_var );    // A part of the variable was already killed: remove the subobject
-                    undef_vars.insert( *it );                       // Insert the whole enclosing object
+                    Nodecl::NodeclBase already_killed_var = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, killed_vars);
+                    if(!already_killed_var.is_null())
+                        killed_vars.erase(already_killed_var);    // A part of the variable was already killed: remove the subobject
+                    undef_vars.insert(*it);                       // Insert the whole enclosing object
                 }
                 else
                 {   // Insert the computed killed parts in the corresponding list
                     // new_killed_vars may be the union of different array ranges. We may want to split the union into separated nodecls
-                    killed_vars.insert( new_killed_vars );
+                    killed_vars.insert(new_killed_vars);
                 }
             }
         }
 
         // Propagate the undefined behavior variables of the children
         Nodecl::NodeclBase undef_previously_ue_subobject, undef_previously_killed_subobject;
-        for( Utils::ext_sym_set::iterator it = undef_children.begin( ); it != undef_children.end( ); ++it )
+        for(Utils::ext_sym_set::iterator it = undef_children.begin(); it != undef_children.end(); ++it)
         {
-            Nodecl::NodeclBase n_it = it->get_nodecl( );
+            Nodecl::NodeclBase n_it = it->get_nodecl();
             // Variables marked as KILLED cannot be UNDEF
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, killed_vars ).is_null( ) )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(n_it, killed_vars).is_null())
                 continue;
             
-            undef_previously_ue_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, ue_vars );
-            undef_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, killed_vars );
-            if( undef_previously_ue_subobject.is_null( ) && undef_previously_killed_subobject.is_null( ) )
+            undef_previously_ue_subobject = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, ue_vars);
+            undef_previously_killed_subobject = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, killed_vars);
+            if(undef_previously_ue_subobject.is_null() && undef_previously_killed_subobject.is_null())
             {   // Neither ue nor killed var sets contain the current ue var
-                if( !Utils::ext_sym_set_contains_enclosing_nodecl( n_it, undef_vars ).is_null( ) )
+                if(!Utils::ext_sym_set_contains_enclosing_nodecl(n_it, undef_vars).is_null())
                     continue;
                 else
                 {
-                    Nodecl::NodeclBase tmp = Utils::ext_sym_set_contains_enclosed_nodecl( n_it, undef_vars );
-                    if( !tmp.is_null( ) )
-                        undef_vars.erase( tmp );        // Delete the enclosed var from the list
-                    undef_vars.insert( *it );           // Insert the new containing var
+                    Nodecl::NodeclBase tmp = Utils::ext_sym_set_contains_enclosed_nodecl(n_it, undef_vars);
+                    if(!tmp.is_null())
+                        undef_vars.erase(tmp);        // Delete the enclosed var from the list
+                    undef_vars.insert(*it);           // Insert the new containing var
                 }
             }
             else
             {
                 Nodecl::NodeclBase non_ue_undef_vars, non_killed_undef_vars;
-                if( !undef_previously_ue_subobject.is_null( ) )
+                if(!undef_previously_ue_subobject.is_null())
                 {
-                    if(Utils::ext_sym_set_contains_nodecl( n_it, ue_vars ))
+                    if(Utils::ext_sym_set_contains_nodecl(n_it, ue_vars))
                         non_ue_undef_vars = n_it;
                     else
-                        non_ue_undef_vars = split_var_depending_on_usage( n_it, undef_previously_ue_subobject );
+                        non_ue_undef_vars = split_var_depending_on_usage(n_it, undef_previously_ue_subobject);
                 }
-                if( !undef_previously_killed_subobject.is_null( ) )
-                    non_killed_undef_vars = split_var_depending_on_usage( n_it, undef_previously_killed_subobject );
+                if(!undef_previously_killed_subobject.is_null())
+                    non_killed_undef_vars = split_var_depending_on_usage(n_it, undef_previously_killed_subobject);
 
-                if( non_ue_undef_vars.is_null( ) && non_killed_undef_vars.is_null( ) )
+                if(non_ue_undef_vars.is_null() && non_killed_undef_vars.is_null())
                 {   // When the two sets are null is because the separation has not been possible
                     // Then, we set to undef the whole object and remove the partial object from the corresponding list(s)
-                    if( !undef_previously_ue_subobject.is_null( ) )
-                        delete_enclosed_var_from_list( undef_previously_ue_subobject, ue_vars );
-                    if( !undef_previously_killed_subobject.is_null( ) )
-                        delete_enclosed_var_from_list( undef_previously_killed_subobject, killed_vars );
-                    undef_vars.insert( n_it );
+                    if(!undef_previously_ue_subobject.is_null())
+                        delete_enclosed_var_from_list(undef_previously_ue_subobject, ue_vars);
+                    if(!undef_previously_killed_subobject.is_null())
+                        delete_enclosed_var_from_list(undef_previously_killed_subobject, killed_vars);
+                    undef_vars.insert(n_it);
                 }
                 else
                 {   // new_undef_varsX may be the union of different array ranges. We may want to split the union into separated nodecls
@@ -524,23 +524,23 @@ namespace {
 
 }
 
-    UseDef::UseDef( ExtensibleGraph* graph, ObjectList<ExtensibleGraph*>* pcfgs )
-        : _graph( graph ), _pcfgs( pcfgs ), _global_vars( ), _reference_params( )
+    UseDef::UseDef(ExtensibleGraph* graph, ObjectList<ExtensibleGraph*>* pcfgs)
+        : _graph(graph), _pcfgs(pcfgs), _global_vars(), _reference_params()
     {
         // Initialized Global Variables usage to NONE
-        std::set<Symbol> global_vars = _graph->get_global_variables( );
-        for( std::set<Symbol>::iterator it = global_vars.begin( ); it != global_vars.end( ); ++it )
+        std::set<Symbol> global_vars = _graph->get_global_variables();
+        for(std::set<Symbol>::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
             _global_vars[*it] = Utils::UsageKind::NONE;
 
         // Initialized Reference parameters usage to NONE
-        Symbol func_sym = graph->get_function_symbol( );
-        if( func_sym.is_valid( ) )
+        Symbol func_sym = graph->get_function_symbol();
+        if(func_sym.is_valid())
         {   // The PCFG contains a FunctionCode
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
-            for( ObjectList<TL::Symbol>::iterator it = params.begin( ); it != params.end( ); ++it )
+            ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
+            for(ObjectList<TL::Symbol>::iterator it = params.begin(); it != params.end(); ++it)
             {
-                Type param_type = it->get_type( );
-                if( param_type.is_any_reference( ) || param_type.is_pointer( ) )
+                Type param_type = it->get_type();
+                if(param_type.is_any_reference() || param_type.is_pointer())
                     _reference_params[*it] = Utils::UsageKind::NONE;
             }
         }
@@ -548,165 +548,165 @@ namespace {
         _pointer_to_size_map = graph->get_pointer_n_elements_map();
     }
 
-    void UseDef::compute_usage( )
+    void UseDef::compute_usage()
     {
-        Node* graph = _graph->get_graph( );
-        compute_usage_rec( graph );
-        ExtensibleGraph::clear_visits( graph );
+        Node* graph = _graph->get_graph();
+        compute_usage_rec(graph);
+        ExtensibleGraph::clear_visits(graph);
     }
 
     // Top bottom traversal
-    void UseDef::compute_usage_rec( Node* current )
+    void UseDef::compute_usage_rec(Node* current)
     {
-        if( !current->is_visited( ) )
+        if(!current->is_visited())
         {
-            current->set_visited( true );
-            if( current->is_exit_node( ) )
+            current->set_visited(true);
+            if(current->is_exit_node())
                 return;
 
-            if( current->is_graph_node( )
-                && !current->is_asm_def_node( ) && !current->is_asm_op_node( ) )
+            if(current->is_graph_node()
+                && !current->is_asm_def_node() && !current->is_asm_op_node())
             {
                 // Use-def info is computed from inner nodes to outer nodes
-                compute_usage_rec( current->get_graph_entry_node( ) );
+                compute_usage_rec(current->get_graph_entry_node());
 
                 // We need to do this here because in order to propagate the tasks usage
                 // to the outer nodes where they are created,
                 // all children of the task_creation node must have the use-def computed
                 ObjectList<Node*> inner_tasks;
-                if( ExtensibleGraph::node_contains_tasks( current, current, inner_tasks ) )
+                if(ExtensibleGraph::node_contains_tasks(current, current, inner_tasks))
                     // This set is traversed from end to start because the tasks are ordered from top to bottom and
                     // we need later tasks to be analyzed before its ancestor tasks are analyzed
-                    for( ObjectList<Node*>::reverse_iterator it = inner_tasks.rbegin(); it != inner_tasks.rend(); ++it )
+                    for(ObjectList<Node*>::reverse_iterator it = inner_tasks.rbegin(); it != inner_tasks.rend(); ++it)
                         propagate_task_usage_to_task_creation_node(*it);
 
                 // Propagate usage info from inner to outer nodes
-                current->set_visited( false );
-                ExtensibleGraph::clear_visits_in_level( current->get_graph_entry_node(), current );
-                set_graph_node_use_def( current );
+                current->set_visited(false);
+                ExtensibleGraph::clear_visits_in_level(current->get_graph_entry_node(), current);
+                set_graph_node_use_def(current);
             }
             else
             {
                 // Treat statements in the current node
-                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-                UsageVisitor uv( current, _graph, _pcfgs, &_global_vars, &_reference_params );
-                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
+                UsageVisitor uv(current, _graph, _pcfgs, &_global_vars, &_reference_params);
+                for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
-                    uv.compute_statement_usage( *it );
+                    uv.compute_statement_usage(*it);
                 }
             }
 
             // Compute usage form children
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-                compute_usage_rec( *it );
+            ObjectList<Node*> children = current->get_children();
+            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                compute_usage_rec(*it);
         }
     }
 
-    void UseDef::propagate_task_usage_to_task_creation_node( Node* task_creation )
+    void UseDef::propagate_task_usage_to_task_creation_node(Node* task_creation)
     {
         // Task creation children may be: created task, task synchronization, another task creation
-        Utils::ext_sym_set ue_vars = task_creation->get_ue_vars( );
-        Utils::ext_sym_set killed_vars = task_creation->get_killed_vars( );
-        Utils::ext_sym_set undef_vars = task_creation->get_undefined_behaviour_vars( );
+        Utils::ext_sym_set ue_vars = task_creation->get_ue_vars();
+        Utils::ext_sym_set killed_vars = task_creation->get_killed_vars();
+        Utils::ext_sym_set undef_vars = task_creation->get_undefined_behaviour_vars();
         Utils::ext_sym_set child_ue_vars, child_killed_vars, child_undef_vars;
 
-        ObjectList<Node*> children = task_creation->get_children( );
-        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+        ObjectList<Node*> children = task_creation->get_children();
+        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
-            child_ue_vars = (*it)->get_ue_vars( );
-            child_killed_vars = (*it)->get_killed_vars( );
-            child_undef_vars = (*it)->get_undefined_behaviour_vars( );
+            child_ue_vars = (*it)->get_ue_vars();
+            child_killed_vars = (*it)->get_killed_vars();
+            child_undef_vars = (*it)->get_undefined_behaviour_vars();
 
-            ue_vars.insert( child_ue_vars.begin(), child_ue_vars.end() );
-            killed_vars.insert( child_killed_vars.begin(), child_killed_vars.end() );
-            undef_vars.insert( child_undef_vars.begin(), child_undef_vars.end() );
+            ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
+            killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
+            undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
         }
 
         // Purge the sets:
         // 1.- When the same variable appears in all three sets UE, KILLED, UNDEF
         Utils::ext_sym_set::iterator it = undef_vars.begin();
-        while( it != undef_vars.end( ) )
+        while(it != undef_vars.end())
         {
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), ue_vars ).is_null() &&
-                !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), killed_vars ).is_null() )
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), ue_vars).is_null() &&
+                !Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), killed_vars).is_null())
             {
-                undef_vars.erase( it++ );
+                undef_vars.erase(it++);
             }
             else
                 ++it;
         }
         // 2.- When a variable is UNDEF and it is either UE or KILLED, it must remain as UNDEF only
         it = ue_vars.begin();
-        while( it != ue_vars.end( ) )
+        while(it != ue_vars.end())
         {
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), undef_vars ).is_null() &&
-                Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), killed_vars ).is_null() )
-                ue_vars.erase( it++ );
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), undef_vars).is_null() &&
+                Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), killed_vars).is_null())
+                ue_vars.erase(it++);
             else
                 ++it;
         }
         it = killed_vars.begin();
-        while( it != killed_vars.end( ) )
+        while(it != killed_vars.end())
         {
-            if( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), undef_vars ).is_null() &&
-                Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl(), ue_vars ).is_null() )
-                killed_vars.erase( it++ );
+            if(!Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), undef_vars).is_null() &&
+                Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), ue_vars).is_null())
+                killed_vars.erase(it++);
             else
                 ++it;
         }
         // 3.- Set the purged sets as usage information of the task creation node
-        task_creation->set_ue_var( ue_vars );
-        task_creation->set_killed_var( killed_vars );
-        task_creation->set_undefined_behaviour_var( undef_vars );
+        task_creation->set_ue_var(ue_vars);
+        task_creation->set_killed_var(killed_vars);
+        task_creation->set_undefined_behaviour_var(undef_vars);
     }
 
-    ObjectList<Utils::ext_sym_set> UseDef::get_use_def_over_nodes( Node* current )
+    ObjectList<Utils::ext_sym_set> UseDef::get_use_def_over_nodes(Node* current)
     {
         ObjectList<Utils::ext_sym_set> use_def, use_def_aux;
 
-        if( !current->is_visited( ) )
+        if(!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
             // Task nodes information has already been propagated to its corresponding task_creation node
-            if( !current->is_omp_task_node( ) )
+            if(!current->is_omp_task_node())
             {
                 // Use-Def in current node
-                Utils::ext_sym_set ue_vars = current->get_ue_vars( );
-                Utils::ext_sym_set killed_vars = current->get_killed_vars( );
-                Utils::ext_sym_set undef_vars = current->get_undefined_behaviour_vars( );
-                Utils::ext_sym_set used_addresses = current->get_used_addresses( );
+                Utils::ext_sym_set ue_vars = current->get_ue_vars();
+                Utils::ext_sym_set killed_vars = current->get_killed_vars();
+                Utils::ext_sym_set undef_vars = current->get_undefined_behaviour_vars();
+                Utils::ext_sym_set used_addresses = current->get_used_addresses();
 
                 // Concatenate info from children nodes
-                ObjectList<Node*> children = current->get_children( );
+                ObjectList<Node*> children = current->get_children();
                 Utils::ext_sym_set ue_children, killed_children, undef_children, used_addresses_children;
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    use_def_aux = get_use_def_over_nodes( *it );
-                    if( !use_def_aux.empty( ) )
+                    use_def_aux = get_use_def_over_nodes(*it);
+                    if(!use_def_aux.empty())
                     {
-                        ue_children = ext_sym_set_union( ue_children, use_def_aux[0] );
-                        killed_children = ext_sym_set_union( killed_children, use_def_aux[1] );
-                        undef_children = ext_sym_set_union( undef_children, use_def_aux[2] );
-                        used_addresses_children = ext_sym_set_union(used_addresses, use_def_aux[3] );
+                        ue_children = ext_sym_set_union(ue_children, use_def_aux[0]);
+                        killed_children = ext_sym_set_union(killed_children, use_def_aux[1]);
+                        undef_children = ext_sym_set_union(undef_children, use_def_aux[2]);
+                        used_addresses_children = ext_sym_set_union(used_addresses, use_def_aux[3]);
                     }
                 }
 
                 // Merge children
-                merge_children_usage( ue_children, killed_children, undef_children, current->get_id( ) );
+                merge_children_usage(ue_children, killed_children, undef_children, current->get_id());
 
                 // Merge current node and its children usage information
-                propagate_usage_to_ancestors( ue_vars, killed_vars, undef_vars, used_addresses,
-                                              ue_children, killed_children, undef_children, used_addresses_children );
+                propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, used_addresses,
+                                              ue_children, killed_children, undef_children, used_addresses_children);
 
                 // Set the new usage information to the current node
-                if( !ue_vars.empty( ) || !killed_vars.empty( ) || !undef_vars.empty( ) || !used_addresses.empty( ) )
+                if(!ue_vars.empty() || !killed_vars.empty() || !undef_vars.empty() || !used_addresses.empty())
                 {
-                    use_def.append( ue_vars );
-                    use_def.append( killed_vars );
-                    use_def.append( undef_vars );
-                    use_def.append( used_addresses );
+                    use_def.append(ue_vars);
+                    use_def.append(killed_vars);
+                    use_def.append(undef_vars);
+                    use_def.append(used_addresses);
                 }
             }
         }
@@ -714,31 +714,31 @@ namespace {
         return use_def;
     }
 
-    void UseDef::merge_children_usage( Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars,
-                                       Utils::ext_sym_set& undef_vars, int node_id )
+    void UseDef::merge_children_usage(Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars,
+                                       Utils::ext_sym_set& undef_vars, int node_id)
     {
         // Purge UNDEF vars from those vars that are in both UE and KILLED lists
-        for( Utils::ext_sym_set::iterator it = ue_vars.begin( ); it != ue_vars.end( ); ++it )
+        for(Utils::ext_sym_set::iterator it = ue_vars.begin(); it != ue_vars.end(); ++it)
         {
-            if( ( !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), killed_vars ).is_null( ) ||
-                  !Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), killed_vars ).is_null( ) ) &&
-                !Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), undef_vars ).is_null( ) )
+            if((!Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), killed_vars).is_null() ||
+                  !Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), killed_vars).is_null()) &&
+                !Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), undef_vars).is_null())
             {
-                undef_vars.erase( *it );
+                undef_vars.erase(*it);
             }
         }
     }
 
-    void UseDef::set_graph_node_use_def( Node* current )
+    void UseDef::set_graph_node_use_def(Node* current)
     {
-        if( current->is_graph_node( ) )
+        if(current->is_graph_node())
         {
-            if( !current->is_visited( ) )
+            if(!current->is_visited())
             {
-                current->set_visited( true );
+                current->set_visited(true);
                 Utils::ext_sym_set ue_vars, killed_vars, undef_vars, used_addresses;
-                ObjectList<Utils::ext_sym_set> usage = get_use_def_over_nodes( current->get_graph_entry_node( ) );
-                if( !usage.empty( ) )
+                ObjectList<Utils::ext_sym_set> usage = get_use_def_over_nodes(current->get_graph_entry_node());
+                if(!usage.empty())
                 {
                     ue_vars = usage[0];
                     killed_vars = usage[1];
@@ -748,74 +748,74 @@ namespace {
 
                 Utils::ext_sym_set private_ue_vars, private_killed_vars, private_undef_vars;
 
-                if( current->is_omp_loop_node( ) || current->is_omp_sections_node( ) || current->is_omp_single_node( ) ||
-                    current->is_omp_parallel_node( ) || current->is_omp_task_node( ) )
+                if(current->is_omp_loop_node() || current->is_omp_sections_node() || current->is_omp_single_node() ||
+                    current->is_omp_parallel_node() || current->is_omp_task_node())
                 {   // Take into account data-sharing clauses in Use-Def Task node computation
                     Nodecl::List environ =
-                            current->get_graph_related_ast( ).as<Nodecl::OpenMP::Task>( ).get_environment( ).as<Nodecl::List>( );
-                    for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); ++it )
+                            current->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
+                    for(Nodecl::List::iterator it = environ.begin(); it != environ.end(); ++it)
                     {
-                        if( it->is<Nodecl::OpenMP::Private>( ) )
+                        if(it->is<Nodecl::OpenMP::Private>())
                         {   // Remove any usage computed in the inner nodes,
                             // because is the usage of a copy of this variable
-                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>( ).get_symbols( ).as<Nodecl::List>( );
-                            for( Nodecl::List::iterator it_p = private_syms.begin( ); it_p != private_syms.end( ); ++it_p )
+                            Nodecl::List private_syms = it->as<Nodecl::OpenMP::Private>().get_symbols().as<Nodecl::List>();
+                            for(Nodecl::List::iterator it_p = private_syms.begin(); it_p != private_syms.end(); ++it_p)
                             {
-                                if( Utils::ext_sym_set_contains_nodecl( *it_p, undef_vars ) )
+                                if(Utils::ext_sym_set_contains_nodecl(*it_p, undef_vars))
                                 {
-                                    undef_vars.erase( Utils::ExtendedSymbol( *it_p ) );
-                                    private_undef_vars.insert( Utils::ExtendedSymbol( *it_p ) );
+                                    undef_vars.erase(Utils::ExtendedSymbol(*it_p));
+                                    private_undef_vars.insert(Utils::ExtendedSymbol(*it_p));
                                 }
                                 else
                                 {
-                                    if( Utils::ext_sym_set_contains_nodecl( *it_p, ue_vars ) )
+                                    if(Utils::ext_sym_set_contains_nodecl(*it_p, ue_vars))
                                     {
-                                        ue_vars.erase( Utils::ExtendedSymbol( *it_p ) );
-                                        private_ue_vars.insert( Utils::ExtendedSymbol( *it_p ) );
+                                        ue_vars.erase(Utils::ExtendedSymbol(*it_p));
+                                        private_ue_vars.insert(Utils::ExtendedSymbol(*it_p));
                                     }
-                                    if( Utils::ext_sym_set_contains_nodecl( *it_p, killed_vars ) )
+                                    if(Utils::ext_sym_set_contains_nodecl(*it_p, killed_vars))
                                     {
-                                        killed_vars.erase( Utils::ExtendedSymbol( *it_p ) );
-                                        private_killed_vars.insert( Utils::ExtendedSymbol( *it_p ) );
+                                        killed_vars.erase(Utils::ExtendedSymbol(*it_p));
+                                        private_killed_vars.insert(Utils::ExtendedSymbol(*it_p));
                                     }
                                 }
                             }
                         }
-                        if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
+                        if(it->is<Nodecl::OpenMP::Firstprivate>())
                         {   // This variable is Upper Exposed in the task
-                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>( ).get_symbols( ).as<Nodecl::List>( );
-                            for( Nodecl::List::iterator it_fp = firstprivate_syms.begin( ); it_fp != firstprivate_syms.end( ); ++it_fp )
+                            Nodecl::List firstprivate_syms = it->as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
+                            for(Nodecl::List::iterator it_fp = firstprivate_syms.begin(); it_fp != firstprivate_syms.end(); ++it_fp)
                             {
-                                if( Utils::ext_sym_set_contains_nodecl( *it_fp, undef_vars ) )
+                                if(Utils::ext_sym_set_contains_nodecl(*it_fp, undef_vars))
                                 {
-                                    undef_vars.erase( Utils::ExtendedSymbol( *it_fp ) );
-                                    private_undef_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                    undef_vars.erase(Utils::ExtendedSymbol(*it_fp));
+                                    private_undef_vars.insert(Utils::ExtendedSymbol(*it_fp));
                                 }
-                                else if( Utils::ext_sym_set_contains_nodecl( *it_fp, killed_vars ) )
+                                else if(Utils::ext_sym_set_contains_nodecl(*it_fp, killed_vars))
                                 {
-                                    killed_vars.erase( Utils::ExtendedSymbol( *it_fp ) );
-                                    private_killed_vars.insert( Utils::ExtendedSymbol( *it_fp ) );
+                                    killed_vars.erase(Utils::ExtendedSymbol(*it_fp));
+                                    private_killed_vars.insert(Utils::ExtendedSymbol(*it_fp));
                                 }
                             }
                         }
                     }
                 }
 
-                current->add_ue_var( ue_vars );
-                current->add_killed_var( killed_vars );
-                current->add_undefined_behaviour_var( undef_vars );
-                current->add_used_addresses( used_addresses );
+                current->add_ue_var(ue_vars);
+                current->add_killed_var(killed_vars);
+                current->add_undefined_behaviour_var(undef_vars);
+                current->add_used_addresses(used_addresses);
 
-                current->add_private_ue_var( private_ue_vars );
-                current->add_private_killed_var( private_killed_vars );
-                current->add_private_undefined_behaviour_var( private_undef_vars );
+                current->add_private_ue_var(private_ue_vars);
+                current->add_private_killed_var(private_killed_vars);
+                current->add_private_undefined_behaviour_var(private_undef_vars);
             }
         }
         else
         {
-            internal_error( "Cannot propagate use-def info from inner nodes to outer nodes "\
+            internal_error("Cannot propagate use-def info from inner nodes to outer nodes "\
                             "in node '%d' with type '%s'. GRAPH_NODE expected\n",
-                            current->get_id( ), current->get_type_as_string( ).c_str( ) );
+                            current->get_id(), current->get_type_as_string().c_str());
         }
     }
 
@@ -827,60 +827,60 @@ namespace {
     // **************************************************************************************************** //
     // ***************************** Class implementing use-definition visitor **************************** //
 
-    UsageVisitor::UsageVisitor( Node* fake_node )
-        : _node( fake_node ), _define( false ), _current_nodecl( Nodecl::NodeclBase::null( ) ),
-          _global_vars( ), _reference_params( ), _avoid_func_calls( false ), _pcfg( NULL ), _pcfgs( )
+    UsageVisitor::UsageVisitor(Node* fake_node)
+        : _node(fake_node), _define(false), _current_nodecl(Nodecl::NodeclBase::null()),
+          _global_vars(), _reference_params(), _avoid_func_calls(false), _pcfg(NULL), _pcfgs()
     {}
 
-    UsageVisitor::UsageVisitor( Node* n,
+    UsageVisitor::UsageVisitor(Node* n,
                                 ExtensibleGraph* pcfg,
                                 ObjectList<ExtensibleGraph*>* pcfgs,
                                 std::map<Symbol, Utils::UsageKind>* global_vars,
-                                std::map<Symbol, Utils::UsageKind>* reference_params )
-        : _node( n ), _define( false ), _current_nodecl( Nodecl::NodeclBase::null( ) ),
-          _global_vars( global_vars ), _reference_params( reference_params ),
-          _avoid_func_calls( false ), _pcfg( pcfg ), _pcfgs( pcfgs )
+                                std::map<Symbol, Utils::UsageKind>* reference_params)
+        : _node(n), _define(false), _current_nodecl(Nodecl::NodeclBase::null()),
+          _global_vars(global_vars), _reference_params(reference_params),
+          _avoid_func_calls(false), _pcfg(pcfg), _pcfgs(pcfgs)
     {}
 
-    void UsageVisitor::set_var_usage_to_node( const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind )
+    void UsageVisitor::set_var_usage_to_node(const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind)
     {
-        Utils::ext_sym_set ue_vars = _node->get_ue_vars( );
-        Utils::ext_sym_set killed_vars = _node->get_killed_vars( );
-        Utils::ext_sym_set undef_vars = _node->get_undefined_behaviour_vars( );
+        Utils::ext_sym_set ue_vars = _node->get_ue_vars();
+        Utils::ext_sym_set killed_vars = _node->get_killed_vars();
+        Utils::ext_sym_set undef_vars = _node->get_undefined_behaviour_vars();
         Utils::ext_sym_set empty_set;
-        if( usage_kind._usage_type & Utils::UsageKind::USED )
+        if(usage_kind._usage_type & Utils::UsageKind::USED)
         {
-            Utils::ext_sym_set ue_tmp; ue_tmp.insert( var );
-            propagate_usage_to_ancestors( ue_vars, killed_vars, undef_vars, empty_set,
-                                          ue_tmp, empty_set, empty_set, empty_set );
-            _node->set_ue_var( ue_vars );                   // Replace the set of upwards exposed variables associated to the node
+            Utils::ext_sym_set ue_tmp; ue_tmp.insert(var);
+            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set,
+                                          ue_tmp, empty_set, empty_set, empty_set);
+            _node->set_ue_var(ue_vars);                   // Replace the set of upwards exposed variables associated to the node
         }
-        else if( usage_kind._usage_type & Utils::UsageKind::DEFINED )
+        else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
         {
-            Utils::ext_sym_set killed_tmp; killed_tmp.insert( var );
-            propagate_usage_to_ancestors( ue_vars, killed_vars, undef_vars, empty_set, 
-                                          empty_set, killed_tmp, empty_set, empty_set );
-            _node->set_killed_var( killed_vars );               // Replace the set of killed vars associated to the node
+            Utils::ext_sym_set killed_tmp; killed_tmp.insert(var);
+            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set, 
+                                          empty_set, killed_tmp, empty_set, empty_set);
+            _node->set_killed_var(killed_vars);               // Replace the set of killed vars associated to the node
         }
         else
         {
-            Utils::ext_sym_set undef_tmp; undef_tmp.insert( var );
-            propagate_usage_to_ancestors( ue_vars, killed_vars, undef_vars, empty_set, 
-                                          empty_set, empty_set, undef_tmp, empty_set );
-            _node->set_undefined_behaviour_var( undef_vars );   // Replace the set of undefined behavior vars associated to the node
+            Utils::ext_sym_set undef_tmp; undef_tmp.insert(var);
+            propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set, 
+                                          empty_set, empty_set, undef_tmp, empty_set);
+            _node->set_undefined_behaviour_var(undef_vars);   // Replace the set of undefined behavior vars associated to the node
         }
     }
 
-    void UsageVisitor::set_var_usage_to_node( const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind )
+    void UsageVisitor::set_var_usage_to_node(const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind)
     {
-        for( Utils::ext_sym_set::const_iterator it = var_set.begin( ); it != var_set.end( ); ++it )
-            set_var_usage_to_node( *it, usage_kind );
+        for(Utils::ext_sym_set::const_iterator it = var_set.begin(); it != var_set.end(); ++it)
+            set_var_usage_to_node(*it, usage_kind);
     }
 
-    void UsageVisitor::compute_statement_usage( Nodecl::NodeclBase st )
+    void UsageVisitor::compute_statement_usage(Nodecl::NodeclBase st)
     {
-        Node* outer_node = _node->get_outer_node( );
-        if( outer_node->is_split_statement( ) && !_node->is_function_call_node( ) )
+        Node* outer_node = _node->get_outer_node();
+        if(outer_node->is_split_statement() && !_node->is_function_call_node())
         {   // The function calls that can appear in the split statement have already been analyzed
             // We want to avoid computing the usage again. In exchange, we want to propagate the previously compute usage
             // F.i.:   int c = foo(a, b)
@@ -902,90 +902,88 @@ namespace {
             //
             //         When computing Use-Def of "c = foo(a, b)", we want to propagate
             //             the info calculated for "b=foo(a, b)" regarding to the function call
-            ObjectList<Node*> parents = _node->get_parents( );
-            while( !parents.empty( ) && !parents[0]->is_entry_node( ) )
+            ObjectList<Node*> parents = _node->get_parents();
+            while(!parents.empty() && !parents[0]->is_entry_node())
             {
-                ERROR_CONDITION( parents.size( ) != 1,
-                                 "Ancestors of a non function call node which are inside the enclosing split statement "\
-                                 "must not have any sibling, but we have found %d siblings", parents.size( ) );
+                ERROR_CONDITION(parents.size() != 1,
+                                "Ancestors of a non function call node which are inside the enclosing split statement "
+                                "must not have any sibling, but we have found %d siblings", parents.size());
 
-                _node->set_ue_var( parents[0]->get_ue_vars( ) );
-                _node->set_killed_var( parents[0]->get_killed_vars( ) );
-                _node->set_undefined_behaviour_var( parents[0]->get_undefined_behaviour_vars( ) );
+                _node->set_ue_var(parents[0]->get_ue_vars());
+                _node->set_killed_var(parents[0]->get_killed_vars());
+                _node->set_undefined_behaviour_var(parents[0]->get_undefined_behaviour_vars());
 
-                parents = parents[0]->get_parents( );
+                parents = parents[0]->get_parents();
             }
 
             _avoid_func_calls = true;
         }
 
-        walk( st );
+        walk(st);
     }
 
-    void UsageVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void UsageVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
-        nodecl_t internal_n = n.get_internal_nodecl( );
-        WARNING_MESSAGE( "Unhandled node '%s' with type '%s' during Use-Def Analysis",
-                         codegen_to_str( internal_n, nodecl_retrieve_context( internal_n ) ),
-                         ast_print_node_type( n.get_kind( ) ) );
+        WARNING_MESSAGE("Unhandled node '%s' with type '%s' during Use-Def Analysis",
+                        n.prettyprint().c_str(), ast_print_node_type(n.get_kind()));
     }
 
     template<typename T>
-    void UsageVisitor::visit_assignment( const T& n )
+    void UsageVisitor::visit_assignment(const T& n)
     {
         _define = false;
-        walk( n.get_rhs( ) );
+        walk(n.get_rhs());
         _define = true;
-        walk( n.get_lhs( ) );
+        walk(n.get_lhs());
         _define = false;
     }
 
     template<typename T>
-    void UsageVisitor::visit_binary_assignment( const T& n )
+    void UsageVisitor::visit_binary_assignment(const T& n)
     {
         // Traverse the use of both the lhs and the rhs
-        walk( n.get_rhs( ) );
-        walk( n.get_lhs( ) );
+        walk(n.get_rhs());
+        walk(n.get_lhs());
 
         // Traverse the definition of the lhs
         _define = true;
-        walk( n.get_lhs( ) );
+        walk(n.get_lhs());
         _define = false;
     }
 
-    void UsageVisitor::parse_parameter( std::string current_param, const Nodecl::NodeclBase& arg )
+    void UsageVisitor::parse_parameter(std::string current_param, const Nodecl::NodeclBase& arg)
     {
-        size_t first_slash_pos = current_param.find( "#" );
-        if( first_slash_pos != std::string::npos )
+        size_t first_slash_pos = current_param.find("#");
+        if(first_slash_pos != std::string::npos)
         {   // Parameter is pointer
             // The address is used
-            set_var_usage_to_node( Utils::ExtendedSymbol( arg ), Utils::UsageKind::USED );
-            size_t second_slash_pos = current_param.find( "#", first_slash_pos );
-            std::string pointed_param_usage = current_param.substr( first_slash_pos, second_slash_pos - first_slash_pos );
+            set_var_usage_to_node(Utils::ExtendedSymbol(arg), Utils::UsageKind::USED);
+            size_t second_slash_pos = current_param.find("#", first_slash_pos);
+            std::string pointed_param_usage = current_param.substr(first_slash_pos, second_slash_pos - first_slash_pos);
             // TODO: What do we want to do with the pointed value??
         }
         else
         {
-            ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( arg );
-            for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
+            ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses(arg);
+            for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
             {
                 // Set all arguments as upper exposed
-                Symbol s( it_o->get_symbol( ) );
-                if( !s.is_valid( ) )
+                Symbol s(it_o->get_symbol());
+                if(!s.is_valid())
                 {   // ArraySubscript and ClassMemberAccess are memory accesses but do not have a symbol associated
                     // In these cases, we need to get the nodecl base
-                    s = Utils::get_nodecl_base( *it_o ).get_symbol( );
-                    ERROR_CONDITION( !s.is_valid( ),
-                                     "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint( ).c_str( ) );
+                    s = Utils::get_nodecl_base(*it_o).get_symbol();
+                    ERROR_CONDITION(!s.is_valid(),
+                                    "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint().c_str());
                 }
-                set_var_usage_to_node( Utils::ExtendedSymbol( *it_o ), Utils::UsageKind::USED );
-                if( ( _global_vars->find( s ) != _global_vars->end( ) ) &&
-                    (*_global_vars)[s]._usage_type & Utils::UsageKind::NONE )
+                set_var_usage_to_node(Utils::ExtendedSymbol(*it_o), Utils::UsageKind::USED);
+                if((_global_vars->find(s) != _global_vars->end()) &&
+                    (*_global_vars)[s]._usage_type & Utils::UsageKind::NONE)
                 {
                     (*_global_vars)[s] = Utils::UsageKind::USED;
                 }
-                else if( ( _reference_params->find( s ) != _reference_params->end( ) ) &&
-                         ( (*_reference_params)[s]._usage_type & Utils::UsageKind::NONE ) )
+                else if((_reference_params->find(s) != _reference_params->end()) &&
+                         ((*_reference_params)[s]._usage_type & Utils::UsageKind::NONE))
                 {
                     (*_reference_params)[s] = Utils::UsageKind::USED;
                 }
@@ -993,93 +991,93 @@ namespace {
         }
     }
 
-    bool UsageVisitor::parse_c_functions_file( Symbol func_sym, const Nodecl::List& args )
+    bool UsageVisitor::parse_c_functions_file(Symbol func_sym, const Nodecl::List& args)
     {
         bool side_effects = true;
 
-        std::string cLibFuncsPath = std::string( MCXX_ANALYSIS_DATA_PATH ) + "/cLibraryFunctionList" ;
-        std::ifstream cLibFuncs( cLibFuncsPath.c_str( ) );
-        if( cLibFuncs.is_open( ) )
+        std::string cLibFuncsPath = std::string(MCXX_ANALYSIS_DATA_PATH) + "/cLibraryFunctionList" ;
+        std::ifstream cLibFuncs(cLibFuncsPath.c_str());
+        if(cLibFuncs.is_open())
         {
             std::string func_decl;
-            while( cLibFuncs.good( ) )
+            while(cLibFuncs.good())
             {
-                getline( cLibFuncs, func_decl );
-                if( func_decl.substr( 0, 2 ) != "//" )
+                getline(cLibFuncs, func_decl);
+                if(func_decl.substr(0, 2) != "//")
                 {
-                    size_t open_parenth_pos = func_decl.find( "(" );
-                    std::string func_name = func_decl.substr( 0, open_parenth_pos - 1 );
-                    if( func_sym.get_name( ) == func_name )
+                    size_t open_parenth_pos = func_decl.find("(");
+                    std::string func_name = func_decl.substr(0, open_parenth_pos - 1);
+                    if(func_sym.get_name() == func_name)
                     {   // No global variable is read / written
                         // Check for parameters usage
                         side_effects = false;
 
-                        size_t comma_pos = func_decl.find( "," );
-                        if( comma_pos == std::string::npos )
+                        size_t comma_pos = func_decl.find(",");
+                        if(comma_pos == std::string::npos)
                         {
-                            comma_pos = func_decl.find( ")" );
+                            comma_pos = func_decl.find(")");
                         }
                         size_t last_comma_pos = open_parenth_pos + 1;
                         std::string current_param;
-                        Nodecl::List::iterator it = args.begin( );
-                        while( comma_pos != std::string::npos && /* not a default parameter*/ it != args.end( ) )
+                        Nodecl::List::iterator it = args.begin();
+                        while(comma_pos != std::string::npos && /* not a default parameter*/ it != args.end())
                         {
-                            current_param = func_decl.substr( last_comma_pos, comma_pos - last_comma_pos );
-                            parse_parameter( current_param, *it );
+                            current_param = func_decl.substr(last_comma_pos, comma_pos - last_comma_pos);
+                            parse_parameter(current_param, *it);
                             it++;
                             last_comma_pos = comma_pos + 1;
-                            comma_pos = func_decl.find( ",", last_comma_pos );
+                            comma_pos = func_decl.find(",", last_comma_pos);
                         }
                         // Last parameter
-                        if( it != args.end( ) )
+                        if(it != args.end())
                         {
-                            current_param = func_decl.substr( last_comma_pos, func_decl.find( ")", last_comma_pos ) - last_comma_pos );
-                            if( current_param == "..." )
+                            current_param = func_decl.substr(last_comma_pos, func_decl.find(")", last_comma_pos) - last_comma_pos);
+                            if(current_param == "...")
                             {   // Arguments are supposed to be only used
                                 ObjectList<Nodecl::NodeclBase> obj;
-                                while( it != args.end( ) )
+                                while(it != args.end())
                                 {
-                                    obj = Nodecl::Utils::get_all_memory_accesses( *it );
-                                    for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o  != obj.end( ); ++it_o )
-                                        set_var_usage_to_node( Utils::ExtendedSymbol( *it_o ), Utils::UsageKind::USED );
+                                    obj = Nodecl::Utils::get_all_memory_accesses(*it);
+                                    for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o  != obj.end(); ++it_o)
+                                        set_var_usage_to_node(Utils::ExtendedSymbol(*it_o), Utils::UsageKind::USED);
                                     ++it;
                                 }
                             }
                             else
                             {
-                                parse_parameter( current_param, *it );
+                                parse_parameter(current_param, *it);
                             }
                         }
                     }
                 }
             }
 
-            if( side_effects && VERBOSE )
+            if(side_effects && VERBOSE)
             {
-                WARNING_MESSAGE( "Function's '%s' code not reached. \nUsage analysis of global variables and "\
+                WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
                                   "reference parameters will be limited. \nIf you know the side effects of this function, "\
                                   "add it to the file and recompile your code. \n(If you recompile the compiler, "\
                                   "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-                                  func_sym.get_name( ).c_str( ), cLibFuncsPath.c_str( ) );
+                                  func_sym.get_name().c_str(), cLibFuncsPath.c_str());
             }
             cLibFuncs.close();
         }
         else
         {
-            WARNING_MESSAGE( "File containing C library calls Usage info cannot be opened. \n"\
-                             "Path tried: '%s'", cLibFuncsPath.c_str( ) );
+            WARNING_MESSAGE("File containing C library calls Usage info cannot be opened. \n"\
+                             "Path tried: '%s'", cLibFuncsPath.c_str());
         }
 
         return side_effects;
     }
 
-    static ExtensibleGraph* find_graph_in_list_from_function_symbol( Symbol func_sym, ObjectList<ExtensibleGraph*>* pcfgs )
+    static ExtensibleGraph* find_graph_in_list_from_function_symbol(Symbol func_sym, ObjectList<ExtensibleGraph*>* pcfgs)
     {
         ExtensibleGraph* result = NULL;
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin( ); it != pcfgs->end( ); ++it )
+        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin(); it != pcfgs->end(); ++it)
         {
-            Symbol s( ( *it )->get_function_symbol( ) );
-            if( s.is_valid( ) && ( s == func_sym ) )
+            Symbol s((*it)->get_function_symbol());
+            if(s.is_valid() && (s == func_sym))
             {
                 result = *it;
                 break;
@@ -1091,11 +1089,11 @@ namespace {
     static void get_modifiable_parameters_to_arguments_map(ObjectList<Symbol> params, Nodecl::List args,
                                                            sym_to_nodecl_map& ptr_params, sym_to_nodecl_map& ref_params)
     {
-        int n_iters = std::min( params.size( ), args.size( ) );
+        int n_iters = std::min(params.size(), args.size());
         if(n_iters > 0)
         {
-            Nodecl::List::const_iterator ita = args.begin( );
-            ObjectList<Symbol>::iterator itp = params.begin( );
+            Nodecl::List::const_iterator ita = args.begin();
+            ObjectList<Symbol>::iterator itp = params.begin();
             for(int i = 0; i<n_iters; ++i)
             {
                 // Reference parameters
@@ -1105,7 +1103,7 @@ namespace {
                 }
                 // Pointer parameters
                 if(itp->get_type().is_pointer() || 
-                    (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
+                   (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
                 {
                     ptr_params[*itp] = *ita;
                 }
@@ -1193,21 +1191,21 @@ namespace {
         }
     }
     
-    void UsageVisitor::function_visit( const Nodecl::NodeclBase& called_sym, const Nodecl::List& real_arguments )
+    void UsageVisitor::function_visit(const Nodecl::NodeclBase& called_sym, const Nodecl::List& real_arguments)
     {
-        if( _avoid_func_calls )
+        if(_avoid_func_calls)
             return;
 
         // The function called must be analyzed only in case it has not been analyzed previously
-        TL::Symbol func_sym = called_sym.get_symbol( );
+        TL::Symbol func_sym = called_sym.get_symbol();
         Nodecl::List simplified_arguments = simplify_arguments(real_arguments);
-        if( func_sym.is_valid( ) )
+        if(func_sym.is_valid())
         {   // The called function is not a pointer to function
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters( );
-            ExtensibleGraph* called_pcfg = find_graph_in_list_from_function_symbol( func_sym, _pcfgs );
-            if( called_pcfg != NULL )
+            ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
+            ExtensibleGraph* called_pcfg = find_graph_in_list_from_function_symbol(func_sym, _pcfgs);
+            if(called_pcfg != NULL)
             {   // Called function code is reachable
-                if( called_pcfg->usage_is_computed( ) )
+                if(called_pcfg->usage_is_computed())
                 {
                     Node* pcfg_node = called_pcfg->get_graph();
                     
@@ -1262,11 +1260,11 @@ namespace {
                 }
                 else
                 {   // All arguments are used when calling the function
-                    for( Nodecl::List::const_iterator it = simplified_arguments.begin( ); it != simplified_arguments.end( ); ++it )
+                    for(Nodecl::List::const_iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
                     {
-                        ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses( *it );
-                        for( ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin( ); it_o != obj.end( ); ++it_o )
-                            _node->add_ue_var( Utils::ExtendedSymbol( *it_o ) );
+                        ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses(*it);
+                        for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
+                            _node->add_ue_var(Utils::ExtendedSymbol(*it_o));
                         
                         // If the argument is a reference, add it to the list of accessed addresses
                         if(it->no_conv().is<Nodecl::Reference>())
@@ -1275,31 +1273,31 @@ namespace {
 
                     // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
                     // until the point we are currently
-                    for( std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin( ); it != _global_vars->end( ); ++it )
+                    for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin(); it != _global_vars->end(); ++it)
                     {
-                        Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                        if( it->second._usage_type & Utils::UsageKind::UNDEFINED )
-                            _node->add_undefined_behaviour_var( Utils::ExtendedSymbol( sym ) );
+                        Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
+                        if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
+                            _node->add_undefined_behaviour_var(Utils::ExtendedSymbol(sym));
                         else
                         {
-                            if( it->second._usage_type & Utils::UsageKind::USED )
-                                _node->add_ue_var( Utils::ExtendedSymbol( sym ) );
-                            if( it->second._usage_type & Utils::UsageKind::DEFINED )
-                                _node->add_killed_var( Utils::ExtendedSymbol( sym ) );
+                            if(it->second._usage_type & Utils::UsageKind::USED)
+                                _node->add_ue_var(Utils::ExtendedSymbol(sym));
+                            if(it->second._usage_type & Utils::UsageKind::DEFINED)
+                                _node->add_killed_var(Utils::ExtendedSymbol(sym));
                         }
                     }
-                    for( std::map<Symbol, Utils::UsageKind>::iterator it = _reference_params->begin( );
-                         it != _reference_params->end( ); ++it )
+                    for(std::map<Symbol, Utils::UsageKind>::iterator it = _reference_params->begin();
+                         it != _reference_params->end(); ++it)
                     {
-                        Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                        if( it->second._usage_type & Utils::UsageKind::UNDEFINED )
-                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( sym ) );
+                        Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
+                        if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
+                            _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(sym));
                         else
                         {
-                            if( it->second._usage_type & Utils::UsageKind::USED )
-                                _node->add_ue_var( Utils::ExtendedSymbol( sym ) );
-                            if( it->second._usage_type & Utils::UsageKind::DEFINED )
-                                _node->add_killed_var( Utils::ExtendedSymbol( sym ) );
+                            if(it->second._usage_type & Utils::UsageKind::USED)
+                                _node->add_ue_var(Utils::ExtendedSymbol(sym));
+                            if(it->second._usage_type & Utils::UsageKind::DEFINED)
+                                _node->add_killed_var(Utils::ExtendedSymbol(sym));
                         }
                     }
                 }
@@ -1310,72 +1308,72 @@ namespace {
                 // to determine the function side effects
                 bool side_effects = true;
 
-                if( func_sym.has_gcc_attributes( ) )
+                if(func_sym.has_gcc_attributes())
                 {   // Check for information synthesized by gcc
-                    ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes( );
-                    for( ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin( );
-                            it != gcc_attrs.end( ); ++it )
+                    ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes();
+                    for(ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin();
+                            it != gcc_attrs.end(); ++it)
                     {
-                        std::string attr_name = it->get_attribute_name( );
-                        if( attr_name == "const" || attr_name == "pure" )
+                        std::string attr_name = it->get_attribute_name();
+                        if(attr_name == "const" || attr_name == "pure")
                         {   // No side effects except the return value.
-                            // Only examine the arguments ( and global variables in 'pure' case)
+                            // Only examine the arguments (and global variables in 'pure' case)
                             side_effects = false;
 
                             Utils::ext_sym_set ue_vars;
-                            // Set all parameters as used ( if not previously killed or undefined )
-                            for( Nodecl::List::iterator it_arg = simplified_arguments.begin( ); it_arg != simplified_arguments.end( ); ++it_arg )
+                            // Set all parameters as used (if not previously killed or undefined)
+                            for(Nodecl::List::iterator it_arg = simplified_arguments.begin(); it_arg != simplified_arguments.end(); ++it_arg)
                             {
-                                Utils::ExtendedSymbol es( *it_arg );
-                                if( _node->get_killed_vars( ).find( es ) == _node->get_killed_vars( ).end( )
-                                    && _node->get_undefined_behaviour_vars( ).find( es ) == _node->get_undefined_behaviour_vars( ).end( ) )
+                                Utils::ExtendedSymbol es(*it_arg);
+                                if(_node->get_killed_vars().find(es) == _node->get_killed_vars().end()
+                                    && _node->get_undefined_behaviour_vars().find(es) == _node->get_undefined_behaviour_vars().end())
                                 {
-                                    ue_vars.insert( es );
+                                    ue_vars.insert(es);
                                 }
                             }
 
-                            if( attr_name == "pure" )
-                            {   // Set all global variables variables as upper exposed ( if not previously killed or undefined )
-                                for( std::map<Symbol, Utils::UsageKind>::iterator it_g = _global_vars->begin( );
-                                     it_g != _global_vars->end( ); ++it_g )
+                            if(attr_name == "pure")
+                            {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
+                                for(std::map<Symbol, Utils::UsageKind>::iterator it_g = _global_vars->begin();
+                                     it_g != _global_vars->end(); ++it_g)
                                 {
-                                    if( it_g->second._usage_type & Utils::UsageKind::NONE )
+                                    if(it_g->second._usage_type & Utils::UsageKind::NONE)
                                     {
-                                        ue_vars.insert( Utils::ExtendedSymbol( Nodecl::Symbol::make( it_g->first ) ) );
+                                        ue_vars.insert(Utils::ExtendedSymbol(Nodecl::Symbol::make(it_g->first)));
                                         it_g->second._usage_type = Utils::UsageKind::USED;
                                     }
                                 }
                             }
-                            _node->add_ue_var( ue_vars );
-                            if( attr_name == "pure" )
+                            _node->add_ue_var(ue_vars);
+                            if(attr_name == "pure")
                                 break;
                         }
                     }
                 }
 
-                if( side_effects )
+                if(side_effects)
                 {
                     // Check in Mercurium function attributes data-base
-                    side_effects = parse_c_functions_file( func_sym, simplified_arguments );
+                    side_effects = parse_c_functions_file(func_sym, simplified_arguments);
 
                     // Still cannot determine which are the side effects of the function...
-                    if( side_effects )
+                    if(side_effects)
                     {
-                        if( func_sym.get_type( ).lacks_prototype( ) )
+                        if(func_sym.get_type().lacks_prototype())
                         {   // All parameters are passed by value
-                            for( Nodecl::List::iterator it = simplified_arguments.begin( ); it != simplified_arguments.end( ); ++it )
+                            for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
                             {
-                                if( !it->is_constant( ) )
+                                if(!it->is_constant())
                                 {
-                                    ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses( *it );
-                                    for( ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin( );
-                                        ita != mem_access.end( ); ++ita )
+                                    ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses(*it);
+                                    for(ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin();
+                                        ita != mem_access.end(); ++ita)
                                     {
-                                        _node->add_ue_var( Utils::ExtendedSymbol( *ita ) );
-                                        if( ita->get_type( ).is_pointer( ) )
+                                        _node->add_ue_var(Utils::ExtendedSymbol(*ita));
+                                        if(ita->get_type().is_pointer())
                                         {
-                                            Nodecl::Dereference pointed_var = Nodecl::Dereference::make( *ita, ita->get_type( ) );
-                                            _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( pointed_var ) );
+                                            Nodecl::Dereference pointed_var = Nodecl::Dereference::make(*ita, ita->get_type());
+                                            _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(pointed_var));
                                         }
                                     }
                                 }
@@ -1450,7 +1448,7 @@ namespace {
                                         Nodecl::NodeclBase arg_points_to = 
                                                 Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
                                         if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int v[])*/ || 
-                                            (!par_t.is_valid()) /*void foo(...);*/ )
+                                            (!par_t.is_valid()) /*void foo(...);*/)
                                         {
                                             _node->add_undefined_behaviour_var(arg_points_to);
                                         }
@@ -1624,15 +1622,15 @@ namespace {
                             }
                             
                             // Set all global variables to undefined
-                            Utils::ext_sym_set killed = _node->get_killed_vars( );
-                            for( std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin( );
-                                 it != _global_vars->end( ); ++it )
+                            Utils::ext_sym_set killed = _node->get_killed_vars();
+                            for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin();
+                                 it != _global_vars->end(); ++it)
                             {
-                                Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                                if( Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ).is_null( ) &&
-                                    Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ).is_null( ) )
+                                Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
+                                if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
+                                    Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
                                 {
-                                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets( Utils::ExtendedSymbol( sym ) );
+                                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
                                     it->second._usage_type = Utils::UsageKind::UNDEFINED;
                                 }
                             }
@@ -1645,23 +1643,23 @@ namespace {
         {   // Calling a pointer to function: neither code nor prototype are reachable, thus:
             // - all parameters as undefined behavior, we do not know whether they are passed by value or by reference
             // - all global variables as undefined behavior
-            Utils::ext_sym_set killed = _node->get_killed_vars( );
-            for( Nodecl::List::iterator it = simplified_arguments.begin( ); it != simplified_arguments.end( ); ++it )
+            Utils::ext_sym_set killed = _node->get_killed_vars();
+            for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
             {
-                if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, killed ).is_null( ) &&
-                    Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed ).is_null( ) )
+                if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
+                    Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
                 {
-                    _node->set_undefined_behaviour_var( Utils::ExtendedSymbol( *it ) );
+                    _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(*it));
                 }
             }
 
-            for( std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin( ); it != _global_vars->end( ); ++it )
+            for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin(); it != _global_vars->end(); ++it)
             {
-                Nodecl::NodeclBase sym = Nodecl::Symbol::make( it->first );
-                if( Utils::ext_sym_set_contains_enclosing_nodecl( sym, killed ).is_null( ) &&
-                    Utils::ext_sym_set_contains_enclosed_nodecl( sym, killed ).is_null( ) )
+                Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
+                if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
+                    Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
                 {
-                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets( Utils::ExtendedSymbol( sym ) );
+                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
                     it->second._usage_type = Utils::UsageKind::UNDEFINED;
                 }
             }
@@ -1669,242 +1667,242 @@ namespace {
     }
 
     template<typename T>
-    void UsageVisitor::visit_increment( const T& n )
+    void UsageVisitor::visit_increment(const T& n)
     {
         // Use of the rhs
-        walk( n.get_rhs( ) );
+        walk(n.get_rhs());
 
         // Definition of the rhs
         _define = true;
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
-        _current_nodecl = Nodecl::NodeclBase::null( );
-        walk( n.get_rhs( ) );
+        _current_nodecl = Nodecl::NodeclBase::null();
+        walk(n.get_rhs());
         _current_nodecl = current_nodecl;
         _define = false;
 
     }
 
-    void UsageVisitor::visit( const Nodecl::AddAssignment& n )
+    void UsageVisitor::visit(const Nodecl::AddAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    void UsageVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::ArraySubscript& n )
+    void UsageVisitor::visit(const Nodecl::ArraySubscript& n)
     {
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
         bool define = _define;
 
         // Use of the subscripts
         _define = false;
-        _current_nodecl = Nodecl::NodeclBase::null( );
-        walk( n.get_subscripts( ) );
+        _current_nodecl = Nodecl::NodeclBase::null();
+        walk(n.get_subscripts());
 
         // Use of the ArraySubscript
         _define = define;   // Just in case
-        if( current_nodecl.is_null( ) )
+        if(current_nodecl.is_null())
             _current_nodecl = n;
         else
             _current_nodecl = current_nodecl;
-        walk( n.get_subscripted( ) );
-        _current_nodecl = Nodecl::NodeclBase::null( );
+        walk(n.get_subscripted());
+        _current_nodecl = Nodecl::NodeclBase::null();
     }
 
-    void UsageVisitor::visit( const Nodecl::Assignment& n )
+    void UsageVisitor::visit(const Nodecl::Assignment& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    void UsageVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    void UsageVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    void UsageVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    void UsageVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    void UsageVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    void UsageVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
-        if( _current_nodecl.is_null( ) )
+        if(_current_nodecl.is_null())
             _current_nodecl = n;
 
-        // walk( n.get_lhs( ) );  // In a member access, the use/definition is always of the member, not the base
-        walk( n.get_member( ) );
+        // walk(n.get_lhs());  // In a member access, the use/definition is always of the member, not the base
+        walk(n.get_member());
 
-        _current_nodecl = Nodecl::NodeclBase::null( );
+        _current_nodecl = Nodecl::NodeclBase::null();
     }
 
-    void UsageVisitor::visit( const Nodecl::Dereference& n )
+    void UsageVisitor::visit(const Nodecl::Dereference& n)
     {
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
         bool define = _define;
 
         // Use of the Dereferenced variable
         _define = false;
-        _current_nodecl = Nodecl::NodeclBase::null( );
-        walk( n.get_rhs( ) );
+        _current_nodecl = Nodecl::NodeclBase::null();
+        walk(n.get_rhs());
 
         // Use of the Dereference
-        if( current_nodecl.is_null( ) )
+        if(current_nodecl.is_null())
         {
             _define = define;
             _current_nodecl = n;
         }
 
-        walk( n.get_rhs( ) );
+        walk(n.get_rhs());
 
         // If we were traversing some object, then the use of that access
-        if( !current_nodecl.is_null( ) )
+        if(!current_nodecl.is_null())
         {
             _define = define;       // Just in case
             _current_nodecl = current_nodecl;
-            walk( n.get_rhs( ) );
+            walk(n.get_rhs());
         }
 
-        _current_nodecl = Nodecl::NodeclBase::null( );
+        _current_nodecl = Nodecl::NodeclBase::null();
     }
 
-    void UsageVisitor::visit( const Nodecl::DivAssignment& n )
+    void UsageVisitor::visit(const Nodecl::DivAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::FunctionCall& n )
+    void UsageVisitor::visit(const Nodecl::FunctionCall& n)
     {
-        function_visit( n.get_called( ), n.get_arguments( ).as<Nodecl::List>( ) );
+        function_visit(n.get_called(), n.get_arguments().as<Nodecl::List>());
     }
 
-    void UsageVisitor::visit( const Nodecl::MinusAssignment& n )
+    void UsageVisitor::visit(const Nodecl::MinusAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::ModAssignment& n )
+    void UsageVisitor::visit(const Nodecl::ModAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::MulAssignment& n )
+    void UsageVisitor::visit(const Nodecl::MulAssignment& n)
     {
-        visit_binary_assignment( n );
+        visit_binary_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::ObjectInit& n )
+    void UsageVisitor::visit(const Nodecl::ObjectInit& n)
     {
-        Nodecl::Symbol n_sym = Nodecl::Symbol::make( n.get_symbol( ), n.get_locus() );
-        set_var_usage_to_node( Utils::ExtendedSymbol( n_sym ), Utils::UsageKind::DEFINED );
+        Nodecl::Symbol n_sym = Nodecl::Symbol::make(n.get_symbol(), n.get_locus());
+        set_var_usage_to_node(Utils::ExtendedSymbol(n_sym), Utils::UsageKind::DEFINED);
 
         // Value of initialization, in case it exists
-        walk( n.get_symbol( ).get_value( ) );
+        walk(n.get_symbol().get_value());
     }
 
-    void UsageVisitor::visit( const Nodecl::Postdecrement& n )
+    void UsageVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        visit_increment( n );
+        visit_increment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::Postincrement& n )
+    void UsageVisitor::visit(const Nodecl::Postincrement& n)
     {
-        visit_increment( n );
+        visit_increment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::Predecrement& n )
+    void UsageVisitor::visit(const Nodecl::Predecrement& n)
     {
-        visit_increment( n );
+        visit_increment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::Preincrement& n )
+    void UsageVisitor::visit(const Nodecl::Preincrement& n)
     {
-        visit_increment( n );
+        visit_increment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::Range& n )
+    void UsageVisitor::visit(const Nodecl::Range& n)
     {
-        walk( n.get_lower() );
-        walk( n.get_upper() );
-        walk( n.get_stride() );
+        walk(n.get_lower());
+        walk(n.get_upper());
+        walk(n.get_stride());
     }
 
-    void UsageVisitor::visit( const Nodecl::Reference& n )
+    void UsageVisitor::visit(const Nodecl::Reference& n)
     {
-        Nodecl::NodeclBase rhs = n.get_rhs( );
+        Nodecl::NodeclBase rhs = n.get_rhs();
         
         // Insert the whole node to the list of accessed addresses
         _node->add_used_address(Utils::ExtendedSymbol(n));
         
-        if( !_current_nodecl.is_null( ) )
+        if(!_current_nodecl.is_null())
         {
-            walk( rhs );
+            walk(rhs);
         }
         else
         {   // Only pointers to member are really used
             ReferenceUsageVisitor ruv;
-            ruv.walk( rhs );
-            _node->add_ue_var( ruv.get_ue_vars( ) );
+            ruv.walk(rhs);
+            _node->add_ue_var(ruv.get_ue_vars());
         }
     }
 
-    void UsageVisitor::visit( const Nodecl::Symbol& n )
+    void UsageVisitor::visit(const Nodecl::Symbol& n)
     {
         Nodecl::NodeclBase var_in_use = n;
-        if( !_current_nodecl.is_null( ) )
+        if(!_current_nodecl.is_null())
             var_in_use = _current_nodecl;
 
-        Symbol sym( Utils::get_nodecl_base( var_in_use ).get_symbol( ) );
-        if( _define )
+        Symbol sym(Utils::get_nodecl_base(var_in_use).get_symbol());
+        if(_define)
         {
-            set_var_usage_to_node( Utils::ExtendedSymbol( var_in_use ), Utils::UsageKind::DEFINED );
+            set_var_usage_to_node(Utils::ExtendedSymbol(var_in_use), Utils::UsageKind::DEFINED);
 
-            if( _global_vars->find( sym ) != _global_vars->end( ) )
+            if(_global_vars->find(sym) != _global_vars->end())
             {
-                if( (*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE )
+                if((*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE)
                     (*_global_vars)[sym] = Utils::UsageKind::DEFINED;
-                else if( (*_global_vars)[sym]._usage_type & Utils::UsageKind::USED )
+                else if((*_global_vars)[sym]._usage_type & Utils::UsageKind::USED)
                     (*_global_vars)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
             }
-            else if( ( _reference_params->find( sym ) != _reference_params->end( ) ) &&
-                ( (*_reference_params)[sym]._usage_type & ( Utils::UsageKind::USED | Utils::UsageKind::NONE ) ) )
+            else if((_reference_params->find(sym) != _reference_params->end()) &&
+                ((*_reference_params)[sym]._usage_type & (Utils::UsageKind::USED | Utils::UsageKind::NONE)))
             {
-                if( (*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE )
+                if((*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE)
                     (*_reference_params)[sym] = Utils::UsageKind::DEFINED;
-                else if( (*_reference_params)[sym]._usage_type & Utils::UsageKind::USED )
+                else if((*_reference_params)[sym]._usage_type & Utils::UsageKind::USED)
                     (*_reference_params)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
             }
         }
         else
         {
-            if( !Utils::ext_sym_set_contains_nodecl( var_in_use, _node->get_killed_vars( ) ) )
+            if(!Utils::ext_sym_set_contains_nodecl(var_in_use, _node->get_killed_vars()))
             {
-                set_var_usage_to_node( Utils::ExtendedSymbol( var_in_use ), Utils::UsageKind::USED );
+                set_var_usage_to_node(Utils::ExtendedSymbol(var_in_use), Utils::UsageKind::USED);
 
-                if( ( _global_vars->find( sym ) != _global_vars->end( ) ) &&
-                    ( (*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE ) )
+                if((_global_vars->find(sym) != _global_vars->end()) &&
+                    ((*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE))
                 {
                     (*_global_vars)[sym] = Utils::UsageKind::USED;
                 }
-                else if( ( _reference_params->find( sym ) != _reference_params->end( ) ) &&
-                    ( (*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE ) )
+                else if((_reference_params->find(sym) != _reference_params->end()) &&
+                    ((*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE))
                 {
                     (*_reference_params)[sym] = Utils::UsageKind::USED;
                 }
@@ -1912,129 +1910,129 @@ namespace {
         }
     }
 
-    void UsageVisitor::visit( const Nodecl::UnalignedVectorStore& n )
+    void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::VectorAssignment& n )
+    void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
     // It is used: the base, the strides (if variables) and the memory positions formed by base+stride_i
-    void UsageVisitor::visit( const Nodecl::VectorGather& n )
+    void UsageVisitor::visit(const Nodecl::VectorGather& n)
     {
-        Nodecl::NodeclBase base = n.get_base( );
-        Nodecl::NodeclBase strides = n.get_strides( );
+        Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase strides = n.get_strides();
 
         // Usage of the base
-        walk( base );
+        walk(base);
 
-        if( strides.is<Nodecl::VectorLiteral>( ) )
+        if(strides.is<Nodecl::VectorLiteral>())
         {
             Nodecl::List stride_list = strides.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
-            for( Nodecl::List::iterator it = stride_list.begin( ); it != stride_list.end( ); ++it )
+            for(Nodecl::List::iterator it = stride_list.begin(); it != stride_list.end(); ++it)
             {
                 // Usage of base+stride_i
-                Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), it->shallow_copy( ), base.get_type( ), it->get_locus( ) );
-                if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
-                    set_var_usage_to_node( Utils::ExtendedSymbol( current_access ), Utils::UsageKind::USED );
+                Nodecl::Add current_access = Nodecl::Add::make(base.shallow_copy(), it->shallow_copy(), base.get_type(), it->get_locus());
+                if(!Utils::ext_sym_set_contains_nodecl(current_access, _node->get_killed_vars()))
+                    set_var_usage_to_node(Utils::ExtendedSymbol(current_access), Utils::UsageKind::USED);
             }
         }
         else
         {
             // Usage of the stride
-            walk( strides );
+            walk(strides);
 
-            Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), strides.shallow_copy( ), base.get_type( ), strides.get_locus( ) );
-            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
-                set_var_usage_to_node( Utils::ExtendedSymbol( current_access ), Utils::UsageKind::USED );
+            Nodecl::Add current_access = Nodecl::Add::make(base.shallow_copy(), strides.shallow_copy(), base.get_type(), strides.get_locus());
+            if(!Utils::ext_sym_set_contains_nodecl(current_access, _node->get_killed_vars()))
+                set_var_usage_to_node(Utils::ExtendedSymbol(current_access), Utils::UsageKind::USED);
         }
     }
 
-    void UsageVisitor::visit( const Nodecl::VectorMaskAssignment& n )
+    void UsageVisitor::visit(const Nodecl::VectorMaskAssignment& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
     // It is used: the strides (if variables). It is defined the memory positions formed by base+stride_i
-    void UsageVisitor::visit( const Nodecl::VectorScatter& n )
+    void UsageVisitor::visit(const Nodecl::VectorScatter& n)
     {
-        Nodecl::NodeclBase base = n.get_base( );
-        Nodecl::NodeclBase strides = n.get_strides( );
-        Nodecl::NodeclBase source = n.get_source( );
+        Nodecl::NodeclBase base = n.get_base();
+        Nodecl::NodeclBase strides = n.get_strides();
+        Nodecl::NodeclBase source = n.get_source();
 
         // Usage of source and base
-        walk( source );
-        walk( base );
+        walk(source);
+        walk(base);
 
-        if( strides.is<Nodecl::VectorLiteral>( ) )
+        if(strides.is<Nodecl::VectorLiteral>())
         {
             Nodecl::List stride_list = strides.as<Nodecl::VectorLiteral>().get_scalar_values().as<Nodecl::List>();
-            for( Nodecl::List::iterator it = stride_list.begin( ); it != stride_list.end( ); ++it )
+            for(Nodecl::List::iterator it = stride_list.begin(); it != stride_list.end(); ++it)
             {
                 // Usage of base+stride_i
-                Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), it->shallow_copy( ), base.get_type( ), it->get_locus( ) );
-                if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
-                    set_var_usage_to_node( Utils::ExtendedSymbol( current_access ), Utils::UsageKind::DEFINED );
+                Nodecl::Add current_access = Nodecl::Add::make(base.shallow_copy(), it->shallow_copy(), base.get_type(), it->get_locus());
+                if(!Utils::ext_sym_set_contains_nodecl(current_access, _node->get_killed_vars()))
+                    set_var_usage_to_node(Utils::ExtendedSymbol(current_access), Utils::UsageKind::DEFINED);
             }
         }
         else
         {
             // Usage of strides
-            walk( strides );
+            walk(strides);
 
-            Nodecl::Add current_access = Nodecl::Add::make( base.shallow_copy( ), strides.shallow_copy( ), base.get_type( ), strides.get_locus( ) );
-            if( !Utils::ext_sym_set_contains_nodecl( current_access, _node->get_killed_vars( ) ) )
-                set_var_usage_to_node( Utils::ExtendedSymbol( current_access ), Utils::UsageKind::DEFINED );
+            Nodecl::Add current_access = Nodecl::Add::make(base.shallow_copy(), strides.shallow_copy(), base.get_type(), strides.get_locus());
+            if(!Utils::ext_sym_set_contains_nodecl(current_access, _node->get_killed_vars()))
+                set_var_usage_to_node(Utils::ExtendedSymbol(current_access), Utils::UsageKind::DEFINED);
         }
 
     }
 
-    void UsageVisitor::visit( const Nodecl::VectorSincos& n )
+    void UsageVisitor::visit(const Nodecl::VectorSincos& n)
     {
-        Nodecl::NodeclBase source = n.get_source( );
-        Nodecl::NodeclBase sin_ptr = n.get_sin_pointer( );
-        Nodecl::NodeclBase cos_ptr = n.get_cos_pointer( );
+        Nodecl::NodeclBase source = n.get_source();
+        Nodecl::NodeclBase sin_ptr = n.get_sin_pointer();
+        Nodecl::NodeclBase cos_ptr = n.get_cos_pointer();
 
-        walk( source );
-        walk( sin_ptr );
-        walk( cos_ptr );
+        walk(source);
+        walk(sin_ptr);
+        walk(cos_ptr);
 
         // Uses the source of the operation
-        if( !Utils::ext_sym_set_contains_nodecl( source, _node->get_killed_vars( ) ) )
-            set_var_usage_to_node( Utils::ExtendedSymbol( source ), Utils::UsageKind::USED );
+        if(!Utils::ext_sym_set_contains_nodecl(source, _node->get_killed_vars()))
+            set_var_usage_to_node(Utils::ExtendedSymbol(source), Utils::UsageKind::USED);
 
         // Defines the memory pointed by the second and third parameters
-        Nodecl::NodeclBase sin_ptd = Nodecl::Dereference::make( sin_ptr.shallow_copy( ), sin_ptr.get_type( ) );
-        if( !Utils::ext_sym_set_contains_nodecl( sin_ptd, _node->get_killed_vars( ) ) )
-            set_var_usage_to_node( Utils::ExtendedSymbol( sin_ptd ), Utils::UsageKind::DEFINED );
-        Nodecl::NodeclBase cos_ptd = Nodecl::Dereference::make( cos_ptr.shallow_copy( ), cos_ptr.get_type( ) );
-        if( !Utils::ext_sym_set_contains_nodecl( cos_ptd, _node->get_killed_vars( ) ) )
-            set_var_usage_to_node( Utils::ExtendedSymbol( cos_ptd ), Utils::UsageKind::DEFINED );
+        Nodecl::NodeclBase sin_ptd = Nodecl::Dereference::make(sin_ptr.shallow_copy(), sin_ptr.get_type());
+        if(!Utils::ext_sym_set_contains_nodecl(sin_ptd, _node->get_killed_vars()))
+            set_var_usage_to_node(Utils::ExtendedSymbol(sin_ptd), Utils::UsageKind::DEFINED);
+        Nodecl::NodeclBase cos_ptd = Nodecl::Dereference::make(cos_ptr.shallow_copy(), cos_ptr.get_type());
+        if(!Utils::ext_sym_set_contains_nodecl(cos_ptd, _node->get_killed_vars()))
+            set_var_usage_to_node(Utils::ExtendedSymbol(cos_ptd), Utils::UsageKind::DEFINED);
     }
 
-    void UsageVisitor::visit( const Nodecl::VectorStore& n )
+    void UsageVisitor::visit(const Nodecl::VectorStore& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::VectorStreamStore& n )
+    void UsageVisitor::visit(const Nodecl::VectorStreamStore& n)
     {
-        visit_assignment( n );
+        visit_assignment(n);
     }
 
-    void UsageVisitor::visit( const Nodecl::VirtualFunctionCall& n )
+    void UsageVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
-        function_visit( n.get_called( ), n.get_arguments( ).as<Nodecl::List>( ) );
+        function_visit(n.get_called(), n.get_arguments().as<Nodecl::List>());
     }
 
-    ReferenceUsageVisitor::ReferenceUsageVisitor( )
-        : _current_nodecl( Nodecl::NodeclBase::null( ) ), _store_symbol( false ), _used_ext_syms( )
+    ReferenceUsageVisitor::ReferenceUsageVisitor()
+        : _current_nodecl(Nodecl::NodeclBase::null()), _store_symbol(false), _used_ext_syms()
     {}
 
-    Utils::ext_sym_set ReferenceUsageVisitor::get_ue_vars( )
+    Utils::ext_sym_set ReferenceUsageVisitor::get_ue_vars()
     {
         return _used_ext_syms;
     }
@@ -2060,7 +2058,7 @@ namespace {
         if(_current_nodecl.is_null())
             _current_nodecl = n;
         walk(n.get_member());
-        _current_nodecl = Nodecl::NodeclBase::null( );
+        _current_nodecl = Nodecl::NodeclBase::null();
     }
 
     void ReferenceUsageVisitor::visit(const Nodecl::Reference& n)
