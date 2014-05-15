@@ -2580,12 +2580,11 @@ src/driver/cxx-target-tools.h :
 # Install hooks
 driver-install-exec-hook:
 	real_mcxx_name=`echo plaincxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	for compiler_name in @COMPILER_NAMES@; \
+	for compiler_name in ${COMPILER_NAMES}; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
-			if [[ -f $(DESTDIR)/${configdir}/$${real_compiler_name} ]] ; then\
-			    mv -f $(DESTDIR)/${configdir}/$${real_compiler_name} $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; \
+			( if [[ ! -f $(srcdir)/config/template.$${real_compiler_name} ]] ; then\
+			cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
 			fi) \
 		done
 
@@ -2817,6 +2816,13 @@ config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
 config-install-data-hook:
+	for compiler_name in ${COMPILER_NAMES}; \
+	do \
+		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+		( if [[ -f ${configdir}/$${real_compiler_name} ]] ; then\
+		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
+		fi) \
+	done
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \
 		if test -e $(configdir)/$${oldfile};\
@@ -2825,6 +2831,9 @@ config-install-data-hook:
 			rm -f $(configdir)/$${oldfile}; \
 		fi \
 	done
+
+	
+install-data-hook: config-install-data-hook
 
 # Where and what to install
 pkgdata_DATA = \
