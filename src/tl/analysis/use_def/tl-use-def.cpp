@@ -24,8 +24,6 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <iostream>
-#include <fstream>
 
 #include "tl-analysis-utils.hpp"
 #include "config.h"
@@ -36,54 +34,57 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
-Optimizations::Calculator _calc;
 SizeMap _pointer_to_size_map;
+ObjectList<ExtensibleGraph*> _pcfgs;
 
     // **************************************************************************************************** //
     // ************************* Class implementing pointer simplification visitor ************************ //
     
-    void PointersSimplifierVisitor::unhandled_node(const Nodecl::NodeclBase& n)
+    class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-        WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
-    }
-    
-    void PointersSimplifierVisitor::visit(const Nodecl::Dereference& n)
-    {
-        Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
-        if(rhs.is<Nodecl::Reference>())
-        {   // *&v  ->  v
-            n.replace(rhs.as<Nodecl::Reference>().get_rhs().no_conv().shallow_copy());
-            walk(n);
-        }
-        else
+        void unhandled_node(const Nodecl::NodeclBase& n)
         {
-            walk(rhs);
+            WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
         }
-    }
     
-    void PointersSimplifierVisitor::visit(const Nodecl::Reference& n)
-    {
-        Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
-        if(rhs.is<Nodecl::Dereference>())
-        {   // &*v  ->  v
-            n.replace(rhs.as<Nodecl::Dereference>().get_rhs().no_conv().shallow_copy());
-            walk(n);
-        }
-        else if(rhs.is<Nodecl::ArraySubscript>())
+        void visit(const Nodecl::Dereference& n)
         {
-            Nodecl::List subscripts = rhs.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
-            if(subscripts.size()==1 && 
-               subscripts.front().is_constant() && 
-               const_value_is_zero(subscripts.front().get_constant()))
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            if(rhs.is<Nodecl::Reference>())
+            {   // *&v  ->  v
+                n.replace(rhs.as<Nodecl::Reference>().get_rhs().no_conv().shallow_copy());
+                walk(n);
+            }
+            else
             {
-                n.replace(Nodecl::Reference::make(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy(), n.get_type()));
+                walk(rhs);
             }
         }
-        else
+        
+        void visit(const Nodecl::Reference& n)
         {
-            walk(rhs);
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            if(rhs.is<Nodecl::Dereference>())
+            {   // &*v  ->  v
+                n.replace(rhs.as<Nodecl::Dereference>().get_rhs().no_conv().shallow_copy());
+                walk(n);
+            }
+            else if(rhs.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::List subscripts = rhs.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                if(subscripts.size()==1 && 
+                subscripts.front().is_constant() && 
+                const_value_is_zero(subscripts.front().get_constant()))
+                {
+                    n.replace(Nodecl::Reference::make(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy(), n.get_type()));
+                }
+            }
+            else
+            {
+                walk(rhs);
+            }
         }
-    }
+    };
     
     // This method simplifies arguments in the way "*&v and &*v -> v"
     Nodecl::List simplify_arguments(const Nodecl::List& real_arguments)
@@ -103,7 +104,7 @@ SizeMap _pointer_to_size_map;
     
     // *********************** End class implementing pointer simplification visitor ********************** //
     // **************************************************************************************************** //
-
+    
     
     
     // **************************************************************************************************** //
@@ -368,9 +369,9 @@ namespace {
      *                                         we need to take into account the usage computed for the already treated statements
      */
     void propagate_usage_to_ancestors(Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars,
-                                       Utils::ext_sym_set& undef_vars, Utils::ext_sym_set& used_addresses,
-                                       const Utils::ext_sym_set& ue_children, const Utils::ext_sym_set& killed_children, 
-                                       const Utils::ext_sym_set& undef_children, const Utils::ext_sym_set& used_addresses_children)
+                                      Utils::ext_sym_set& undef_vars, Utils::ext_sym_set& used_addresses,
+                                      const Utils::ext_sym_set& ue_children, const Utils::ext_sym_set& killed_children, 
+                                      const Utils::ext_sym_set& undef_children, const Utils::ext_sym_set& used_addresses_children)
     {
         // Propagate the upwards exposed variables
         Nodecl::NodeclBase ue_previously_killed_subobject, ue_previously_undef_subobject;
@@ -523,16 +524,16 @@ namespace {
 
 }
 
-    UseDef::UseDef(ExtensibleGraph* graph, ObjectList<ExtensibleGraph*>* pcfgs)
-        : _graph(graph), _pcfgs(pcfgs), _global_vars(), _reference_params()
+    UseDef::UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs)
+        : _graph(graph), _ipa_global_vars(), _ipa_ref_params()
     {
         // Initialized Global Variables usage to NONE
-        std::set<Symbol> global_vars = _graph->get_global_variables();
+        const std::set<Symbol> global_vars = _graph->get_global_variables();
         for(std::set<Symbol>::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
-            _global_vars[*it] = Utils::UsageKind::NONE;
+            _ipa_global_vars[*it] = Utils::UsageKind::NONE;
 
         // Initialized Reference parameters usage to NONE
-        Symbol func_sym = graph->get_function_symbol();
+        Symbol func_sym = _graph->get_function_symbol();
         if(func_sym.is_valid())
         {   // The PCFG contains a FunctionCode
             ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
@@ -540,11 +541,12 @@ namespace {
             {
                 Type param_type = it->get_type();
                 if(param_type.is_any_reference() || param_type.is_pointer())
-                    _reference_params[*it] = Utils::UsageKind::NONE;
+                    _ipa_ref_params[*it] = Utils::UsageKind::NONE;
             }
         }
         
         _pointer_to_size_map = graph->get_pointer_n_elements_map();
+        _pcfgs = pcfgs;
     }
 
     void UseDef::compute_usage()
@@ -588,7 +590,7 @@ namespace {
             {
                 // Treat statements in the current node
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
-                UsageVisitor uv(current, _graph, _pcfgs, &_global_vars, &_reference_params);
+                UsageVisitor uv(current, _graph, &_ipa_global_vars, &_ipa_ref_params);
                 for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     uv.compute_statement_usage(*it);
@@ -820,27 +822,100 @@ namespace {
 
     // ************************** End class implementing use-definition analysis ************************** //
     // **************************************************************************************************** //
-
-
-
+    
+    
+    
     // **************************************************************************************************** //
     // ***************************** Class implementing use-definition visitor **************************** //
 
-    UsageVisitor::UsageVisitor(Node* fake_node)
-        : _node(fake_node), _define(false), _current_nodecl(Nodecl::NodeclBase::null()),
-          _global_vars(), _reference_params(), _avoid_func_calls(false), _pcfg(NULL), _pcfgs()
-    {}
-
-    UsageVisitor::UsageVisitor(Node* n,
-                                ExtensibleGraph* pcfg,
-                                ObjectList<ExtensibleGraph*>* pcfgs,
-                                std::map<Symbol, Utils::UsageKind>* global_vars,
-                                std::map<Symbol, Utils::UsageKind>* reference_params)
+    //! Special class for visiting Reference nodecls
+    class LIBTL_CLASS ReferenceUsageVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+    private:
+        Nodecl::NodeclBase _current_nodecl;
+        bool _store_symbol;
+        Utils::ext_sym_set _used_ext_syms;
+        
+    public:
+        // Constructor
+        ReferenceUsageVisitor()
+            : _current_nodecl(Nodecl::NodeclBase::null()), _store_symbol(false), _used_ext_syms()
+        {}
+        
+        // Getters
+        Utils::ext_sym_set get_ue_vars()
+        {
+            return _used_ext_syms;
+        }
+        
+        // Visitors
+        void visit(const Nodecl::ArraySubscript& n)
+        {
+            if(_store_symbol)
+            {
+                Nodecl::NodeclBase var_in_use = n;
+                if(!_current_nodecl.is_null())
+                    var_in_use = _current_nodecl;
+                _used_ext_syms.insert(var_in_use);
+            }
+            
+            // Walk the subscripts
+            _store_symbol = true;
+            walk(n.get_subscripts());
+            _store_symbol = false;
+        }
+        
+        void visit(const Nodecl::ClassMemberAccess& n)
+        {
+            if(_current_nodecl.is_null())
+                _current_nodecl = n;
+            walk(n.get_member());
+            _current_nodecl = Nodecl::NodeclBase::null();
+        }
+        
+        void visit(const Nodecl::Reference& n)
+        {
+            if(_current_nodecl.is_null())
+                _current_nodecl = n;
+            walk(n.get_rhs());
+            _current_nodecl = Nodecl::NodeclBase::null();
+        }
+        
+        void visit(const Nodecl::Symbol& n)
+        {
+            if(_store_symbol)
+            {
+                Nodecl::NodeclBase var_in_use = n;
+                if(!_current_nodecl.is_null())
+                    var_in_use = _current_nodecl;
+                _used_ext_syms.insert(var_in_use);
+            }
+        }
+    };
+    
+    static ExtensibleGraph* find_graph_in_list_from_function_symbol(Symbol func_sym)
+    {
+        ExtensibleGraph* result = NULL;
+        for(ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
+        {
+            Symbol s((*it)->get_function_symbol());
+            if(s.is_valid() && (s == func_sym))
+            {
+                result = *it;
+                break;
+            }
+        }
+        return result;
+    }
+    
+    UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg,
+                               std::map<Symbol, Utils::UsageKind>* global_vars,
+                               std::map<Symbol, Utils::UsageKind>* reference_params)
         : _node(n), _define(false), _current_nodecl(Nodecl::NodeclBase::null()),
-          _global_vars(global_vars), _reference_params(reference_params),
-          _avoid_func_calls(false), _pcfg(pcfg), _pcfgs(pcfgs)
+          _ipa_global_vars(global_vars), _ipa_ref_params(reference_params),
+          _avoid_func_calls(false), _pcfg(pcfg)
     {}
-
+    
     void UsageVisitor::set_var_usage_to_node(const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind)
     {
         Utils::ext_sym_set ue_vars = _node->get_ue_vars();
@@ -927,308 +1002,28 @@ namespace {
                         n.prettyprint().c_str(), ast_print_node_type(n.get_kind()));
     }
 
-    template<typename T>
-    void UsageVisitor::visit_assignment(const T& n)
+    void UsageVisitor::visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs)
     {
         _define = false;
-        walk(n.get_rhs());
+        walk(rhs);
         _define = true;
-        walk(n.get_lhs());
+        walk(lhs);
         _define = false;
     }
 
-    template<typename T>
-    void UsageVisitor::visit_binary_assignment(const T& n)
+    void UsageVisitor::visit_binary_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs)
     {
         // Traverse the use of both the lhs and the rhs
-        walk(n.get_rhs());
-        walk(n.get_lhs());
+        walk(rhs);
+        walk(lhs);
 
         // Traverse the definition of the lhs
         _define = true;
-        walk(n.get_lhs());
+        walk(lhs);
         _define = false;
     }
-
-    void UsageVisitor::parse_parameter(std::string current_param, const Nodecl::NodeclBase& arg)
-    {
-        size_t first_slash_pos = current_param.find("#");
-        if(first_slash_pos != std::string::npos)
-        {   // Parameter is pointer
-            // The address is used
-            set_var_usage_to_node(Utils::ExtendedSymbol(arg), Utils::UsageKind::USED);
-            size_t second_slash_pos = current_param.find("#", first_slash_pos);
-            std::string pointed_param_usage = current_param.substr(first_slash_pos, second_slash_pos - first_slash_pos);
-            // TODO: What do we want to do with the pointed value??
-        }
-        else
-        {
-            ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses(arg);
-            for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
-            {
-                // Set all arguments as upper exposed
-                Symbol s(it_o->get_symbol());
-                if(!s.is_valid())
-                {   // ArraySubscript and ClassMemberAccess are memory accesses but do not have a symbol associated
-                    // In these cases, we need to get the nodecl base
-                    s = Utils::get_nodecl_base(*it_o).get_symbol();
-                    ERROR_CONDITION(!s.is_valid(),
-                                    "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint().c_str());
-                }
-                set_var_usage_to_node(Utils::ExtendedSymbol(*it_o), Utils::UsageKind::USED);
-                if((_global_vars->find(s) != _global_vars->end()) &&
-                    (*_global_vars)[s]._usage_type & Utils::UsageKind::NONE)
-                {
-                    (*_global_vars)[s] = Utils::UsageKind::USED;
-                }
-                else if((_reference_params->find(s) != _reference_params->end()) &&
-                         ((*_reference_params)[s]._usage_type & Utils::UsageKind::NONE))
-                {
-                    (*_reference_params)[s] = Utils::UsageKind::USED;
-                }
-            }
-        }
-    }
-
-    bool UsageVisitor::parse_c_functions_file(Symbol func_sym, const Nodecl::List& args)
-    {
-        bool side_effects = true;
-
-        std::string cLibFuncsPath = std::string(MCXX_ANALYSIS_DATA_PATH) + "/cLibraryFunctionList" ;
-        std::ifstream cLibFuncs(cLibFuncsPath.c_str());
-        if(cLibFuncs.is_open())
-        {
-            std::string func_decl;
-            while(cLibFuncs.good())
-            {
-                getline(cLibFuncs, func_decl);
-                if(func_decl.substr(0, 2) != "//")
-                {
-                    size_t open_parenth_pos = func_decl.find("(");
-                    std::string func_name = func_decl.substr(0, open_parenth_pos - 1);
-                    if(func_sym.get_name() == func_name)
-                    {   // No global variable is read / written
-                        // Check for parameters usage
-                        side_effects = false;
-
-                        size_t comma_pos = func_decl.find(",");
-                        if(comma_pos == std::string::npos)
-                        {
-                            comma_pos = func_decl.find(")");
-                        }
-                        size_t last_comma_pos = open_parenth_pos + 1;
-                        std::string current_param;
-                        Nodecl::List::iterator it = args.begin();
-                        while(comma_pos != std::string::npos && /* not a default parameter*/ it != args.end())
-                        {
-                            current_param = func_decl.substr(last_comma_pos, comma_pos - last_comma_pos);
-                            parse_parameter(current_param, *it);
-                            it++;
-                            last_comma_pos = comma_pos + 1;
-                            comma_pos = func_decl.find(",", last_comma_pos);
-                        }
-                        // Last parameter
-                        if(it != args.end())
-                        {
-                            current_param = func_decl.substr(last_comma_pos, func_decl.find(")", last_comma_pos) - last_comma_pos);
-                            if(current_param == "...")
-                            {   // Arguments are supposed to be only used
-                                ObjectList<Nodecl::NodeclBase> obj;
-                                while(it != args.end())
-                                {
-                                    obj = Nodecl::Utils::get_all_memory_accesses(*it);
-                                    for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o  != obj.end(); ++it_o)
-                                        set_var_usage_to_node(Utils::ExtendedSymbol(*it_o), Utils::UsageKind::USED);
-                                    ++it;
-                                }
-                            }
-                            else
-                            {
-                                parse_parameter(current_param, *it);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if(side_effects && VERBOSE)
-            {
-                WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
-                                  "reference parameters will be limited. \nIf you know the side effects of this function, "\
-                                  "add it to the file and recompile your code. \n(If you recompile the compiler, "\
-                                  "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-                                  func_sym.get_name().c_str(), cLibFuncsPath.c_str());
-            }
-            cLibFuncs.close();
-        }
-        else
-        {
-            WARNING_MESSAGE("File containing C library calls Usage info cannot be opened. \n"\
-                             "Path tried: '%s'", cLibFuncsPath.c_str());
-        }
-
-        return side_effects;
-    }
-
-    static ExtensibleGraph* find_graph_in_list_from_function_symbol(Symbol func_sym, ObjectList<ExtensibleGraph*>* pcfgs)
-    {
-        ExtensibleGraph* result = NULL;
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin(); it != pcfgs->end(); ++it)
-        {
-            Symbol s((*it)->get_function_symbol());
-            if(s.is_valid() && (s == func_sym))
-            {
-                result = *it;
-                break;
-            }
-        }
-        return result;
-    }
     
-    static void get_modifiable_parameters_to_arguments_map(ObjectList<Symbol> params, Nodecl::List args,
-                                                           sym_to_nodecl_map& ptr_params, sym_to_nodecl_map& ref_params)
-    {
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
-        {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
-            {
-                // Reference parameters
-                if(itp->get_type().is_any_reference())
-                {
-                    ref_params[*itp] = *ita;
-                }
-                // Pointer parameters
-                if(itp->get_type().is_pointer() || 
-                   (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
-                {
-                    ptr_params[*itp] = *ita;
-                }
-                
-                ita++; itp++;
-            }
-        }
-    }
-    
-    static sym_to_nodecl_map get_parameters_to_arguments_map(ObjectList<Symbol> params, Nodecl::List args)
-    {
-        sym_to_nodecl_map param_to_arg_map;
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
-        {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
-            {
-                param_to_arg_map[*itp] = *ita;
-                ita++; itp++;
-            }
-        }
-        return param_to_arg_map;
-    }
-    
-    // This method only accepts #called_func_usage sets of KILLED and UNDEFINED variables (specified by #usage_kind)
-    // The UE variables are treated in a different way
-    void UsageVisitor::propagate_called_func_pointed_values_usage_to_func_call(
-            const Utils::ext_sym_set& called_func_usage, 
-            const sym_to_nodecl_map& ptr_param_to_arg_map, 
-            Utils::UsageKind usage_kind)
-    {
-        for(Utils::ext_sym_set::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
-        {
-            Nodecl::NodeclBase n = it->get_nodecl().no_conv();
-            // Current usage variable is the dereference of a parameter symbol
-            if(n.is<Nodecl::Dereference>() && 
-               n.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Symbol>() && 
-               (ptr_param_to_arg_map.find(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end()))
-            {   // The value pointed by a pointer parameter has some usage
-                Symbol s(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()); // parameter
-                Nodecl::NodeclBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
-                Nodecl::NodeclBase new_n = n.shallow_copy();
-                rv.walk(new_n);
-                if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
-                else
-                    _node->add_undefined_behaviour_var(new_n);
-            }
-        }
-    }
-    
-    // This method only accepts #called_func_usage sets of KILLED and UNDEFINED variables (specified by #usage_kind)
-    // The UE variables are treated in a different way
-    void UsageVisitor::propagate_called_func_ref_params_usage_to_func_call(
-            const Utils::ext_sym_set& called_func_usage,
-            const sym_to_nodecl_map& ref_param_to_arg_map,
-            Utils::UsageKind usage_kind)
-    {
-        for(Utils::ext_sym_set::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
-        {
-            Nodecl::NodeclBase n = it->get_nodecl().no_conv();
-            Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
-            ERROR_CONDITION(n_base.is_null(), 
-                            "The nodecl base of a nodecl appearing in a usage set must not be null, but base of '%s' is.\n", 
-                            n.prettyprint().c_str());
-            Symbol s(n_base.get_symbol());
-            if(!n.is<Nodecl::Dereference>() && 
-               (ref_param_to_arg_map.find(s) != ref_param_to_arg_map.end()))
-            {   // The usage is of the variable, and not any possible value pointed by the variable
-                Nodecl::NodeclBase replacement = ref_param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
-                Nodecl::NodeclBase new_n = n.shallow_copy();
-                rv.walk(new_n);
-                if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
-                else
-                    _node->add_undefined_behaviour_var(new_n);
-            }
-        }
-    }
-    
-    // This method accepts #called_func_usage sets of UE, KILLED and UNDEFINED variables (specified by #usage_kind)
-    void UsageVisitor::propagate_global_variables_usage(const Utils::ext_sym_set& called_func_usage, 
-                                                        const std::set<Symbol>& called_global_vars, 
-                                                        const sym_to_nodecl_map& param_to_arg_map,
-                                                        Utils::UsageKind usage_kind)
-    {
-        for(Utils::ext_sym_set::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
-        {
-            Nodecl::NodeclBase n = it->get_nodecl().no_conv();
-            Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
-            ERROR_CONDITION(n_base.is_null(), 
-                            "The nodecl base of a nodecl appearing in a usage set must not be null, but base of '%s' is.\n", 
-                            n.prettyprint().c_str());
-            Symbol s(n_base.get_symbol());
-            if(called_global_vars.find(s) != called_global_vars.end())
-            {
-                // Rename any possible occurrence of a parameter in the current usage by its corresponding argument
-                RenameVisitor rv(param_to_arg_map);
-                Nodecl::NodeclBase new_n = n.shallow_copy();
-                rv.walk(new_n);
-                
-                // Add the usage to the current node
-                if(usage_kind._usage_type & Utils::UsageKind::USED)
-                    _node->add_ue_var(new_n);
-                else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
-                else
-                    _node->add_undefined_behaviour_var(new_n);
-                
-                // Add the usage to the sets storing global variables IPA
-                if(_global_vars->find(s) == _global_vars->end())
-                    (*_global_vars)[s] = usage_kind;
-                else
-                    (*_global_vars)[s] = (*_global_vars)[s] | usage_kind;
-            }
-            
-        }
-    }
-    
-    void UsageVisitor::function_visit(const Nodecl::NodeclBase& called_sym, const Nodecl::List& real_arguments)
+    void UsageVisitor::visit_function(const Nodecl::NodeclBase& called_sym, const Nodecl::List& real_arguments)
     {
         if(_avoid_func_calls)
             return;
@@ -1239,499 +1034,53 @@ namespace {
         if(func_sym.is_valid())
         {   // The called function is not a pointer to function
             ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
-            ExtensibleGraph* called_pcfg = find_graph_in_list_from_function_symbol(func_sym, _pcfgs);
+            ExtensibleGraph* called_pcfg = find_graph_in_list_from_function_symbol(func_sym);
             if(called_pcfg != NULL)
-            {   // Called function code is reachable
+            {   // Due to the way we call the UseDef analysis, if the usage of the called function is not yet computed,
+                // this means that it is a recursive call                
                 if(called_pcfg->usage_is_computed())
-                {
-                    Node* pcfg_node = called_pcfg->get_graph();
-                    
-                    // 1.- Check the usage of the parameters
-                    //     They all will be UE, but additionally we may have KILLED and UNDEF 
-                    //     if assignments or function calls appear in the arguments
-                    //     Recursively call to UsageVisitor to calculate the usage of each argument
-                    for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
-                    {
-                        Nodecl::NodeclBase n = *it;
-                        Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
-                        
-                        if(n_base.is_null() || !n_base.get_symbol().is_function())
-                        {   // Traverse any argument that is not a pointer to function
-                            compute_statement_usage(n);
-                        }
-                    }
-                    
-                    // 2.- Pointer and reference parameters can also be KILLED | UNDEFINED
-                    // 2.1.- Get all modifiable parameters to arguments map slit in two sets: pointer parameters and reference parameters
-                    ObjectList<Symbol> called_params = called_pcfg->get_function_symbol().get_function_parameters();
-                    sym_to_nodecl_map ptr_param_to_arg_map;     // Map relating pointer parameters to their corresponding arguments
-                    sym_to_nodecl_map ref_param_to_arg_map;     // Map relating reference parameters to their corresponding arguments
-                    get_modifiable_parameters_to_arguments_map(called_params, simplified_arguments,
-                                                               ptr_param_to_arg_map, ref_param_to_arg_map);
-                    // 2.2.- Get the usage computed for the called function
-                    Utils::ext_sym_set called_killed_vars = pcfg_node->get_killed_vars();
-                    Utils::ext_sym_set called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
-                    // 2.3.- Propagate pointer parameters usage to the current node
-                    if(!ptr_param_to_arg_map.empty())
-                    {                        
-                        propagate_called_func_pointed_values_usage_to_func_call(
-                                called_killed_vars, ptr_param_to_arg_map, Utils::UsageKind::DEFINED);
-                        propagate_called_func_pointed_values_usage_to_func_call(
-                                called_undef_vars, ptr_param_to_arg_map, Utils::UsageKind::UNDEFINED);
-                    }
-                    // 2.4.- Treat parameters by reference
-                    //       Do not take into account pointed values here, we already did it in step
-                    if(!ref_param_to_arg_map.empty())
-                    {
-                        propagate_called_func_ref_params_usage_to_func_call(
-                                called_killed_vars, ref_param_to_arg_map, Utils::UsageKind::DEFINED);
-                        propagate_called_func_ref_params_usage_to_func_call(
-                            called_undef_vars, ref_param_to_arg_map, Utils::UsageKind::UNDEFINED);
-                    }
-                    
-                    // 3. Usage of the global variables must be propagated too
-                    // 3.1 Add the global variables used in the called graph to the current graph
-                    std::set<Symbol> called_global_vars = called_pcfg->get_global_variables();
-                    _pcfg->set_global_vars(called_global_vars);
-                    // 3.2 Propagate the usage of the global variables
-                    Utils::ext_sym_set called_ue_vars = pcfg_node->get_ue_vars();
-                    sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, simplified_arguments);
-                    propagate_global_variables_usage(called_ue_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::USED);
-                    propagate_global_variables_usage(called_killed_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
-                    propagate_global_variables_usage(called_undef_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
+                {   // Called function code is reachable and UseDef Analysis of the function has been calculated
+                    ipa_propagate_known_function_usage(called_pcfg, simplified_arguments);
                 }
                 else
-                {   // All arguments are used when calling the function
-                    for(Nodecl::List::const_iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
-                    {
-                        ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses(*it);
-                        for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
-                            _node->add_ue_var(Utils::ExtendedSymbol(*it_o));
-                        
-                        // If the argument is a reference, add it to the list of accessed addresses
-                        if(it->no_conv().is<Nodecl::Reference>())
-                            _node->add_used_address(Utils::ExtendedSymbol(*it));
-                    }
-
-                    // Check for the usage in the graph of the function to propagate Usage (Global variables and reference parameters)
-                    // until the point we are currently
-                    for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin(); it != _global_vars->end(); ++it)
-                    {
-                        Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-                        if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
-                            _node->add_undefined_behaviour_var(Utils::ExtendedSymbol(sym));
-                        else
-                        {
-                            if(it->second._usage_type & Utils::UsageKind::USED)
-                                _node->add_ue_var(Utils::ExtendedSymbol(sym));
-                            if(it->second._usage_type & Utils::UsageKind::DEFINED)
-                                _node->add_killed_var(Utils::ExtendedSymbol(sym));
-                        }
-                    }
-                    for(std::map<Symbol, Utils::UsageKind>::iterator it = _reference_params->begin();
-                         it != _reference_params->end(); ++it)
-                    {
-                        Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-                        if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
-                            _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(sym));
-                        else
-                        {
-                            if(it->second._usage_type & Utils::UsageKind::USED)
-                                _node->add_ue_var(Utils::ExtendedSymbol(sym));
-                            if(it->second._usage_type & Utils::UsageKind::DEFINED)
-                                _node->add_killed_var(Utils::ExtendedSymbol(sym));
-                        }
-                    }
+                {   // Recursive call
+                    ipa_propagate_recursive_call_usage(simplified_arguments);
                 }
             }
             else
-            {   // Called function code is not reachable
-                // Check whether we have enough attributes in the function symbol
-                // to determine the function side effects
-                bool side_effects = true;
-
-                if(func_sym.has_gcc_attributes())
-                {   // Check for information synthesized by gcc
-                    ObjectList<GCCAttribute> gcc_attrs = func_sym.get_gcc_attributes();
-                    for(ObjectList<GCCAttribute>::iterator it = gcc_attrs.begin();
-                            it != gcc_attrs.end(); ++it)
-                    {
-                        std::string attr_name = it->get_attribute_name();
-                        if(attr_name == "const" || attr_name == "pure")
-                        {   // No side effects except the return value.
-                            // Only examine the arguments (and global variables in 'pure' case)
-                            side_effects = false;
-
-                            Utils::ext_sym_set ue_vars;
-                            // Set all parameters as used (if not previously killed or undefined)
-                            for(Nodecl::List::iterator it_arg = simplified_arguments.begin(); it_arg != simplified_arguments.end(); ++it_arg)
-                            {
-                                Utils::ExtendedSymbol es(*it_arg);
-                                if(_node->get_killed_vars().find(es) == _node->get_killed_vars().end()
-                                    && _node->get_undefined_behaviour_vars().find(es) == _node->get_undefined_behaviour_vars().end())
-                                {
-                                    ue_vars.insert(es);
-                                }
-                            }
-
-                            if(attr_name == "pure")
-                            {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
-                                for(std::map<Symbol, Utils::UsageKind>::iterator it_g = _global_vars->begin();
-                                     it_g != _global_vars->end(); ++it_g)
-                                {
-                                    if(it_g->second._usage_type & Utils::UsageKind::NONE)
-                                    {
-                                        ue_vars.insert(Utils::ExtendedSymbol(Nodecl::Symbol::make(it_g->first)));
-                                        it_g->second._usage_type = Utils::UsageKind::USED;
-                                    }
-                                }
-                            }
-                            _node->add_ue_var(ue_vars);
-                            if(attr_name == "pure")
-                                break;
-                        }
-                    }
-                }
-
-                if(side_effects)
-                {
-                    // Check in Mercurium function attributes data-base
-                    side_effects = parse_c_functions_file(func_sym, simplified_arguments);
-
-                    // Still cannot determine which are the side effects of the function...
-                    if(side_effects)
-                    {
-                        if(func_sym.get_type().lacks_prototype())
-                        {   // All parameters are passed by value
-                            for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
-                            {
-                                if(!it->is_constant())
-                                {
-                                    ObjectList<Nodecl::NodeclBase> mem_access = Nodecl::Utils::get_all_memory_accesses(*it);
-                                    for(ObjectList<Nodecl::NodeclBase>::iterator ita = mem_access.begin();
-                                        ita != mem_access.end(); ++ita)
-                                    {
-                                        _node->add_ue_var(Utils::ExtendedSymbol(*ita));
-                                        if(ita->get_type().is_pointer())
-                                        {
-                                            Nodecl::Dereference pointed_var = Nodecl::Dereference::make(*ita, ita->get_type());
-                                            _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(pointed_var));
-                                        }
-                                    }
-                                }
-                                
-                                // If the argument is a reference, add it to the list of accessed addresses
-                                if(it->no_conv().is<Nodecl::Reference>())
-                                    _node->add_used_address(Utils::ExtendedSymbol(*it));
-                            }
-                        }
-                        else
-                        {
-                            ObjectList<Symbol>::iterator itp = params.begin();
-                            Nodecl::NodeclBase one = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
-                            for(Nodecl::List::iterator ita = simplified_arguments.begin(); ita != simplified_arguments.end(); ++ita)
-                            {
-                                Nodecl::NodeclBase arg = ita->no_conv();
-                                Utils::ExtendedSymbol es_arg(arg);
-                                Type par_t = (itp != params.end() ? itp->get_type() : Type());
-                                
-                                if(arg.is<Nodecl::Symbol>() || arg.is<Nodecl::ArraySubscript>() || arg.is<Nodecl::ClassMemberAccess>())
-                                {   // foo(v);
-                                    // Get the type of the base element
-                                    Type arg_t;
-                                    if(arg.is<Nodecl::Symbol>())
-                                        arg_t = arg.as<Nodecl::Symbol>().get_symbol().get_type().no_ref();
-                                    else if(arg.is<Nodecl::ArraySubscript>())
-                                        arg_t = arg.as<Nodecl::ArraySubscript>().get_type().no_ref();
-                                    else // arg.is<Nodecl::ClassMemberAccess>()
-                                        arg_t = arg.as<Nodecl::ClassMemberAccess>().get_type().no_ref();
-                                    if(arg_t.is_pointer())
-                                    {   // type* v;
-                                        Nodecl::NodeclBase arg_points_to;
-                                        if(_pointer_to_size_map.find(arg) != _pointer_to_size_map.end())
-                                        {   // type* v = malloc(...) || type* v = calloc(...)
-                                            Nodecl::NodeclBase lb, ub, step;
-                                            lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
-                                            Nodecl::NodeclBase length = _pointer_to_size_map[arg];
-                                            if(length.is_constant())
-                                                ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                           const_value_get_one(/*bytes*/4, /*signed*/1)));
-                                            else
-                                                ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
-                                            step = one.shallow_copy();
-                                            Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                            Scope sc(Utils::get_nodecl_base(arg).get_symbol().get_scope());
-                                            arg_points_to = Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts),
-                                                                                         arg_t.points_to().get_array_to(lb, ub, sc));
-                                        }
-                                        else
-                                        {   // type *v = &v1; || type *v = v1; || ... (no system calls for memory allocation known in pointers analysis phase)
-                                            arg_points_to = Nodecl::Dereference::make(arg.shallow_copy(), arg_t.points_to());
-                                        }
-                                        Utils::ExtendedSymbol es_arg_points_to(arg_points_to);
-                                        
-                                        if(par_t.is_valid() && par_t.is_any_reference())
-                                        {   // void foo(int *&v);
-                                            _node->add_undefined_behaviour_var(es_arg);
-                                            _node->add_undefined_behaviour_var(es_arg_points_to);
-                                        }
-                                        else
-                                        {   // void foo(int *v); || void foo(int v[2]); || void foo(...);
-                                            _node->add_ue_var(es_arg);
-                                            _node->add_undefined_behaviour_var(es_arg_points_to);
-                                        }
-                                    }
-                                    else if(arg_t.is_array())
-                                    {   // type v[2];
-                                        Nodecl::NodeclBase lb, ub, step;
-                                        arg_t.array_get_bounds(lb, ub);
-                                        step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
-                                        Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                        Nodecl::NodeclBase arg_points_to = 
-                                                Nodecl::ArraySubscript::make(arg.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
-                                        if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int v[])*/ || 
-                                            (!par_t.is_valid()) /*void foo(...);*/)
-                                        {
-                                            _node->add_undefined_behaviour_var(arg_points_to);
-                                        }
-                                        else
-                                        {   
-                                            WARNING_MESSAGE("Unexpected type of parameter '%s' for an argument of type '%s'. "
-                                                            "Usage analysis may be incorrect at this point.", 
-                                                            par_t.print_declarator().c_str(), arg_t.print_declarator().c_str());
-                                        }
-                                    }
-                                    else
-                                    {   // type v;
-                                        if(par_t.is_valid())
-                                        {
-                                            if(par_t.is_any_reference())
-                                            {   // void foo(type &v);
-                                                _node->add_undefined_behaviour_var(es_arg);
-                                            }
-                                            else
-                                            {   // void foo(type v);
-                                                _node->add_ue_var(es_arg);
-                                            }
-                                        }
-                                        else
-                                        {   // void foo(...);
-                                            // argument has no pointer type and is passed by value
-                                            _node->add_ue_var(es_arg);
-                                        }
-                                    }
-                                }
-                                else if(arg.is<Nodecl::Reference>())
-                                {   // foo(&v)
-                                    Nodecl::NodeclBase arg_referenced = arg.as<Nodecl::Reference>().get_rhs().no_conv();
-                                    if(arg_referenced.is<Nodecl::Symbol>() || arg_referenced.is<Nodecl::ArraySubscript>() || 
-                                       arg_referenced.is<Nodecl::ClassMemberAccess>())
-                                    {
-                                        // Get the type of the base element
-                                        Type arg_t;
-                                        if(arg_referenced.is<Nodecl::Symbol>())
-                                            arg_t = arg_referenced.as<Nodecl::Symbol>().get_symbol().get_type().no_ref();
-                                        else if(arg_referenced.is<Nodecl::ArraySubscript>())
-                                            arg_t = arg_referenced.as<Nodecl::ArraySubscript>().get_type().no_ref();
-                                        else // arg_referenced.is<Nodecl::ClassMemberAccess>()
-                                            arg_t = arg_referenced.as<Nodecl::ClassMemberAccess>().get_type().no_ref();
-                                        
-                                        Nodecl::NodeclBase modifiable_arg = arg;
-                                        if(arg_t.is_pointer() || arg_t.is_array())
-                                        {
-                                            Nodecl::NodeclBase arg_points_to;
-                                            if(arg_t.is_pointer())
-                                            {   // type* v;
-                                                if(_pointer_to_size_map.find(arg_referenced) != _pointer_to_size_map.end())
-                                                {   // type* v = malloc(...) || type* v = calloc(...)
-                                                    Nodecl::NodeclBase lb, ub, step;
-                                                    lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
-                                                    Nodecl::NodeclBase length = _pointer_to_size_map[arg_referenced];
-                                                    if(length.is_constant())
-                                                        ub = const_value_to_nodecl(const_value_sub(length.get_constant(), 
-                                                                                                   const_value_get_one(/*bytes*/4, /*signed*/1)));
-                                                    else
-                                                        ub = Nodecl::Minus::make(length.shallow_copy(), one.shallow_copy(), one.get_type());
-                                                    
-                                                    step = one.shallow_copy();
-                                                    Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                                    Scope sc(Utils::get_nodecl_base(arg_referenced).get_symbol().get_scope());
-                                                    modifiable_arg = Nodecl::ArraySubscript::make(arg_referenced.shallow_copy(), Nodecl::List::make(subscripts),
-                                                                                                  arg_t.points_to().get_array_to(lb, ub, sc));
-                                                }
-                                                else
-                                                {   // type *v = &v1; || type *v = v1; || ... (no system calls for memory allocation known in pointers analysis phase)
-                                                    modifiable_arg = Nodecl::Dereference::make(arg_referenced.shallow_copy(), arg_t.points_to());
-                                                }
-                                            }
-                                            else    // arg_t.is_array()
-                                            {   // type v[2];
-                                                Nodecl::NodeclBase lb, ub, step;
-                                                arg_t.array_get_bounds(lb, ub);
-                                                step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
-                                                Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                                modifiable_arg = Nodecl::ArraySubscript::make(arg_referenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
-                                            }
-                                        }
-                                        Utils::ExtendedSymbol es_modifiable_arg(modifiable_arg);
-                                        if((par_t.is_valid() && par_t.is_pointer()) /*void foo(int **v)*/ || 
-                                            (!par_t.is_valid()) /*void foo(...);*/)
-                                        {
-                                            _node->add_undefined_behaviour_var(es_modifiable_arg);
-                                        }
-                                        else
-                                        {   
-                                            WARNING_MESSAGE("Unexpected type of parameter '%s' for an argument of type '%s'. "
-                                                            "Usage analysis may be incorrect at this point.", 
-                                                            par_t.print_declarator().c_str(), arg_t.print_declarator().c_str());
-                                        }
-                                    }
-                                    else
-                                    {
-                                        WARNING_MESSAGE("Unexpected reference argument '%s'. Usage analysis may be incorrect at this point.", 
-                                                        arg.prettyprint().c_str());
-                                    }
-                                }
-                                else if(arg.is<Nodecl::Dereference>())
-                                {   // foo(*v)
-                                    Nodecl::NodeclBase arg_dereferenced = arg.as<Nodecl::Dereference>().get_rhs().no_conv();
-                                    
-                                    // Get the type of the base element
-                                    Type arg_t;
-                                    if(arg_dereferenced.is<Nodecl::Symbol>())
-                                        arg_t = arg_dereferenced.as<Nodecl::Symbol>().get_symbol().get_type().no_ref();
-                                    else if(arg_dereferenced.is<Nodecl::ArraySubscript>())
-                                        arg_t = arg_dereferenced.as<Nodecl::ArraySubscript>().get_type().no_ref();
-                                    else // arg_dereferenced.is<Nodecl::ClassMemberAccess>()
-                                        arg_t = arg_dereferenced.as<Nodecl::ClassMemberAccess>().get_type().no_ref();
-                                    
-                                    Nodecl::NodeclBase arg_points_to;
-                                    if(arg_t.is_pointer())
-                                    {   // type* v;
-                                        if(_pointer_to_size_map.find(arg_dereferenced) != _pointer_to_size_map.end())
-                                        {   // type* v = malloc(...) || type* v = calloc(...)
-                                            Nodecl::NodeclBase lb, ub, step;
-                                            lb = const_value_to_nodecl(const_value_get_zero(/*bytes*/4, /*signed*/1));
-                                            ub = Nodecl::Minus::make(_pointer_to_size_map[arg_dereferenced].shallow_copy(), one.shallow_copy(), one.get_type());
-                                            step = one.shallow_copy();
-                                            Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                            Scope sc(Utils::get_nodecl_base(arg_dereferenced).get_symbol().get_scope());
-                                            arg_points_to = Nodecl::ArraySubscript::make(arg_dereferenced.shallow_copy(), Nodecl::List::make(subscripts),
-                                                                                         arg_t.points_to().get_array_to(lb, ub, sc));
-                                        }
-                                        else
-                                        {   // type *v = &v1; || type *v = v1; || ... (no system calls for memory allocation known in pointers analysis phase)
-                                            arg_points_to = Nodecl::Dereference::make(arg_dereferenced.shallow_copy(), arg_t.points_to().get_lvalue_reference_to());
-                                        }
-                                    }
-                                    else    // arg_t.is_array()
-                                    {   // type v[2];
-                                        Nodecl::NodeclBase lb, ub, step;
-                                        arg_t.array_get_bounds(lb, ub);
-                                        Scope sc(Utils::get_nodecl_base(arg_dereferenced).get_symbol().get_scope());
-                                        arg_t = arg_t.array_element().get_array_to_with_region(lb, ub, lb, ub, sc);
-                                        step = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
-                                        Nodecl::Range subscripts = Nodecl::Range::make(lb, ub, step, lb.get_type());
-                                        arg_points_to = Nodecl::ArraySubscript::make(arg_dereferenced.shallow_copy(), Nodecl::List::make(subscripts), arg_t);
-                                    }
-                                    Utils::ExtendedSymbol es_arg_points_to(arg_points_to);
-                                    
-                                    if(par_t.is_valid() && par_t.is_any_reference())
-                                    {   // void foo(type &v)
-                                        _node->add_undefined_behaviour_var(es_arg_points_to);
-                                    }
-                                    else
-                                    {   // 
-                                        _node->add_ue_var(es_arg);
-                                    }
-                                }
-                                else
-                                {   // foo(v1 + v2) any argument with other type is being passed by value
-                                    ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(arg);
-                                    for(ObjectList<Nodecl::NodeclBase>::iterator it = mem_accesses.begin(); it != mem_accesses.end(); ++it)
-                                    {
-                                        _node->add_ue_var(*it);
-                                    }
-                                    
-                                    if(arg.get_type().is_pointer())
-                                    {   // The pointed value has an undefined behavior
-                                        _node->add_undefined_behaviour_var(Nodecl::Dereference::make(arg.shallow_copy(), arg.get_type().points_to()));
-                                    }
-                                }
-                                
-                                if(itp != params.end())
-                                    ++itp;
-                            }
-                            
-                            // Set all global variables to undefined
-                            Utils::ext_sym_set killed = _node->get_killed_vars();
-                            for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin();
-                                 it != _global_vars->end(); ++it)
-                            {
-                                Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-                                if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
-                                    Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
-                                {
-                                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
-                                    it->second._usage_type = Utils::UsageKind::UNDEFINED;
-                                }
-                            }
-                        }
-                    }
-                }
+            {   // Called function code's is not reachable
+                ipa_propagate_unreachable_function_usage(
+                        func_sym, params, simplified_arguments, _pointer_to_size_map);
             }
         }
         else
         {   // Calling a pointer to function: neither code nor prototype are reachable, thus:
-            // - all parameters as undefined behavior, we do not know whether they are passed by value or by reference
-            // - all global variables as undefined behavior
-            Utils::ext_sym_set killed = _node->get_killed_vars();
-            for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
-            {
-                if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
-                    Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
-                {
-                    _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(*it));
-                }
-            }
-
-            for(std::map<Symbol, Utils::UsageKind>::iterator it = _global_vars->begin(); it != _global_vars->end(); ++it)
-            {
-                Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-                if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
-                    Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
-                {
-                    _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
-                    it->second._usage_type = Utils::UsageKind::UNDEFINED;
-                }
-            }
+            ipa_propagate_pointer_to_function_usage(simplified_arguments);
         }
     }
-
-    template<typename T>
-    void UsageVisitor::visit_increment(const T& n)
+    
+    void UsageVisitor::visit_increment(const Nodecl::NodeclBase& rhs)
     {
         // Use of the rhs
-        walk(n.get_rhs());
-
+        walk(rhs);
+        
         // Definition of the rhs
         _define = true;
         Nodecl::NodeclBase current_nodecl = _current_nodecl;
         _current_nodecl = Nodecl::NodeclBase::null();
-        walk(n.get_rhs());
+        walk(rhs);
         _current_nodecl = current_nodecl;
         _define = false;
-
     }
 
     void UsageVisitor::visit(const Nodecl::AddAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::ArraySubscript& n)
@@ -1756,32 +1105,32 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::Assignment& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::ClassMemberAccess& n)
@@ -1811,43 +1160,42 @@ namespace {
             _define = define;
             _current_nodecl = n;
         }
-
         walk(n.get_rhs());
 
-        // If we were traversing some object, then the use of that access
-        if(!current_nodecl.is_null())
-        {
-            _define = define;       // Just in case
-            _current_nodecl = current_nodecl;
-            walk(n.get_rhs());
-        }
+//         // If we were traversing some object, then the use of that access
+//         if(!current_nodecl.is_null())
+//         {
+//             _define = define;       // Just in case
+//             _current_nodecl = current_nodecl;
+//             walk(n.get_rhs());
+//         }
 
         _current_nodecl = Nodecl::NodeclBase::null();
     }
 
     void UsageVisitor::visit(const Nodecl::DivAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::FunctionCall& n)
     {
-        function_visit(n.get_called(), n.get_arguments().as<Nodecl::List>());
+        visit_function(n.get_called(), n.get_arguments().as<Nodecl::List>());
     }
 
     void UsageVisitor::visit(const Nodecl::MinusAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::ModAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::MulAssignment& n)
     {
-        visit_binary_assignment(n);
+        visit_binary_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::ObjectInit& n)
@@ -1861,22 +1209,22 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        visit_increment(n);
+        visit_increment(n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::Postincrement& n)
     {
-        visit_increment(n);
+        visit_increment(n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::Predecrement& n)
     {
-        visit_increment(n);
+        visit_increment(n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::Preincrement& n)
     {
-        visit_increment(n);
+        visit_increment(n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::Range& n)
@@ -1916,20 +1264,20 @@ namespace {
         {
             set_var_usage_to_node(Utils::ExtendedSymbol(var_in_use), Utils::UsageKind::DEFINED);
 
-            if(_global_vars->find(sym) != _global_vars->end())
+            if(_ipa_global_vars->find(sym) != _ipa_global_vars->end())
             {
-                if((*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE)
-                    (*_global_vars)[sym] = Utils::UsageKind::DEFINED;
-                else if((*_global_vars)[sym]._usage_type & Utils::UsageKind::USED)
-                    (*_global_vars)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
+                if((*_ipa_global_vars)[sym]._usage_type & Utils::UsageKind::NONE)
+                    (*_ipa_global_vars)[sym] = Utils::UsageKind::DEFINED;
+                else if((*_ipa_global_vars)[sym]._usage_type & Utils::UsageKind::USED)
+                    (*_ipa_global_vars)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
             }
-            else if((_reference_params->find(sym) != _reference_params->end()) &&
-                ((*_reference_params)[sym]._usage_type & (Utils::UsageKind::USED | Utils::UsageKind::NONE)))
+            else if((_ipa_ref_params->find(sym) != _ipa_ref_params->end()) &&
+                ((*_ipa_ref_params)[sym]._usage_type & (Utils::UsageKind::USED | Utils::UsageKind::NONE)))
             {
-                if((*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE)
-                    (*_reference_params)[sym] = Utils::UsageKind::DEFINED;
-                else if((*_reference_params)[sym]._usage_type & Utils::UsageKind::USED)
-                    (*_reference_params)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
+                if((*_ipa_ref_params)[sym]._usage_type & Utils::UsageKind::NONE)
+                    (*_ipa_ref_params)[sym] = Utils::UsageKind::DEFINED;
+                else if((*_ipa_ref_params)[sym]._usage_type & Utils::UsageKind::USED)
+                    (*_ipa_ref_params)[sym] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
             }
         }
         else
@@ -1938,15 +1286,15 @@ namespace {
             {
                 set_var_usage_to_node(Utils::ExtendedSymbol(var_in_use), Utils::UsageKind::USED);
 
-                if((_global_vars->find(sym) != _global_vars->end()) &&
-                    ((*_global_vars)[sym]._usage_type & Utils::UsageKind::NONE))
+                if((_ipa_global_vars->find(sym) != _ipa_global_vars->end()) &&
+                    ((*_ipa_global_vars)[sym]._usage_type & Utils::UsageKind::NONE))
                 {
-                    (*_global_vars)[sym] = Utils::UsageKind::USED;
+                    (*_ipa_global_vars)[sym] = Utils::UsageKind::USED;
                 }
-                else if((_reference_params->find(sym) != _reference_params->end()) &&
-                    ((*_reference_params)[sym]._usage_type & Utils::UsageKind::NONE))
+                else if((_ipa_ref_params->find(sym) != _ipa_ref_params->end()) &&
+                    ((*_ipa_ref_params)[sym]._usage_type & Utils::UsageKind::NONE))
                 {
-                    (*_reference_params)[sym] = Utils::UsageKind::USED;
+                    (*_ipa_ref_params)[sym] = Utils::UsageKind::USED;
                 }
             }
         }
@@ -1954,12 +1302,12 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     // It is used: the base, the strides (if variables) and the memory positions formed by base+stride_i
@@ -1995,7 +1343,7 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::VectorMaskAssignment& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     // It is used: the strides (if variables). It is defined the memory positions formed by base+stride_i
@@ -2057,73 +1405,18 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::VectorStore& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::VectorStreamStore& n)
     {
-        visit_assignment(n);
+        visit_assignment(n.get_lhs(), n.get_rhs());
     }
 
     void UsageVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
-        function_visit(n.get_called(), n.get_arguments().as<Nodecl::List>());
+        visit_function(n.get_called(), n.get_arguments().as<Nodecl::List>());
     }
-
-    ReferenceUsageVisitor::ReferenceUsageVisitor()
-        : _current_nodecl(Nodecl::NodeclBase::null()), _store_symbol(false), _used_ext_syms()
-    {}
-
-    Utils::ext_sym_set ReferenceUsageVisitor::get_ue_vars()
-    {
-        return _used_ext_syms;
-    }
-
-    void ReferenceUsageVisitor::visit(const Nodecl::ArraySubscript& n)
-    {
-        if(_store_symbol)
-        {
-            Nodecl::NodeclBase var_in_use = n;
-            if(!_current_nodecl.is_null())
-                var_in_use = _current_nodecl;
-            _used_ext_syms.insert(var_in_use);
-        }
-        
-        // Walk the subscripts
-        _store_symbol = true;
-        walk(n.get_subscripts());
-        _store_symbol = false;
-    }
-
-    void ReferenceUsageVisitor::visit(const Nodecl::ClassMemberAccess& n)
-    {
-        if(_current_nodecl.is_null())
-            _current_nodecl = n;
-        walk(n.get_member());
-        _current_nodecl = Nodecl::NodeclBase::null();
-    }
-
-    void ReferenceUsageVisitor::visit(const Nodecl::Reference& n)
-    {
-        if(_current_nodecl.is_null())
-            _current_nodecl = n;
-        walk(n.get_rhs());
-        _current_nodecl = Nodecl::NodeclBase::null();
-    }
-
-    void ReferenceUsageVisitor::visit(const Nodecl::Symbol& n)
-    {
-        if(_store_symbol)
-        {
-            Nodecl::NodeclBase var_in_use = n;
-            if(!_current_nodecl.is_null())
-                var_in_use = _current_nodecl;
-            _used_ext_syms.insert(var_in_use);
-        }
-    }
-
-    // *************************** End class implementing use-definition visitor ************************** //
-    // **************************************************************************************************** //
 
 }
 }

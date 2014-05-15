@@ -1193,6 +1193,7 @@ src_tl_analysis_use_def_libuse_def_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
 
 src_tl_analysis_use_def_libuse_def_la_SOURCES = src/tl/analysis/use_def/tl-use-def.hpp \
                         src/tl/analysis/use_def/tl-use-def.cpp \
+                        src/tl/analysis/use_def/tl-use-def-ipa.cpp \
                         $(END)
 
 analysisdata_DATA = \
