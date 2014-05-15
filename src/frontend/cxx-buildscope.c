@@ -130,6 +130,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         gather_decl_spec_list_t* gather_decl_spec_list);
 static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, 
         AST a, access_specifier_t current_access, type_t* class_info,
+        char is_template,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output);
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info, 
@@ -274,7 +276,11 @@ static void build_scope_member_template_alias_declaration(decl_context_t decl_co
         AST a, access_specifier_t current_access, type_t* class_info,
         char is_explicit_specialization,
         nodecl_t* nodecl_output);
-
+static void build_scope_default_or_delete_template_member_function_definition(
+        decl_context_t decl_context, 
+        AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output);
 
 static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 
         void (*check)(const locus_t*, scope_entry_t*, decl_context_t),
@@ -14430,7 +14436,10 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_DEFAULTED_FUNCTION_DEFINITION:
         case AST_DELETED_FUNCTION_DEFINITION:
             {
-                build_scope_default_or_delete_member_function_definition(inner_decl_context, a, current_access, class_info, nodecl_output);
+                build_scope_default_or_delete_member_function_definition(inner_decl_context, a, current_access, class_info, 
+                        /* is_template */ 0,
+                        /* is_explicit_specialization */ 0,
+                        nodecl_output);
                 break;
             }
         case AST_GCC_EXTENSION : // __extension__
@@ -14571,24 +14580,31 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     {
         case AST_FUNCTION_DEFINITION :
             {
-                build_scope_member_template_function_definition(template_context, ASTSon1(a), current_access, class_info, 
+                build_scope_member_template_function_definition(template_context, templated_decl, current_access, class_info, 
                         is_explicit_specialization, nodecl_output, declared_symbols, gather_decl_spec_list);
             }
             break;
         case AST_SIMPLE_DECLARATION :
             {
-                build_scope_member_template_simple_declaration(template_context, ASTSon1(a), current_access, class_info, 
+                build_scope_member_template_simple_declaration(template_context, templated_decl, current_access, class_info, 
                         is_explicit_specialization, nodecl_output);
                 break;
             }
         case AST_ALIAS_DECLARATION:
             {
-                build_scope_member_template_alias_declaration(template_context, ASTSon1(a),
+                build_scope_member_template_alias_declaration(template_context, templated_decl,
+                        current_access, class_info, is_explicit_specialization, nodecl_output);
+                break;
+            }
+        case AST_DELETED_FUNCTION_DEFINITION:
+        case AST_DEFAULTED_FUNCTION_DEFINITION:
+            {
+                build_scope_default_or_delete_template_member_function_definition(template_context, templated_decl,
                         current_access, class_info, is_explicit_specialization, nodecl_output);
                 break;
             }
         default :
-            internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
+            internal_error("Unknown node type '%s' at %s\n", ast_print_node_type(ASTType(templated_decl)), ast_location(templated_decl));
     }
 
 }
@@ -14624,6 +14640,19 @@ static void build_scope_member_template_alias_declaration(decl_context_t decl_co
 {
     build_scope_common_template_alias_declaration(a, decl_context, nodecl_output,
             /* is_member_declaration */ 1, class_info, current_access, is_explicit_specialization);
+}
+
+static void build_scope_default_or_delete_template_member_function_definition(
+        decl_context_t decl_context, 
+        AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_specialization,
+        nodecl_t* nodecl_output)
+{
+    build_scope_default_or_delete_member_function_definition(decl_context,
+            a, current_access, class_info,
+            /* is_template */ 1,
+            is_explicit_specialization,
+            nodecl_output);
 }
 
 char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
@@ -14982,7 +15011,10 @@ static scope_entry_t* build_scope_member_function_definition(
 static void build_scope_default_or_delete_member_function_definition(
         decl_context_t decl_context,
         AST a,
-        access_specifier_t current_access, type_t* class_info,
+        access_specifier_t current_access,
+        type_t* class_info,
+        char is_template,
+        char is_explicit_specialization,
         nodecl_t* nodecl_output)
 {
     CXX03_LANGUAGE()
@@ -14995,6 +15027,8 @@ static void build_scope_default_or_delete_member_function_definition(
     memset(&gather_info, 0, sizeof(gather_info));
 
     gather_info.inside_class_specifier = 1;
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_specialization = is_explicit_specialization;
 
     const char* class_name = named_type_get_symbol(class_info)->symbol_name;
 
@@ -15057,6 +15091,7 @@ static void build_scope_default_or_delete_member_function_definition(
             {
                 check_defaulted(ast_get_locus(a), entry, decl_context);
                 set_defaulted(entry, decl_context);
+                entry->entity_specs.is_user_declared = 0;
                 break;
             }
         case AST_DELETED_FUNCTION_DEFINITION :
@@ -15076,6 +15111,9 @@ static void build_scope_default_or_delete_member_function_definition(
 
     // Propagate the __extension__ attribute to the symbol
     entry->entity_specs.gcc_extension = gcc_extension;
+
+    // Add definition as a member
+    class_type_add_member(get_actual_class_type(class_info), entry, /* is_definition */ 1);
 }
 
 void build_scope_friend_declarator(decl_context_t decl_context, 

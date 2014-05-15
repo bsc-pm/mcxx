@@ -20036,8 +20036,7 @@ static const_value_t* evaluate_constexpr_function_call(
             if (entry->defined)
             {
                 // Verify the instantiation (though it is not an error if the function fails to be constexpr)
-                is_constexpr = check_constexpr_function(entry,
-                        nodecl_get_locus(entry->entity_specs.function_code), /* emit_error */ 0)
+                is_constexpr = check_constexpr_function(entry, entry->locus, /* emit_error */ 0)
                     && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
             }
 
