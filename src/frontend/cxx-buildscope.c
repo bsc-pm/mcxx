@@ -18204,6 +18204,45 @@ static void instantiate_template_function_code(
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_result_var, new_result_var);
     }
 
+    // Register 'this'
+    if (v->new_function_instantiated->entity_specs.is_member
+            && !v->new_function_instantiated->entity_specs.is_static)
+    {
+        // The class we belong to
+        type_t* pointed_this = v->new_function_instantiated->entity_specs.class_type;
+        // Qualify likewise the function unless it is a destructor
+        if (!v->new_function_instantiated->entity_specs.is_destructor)
+        {
+            pointed_this = get_cv_qualified_type(pointed_this,
+                    get_cv_qualifier(v->new_function_instantiated->type_information));
+        }
+
+        type_t* this_type = get_pointer_type(pointed_this);
+        // It is a constant pointer, so qualify like it is
+        this_type = get_cv_qualified_type(this_type, CV_CONST);
+
+        scope_entry_t* this_symbol = new_symbol(new_decl_context,
+                new_decl_context.current_scope,
+                "this");
+
+        this_symbol->kind = SK_VARIABLE;
+        this_symbol->type_information = this_type;
+        this_symbol->defined = 1;
+        this_symbol->do_not_print = 1;
+
+        // Now map the orig this to the new this
+        decl_context_t orig_decl_context = nodecl_get_decl_context(nodecl_context);
+
+        scope_entry_list_t* entry_list = query_in_scope_str(orig_decl_context, UNIQUESTR_LITERAL("this"), NULL);
+        ERROR_CONDITION(entry_list == NULL, "'this' not found", 0);
+
+        scope_entry_t* orig_this_symbol = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        instantiation_symbol_map_add(v->instantiation_symbol_map, orig_this_symbol, this_symbol);
+    }
+
+
     decl_context_t previous_orig_decl_context = v->orig_decl_context;
     decl_context_t previous_new_decl_context = v->new_decl_context;
 
