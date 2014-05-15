@@ -38,6 +38,8 @@ namespace Analysis {
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
 
+    typedef std::map<Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
+    
     //! Class implementing Use-Def Analysis
     class LIBTL_CLASS UseDef
     {
@@ -177,6 +179,20 @@ namespace Analysis {
         
         Utils::ext_sym_set get_ipa_usage( Utils::UsageKind usage_kind, const Utils::ext_sym_set& list,
                                           const Nodecl::List& arguments, const TL::Symbol& func_sym );
+        
+        void propagate_called_func_pointed_values_usage_to_func_call(
+                const Utils::ext_sym_set& called_func_usage, 
+                const sym_to_nodecl_map& ptr_param_to_arg_map, 
+                Utils::UsageKind usage_kind);
+        
+        void propagate_called_func_ref_params_usage_to_func_call(
+                const Utils::ext_sym_set& called_func_usage,
+                const sym_to_nodecl_map& ref_param_to_arg_map,
+                Utils::UsageKind usage_kind);
+        
+        void propagate_global_variables_usage(const Utils::ext_sym_set& called_func_usage, 
+                                              const std::set<Symbol>& called_global_vars, 
+                                              Utils::UsageKind usage_kind);
 
     public:
         // *** Constructors *** //
