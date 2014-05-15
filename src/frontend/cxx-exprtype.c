@@ -20904,14 +20904,15 @@ static void add_classes_rec(type_t* class_type, nodecl_t* nodecl_extended_parts,
     }
 
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(class_sym->symbol_name, locus);
-    if (is_template_specialized_type(class_type))
+    if (is_template_specialized_type(class_sym->type_information))
     {
         nodecl_name = nodecl_make_cxx_dep_template_id(
                 nodecl_name,
                 /* template_tag */ "",
                 update_template_argument_list(
                     decl_context,
-                    template_specialized_type_get_template_arguments(class_type),
+                    template_specialized_type_get_template_arguments(
+                        class_sym->type_information),
                     /* instantiation_symbol_map */ NULL,
                     locus,
                     /* pack_index */ -1),
