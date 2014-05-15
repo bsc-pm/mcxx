@@ -12017,7 +12017,7 @@ char is_literal_type(type_t* t)
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                if (!entry->entity_specs.is_constexpr
+                if (entry->entity_specs.is_constexpr
                         && !entry->entity_specs.is_move_constructor
                         && !entry->entity_specs.is_copy_constructor)
                 {
