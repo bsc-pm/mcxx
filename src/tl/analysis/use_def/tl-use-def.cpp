@@ -1246,16 +1246,18 @@ namespace {
                 {
                     Node* pcfg_node = called_pcfg->get_graph();
                     
-                    // 1.- All arguments are UE (but some references)
+                    // 1.- Check the usage of the parameters
+                    //     They all will be UE, but additionally we may have KILLED and UNDEF 
+                    //     if assignments or function calls appear in the arguments
+                    //     Recursively call to UsageVisitor to calculate the usage of each argument
                     for(Nodecl::List::iterator it = simplified_arguments.begin(); it != simplified_arguments.end(); ++it)
                     {
                         Nodecl::NodeclBase n = *it;
-                        // Get all memory load in the argument
-                        ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
-                        for(ObjectList<Nodecl::NodeclBase>::iterator it2 = mem_accesses.begin(); 
-                            it2 != mem_accesses.end(); ++it2)
-                        {
-                            _node->add_ue_var(*it2);
+                        Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
+                        
+                        if(n_base.is_null() || !n_base.get_symbol().is_function())
+                        {   // Traverse any argument that is not a pointer to function
+                            compute_statement_usage(n);
                         }
                     }
                     
