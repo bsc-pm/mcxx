@@ -5978,7 +5978,11 @@ static char contains_wrongly_associated_template_name(AST a, decl_context_t decl
             || ASTType(a) == AST_MINUS
             || ASTType(a) == AST_DIV
             || ASTType(a) == AST_MOD
-            || ASTType(a) == AST_MUL)
+            || ASTType(a) == AST_MUL
+            || ASTType(a) == AST_LOWER_THAN
+            || ASTType(a) == AST_GREATER_THAN
+            || ASTType(a) == AST_LOWER_OR_EQUAL_THAN
+            || ASTType(a) == AST_GREATER_OR_EQUAL_THAN)
     {
         return contains_wrongly_associated_template_name(ASTSon1(a), decl_context);
     }
