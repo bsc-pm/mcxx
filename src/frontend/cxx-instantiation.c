@@ -2042,6 +2042,15 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
+    const char* instantiation_header = NULL;
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating function '%s'\n",
+            locus_to_str(locus),
+            print_decl_type_str(entry->type_information,
+                entry->decl_context,
+                get_qualified_symbol_name(entry, entry->decl_context)));
+    diagnostic_context_push_instantiation(instantiation_header);
+
     if (is_template_specialized_type(entry->type_information))
     {
         instantiate_true_template_function(entry, locus);
@@ -2062,6 +2071,8 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
             entry->entity_specs.num_gcc_attributes,
             gcc_attr,
             compare_gcc_attribute);
+
+    diagnostic_context_pop_and_commit();
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
