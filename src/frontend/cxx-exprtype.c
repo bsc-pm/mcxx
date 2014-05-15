@@ -19728,7 +19728,12 @@ constexpr_function_get_constants_of_arguments(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: Argument at position %d is not constant, giving up evaluation\n", i);
+                fprintf(stderr, "EXPRTYPE: When evaluating call of '%s', "
+                        "argument %d '%s' (at %s) is not constant, giving up evaluation\n",
+                        get_qualified_symbol_name(entry, entry->decl_context),
+                        i,
+                        codegen_to_str(list[i], CURRENT_COMPILED_FILE->global_decl_context),
+                        nodecl_locus_to_str(list[i]));
             }
             *num_map_items = -1;
             xfree(list);
@@ -20444,6 +20449,26 @@ nodecl_t cxx_nodecl_make_function_call(
 
                         nodecl_set_constant(result, const_value);
                     }
+                    // For trivial copy/move constructors of literal types, use
+                    // the const value (if any) of its first argument
+                    else if ((called_symbol->entity_specs.is_copy_constructor
+                                || called_symbol->entity_specs.is_move_constructor)
+                            && called_symbol->entity_specs.is_trivial
+                            && is_literal_type(called_symbol->entity_specs.class_type))
+                    {
+                        nodecl_t first_argument = nodecl_null();
+
+                        int num_args = 0;
+                        nodecl_t* simplify_args = nodecl_unpack_list(converted_arg_list, &num_args);
+                        if (num_args > 0)
+                        {
+                            first_argument = simplify_args[0];
+                        }
+                        xfree(simplify_args);
+
+                        nodecl_set_constant(result,
+                                nodecl_get_constant(first_argument));
+                    }
                     // Attempt to evaluate a builtin as well
                     else if (called_symbol->entity_specs.is_builtin
                             && called_symbol->entity_specs.simplify_function != NULL)
@@ -20744,19 +20769,21 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
     visitor->nodecl_result = nodecl_null();
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s). Constant evaluation is %s\n",
+        fprintf(stderr, "EXPRTYPE: Instantiating expression '%s' (kind=%s, %s). Constant evaluation is %s\n",
                 codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
+                !nodecl_is_null(node) ? nodecl_locus_to_str(node) : "<<no-locus>>",
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
 
     }
     NODECL_WALK(visitor, node);
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s) instantiated to expression '%s' "
+        fprintf(stderr, "EXPRTYPE: Expression '%s' (kind=%s, %s) instantiated to expression '%s' "
                 "with type '%s'. Constant evaluation is %s",
                 codegen_expression_to_str(node, visitor->decl_context),
                 !nodecl_is_null(node) ? ast_print_node_type(nodecl_get_kind(node)) : "<<NULL>>",
+                !nodecl_is_null(node) ? nodecl_locus_to_str(node) : "<<no-locus>>",
                 codegen_expression_to_str(visitor->nodecl_result, visitor->decl_context),
                 print_declarator(nodecl_get_type(visitor->nodecl_result)),
                 check_expr_flags.do_not_evaluate ? "OFF" : "ON");
@@ -20764,6 +20791,10 @@ static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor
         {
             fprintf(stderr, " with a constant value of '%s'",
                     const_value_to_str(nodecl_get_constant(visitor->nodecl_result)));
+        }
+        else
+        {
+            fprintf(stderr, " without any constant value");
         }
         if (nodecl_expr_is_type_dependent(visitor->nodecl_result))
         {
