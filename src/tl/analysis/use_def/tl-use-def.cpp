@@ -31,7 +31,6 @@ Cambridge, MA 02139, USA.
 #include "config.h"
 #include "tl-node.hpp"
 #include "tl-pcfg-visitor.hpp"      // For IPA analysis
-#include "tl-rename-visitor.hpp"
 #include "tl-use-def.hpp"
 
 namespace TL {
@@ -1113,6 +1112,23 @@ namespace {
         }
     }
     
+    static sym_to_nodecl_map get_parameters_to_arguments_map(ObjectList<Symbol> params, Nodecl::List args)
+    {
+        sym_to_nodecl_map param_to_arg_map;
+        int n_iters = std::min(params.size(), args.size());
+        if(n_iters > 0)
+        {
+            Nodecl::List::const_iterator ita = args.begin();
+            ObjectList<Symbol>::iterator itp = params.begin();
+            for(int i = 0; i<n_iters; ++i)
+            {
+                param_to_arg_map[*itp] = *ita;
+                ita++; itp++;
+            }
+        }
+        return param_to_arg_map;
+    }
+    
     // This method only accepts #called_func_usage sets of KILLED and UNDEFINED variables (specified by #usage_kind)
     // The UE variables are treated in a different way
     void UsageVisitor::propagate_called_func_pointed_values_usage_to_func_call(
@@ -1130,7 +1146,8 @@ namespace {
             {   // The value pointed by a pointer parameter has some usage
                 Symbol s(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()); // parameter
                 Nodecl::NodeclBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
-                RenameVisitor rv(s, replacement);
+                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+                RenameVisitor rv(rename_map);
                 Nodecl::NodeclBase new_n = n.shallow_copy();
                 rv.walk(new_n);
                 if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
@@ -1160,7 +1177,8 @@ namespace {
                (ref_param_to_arg_map.find(s) != ref_param_to_arg_map.end()))
             {   // The usage is of the variable, and not any possible value pointed by the variable
                 Nodecl::NodeclBase replacement = ref_param_to_arg_map.find(s)->second.shallow_copy();
-                RenameVisitor rv(s, replacement);
+                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+                RenameVisitor rv(rename_map);
                 Nodecl::NodeclBase new_n = n.shallow_copy();
                 rv.walk(new_n);
                 if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
@@ -1171,17 +1189,36 @@ namespace {
         }
     }
     
+    // This method accepts #called_func_usage sets of UE, KILLED and UNDEFINED variables (specified by #usage_kind)
     void UsageVisitor::propagate_global_variables_usage(const Utils::ext_sym_set& called_func_usage, 
                                                         const std::set<Symbol>& called_global_vars, 
+                                                        const sym_to_nodecl_map& param_to_arg_map,
                                                         Utils::UsageKind usage_kind)
     {
         for(Utils::ext_sym_set::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
         {
             Nodecl::NodeclBase n = it->get_nodecl().no_conv();
-            if(n.is<Nodecl::Symbol>() && (called_global_vars.find(n.get_symbol()) != called_global_vars.end()))
+            Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
+            ERROR_CONDITION(n_base.is_null(), 
+                            "The nodecl base of a nodecl appearing in a usage set must not be null, but base of '%s' is.\n", 
+                            n.prettyprint().c_str());
+            Symbol s(n_base.get_symbol());
+            if(called_global_vars.find(s) != called_global_vars.end())
             {
-                _node->add_killed_var(n);
-                Symbol s(n.get_symbol());
+                // Rename any possible occurrence of a parameter in the current usage by its corresponding argument
+                RenameVisitor rv(param_to_arg_map);
+                Nodecl::NodeclBase new_n = n.shallow_copy();
+                rv.walk(new_n);
+                
+                // Add the usage to the current node
+                if(usage_kind._usage_type & Utils::UsageKind::USED)
+                    _node->add_ue_var(new_n);
+                else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
+                    _node->add_killed_var(new_n);
+                else
+                    _node->add_undefined_behaviour_var(new_n);
+                
+                // Add the usage to the sets storing global variables IPA
                 if(_global_vars->find(s) == _global_vars->end())
                     (*_global_vars)[s] = usage_kind;
                 else
@@ -1255,8 +1292,11 @@ namespace {
                     std::set<Symbol> called_global_vars = called_pcfg->get_global_variables();
                     _pcfg->set_global_vars(called_global_vars);
                     // 3.2 Propagate the usage of the global variables
-                    propagate_global_variables_usage(called_killed_vars, called_global_vars, Utils::UsageKind::DEFINED);
-                    propagate_global_variables_usage(called_undef_vars, called_global_vars, Utils::UsageKind::UNDEFINED);
+                    Utils::ext_sym_set called_ue_vars = pcfg_node->get_ue_vars();
+                    sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, simplified_arguments);
+                    propagate_global_variables_usage(called_ue_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::USED);
+                    propagate_global_variables_usage(called_killed_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
+                    propagate_global_variables_usage(called_undef_vars, called_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
                 }
                 else
                 {   // All arguments are used when calling the function

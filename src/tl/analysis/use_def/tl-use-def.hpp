@@ -31,14 +31,13 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-rename-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
 
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
-
-    typedef std::map<Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
     
     //! Class implementing Use-Def Analysis
     class LIBTL_CLASS UseDef
@@ -192,6 +191,7 @@ namespace Analysis {
         
         void propagate_global_variables_usage(const Utils::ext_sym_set& called_func_usage, 
                                               const std::set<Symbol>& called_global_vars, 
+                                              const sym_to_nodecl_map& param_to_arg_map,
                                               Utils::UsageKind usage_kind);
 
     public:

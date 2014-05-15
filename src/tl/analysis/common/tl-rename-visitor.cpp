@@ -30,15 +30,16 @@
 namespace TL {
 namespace Analysis {
 
-    RenameVisitor::RenameVisitor(Symbol s, const Nodecl::NodeclBase& n)
-        : _s(s), _n(n)
+    RenameVisitor::RenameVisitor(sym_to_nodecl_map rename_map)
+        : _rename_map(rename_map)
     {}
 
     void RenameVisitor::visit(const Nodecl::Symbol& n)
     {
-        if(n.get_symbol() == _s)
+        Symbol s(n.get_symbol());
+        if(_rename_map.find(s) != _rename_map.end())
         {
-            n.replace(_n);
+            n.replace(_rename_map[s]);
         }
     }
 
