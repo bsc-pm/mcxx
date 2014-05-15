@@ -20970,10 +20970,20 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
                 &nodecl_already_updated_extended_parts);
     }
 
-    add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts, locus);
+    char can_qualify = !(dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK);
 
-    if (dependent_entry->entity_specs.is_member)
-        add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context, locus);
+    if (can_qualify)
+    {
+        add_namespaces_rec(dependent_entry->decl_context.namespace_scope->related_entry, &nodecl_extended_parts, locus);
+
+        if (dependent_entry->entity_specs.is_member)
+            add_classes_rec(dependent_entry->entity_specs.class_type, &nodecl_extended_parts, decl_context, locus);
+    }
 
     // The dependent entry itself
     nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(dependent_entry->symbol_name, locus);
@@ -21031,13 +21041,12 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
     }
     xfree(rest_of_parts);
 
-    nodecl_t (*nodecl_make_cxx_dep_fun_name)(nodecl_t, const locus_t*) = nodecl_make_cxx_dep_global_name_nested;
-    if (dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
-            || dependent_entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
-            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            || dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-            || dependent_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+    nodecl_t (*nodecl_make_cxx_dep_fun_name)(nodecl_t, const locus_t*) = NULL;
+    if (can_qualify)
+    {
+        nodecl_make_cxx_dep_fun_name = nodecl_make_cxx_dep_global_name_nested;
+    }
+    else
     {
         // Do not globally qualify these cases
         nodecl_make_cxx_dep_fun_name = nodecl_make_cxx_dep_name_nested;
