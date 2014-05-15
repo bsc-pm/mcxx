@@ -907,9 +907,9 @@ namespace Vectorization
                                 _environment._unroll_factor),
                             n.get_locus());
 
-                vector_conv.set_constant(
-                        Vectorization::Utils::get_const_conversion(
-                            n.get_nest().get_constant(), dst_type));
+                vector_conv.set_constant(const_value_convert_to_type(
+                            n.get_nest().get_constant(),
+                            dst_type.get_internal_type()));
 
                 n.replace(vector_conv);
             }

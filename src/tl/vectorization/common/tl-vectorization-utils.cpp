@@ -502,42 +502,6 @@ namespace Utils
 
         return result;
     }
-
-    const_value_t* get_const_conversion(
-            const_value_t* const_value, TL::Type dst_type)
-    {
-        const_value_t* result = const_value;
-
-        TL::Type scalar_dst_type;
-
-        if(dst_type.is_vector())
-            scalar_dst_type = dst_type.vector_element();
-        else
-            scalar_dst_type = dst_type;
-
-
-        if(const_value != NULL)
-        {
-            if (scalar_dst_type.is_float())
-                result = const_value_cast_to_float_value(const_value);
-            else if (scalar_dst_type.is_double())
-                result = const_value_cast_to_double_value(const_value);
-            else if (scalar_dst_type.is_integral_type())
-            {
-                result = const_value_cast_to_bytes(
-                        const_value, scalar_dst_type.get_size(),
-                        scalar_dst_type.is_signed_integral());
-            }
-            else
-            {
-                running_error("VectorConversion: Unsupported vector conversion to %s",
-                        scalar_dst_type.get_simple_declaration(
-                           CURRENT_COMPILED_FILE->global_decl_context, "").c_str());
-            }
-        }
-
-        return result;
-    }
 }
 }
 }

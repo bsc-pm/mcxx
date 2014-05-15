@@ -476,9 +476,9 @@ namespace Vectorization
             base = Nodecl::Conversion::make(result.first.shallow_copy(),
                     dst_type);
 
-            base.set_constant(Vectorization::Utils::
-                    get_const_conversion(result.first.get_constant(),
-                        dst_type));
+            base.set_constant(const_value_convert_to_type(
+                        result.first.get_constant(),
+                        dst_type.get_internal_type()));
        }
 
         if (!result.second.is_null())
@@ -489,9 +489,9 @@ namespace Vectorization
 
             TL::Type dst_type = n.get_type().no_ref().vector_element();
 
-            strides.set_constant(Vectorization::Utils::
-                    get_const_conversion(result.second.get_constant(),
-                        dst_type));
+            strides.set_constant(const_value_convert_to_type(
+                        result.second.get_constant(),
+                        dst_type.get_internal_type()));
         }
 
         return stride_splitter_ret_t(base, strides);
