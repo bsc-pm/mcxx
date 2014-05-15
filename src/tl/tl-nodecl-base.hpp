@@ -114,7 +114,7 @@ namespace Nodecl {
             }
 
             // Convenience function to skip conversion nodes
-            Nodecl::NodeclBase no_conv();
+            Nodecl::NodeclBase no_conv() const;
             
             // Prettyprint
             std::string prettyprint() const;

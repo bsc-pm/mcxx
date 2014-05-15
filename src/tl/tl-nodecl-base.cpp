@@ -50,7 +50,7 @@ namespace Nodecl
         }
     }
 
-    Nodecl::NodeclBase NodeclBase::no_conv()
+    Nodecl::NodeclBase NodeclBase::no_conv() const
     {
         if (is_null())
             return *this;
