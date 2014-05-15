@@ -14972,9 +14972,10 @@ static void nodecl_craft_designator(
                     locus);
             nodecl_set_constant(nodecl_result, cval);
         }
-        else if (is_vector_type(current_type))
+        else if (is_vector_type(current_type)
+                || is_complex_type(current_type))
         {
-            // Do nothing with this case as it cannot be designated actually
+            // Do nothing with these cases as they cannot be designated actually
         }
         else if (is_class_type(current_type))
         {
@@ -15096,7 +15097,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
     if ((is_class_type(declared_type)
                 || is_array_type(declared_type)
-                || is_vector_type(declared_type))
+                || is_vector_type(declared_type)
+                // Note that complex types are only aggregates in C++
+                || is_complex_type(declared_type))
             && is_aggregate_type(declared_type))
     {
         nodecl_t init_list_output = nodecl_null();
@@ -15118,21 +15121,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         }
         else
         {
-            if (!is_array_type(declared_type)
-                    && !is_class_type(declared_type)
-                    && !is_vector_type(declared_type))
-            {
-                error_printf("%s: error: brace initialization can only be used with\n",
-                        nodecl_locus_to_str(braced_initializer));
-                error_printf("%s: error: array types, struct, class, union or vector types\n",
-                        nodecl_locus_to_str(braced_initializer));
-                *nodecl_output = nodecl_make_err_expr(locus);
-                return;
-            }
-
             // Special case for this sort of initializations
             //   char a[] = { "hello" };
-
             // The expression list has only one element of kind expression and this element is an array of chars o wchars
             if (!nodecl_is_null(initializer_clause_list))
             {
@@ -15157,12 +15147,16 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             decl_context,
                             declared_type,
                             nodecl_output);
-                    diagnostic_context_pop_and_discard();
 
                     if (!nodecl_is_err_expr(*nodecl_output))
                     {
+                        diagnostic_context_pop_and_commit();
                         // It succeeded
                         return;
+                    }
+                    else
+                    {
+                        diagnostic_context_pop_and_discard();
                     }
 
                     nodecl_free(nodecl_tmp);
@@ -15176,7 +15170,8 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
             type_stack[type_stack_idx].type = declared_type;
             if (is_array_type(declared_type)
-                    || is_vector_type(declared_type))
+                    || is_vector_type(declared_type)
+                    || is_complex_type(declared_type))
             {
                 type_stack[type_stack_idx].item = 0;
                 type_stack[type_stack_idx].fields = NULL;
@@ -15211,6 +15206,14 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                         type_stack[type_stack_idx].num_items = -1;
                     else
                         type_stack[type_stack_idx].num_items = vector_type_get_vector_size(declared_type) / type_get_size(vector_type_get_element_type(declared_type));
+                }
+                else if (is_complex_type(declared_type))
+                {
+                        type_stack[type_stack_idx].num_items = 2;
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
                 }
             }
             else if (is_class_type(declared_type))
@@ -15301,6 +15304,10 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 else if (is_vector_type(current_type))
                 {
                     type_to_be_initialized = vector_type_get_element_type(current_type);
+                }
+                else if (is_complex_type(current_type))
+                {
+                    type_to_be_initialized = complex_type_get_base_type(current_type);
                 }
                 else if (is_class_type(current_type))
                 {
@@ -15820,23 +15827,26 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             {
                 CXX_LANGUAGE()
                 {
-                    error_printf("%s: error: brace initialization with more than one element is not valid here\n",
-                            nodecl_locus_to_str(braced_initializer));
+                    error_printf("%s: error: brace initialization with more than one element for type '%s'\n",
+                            nodecl_locus_to_str(braced_initializer),
+                            print_type_str(declared_type, decl_context));
                     *nodecl_output = nodecl_make_err_expr(locus);
                     return;
                 }
                 C_LANGUAGE()
                 {
-                    warn_printf("%s: warning: brace initializer with more than one element initializing a scalar\n",
-                            nodecl_locus_to_str(braced_initializer));
+                    warn_printf("%s: warning: brace initializer with more than one element initializing type '%s'\n",
+                            nodecl_locus_to_str(braced_initializer),
+                            print_type_str(declared_type, decl_context));
                 }
             }
             else
             {
                 if (!is_explicit_type_cast)
                 {
-                    warn_printf("%s: warning: redundant brace initializer of scalar\n",
-                            nodecl_locus_to_str(braced_initializer));
+                    warn_printf("%s: warning: redundant brace initializer for type '%s'\n",
+                            nodecl_locus_to_str(braced_initializer),
+                            print_type_str(declared_type, decl_context));
                 }
             }
 

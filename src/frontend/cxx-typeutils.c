@@ -12545,6 +12545,10 @@ char is_aggregate_type(type_t* t)
     if (is_vector_type(t))
         return 1;
 
+    // G++ seems to understand complex types as aggregates
+    if (IS_CXX_LANGUAGE && is_complex_type(t))
+        return 1;
+
     /*
        An aggregate is an array or a class (Clause 9) with no user-provided
        constructors (12.1), no brace-or-equal initializers for non-static data
