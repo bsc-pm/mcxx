@@ -2333,7 +2333,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         codegen_template_headers_bounded(
                 template_parameters,
                 class_sym.get_scope().get_template_parameters(),
-                /*show default variables*/ false);
+                /*show default variables*/ IS_CXX11_LANGUAGE);
     }
     else
     {
