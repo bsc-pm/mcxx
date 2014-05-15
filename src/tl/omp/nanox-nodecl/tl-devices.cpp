@@ -116,8 +116,8 @@ namespace TL { namespace Nanox {
             // In some cases, the outline_function name is the same for two different tasks.
             // For this reason we add also the filename and the line
             val << outline_function.get_name()
-                << "_" << locus_get_filename(locus)
-                << "_" << locus_get_line(locus);
+                << "@" << locus_get_filename(locus)
+                << "@" << locus_get_line(locus);
 
             std::string function_name;
             if (task_label.is_null())

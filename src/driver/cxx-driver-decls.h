@@ -85,7 +85,7 @@ typedef struct sublanguage_profile_tag
 
 extern sublanguage_profile_t sublanguage_profiles[];
 
-extern char* source_language_names[];
+extern const char* source_language_names[];
 
 // File extensions table
 struct extensions_table_t
@@ -522,6 +522,9 @@ typedef struct compilation_configuration_tag
 
     // Enable IBM XL compatibility
     char xl_compatibility;
+
+    // Emit line markers in the output files
+    char line_markers;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

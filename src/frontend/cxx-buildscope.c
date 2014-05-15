@@ -5871,6 +5871,7 @@ static void build_scope_ctor_initializer(
                     /* args */ nodecl_null(),
                     nodecl_make_cxx_function_form_implicit(locus),
                     constructor->entity_specs.class_type,
+                    decl_context,
                     locus);
 
             nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
@@ -5905,6 +5906,7 @@ static void build_scope_ctor_initializer(
                     /* args */ nodecl_null(),
                     nodecl_make_cxx_function_form_implicit(locus),
                     constructor->entity_specs.class_type,
+                    decl_context,
                     locus);
 
             nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
@@ -5946,6 +5948,7 @@ static void build_scope_ctor_initializer(
                         /* args */ nodecl_null(),
                         nodecl_make_cxx_function_form_implicit(locus),
                         constructor->entity_specs.class_type,
+                        decl_context,
                         locus);
 
                 nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
@@ -15951,6 +15954,7 @@ struct call_to_destructor_data_tag
     nodecl_t* nodecl_output;
     scope_t* scope;
     const locus_t* locus;
+    decl_context_t decl_context;
 } call_to_destructor_data_t;
 
 static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
@@ -15983,7 +15987,9 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
                         nodecl_make_list_1(sym_ref),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
-                        make_locus("", 0, 0)), make_locus("", 0, 0));
+                        destructor_data->decl_context,
+                        make_locus("", 0, 0)),
+                    make_locus("", 0, 0));
 
         *(destructor_data->nodecl_output) = nodecl_append_to_list(
                 *(destructor_data->nodecl_output), 
@@ -16000,7 +16006,8 @@ static void call_destructors_of_classes(decl_context_t block_context,
     call_to_destructor_data_t call_to_destructor_data = { 
         .nodecl_output = nodecl_output,
         .scope = block_context.current_scope,
-        .locus = locus
+        .decl_context = block_context,
+        .locus = locus,
     };
 
     scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
@@ -16164,7 +16171,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             /* called name */ nodecl_null(),
                             nodecl_make_list_1(*nodecl_output),
                             /* function_form */ nodecl_make_cxx_function_form_implicit(ast_get_locus(initializer)),
-                            function_type_get_return_type(conversor->type_information), ast_get_locus(initializer));
+                            function_type_get_return_type(conversor->type_information),
+                            decl_context,
+                            ast_get_locus(initializer));
                 }
             }
             else
@@ -16287,12 +16296,15 @@ static void build_scope_expression_statement(AST a,
     {
         if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
         {
-            error_printf("%s: error: invalid unresolved overloaded expression '%s'\n", 
+            const char* message = NULL;
+            uniquestr_sprintf(&message,
+                    "%s: error: invalid unresolved overloaded expression '%s'\n", 
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
-            diagnostic_candidates(candidates, ast_get_locus(expr));
+            diagnostic_candidates(candidates, &message, ast_get_locus(expr));
+            error_printf("%s", message);
 
             return;
         }

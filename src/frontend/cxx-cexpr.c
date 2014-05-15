@@ -1972,6 +1972,42 @@ const_value_t* const_value_get_element_num(const_value_t* value, int num)
     return multival_get_element_num(value, num);
 }
 
+const_value_t* const_value_convert_to_type(
+        const_value_t* const_value, type_t* dst_type)
+{
+    const_value_t* result = const_value;
+
+    type_t* scalar_dst_type;
+
+    if(is_vector_type(dst_type))
+        scalar_dst_type = vector_type_get_element_type(dst_type);
+    else
+        scalar_dst_type = dst_type;
+
+
+    if(const_value != NULL)
+    {
+        if (is_float_type(scalar_dst_type))
+            result = const_value_cast_to_float_value(const_value);
+        else if (is_double_type(scalar_dst_type))
+            result = const_value_cast_to_double_value(const_value);
+        else if (is_integral_type(scalar_dst_type))
+        {
+            result = const_value_cast_to_bytes(
+                    const_value, type_get_size(scalar_dst_type),
+                    is_signed_integral_type(scalar_dst_type));
+        }
+        else
+        {
+            internal_error("Unsupported conversion to %s",
+                    print_type_str(scalar_dst_type,
+                        CURRENT_COMPILED_FILE->global_decl_context));
+        }
+    }
+
+    return result;
+}
+
 const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elems)
 {
     const_value_t* array[num_elems];
