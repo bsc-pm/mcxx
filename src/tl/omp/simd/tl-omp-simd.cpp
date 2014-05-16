@@ -868,7 +868,8 @@ namespace TL {
                 get_environment().as<Nodecl::List>();
 
             // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements();
+            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements().
+                as<Nodecl::List>().front();
 
             // Aligned clause
             aligned_expr_map_t aligned_expressions;
