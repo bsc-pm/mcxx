@@ -7471,9 +7471,27 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             pure_spec += " = delete ";
         }
-        else if (symbol.is_defaulted())
+        else if (symbol.is_defaulted()
+                // Must be a special member
+                && symbol.is_member())
         {
-            pure_spec += " = default ";
+            if (symbol.is_defined_inside_class() // (A)
+                    || (state.classes_being_defined.empty() // (B)
+                        || (state.classes_being_defined.back() != symbol.get_class_type().get_symbol())))
+
+            {
+                // (A) Defaulted inside the class specifier
+                // (B) Defaulted but not inside the class specifier. But we are not inside the 
+                // class specifier either.
+                pure_spec += " = default ";
+            }
+            else
+            {
+                // (C) Not defined inside class but we are inside the class
+                // specifier, let's pretend we did not declare it so a later
+                // CxxDecl will go through (B)
+                set_codegen_status(symbol, CODEGEN_STATUS_NONE);
+            }
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
