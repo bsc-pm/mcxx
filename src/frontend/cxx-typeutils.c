@@ -10440,8 +10440,7 @@ const char* print_declarator(type_t* printed_declarator)
     return tmp_result;
 }
 
-
-static standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
+standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest)
 {
     standard_conversion_t result = {
         .orig = t_orig,
@@ -10685,7 +10684,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     // Identity check
     if (equivalent_types(orig, dest))
     {
-        (*result) = identity_scs(t_orig, t_dest);
+        (*result) = get_identity_scs(t_orig, t_dest);
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: Exactly the same type\n");
@@ -10705,7 +10704,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // T -> T @ref@
         if (equivalent_types(unqualif_orig, unqualif_ref_dest))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Mercurium Extension for C: binding a type to a reference type\n");
@@ -10716,7 +10715,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (is_lvalue_reference_type(orig)
                 && is_void_type(no_ref(orig)))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Mercurium Extension for C: binding a void& to a reference type\n");
@@ -10742,7 +10741,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
@@ -10768,7 +10767,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a rvalue-reference\n");
@@ -10796,7 +10795,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
-        (*result) = identity_scs(orig, dest);
+        (*result) = get_identity_scs(orig, dest);
 
         char ok = 0;
         if (is_class_type(no_ref(orig))
@@ -11505,7 +11504,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Exactly the same type after removing cv-qualifiers of the first type\n");
             }
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
         }
         DEBUG_CODE()
         {

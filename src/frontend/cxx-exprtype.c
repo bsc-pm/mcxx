@@ -461,6 +461,10 @@ static void check_gcc_postfix_expression(AST expression, decl_context_t decl_con
 static void check_gcc_builtin_va_arg(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void compute_nodecl_braced_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_designated_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 // Returns if the function is ok
@@ -916,6 +920,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_DELETE_ARRAY_EXPR :
             {
                 check_delete_expression(expression, decl_context, nodecl_output);
+                break;
+            }
+        case AST_INITIALIZER_BRACES:
+            {
+                compute_nodecl_braced_initializer(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_VLA_EXPRESSION :
@@ -8674,6 +8683,10 @@ void check_nodecl_expr_initializer(nodecl_t expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
+void check_nodecl_expr_initializer_in_argument(nodecl_t expr, 
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        nodecl_t* nodecl_output);
 static void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
         decl_context_t decl_context, 
         type_t* declared_type, 
@@ -11868,15 +11881,34 @@ static void check_nodecl_function_call_cxx(
                                 nodecl_make_symbol(conversors[arg_i], nodecl_get_locus(nodecl_arg));
                         nodecl_set_type(nodecl_conversor, conversors[arg_i]->type_information);
 
-                        nodecl_arg = cxx_nodecl_make_function_call(
-                                nodecl_conversor,
-                                /* called name */ nodecl_null(),
-                                nodecl_make_list_1(nodecl_arg),
-                                nodecl_make_cxx_function_form_implicit(
-                                    nodecl_get_locus(nodecl_arg)),
-                                actual_type_of_conversor(conversors[arg_i]),
-                                decl_context,
-                                nodecl_get_locus(nodecl_arg));
+                        nodecl_t arg_of_conversor;
+                        if (nodecl_get_kind(nodecl_arg) == NODECL_CXX_BRACED_INITIALIZER)
+                        {
+                            arg_of_conversor = nodecl_shallow_copy(
+                                    nodecl_get_child(nodecl_arg, 0));
+                            nodecl_arg = cxx_nodecl_make_function_call(
+                                    nodecl_conversor,
+                                    /* called name */ nodecl_null(),
+                                    arg_of_conversor,
+                                    /* function-form */ nodecl_null(),
+                                    actual_type_of_conversor(conversors[arg_i]),
+                                    decl_context,
+                                    nodecl_get_locus(nodecl_arg));
+                        }
+                        else
+                        {
+                            arg_of_conversor = nodecl_make_list_1(nodecl_arg);
+                            nodecl_arg = cxx_nodecl_make_function_call(
+                                    nodecl_conversor,
+                                    /* called name */ nodecl_null(),
+                                    arg_of_conversor,
+                                    nodecl_make_cxx_function_form_implicit(
+                                        nodecl_get_locus(nodecl_arg)),
+                                    actual_type_of_conversor(conversors[arg_i]),
+                                    decl_context,
+                                    nodecl_get_locus(nodecl_arg));
+                        }
+
                     }
                 }
             }
@@ -15482,8 +15514,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     else if (is_named_class_type(declared_type)
             && is_template_specialized_type(get_actual_class_type(declared_type))
             && std_initializer_list_template != NULL
-            && (template_specialized_type_get_related_template_type(get_actual_class_type(declared_type))
-                == std_initializer_list_template->type_information))
+            && equivalent_types(template_specialized_type_get_related_template_type(
+                    get_actual_class_type(declared_type)),
+                    std_initializer_list_template->type_information))
     {
         // This is an initialization of a std::initializer_list<T> using a
         // braced initializer list We have to call the ad-hoc private
@@ -15524,14 +15557,15 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             type_get_size(get_size_t_type()),
                             /* signed */ 0)));
             // FIXME: Verify there is no narrowing here
-            *nodecl_output = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(constructor,
-                        locus),
-                    /* called name */ nodecl_null(),
+            // Note: we cannot call cxx_nodecl_make_function_call because it
+            // would attempt to convert the braced initializer into a pointer
+            // (which is not allowed by the typesystem)
+            *nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(constructor, locus),
                     nodecl_arguments_output,
+                    /* called name */ nodecl_null(),
                     nodecl_make_cxx_function_form_implicit(locus),
                     declared_type,
-                    decl_context,
                     locus);
         }
         else
@@ -15574,7 +15608,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         {
             scope_entry_list_iterator_t* it = NULL;
             for (it = entry_list_iterator_begin(constructors);
-                    !entry_list_iterator_end(it) 
+                    !entry_list_iterator_end(it)
                     && !has_initializer_list_ctor;
                     entry_list_iterator_next(it))
             {
@@ -15685,7 +15719,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             locus),
                         /* called name */ nodecl_null(),
                         nodecl_arguments_output,
-                        nodecl_make_cxx_function_form_implicit(locus),
+                        /* function-form */ nodecl_null(),
                         declared_type,
                         decl_context,
                         locus);
@@ -16216,10 +16250,6 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         }
     }
 }
-
-static void compute_nodecl_braced_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void compute_nodecl_designated_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void compute_nodecl_initializer_clause(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -16863,6 +16893,14 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         type_t* declared_type, 
         nodecl_t* nodecl_output)
 {
+    // We forward NODECL_CXX_BRACED_INITIALIZER to check_nodecl_braced_initializer
+    if (nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER)
+    {
+        check_nodecl_braced_initializer(nodecl_expr, decl_context, declared_type,
+                /* is_explicit_type_cast */ 0, nodecl_output);
+        return;
+    }
+
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Conversion from expression '%s' with type '%s' to type '%s'\n",
@@ -18147,8 +18185,15 @@ static void check_gcc_label_addr(AST expression,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    AST label = ASTSon0(expression);
+    if (decl_context.current_scope->kind != BLOCK_SCOPE)
+    {
+        error_printf("%s: error: not inside any function, so getting the address of a label is not possible\n",
+                ast_location(expression));
+        *nodecl_output = nodecl_make_err_expr(ast_get_locus(expression));
+        return;
+    }
 
+    AST label = ASTSon0(expression);
     scope_entry_t* sym_label = add_label_if_not_found(ASTText(label), decl_context, ast_get_locus(label));
 
     // Codegen will take care of this symbol and print &&label instead of &label

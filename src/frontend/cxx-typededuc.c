@@ -1754,8 +1754,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
                     if (std_initializer_type != NULL
                             && is_named_class_type(no_ref(current_type))
-                            && (std_initializer_type->type_information
-                                == template_specialized_type_get_related_template_type(
+                            && equivalent_types(
+                                std_initializer_type->type_information,
+                                template_specialized_type_get_related_template_type(
                                     get_actual_class_type(no_ref(current_type)))))
                     {
                         DEBUG_CODE()

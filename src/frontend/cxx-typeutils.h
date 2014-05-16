@@ -44,6 +44,7 @@
 
 MCXX_BEGIN_DECLS
 
+LIBMCXX_EXTERN standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest);
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
 LIBMCXX_EXTERN type_t* standard_conversion_get_orig_type(standard_conversion_t scs);
