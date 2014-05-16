@@ -39,6 +39,10 @@ namespace Analysis {
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
     
+    typedef std::map<Nodecl::NodeclBase, Utils::UsageKind, Nodecl::Utils::Nodecl_structural_less> IpUsageMap;
+    
+    extern SizeMap _pointer_to_size_map;
+    
     //! Class implementing Use-Def Analysis
     class LIBTL_CLASS UseDef
     {
@@ -46,9 +50,8 @@ namespace Analysis {
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
         
-        //!Usage of Global Variables and Reference parameters, necessary to propage usage information in recursive calls
-        std::map<Symbol, Utils::UsageKind> _ipa_global_vars;
-        std::map<Symbol, Utils::UsageKind> _ipa_ref_params;
+        //!Usage of Reference parameters, necessary to propagate usage information in recursive calls
+        IpUsageMap _ipa_modif_params;
         
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
@@ -120,9 +123,8 @@ namespace Analysis {
          */
         Nodecl::NodeclBase _current_nodecl;
 
-        //! List of global variables and reference parameters appeared until a given point of the analysis
-        std::map<Symbol, Utils::UsageKind>* _ipa_global_vars;
-        std::map<Symbol, Utils::UsageKind>* _ipa_ref_params;
+        //! List of reference parameters appeared until a given point of the analysis
+        IpUsageMap* _ipa_modif_params;
 
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
          *  When a function call appears in a split statement we calculate the first time (the func_call node)
@@ -175,13 +177,14 @@ namespace Analysis {
         
         void propagate_global_variables_usage(
                 const Utils::ext_sym_set& called_func_usage, 
-                const std::set<Symbol>& called_global_vars, 
+                const GlobalVarsSet& called_global_vars, 
                 const sym_to_nodecl_map& param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void ipa_propagate_known_function_usage(
                 ExtensibleGraph* called_pcfg, 
                 const Nodecl::List& args);
+        
         
         // *** Unknown called function code use-def analysis *** //
         void parse_parameter(std::string current_param, const Nodecl::NodeclBase& arg);
@@ -195,17 +198,21 @@ namespace Analysis {
                                                       const Nodecl::List& args, 
                                                       const SizeMap& ptr_to_size_map);
         
+        
         // *** Recursive calls use-def analysis *** //
-        void ipa_propagate_recursive_call_usage(const Nodecl::List& args);
+        void set_ipa_variable_as_defined(const Nodecl::NodeclBase& var);
+        void set_ipa_variable_as_upwards_exposed(const Nodecl::NodeclBase& var);
+        void store_ipa_information(const Nodecl::NodeclBase& n);        
+        void ipa_propagate_recursive_call_usage(const ObjectList<Symbol>& params, const Nodecl::List& args);
+        
         
         // *** Call to a pointer to function *** //
         void ipa_propagate_pointer_to_function_usage(const Nodecl::List& args);
 
     public:
         // *** Constructor *** //
-        UsageVisitor(Node* n, ExtensibleGraph* pcfg,
-                     std::map<Symbol, Utils::UsageKind>* global_vars,
-                     std::map<Symbol, Utils::UsageKind>* reference_params);
+        UsageVisitor(Node* n, ExtensibleGraph* pcfg, 
+                     /*IpUsageMap* global_vars,*/ IpUsageMap* reference_params);
         
         // *** Modifiers *** //
         void compute_statement_usage(Nodecl::NodeclBase st);
@@ -249,6 +256,17 @@ namespace Analysis {
     
     // ******************** END Class implementing nodecl visitor for use-def analysis ******************** //
     // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
+    // ******************************** Utils methods for use-def analysis ******************************** //
+    
+    Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained);
+
+    // ****************************** END Utils methods for use-def analysis ****************************** //    
+    // **************************************************************************************************** //
+    
 }
 }
 

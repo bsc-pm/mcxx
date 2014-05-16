@@ -147,7 +147,7 @@ namespace {
     // This method accepts #called_func_usage sets of UE, KILLED and UNDEFINED variables (specified by #usage_kind)
     void UsageVisitor::propagate_global_variables_usage(
             const Utils::ext_sym_set& called_func_usage, 
-            const std::set<Symbol>& called_ipa_global_vars, 
+            const GlobalVarsSet& ipa_global_vars, 
             const sym_to_nodecl_map& param_to_arg_map,
             Utils::UsageKind usage_kind)
     {
@@ -158,8 +158,7 @@ namespace {
             ERROR_CONDITION(n_base.is_null(), 
                             "The nodecl base of a nodecl appearing in a usage set must not be null, but base of '%s' is.\n", 
                             n.prettyprint().c_str());
-            Symbol s(n_base.get_symbol());
-            if(called_ipa_global_vars.find(s) != called_ipa_global_vars.end())
+            if(ipa_global_vars.find(n_base) != ipa_global_vars.end())
             {
                 // Rename any possible occurrence of a parameter in the current usage by its corresponding argument
                 RenameVisitor rv(param_to_arg_map);
@@ -173,12 +172,6 @@ namespace {
                     _node->add_killed_var(new_n);
                 else
                     _node->add_undefined_behaviour_var(new_n);
-                
-                // Add the usage to the sets storing global variables IPA
-                if(_ipa_global_vars->find(s) == _ipa_global_vars->end())
-                    (*_ipa_global_vars)[s] = usage_kind;
-                else
-                    (*_ipa_global_vars)[s] = (*_ipa_global_vars)[s] | usage_kind;
             }
             
         }
@@ -238,14 +231,14 @@ namespace {
         
         // 3. Usage of the global variables must be propagated too
         // 3.1 Add the global variables used in the called graph to the current graph
-        std::set<Symbol> called_ipa_global_vars = called_pcfg->get_global_variables();
-        _pcfg->set_global_vars(called_ipa_global_vars);
+        GlobalVarsSet ipa_global_vars = called_pcfg->get_global_variables();
+        _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
         Utils::ext_sym_set called_ue_vars = pcfg_node->get_ue_vars();
         sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
-        propagate_global_variables_usage(called_ue_vars, called_ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
-        propagate_global_variables_usage(called_killed_vars, called_ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
-        propagate_global_variables_usage(called_undef_vars, called_ipa_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
+        propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
+        propagate_global_variables_usage(called_killed_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
+        propagate_global_variables_usage(called_undef_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::UNDEFINED);
     }
     
     // ******************* END Known function code IP usage propagation methods ******************* //
@@ -256,8 +249,10 @@ namespace {
     // ******************************************************************************************** //
     // ******************** Recursive function call usage propagation methods ********************* //
     
-    void UsageVisitor::ipa_propagate_recursive_call_usage(const Nodecl::List& args)
+    void UsageVisitor::ipa_propagate_recursive_call_usage(const ObjectList<Symbol>& params, const Nodecl::List& args)
     {
+        // Get parameters to arguments map
+        
         // 1.- Check the usage of the parameters
         //     They all will be UE, but additionally we may have KILLED and UNDEF 
         //     if assignments or function calls appear in the arguments
@@ -277,30 +272,11 @@ namespace {
                 _node->add_used_address(Utils::ExtendedSymbol(n));
         }
 
-        // 2.- Check for the usage in the graph of the function to propagate Usage until the point we are currently
-        // 2.1.- Global variables
-        for(std::map<Symbol, Utils::UsageKind>::iterator it = _ipa_global_vars->begin(); it != _ipa_global_vars->end(); ++it)
+        // 2.- Check for the usage in the graph of the function to propagate Usage 
+        //     until the point we are currently (only for reference parameters)
+        for(IpUsageMap::iterator it = _ipa_modif_params->begin(); it != _ipa_modif_params->end(); ++it)
         {
-            Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-            Utils::ExtendedSymbol es(sym);
-            if(it->second._usage_type & Utils::UsageKind::DEFINED)
-            {
-                _node->add_killed_var(es);
-            }
-            else
-            {
-                if(it->second._usage_type & Utils::UsageKind::USED)
-                    _node->add_ue_var(es);
-                if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
-                    _node->add_killed_var(es);
-            }
-        }
-        // 2.2.- Reference parameters
-        for(std::map<Symbol, Utils::UsageKind>::iterator it = _ipa_ref_params->begin();
-                it != _ipa_ref_params->end(); ++it)
-        {
-            Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-            Utils::ExtendedSymbol es(sym);
+            Utils::ExtendedSymbol es(it->first);
             if(it->second._usage_type & Utils::UsageKind::DEFINED)
             {
                 _node->add_killed_var(es);
@@ -338,12 +314,13 @@ namespace {
                     side_effects = false;
 
                     Utils::ext_sym_set ue_vars;
+                    Utils::ext_sym_set killed_vars;
+                    Utils::ext_sym_set undef_vars;
                     // Set all parameters as used (if not previously killed or undefined)
                     for(Nodecl::List::iterator it_arg = args.begin(); it_arg != args.end(); ++it_arg)
                     {
                         Utils::ExtendedSymbol es(*it_arg);
-                        if(_node->get_killed_vars().find(es) == _node->get_killed_vars().end()
-                            && _node->get_undefined_behaviour_vars().find(es) == _node->get_undefined_behaviour_vars().end())
+                        if((killed_vars.find(es) == killed_vars.end()) && (undef_vars.find(es) == undef_vars.end()))
                         {
                             ue_vars.insert(es);
                         }
@@ -351,14 +328,15 @@ namespace {
 
                     if(attr_name == "pure")
                     {   // Set all global variables variables as upper exposed (if not previously killed or undefined)
-                        for(std::map<Symbol, Utils::UsageKind>::iterator it_g = _ipa_global_vars->begin();
-                            it_g != _ipa_global_vars->end(); ++it_g)
+                        GlobalVarsSet global_vars = _pcfg->get_global_variables();
+                        for(GlobalVarsSet::iterator it_g = global_vars.begin(); it_g != global_vars.end(); ++it_g)
                         {
-                            if(it_g->second._usage_type & Utils::UsageKind::NONE)
+                            if (Utils::ext_sym_set_contains_enclosing_nodecl(*it_g, killed_vars).is_null() && 
+                                Utils::ext_sym_set_contains_enclosing_nodecl(*it_g, undef_vars).is_null())
                             {
-                                ue_vars.insert(Utils::ExtendedSymbol(Nodecl::Symbol::make(it_g->first)));
-                                it_g->second._usage_type = Utils::UsageKind::USED;
+                                ue_vars.insert(Utils::ExtendedSymbol(*it_g));
                             }
+                            // FIXME If an enclosed part is in some set, we should be splitting the usage here
                         }
                     }
                     _node->add_ue_var(ue_vars);
@@ -386,26 +364,9 @@ namespace {
             ObjectList<Nodecl::NodeclBase> obj = Nodecl::Utils::get_all_memory_accesses(arg);
             for(ObjectList<Nodecl::NodeclBase>::iterator it_o = obj.begin(); it_o != obj.end(); ++it_o)
             {
+                Nodecl::NodeclBase n = *it_o;
                 // Set all arguments as upper exposed
-                Symbol s(it_o->get_symbol());
-                if(!s.is_valid())
-                {   // ArraySubscript and ClassMemberAccess are memory accesses but do not have a symbol associated
-                    // In these cases, we need to get the nodecl base
-                    s = Utils::get_nodecl_base(*it_o).get_symbol();
-                    ERROR_CONDITION(!s.is_valid(),
-                                    "A memory access must have a symbol associated, but %s does not have", it_o->prettyprint().c_str());
-                }
-                set_var_usage_to_node(Utils::ExtendedSymbol(*it_o), Utils::UsageKind::USED);
-                if((_ipa_global_vars->find(s) != _ipa_global_vars->end()) &&
-                    (*_ipa_global_vars)[s]._usage_type & Utils::UsageKind::NONE)
-                {
-                    (*_ipa_global_vars)[s] = Utils::UsageKind::USED;
-                }
-                else if((_ipa_ref_params->find(s) != _ipa_ref_params->end()) &&
-                    ((*_ipa_ref_params)[s]._usage_type & Utils::UsageKind::NONE))
-                {
-                    (*_ipa_ref_params)[s] = Utils::UsageKind::USED;
-                }
+                set_var_usage_to_node(Utils::ExtendedSymbol(n), Utils::UsageKind::USED);
             }
         }
     }
@@ -773,16 +734,15 @@ namespace {
                     
                     // Set all global variables to undefined
                     Utils::ext_sym_set killed = _node->get_killed_vars();
-                    for(std::map<Symbol, Utils::UsageKind>::iterator it = _ipa_global_vars->begin();
-                            it != _ipa_global_vars->end(); ++it)
+                    GlobalVarsSet global_vars = _pcfg->get_global_variables();
+                    for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
                     {
-                        Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-                        if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
-                            Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
+                        if (Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
+                            Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
                         {
-                            _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
-                            it->second._usage_type = Utils::UsageKind::UNDEFINED;
+                            _node->add_undefined_behaviour_var(Utils::ExtendedSymbol(*it));
                         }
+                        // FIXME If a subpart of the variable is in some other set, we should split the usage here
                     }
                 }
             }
@@ -796,26 +756,120 @@ namespace {
         Utils::ext_sym_set killed = _node->get_killed_vars();
         for(Nodecl::List::iterator it = args.begin(); it != args.end(); ++it)
         {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
-               Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
+            if (Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
+                Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
             {
                 _node->set_undefined_behaviour_var(Utils::ExtendedSymbol(*it));
             }
         }
         
-        for(std::map<Symbol, Utils::UsageKind>::iterator it = _ipa_global_vars->begin(); it != _ipa_global_vars->end(); ++it)
+        GlobalVarsSet global_vars = _pcfg->get_global_variables();
+        for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
         {
-            Nodecl::NodeclBase sym = Nodecl::Symbol::make(it->first);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(sym, killed).is_null() &&
-               Utils::ext_sym_set_contains_enclosed_nodecl(sym, killed).is_null())
+            if (Utils::ext_sym_set_contains_enclosing_nodecl(*it, killed).is_null() &&
+                Utils::ext_sym_set_contains_enclosed_nodecl(*it, killed).is_null())
             {
-                _node->add_undefined_behaviour_var_and_recompute_use_and_killed_sets(Utils::ExtendedSymbol(sym));
-                it->second._usage_type = Utils::UsageKind::UNDEFINED;
+                _node->add_undefined_behaviour_var(Utils::ExtendedSymbol(*it));
             }
         }
     }
     
     // ****************** END Unknown function code IP usage propagation methods ****************** //
     // ******************************************************************************************** //
+    
+    
+    
+    // ******************************************************************************************** //
+    // ********* Methods storing global variables and modifiable parameters information  ********** //
+    
+    void UsageVisitor::set_ipa_variable_as_defined(const Nodecl::NodeclBase& var)
+    {
+        if((*_ipa_modif_params)[var]._usage_type & (Utils::UsageKind::UNDEFINED | Utils::UsageKind::DEFINED))
+            // If the variable is already DEFINED or UNDEFINED, do nothing
+            return;
+        else if((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::NONE)
+            // If the variable has no usage computed, set it as DEFINED
+            (*_ipa_modif_params)[var] = Utils::UsageKind::DEFINED;
+        else if((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::USED)
+            // If the variable is USED, then add the DEFINED usage to it
+            (*_ipa_modif_params)[var] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
+    }
+    
+    void UsageVisitor::set_ipa_variable_as_upwards_exposed(const Nodecl::NodeclBase& var)
+    {
+        if ((_ipa_modif_params->find(var) != _ipa_modif_params->end()) &&
+            ((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::NONE))
+        {
+            (*_ipa_modif_params)[var] = Utils::UsageKind::USED;
+        }
+    }
+    
+    void UsageVisitor::store_ipa_information(const Nodecl::NodeclBase& n)
+    {
+        if(_ipa_modif_params->find(n) != _ipa_modif_params->end())
+        {   // The currently used variable is already in the IPA set
+            if(_define)
+                set_ipa_variable_as_defined(n);
+            else
+                set_ipa_variable_as_upwards_exposed(n);
+        }
+        else
+        {   // The currently used variable may be a sub-object, look for the object in the IPA set
+            Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
+            if(_ipa_modif_params->find(n_base) != _ipa_modif_params->end())
+            {
+                WARNING_MESSAGE("Splitting usage of IPA variables has not yet been implemented." 
+                                "Results of Use-Def analysis may be incorrect\n", 0);
+//                 if(_define)
+//                     set_ipa_variable_as_defined(n_base);
+//                 else
+//                     set_ipa_variable_as_upwards_exposed(n_base);
+                // TODO We need to split the usage here (if the object already had some usage)
+//                 Nodecl::NodeclBase non_used_vars = split_var_depending_on_usage(n_base, n);
+//                 if(non_used_vars.is_null())
+//                 {   // The separation has not been possible => set to UNDEF the whole object
+//                     // If the object is a pointer, then set to UNDEF the object and values pointed by the object
+//                     // Otherwise, set to undef the object itself
+//                     Type t = n_base.get_symbol().get_type();
+//                     if(!t.is_const())
+//                     {   // The object can be modified
+//                         (*_ipa_modif_params)[n_base] = Utils::UsageKind::UNDEFINED;
+//                     }
+//                     if(t.is_pointer())
+//                     {
+//                         if(!t.points_to().is_const())
+//                         {
+//                             Nodecl::NodeclBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
+//                                                                                          t.get_pointer_to());
+//                             (*_ipa_modif_params)[pointed_value] = Utils::UsageKind::UNDEFINED;
+//                         }
+//                     }
+//                     else if(t.is_array())
+//                     {
+//                         if(!t.array_element().is_const())
+//                         {
+//                             Nodecl::NodeclBase lb, ub/*, reg_lb, reg_ub*/;
+//                             t.array_get_bounds(lb, ub);
+//                             //                                     t.array_get_region_bounds(reg_lb, reg_ub);
+//                             Nodecl::NodeclBase one = Nodecl::NodeclBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
+//                             Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
+//                             Nodecl::NodeclBase pointed_value = 
+//                             Nodecl::ArraySubscript::make(n_base.shallow_copy(), range, t.get_pointer_to());
+//                             (*_ipa_modif_params)[pointed_value] = Utils::UsageKind::UNDEFINED;
+//                         }
+//                     }
+//                 }
+//                 else
+//                 {   // The separation has been possible: leave one part as it was and the other as DEFINED
+//                     (*_ipa_modif_params)[non_killed_vars] = Utils::UsageKind::UNDEFINED;
+//                     (*_ipa_modif_params)[n] = Utils::UsageKind::DEFINED;
+//                 }
+            }
+        }
+    }
+    
+    // ********* Methods storing global variables and modifiable parameters information  ********** //
+    // ******************************************************************************************** //
+    
 }
 }

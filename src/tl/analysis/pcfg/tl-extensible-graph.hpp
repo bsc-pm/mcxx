@@ -66,7 +66,7 @@ namespace Analysis {
 
         //! Set of global variables appearing in the graph or, eventually (when use-def analysis is performed),
         //* also global variables appearing in functions called in this graph ( any level of function nesting )
-        std::set<Symbol> _global_vars;
+        GlobalVarsSet _global_vars;
 
         /*! Symbol of the function contained in the graph.
          *  This symbol is empty when the code contained in the graph do not correspond to a function
@@ -364,8 +364,8 @@ namespace Analysis {
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope( ) const;
 
-        std::set<Symbol> get_global_variables( ) const;
-        void set_global_vars( const std::set<Symbol>& global_vars );
+        GlobalVarsSet get_global_variables( ) const;
+        void set_global_vars( const GlobalVarsSet& global_vars );
 
         //! Returns the symbol of the function contained in the graph
         //! It is null when the graph do not corresponds to a function code

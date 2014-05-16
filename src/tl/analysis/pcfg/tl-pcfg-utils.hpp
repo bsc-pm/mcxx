@@ -27,7 +27,7 @@
 #ifndef TL_PCFGVISIT_UTILS_HPP
 #define TL_PCFGVISIT_UTILS_HPP
 
-#include "tl-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-objectlist.hpp"
 #include <set>
 #include <stack>
@@ -907,6 +907,8 @@ namespace Analysis {
     
     // ************************** END class for task synchronizations **************************** //
     // ******************************************************************************************* //
+    
+    typedef std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> GlobalVarsSet;
 }
 }
 
