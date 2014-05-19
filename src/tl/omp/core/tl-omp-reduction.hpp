@@ -67,6 +67,10 @@ namespace TL { namespace OpenMP {
 
             const locus_t* _locus;
 
+            // This boolean will be true if the initializer was an
+            // AST_INIT_DECLARATOR node. Otherwise it will be false.
+            bool _is_initialization;
+
             TL::Symbol _symbol;
 
             // Constructor
@@ -185,6 +189,16 @@ namespace TL { namespace OpenMP {
             }
 
             static bool is_builtin(const std::string& op_name);
+
+            bool get_is_initialization() const
+            {
+                return _is_initialization;
+            }
+
+            void set_is_initialization(bool b)
+            {
+                _is_initialization = b;
+            }
     };
 
 } }

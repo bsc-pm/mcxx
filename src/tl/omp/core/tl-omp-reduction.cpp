@@ -297,7 +297,8 @@ namespace TL { namespace OpenMP {
         return d;
     }
 
-    static void check_omp_initializer(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+    static void check_omp_initializer(AST a, decl_context_t decl_context,
+            nodecl_t* nodecl_output, bool& is_init_declarator)
     {
         // Due to some syntactic infelicities in the initializer clause we have to manually check
         // this here
@@ -308,6 +309,7 @@ namespace TL { namespace OpenMP {
 
         if (ASTType(a) == AST_INIT_DECLARATOR)
         {
+            is_init_declarator = true;
             AST init_declarator = a;
             AST declarator = ASTSon0(init_declarator);
             AST initializer = ASTSon1(init_declarator);
@@ -358,7 +360,8 @@ namespace TL { namespace OpenMP {
             {
                 *nodecl_output = nodecl_null();
                 diagnostic_context_push_buffered();
-                check_omp_initializer(ast_get_ambiguity(a, i), decl_context, nodecl_output);
+                bool dummy_is_init_declarator = false;
+                check_omp_initializer(ast_get_ambiguity(a, i), decl_context, nodecl_output, dummy_is_init_declarator);
                 diagnostic_context_pop_and_discard();
                 if (!nodecl_is_err_expr(*nodecl_output))
                 {
@@ -378,7 +381,7 @@ namespace TL { namespace OpenMP {
                 // Pick one to fail
                 valid = 0;
             }
-            check_omp_initializer(ast_get_ambiguity(a, valid), decl_context, nodecl_output);
+            check_omp_initializer(ast_get_ambiguity(a, valid), decl_context, nodecl_output, is_init_declarator);
         }
         else
         {
@@ -484,16 +487,18 @@ namespace TL { namespace OpenMP {
                 if (omp_dr_initializer != NULL)
                 {
                     nodecl_t nodecl_initializer_expr = nodecl_null();
-
+                    bool is_init_declarator = false;
                     check_omp_initializer(omp_dr_initializer,
                             new_red->get_expressions_scope().get_decl_context(),
-                            &nodecl_initializer_expr);
+                            &nodecl_initializer_expr,
+                            is_init_declarator);
 
                     // FIXME - Check that only omp_priv and omp_red appear as variables
                     if (nodecl_is_err_expr(nodecl_initializer_expr))
                         continue;
 
                     new_red->set_initializer(nodecl_initializer_expr);
+                    new_red->set_is_initialization(is_init_declarator);
                 }
 
                 new_red->set_locus(ast_get_locus(tree));
@@ -642,7 +647,7 @@ namespace TL { namespace OpenMP {
     void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive) { }
 
     Reduction::Reduction(TL::Scope sc, const std::string& name, TL::Type t)
-        : _scope(sc), _name(name), _type(t), _locus(NULL)
+        : _scope(sc), _name(name), _type(t), _locus(NULL), _is_initialization(false)
     {
         // Create a new expression scope
         _expr_scope = new_block_context(sc.get_decl_context());
