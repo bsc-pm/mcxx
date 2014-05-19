@@ -31,58 +31,9 @@ Cambridge, MA 02139, USA.
 
 namespace TL {
 namespace Analysis {
- 
+
     // ******************************************************************************************** //
     // ********************* Known function code IP usage propagation methods ********************* //
-    
-namespace {
-        
-    void get_modifiable_parameters_to_arguments_map(
-            const ObjectList<Symbol>& params, const Nodecl::List& args,
-            sym_to_nodecl_map& ptr_params, sym_to_nodecl_map& ref_params)
-    {
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
-        {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::const_iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
-            {
-                // Reference parameters
-                if(itp->get_type().is_any_reference())
-                {
-                    ref_params[*itp] = *ita;
-                }
-                // Pointer parameters
-                if(itp->get_type().is_pointer() || 
-                    (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
-                {
-                    ptr_params[*itp] = *ita;
-                }
-                
-                ita++; itp++;
-            }
-        }
-    }
-        
-    sym_to_nodecl_map get_parameters_to_arguments_map(
-            const ObjectList<Symbol>& params, const Nodecl::List& args)
-    {
-        sym_to_nodecl_map param_to_arg_map;
-        int n_iters = std::min(params.size(), args.size());
-        if(n_iters > 0)
-        {
-            Nodecl::List::const_iterator ita = args.begin();
-            ObjectList<Symbol>::const_iterator itp = params.begin();
-            for(int i = 0; i<n_iters; ++i)
-            {
-                param_to_arg_map[*itp] = *ita;
-                ita++; itp++;
-            }
-        }
-        return param_to_arg_map;
-    }
-}
     
     // This method only accepts #called_func_usage sets of KILLED and UNDEFINED variables (specified by #usage_kind)
     // The UE variables are treated in a different way
@@ -273,20 +224,68 @@ namespace {
         }
 
         // 2.- Check for the usage in the graph of the function to propagate Usage 
-        //     until the point we are currently (only for reference parameters)
-        for(IpUsageMap::iterator it = _ipa_modif_params->begin(); it != _ipa_modif_params->end(); ++it)
+        //     until the point we are currently (only for reference parameters and global variables)
+        sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(params, args);
+        GlobalVarsSet global_vars = _pcfg->get_global_variables();
+        for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
         {
-            Utils::ExtendedSymbol es(it->first);
+            Nodecl::NodeclBase var = it->first;
+            
+            // 2.1.- Check the consistency of the different parameters and arguments containers
+            Nodecl::NodeclBase var_base = Utils::get_nodecl_base(var);
+            ERROR_CONDITION(var_base.is_null(), 
+                            "The base nodecl of an IPA modifiable parameter cannot be null, but the base of '%s' is null. \n", 
+                            var.prettyprint().c_str());
+            
+            // 2.2.- Get the IPA variable corresponding to the current scope
+            Symbol s(var_base.get_symbol());
+            Nodecl::NodeclBase current_sc_var;
+            bool var_is_param = false;
+            if (param_to_arg_map.find(s) != param_to_arg_map.end())
+            {
+                // 2.2.- Rename the variable in the scope of the called function with the variable in the current scope
+                Nodecl::NodeclBase replacement = param_to_arg_map.find(s)->second.shallow_copy();
+                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+                RenameVisitor rv(rename_map);
+                current_sc_var = var.shallow_copy();
+                rv.walk(current_sc_var);
+                current_sc_var = simplify_pointer(current_sc_var);     // We may have created a '*&var'
+                
+                var_is_param = true;
+            }
+            else if (global_vars.find(var_base) != global_vars.end())
+            {
+                // 2.2.2.- No need for replacement since the variable is global
+                current_sc_var = var;
+            }
+            else
+            {
+                internal_error("Modifiable IPA variable '%s' not recognized as parameter nor as a global variable.\n", 
+                               s.get_name().c_str());
+            }
+            
+            // 2.3.- Add the transformed usage to the corresponding usage set
+            Utils::ExtendedSymbol es(current_sc_var);
             if(it->second._usage_type & Utils::UsageKind::DEFINED)
             {
                 _node->add_killed_var(es);
             }
             else
             {
-                if(it->second._usage_type & Utils::UsageKind::USED)
-                    _node->add_ue_var(es);
-                if(it->second._usage_type & Utils::UsageKind::UNDEFINED)
+                if (it->second._usage_type & Utils::UsageKind::UNDEFINED)
                     _node->add_killed_var(es);
+                
+                if(var_is_param)
+                {
+                    // For UE vars, only if the argument is a reference, we need to propagate the usage
+                    // Any other argument is already treated in point 1
+                    if (it->second._usage_type & Utils::UsageKind::USED)
+                        _node->add_ue_var(es);
+                }
+                else
+                {
+                    _node->add_ue_var(es);
+                }
             }
         }
     }
@@ -784,29 +783,30 @@ namespace {
     
     void UsageVisitor::set_ipa_variable_as_defined(const Nodecl::NodeclBase& var)
     {
-        if((*_ipa_modif_params)[var]._usage_type & (Utils::UsageKind::UNDEFINED | Utils::UsageKind::DEFINED))
+        if((*_ipa_modif_vars)[var]._usage_type & (Utils::UsageKind::UNDEFINED | Utils::UsageKind::DEFINED))
             // If the variable is already DEFINED or UNDEFINED, do nothing
             return;
-        else if((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::NONE)
+        else if((*_ipa_modif_vars)[var]._usage_type & Utils::UsageKind::NONE)
             // If the variable has no usage computed, set it as DEFINED
-            (*_ipa_modif_params)[var] = Utils::UsageKind::DEFINED;
-        else if((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::USED)
+            (*_ipa_modif_vars)[var] = Utils::UsageKind::DEFINED;
+        else if((*_ipa_modif_vars)[var]._usage_type & Utils::UsageKind::USED)
             // If the variable is USED, then add the DEFINED usage to it
-            (*_ipa_modif_params)[var] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
+            (*_ipa_modif_vars)[var] = Utils::UsageKind::USED | Utils::UsageKind::DEFINED;
     }
     
     void UsageVisitor::set_ipa_variable_as_upwards_exposed(const Nodecl::NodeclBase& var)
     {
-        if ((_ipa_modif_params->find(var) != _ipa_modif_params->end()) &&
-            ((*_ipa_modif_params)[var]._usage_type & Utils::UsageKind::NONE))
+        if (((_ipa_modif_vars->find(var) != _ipa_modif_vars->end()) &&
+            ((*_ipa_modif_vars)[var]._usage_type & Utils::UsageKind::NONE)) ||
+            (_ipa_modif_vars->find(var) == _ipa_modif_vars->end()))
         {
-            (*_ipa_modif_params)[var] = Utils::UsageKind::USED;
+            (*_ipa_modif_vars)[var] = Utils::UsageKind::USED;
         }
     }
     
     void UsageVisitor::store_ipa_information(const Nodecl::NodeclBase& n)
     {
-        if(_ipa_modif_params->find(n) != _ipa_modif_params->end())
+        if(_ipa_modif_vars->find(n) != _ipa_modif_vars->end())
         {   // The currently used variable is already in the IPA set
             if(_define)
                 set_ipa_variable_as_defined(n);
@@ -816,54 +816,66 @@ namespace {
         else
         {   // The currently used variable may be a sub-object, look for the object in the IPA set
             Nodecl::NodeclBase n_base = Utils::get_nodecl_base(n);
-            if(_ipa_modif_params->find(n_base) != _ipa_modif_params->end())
+            if(_ipa_modif_vars->find(n_base) != _ipa_modif_vars->end())
             {
-                WARNING_MESSAGE("Splitting usage of IPA variables has not yet been implemented." 
-                                "Results of Use-Def analysis may be incorrect\n", 0);
-//                 if(_define)
-//                     set_ipa_variable_as_defined(n_base);
-//                 else
-//                     set_ipa_variable_as_upwards_exposed(n_base);
-                // TODO We need to split the usage here (if the object already had some usage)
-//                 Nodecl::NodeclBase non_used_vars = split_var_depending_on_usage(n_base, n);
-//                 if(non_used_vars.is_null())
-//                 {   // The separation has not been possible => set to UNDEF the whole object
-//                     // If the object is a pointer, then set to UNDEF the object and values pointed by the object
-//                     // Otherwise, set to undef the object itself
-//                     Type t = n_base.get_symbol().get_type();
-//                     if(!t.is_const())
-//                     {   // The object can be modified
-//                         (*_ipa_modif_params)[n_base] = Utils::UsageKind::UNDEFINED;
-//                     }
-//                     if(t.is_pointer())
-//                     {
-//                         if(!t.points_to().is_const())
-//                         {
-//                             Nodecl::NodeclBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
-//                                                                                          t.get_pointer_to());
-//                             (*_ipa_modif_params)[pointed_value] = Utils::UsageKind::UNDEFINED;
-//                         }
-//                     }
-//                     else if(t.is_array())
-//                     {
-//                         if(!t.array_element().is_const())
-//                         {
-//                             Nodecl::NodeclBase lb, ub/*, reg_lb, reg_ub*/;
-//                             t.array_get_bounds(lb, ub);
-//                             //                                     t.array_get_region_bounds(reg_lb, reg_ub);
-//                             Nodecl::NodeclBase one = Nodecl::NodeclBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
-//                             Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
-//                             Nodecl::NodeclBase pointed_value = 
-//                             Nodecl::ArraySubscript::make(n_base.shallow_copy(), range, t.get_pointer_to());
-//                             (*_ipa_modif_params)[pointed_value] = Utils::UsageKind::UNDEFINED;
-//                         }
-//                     }
-//                 }
-//                 else
-//                 {   // The separation has been possible: leave one part as it was and the other as DEFINED
-//                     (*_ipa_modif_params)[non_killed_vars] = Utils::UsageKind::UNDEFINED;
-//                     (*_ipa_modif_params)[n] = Utils::UsageKind::DEFINED;
-//                 }
+                // Case 1: The object being used is the value pointed by an IPA variable
+                if(n.no_conv().is<Nodecl::Dereference>())
+                {
+                    if(_define)
+                        set_ipa_variable_as_defined(n);
+                    else
+                        set_ipa_variable_as_upwards_exposed(n);
+                }
+                // Case 2: A sub-object is being used: split the usage or set to UNDEFINED the whole object
+                else
+                {
+                    Nodecl::NodeclBase non_used_vars = split_var_depending_on_usage(n_base, n);
+                    if(non_used_vars.is_null())
+                    {   // The separation has not been possible => set to UNDEF the whole object
+                        // If the object is a pointer, then set to UNDEF the object and values pointed by the object
+                        // Otherwise, set to undef the object itself
+                        Type t = n_base.get_symbol().get_type();
+                        if(!t.is_const())
+                        {   // The object can be modified
+                            (*_ipa_modif_vars)[n_base] = Utils::UsageKind::UNDEFINED;
+                        }
+                        if(t.is_pointer())
+                        {
+                            if(!t.points_to().is_const())
+                            {
+                                if(n.no_conv().is<Nodecl::Reference>())
+                                {   // No need to dereference a reference!
+                                    (*_ipa_modif_vars)[n.as<Nodecl::Reference>().get_rhs()] = Utils::UsageKind::UNDEFINED;
+                                }
+                                else
+                                {
+                                    Nodecl::NodeclBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
+                                                                                                 t.get_pointer_to());
+                                    (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
+                                }
+                            }
+                        }
+                        else if(t.is_array())
+                        {
+                            if(!t.array_element().is_const())
+                            {
+                                Nodecl::NodeclBase lb, ub/*, reg_lb, reg_ub*/;
+                                t.array_get_bounds(lb, ub);
+                                // t.array_get_region_bounds(reg_lb, reg_ub);
+                                Nodecl::NodeclBase one = Nodecl::NodeclBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
+                                Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
+                                Nodecl::NodeclBase pointed_value = 
+                                Nodecl::ArraySubscript::make(n_base.shallow_copy(), range, t.get_pointer_to());
+                                (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
+                            }
+                        }
+                    }
+                    else
+                    {   // The separation has been possible: leave one part as it was and the other as DEFINED
+                        (*_ipa_modif_vars)[non_used_vars] = Utils::UsageKind::UNDEFINED;
+                        (*_ipa_modif_vars)[n] = Utils::UsageKind::DEFINED;
+                    }
+                }
             }
         }
     }

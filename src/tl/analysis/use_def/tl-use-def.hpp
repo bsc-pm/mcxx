@@ -50,13 +50,14 @@ namespace Analysis {
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
         
-        //!Usage of Reference parameters, necessary to propagate usage information in recursive calls
-        IpUsageMap _ipa_modif_params;
+        //!Usage of IPA modifiable variable (reference variables, pointed values of pointer parameters and global variables)
+        IpUsageMap _ipa_modif_vars;
+        
+        //!Initialize all IPA modifiable variables' usage to NONE
+        void initialize_ipa_var_usage();
         
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
-         * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
-         * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          */
         void compute_usage_rec(Node* current);
         
@@ -123,8 +124,8 @@ namespace Analysis {
          */
         Nodecl::NodeclBase _current_nodecl;
 
-        //! List of reference parameters appeared until a given point of the analysis
-        IpUsageMap* _ipa_modif_params;
+        //! List of IPA modifiable variables appeared until a given point of the analysis
+        IpUsageMap* _ipa_modif_vars;
 
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
          *  When a function call appears in a split statement we calculate the first time (the func_call node)
@@ -211,8 +212,7 @@ namespace Analysis {
 
     public:
         // *** Constructor *** //
-        UsageVisitor(Node* n, ExtensibleGraph* pcfg, 
-                     /*IpUsageMap* global_vars,*/ IpUsageMap* reference_params);
+        UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars);
         
         // *** Modifiers *** //
         void compute_statement_usage(Nodecl::NodeclBase st);
@@ -262,8 +262,21 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************** Utils methods for use-def analysis ******************************** //
     
+    Nodecl::NodeclBase simplify_pointer(const Nodecl::NodeclBase& original_variables);
+    Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
+    
     Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained);
-
+    
+    void get_modifiable_parameters_to_arguments_map(
+        const ObjectList<Symbol>& params, 
+        const Nodecl::List& args,
+        sym_to_nodecl_map& ptr_params, 
+        sym_to_nodecl_map& ref_params);
+    
+    sym_to_nodecl_map get_parameters_to_arguments_map(
+        const ObjectList<Symbol>& params, 
+        const Nodecl::List& args);
+    
     // ****************************** END Utils methods for use-def analysis ****************************** //    
     // **************************************************************************************************** //
     

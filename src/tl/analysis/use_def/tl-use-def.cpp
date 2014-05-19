@@ -38,76 +38,6 @@ namespace Analysis {
     SizeMap _pointer_to_size_map;
     
     // **************************************************************************************************** //
-    // ************************* Class implementing pointer simplification visitor ************************ //
-    
-    class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-        void unhandled_node(const Nodecl::NodeclBase& n)
-        {
-            WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
-        }
-    
-        void visit(const Nodecl::Dereference& n)
-        {
-            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
-            if(rhs.is<Nodecl::Reference>())
-            {   // *&v  ->  v
-                n.replace(rhs.as<Nodecl::Reference>().get_rhs().no_conv().shallow_copy());
-                walk(n);
-            }
-            else
-            {
-                walk(rhs);
-            }
-        }
-        
-        void visit(const Nodecl::Reference& n)
-        {
-            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
-            if(rhs.is<Nodecl::Dereference>())
-            {   // &*v  ->  v
-                n.replace(rhs.as<Nodecl::Dereference>().get_rhs().no_conv().shallow_copy());
-                walk(n);
-            }
-            else if(rhs.is<Nodecl::ArraySubscript>())
-            {
-                Nodecl::List subscripts = rhs.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
-                if(subscripts.size()==1 && 
-                subscripts.front().is_constant() && 
-                const_value_is_zero(subscripts.front().get_constant()))
-                {
-                    n.replace(Nodecl::Reference::make(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy(), n.get_type()));
-                }
-            }
-            else
-            {
-                walk(rhs);
-            }
-        }
-    };
-    
-    // This method simplifies arguments in the way "*&v and &*v -> v"
-    Nodecl::List simplify_arguments(const Nodecl::List& real_arguments)
-    {
-        Nodecl::List simplified_arguments;
-        
-        PointersSimplifierVisitor psv;
-        for(Nodecl::List::iterator it = real_arguments.begin(); it != real_arguments.end(); ++it)
-        {
-            Nodecl::NodeclBase n = it->no_conv().shallow_copy();
-            psv.walk(n);
-            simplified_arguments.append(n);
-        }   
-        
-        return simplified_arguments;
-    }
-    
-    // *********************** End class implementing pointer simplification visitor ********************** //
-    // **************************************************************************************************** //
-    
-    
-    
-    // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
 
 namespace {
@@ -274,7 +204,15 @@ namespace {
 }
 
     UseDef::UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs)
-        : _graph(graph), _ipa_modif_params()
+        : _graph(graph), _ipa_modif_vars()
+    {
+        initialize_ipa_var_usage();
+        
+        _pointer_to_size_map = graph->get_pointer_n_elements_map();
+        _pcfgs = pcfgs;
+    }
+
+    void UseDef::initialize_ipa_var_usage()
     {
         // Initialized Reference|Pointer parameters usage to NONE
         Symbol func_sym = _graph->get_function_symbol();
@@ -284,18 +222,28 @@ namespace {
             for(ObjectList<TL::Symbol>::iterator it = params.begin(); it != params.end(); ++it)
             {
                 Type param_type = it->get_type();
-                if(param_type.is_any_reference() || param_type.is_pointer())
+                if(param_type.is_any_reference())
                 {
                     Nodecl::Symbol s = it->make_nodecl(/*set_ref_type*/true);
-                    _ipa_modif_params[s] = Utils::UsageKind::NONE;
+                    _ipa_modif_vars[s] = Utils::UsageKind::NONE;
+                }
+                else if(param_type.is_pointer())
+                {
+                    Nodecl::Symbol s = it->make_nodecl(/*set_ref_type*/true);
+                    Nodecl::Dereference n = Nodecl::Dereference::make(s, param_type.get_pointer_to());
+                    _ipa_modif_vars[n] = Utils::UsageKind::NONE;
                 }
             }
         }
         
-        _pointer_to_size_map = graph->get_pointer_n_elements_map();
-        _pcfgs = pcfgs;
+        // Initialize global variables usage to NONE (for recursive calls)
+        GlobalVarsSet global_vars = _graph->get_global_variables();
+        for(GlobalVarsSet::iterator it = global_vars.begin(); it != global_vars.end(); ++it)
+        {
+            _ipa_modif_vars[*it] = Utils::UsageKind::NONE;
+        }
     }
-
+    
     void UseDef::compute_usage()
     {
         Node* graph = _graph->get_graph();
@@ -337,7 +285,7 @@ namespace {
             {
                 // Treat statements in the current node
                 ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
-                UsageVisitor uv(current, _graph, &_ipa_modif_params);
+                UsageVisitor uv(current, _graph, &_ipa_modif_vars);
                 for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     uv.compute_statement_usage(*it);
@@ -655,9 +603,9 @@ namespace {
         return result;
     }
     
-    UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* reference_params)
+    UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars)
         : _node(n), _define(false), _current_nodecl(Nodecl::NodeclBase::null()),
-          _ipa_modif_params(reference_params), _avoid_func_calls(false), _pcfg(pcfg)
+          _ipa_modif_vars(ipa_modifiable_vars), _avoid_func_calls(false), _pcfg(pcfg)
     {}
     
     void UsageVisitor::set_var_usage_to_node(const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind)
@@ -671,6 +619,7 @@ namespace {
             Utils::ext_sym_set ue_tmp; ue_tmp.insert(var);
             propagate_usage_to_ancestors(ue_vars, killed_vars, undef_vars, empty_set,
                                           ue_tmp, empty_set, empty_set, empty_set);
+            
             _node->set_ue_var(ue_vars);                   // Replace the set of upwards exposed variables associated to the node
         }
         else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
@@ -774,7 +723,7 @@ namespace {
 
         // The function called must be analyzed only in case it has not been analyzed previously
         TL::Symbol func_sym = called_sym.get_symbol();
-        Nodecl::List simplified_arguments = simplify_arguments(real_arguments);
+        Nodecl::List simplified_arguments = simplify_pointers(real_arguments);
         if(func_sym.is_valid())
         {   // The called function is not a pointer to function
             ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
@@ -899,20 +848,9 @@ namespace {
         walk(n.get_rhs());
 
         // Use of the Dereference
-        if(current_nodecl.is_null())
-        {
-            _define = define;
-            _current_nodecl = n;
-        }
+        _define = define;
+        _current_nodecl = n;
         walk(n.get_rhs());
-
-//         // If we were traversing some object, then the use of that access
-//         if(!current_nodecl.is_null())
-//         {
-//             _define = define;       // Just in case
-//             _current_nodecl = current_nodecl;
-//             walk(n.get_rhs());
-//         }
 
         _current_nodecl = Nodecl::NodeclBase::null();
     }

@@ -32,6 +32,78 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
+    // **************************************************************************************************** //
+    // ************************* Class implementing pointer simplification visitor ************************ //
+    
+    class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
+    {
+        void unhandled_node(const Nodecl::NodeclBase& n)
+        {
+            WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
+        }
+        
+        void visit(const Nodecl::Dereference& n)
+        {
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            if(rhs.is<Nodecl::Reference>())
+            {   // *&v  ->  v
+                n.replace(rhs.as<Nodecl::Reference>().get_rhs().no_conv().shallow_copy());
+                walk(n);
+            }
+            else
+            {
+                walk(rhs);
+            }
+        }
+        
+        void visit(const Nodecl::Reference& n)
+        {
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            if(rhs.is<Nodecl::Dereference>())
+            {   // &*v  ->  v
+                n.replace(rhs.as<Nodecl::Dereference>().get_rhs().no_conv().shallow_copy());
+                walk(n);
+            }
+            else if(rhs.is<Nodecl::ArraySubscript>())
+            {
+                Nodecl::List subscripts = rhs.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                if(subscripts.size()==1 && 
+                    subscripts.front().is_constant() && 
+                    const_value_is_zero(subscripts.front().get_constant()))
+                {
+                    n.replace(Nodecl::Reference::make(rhs.as<Nodecl::ArraySubscript>().get_subscripted().shallow_copy(), n.get_type()));
+                }
+            }
+            else
+            {
+                walk(rhs);
+            }
+        }
+    };
+    
+    Nodecl::NodeclBase simplify_pointer(const Nodecl::NodeclBase& original_variable)
+    {
+        Nodecl::NodeclBase simplified_variable = original_variable.no_conv().shallow_copy();
+        PointersSimplifierVisitor psv;
+        psv.walk(simplified_variable);
+        return simplified_variable;
+    }
+    
+    // This method simplifies arguments in the way "*&v and &*v -> v"
+    Nodecl::List simplify_pointers(const Nodecl::List& original_variables)
+    {
+        Nodecl::List simplified_variables;
+        for(Nodecl::List::iterator it = original_variables.begin(); it != original_variables.end(); ++it)
+        {
+            simplified_variables.append(simplify_pointer(*it));
+        }
+        return simplified_variables;
+    }
+    
+    // *********************** End class implementing pointer simplification visitor ********************** //
+    // **************************************************************************************************** //
+    
+    
     // This method returns the part of 'container' which is not the 'contained'.
     // If the separation cannot be done, then it returns Nodecl::NodeclBase::null()
     Nodecl::NodeclBase split_var_depending_on_usage_rec(Nodecl::NodeclBase container, Nodecl::NodeclBase contained)
@@ -283,6 +355,55 @@ namespace Analysis {
         else
             result = split_var_depending_on_usage_rec(result, contained);
         return result;
+    }
+    
+    void get_modifiable_parameters_to_arguments_map(
+        const ObjectList<Symbol>& params, 
+        const Nodecl::List& args,
+        sym_to_nodecl_map& ptr_params, 
+        sym_to_nodecl_map& ref_params)
+    {
+        int n_iters = std::min(params.size(), args.size());
+        if(n_iters > 0)
+        {
+            Nodecl::List::const_iterator ita = args.begin();
+            ObjectList<Symbol>::const_iterator itp = params.begin();
+            for(int i = 0; i<n_iters; ++i)
+            {
+                // Reference parameters
+                if(itp->get_type().is_any_reference())
+                {
+                    ref_params[*itp] = *ita;
+                }
+                // Pointer parameters
+                if(itp->get_type().is_pointer() || 
+                    (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
+                {
+                    ptr_params[*itp] = *ita;
+                }
+                
+                ita++; itp++;
+            }
+        }
+    }
+    
+    sym_to_nodecl_map get_parameters_to_arguments_map(
+            const ObjectList<Symbol>& params, 
+            const Nodecl::List& args)
+    {
+        sym_to_nodecl_map param_to_arg_map;
+        int n_iters = std::min(params.size(), args.size());
+        if(n_iters > 0)
+        {
+            Nodecl::List::const_iterator ita = args.begin();
+            ObjectList<Symbol>::const_iterator itp = params.begin();
+            for(int i = 0; i<n_iters; ++i)
+            {
+                param_to_arg_map[*itp] = *ita;
+                ita++; itp++;
+            }
+        }
+        return param_to_arg_map;
     }
     
 }    
