@@ -946,7 +946,7 @@ namespace Analysis {
         _utils->_last_nodes = ObjectList<Node*>( 1, context_node );
         return ObjectList<Node*>( 1, context_node );
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
         Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Continue );
@@ -1051,7 +1051,8 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, condition_node );
         if( !stmts.empty( ) )
         {
-            _pcfg->connect_nodes( condition_node, stmts[0], __TrueEdge );
+            _pcfg->connect_nodes( condition_node, stmts[0], __TrueEdge, Nodecl::NodeclBase::null(), 
+                                  /*is_task_edge*/false, /*is_back_edge*/true );
         }
 
         // Connect the condition false side to the condition node
@@ -1290,8 +1291,9 @@ namespace Analysis {
             next->set_outer_node( for_graph_node );
             _pcfg->connect_nodes( _utils->_last_nodes, next, aux_etype );
             if( cond != NULL )
-            {   // Normal case: there is a condition in the loop. So after the increment we check the condition
-                _pcfg->connect_nodes( next, cond );
+            {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
+                _pcfg->connect_nodes( next, cond, __Always, Nodecl::NodeclBase::null(), 
+                                      /*is_task_edge*/false, /*is_back_edge*/true );
             }
             else
             {   // When there is no condition, the is no iteration
@@ -1345,7 +1347,7 @@ namespace Analysis {
         }
         return func;
     }
-
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GccAsmDefinition& n )
     {
         // Create the asm definition graph node
@@ -1418,10 +1420,11 @@ namespace Analysis {
         ObjectList<Node*>::iterator it;
         for( it = _utils->_labeled_nodes.begin( ); it != _utils->_labeled_nodes.end( ); ++it )
         {
+            // The label has already appeared and the connection will be a back edge
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
                 Nodecl::Symbol s = Nodecl::Symbol::make( n.get_symbol( ) );
-                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, s );
+                _pcfg->connect_nodes( goto_node, *it, __GotoEdge, s, /*is_task_edge*/false, /*is_back_edge*/true );
                 break;
             }
         }
@@ -2241,6 +2244,11 @@ namespace Analysis {
         return ObjectList<Node*>( 1, for_app_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n )
+    {
+        return walk(n.get_context());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
         PCFGClause current_clause( __if, n.get_condition( ) );
@@ -2527,6 +2535,36 @@ namespace Analysis {
         return walk( n.get_statement( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdParallel& n )
+    {
+        // Create the new graph node containing the parallel
+        Node* simd_parallel_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpSimdParallel );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_node );
+        
+        Node* simd_parallel_entry = simd_parallel_node->get_graph_entry_node( );
+        Node* simd_parallel_exit = simd_parallel_node->get_graph_exit_node( );
+        
+        // Traverse the statements of the current sections
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_entry );
+        walk( n.get_openmp_parallel( ) );
+        
+        simd_parallel_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_parallel_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_parallel_entry, simd_parallel_exit ) );
+        walk( n.get_environment( ) );
+        simd_parallel_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_parallel_node );
+        return ObjectList<Node*>( 1, simd_parallel_node );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdReduction& n )
     {
         _utils->_is_simd = true;
@@ -2705,6 +2743,13 @@ namespace Analysis {
         return walk( n.get_join_task( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskLabel& n )
+    {
+        PCFGClause current_clause( __task_label, Nodecl::Text::make(n.get_text(), n.get_locus()));
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskwaitDeep& n )
     {
         return visit_taskwait( n );
@@ -2771,6 +2816,12 @@ namespace Analysis {
         return visit_binary_node( n, n.get_lhs( ), n.get_rhs( ) );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaContext& n )
+    {
+        // No need to store the context of a clause parameter in the PCFG (so far)
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::PragmaCustomDirective& n )
     {
         if( VERBOSE )
@@ -2913,7 +2964,7 @@ namespace Analysis {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
-            _pcfg->_global_vars.insert( n.get_symbol( ) );
+            _pcfg->_global_vars.insert( n );
 
         // Create the node
         return visit_literal_node( n );
@@ -3371,7 +3422,8 @@ namespace Analysis {
         _utils->_continue_nodes.pop( );
         _utils->_break_nodes.pop( );
 
-        _pcfg->connect_nodes( _utils->_last_nodes, cond_node );
+        _pcfg->connect_nodes( _utils->_last_nodes, cond_node, __Always, Nodecl::NodeclBase::null(), 
+                              /*is_task_edge*/false, /*is_back_edge*/true );
         ObjectList<Edge*> cond_exits = cond_node->get_exit_edges( );
         for( ObjectList<Edge*>::iterator it = cond_exits.begin( ); it != cond_exits.end( ); ++it )
             ( *it )->set_true_edge( );

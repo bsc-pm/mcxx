@@ -71,12 +71,18 @@ namespace Analysis {
         bool _range_analysis_enabled;
         void set_range_analsysis( const std::string& range_analysis_enabled_str );
         
+        std::string _cyclomatic_complexity_enabled_str;
+        bool _cyclomatic_complexity_enabled;
+        void set_cyclomatic_complexity( const std::string& cyclomatic_complexity_enabled_str);
+        
     public:
         //! Constructor of this phase
         TestAnalysisPhase();
 
         //!Entry point of the phase
         virtual void run(TL::DTO& dto);
+        
+        virtual ~TestAnalysisPhase() {};
     };
 }
 }

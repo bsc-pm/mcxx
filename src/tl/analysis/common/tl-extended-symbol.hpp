@@ -102,7 +102,7 @@ namespace Utils {
     
     typedef std::set<ExtendedSymbol> ext_sym_set;
     typedef std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> nodecl_set;
-    typedef std::multimap<ExtendedSymbol, Nodecl::NodeclBase, ExtendedSymbol_structural_less> ext_sym_map;
+    typedef std::multimap<ExtendedSymbol, Nodecl::NodeclBase> ext_sym_map;
 
 }
 }

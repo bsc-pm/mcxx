@@ -25,40 +25,34 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_compile_fail=yes
- test_nolink=yes
  </testinfo>
  */
 
-#define N  4
+int N = 0;
+int M = 1;
 
-unsigned long long int square[N][N];
-
-void sequential_(int x, int y)
+void foo(int *p, int *&q, int u, int &v)
 {
-    #pragma analysis_check assert defined(square[x][y], x, y) \
-                           upper_exposed(square[x][y], square[x-1][y], square[x][y-1])
-    for (x = 1; x < N; x++) {
-        for (y = 1; y < N; y++) {
-            square[x][y] = square[x-1][y] + square[x][y] + square[x][y-1];
-        }
-    }
+    p = &N;
+    *p = 5;
+    
+    q = &M;
+    *q = 10;
+    
+    u = v + 2;
+    v = u;
 }
 
-void sequential(int a, int b)
+int main()
 {
-    #pragma analysis_check assert defined(square[a][b]) \
-                           upper_exposed(square[a][b], square[a-1][b], square[a][b-1], a, b)
-    sequential_(a, b);
-}
+    int *a, *b;
+    int c, d;
 
-void ompss(int h, int j)
-{
-    #pragma analysis_check assert defined(square[h][j]) \
-                           upper_exposed(square[h][j], square[h-1][j], square[h][j], square[h][j-1], h, j)
-    sequential(h, j);
+    #pragma analysis_check assert upper_exposed(a, b, c, d) defined(*a, b, *b, d)
+    foo(a, b, c, d);
+    
+    return 0;
 }

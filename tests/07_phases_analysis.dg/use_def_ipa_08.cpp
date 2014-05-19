@@ -25,40 +25,41 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_compile_fail=yes
  test_nolink=yes
  </testinfo>
  */
 
-#define N  4
+// #include<iostream>
+// #include <assert.h>
+// #include <cstdarg>
 
-unsigned long long int square[N][N];
+void foo(int n, ...);
+// void foo(int n, int x, int y, int* res);
+// {
+//     va_list arg_ptr;
+//     va_start(arg_ptr, n);
+//     
+//     int tmp_res = 0;
+//     for(int i=0; i<n-1; ++i)
+//         tmp_res += va_arg(arg_ptr, int);
+//     int* res = va_arg(arg_ptr, int*);
+//     *res = tmp_res;
+//     
+//     va_end(arg_ptr);
+// }
 
-void sequential_(int x, int y)
+int main()
 {
-    #pragma analysis_check assert defined(square[x][y], x, y) \
-                           upper_exposed(square[x][y], square[x-1][y], square[x][y-1])
-    for (x = 1; x < N; x++) {
-        for (y = 1; y < N; y++) {
-            square[x][y] = square[x-1][y] + square[x][y] + square[x][y-1];
-        }
-    }
-}
-
-void sequential(int a, int b)
-{
-    #pragma analysis_check assert defined(square[a][b]) \
-                           upper_exposed(square[a][b], square[a-1][b], square[a][b-1], a, b)
-    sequential_(a, b);
-}
-
-void ompss(int h, int j)
-{
-    #pragma analysis_check assert defined(square[h][j]) \
-                           upper_exposed(square[h][j], square[h-1][j], square[h][j], square[h][j-1], h, j)
-    sequential(h, j);
+    int n = 3;
+    int x = 2, y = 2;
+    int empty_res;
+    int* res = &empty_res;
+    #pragma analysis_check assert upper_exposed(x, y, n) undefined(*res)
+    foo(n, x, y, res);
+    
+//     assert(*res == 4);
+    return 0;
 }

@@ -33,20 +33,20 @@ namespace TL {
 namespace Analysis {
 
     typedef std::map<Symbol, Nodecl::NodeclBase> sym_to_nodecl_map;
-
+    
     class LIBTL_CLASS RenameVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        sym_to_nodecl_map _renaming_map;
+        sym_to_nodecl_map _rename_map;  // Map of possible replacements where 
+                                        // - the key is the symbol to be replaced and 
+                                        // - the value is the nodecl to use in the replacement
 
     public:
-        //!Constructor
-        RenameVisitor( sym_to_nodecl_map renaming_map );
+        // *** Constructor *** //
+        RenameVisitor(sym_to_nodecl_map rename_map);
 
-        void rename_expressions( const Nodecl::NodeclBase& n );
-
-        // ***************** Visiting methods ***************** //
-        Ret visit( const Nodecl::Symbol& n );
+        // *** Visiting methods *** //
+        Ret visit(const Nodecl::Symbol& n);
     };
 
 }

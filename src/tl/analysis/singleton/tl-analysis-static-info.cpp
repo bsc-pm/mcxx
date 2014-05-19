@@ -182,14 +182,16 @@ namespace Analysis {
                     {
                         if( !Nodecl::Utils::structurally_equal_nodecls( n, *it ) )
                         {
-                            Node* fake_node = new Node( );
-                            UsageVisitor uv( fake_node );
-                            uv.compute_statement_usage( *it );
-                            if( Utils::ext_sym_set_contains_nodecl( n, fake_node->get_killed_vars( ) ) )
-                            {
-                                result = true;
-                                break;
-                            }
+                            WARNING_MESSAGE("Commented code due to inconsistent versions of vectorizer and analysis." 
+                                            "If you are using this the results may be wrong.\n", 0);
+//                             Node* fake_node = new Node( );
+//                             UsageVisitor uv( fake_node );
+//                             uv.compute_statement_usage( *it );
+//                             if( Utils::ext_sym_set_contains_nodecl( n, fake_node->get_killed_vars( ) ) )
+//                             {
+//                                 result = true;
+//                                 break;
+//                             }
                         }
                         else
                         {
@@ -509,13 +511,13 @@ namespace Analysis {
         {
             analysis.auto_scoping( analysis_state, n );
         }
-        if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
-        {
-            analysis.induction_variables( analysis_state, n );
-        }
         if( analysis_mask._which_analysis & WhichAnalysis::REACHING_DEFS_ANALYSIS )
         {
             analysis.reaching_definitions( analysis_state, n );
+        }
+        if( analysis_mask._which_analysis & WhichAnalysis::INDUCTION_VARS_ANALYSIS )
+        {
+            analysis.induction_variables( analysis_state, n );
         }
         if( analysis_mask._which_analysis & WhichAnalysis::LIVENESS_ANALYSIS )
         {
