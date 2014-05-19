@@ -33,42 +33,25 @@
 
 namespace TL { namespace Nanox {
 
-    struct BasicReductionExpandVisitor1 : public Nodecl::ExhaustiveVisitor<void>
+    struct ReductionReplaceSymbolVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            TL::Symbol _orig_omp_in, _new_omp_in, _orig_omp_out, _new_omp_out;
+            const std::map<TL::Symbol, TL::Symbol> & _translation_map;
         public:
-        BasicReductionExpandVisitor1(
-                TL::Symbol orig_omp_in,
-                TL::Symbol new_omp_in,
-                TL::Symbol orig_omp_out,
-                TL::Symbol new_omp_out)
-            : _orig_omp_in(orig_omp_in),
-            _new_omp_in(new_omp_in),
-            _orig_omp_out(orig_omp_out),
-            _new_omp_out(new_omp_out)
+        ReductionReplaceSymbolVisitor(const std::map<TL::Symbol, TL::Symbol> & map)
+            : _translation_map(map)
         {
         }
 
         void visit(const Nodecl::Symbol &node)
         {
-            bool must_expand = false;
             TL::Symbol sym = node.get_symbol();
-            TL::Symbol new_sym;
-            if (sym == _orig_omp_in)
-            {
-                must_expand = true;
-                new_sym = _new_omp_in;
-            }
-            else if (sym == _orig_omp_out)
-            {
-                must_expand = true;
-                new_sym = _new_omp_out;
-            }
 
-            if (!must_expand)
+            std::map<TL::Symbol, TL::Symbol>::const_iterator it = _translation_map.find(sym);
+            if (it == _translation_map.end())
                 return;
 
+            TL::Symbol new_sym = it->second;
             Nodecl::NodeclBase new_sym_ref = Nodecl::Symbol::make(new_sym);
             new_sym_ref.set_type(new_sym.get_type());
 
@@ -134,12 +117,12 @@ namespace TL { namespace Nanox {
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
 
         Nodecl::NodeclBase expanded_combiner = red->get_combiner().shallow_copy();
-        BasicReductionExpandVisitor1 expander_visitor(
-                red->get_omp_in(),
-                param_omp_in,
-                red->get_omp_out(),
-                param_omp_out);
 
+        std::map<TL::Symbol, TL::Symbol> translation_map;
+        translation_map[red->get_omp_in()] = param_omp_in;
+        translation_map[red->get_omp_out()] = param_omp_out;
+
+        ReductionReplaceSymbolVisitor expander_visitor(translation_map);
         expander_visitor.walk(expanded_combiner);
 
         function_body.replace(
@@ -194,13 +177,12 @@ namespace TL { namespace Nanox {
         TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
 
-        Nodecl::NodeclBase expanded_combiner =
-            red->get_combiner().shallow_copy();
-        BasicReductionExpandVisitor1 expander_visitor(
-                red->get_omp_in(),
-                param_omp_in,
-                red->get_omp_out(),
-                param_omp_out);
+        Nodecl::NodeclBase expanded_combiner = red->get_combiner().shallow_copy();
+
+        std::map<TL::Symbol, TL::Symbol> translation_map;
+        translation_map[red->get_omp_in()] = param_omp_in;
+        translation_map[red->get_omp_out()] = param_omp_out;
+        ReductionReplaceSymbolVisitor expander_visitor(translation_map);
 
         expander_visitor.walk(expanded_combiner);
 
@@ -260,6 +242,24 @@ namespace TL { namespace Nanox {
             fun_name = ss.str();
         }
 
+        Nodecl::NodeclBase function_body;
+        Source src;
+        src << "void " << fun_name << "("
+            << as_type(red->get_type()) << "* omp_priv)"
+            << "{"
+            <<    statement_placeholder(function_body)
+            << "}"
+            ;
+
+        Nodecl::NodeclBase function_code = src.parse_global(construct.retrieve_context().get_global_scope());
+
+        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
+        TL::Symbol param_omp_priv = inside_function.get_symbol_from_name("omp_priv");
+        ERROR_CONDITION(!param_omp_priv.is_valid(), "Symbol omp_in not found", 0);
+
+        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+
         Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
         if (initializer.is<Nodecl::StructuredValue>())
         {
@@ -270,18 +270,37 @@ namespace TL { namespace Nanox {
             }
         }
 
-        Source src;
-        src << "void " << fun_name << "(" << as_type(red->get_type()) << "* omp_priv)"
-            << "{"
-            <<      "*omp_priv = " << as_expression(initializer) << ";"
-            << "}"
-            ;
+        std::map<TL::Symbol, TL::Symbol> translation_map;
+        translation_map[red->get_omp_priv()] = param_omp_priv;
 
-        TL::Scope global_scope = construct.retrieve_context().get_global_scope();
-        Nodecl::NodeclBase function_code = src.parse_global(global_scope);
-        TL::Symbol function_sym = global_scope.get_symbol_from_name(fun_name);
+        ReductionReplaceSymbolVisitor expander_visitor(translation_map);
+        expander_visitor.walk(initializer);
 
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+
+        if (red->get_is_initialization())
+        {
+            // The original initializer was something like 'omp_priv = expr1', but the current
+            // initializer only represents the lhs expression (in our example, expr1).
+            // For this reason we create manually an assignment expression.
+            Nodecl::NodeclBase param_omp_priv_ref = Nodecl::Symbol::make(param_omp_priv);
+            param_omp_priv_ref.set_type(param_omp_priv.get_type());
+
+            function_body.replace(
+                    Nodecl::List::make(
+                        Nodecl::ExpressionStatement::make(
+                            Nodecl::Assignment::make(
+                                Nodecl::Dereference::make(
+                                    param_omp_priv_ref,
+                                    param_omp_priv_ref.get_type().points_to().get_lvalue_reference_to()),
+                                initializer,
+                                param_omp_priv_ref.get_type().points_to().get_lvalue_reference_to())
+                            )));
+        }
+        else
+        {
+            function_body.replace(
+                    Nodecl::List::make(Nodecl::ExpressionStatement::make(initializer)));
+        }
 
         initializer_map[red] = function_sym;
 
