@@ -17397,7 +17397,6 @@ static void build_scope_return_statement(AST a,
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
             check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
-            // FIXME - Emit a warning here
         }
         else 
         {
@@ -17422,6 +17421,7 @@ static void build_scope_return_statement(AST a,
                 check_nodecl_expr_initializer(nodecl_expr, 
                         decl_context,
                         return_type,
+                        /* disallow_narrowing */ 0,
                         &nodecl_return);
 
                 if (nodecl_is_err_expr(nodecl_return))

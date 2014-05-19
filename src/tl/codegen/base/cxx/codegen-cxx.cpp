@@ -1778,6 +1778,18 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
     return 0;
 }
 
+template <typename Node>
+bool CxxBase::is_implicit_braced_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicitBracedArguments>());
+}
+
+template <>
+bool CxxBase::is_implicit_braced_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
 
 template <typename Node>
 bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
@@ -1860,6 +1872,15 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         {
             walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
+        return;
+    }
+    else if (is_implicit_braced_function_call(node))
+    {
+        Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
+        // Only emit { ... }
+        *file << "{ ";
+        walk_expression_list(arguments);
+        *file << " }";
         return;
     }
 
