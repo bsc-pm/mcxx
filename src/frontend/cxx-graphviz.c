@@ -331,7 +331,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             }
 
             int i;
-            for(i = 0; i < ASTNumChildren(a); i++)
+            for(i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
             {
                 if (ASTChild(a, i) != NULL)
                 {
