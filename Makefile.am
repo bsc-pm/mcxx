@@ -2661,6 +2661,8 @@ CONFIG_FILES =  \
        config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
        config/56.config.omp.mpi \
+       config/56.config.omp.intel.mpi \
+       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
        config/mpimcc \
        config/mpimcxx \
