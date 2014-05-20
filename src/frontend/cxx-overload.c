@@ -1708,8 +1708,12 @@ static char better_ics(implicit_conversion_sequence_t ics1,
     else if (ics1.kind == ICSK_USER_DEFINED
             && ics2.kind == ICSK_USER_DEFINED
             // They are not list ics at the same time
-            && ics1.is_list_ics != ics2.is_list_ics)
+            && !(ics1.is_list_ics && ics2.is_list_ics))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: ICS1 and ICS2 are both user-defined conversions\n");
+        }
         // User-defined conversion sequence U1 is a better conversion sequence
         // than another user-defined conversion sequence U2 if they contain
         // the same user-defined conversion function or constructor or they
@@ -1725,9 +1729,14 @@ static char better_ics(implicit_conversion_sequence_t ics1,
     }
     else if (ics1.kind == ICSK_USER_DEFINED
             && ics2.kind == ICSK_USER_DEFINED
+            // Both are list ICS
             && ics1.is_list_ics
             && ics2.is_list_ics)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: ICS1 and ICS2 are both (user-defined) list-conversion sequences\n");
+        }
         scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
                 CURRENT_COMPILED_FILE->global_decl_context,
                 make_locus("", 0, 0), /* mandatory */ 0);
