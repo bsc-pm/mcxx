@@ -237,7 +237,8 @@ expression : literal
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
 
 structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
-      | NODECL_STRUCTURED_VALUE_BRACED()
+      | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
+      | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
       | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt

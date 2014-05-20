@@ -15457,7 +15457,9 @@ void check_nodecl_braced_initializer(
         }
 
         *nodecl_output = nodecl_make_structured_value(init_list_output,
-                /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                /* structured-value-form */ is_explicit_type_cast
+                ? nodecl_make_structured_value_braced_typecast(locus)
+                : nodecl_make_structured_value_braced_implicit(locus),
                 initializer_type, locus);
         return;
     }
@@ -15828,7 +15830,9 @@ void check_nodecl_braced_initializer(
                         /* called name */ nodecl_null(),
                         nodecl_make_list_1(nodecl_make_structured_value(
                                 nodecl_arguments_output,
-                                /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                                /* structured-value-form */ is_explicit_type_cast
+                                ? nodecl_make_structured_value_braced_typecast(locus)
+                                : nodecl_make_structured_value_braced_implicit(locus),
                                 specialized_std_initializer,
                                 locus)),
                         nodecl_make_cxx_function_form_implicit(
@@ -15894,7 +15898,9 @@ void check_nodecl_braced_initializer(
 
             *nodecl_output = nodecl_make_structured_value(
                     nodecl_make_list_1(nodecl_expr_out),
-                    /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                    /* structured-value-form */ is_explicit_type_cast
+                    ? nodecl_make_structured_value_braced_typecast(locus)
+                    : nodecl_make_structured_value_braced_implicit(locus),
                     nodecl_get_type(nodecl_expr_out),
                     locus);
 
@@ -15906,7 +15912,9 @@ void check_nodecl_braced_initializer(
             // Empty is OK
             *nodecl_output = nodecl_make_structured_value(
                     nodecl_null(),
-                    /* structured-value-form */ nodecl_make_structured_value_braced(locus),
+                    /* structured-value-form */ is_explicit_type_cast
+                    ? nodecl_make_structured_value_braced_typecast(locus)
+                    : nodecl_make_structured_value_braced_implicit(locus),
                     declared_type,
                     locus);
             return;

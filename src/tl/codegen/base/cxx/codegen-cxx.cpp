@@ -3237,7 +3237,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     {
         bool braces = false;
         if (!init_expr.as<Nodecl::StructuredValue>().get_form().is_null()
-                && init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBraced>())
+                && (init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>()
+                    || init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedTypecast>()))
             braces = true;
 
         if (braces)
@@ -3731,14 +3732,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         COMPOUND_LITERAL, // C99 (struct X){initializer-clause}
         EXPLICIT_TYPECAST_PARENTHESIZED, // C++03   T(1, 2)
         EXPLICIT_TYPECAST_BRACED, // C++11   T{1, 2}
+        IMPLICIT_BRACED, // C++11   {1, 2}
         UNKNOWN, // The node does not have an explicit form
     } structured_value_form = INVALID;
 
     if (!form.is_null())
     {
-        if (form.is<Nodecl::StructuredValueBraced>())
+        if (form.is<Nodecl::StructuredValueBracedTypecast>())
         {
             structured_value_form = EXPLICIT_TYPECAST_BRACED;
+        }
+        else if (form.is<Nodecl::StructuredValueBracedImplicit>())
+        {
+            structured_value_form = IMPLICIT_BRACED;
         }
         else if (form.is<Nodecl::StructuredValueParenthesized>())
         {
@@ -3803,6 +3809,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         *(file) << "(";
     }
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "{";
@@ -3814,6 +3821,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     state.inside_structured_value = inside_structured_value;
 
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "}";
