@@ -131,6 +131,9 @@ static void copy_on_write_implicit(decl_context_t decl_context)
 
 void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type)
 {
+    from_letter = tolower(from_letter);
+    to_letter = tolower(to_letter);
+
     copy_on_write_implicit(decl_context);
 
     char letter = from_letter;
