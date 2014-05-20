@@ -17418,11 +17418,23 @@ static void build_scope_return_statement(AST a,
         {
             if (!nodecl_expr_is_type_dependent(nodecl_expr))
             {
-                check_nodecl_expr_initializer(nodecl_expr, 
-                        decl_context,
-                        return_type,
-                        /* disallow_narrowing */ 0,
-                        &nodecl_return);
+                if (nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER)
+                {
+                    check_nodecl_braced_initializer(
+                            nodecl_expr,
+                            decl_context,
+                            return_type,
+                            /* disallow_narrowing */ 0,
+                            &nodecl_return);
+                }
+                else
+                {
+                    check_nodecl_expr_initializer(nodecl_expr, 
+                            decl_context,
+                            return_type,
+                            /* disallow_narrowing */ 0,
+                            &nodecl_return);
+                }
 
                 if (nodecl_is_err_expr(nodecl_return))
                 {

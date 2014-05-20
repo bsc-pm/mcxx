@@ -2795,49 +2795,14 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         {
             type_t* param_type_0 = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
-            if (is_class_type(param_type_0))
+            nodecl_t old_lhs = *lhs;
+            check_nodecl_function_argument_initialization(*lhs, decl_context, param_type_0,
+                    /* disallow_narrowing */ 0,
+                    lhs);
+            if (nodecl_is_err_expr(*lhs))
             {
-                nodecl_t old_lhs = *lhs;
-                check_nodecl_expr_initializer(*lhs, decl_context, param_type_0,
-                        /* disallow_narrowing */ 0,
-                        lhs);
-                if (nodecl_is_err_expr(*lhs))
-                {
-                    nodecl_free(old_lhs);
-                    return get_error_type();
-                }
-            }
-            else
-            {
-                if (is_unresolved_overloaded_type(lhs_type))
-                {
-                    update_unresolved_overload_argument(lhs_type,
-                            param_type_0,
-                            decl_context,
-                            nodecl_get_locus(*lhs),
-                            lhs);
-                }
-
-                if (conversors[0] != NULL)
-                {
-                    if (function_has_been_deleted(decl_context, conversors[0], locus))
-                    {
-                        return get_error_type();
-                    }
-
-                    nodecl_t nodecl_conversor =
-                        nodecl_make_symbol(conversors[0], nodecl_get_locus(*lhs));
-                    nodecl_set_type(nodecl_conversor, conversors[0]->type_information);
-
-                    *lhs = cxx_nodecl_make_function_call(
-                            nodecl_conversor,
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(*lhs),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*lhs)),
-                            actual_type_of_conversor(conversors[0]),
-                            decl_context,
-                            nodecl_get_locus(*lhs));
-                }
+                nodecl_free(old_lhs);
+                return get_error_type();
             }
         }
 
@@ -2852,48 +2817,14 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             param_type_1 = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
         }
 
-        if (is_class_type(param_type_1))
+        nodecl_t old_rhs = *rhs;
+        check_nodecl_function_argument_initialization(*rhs, decl_context, param_type_1,
+                /* disallow_narrowing */ 0,
+                rhs);
+        if (nodecl_is_err_expr(*rhs))
         {
-            nodecl_t old_rhs = *rhs;
-            check_nodecl_expr_initializer(*rhs, decl_context, param_type_1,
-                    /* disallow_narrowing */ 0,
-                    rhs);
-            if (nodecl_is_err_expr(*rhs))
-            {
-                nodecl_free(old_rhs);
-                return get_error_type();
-            }
-        }
-        else
-        {
-            if (is_unresolved_overloaded_type(rhs_type))
-            {
-                update_unresolved_overload_argument(rhs_type,
-                        param_type_1,
-                        decl_context,
-                        nodecl_get_locus(*rhs),
-                        rhs);
-            }
-
-            if (conversors[1] != NULL)
-            {
-                if (function_has_been_deleted(decl_context, conversors[1], locus))
-                {
-                    return get_error_type();
-                }
-                nodecl_t nodecl_conversor = 
-                        nodecl_make_symbol(conversors[1], nodecl_get_locus(*rhs));
-                nodecl_set_type(nodecl_conversor, conversors[1]->type_information);
-
-                *rhs = cxx_nodecl_make_function_call(
-                        nodecl_conversor,
-                        /* called name */ nodecl_null(),
-                        nodecl_make_list_1(*rhs),
-                        nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*rhs)),
-                        actual_type_of_conversor(conversors[1]),
-                        decl_context,
-                        nodecl_get_locus(*rhs));
-            }
+            nodecl_free(old_rhs);
+            return get_error_type();
         }
 
         *selected_operator = overloaded_call;
@@ -3010,49 +2941,14 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         {
             type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
-            if (is_class_type(param_type))
+            nodecl_t old_op = *op;
+            check_nodecl_function_argument_initialization(*op, decl_context, param_type,
+                    /* disallow_narrowing */ 0,
+                    op);
+            if (nodecl_is_err_expr(*op))
             {
-                nodecl_t old_op = *op;
-                check_nodecl_expr_initializer(*op, decl_context, param_type,
-                        /* disallow_narrowing */ 0,
-                        op);
-                if (nodecl_is_err_expr(*op))
-                {
-                    nodecl_free(old_op);
-                    return get_error_type();
-                }
-            }
-            else
-            {
-                if (is_unresolved_overloaded_type(op_type))
-                {
-                    update_unresolved_overload_argument(op_type,
-                            param_type,
-                            decl_context,
-                            nodecl_get_locus(*op),
-                            op);
-                }
-
-                if (conversors[0] != NULL)
-                {
-                    if (function_has_been_deleted(decl_context, conversors[0], locus))
-                    {
-                        return get_error_type();
-                    }
-
-                    nodecl_t nodecl_conversor = 
-                            nodecl_make_symbol(conversors[0], nodecl_get_locus(*op));
-                    nodecl_set_type(nodecl_conversor, conversors[0]->type_information);
-
-                    *op = cxx_nodecl_make_function_call(
-                            nodecl_conversor,
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(*op),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_locus(*op)),
-                            actual_type_of_conversor(conversors[0]),
-                            decl_context,
-                            nodecl_get_locus(*op));
-                }
+                nodecl_free(old_op);
+                return get_error_type();
             }
         }
 
@@ -3251,6 +3147,7 @@ static char update_simplified_unresolved_overloaded_type(scope_entry_t* entry,
         const locus_t* locus,
         nodecl_t *nodecl_output)
 {
+    function_has_been_deleted(decl_context, entry, locus);
     if (!entry->entity_specs.is_member
             || entry->entity_specs.is_static)
     {
@@ -7527,51 +7424,16 @@ static void check_nodecl_array_subscript_expression_cxx(
 
             type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
-            if (is_class_type(param_type))
+            nodecl_t old_nodecl_subscript = nodecl_subscript;
+            check_nodecl_function_argument_initialization(nodecl_subscript, decl_context, param_type,
+                    /* disallow_narrowing */ 0,
+                    &nodecl_subscript);
+            if (nodecl_is_err_expr(nodecl_subscript))
             {
-                nodecl_t old_nodecl_subscript = nodecl_subscript;
-                check_nodecl_expr_initializer(nodecl_subscript, decl_context, param_type,
-                        /* disallow_narrowing */ 0,
-                        &nodecl_subscript);
-                if (nodecl_is_err_expr(nodecl_subscript))
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    nodecl_free(nodecl_subscripted);
-                    nodecl_free(old_nodecl_subscript);
-                    return;
-                }
-            }
-            else
-            {
-                if (is_unresolved_overloaded_type(subscript_type))
-                {
-                    update_unresolved_overload_argument(subscript_type,
-                            param_type,
-                            decl_context,
-                            nodecl_get_locus(nodecl_subscript),
-                            &nodecl_subscript);
-                }
-
-                if (conversors[1] != NULL)
-                {
-                    if (function_has_been_deleted(decl_context, conversors[1], locus))
-                    {
-                        *nodecl_output = nodecl_make_err_expr(locus);
-                        nodecl_free(nodecl_subscripted);
-                        nodecl_free(nodecl_subscript);
-                        return;
-                    }
-
-                    nodecl_subscript = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[1], locus),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(nodecl_subscript),
-                            nodecl_make_cxx_function_form_implicit(locus),
-                            actual_type_of_conversor(conversors[1]),
-                            decl_context,
-                            locus);
-
-                }
+                *nodecl_output = nodecl_make_err_expr(locus);
+                nodecl_free(nodecl_subscripted);
+                nodecl_free(old_nodecl_subscript);
+                return;
             }
 
             type_t* t = function_type_get_return_type(overloaded_call->type_information);
@@ -8697,7 +8559,7 @@ void check_nodecl_expr_initializer_in_argument(nodecl_t expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
-static void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
+void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
         decl_context_t decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
@@ -8921,56 +8783,19 @@ static void check_new_expression_impl(
 
         for (i = 0; i < num_items; i++)
         {
-            int j = i + 2;
-
             nodecl_t nodecl_expr = list[i];
 
             type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
 
-            if (is_class_type(param_type))
+            nodecl_t old_nodecl_expr = nodecl_expr;
+            check_nodecl_function_argument_initialization(nodecl_expr, decl_context, param_type,
+                    /* disallow_narrowing */ 0,
+                    &nodecl_expr);
+            if (nodecl_is_err_expr(nodecl_expr))
             {
-                nodecl_t old_nodecl_expr = nodecl_expr;
-                check_nodecl_expr_initializer(nodecl_expr, decl_context, param_type,
-                        /* disallow_narrowing */ 0,
-                        &nodecl_expr);
-                if (nodecl_is_err_expr(nodecl_expr))
-                {
-                    nodecl_free(old_nodecl_expr);
-                    *nodecl_output = nodecl_expr;
-                    return;
-                }
-            }
-            else
-            {
-                if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
-                {
-                    update_unresolved_overload_argument(nodecl_get_type(nodecl_expr),
-                            param_type,
-                            decl_context,
-                            nodecl_get_locus(nodecl_expr),
-                            &nodecl_expr);
-                }
-
-                if (conversors[j] != NULL)
-                {
-                    if (function_has_been_deleted(decl_context, conversors[j], locus))
-                    {
-                        *nodecl_output = nodecl_make_err_expr(locus);
-                        nodecl_free(nodecl_placement_list);
-                        nodecl_free(nodecl_initializer);
-                        return;
-                    }
-
-                    nodecl_expr = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[j], nodecl_get_locus(nodecl_expr)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(nodecl_expr),
-                            nodecl_make_cxx_function_form_implicit(
-                                nodecl_get_locus(nodecl_expr)),
-                            actual_type_of_conversor(conversors[j]),
-                            decl_context,
-                            nodecl_get_locus(nodecl_expr));
-                }
+                nodecl_free(old_nodecl_expr);
+                *nodecl_output = nodecl_expr;
+                return;
             }
 
             nodecl_placement_list_out = nodecl_append_to_list(nodecl_placement_list_out,
@@ -10699,7 +10524,7 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
         int num_parameter, nodecl_t *arg, check_arg_data_t* p)
 {
     nodecl_t old_arg = *arg;
-    check_nodecl_expr_initializer(*arg, p->decl_context, param_type,
+    check_nodecl_function_argument_initialization(*arg, p->decl_context, param_type,
             /* disallow_narrowing */ 0, arg);
 
     if (nodecl_is_err_expr(*arg))
@@ -11859,76 +11684,15 @@ static void check_nodecl_function_call_cxx(
             {
                 type_t* param_type = function_type_get_parameter_type_num(function_type_of_called, i);
 
-                if (is_class_type(param_type))
+                nodecl_t nodecl_old_arg = nodecl_arg;
+                check_nodecl_function_argument_initialization(nodecl_arg, decl_context, param_type,
+                        /* disallow_narrowing */ 0,
+                        &nodecl_arg);
+                if (nodecl_is_err_expr(nodecl_arg))
                 {
-                    nodecl_t nodecl_old_arg = nodecl_arg;
-                    check_nodecl_expr_initializer(nodecl_arg, decl_context, param_type,
-                            /* disallow_narrowing */ 0,
-                            &nodecl_arg);
-                    if (nodecl_is_err_expr(nodecl_arg))
-                    {
-                        *nodecl_output = nodecl_arg;
-                        nodecl_free(nodecl_old_arg);
-                        return;
-                    }
-                }
-                else
-                {
-                    if (is_unresolved_overloaded_type(arg_type))
-                    {
-                        update_unresolved_overload_argument(arg_type,
-                                param_type,
-                                decl_context,
-                                nodecl_get_locus(nodecl_arg),
-                                &nodecl_arg);
-                    }
-
-                    if (conversors[arg_i] != NULL)
-                    {
-                        if (function_has_been_deleted(decl_context, conversors[arg_i], locus))
-                        {
-                            *nodecl_output = nodecl_make_err_expr(locus);
-                            nodecl_free(nodecl_called);
-                            nodecl_free(nodecl_argument_list);
-                            return;
-                        }
-                        nodecl_t nodecl_conversor =
-                                nodecl_make_symbol(conversors[arg_i], nodecl_get_locus(nodecl_arg));
-                        nodecl_set_type(nodecl_conversor, conversors[arg_i]->type_information);
-
-                        nodecl_t arg_of_conversor;
-                        if (nodecl_get_kind(nodecl_arg) == NODECL_CXX_BRACED_INITIALIZER)
-                        {
-                            nodecl_t old_arg = nodecl_arg;
-                            arg_of_conversor = nodecl_shallow_copy(
-                                    nodecl_get_child(nodecl_arg, 0));
-                            nodecl_free(old_arg);
-
-                            nodecl_arg = cxx_nodecl_make_function_call(
-                                    nodecl_conversor,
-                                    /* called name */ nodecl_null(),
-                                    arg_of_conversor,
-                                    /* function-form */ nodecl_make_cxx_function_form_implicit_braced_arguments(
-                                        nodecl_get_locus(nodecl_arg)),
-                                    actual_type_of_conversor(conversors[arg_i]),
-                                    decl_context,
-                                    nodecl_get_locus(nodecl_arg));
-                        }
-                        else
-                        {
-                            arg_of_conversor = nodecl_make_list_1(nodecl_arg);
-                            nodecl_arg = cxx_nodecl_make_function_call(
-                                    nodecl_conversor,
-                                    /* called name */ nodecl_null(),
-                                    arg_of_conversor,
-                                    nodecl_make_cxx_function_form_implicit(
-                                        nodecl_get_locus(nodecl_arg)),
-                                    actual_type_of_conversor(conversors[arg_i]),
-                                    decl_context,
-                                    nodecl_get_locus(nodecl_arg));
-                        }
-
-                    }
+                    *nodecl_output = nodecl_arg;
+                    nodecl_free(nodecl_old_arg);
+                    return;
                 }
             }
             else
@@ -14045,43 +13809,15 @@ static void check_postoperator_user_defined(
     {
         type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
-        if (is_class_type(param_type))
+        nodecl_t old_post = postoperated_expr;
+        check_nodecl_function_argument_initialization(postoperated_expr, decl_context, param_type,
+                /* disallow_narrowing */ 0,
+                &postoperated_expr);
+        if (nodecl_is_err_expr(postoperated_expr))
         {
-            nodecl_t old_post = postoperated_expr;
-            check_nodecl_expr_initializer(postoperated_expr, decl_context, param_type,
-                    /* disallow_narrowing */ 0,
-                    &postoperated_expr);
-            if (nodecl_is_err_expr(postoperated_expr))
-            {
-                nodecl_free(old_post);
-                *nodecl_output = postoperated_expr;
-                return;
-            }
-        }
-        else
-        {
-            if (conversors[0] != NULL)
-            {
-                if (function_has_been_deleted(decl_context, conversors[0], 
-                            nodecl_get_locus(postoperated_expr)))
-                {
-                    *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(postoperated_expr));
-                    nodecl_free(postoperated_expr);
-                    return;
-                }
-
-                postoperated_expr =
-                    cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], 
-                                nodecl_get_locus(postoperated_expr)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(postoperated_expr),
-                            nodecl_make_cxx_function_form_implicit(
-                                nodecl_get_locus(postoperated_expr)),
-                            actual_type_of_conversor(conversors[0]), 
-                            decl_context,
-                            nodecl_get_locus(postoperated_expr));
-            }
+            nodecl_free(old_post);
+            *nodecl_output = postoperated_expr;
+            return;
         }
     }
 
@@ -14203,40 +13939,15 @@ static void check_preoperator_user_defined(AST operator,
     {
         type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
-        if (is_class_type(param_type))
+        nodecl_t old_pre = preoperated_expr;
+        check_nodecl_function_argument_initialization(preoperated_expr, decl_context, param_type,
+                /* disallow_narrowing */ 0,
+                &preoperated_expr);
+        if (nodecl_is_err_expr(preoperated_expr))
         {
-            nodecl_t old_pre = preoperated_expr;
-            check_nodecl_expr_initializer(preoperated_expr, decl_context, param_type,
-                    /* disallow_narrowing */ 0,
-                    &preoperated_expr);
-            if (nodecl_is_err_expr(preoperated_expr))
-            {
-                nodecl_free(old_pre);
-                *nodecl_output = preoperated_expr;
-                return;
-            }
-        }
-        else
-        {
-            if (conversors[0] != NULL)
-            {
-                if (function_has_been_deleted(decl_context, conversors[0], nodecl_get_locus(preoperated_expr)))
-                {
-                    *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(preoperated_expr));
-                    nodecl_free(preoperated_expr);
-                    return;
-                }
-
-                preoperated_expr = 
-                    cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[0], nodecl_get_locus(preoperated_expr)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(preoperated_expr),
-                            nodecl_make_cxx_function_form_implicit(nodecl_get_locus(preoperated_expr)),
-                            actual_type_of_conversor(conversors[0]),
-                            decl_context,
-                            nodecl_get_locus(preoperated_expr));
-            }
+            nodecl_free(old_pre);
+            *nodecl_output = preoperated_expr;
+            return;
         }
     }
 
@@ -15308,7 +15019,7 @@ char check_narrowing_conversion(nodecl_t orig_expr,
     return 0;
 }
 
-static void check_nodecl_braced_initializer(
+void check_nodecl_braced_initializer(
         nodecl_t braced_initializer,
         decl_context_t decl_context,
         type_t* declared_type,
@@ -17173,7 +16884,8 @@ static void unary_record_conversion_to_result_for_initializer(type_t* result, no
     }
 }
 
-void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
+void check_nodecl_function_argument_initialization(
+        nodecl_t nodecl_expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
@@ -17184,8 +16896,25 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     {
         check_nodecl_braced_initializer(nodecl_expr, decl_context, declared_type,
                 /* is_explicit_type_cast */ 0, nodecl_output);
-        return;
     }
+    else
+    {
+        check_nodecl_expr_initializer(nodecl_expr,
+                decl_context,
+                declared_type,
+                disallow_narrowing,
+                nodecl_output);
+    }
+}
+
+void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        char disallow_narrowing,
+        nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER,
+            "Do not call this function using a NODECL_CXX_BRACED_INITIALIZER", 0);
 
     DEBUG_CODE()
     {
@@ -17281,12 +17010,18 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
                     print_decl_type_str(initializer_expr_type, decl_context, ""),
                     print_decl_type_str(declared_type, decl_context, ""));
-            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+            *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
 
         if (conversor != NULL)
         {
+            if (function_has_been_deleted(decl_context, conversor, locus))
+            {
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                return;
+            }
+
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor,
                         nodecl_get_locus(nodecl_expr)),
@@ -17368,6 +17103,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         }
         else
         {
+            if (function_has_been_deleted(decl_context, chosen_constructor, locus))
+            {
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                return;
+            }
+
             entry_list_free(candidates);
             if (function_has_been_deleted(decl_context, chosen_constructor, nodecl_get_locus(nodecl_expr)))
             {
@@ -17380,6 +17121,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         if (conversor != NULL)
         {
+            if (function_has_been_deleted(decl_context, conversor, locus))
+            {
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
+                return;
+            }
+
             nodecl_expr = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor, nodecl_get_locus(nodecl_expr)),
                     /* called name */ nodecl_null(),
@@ -17564,7 +17311,8 @@ void check_nodecl_initialization(
     }
 }
 
-static void check_nodecl_initializer_clause(nodecl_t initializer_clause, 
+static void check_nodecl_initializer_clause(
+        nodecl_t initializer_clause, 
         decl_context_t decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
