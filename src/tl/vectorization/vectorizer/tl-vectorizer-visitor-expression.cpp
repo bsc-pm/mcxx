@@ -580,7 +580,7 @@ namespace Vectorization
                     is_invariant(_environment._analysis_simd_scope,
                         lhs, lhs))
             {
-                std::cerr << "Constant store: " << lhs.prettyprint()
+                std::cerr << "VECTORIZER: Constant store: " << lhs.prettyprint()
                     << std::endl;
                 running_error("Vectorizer: Extract operation is not "\
                         "supported yet (%s).", lhs.prettyprint().c_str());
@@ -968,7 +968,7 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     n, n))
         {
-            std::cerr << "Constant load: " << n.prettyprint() << "\n";
+            std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
 
             // Deal with Nodecl::Conversions
             Nodecl::NodeclBase encapsulated_symbol = n;

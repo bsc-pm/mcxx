@@ -97,19 +97,32 @@ namespace Vectorization
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
     }
 
-    void Vectorizer::vectorize(Nodecl::ForStatement& for_statement,
+    void Vectorizer::vectorize_loop(Nodecl::NodeclBase& loop_statement,
             VectorizerEnvironment& environment)
     {
-        VECTORIZATION_DEBUG()
+        if (loop_statement.is<Nodecl::ForStatement>())
         {
-            fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
+            }
+
+            VectorizerVisitorFor visitor_for(environment);
+            visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
+        }
+        else if (loop_statement.is<Nodecl::WhileStatement>())
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: ----- Vectorizing main WhileStatement -----\n");
+            }
+
+
         }
 
-        VectorizerVisitorFor visitor_for(environment);
-        visitor_for.walk(for_statement);
-
         // Applying strenth reduction
-        TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
+        TL::Optimizations::canonicalize_and_fold(
+                loop_statement, _fast_math_enabled);
 
         VECTORIZATION_DEBUG()
         {
@@ -117,7 +130,7 @@ namespace Vectorization
         }
     }
 
-    void Vectorizer::vectorize(Nodecl::FunctionCode& func_code,
+    void Vectorizer::vectorize_function(Nodecl::FunctionCode& func_code,
             VectorizerEnvironment& environment,
             const bool masked_version)
     {
@@ -193,14 +206,13 @@ namespace Vectorization
                 reduction_name, reduction_type);
     }
 
-    int Vectorizer::get_epilog_info(const Nodecl::ForStatement& for_statement,
+    int Vectorizer::get_epilog_info(const Nodecl::NodeclBase& loop_statement,
             VectorizerEnvironment& environment,
             bool& only_epilog)
     {
-        VectorizerLoopInfo loop_info(for_statement, environment);
+        VectorizerLoopInfo loop_info(loop_statement, environment);
 
-        return loop_info.get_epilog_info(for_statement,
-                environment, only_epilog);
+        return loop_info.get_epilog_info(only_epilog);
     }
 
     void Vectorizer::vectorize_reduction(const TL::Symbol& scalar_symbol,

@@ -69,9 +69,9 @@ namespace TL
                         const VectorizerEnvironment& environment);
                 void postprocess_code(const Nodecl::NodeclBase& n);
 
-                void vectorize(Nodecl::ForStatement& for_statement,
+                void vectorize_loop(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment);
-                void vectorize(Nodecl::FunctionCode& func_code,
+                void vectorize_function(Nodecl::FunctionCode& func_code,
                         VectorizerEnvironment& environment,
                         const bool masked_version);
                 void vectorize_parallel(Nodecl::NodeclBase& statements,
@@ -83,7 +83,7 @@ namespace TL
                         int epilog_iterations,
                         bool only_epilog,
                         bool is_parallel_loop);
-                int get_epilog_info(const Nodecl::ForStatement& for_statement,
+                int get_epilog_info(const Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
                         bool& only_epilog);
 
