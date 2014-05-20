@@ -165,23 +165,28 @@ namespace Analysis {
             const Nodecl::NodeclBase& n)
     {
         bool result = false;
-
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs =
-            scope_node->get_induction_variables();
-        ObjectList<TL::Symbol> reductions =
-            scope_node->get_reductions();
-
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
-                it != ivs.end( ); ++it )
+        
+                                           //TODO: Implement a is_function_code_node        
+        if (scope_node->is_loop_node() || (scope_node->is_graph_node() &&
+                    scope_node->get_graph_related_ast().is<Nodecl::FunctionCode>()))
         {
-            if( !reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
+            ObjectList<Analysis::Utils::InductionVariableData*> ivs =
+                scope_node->get_induction_variables();
+            ObjectList<TL::Symbol> reductions =
+                scope_node->get_reductions();
+
+            for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
+                    it != ivs.end( ); ++it )
             {
-                if ( Nodecl::Utils::structurally_equal_nodecls(
-                            ( *it )->get_variable( ).get_nodecl( ), n,
-                            /* skip conversion nodes */ true ) )
+                if( !reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
                 {
-                    result = ( *it )->is_basic( );
-                    break;
+                    if ( Nodecl::Utils::structurally_equal_nodecls(
+                                ( *it )->get_variable( ).get_nodecl( ), n,
+                                /* skip conversion nodes */ true ) )
+                    {
+                        result = ( *it )->is_basic( );
+                        break;
+                    }
                 }
             }
         }
