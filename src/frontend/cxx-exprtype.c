@@ -3498,6 +3498,26 @@ void compute_bin_operator_pow_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 }
 
 static
+char value_not_valid_for_divisor(const_value_t* v)
+{
+    if (const_value_is_zero(v))
+        return 1;
+
+    if (const_value_is_vector(v))
+    {
+        int num_elems = const_value_get_num_elements(v);
+        int i;
+        for (i = 0; i < num_elems; i++)
+        {
+            if (const_value_is_zero(const_value_get_element_num(v, i)))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
+static
 void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
         const locus_t* locus, nodecl_t* nodecl_output)
 {
@@ -3508,10 +3528,21 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
                 ASTLeaf(AST_DIV_OPERATOR, make_locus("", 0, 0), NULL), make_locus("", 0, 0), NULL);
     }
 
-    compute_bin_operator_only_arithmetic_types(lhs, rhs, operation_tree, 
-            decl_context, 
+    const_value_t* (*const_value_div_safe)(const_value_t*, const_value_t*) = const_value_div;
+
+    if (nodecl_is_constant(*rhs)
+            && value_not_valid_for_divisor(nodecl_get_constant(*rhs)))
+    {
+        warn_printf("%s: warning: division by zero\n",
+                nodecl_locus_to_str(*rhs));
+        // Disable constant evaluation
+        const_value_div_safe = NULL;
+    }
+
+    compute_bin_operator_only_arithmetic_types(lhs, rhs, operation_tree,
+            decl_context,
             nodecl_make_div,
-            const_value_div,
+            const_value_div_safe,
             locus,
             nodecl_output);
 }
