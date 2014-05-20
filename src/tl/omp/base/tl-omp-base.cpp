@@ -1316,37 +1316,19 @@ namespace TL { namespace OpenMP {
 
             process_common_simd_clauses(stmt, pragma_line, environment);
 
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase statements = stmt.get_statements();
-            ERROR_CONDITION(!statements.is<Nodecl::List>(),
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (1)", 0);
-            Nodecl::List ast_list_node = statements.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node.size() != 1,
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (1)", 0);
+            Nodecl::NodeclBase loop_statement = get_statement_from_pragma(stmt);
 
-            // Skipping NODECL_CONTEXT
-            Nodecl::NodeclBase context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(),
-                    "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
-
-            // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(),
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
-            Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1,
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
-
-            Nodecl::NodeclBase for_statement = ast_list_node2.front();
-            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
-                    ast_print_node_type(for_statement.get_kind()));
+            ERROR_CONDITION(!(loop_statement.is<Nodecl::ForStatement>() ||
+                    loop_statement.is<Nodecl::WhileStatement>()),
+                    "Unexpected node %s. Expecting a for-statement or while-statement"\
+                    " after '#pragma omp simd'", 
+                    ast_print_node_type(loop_statement.get_kind()));
 
             Nodecl::OpenMP::Simd omp_simd_node =
                Nodecl::OpenMP::Simd::make(
-                       for_statement.shallow_copy(),
+                       loop_statement.shallow_copy(),
                        environment,
-                       for_statement.get_locus());
+                       loop_statement.get_locus());
 
             pragma_line.diagnostic_unused_clauses();
             stmt.replace(Nodecl::List::make(omp_simd_node));
