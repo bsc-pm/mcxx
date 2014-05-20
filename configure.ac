@@ -1364,6 +1364,7 @@ AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
+AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
 
 dnl ------------------------------------
 

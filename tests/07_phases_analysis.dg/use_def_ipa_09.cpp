@@ -25,40 +25,29 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_compile_fail=yes
  test_nolink=yes
  </testinfo>
  */
 
-#define N  4
+// #include <assert.h>
 
-unsigned long long int square[N][N];
+static int N = 0;
+int M = 0;
 
-void sequential_(int x, int y)
+void foo(int n = N, int* m = &M);
+// {
+//     n += 1;
+//     *m += 1;
+// }
+
+int main()
 {
-    #pragma analysis_check assert defined(square[x][y], x, y) \
-                           upper_exposed(square[x][y], square[x-1][y], square[x][y-1])
-    for (x = 1; x < N; x++) {
-        for (y = 1; y < N; y++) {
-            square[x][y] = square[x-1][y] + square[x][y] + square[x][y-1];
-        }
-    }
-}
-
-void sequential(int a, int b)
-{
-    #pragma analysis_check assert defined(square[a][b]) \
-                           upper_exposed(square[a][b], square[a-1][b], square[a][b-1], a, b)
-    sequential_(a, b);
-}
-
-void ompss(int h, int j)
-{
-    #pragma analysis_check assert defined(square[h][j]) \
-                           upper_exposed(square[h][j], square[h-1][j], square[h][j], square[h][j-1], h, j)
-    sequential(h, j);
+    #pragma analysis_check assert undefined(N, M)
+    foo();
+    
+//     assert(N==0 && M==1);
+    return 0;
 }

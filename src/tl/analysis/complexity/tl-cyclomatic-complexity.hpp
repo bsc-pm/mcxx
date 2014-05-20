@@ -26,50 +26,41 @@
 
 
 
-#ifndef TL_ANALYSIS_CHECK_PHASE_HPP
-#define TL_ANALYSIS_CHECK_PHASE_HPP
+#ifndef TL_CYCLOMATIC_COMPLEXITY_HPP
+#define TL_CYCLOMATIC_COMPLEXITY_HPP
 
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include "tl-pragmasupport.hpp"
 
 namespace TL {
 namespace Analysis {
-
-    //! Phase checks the correctness of analysis
-    class LIBTL_CLASS AnalysisCheckPhase : public PragmaCustomCompilerPhase
-    {
+    
+    class LIBTL_CLASS CyclomaticComplexity {
     private:
-
+        // *** Class members *** //
+        ExtensibleGraph* _pcfg;
+        unsigned int _num_edges;
+        unsigned int _num_nodes;
+        unsigned int _num_exits;
+        
+        // *** Class private member functions *** //
+        void compute_cyclomatic_complexity_rec(Node* n, bool in_split_node);
+        
     public:
-        //! Constructor of this phase
-        AnalysisCheckPhase( );
-
-        void assert_handler_pre( TL::PragmaCustomStatement directive );
-        void assert_handler_post( TL::PragmaCustomStatement directive );
-        void assert_decl_handler_pre( TL::PragmaCustomDeclaration directive );
-        void assert_decl_handler_post( TL::PragmaCustomDeclaration directive );
+        // *** Constructor *** //
+        CyclomaticComplexity(ExtensibleGraph* pcfg);
         
-        void check_pcfg_consistency( ExtensibleGraph* graph );
-        void check_analysis_assertions( ExtensibleGraph* graph );
-        
-        //!Entry point of the phase
-        virtual void pre_run( TL::DTO& dto );
-        virtual void run( TL::DTO& dto );
-        
-        virtual ~AnalysisCheckPhase( ) { }
+        /*! The cyclomatic complexity of a code is the count of the number of linearly independent paths
+         * through the code. Mathematically, it is defined with reference to the Control Flow Graph.
+         * The complexity M is then defined as M = E - N + 2P, where:
+         *     E is the number of edges of the graph
+         *     N is the number of nodes of the graph
+         *     P is the number of connected components (exit nodes)
+         */
+        unsigned int compute_cyclomatic_complexity();
     };
     
-    //! Visitor to delete Nodecl::Analysis nodes
-    class LIBTL_CLASS AnalysisCheckVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-    private:
-        
-    public:
-        Ret visit( const Nodecl::Analysis::Assert& n );
-        Ret visit( const Nodecl::Analysis::AssertDecl& n );
-    };
 }
 }
 
-#endif  // TL_ANALYSIS_CHECK_PHASE_HPP
+#endif      // TL_CYCLOMATIC_COMPLEXITY_HPP
