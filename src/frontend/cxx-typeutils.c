@@ -11021,6 +11021,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_integer_type(dest)
+                && !is_bool_type(dest)
                 && is_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && !equivalent_types(orig_underlying_type, dest))
