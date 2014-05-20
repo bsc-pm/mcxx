@@ -19583,15 +19583,14 @@ static void diagnostic_single_candidate(scope_entry_t* entry,
 {
     entry = entry_advance_aliases(entry);
     const char *c = NULL;
-    uniquestr_sprintf(&c, "%s: note:    %s%s%s%s\n",
+    uniquestr_sprintf(&c, "%s: note:    %s%s%s\n",
             locus_to_str(entry->locus),
             (entry->entity_specs.is_member && entry->entity_specs.is_static) ? "static " : "",
             !is_computed_function_type(entry->type_information)
             ?  print_decl_type_str(entry->type_information, entry->decl_context,
                 get_qualified_symbol_name(entry, entry->decl_context)) 
             : " <<generic function>>",
-            entry->entity_specs.is_builtin ? " [built-in]" : "",
-            !entry->entity_specs.is_user_declared ? " [implicit]" : ""
+            entry->entity_specs.is_builtin ? " [built-in]" : ""
             );
 
     *message = strappend(*message, c);
