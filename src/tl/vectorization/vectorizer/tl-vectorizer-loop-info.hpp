@@ -39,16 +39,13 @@ namespace Vectorization
     class VectorizerLoopInfo
     {
         private:
-            const VectorizerEnvironment _environment;
-
+            VectorizerEnvironment _environment;
             const Nodecl::NodeclBase _loop;
-            const Nodecl::NodeclBase _condition;
             const objlist_nodecl_t _ivs;
+            Nodecl::NodeclBase _condition;
 
         public:
-            VectorizerLoopInfo(const Nodecl::ForStatement& n,
-                    const VectorizerEnvironment& environment);
-            VectorizerLoopInfo(const Nodecl::WhileStatement& n,
+            VectorizerLoopInfo(const Nodecl::NodeclBase& n,
                     const VectorizerEnvironment& environment);
 /*
             bool ivs_lb_depend_on_simd_iv();
@@ -59,8 +56,7 @@ namespace Vectorization
             bool ivs_values_are_invariant_in_simd_scope();
             bool condition_is_invariant_in_simd_scope();
 
-            int get_epilog_info(const Nodecl::ForStatement& for_statement,
-                    VectorizerEnvironment& environment, bool& only_epilog);
+            int get_epilog_info(bool& only_epilog);
     };
 }
 }

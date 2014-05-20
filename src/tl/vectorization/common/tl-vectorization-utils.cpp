@@ -170,9 +170,10 @@ namespace Utils
             scope = n.as<Nodecl::FunctionCode>().get_statements().
                 retrieve_context();
         }
-        else if (n.is<Nodecl::ForStatement>())
+        else if (n.is<Nodecl::ForStatement>() ||
+                n.is<Nodecl::WhileStatement>())
         {
-            scope = n.as<Nodecl::ForStatement>().get_parent().get_parent().
+            scope = n.get_parent().get_parent().
                 get_parent().get_parent().retrieve_context();
         }
         else
