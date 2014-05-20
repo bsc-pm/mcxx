@@ -8581,7 +8581,6 @@ static void check_new_expression_impl(
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-
     char is_new_array = is_array_type(new_type);
 
     scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
@@ -8657,7 +8656,7 @@ static void check_new_expression_impl(
 
         op_new_context = class_type_get_inner_context(new_type);
     }
-    else 
+    else
     {
         // Use the global scope
         op_new_context.current_scope = op_new_context.global_scope;
@@ -8785,7 +8784,9 @@ static void check_new_expression_impl(
         {
             nodecl_t nodecl_expr = list[i];
 
-            type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
+            type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, 
+                    /* Because the first is always size_t */
+                    i + 1);
 
             nodecl_t old_nodecl_expr = nodecl_expr;
             check_nodecl_function_argument_initialization(nodecl_expr, decl_context, param_type,
