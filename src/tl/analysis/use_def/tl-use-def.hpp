@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2013 Barcelona* Supercomputing Center
+ (C) Copyright 2006-2013 Barcelona* Supercomputing Center
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,60 +31,61 @@
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-calc.hpp"
 #include "tl-nodecl-visitor.hpp"
+#include "tl-rename-visitor.hpp"
 
 namespace TL {
 namespace Analysis {
 
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
-
+    
+    typedef std::map<Nodecl::NodeclBase, Utils::UsageKind, Nodecl::Utils::Nodecl_structural_less> IpUsageMap;
+    
+    extern SizeMap _pointer_to_size_map;
+    
     //! Class implementing Use-Def Analysis
     class LIBTL_CLASS UseDef
     {
     private:
         //!Graph we are analyzing the usage which
         ExtensibleGraph* _graph;
-
-        //!Graphs containing those functions which code is reachable
-        ObjectList<ExtensibleGraph*>* _pcfgs;
         
-        //!Usage of Global Variables and Reference parameters, necessary to propage usage information in recursive calls
-        std::map<Symbol, Utils::UsageKind> _global_vars;
-        std::map<Symbol, Utils::UsageKind> _reference_params;
+        //!Usage of IPA modifiable variable (reference variables, pointed values of pointer parameters and global variables)
+        IpUsageMap _ipa_modif_vars;
+        
+        //!Initialize all IPA modifiable variables' usage to NONE
+        void initialize_ipa_var_usage();
         
         /*!Method that computes recursively the Use-Definition information from a node
          * \param current Node from which the method begins the computation
-         * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
-         * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
          */
-        void compute_usage_rec( Node* current );
+        void compute_usage_rec(Node* current);
         
         /*!Recursive method that returns a list with three elements:
          * - The first is the list of upper exposed variables of the graph node;
          * - The second is the list of killed variables of the graph node
          * - The third is the list of undefined variables of the graph
          */
-        ObjectList<Utils::ext_sym_set> get_use_def_over_nodes( Node* current );
+        ObjectList<Utils::ext_sym_set> get_use_def_over_nodes(Node* current);
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
-        void set_graph_node_use_def( Node* graph_node );
+        void set_graph_node_use_def(Node* graph_node);
         
         //! Propagate the use-def of the children of a task creation to the task_creation node
-        void propagate_task_usage_to_task_creation_node( Node* task_creation );
+        void propagate_task_usage_to_task_creation_node(Node* task_creation);
         
-        void merge_children_usage( Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars, 
-                                   Utils::ext_sym_set& undef_vars, int node_id );
+        void merge_children_usage(Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars, 
+                                   Utils::ext_sym_set& undef_vars, int node_id);
 
     public:
-        //! Constructor
-        UseDef( ExtensibleGraph* graph, ObjectList<ExtensibleGraph*>* pcfgs );
-
-        /*! Method computing the Use-Definition information on the member #graph
-         * \param ipa Boolean indicating the Use-Def is only for global variables and referenced parameters
-         * \param ipa_arguments List of Nodecl which are reference arguments in an IPA call
-         *                      Only necessary when \ipa is true
+        /*! Constructor
+         * \param graph Pointer to the graph where to calculate the analysis
+         * \param pcfgs List of pcfgs in the current translation unit (necessary for IPA)
          */
-        void compute_usage( );
+        UseDef(ExtensibleGraph* graph, const ObjectList<ExtensibleGraph*>& pcfgs);
+
+        //! Method computing the Use-Definition information on the member #graph
+        void compute_usage();
     };
 
     // ************************** End class implementing use-definition analysis ************************** //
@@ -93,7 +94,7 @@ namespace Analysis {
 
 
     // **************************************************************************************************** //
-    // ***************************** Class implementing use-definition visitor **************************** //
+    // ********************** Class implementing nodecl visitor for use-def analysis ********************** //
 
     //! This Class implements a Visitor that computes the Use-Definition information of a concrete statement
     //! and attaches this information to the Node in a PCFG which the statements belongs to
@@ -123,12 +124,8 @@ namespace Analysis {
          */
         Nodecl::NodeclBase _current_nodecl;
 
-        //!List of functions visited
-        std::set<Symbol> _visited_functions;
-
-        //! List of global variables and reference parameters appeared until a given point of the analysis
-        std::map<Symbol, Utils::UsageKind>* _global_vars;
-        std::map<Symbol, Utils::UsageKind>* _reference_params;
+        //! List of IPA modifiable variables appeared until a given point of the analysis
+        IpUsageMap* _ipa_modif_vars;
 
         /*! Boolean useful for split statements: we want to calculate the usage of a function call only once
          *  When a function call appears in a split statement we calculate the first time (the func_call node)
@@ -136,128 +133,153 @@ namespace Analysis {
          */
         bool _avoid_func_calls;
         
-        // Current pcfg being analyzed
+        //! Current pcfg being analyzed
         // We want this here because when running IPa analysis, we need to propagate the Global Variables
         // used in called functions to the current graph, otherwise,
         // we can lose global variables usage over the nested function calls
         ExtensibleGraph* _pcfg;
         
-        //! Graphs containing those functions which code is reachable
-        ObjectList<ExtensibleGraph*>* _pcfgs;
         
-        // *********************** Private methods *********************** //
+        // ****************** Private visiting methods ****************** //
         
-        template<typename T>
-        void visit_assignment( const T& n );
+        void visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
+        void visit_binary_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
+        void visit_function(const Nodecl::NodeclBase& called_sym, const Nodecl::List& arguments);
+        void visit_increment(const Nodecl::NodeclBase& n);
         
-        //! This method implements the visitor for any Binary Assignment operation
-        template<typename T>
-        void visit_binary_assignment( const T& n );
-
-        void function_visit( const Nodecl::NodeclBase& called_sym, const Nodecl::List& arguments );
-
-        template<typename T>
-        Ret visit_increment( const T& n );
-
+        
+        // ********************** Private modifiers ********************** //
+        
         //!Prevents copy construction.
-        UsageVisitor( const UsageVisitor& v );
-
+        UsageVisitor(const UsageVisitor& v);
+        
         /*!Method that computs the usage of a node taking into account the previous usage in the same node
          * For nodes that has a part of an object that is upwards exposed and a part of an object that is killed,
          * this method computes the different parts
          */
-        void set_var_usage_to_node( const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind );
+        void set_var_usage_to_node(const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind);
         
         //! Overloaded method to compute a nodes usage for a set of extended symbols instead of a single symbol
-        void set_var_usage_to_node( const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind );
+        void set_var_usage_to_node(const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind);
         
-        // Methods to parse the file containing C function definitions useful for Use-Def analysis
-        void parse_parameter( std::string current_param, const Nodecl::NodeclBase& arg );
-        bool parse_c_functions_file( Symbol func_sym, const Nodecl::List& args );
         
-        Utils::ext_sym_set get_ipa_usage( Utils::UsageKind usage_kind, const Utils::ext_sym_set& list,
-                                          const Nodecl::List& arguments, const TL::Symbol& func_sym );
+        // ************************ IPA methods ************************ //
+        
+        // *** Known called function code use-def analysis *** //
+        void propagate_called_func_pointed_values_usage_to_func_call(
+                const Utils::ext_sym_set& called_func_usage, 
+                const sym_to_nodecl_map& ptr_param_to_arg_map, 
+                Utils::UsageKind usage_kind);
+        
+        void propagate_called_func_ref_params_usage_to_func_call(
+                const Utils::ext_sym_set& called_func_usage,
+                const sym_to_nodecl_map& ref_param_to_arg_map,
+                Utils::UsageKind usage_kind);
+        
+        void propagate_global_variables_usage(
+                const Utils::ext_sym_set& called_func_usage, 
+                const GlobalVarsSet& called_global_vars, 
+                const sym_to_nodecl_map& param_to_arg_map,
+                Utils::UsageKind usage_kind);
+        
+        void ipa_propagate_known_function_usage(
+                ExtensibleGraph* called_pcfg, 
+                const Nodecl::List& args);
+        
+        
+        // *** Unknown called function code use-def analysis *** //
+        void parse_parameter(std::string current_param, const Nodecl::NodeclBase& arg);
+        
+        bool parse_c_functions_file(Symbol func_sym, const Nodecl::List& args);
+        
+        bool check_function_gcc_attributes(Symbol func_sym, const Nodecl::List& args);
+        
+        void ipa_propagate_unreachable_function_usage(Symbol func_sym, 
+                                                      const ObjectList<Symbol>& params, 
+                                                      const Nodecl::List& args, 
+                                                      const SizeMap& ptr_to_size_map);
+        
+        
+        // *** Recursive calls use-def analysis *** //
+        void set_ipa_variable_as_defined(const Nodecl::NodeclBase& var);
+        void set_ipa_variable_as_upwards_exposed(const Nodecl::NodeclBase& var);
+        void store_ipa_information(const Nodecl::NodeclBase& n);        
+        void ipa_propagate_recursive_call_usage(const ObjectList<Symbol>& params, const Nodecl::List& args);
+        
+        
+        // *** Call to a pointer to function *** //
+        void ipa_propagate_pointer_to_function_usage(const Nodecl::List& args);
 
     public:
-        // *** Constructors *** //
-        UsageVisitor( Node* fake_node );
-        
-        UsageVisitor( Node* n, ExtensibleGraph* pcfg, ObjectList<ExtensibleGraph*>* pcfgs,
-                      std::map<Symbol, Utils::UsageKind>* global_vars,
-                      std::map<Symbol, Utils::UsageKind>* reference_params );
+        // *** Constructor *** //
+        UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars);
         
         // *** Modifiers *** //
-        void compute_statement_usage( Nodecl::NodeclBase st );
+        void compute_statement_usage(Nodecl::NodeclBase st);
 
         // *** Visitors *** //
-        Ret unhandled_node( const Nodecl::NodeclBase& n );
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Dereference& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::FunctionCall& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::Postdecrement& n );
-        Ret visit( const Nodecl::Postincrement& n );
-        Ret visit( const Nodecl::Predecrement& n );
-        Ret visit( const Nodecl::Preincrement& n );
-        Ret visit( const Nodecl::Range& n );
-        Ret visit( const Nodecl::Reference& n );
-        Ret visit( const Nodecl::Symbol& n );
-        Ret visit( const Nodecl::UnalignedVectorStore& n );
-        Ret visit( const Nodecl::VectorAssignment& n );
-        Ret visit( const Nodecl::VectorGather& n );
-        Ret visit( const Nodecl::VectorMaskAssignment& n );
-        Ret visit( const Nodecl::VectorScatter& n );
-        Ret visit( const Nodecl::VectorSincos& n );
-        Ret visit( const Nodecl::VectorStore& n );
-        Ret visit( const Nodecl::VectorStreamStore& n );
-        Ret visit( const Nodecl::VirtualFunctionCall& n );
-    };
-
-    
-    class LIBTL_CLASS ReferenceUsageVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-    private:
-        Nodecl::NodeclBase _current_nodecl;
-        bool _store_symbol;
-        Utils::ext_sym_set _used_ext_syms;
-        
-    public:
-        // Constructor
-        ReferenceUsageVisitor( );
-        
-        // Consultants
-        Utils::ext_sym_set get_ue_vars( );
-        
-        // Visitors
-        // FIXME : Implement Dereference visitor!!
-        Ret visit( const Nodecl::ArraySubscript& n );
-        Ret visit( const Nodecl::ClassMemberAccess& n );
-        Ret visit( const Nodecl::Reference& n );
-        Ret visit( const Nodecl::Symbol& n );
-    };
-    
-    class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
         Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret visit(const Nodecl::AddAssignment& n);
+        Ret visit(const Nodecl::ArithmeticShrAssignment& n);
+        Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::BitwiseAndAssignment& n);
+        Ret visit(const Nodecl::BitwiseOrAssignment& n);
+        Ret visit(const Nodecl::BitwiseShlAssignment& n);
+        Ret visit(const Nodecl::BitwiseShrAssignment& n);
+        Ret visit(const Nodecl::BitwiseXorAssignment& n);
+        Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::Dereference& n);
+        Ret visit(const Nodecl::DivAssignment& n);
+        Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::MinusAssignment& n);
+        Ret visit(const Nodecl::ModAssignment& n);
+        Ret visit(const Nodecl::MulAssignment& n);
+        Ret visit(const Nodecl::ObjectInit& n);
+        Ret visit(const Nodecl::Postdecrement& n);
+        Ret visit(const Nodecl::Postincrement& n);
+        Ret visit(const Nodecl::Predecrement& n);
+        Ret visit(const Nodecl::Preincrement& n);
+        Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::Reference& n);
+        Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::UnalignedVectorStore& n);
+        Ret visit(const Nodecl::VectorAssignment& n);
+        Ret visit(const Nodecl::VectorGather& n);
+        Ret visit(const Nodecl::VectorMaskAssignment& n);
+        Ret visit(const Nodecl::VectorScatter& n);
+        Ret visit(const Nodecl::VectorSincos& n);
+        Ret visit(const Nodecl::VectorStore& n);
+        Ret visit(const Nodecl::VectorStreamStore& n);
+        Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
     
-    // *************************** End class implementing use-definition visitor ************************** //
+    // ******************** END Class implementing nodecl visitor for use-def analysis ******************** //
     // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
+    // ******************************** Utils methods for use-def analysis ******************************** //
+    
+    Nodecl::NodeclBase simplify_pointer(const Nodecl::NodeclBase& original_variables);
+    Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
+    
+    Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained);
+    
+    void get_modifiable_parameters_to_arguments_map(
+        const ObjectList<Symbol>& params, 
+        const Nodecl::List& args,
+        sym_to_nodecl_map& ptr_params, 
+        sym_to_nodecl_map& ref_params);
+    
+    sym_to_nodecl_map get_parameters_to_arguments_map(
+        const ObjectList<Symbol>& params, 
+        const Nodecl::List& args);
+    
+    // ****************************** END Utils methods for use-def analysis ****************************** //    
+    // **************************************************************************************************** //
+    
 }
 }
 

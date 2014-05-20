@@ -1778,6 +1778,18 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
     return 0;
 }
 
+template <typename Node>
+bool CxxBase::is_implicit_braced_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicitBracedArguments>());
+}
+
+template <>
+bool CxxBase::is_implicit_braced_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
 
 template <typename Node>
 bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
@@ -1860,6 +1872,15 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         {
             walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
+        return;
+    }
+    else if (is_implicit_braced_function_call(node))
+    {
+        Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
+        // Only emit { ... }
+        *file << "{ ";
+        walk_expression_list(arguments);
+        *file << " }";
         return;
     }
 
@@ -2333,7 +2354,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         codegen_template_headers_bounded(
                 template_parameters,
                 class_sym.get_scope().get_template_parameters(),
-                /*show default variables*/ false);
+                /*show default variables*/ IS_CXX11_LANGUAGE);
     }
     else
     {
@@ -3216,7 +3237,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     {
         bool braces = false;
         if (!init_expr.as<Nodecl::StructuredValue>().get_form().is_null()
-                && init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBraced>())
+                && (init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>()
+                    || init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedTypecast>()))
             braces = true;
 
         if (braces)
@@ -3710,14 +3732,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         COMPOUND_LITERAL, // C99 (struct X){initializer-clause}
         EXPLICIT_TYPECAST_PARENTHESIZED, // C++03   T(1, 2)
         EXPLICIT_TYPECAST_BRACED, // C++11   T{1, 2}
+        IMPLICIT_BRACED, // C++11   {1, 2}
         UNKNOWN, // The node does not have an explicit form
     } structured_value_form = INVALID;
 
     if (!form.is_null())
     {
-        if (form.is<Nodecl::StructuredValueBraced>())
+        if (form.is<Nodecl::StructuredValueBracedTypecast>())
         {
             structured_value_form = EXPLICIT_TYPECAST_BRACED;
+        }
+        else if (form.is<Nodecl::StructuredValueBracedImplicit>())
+        {
+            structured_value_form = IMPLICIT_BRACED;
         }
         else if (form.is<Nodecl::StructuredValueParenthesized>())
         {
@@ -3782,6 +3809,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         *(file) << "(";
     }
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "{";
@@ -3793,6 +3821,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     state.inside_structured_value = inside_structured_value;
 
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "}";
@@ -7471,9 +7500,27 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             pure_spec += " = delete ";
         }
-        else if (symbol.is_defaulted())
+        else if (symbol.is_defaulted()
+                // Must be a special member
+                && symbol.is_member())
         {
-            pure_spec += " = default ";
+            if (symbol.is_defined_inside_class() // (A)
+                    || (state.classes_being_defined.empty() // (B)
+                        || (state.classes_being_defined.back() != symbol.get_class_type().get_symbol())))
+
+            {
+                // (A) Defaulted inside the class specifier
+                // (B) Defaulted but not inside the class specifier. But we are not inside the 
+                // class specifier either.
+                pure_spec += " = default ";
+            }
+            else
+            {
+                // (C) Not defined inside class but we are inside the class
+                // specifier, let's pretend we did not declare it so a later
+                // CxxDecl will go through (B)
+                set_codegen_status(symbol, CODEGEN_STATUS_NONE);
+            }
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);

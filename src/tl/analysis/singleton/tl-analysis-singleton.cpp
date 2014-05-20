@@ -503,15 +503,15 @@ namespace Analysis {
 //         }
 //     }
 
-    static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, ObjectList<ExtensibleGraph*>* pcfgs )
+    static void use_def_rec( Symbol func_sym, std::set<Symbol>& visited_funcs, const ObjectList<ExtensibleGraph*>& pcfgs )
     {
-        // Nothing to do if the we are analysing something that:
+        // Nothing to do if the we are analyzing something that:
         // - is not a function
         // - has already been analyzed
         if( !func_sym.is_valid( ) || ( visited_funcs.find( func_sym ) != visited_funcs.end( ) ) )
             return;
 
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs->begin( ); it != pcfgs->end( ); ++it )
+        for( ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             Symbol it_func_sym( ( *it )->get_function_symbol( ) );
             if( it_func_sym.is_valid( ) && it_func_sym == func_sym )
@@ -519,12 +519,12 @@ namespace Analysis {
                 visited_funcs.insert( func_sym );
                 if( !( *it )->usage_is_computed( ) )
                 {
-                    // Recursively analyse the functions called from the current graph
+                    // Recursively analyze the functions called from the current graph
                     ObjectList<Symbol> called_funcs = ( *it )->get_function_calls( );
                     for( ObjectList<Symbol>::iterator itf = called_funcs.begin( ); itf != called_funcs.end( ); ++itf )
                         use_def_rec( *itf, visited_funcs, pcfgs );
 
-                    // Analyse the current graph
+                    // Analyze the current graph
                     if( VERBOSE )
                         printf( "Use-Definition of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
                     UseDef ud( *it, pcfgs );
@@ -550,7 +550,7 @@ namespace Analysis {
                 {
                     PointerSize ps(*it);
                     ps.compute_pointer_vars_size();
-                    use_def_rec( ( *it )->get_function_symbol( ), visited_funcs, &pcfgs );
+                    use_def_rec( ( *it )->get_function_symbol( ), visited_funcs, pcfgs );
                 }
             }
         }

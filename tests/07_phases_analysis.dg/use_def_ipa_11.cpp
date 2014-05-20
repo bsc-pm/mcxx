@@ -25,40 +25,39 @@
 --------------------------------------------------------------------*/
 
 
-
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_compile_fail=yes
- test_nolink=yes
  </testinfo>
  */
 
-#define N  4
 
-unsigned long long int square[N][N];
+const int a = 10;
+int b;
 
-void sequential_(int x, int y)
+const int e[2] = {0, 1};
+int f[2];
+
+const int* g = &a;          // Pointer to constant
+int* const h = &b;          // Constant pointer
+const int* const i = &b;    // Constant pointer to constant
+int *j;
+
+void rec(int p1, int &p2, int *p3, int *&p4, int *p5)
 {
-    #pragma analysis_check assert defined(square[x][y], x, y) \
-                           upper_exposed(square[x][y], square[x-1][y], square[x][y-1])
-    for (x = 1; x < N; x++) {
-        for (y = 1; y < N; y++) {
-            square[x][y] = square[x-1][y] + square[x][y] + square[x][y-1];
-        }
-    }
-}
-
-void sequential(int a, int b)
-{
-    #pragma analysis_check assert defined(square[a][b]) \
-                           upper_exposed(square[a][b], square[a-1][b], square[a][b-1], a, b)
-    sequential_(a, b);
-}
-
-void ompss(int h, int j)
-{
-    #pragma analysis_check assert defined(square[h][j]) \
-                           upper_exposed(square[h][j], square[h-1][j], square[h][j], square[h][j-1], h, j)
-    sequential(h, j);
+    p1 = b + *p4;
+    p2 = a + *p5;
+    
+    p3++;
+    p4 = j;
+    
+    int x;
+    j = &x;
+    
+    const int *v = g;
+    int* const w = h;
+    
+    int *z;
+    #pragma analysis_check assert upper_exposed(h, *h, j, *j, p3, z, *z, g, a, b, x) defined(*j, j, z)
+    rec(*h, *j, p3+1, z, &x);
 }

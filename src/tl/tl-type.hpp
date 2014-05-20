@@ -907,6 +907,20 @@ namespace TL
 
             //! Concenience function that returns an 'auto' type specifier
             static Type get_auto_type();
+            
+            //! Integer type of size_t 
+            /*!
+             * This type is the underlying integer type of a size_t, since it
+             * may change depending on the architecture
+             */
+            static Type get_size_t_type();
+            
+            //! Integer type of ptrdiff_t 
+            /*!
+             * This type is the underlying integer type of a ptrdiff_t, since it
+             * may change depending on the architecture
+             */
+            static Type get_ptrdiff_t_type();
 
             std::string print_declarator();
     };

@@ -67,11 +67,24 @@ struct implicit_conversion_sequence_tag
     // These below are only meaningful when ICSK_USER_DEFINED
     scope_entry_t* conversor;
     standard_conversion_t second_sc;
-    char is_ambiguous_ics;
+    char is_ambiguous_ics:1;
+    char is_list_ics:1;
+    char is_aggregate_ics:1;
 } implicit_conversion_sequence_t;
 
 static
-implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguous_ics = 0 };
+const implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguous_ics = 0 };
+
+
+static implicit_conversion_sequence_t identity_ics(type_t* orig, type_t* dest)
+{
+    implicit_conversion_sequence_t res = {
+        .kind = ICSK_STANDARD,
+    };
+
+    res.first_sc = get_identity_scs(orig, dest);
+    return res;
+}
 
 typedef
 struct overload_entry_list_tag
@@ -253,55 +266,114 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
+        fprintf(stderr, "ICS: List-initialization sequence: orig_type = %s\n",
                 print_declarator(orig));
-        fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
+        fprintf(stderr, "ICS: List-initialization sequence: dest_type = %s\n",
                 print_declarator(dest));
     }
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-            make_locus("", 0, 0), /* mandatory */ 0);
+            locus, /* mandatory */ 0);
 
     *result = invalid_ics;
 
-    if (std_initializer_list_template != NULL)
+    if (std_initializer_list_template != NULL
+            && is_class_type(dest)
+            && is_template_specialized_type(get_actual_class_type(dest))
+            && equivalent_types(template_specialized_type_get_related_template_type(get_actual_class_type(dest)), 
+                std_initializer_list_template->type_information))
     {
-        if (is_template_specialized_type(dest)
-                && equivalent_types(template_specialized_type_get_related_template_type(dest), 
-                    std_initializer_list_template->type_information))
+        template_parameter_list_t* template_parameters =
+            template_specialized_type_get_template_arguments(get_actual_class_type(dest));
+
+        ERROR_CONDITION( (template_parameters->num_parameters == 0), 
+                "Invalid template argument for std::init_list", 0);
+        type_t* new_dest = template_parameters->arguments[0]->type;
+
+        int i;
+        int num_types = braced_list_type_get_num_types(orig);
+        for (i = 0; i < num_types; i++)
         {
-            template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(dest);
+            implicit_conversion_sequence_t current;
 
-            ERROR_CONDITION( (template_parameters->num_parameters == 0), 
-                    "Invalid template argument for std::init_list", 0);
-            type_t* new_dest = template_parameters->arguments[0]->type;
+            compute_ics_flags(braced_list_type_get_type_num(orig, i), 
+                    new_dest, decl_context,
+                    &current,
+                    no_user_defined_conversions,
+                    is_implicit_argument,
+                    REF_QUALIFIER_NONE,
+                    locus);
 
-            int i;
-            int num_types = braced_list_type_get_num_types(orig);
-            for (i = 0; i < num_types; i++)
+            if (current.kind == ICSK_INVALID)
             {
-                implicit_conversion_sequence_t current;
-
-                compute_ics_flags(braced_list_type_get_type_num(orig, i), 
-                        new_dest, decl_context,
-                        &current,
-                        no_user_defined_conversions,
-                        is_implicit_argument,
-                        REF_QUALIFIER_NONE,
-                        locus);
-
-                if (current.kind == ICSK_INVALID)
-                {
-                    *result = current;
-                    return;
-                }
-                if (result->kind == ICSK_INVALID
-                        || better_ics(*result, current))
-                {
-                    *result = current;
-                }
+                *result = current;
+                return;
+            }
+            if (result->kind == ICSK_INVALID
+                    || better_ics(*result, current))
+            {
+                // Get always the worst conversion
+                *result = current;
             }
         }
+
+        result->is_list_ics = 1;
+    }
+    // An array of N elements, and the length of the braced initializer is M, where M <= N. If M < N then
+    // the element type of the array may be default-initialized
+    else if (is_array_type(dest)
+            && !nodecl_is_null(array_type_get_array_size_expr(dest))
+            && nodecl_is_constant(array_type_get_array_size_expr(dest))
+            && (braced_list_type_get_num_types(orig) <=
+                const_value_cast_to_signed_int(
+                    nodecl_get_constant(array_type_get_array_size_expr(dest)))))
+    {
+        type_t* new_dest = array_type_get_element_type(dest);
+
+        int i;
+        int num_types = braced_list_type_get_num_types(orig);
+        for (i = 0; i < num_types; i++)
+        {
+            implicit_conversion_sequence_t current;
+
+            compute_ics_flags(braced_list_type_get_type_num(orig, i), 
+                    new_dest, decl_context,
+                    &current,
+                    no_user_defined_conversions,
+                    is_implicit_argument,
+                    REF_QUALIFIER_NONE,
+                    locus);
+
+            if (current.kind == ICSK_INVALID)
+            {
+                *result = current;
+                return;
+            }
+            if (result->kind == ICSK_INVALID
+                    || better_ics(*result, current))
+            {
+                // Get always the worst conversion
+                *result = current;
+            }
+        }
+
+        // M < N
+        if (num_types <
+                const_value_cast_to_signed_int(
+                    nodecl_get_constant(array_type_get_array_size_expr(dest))))
+        {
+            if (!check_default_initialization_of_type(
+                    new_dest,
+                    decl_context,
+                    locus,
+                    /* constructor */ NULL))
+            {
+                *result = invalid_ics;
+                return;
+            }
+        }
+
+        result->is_list_ics = 1;
     }
     else if (is_class_type(dest)
             && !is_aggregate_type(dest))
@@ -320,16 +392,14 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 conversors,
                 &candidates);
         entry_list_free(candidates);
-                
+
         if (constructor != NULL)
         {
             result->kind = ICSK_USER_DEFINED;
-            // Silly way of getting the identity
-            standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
+            result->first_sc = get_identity_scs(orig, dest);
             result->conversor = constructor;
-            // FIXME: This should be the "real" dest (including
-            // cv-qualification, rvalue refs, etc)
-            standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
+            result->second_sc = get_identity_scs(dest, dest);
+            result->is_list_ics = 1;
         }
     }
     else if (is_class_type(dest)
@@ -337,7 +407,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
     {
         // Just check that each of the types can be used to initialize the
         // nonstatic data members
-
         scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(dest);
 
         if (entry_list_size(nonstatic_data_members) != braced_list_type_get_num_types(orig))
@@ -360,7 +429,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     /* is_implicit_argument */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
-            
+
             if (init_ics.kind == ICSK_INVALID)
                 return;
             i++;
@@ -369,15 +438,15 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         entry_list_free(nonstatic_data_members);
 
         result->kind = ICSK_USER_DEFINED;
-        // Silly way of getting the identity
-        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
-        // FIXME: Which constructor??? Do aggregates have a special constructor???
+        // Aggregate initialization
+        result->first_sc = get_identity_scs(orig, dest);
         result->conversor = NULL;
-        // FIXME: This should be the "real" dest (including
-        // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
+        result->second_sc = get_identity_scs(dest, dest);
+        result->is_list_ics = 1;
+        result->is_aggregate_ics = 1;
     }
-    else if (is_array_type(dest))
+    else if (is_array_type(dest)
+            && is_aggregate_type(dest))
     {
         type_t* element_type = array_type_get_element_type(dest);
 
@@ -400,13 +469,23 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         }
 
         result->kind = ICSK_USER_DEFINED;
-        // Silly way of getting the identity
-        standard_conversion_between_types_for_overload(&result->first_sc, dest, dest, locus);
-        // FIXME: Which constructor??? Do aggregates have a special constructor???
+        // Aggregate initialization
+        result->first_sc = get_identity_scs(orig, dest);
         result->conversor = NULL;
-        // FIXME: This should be the "real" dest (including
-        // cv-qualification, rvalue refs, etc)
-        standard_conversion_between_types_for_overload(&result->second_sc, dest, dest, locus);
+        result->first_sc = get_identity_scs(dest, dest);
+        result->is_list_ics = 1;
+        result->is_aggregate_ics = 1;
+    }
+    else if (is_rvalue_reference_type(dest)
+            || (is_lvalue_reference_type(dest) && is_const_qualified_type(no_ref(dest))))
+    {
+        compute_ics_braced_list(orig,
+                no_ref(dest),
+                decl_context,
+                result,
+                no_user_defined_conversions,
+                is_implicit_argument,
+                locus);
     }
     else if (!is_class_type(dest))
     {
@@ -420,6 +499,15 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     /* is_implicit_argument */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
+            if (result->kind != ICSK_INVALID)
+            {
+                result->is_list_ics = 1;
+            }
+        }
+        else if (braced_list_type_get_num_types(orig) == 0)
+        {
+            *result = identity_ics(orig, dest);
+            result->is_list_ics = 1;
         }
     }
 }
@@ -1617,12 +1705,70 @@ static char better_ics(implicit_conversion_sequence_t ics1,
         if (standard_conversion_is_better(ics1.first_sc, ics2.first_sc))
             return 1;
     }
-    else if (ics1.kind == ICSK_USER_DEFINED 
-            && ics2.kind == ICSK_USER_DEFINED)
+    else if (ics1.kind == ICSK_USER_DEFINED
+            && ics2.kind == ICSK_USER_DEFINED
+            // They are not list ics at the same time
+            && !(ics1.is_list_ics && ics2.is_list_ics))
     {
-        if (ics1.conversor == ics2.conversor
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: ICS1 and ICS2 are both user-defined conversions\n");
+        }
+        // User-defined conversion sequence U1 is a better conversion sequence
+        // than another user-defined conversion sequence U2 if they contain
+        // the same user-defined conversion function or constructor or they
+        // initialize the same class in an aggregate initialization and in
+        // either case the second standard conversion sequence of U1 is better
+        // than the second standard conversion sequence of U2
+        if (((ics1.conversor == ics2.conversor)
+                    || (ics1.is_aggregate_ics
+                        && ics2.is_aggregate_ics
+                        && equivalent_types(ics1.first_sc.dest, ics2.first_sc.dest)))
                 && standard_conversion_is_better(ics1.second_sc, ics2.second_sc))
             return 1;
+    }
+    else if (ics1.kind == ICSK_USER_DEFINED
+            && ics2.kind == ICSK_USER_DEFINED
+            // Both are list ICS
+            && ics1.is_list_ics
+            && ics2.is_list_ics)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: ICS1 and ICS2 are both (user-defined) list-conversion sequences\n");
+        }
+        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
+                CURRENT_COMPILED_FILE->global_decl_context,
+                make_locus("", 0, 0), /* mandatory */ 0);
+
+        type_t* std_initializer_list_template_type = std_initializer_list_template->type_information;
+
+        // ics1 converts to std::initializer_list<X> for some X and ics2 does not
+        if (std_initializer_list_template_type != NULL
+                && is_template_specialized_type(ics1.first_sc.dest)
+                && equivalent_types(
+                    template_specialized_type_get_related_template_type(ics1.first_sc.dest),
+                    std_initializer_list_template_type)
+                && !(is_template_specialized_type(ics2.first_sc.dest)
+                    || !equivalent_types(
+                        template_specialized_type_get_related_template_type(ics2.first_sc.dest),
+                        std_initializer_list_template_type)))
+        {
+            return 1;
+        }
+        // or if not that ics1 converts to type "array of N1 T", ics2 converts to type "array of N2 T", and N1 is smaller than N2
+        else if (is_array_type(ics1.first_sc.dest)
+                && is_array_type(ics2.first_sc.dest)
+                && nodecl_is_constant(array_type_get_array_size_expr(ics1.first_sc.dest))
+                && nodecl_is_constant(array_type_get_array_size_expr(ics2.first_sc.dest))
+                && (const_value_cast_to_signed_int(
+                        nodecl_get_constant(array_type_get_array_size_expr(ics1.first_sc.dest)))
+                    <
+                    const_value_cast_to_signed_int(
+                        nodecl_get_constant(array_type_get_array_size_expr(ics2.first_sc.dest)))))
+        {
+            return 1;
+        }
     }
 
     return 0;
@@ -2229,21 +2375,25 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
             {
                 conversors[i] = best_viable->ics_arguments[i].conversor;
-                DEBUG_CODE()
+            }
+            else
+            {
+                conversors[i] = NULL;
+            }
+
+            DEBUG_CODE()
+            {
+                if (conversors[i] == NULL)
+                {
+                    fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
+                            i);
+                }
+                else
                 {
                     fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s\n",
                             i,
                             conversors[i]->symbol_name,
                             locus_to_str(conversors[i]->locus));
-                }
-            }
-            else
-            {
-                conversors[i] = NULL;
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
-                            i);
                 }
             }
         }
@@ -2840,7 +2990,7 @@ scope_entry_t* solve_init_list_constructor(
     ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
             "This function expects a single argument of type braced initializer list", 0);
 
-    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, locus, /* mandatory */ 1);
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, locus, /* mandatory */ 0);
 
     char has_initializer_list_ctor = 0;
     if (std_initializer_list_template != NULL)

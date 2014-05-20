@@ -1191,7 +1191,10 @@ src_tl_analysis_use_def_libuse_def_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_use_def_libuse_def_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
 					src/tl/optimizations/libtloptimizations.la $(ANALYSIS_LIBADD)
 
-src_tl_analysis_use_def_libuse_def_la_SOURCES = src/tl/analysis/use_def/tl-use-def.hpp \
+src_tl_analysis_use_def_libuse_def_la_SOURCES = \
+			src/tl/analysis/use_def/tl-use-def.hpp \
+			src/tl/analysis/use_def/tl-use-def-utils.cpp \
+			src/tl/analysis/use_def/tl-use-def-ipa.cpp \
                         src/tl/analysis/use_def/tl-use-def.cpp \
                         $(END)
 
@@ -2708,6 +2711,8 @@ CONFIG_FILES =  \
        config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
        config/56.config.omp.mpi \
+       config/56.config.omp.intel.mpi \
+       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
        config/mpimcc \
        config/mpimcxx \
