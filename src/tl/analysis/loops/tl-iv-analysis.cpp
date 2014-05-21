@@ -200,7 +200,7 @@ namespace {
         {
             current->set_visited( true );
 
-            if(current->is_graph_node())
+            if(current->is_graph_node() && !current->is_loop_node())
             {
                 detect_basic_induction_variables(current->get_graph_entry_node(), loop);
             }
