@@ -53,7 +53,7 @@ namespace Analysis {
 
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const std::set<TL::Symbol>& global_variables);
+            const GlobalVarsSet& global_variables);
  
     // IVS
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n);

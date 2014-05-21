@@ -104,7 +104,7 @@ namespace Analysis {
 
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const std::set<TL::Symbol>& global_variables)
+            const GlobalVarsSet& global_variables)
     {
         bool result = false;
 
@@ -124,7 +124,7 @@ namespace Analysis {
                 Nodecl::NodeclBase nodecl_base = Utils::get_nodecl_base(n);
                 if (!nodecl_base.is_null())
                 {
-                    if(global_variables.find(nodecl_base.get_symbol()) != 
+                    if(global_variables.find(nodecl_base) != 
                                 global_variables.end()) // n is a global var
                         result = true;
                 }
