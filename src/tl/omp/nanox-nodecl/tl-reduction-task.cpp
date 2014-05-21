@@ -264,7 +264,7 @@ namespace TL { namespace Nanox {
         if (initializer.is<Nodecl::StructuredValue>())
         {
             Nodecl::StructuredValue structured_value = initializer.as<Nodecl::StructuredValue>();
-            if (structured_value.get_form().is<Nodecl::StructuredValueBraced>())
+            if (structured_value.get_form().is<Nodecl::StructuredValueBracedImplicit>())
             {
                 structured_value.set_form(Nodecl::StructuredValueCompoundLiteral::make());
             }
