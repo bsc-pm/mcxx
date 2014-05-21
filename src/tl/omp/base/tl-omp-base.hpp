@@ -113,9 +113,21 @@ namespace TL
                         bool barrier_at_end,
                         bool is_combined_worksharing);
 
-                void process_common_simd_clauses(
-                        const Nodecl::NodeclBase& stmt,
+                template <typename openmp_node>
+                void process_symbol_list_colon_int_clause(
                         const TL::PragmaCustomLine& pragma_line,
+                        const std::string& pragma_name,
+                        const Nodecl::NodeclBase& ref_scope,
+                        Nodecl::List& environment);
+                template <typename openmp_node>
+                void process_symbol_list_clause(
+                        const TL::PragmaCustomLine& pragma_line,
+                        const std::string& pragma_name,
+                        Nodecl::List& environment);
+
+                void process_common_simd_clauses(
+                        const TL::PragmaCustomLine& pragma_line,
+                        const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
                 static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
