@@ -200,21 +200,28 @@ namespace {
         {
             current->set_visited( true );
 
-            // Look for IVs in the current node
-            ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
-            for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
+            if(current->is_graph_node())
             {
-                Nodecl::NodeclBase incr;
-                ObjectList<Nodecl::NodeclBase> incr_list;
-                Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop, incr, incr_list );
-                if( !iv.is_null( ) )
+                detect_basic_induction_variables(current->get_graph_entry_node(), loop);
+            }
+            else
+            {
+                // Look for IVs in the current node
+                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                for( ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ); ++it )
                 {
-                    Utils::InductionVariableData* ivd = new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ),
-                                                                                          Utils::BASIC_IV, iv );
-                    ivd->set_increment( incr );
-                    ivd->set_increment_list( incr_list );
-                    loop->set_induction_variable( ivd );
-                    _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), ivd ) );
+                    Nodecl::NodeclBase incr;
+                    ObjectList<Nodecl::NodeclBase> incr_list;
+                    Nodecl::NodeclBase iv = is_basic_induction_variable( *it, loop, incr, incr_list );
+                    if( !iv.is_null( ) )
+                    {
+                        Utils::InductionVariableData* ivd = new Utils::InductionVariableData( Utils::ExtendedSymbol( iv ),
+                                                                                              Utils::BASIC_IV, iv );
+                        ivd->set_increment( incr );
+                        ivd->set_increment_list( incr_list );
+                        loop->set_induction_variable( ivd );
+                        _induction_vars.insert( std::pair<int, Utils::InductionVariableData*>( loop->get_id( ), ivd ) );
+                    }
                 }
             }
 
@@ -482,9 +489,7 @@ namespace {
     void FalseInductionVariablesVisitor::unhandled_node( const Nodecl::NodeclBase& n )
     {
         std::cerr << "Unhandled node while Induction Variable analysis '"
-                  << codegen_to_str( n.get_internal_nodecl( ),
-                                     nodecl_retrieve_context( n.get_internal_nodecl( ) ) )
-                  << "' of type '" << ast_print_node_type( n.get_kind( ) ) << "'" << std::endl;
+                  << n.prettyprint() << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
     }
 
     void FalseInductionVariablesVisitor::visit( const Nodecl::AddAssignment& n )

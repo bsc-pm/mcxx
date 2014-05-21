@@ -36,6 +36,8 @@ namespace Analysis {
 
 namespace {
 
+    const std::string analysis_none_sym_name = "__ANALYSIS_NONE__";
+    
     Nodecl::NodeclBase get_nodecl_from_string( std::string str, ReferenceScope sc )
     {
         Source src; src << str;
@@ -136,12 +138,25 @@ namespace {
     }
 
     void compare_assert_set_with_analysis_set( Utils::ext_sym_set assert_set, Utils::ext_sym_set analysis_set,
-                                                      std::string locus_str, int node_id,
-                                                      std::string clause_name, std::string analysis_name )
+                                               std::string locus_str, int node_id,
+                                               std::string clause_name, std::string analysis_name )
     {
         if( !assert_set.empty( ) )
         {
-            if( analysis_set.empty( ) )
+            if((assert_set.size() == 1) && 
+               (assert_set.begin()->get_nodecl().is<Nodecl::Symbol>()) && 
+               (assert_set.begin()->get_nodecl().get_symbol().get_name()==analysis_none_sym_name))
+            {
+                if(!analysis_set.empty())
+                {
+                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                   "There should not be %s variables associated to node %d\n",
+                                   locus_str.c_str( ),
+                                   clause_name.c_str( ), Utils::prettyprint_ext_sym_set( assert_set, /*dot*/ false ).c_str( ),
+                                   analysis_name.c_str( ), node_id );
+                }
+            }
+            else if( analysis_set.empty( ) )
             {
                 internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
                                 "There are no %s variables associated to node %d\n",
@@ -322,9 +337,11 @@ namespace {
             if( current->has_induction_vars_assertion( ) )
             {
                 ObjectList<Utils::InductionVariableData*> assert_induction_vars = current->get_assert_induction_vars( );
-                if( current->is_loop_node( ) )
+                // 'current' is the context created by the checking pragma -> get the inner loop node
+                Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
+                if( inner_loop->is_loop_node( ) )
                 {
-                    ObjectList<Utils::InductionVariableData*> induction_vars = current->get_induction_variables( );
+                    ObjectList<Utils::InductionVariableData*> induction_vars = inner_loop->get_induction_variables( );
 
                     if( !assert_induction_vars.empty( ) )
                     {
@@ -347,7 +364,7 @@ namespace {
                                                         "Lower Bound computed for induction variable '%s' "\
                                                         "in node %d is '%s', but the lower bound indicated in the assertion is '%s'.\n",
                                                         locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                        iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ),
                                                         ( *it2 )->get_lb( ).prettyprint( ).c_str( ),
                                                         iv->get_lb( ).prettyprint( ).c_str( ) );
                                     }
@@ -357,7 +374,7 @@ namespace {
                                                         "Upper Bound computed for induction variable '%s' "\
                                                         "in node %d is '%s', but the upper bound indicated in the assertion is '%s'.\n",
                                                         locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                        iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ),
                                                         ( *it2 )->get_ub( ).prettyprint( ).c_str( ),
                                                         iv->get_ub( ).prettyprint( ).c_str( ) );
                                     }
@@ -367,7 +384,7 @@ namespace {
                                                         "Stride computed for induction variable '%s' "\
                                                         "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
                                                         locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                        iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ),
                                                         ( *it2 )->get_increment( ).prettyprint( ).c_str( ),
                                                         iv->get_increment( ).prettyprint( ).c_str( ) );
                                     }
@@ -379,7 +396,7 @@ namespace {
                                                 "Induction variable '%s' not found in the induction variables list "\
                                                 "of node %d\n",
                                                 locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                iv_nodecl.prettyprint( ).c_str( ), current->get_id( ) );
+                                                iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ) );
                             }
                         }
                     }
@@ -608,6 +625,16 @@ namespace {
         directive.replace( assert_nodecl );
     }
 
+    void AnalysisCheckPhase::pre_run( TL::DTO& dto )
+    {
+        // Add a new symbol to the empty translation unit that can be used in this phase
+        // to specify that an analysis set must be empty
+        TL::Scope sc = CURRENT_COMPILED_FILE->global_decl_context;
+        TL::Symbol none_symbol = sc.new_symbol(analysis_none_sym_name);
+        none_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+        none_symbol.get_internal_symbol()->type_information = ::get_void_type();
+    }
+    
     void AnalysisCheckPhase::run( TL::DTO& dto )
     {
         PragmaCustomCompilerPhase::run(dto);

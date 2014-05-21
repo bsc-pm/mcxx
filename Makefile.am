@@ -1191,7 +1191,10 @@ src_tl_analysis_use_def_libuse_def_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_use_def_libuse_def_la_LIBADD = $(tl_libadd) src/tl/libtl.la \
 					src/tl/optimizations/libtloptimizations.la $(ANALYSIS_LIBADD)
 
-src_tl_analysis_use_def_libuse_def_la_SOURCES = src/tl/analysis/use_def/tl-use-def.hpp \
+src_tl_analysis_use_def_libuse_def_la_SOURCES = \
+			src/tl/analysis/use_def/tl-use-def.hpp \
+			src/tl/analysis/use_def/tl-use-def-utils.cpp \
+			src/tl/analysis/use_def/tl-use-def-ipa.cpp \
                         src/tl/analysis/use_def/tl-use-def.cpp \
                         $(END)
 
@@ -2633,12 +2636,11 @@ src/driver/cxx-target-tools.h :
 # Install hooks
 driver-install-exec-hook:
 	real_mcxx_name=`echo plaincxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-	for compiler_name in @COMPILER_NAMES@; \
+	for compiler_name in ${COMPILER_NAMES}; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
-			if [[ -f $(DESTDIR)/${configdir}/$${real_compiler_name} ]] ; then\
-			    mv -f $(DESTDIR)/${configdir}/$${real_compiler_name} $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name}; \
+			( if [[ ! -f $(srcdir)/config/template.$${real_compiler_name} ]] ; then\
+			cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
 			fi) \
 		done
 
@@ -2762,6 +2764,8 @@ CONFIG_FILES =  \
        config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
        config/56.config.omp.mpi \
+       config/56.config.omp.intel.mpi \
+       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
        config/mpimcc \
        config/mpimcxx \
@@ -2869,6 +2873,13 @@ config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
 config-install-data-hook:
+	for compiler_name in ${COMPILER_NAMES}; \
+	do \
+		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+		( if [[ -f ${configdir}/$${real_compiler_name} ]] ; then\
+		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
+		fi) \
+	done
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \
 		if test -e $(configdir)/$${oldfile};\
@@ -2877,6 +2888,9 @@ config-install-data-hook:
 			rm -f $(configdir)/$${oldfile}; \
 		fi \
 	done
+
+	
+install-data-hook: config-install-data-hook
 
 # Where and what to install
 pkgdata_DATA = \

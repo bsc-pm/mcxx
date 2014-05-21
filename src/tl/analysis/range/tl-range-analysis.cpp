@@ -31,6 +31,7 @@ Cambridge, MA 02139, USA.
 #include <algorithm>
 #include <fstream>
 #include <set>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 

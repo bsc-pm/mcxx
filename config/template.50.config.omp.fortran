@@ -37,7 +37,6 @@ target_options[mf95] = no_sublink embed
 target_options[imfc] = no_sublink embed
 target_options[imf95] = no_sublink embed
 target_options[ifort-mfc] = no_sublink embed
-target_options[mpimfc] = no_sublink embed
 # xlf
 target_options[xlmfc] = no_sublink embed
 target_options[xlmf95] = no_sublink embed
@@ -47,6 +46,9 @@ target_options[oclmf95] = no_sublink embed
 # nvidia
 target_options[mnvfc] = no_sublink embed
 # mpi
-target_options[mpimcc] = no_sublink embed
-target_options[mpimcxx] = no_sublink embed
-target_options[mpimfc] = no_sublink embed
+target_options[mpimcxx_imcc_base] = no_sublink embed
+target_options[mpimcxx_mcc_base] = no_sublink embed
+target_options[mpimcc_imcc_base] = no_sublink embed
+target_options[mpimcc_mcc_base] = no_sublink embed
+target_options[mpimfc_imcc_base] = no_sublink embed
+target_options[mpimfc_mcc_base] = no_sublink embed

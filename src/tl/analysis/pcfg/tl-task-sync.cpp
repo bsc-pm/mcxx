@@ -1030,9 +1030,6 @@ namespace {
                 if( !res && ( current != original ) )
                 {
                     ObjectList<Node*> children = current->get_children( );
-                    ERROR_CONDITION( children.size( ) != 1,
-                                     "PCFG non-conditional nodes other than a graph exit node, are expected to have one child.\n"\
-                                     "Node '%d' has '%d' children.\n", current->get_id( ), children.size( ) );
                     bool partial_res = true;
                     for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ) && partial_res; ++it )
                     {
