@@ -18840,7 +18840,13 @@ static void instantiate_cxx_member_init(
         nodecl_t node)
 {
     nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
+
     nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
+
+    nodecl_cxx_dependent_name = update_cxx_dep_qualified_name(nodecl_cxx_dependent_name,
+            v->new_decl_context,
+            v->instantiation_symbol_map,
+            /* FIXME - pack_index */ -1);
 
     scope_entry_list_t *entry_list = query_nodecl_name_in_class(
             v->new_decl_context,
@@ -18866,12 +18872,18 @@ static void instantiate_cxx_member_init(
                 v->instantiation_symbol_map,
                 /* FIXME: pack_index */ -1);
 
+        type_t* type_to_initialize = NULL;
+        if (entry->kind == SK_VARIABLE)
+            type_to_initialize = get_unqualified_type(entry->type_information);
+        else
+            type_to_initialize = get_user_defined_type(entry);
+
         nodecl_t nodecl_init = nodecl_null();
         check_nodecl_initialization(
                 nodecl_initialization_expression,
                 v->new_decl_context,
                 entry,
-                get_unqualified_type(entry->type_information),
+                type_to_initialize,
                 &nodecl_init,
                 /* is_auto */ 0);
 

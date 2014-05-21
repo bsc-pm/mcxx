@@ -6977,38 +6977,48 @@ static char check_symbol_is_base_or_member(
 
     if (nested_name_spec_symbol != NULL)
     {
-        if (nested_name_spec_symbol->kind != SK_CLASS)
+        scope_entry_t* checked_symbol = nested_name_spec_symbol;
+        if (nested_name_spec_symbol->kind == SK_NAMESPACE)
+        {
+            // This qualified-id is of the form N::C or N1::N2::C
+            checked_symbol = current_symbol;
+        }
+
+        if (checked_symbol->kind != SK_CLASS)
         {
             error_printf("%s: error: '%s' must be a class\n",
                     locus_to_str(locus),
-                    nested_name_spec_symbol->symbol_name);
+                    checked_symbol->symbol_name);
             return 0;
         }
         else if (!class_type_is_base_instantiating(
-                    nested_name_spec_symbol->type_information,
+                    checked_symbol->type_information,
                     class_symbol->type_information,
                     locus))
         {
             error_printf("%s: error: '%s' is not a base of '%s'\n",
                     locus_to_str(locus),
-                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
         else if (class_type_is_ambiguous_base_of_derived_class(
-                    nested_name_spec_symbol->type_information,
+                    checked_symbol->type_information,
                     class_symbol->type_information))
         {
             error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
                     locus_to_str(locus),
-                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
     }
 
-    // If we are the last component we must be a member of class_symbol
-    if (!(current_symbol->entity_specs.is_member
+    // If we are the last component we must be a member of class_symbol (unless
+    // our nested-name-specifier designated a namespace
+    if ((nested_name_spec_symbol == NULL
+            || nested_name_spec_symbol->kind != SK_NAMESPACE)
+            && !(current_symbol->entity_specs.is_member
                 && class_type_is_base_instantiating(
                     current_symbol->entity_specs.class_type,
                     get_user_defined_type(class_symbol),
@@ -7016,7 +7026,7 @@ static char check_symbol_is_base_or_member(
     {
         error_printf("%s: error: '%s' is not a member of '%s'\n",
                 locus_to_str(locus),
-                current_symbol->symbol_name,
+                get_qualified_symbol_name(current_symbol, current_symbol->decl_context),
                 get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
         return 0;
     }

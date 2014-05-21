@@ -21246,13 +21246,17 @@ static nodecl_t complete_nodecl_name_of_dependent_entity(
     return result;
 }
 
-static void instantiate_dependent_typename(nodecl_instantiate_expr_visitor_t *v, nodecl_t node)
+static void instantiate_dependent_typename(
+        nodecl_instantiate_expr_visitor_t* v,
+        nodecl_t node
+        )
 {
     scope_entry_t* sym = nodecl_get_symbol(node);
 
     ERROR_CONDITION(sym->kind != SK_DEPENDENT_ENTITY, "Invalid symbol", 0);
 
-    scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context,
+    scope_entry_list_t *entry_list = query_dependent_entity_in_context(
+            v->decl_context,
             sym,
             v->pack_index,
             NULL,
@@ -21500,16 +21504,20 @@ static void instantiate_class_member_access(nodecl_instantiate_expr_visitor_t* v
             &v->nodecl_result);
 }
 
-static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+static nodecl_t update_dep_template_id(
+        nodecl_t node,
+        decl_context_t new_decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index)
 {
     template_parameter_list_t* template_args =
         nodecl_get_template_parameters(node);
     template_parameter_list_t* update_template_args =
-        update_template_argument_list(v->decl_context,
+        update_template_argument_list(new_decl_context,
                 template_args,
-                v->instantiation_symbol_map,
+                instantiation_symbol_map,
                 nodecl_get_locus(node),
-                v->pack_index);
+                pack_index);
 
     nodecl_t nodecl_name = nodecl_make_cxx_dep_template_id(
             nodecl_shallow_copy(nodecl_get_child(node, 0)), // FIXME - We may have to update this as well!
@@ -21520,7 +21528,11 @@ static nodecl_t update_dep_template_id(nodecl_instantiate_expr_visitor_t* v, nod
     return nodecl_name;
 }
 
-static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
+static nodecl_t update_common_dep_name_nested(
+        nodecl_t node,
+        decl_context_t new_decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index,
         nodecl_t (*func)(nodecl_t, const locus_t*))
 {
     nodecl_t nodecl_result_list = nodecl_null();
@@ -21536,11 +21548,11 @@ static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t*
             template_parameter_list_t* template_args =
                 nodecl_get_template_parameters(expr);
             template_parameter_list_t* updated_template_args =
-                update_template_argument_list(v->decl_context,
+                update_template_argument_list(new_decl_context,
                         template_args,
-                        v->instantiation_symbol_map,
+                        instantiation_symbol_map,
                         nodecl_get_locus(expr),
-                        v->pack_index);
+                        pack_index);
 
             nodecl_set_template_parameters(expr, updated_template_args);
         }
@@ -21558,34 +21570,50 @@ static nodecl_t update_common_dep_name_nested(nodecl_instantiate_expr_visitor_t*
     return nodecl_name;
 }
 
-static nodecl_t instantiate_id_expr_of_class_member_access(
-        nodecl_instantiate_expr_visitor_t* v,
-        nodecl_t node)
+nodecl_t update_cxx_dep_qualified_name(nodecl_t cxx_dep_name,
+        decl_context_t new_decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index)
 {
-    if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_SIMPLE)
+    if (nodecl_get_kind(cxx_dep_name) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
-        return nodecl_shallow_copy(node);
+        return nodecl_shallow_copy(cxx_dep_name);
     }
-    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_TEMPLATE_ID)
+    else if (nodecl_get_kind(cxx_dep_name) == NODECL_CXX_DEP_TEMPLATE_ID)
     {
-        return update_dep_template_id(v, node);
+        return update_dep_template_id(cxx_dep_name, new_decl_context,
+                instantiation_symbol_map, pack_index);
     }
-    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_NESTED)
+    else if (nodecl_get_kind(cxx_dep_name) == NODECL_CXX_DEP_NAME_NESTED)
     {
-        return update_common_dep_name_nested(v, node, nodecl_make_cxx_dep_name_nested);
+        return update_common_dep_name_nested( cxx_dep_name, new_decl_context,
+                instantiation_symbol_map, pack_index,
+                nodecl_make_cxx_dep_name_nested);
     }
-    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+    else if (nodecl_get_kind(cxx_dep_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
     {
-        return update_common_dep_name_nested(v, node, nodecl_make_cxx_dep_global_name_nested);
+        return update_common_dep_name_nested( cxx_dep_name, new_decl_context,
+                instantiation_symbol_map, pack_index,
+                nodecl_make_cxx_dep_global_name_nested);
     }
-    else if (nodecl_get_kind(node) == NODECL_CXX_DEP_NAME_CONVERSION)
+    else if (nodecl_get_kind(cxx_dep_name) == NODECL_CXX_DEP_NAME_CONVERSION)
     {
         internal_error("Not yet implemented", 0);
     }
     else 
     {
-        internal_error("Unexpected node '%s'\n", ast_print_node_type(nodecl_get_kind(node)));
+        internal_error("Unexpected cxx_dep_name '%s'\n", ast_print_node_type(nodecl_get_kind(cxx_dep_name)));
     }
+}
+
+static nodecl_t instantiate_id_expr_of_class_member_access(
+        nodecl_instantiate_expr_visitor_t* v,
+        nodecl_t node)
+{
+    return update_cxx_dep_qualified_name(node,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            v->pack_index);
 }
 
 static void instantiate_cxx_class_member_access(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
@@ -22251,7 +22279,10 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
         return;
     }
 
-    nodecl_t nodecl_name = update_dep_template_id(v, node);
+    nodecl_t nodecl_name = update_dep_template_id(node,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            v->pack_index);
 
     scope_entry_list_t* result_list = query_nodecl_name_flags(
             v->decl_context,
@@ -22266,7 +22297,9 @@ static void instantiate_dep_template_id(nodecl_instantiate_expr_visitor_t* v, no
     nodecl_free(nodecl_name);
 }
 
-static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t* v, nodecl_t node,
+static void instantiate_common_dep_name_nested(
+        nodecl_instantiate_expr_visitor_t* v,
+        nodecl_t node,
         nodecl_t (*func)(nodecl_t, const locus_t*))
 {
     if (nodecl_get_symbol(node) != NULL
@@ -22276,7 +22309,8 @@ static void instantiate_common_dep_name_nested(nodecl_instantiate_expr_visitor_t
         return;
     }
 
-    nodecl_t nodecl_name = update_common_dep_name_nested(v, node, func);
+    nodecl_t nodecl_name = update_common_dep_name_nested(node, v->decl_context,
+            v->instantiation_symbol_map, v->pack_index, func);
 
     field_path_t field_path;
     field_path_init(&field_path);
