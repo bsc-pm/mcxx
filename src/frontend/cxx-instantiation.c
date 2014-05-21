@@ -1836,7 +1836,10 @@ void instantiation_init(void)
 static void instantiate_every_symbol(scope_entry_t* entry,
         const locus_t* locus);
 
-nodecl_t instantiation_instantiate_pending_functions(void)
+static void add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
+        scope_entry_t* entry);
+
+void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
 {
     while (num_symbols_to_instantiate > 0)
     {
@@ -1853,12 +1856,79 @@ nodecl_t instantiation_instantiate_pending_functions(void)
                     tmp_symbols_to_instantiate[i]->symbol,
                     tmp_symbols_to_instantiate[i]->locus);
 
+            add_forward_declaration_to_top_level(nodecl_output,
+               tmp_symbols_to_instantiate[i]->symbol);
+
             xfree(tmp_symbols_to_instantiate[i]);
         }
         xfree(tmp_symbols_to_instantiate);
+
     }
 
-    return nodecl_instantiation_units;
+    if (!nodecl_is_null(nodecl_instantiation_units))
+    {
+        *nodecl_output = nodecl_append_to_list(*nodecl_output,
+                nodecl_make_source_comment("Explicit instantiation of functions",
+                    nodecl_get_locus(*nodecl_output)));
+        *nodecl_output = nodecl_concat_lists(*nodecl_output,
+                nodecl_instantiation_units);
+    }
+}
+
+static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
+{
+    if (nodecl_is_null(n))
+        return 0;
+
+    if (nodecl_get_symbol(n) != NULL
+            && nodecl_get_symbol(n) != entry)
+        return 1;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (symbol_in_tree(
+                    nodecl_get_child(n, i),
+                    entry))
+            return 1;
+    }
+
+    return 0;
+}
+
+static void add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
+        scope_entry_t* entry)
+{
+    if (nodecl_output == NULL)
+        return;
+
+    AST list = nodecl_get_ast(*nodecl_output);
+    AST it;
+    for_each_element(list, it)
+    {
+        nodecl_t n = _nodecl_wrap(ASTSon1(it));
+
+        if (nodecl_get_kind(n) == NODECL_FUNCTION_CODE)
+        {
+            if (symbol_in_tree(n, entry))
+            {
+                nodecl_t current_list_item = _nodecl_wrap(it);
+                nodecl_t prev_list_item = nodecl_get_child(current_list_item, 0);
+
+                nodecl_t new_decl = nodecl_make_cxx_decl(
+                        nodecl_make_context(nodecl_null(), entry->decl_context, entry->locus),
+                        entry,
+                        entry->locus);
+                nodecl_t new_list_item = nodecl_make_list_1(new_decl);
+
+                nodecl_set_child(new_list_item, 0, prev_list_item);
+                nodecl_set_child(current_list_item, 0, new_list_item);
+
+                // We are done
+                return;
+            }
+        }
+    }
 }
 
 static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)
@@ -2065,6 +2135,9 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     {
         internal_error("This function cannot be instantiated", 0);
     }
+
+    entry->entity_specs.is_user_declared = 1;
+    entry->decl_context.template_parameters->is_explicit_specialization = 1;
 
     gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
     P_LIST_ADD_ONCE_FUN(entry->entity_specs.gcc_attributes,

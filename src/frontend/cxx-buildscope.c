@@ -455,10 +455,7 @@ static void build_scope_translation_unit_pre(translation_unit_t* translation_uni
     }
     CXX_LANGUAGE()
     {
-        if (CURRENT_CONFIGURATION->explicit_instantiation)
-        {
-            instantiation_init();
-        }
+        instantiation_init();
     }
 }
 
@@ -470,15 +467,7 @@ static void build_scope_translation_unit_post(
     {
         if (CURRENT_CONFIGURATION->explicit_instantiation)
         {
-            nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
-            if (!nodecl_is_null(instantiated_units))
-            {
-                *nodecl_output = nodecl_append_to_list(*nodecl_output,
-                        nodecl_make_source_comment("Explicit instantiation of functions",
-                            nodecl_get_locus(*nodecl_output)));
-                *nodecl_output = nodecl_concat_lists(*nodecl_output,
-                        instantiated_units);
-            }
+            instantiation_instantiate_pending_functions(nodecl_output);
         }
     }
     C_LANGUAGE()
