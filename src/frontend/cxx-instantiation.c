@@ -2037,8 +2037,14 @@ static void instantiate_nontemplate_member_of_template_class(scope_entry_t* entr
     scope_entry_t* emission_template = 
         entry->entity_specs.emission_template;
 
-    ERROR_CONDITION(emission_template == NULL,
-            "Invalid nontemplate member function", 0);
+    // ERROR_CONDITION(emission_template == NULL,
+    //         "Invalid nontemplate member function", 0);
+
+    if (emission_template == NULL)
+    {
+        fprintf(stderr, "Function lacks emission template = %s\n", get_qualified_symbol_name(entry, entry->decl_context));
+        return;
+    }
 
     // Cannot be instantiated
     if (!emission_template->defined)
@@ -2137,7 +2143,13 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
     }
 
     entry->entity_specs.is_user_declared = 1;
-    entry->decl_context.template_parameters->is_explicit_specialization = 1;
+    if (entry->decl_context.template_parameters != NULL)
+        entry->decl_context.template_parameters->is_explicit_specialization = 1;
+    else
+    {
+        fprintf(stderr, "Function does not have template parameters %s\n",
+                get_qualified_symbol_name(entry, entry->decl_context));
+    }
 
     gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
     P_LIST_ADD_ONCE_FUN(entry->entity_specs.gcc_attributes,

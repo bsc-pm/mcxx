@@ -21618,6 +21618,26 @@ static void instantiate_cxx_arrow(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             &v->nodecl_result);
 }
 
+static void instantiate_array_subscript(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_subscripted = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_subscript = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+
+    check_nodecl_array_subscript_expression_cxx(
+            nodecl_subscripted,
+            nodecl_subscript,
+            v->decl_context,
+            &v->nodecl_result);
+}
+
+static void instantiate_throw(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_thrown = nodecl_get_child(node, 0);
+    nodecl_thrown = instantiate_expr_walk(v, nodecl_thrown);
+
+    check_throw_expression_nodecl(nodecl_thrown, nodecl_get_locus(node), &v->nodecl_result);
+}
+
 static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -22519,6 +22539,78 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     v->nodecl_result = nodecl_result;
 }
 
+static void instantiate_cxx_dep_new(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_initializer = nodecl_get_child(node, 0);
+    // nodecl_t nodecl_type = nodecl_get_child(node, 1);
+    nodecl_t nodecl_placement_list = nodecl_get_child(node, 2);
+    type_t* new_type = nodecl_get_type(node);
+
+    nodecl_initializer = instantiate_expr_walk(
+            v, nodecl_initializer);
+
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_placement_list, &num_items);
+
+    nodecl_t new_nodecl_placement_list = nodecl_null();
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t new_item = instantiate_expr_walk(v, list[i]);
+        new_nodecl_placement_list = nodecl_append_to_list(new_nodecl_placement_list, new_item);
+    }
+    xfree(list);
+
+    new_type = update_type_for_instantiation(
+            new_type,
+            v->decl_context,
+            nodecl_get_locus(node),
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    char is_global = strcmp(nodecl_get_text(node), "global") == 0;
+
+    check_new_expression_impl(
+            new_nodecl_placement_list,
+            nodecl_initializer,
+            new_type,
+            is_global,
+            v->decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
+}
+
+static void instantiate_delete(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = nodecl_get_child(node, 0);
+
+    nodecl_expr = instantiate_expression(
+            nodecl_expr,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    v->nodecl_result = nodecl_make_delete(nodecl_expr, get_void_type(), nodecl_get_locus(node));
+}
+
+static void instantiate_delete_array(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_expr = nodecl_get_child(node, 0);
+
+    nodecl_expr = instantiate_expression(
+            nodecl_expr,
+            v->decl_context,
+            v->instantiation_symbol_map,
+            /* pack_index */ -1);
+
+    v->nodecl_result = nodecl_make_delete_array(nodecl_expr, get_void_type(), nodecl_get_locus(node));
+}
+
+static void instantiate_new(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    v->nodecl_result = nodecl_shallow_copy(node);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, decl_context_t decl_context)
 {
@@ -22545,6 +22637,12 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_class_member_access = instantiate_expr_visitor_fun(instantiate_class_member_access);
     NODECL_VISITOR(v)->visit_cxx_class_member_access = instantiate_expr_visitor_fun(instantiate_cxx_class_member_access);
     NODECL_VISITOR(v)->visit_cxx_arrow = instantiate_expr_visitor_fun(instantiate_cxx_arrow);
+
+    // Array subscript
+    NODECL_VISITOR(v)->visit_array_subscript = instantiate_expr_visitor_fun(instantiate_array_subscript);
+
+    // Throw
+    NODECL_VISITOR(v)->visit_throw = instantiate_expr_visitor_fun(instantiate_throw);
 
     // Binary operations
     NODECL_VISITOR(v)->visit_add = instantiate_expr_visitor_fun(instantiate_binary_op);
@@ -22645,5 +22743,13 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Value packs
     NODECL_VISITOR(v)->visit_cxx_value_pack = instantiate_expr_visitor_fun(instantiate_cxx_value_pack);
+
+    // New
+    NODECL_VISITOR(v)->visit_new = instantiate_expr_visitor_fun(instantiate_new);
+    NODECL_VISITOR(v)->visit_cxx_dep_new = instantiate_expr_visitor_fun(instantiate_cxx_dep_new);
+
+    // Delete
+    NODECL_VISITOR(v)->visit_delete = instantiate_expr_visitor_fun(instantiate_delete);
+    NODECL_VISITOR(v)->visit_delete_array = instantiate_expr_visitor_fun(instantiate_delete_array);
 }
 

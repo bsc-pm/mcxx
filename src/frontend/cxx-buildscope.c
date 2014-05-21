@@ -18740,13 +18740,29 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack_index */ -1);
 
                     nodecl_t nodecl_init = nodecl_null();
-                    check_nodecl_initialization(
-                            value,
-                            v->new_decl_context,
-                            new_entry,
-                            get_unqualified_type(new_entry->type_information),
-                            &nodecl_init,
-                            /* FIXME is_auto */ 0);
+                    if (!nodecl_is_null(value))
+                    {
+                        if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
+                                || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
+                                || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+                        {
+                            check_nodecl_initialization(
+                                    value,
+                                    v->new_decl_context,
+                                    new_entry,
+                                    get_unqualified_type(new_entry->type_information),
+                                    &nodecl_init,
+                                    /* FIXME is_auto */ 0);
+                        }
+                        else
+                        {
+                            check_nodecl_expr_initializer(value, 
+                                    v->new_decl_context,
+                                    get_unqualified_type(new_entry->type_information),
+                                    /* disallow_narrowing */ 0,
+                                    &nodecl_init);
+                        }
+                    }
 
                     new_entry->value = nodecl_init;
 
@@ -19080,9 +19096,62 @@ static void instantiate_case_statement(nodecl_instantiate_stmt_visitor_t* v, nod
             nodecl_get_locus(node));
 }
 
+static void instantiate_catch_handler(nodecl_instantiate_stmt_visitor_t *v, nodecl_t node)
+{
+    nodecl_t exception_name = nodecl_get_child(node, 0);
+    nodecl_t stmt_list = nodecl_get_child(node, 1);
+    type_t* catch_type = nodecl_get_type(node);
+
+    {
+        // This is a bit silly because exception name is in the context of statement
+        // so we cannot use instantiate_context directly
+        decl_context_t existing_context = v->new_decl_context;
+        v->new_decl_context = new_block_context(existing_context);
+
+        exception_name = instantiate_stmt_walk(v, exception_name);
+
+        nodecl_t nodecl_statement = nodecl_list_head(stmt_list);
+        nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+        stmt_list = nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_statement,
+                    v->new_decl_context,
+                    nodecl_get_locus(stmt_list)));
+
+        v->new_decl_context = existing_context;
+
+    }
+
+    catch_type = update_type_for_instantiation(
+            catch_type,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            v->instantiation_symbol_map,
+            /* pack */ -1);
+
+    v->nodecl_result = nodecl_make_catch_handler(
+        exception_name,
+        stmt_list,
+        catch_type,
+        nodecl_get_locus(node));
+}
+
 static void instantiate_try_block(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    instantiate_stmt_not_implemented_yet(v, node);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 0);
+    nodecl_t nodecl_catch_list = nodecl_get_child(node, 1);
+    nodecl_t nodecl_catch_any = nodecl_get_child(node, 2);
+
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+    nodecl_catch_list = instantiate_stmt_walk(v, nodecl_catch_list);
+    nodecl_catch_any = instantiate_stmt_walk(v, nodecl_catch_any);
+
+    v->nodecl_result = nodecl_make_try_block(
+            nodecl_statement,
+            nodecl_catch_list,
+            nodecl_catch_any,
+            nodecl_get_locus(node));
 }
 
 static void instantiate_switch_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19175,6 +19244,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_default_statement = instantiate_stmt_visitor_fun(instantiate_default_statement);
     NODECL_VISITOR(v)->visit_case_statement = instantiate_stmt_visitor_fun(instantiate_case_statement);
     NODECL_VISITOR(v)->visit_try_block = instantiate_stmt_visitor_fun(instantiate_try_block);
+    NODECL_VISITOR(v)->visit_catch_handler = instantiate_stmt_visitor_fun(instantiate_catch_handler);
     NODECL_VISITOR(v)->visit_switch_statement = instantiate_stmt_visitor_fun(instantiate_switch_statement);
     NODECL_VISITOR(v)->visit_empty_statement = instantiate_stmt_visitor_fun(instantiate_empty_statement);
     NODECL_VISITOR(v)->visit_break_statement = instantiate_stmt_visitor_fun(instantiate_break_statement);
