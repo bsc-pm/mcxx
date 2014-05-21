@@ -237,7 +237,8 @@ expression : literal
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt, [form]structured-value-form-opt) type const-value-opt
 
 structured-value-form : NODECL_STRUCTURED_VALUE_PARENTHESIZED()
-      | NODECL_STRUCTURED_VALUE_BRACED()
+      | NODECL_STRUCTURED_VALUE_BRACED_TYPECAST()
+      | NODECL_STRUCTURED_VALUE_BRACED_IMPLICIT()
       | NODECL_STRUCTURED_VALUE_COMPOUND_LITERAL()
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item) type const-value-opt
@@ -386,6 +387,7 @@ cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expr
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_IMPLICIT()
+    | NODECL_CXX_FUNCTION_FORM_IMPLICIT_BRACED_ARGUMENTS()
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
@@ -487,7 +489,7 @@ parallel-execution : task-construct
                    | single-construct
                    | critical-construct
                    | parallel-construct
-                   | for-construct
+                   | omp-for-construct
                    | atomic-construct
                    | sections-construct
                    | master-construct
@@ -580,7 +582,7 @@ reduction-item : NODECL_OPEN_M_P*REDUCTION_ITEM([reductor]name, [reduced_symbol]
 parallel-construct : NODECL_OPEN_M_P*PARALLEL([environment]exec-environment-seq-opt, [num_replicas]expression-opt, [statements]statement-seq)
 
 # for
-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
+omp-for-construct : NODECL_OPEN_M_P*FOR([environment]exec-environment-seq-opt, [loop]statement)
               | NODECL_OPEN_M_P*FOR_APPENDIX([environment]exec-environment-seq-opt, [loop]statement, [appendix]statement-seq)
 
 # workshare (Fortran only)
@@ -613,11 +615,13 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 simd-constructs : simd-construct
                 | simd-for-construct
                 | parallel-simd-for-construct
+                | simd-parallel-construct
 
 simd-construct : NODECL_OPEN_M_P*SIMD([statement] statement, [environment] exec-environment-seq-opt)
 simd-func-construct : NODECL_OPEN_M_P*SIMD_FUNCTION([statement] statement, [environment] exec-environment-seq-opt)
-simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] for-construct, [environment] exec-environment-seq-opt)
+simd-for-construct : NODECL_OPEN_M_P*SIMD_FOR([openmp_for] omp-for-construct, [environment] exec-environment-seq-opt)
 parallel-simd-for-construct : NODECL_OPEN_M_P*PARALLEL_SIMD_FOR([statement] statement, [environment] exec-environment-seq-opt)
+simd-parallel-construct : NODECL_OPEN_M_P*SIMD_PARALLEL([openmp_parallel] parallel-construct, [environment] exec-environment-seq-opt)
 
 ##############################
 # CUDA                       #
@@ -630,19 +634,21 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
+interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
+                    | NODECL_ANALYSIS*PLUS_INFINITY()
+                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
+                    | NODECL_ANALYSIS*EMPTY_RANGE()
+                    | expression
 
-constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
-                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
-                      | NODECL_ANALYSIS*EMPTY_RANGE()
-                      | NODECL_ANALYSIS*MINUS_INFINITY()
-                      | NODECL_ANALYSIS*PLUS_INFINITY()
-                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                      
-expression : constraint_expression
+constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
+                      | interval_expression
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] constraint_expression, [rhs] constraint_expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] constraint_expression, [rhs] constraint_expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] constraint_expression, [rhs] constraint_expression) type
+
+constraint : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
+           | constraint_expression
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

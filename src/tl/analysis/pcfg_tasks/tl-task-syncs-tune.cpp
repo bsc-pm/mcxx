@@ -51,12 +51,7 @@ namespace {
             if(m.is<Nodecl::Range>())
             {   // n=[lb1, ub1], m=[lb2, ub2]
                 cond_part = Nodecl::Different::make(
-                    Nodecl::Analysis::RangeIntersection::make(
-                        // Transform this ranges to analysis ranges, for they do not follow the loop range syntax anymore
-                        Nodecl::Analysis::Range::make(n.as<Nodecl::Range>().get_lower().shallow_copy(), n.as<Nodecl::Range>().get_upper().shallow_copy(), t),
-                        Nodecl::Analysis::Range::make(m.as<Nodecl::Range>().get_lower().shallow_copy(), m.as<Nodecl::Range>().get_upper().shallow_copy(), t),
-                        t
-                    ),
+                    Nodecl::Analysis::RangeIntersection::make(n.shallow_copy(), m.shallow_copy(), t),
                     Nodecl::Analysis::EmptyRange::make(),
                     t
                 );

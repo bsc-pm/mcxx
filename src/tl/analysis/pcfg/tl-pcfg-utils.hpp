@@ -27,7 +27,7 @@
 #ifndef TL_PCFGVISIT_UTILS_HPP
 #define TL_PCFGVISIT_UTILS_HPP
 
-#include "tl-nodecl.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-objectlist.hpp"
 #include <set>
 #include <stack>
@@ -104,6 +104,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpSimd) \
     GRAPH_TYPE(OmpSimdFor) \
     GRAPH_TYPE(OmpSimdFunction) \
+    GRAPH_TYPE(OmpSimdParallel) \
     GRAPH_TYPE(OmpSimdParallelFor) \
     GRAPH_TYPE(OmpSingle) \
     GRAPH_TYPE(OmpWorkshare) \
@@ -273,6 +274,12 @@ namespace Analysis {
      */
     #define _IS_TASK_EDGE                   "is_task_edge"
     
+    /*! \def _IS_BACK_EDGE
+     * Boolean indicating whether an edge connects a target which appears before in the source code
+     * Available and mandatory in all edges.
+     */
+    #define _IS_BACK_EDGE                   "is_back_edge"    
+    
     
     // Constant propagation attributes
     //////////////////////////////////
@@ -352,6 +359,12 @@ namespace Analysis {
      */
     #define _PRIVATE_UNDEF                  "private_undefined_behaviour_vars"
     
+    /*! \def _USED_ADDRESSES
+     * Set of addresses being used within a node
+     * Available in all nodes (Mandatory once the UseDef analysis is performed)
+     */
+    #define _USED_ADDRESSES                 "used_addresses"
+    
     // Liveness attributes
     //////////////////////
     
@@ -417,6 +430,12 @@ namespace Analysis {
      * Available in all simple nodes (Mandatory after Range Analysis is performed)
      */
     #define _CONSTRAINTS                    "constraints"
+
+    /*! \def _PROPAGATED_CONSTRAINTS
+     * Map of variables and the related constraints computed during Range Analysis
+     * Available in all simple nodes (Mandatory after Range Analysis is performed)
+     */
+    #define _PROPAGATED_CONSTRAINTS         "propagated_constraints"
     
     /*! \def _RANGES_IN
      * Map containing range of values assigned to a value at the entry point of a node
@@ -706,6 +725,7 @@ namespace Analysis {
     CLAUSE(shared) \
     CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
+    CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
     CLAUSE(unroll) \
@@ -887,6 +907,8 @@ namespace Analysis {
     
     // ************************** END class for task synchronizations **************************** //
     // ******************************************************************************************* //
+    
+    typedef std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> GlobalVarsSet;
 }
 }
 

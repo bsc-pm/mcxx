@@ -79,6 +79,12 @@ namespace Analysis {
                             "If set to '1' enables range analysis, otherwise it is disabled",
                             _range_analysis_enabled_str,
                             "0").connect(functor(&TestAnalysisPhase::set_range_analsysis, *this));
+                            
+        register_parameter("cyclomatic_complexity_enabled",
+                            "If set to '1' enables cyclomatic complexity calculation, otherwise it is disabled",
+                            _cyclomatic_complexity_enabled_str,
+                            "0").connect(functor(&TestAnalysisPhase::set_cyclomatic_complexity, *this));
+        
     }
 
     void TestAnalysisPhase::run( TL::DTO& dto )
@@ -158,10 +164,19 @@ namespace Analysis {
         if( _range_analysis_enabled )
         {
             if( VERBOSE )
-                std::cerr << "====================  Testing Range analysis ====================" << std::endl;
+                std::cerr << "====================  Testing Range analysis  ===================" << std::endl;
             pcfgs = analysis.range_analysis( memento, ast );
             if( VERBOSE )
-                std::cerr << "==========  Testing Induction Variables analysis done ===========" << std::endl;
+                std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
+        }
+        
+        if(_cyclomatic_complexity_enabled)
+        {
+            if( VERBOSE )
+                std::cerr << "============  Testing Cyclomatic Complexity analysis  ===========" << std::endl;
+            pcfgs = analysis.cyclomatic_complexity( memento, ast );
+            if( VERBOSE )
+                std::cerr << "=========  Testing Cyclomatic Complexity analysis done  =========" << std::endl;
         }
         
         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
@@ -243,6 +258,11 @@ namespace Analysis {
             _range_analysis_enabled = true;
     }
     
+    void TestAnalysisPhase::set_cyclomatic_complexity( const std::string& cyclomatic_complexity_enabled_str)
+    {
+        if( cyclomatic_complexity_enabled_str == "1")
+            _cyclomatic_complexity_enabled = true;
+    }
 }
 }
 

@@ -58,7 +58,6 @@ namespace Codegen
             Ret visit(const Nodecl::Analysis::MinusInfinity &);
             Ret visit(const Nodecl::Analysis::EmptyRange& node);
             Ret visit(const Nodecl::Analysis::Phi &);
-            Ret visit(const Nodecl::Analysis::Range &);
             Ret visit(const Nodecl::Analysis::RangeIntersection &);
             Ret visit(const Nodecl::Analysis::RangeSub &);
             Ret visit(const Nodecl::Analysis::RangeUnion &);
@@ -444,6 +443,9 @@ namespace Codegen
 
             template <typename Node>
                 static bool is_implicit_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_implicit_braced_function_call(const Node& node);
 
             static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
