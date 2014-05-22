@@ -21998,6 +21998,9 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             new_list,
             v->decl_context,
             &v->nodecl_result);
+
+    // Remove the called name (it should not be necessary)
+    nodecl_set_child(v->nodecl_result, 2, nodecl_null());
 }
 
 static void instantiate_comma_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

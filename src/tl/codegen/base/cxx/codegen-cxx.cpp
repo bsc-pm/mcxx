@@ -7378,8 +7378,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         TL::ObjectList<std::string> parameter_names(num_parameters);
         TL::ObjectList<std::string> parameter_attributes(num_parameters);
         fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
-                !symbol.get_type().is_template_specialized_type() || is_primary_template);
-
+                // We want parameters if this is a primary template
+                is_primary_template
+                // or if it is not a primary template, if this is not a specialized template function
+                || !(symbol.get_scope().get_template_parameters() != NULL
+                    && symbol.get_scope().get_template_parameters()->is_explicit_specialization)
+                );
 
         std::string decl_spec_seq;
 

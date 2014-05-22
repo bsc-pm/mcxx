@@ -1389,6 +1389,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     decl_context_t inner_decl_context = new_class_context(instantiation_context, 
             being_instantiated_sym);
+    inner_decl_context.template_parameters->is_explicit_specialization = 1;
 
     being_instantiated_sym->decl_context = instantiation_context;
 
@@ -1888,6 +1889,12 @@ static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
             && nodecl_get_symbol(n) == entry)
         return 1;
 
+    if (nodecl_get_kind(n) == NODECL_OBJECT_INIT)
+    {
+        if (symbol_in_tree(nodecl_get_symbol(n)->value, entry))
+            return 1;
+    }
+
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
@@ -1921,6 +1928,39 @@ static void prepend_decl(AST it, scope_entry_t* entry)
     nodecl_set_child(current_list_item, 0, new_list_item);
 }
 
+static char class_contains_specialization(scope_entry_t* class_symbol,
+        scope_entry_t* specialization)
+{
+    // Verify if this class contains this symbol among its member functions
+    scope_entry_list_t* member_functions = class_type_get_members(class_symbol->type_information);
+
+    scope_entry_list_iterator_t* it2;
+    for (it2 = entry_list_iterator_begin(member_functions);
+            !entry_list_iterator_end(it2);
+            entry_list_iterator_next(it2))
+    {
+        scope_entry_t* current_member = entry_list_iterator_current(it2);
+        if (current_member == specialization)
+        {
+            entry_list_iterator_free(it2);
+            entry_list_free(member_functions);
+
+            return 1;
+        }
+        // plain nested class
+        else if (current_member->kind == SK_CLASS)
+        {
+            if (class_contains_specialization(current_member, specialization))
+                return 1;
+        }
+    }
+
+    entry_list_iterator_free(it2);
+    entry_list_free(member_functions);
+
+    return 0;
+}
+
 static char add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
         scope_entry_t* entry)
 {
@@ -1937,41 +1977,25 @@ static char add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
         nodecl_t n = _nodecl_wrap(ASTSon1(it));
 
         if (nodecl_get_kind(n) == NODECL_FUNCTION_CODE
-                || nodecl_get_kind(n) == NODECL_CXX_EXPLICIT_INSTANTIATION
+                // || nodecl_get_kind(n) == NODECL_CXX_EXPLICIT_INSTANTIATION
                 || nodecl_get_kind(n) == NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION)
         {
             if (symbol_in_tree(n, entry))
             {
                 prepend_decl(it, entry);
-                // We are done
                 return 1;
             }
-            else if (nodecl_get_kind(n) == NODECL_CXX_EXPLICIT_INSTANTIATION
-                    || nodecl_get_kind(n) == NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION)
+            else if (/* nodecl_get_kind(n) == NODECL_CXX_EXPLICIT_INSTANTIATION
+                    || */nodecl_get_kind(n) == NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION)
             {
                 scope_entry_t* instantiated = nodecl_get_symbol(n);
                 if (instantiated->kind == SK_CLASS)
                 {
-                    // Verify if this class contains this symbol among its member functions
-                    scope_entry_list_t* member_functions = class_type_get_member_functions(instantiated->type_information);
-
-                    scope_entry_list_iterator_t* it2;
-                    for (it2 = entry_list_iterator_begin(member_functions);
-                            !entry_list_iterator_end(it2);
-                            entry_list_iterator_next(it2))
+                    if (class_contains_specialization(instantiated, entry))
                     {
-                        if (entry_list_iterator_current(it2) == entry)
-                        {
-                            entry_list_iterator_free(it2);
-                            entry_list_free(member_functions);
-
-                            prepend_decl(it, entry);
-                            return 1;
-                        }
+                        prepend_decl(it, entry);
+                        return 1;
                     }
-
-                    entry_list_iterator_free(it2);
-                    entry_list_free(member_functions);
                 }
             }
         }

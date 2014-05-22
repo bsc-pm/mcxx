@@ -13029,6 +13029,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             // Only variables are actually defined, everything else is a declaration
             (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
+        decl_context.template_parameters = entry->decl_context.template_parameters;
+
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
                     decl_context, ast_get_locus(init_declarator));
