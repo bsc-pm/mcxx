@@ -7421,6 +7421,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
+        if (gcc_attributes != "")
+            gcc_attributes = " " + gcc_attributes;
         std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
         TL::Type real_type = symbol.get_type();
