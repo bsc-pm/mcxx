@@ -1881,7 +1881,7 @@ static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
         return 0;
 
     if (nodecl_get_symbol(n) != NULL
-            && nodecl_get_symbol(n) != entry)
+            && nodecl_get_symbol(n) == entry)
         return 1;
 
     int i;
