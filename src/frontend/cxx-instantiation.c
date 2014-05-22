@@ -2151,11 +2151,14 @@ static void instantiate_template_function_internal(scope_entry_t* entry, const l
                 get_qualified_symbol_name(entry, entry->decl_context));
     }
 
-    gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
-    P_LIST_ADD_ONCE_FUN(entry->entity_specs.gcc_attributes,
-            entry->entity_specs.num_gcc_attributes,
-            gcc_attr,
-            compare_gcc_attribute);
+    if (!entry->entity_specs.is_inline)
+    {
+        gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
+        P_LIST_ADD_ONCE_FUN(entry->entity_specs.gcc_attributes,
+                entry->entity_specs.num_gcc_attributes,
+                gcc_attr,
+                compare_gcc_attribute);
+    }
 
     diagnostic_context_pop_and_commit();
 
