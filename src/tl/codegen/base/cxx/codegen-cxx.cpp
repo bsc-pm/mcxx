@@ -2583,7 +2583,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     while (tpl.is_valid())
     {
         // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        if (tpl.get_num_parameters() > 0
+                && tpl.get_is_explicit_specialization())
         {
              indent();
              *(file) << "template <>\n";
@@ -7335,9 +7336,17 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 }
                 if (symbol.is_member())
                 {
-                    codegen_template_headers_bounded(template_parameters,
-                            symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
-                            /* show_default_values */ is_primary_template);
+                    if (scope != NULL
+                            && scope->is_namespace_scope())
+                    {
+                        codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
+                    }
+                    else
+                    {
+                        codegen_template_headers_bounded(template_parameters,
+                                symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                                /* show_default_values */ is_primary_template);
+                    }
                 }
                 else
                 {
@@ -7353,7 +7362,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     while (tpl.is_valid())
                     {
                         // We should ignore some 'fake' empty template headers
-                        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+                        if (tpl.get_num_parameters() > 0
+                                && tpl.get_is_explicit_specialization())
                         {
                             indent();
                             *(file) << "template <>\n";
@@ -8766,7 +8776,8 @@ void CxxBase::codegen_template_header(
         return;
 
     indent();
-    if (template_parameters.get_is_explicit_specialization())
+    if (template_parameters.get_num_parameters() > 0 
+            && template_parameters.get_is_explicit_specialization())
     {
         *(file) << "template <>";
         if (endline)
