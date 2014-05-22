@@ -1915,8 +1915,14 @@ static void add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
                 nodecl_t current_list_item = _nodecl_wrap(it);
                 nodecl_t prev_list_item = nodecl_get_child(current_list_item, 0);
 
+                decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
+                templated_context.template_parameters = entry->decl_context.template_parameters;
+
                 nodecl_t new_decl = nodecl_make_cxx_decl(
-                        nodecl_make_context(nodecl_null(), entry->decl_context, entry->locus),
+                        nodecl_make_context(
+                            nodecl_null(),
+                            templated_context,
+                            entry->locus),
                         entry,
                         entry->locus);
                 nodecl_t new_list_item = nodecl_make_list_1(new_decl);
