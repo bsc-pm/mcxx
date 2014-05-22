@@ -14667,27 +14667,7 @@ static void build_scope_function_definition_body(
             entry,
             ast_get_locus(function_definition));
 
-    if (CURRENT_CONFIGURATION->explicit_instantiation
-                && is_dependent_function(entry))
-    {
-        // If we are going to instantiate later, emit only a declaration if not
-        // a member
-        if (!entry->entity_specs.is_member)
-        {
-            nodecl_t nodecl_context =
-                nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                        entry->decl_context, ast_get_locus(function_definition));
-            *nodecl_output =
-                nodecl_make_list_1(
-                        nodecl_make_cxx_decl(nodecl_context, entry, ast_get_locus(function_definition))
-                        );
-        }
-    }
-    else
-    {
-        *nodecl_output = nodecl_make_list_1(nodecl_function_def);
-    }
-
+    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
     entry->entity_specs.function_code = nodecl_function_def;
 }
 
