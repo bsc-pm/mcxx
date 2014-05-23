@@ -142,8 +142,11 @@ namespace Analysis {
                     {
                         if(!Nodecl::Utils::structurally_equal_nodecls(ctr_subscripts[i], ctd_subscripts[i]))
                         {
-                            WARNING_MESSAGE("Splitting usage of multidimensional arrays when dimensions other than "
-                                            "the less significant accessed differs is not yet supported\n", 0);
+                            if(VERBOSE)
+                            {
+                                WARNING_MESSAGE("Splitting usage of multidimensional arrays when dimensions other than "
+                                                "the less significant accessed differs is not yet supported\n", 0);
+                            }
                             return result;
                         }
                         i++;
@@ -167,9 +170,12 @@ namespace Analysis {
                 {
                     if(ctd_subscripts.size() > 1)
                     {
-                        WARNING_MESSAGE("Cannot split the multidimensional array access %s "
-                                        "when its container expression other than an array access to the less significant dimension\n",
-                                        contained.prettyprint().c_str(), container.prettyprint().c_str());
+                        if(VERBOSE)
+                        {
+                            WARNING_MESSAGE("Cannot split the multidimensional array access %s "
+                                            "when its container expression other than an array access to the less significant dimension\n",
+                                            contained.prettyprint().c_str(), container.prettyprint().c_str());
+                        }
                         return result;
                     }
                     
@@ -189,7 +195,11 @@ namespace Analysis {
                         }
                         else
                         {
-                            WARNING_MESSAGE("We cannot split the usage of a pointer type because we do not know the size of the object\n", 0);
+                            if(VERBOSE)
+                            {
+                                WARNING_MESSAGE("We cannot split the usage of pointer '%s' because we do not know the size of the object\n", 
+                                                container.prettyprint().c_str());
+                            }
                             return result;
                         }
                     }
@@ -323,17 +333,23 @@ namespace Analysis {
             }
             else
             {
-                WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
-                                container.prettyprint().c_str(), contained.prettyprint().c_str(),
-                                print_declarator(ctr_t.get_internal_type()));
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
+                                    container.prettyprint().c_str(), contained.prettyprint().c_str(),
+                                    print_declarator(ctr_t.get_internal_type()));
+                }
                 return result;
             }
         }
         else
         {
-            WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting an object into different subobjects.\n"
-                            "ArraySubscript or ClassMemberAccess expected\n",
-                            ast_print_node_type(contained.get_kind()));
+            if(VERBOSE)
+            {
+                WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting object '%s' into different subobjects.\n"
+                                "ArraySubscript or ClassMemberAccess expected\n",
+                                ast_print_node_type(contained.get_kind()), contained.prettyprint().c_str());
+            }
         }
         return result;
     }

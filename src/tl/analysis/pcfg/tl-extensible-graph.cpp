@@ -1240,7 +1240,7 @@ namespace Analysis {
     Node* ExtensibleGraph::get_enclosing_context( Node* n )
     {
         Node* sc = NULL;
-        Node* outer = n;
+        Node* outer = (n->is_context_node() ? n->get_outer_node() : n);
         while( sc == NULL && outer != NULL )
         {
             if( outer->is_context_node( ) )

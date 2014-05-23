@@ -390,6 +390,17 @@ namespace {
             return result;
         }
         
+        static bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
+        {
+            bool found = false;
+            while(!found && (ctx != NULL))
+            {
+                found = (ctx == node) || TL::Analysis::ExtensibleGraph::node_contains_node(ctx, node);
+                ctx = TL::Analysis::ExtensibleGraph::get_enclosing_context(ctx);
+            }
+            return found;
+        }
+        
         // Returns false when task may synchronize at some point 
         // which is not enclosed in the scope where the task is created
         tribool task_only_synchronizes_in_enclosing_scopes( TL::Analysis::Node *n )
@@ -413,8 +424,7 @@ namespace {
             {
                 TL::Analysis::Node* sync_sc = TL::Analysis::ExtensibleGraph::get_enclosing_context( *it );
                 if( ( sync_sc == NULL ) ||                                  // This a Post_Sync
-                    ( task_creation_sc != sync_sc &&                        // Task synchronizes in an outbound scope 
-                      !TL::Analysis::ExtensibleGraph::node_contains_node( task_creation_sc, sync_sc ) ) )
+                    ( !enclosing_context_contains_node(task_creation_sc, sync_sc) ) )
                 {
                     result = false;
                     break;
@@ -869,9 +879,8 @@ namespace {
                 dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as (first)private the variables '%s' "
-                             "and these variables are written inside the task, but never used.\n" 
-                             "%sConsider defining them as shared or "
-                             "removing the statement writing them because it is dead code.\n",
+                             "and this update will not be visible after the task.\n" 
+                             "%sConsider defining them as shared or removing the statement writing them.\n",
                              task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __Dead);
             }
@@ -915,7 +924,7 @@ namespace {
                 incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
                 std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
                 warn_printf( "%s: warning: OpenMP task defines as firstprivate the variables '%s' "
-                             "but those variables are not upwards exposed.\n"
+                             "but the value captured is never read.\n"
                              "%sConsider defining them as private instead.\n",
                              task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __Incoherent);
