@@ -179,6 +179,16 @@ namespace TL { namespace Nanox {
             new_class_type = new_class_symbol.get_type().get_internal_type();
         }
 
+        // This is a nontemplate member of a template class
+        if (related_symbol.is_member()
+                && !related_symbol.get_type().is_template_specialized_type()
+                && TL::Type(get_actual_class_type(
+                    related_symbol.get_class_type().get_internal_type())).is_template_specialized_type()
+                && related_symbol.get_class_type().is_dependent())
+        {
+            set_is_dependent_type(new_class_type, 1);
+        }
+
         new_class_symbol.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
         decl_context_t class_context = new_class_context(new_class_symbol.get_scope().get_decl_context(),
