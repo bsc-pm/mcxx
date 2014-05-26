@@ -11397,6 +11397,17 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
+                if (gather_info->is_explicit_specialization)
+                {
+                    error_printf("%s: error: default template arguments in explicit specialization function declaration\n",
+                        ast_location(declarator_id));
+                }
+                else if (gather_info->is_explicit_instantiation)
+                {
+                    error_printf("%s: error: default template arguments in explicit instantiation function declaration\n",
+                        ast_location(declarator_id));
+                }
+
                 new_entry->entity_specs.default_argument_info[i] = 
                     (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), 
                             &_bytes_used_buildscope);
@@ -11694,7 +11705,9 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
     new_entry->entity_specs.default_argument_info =
-        counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+        counted_xcalloc(new_entry->entity_specs.num_parameters,
+                sizeof(*(new_entry->entity_specs.default_argument_info)),
+                &_bytes_used_buildscope);
     int i;
     for (i = 0; i < gather_info->num_arguments_info; i++)
     {
