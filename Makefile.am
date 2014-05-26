@@ -2697,23 +2697,20 @@ CONFIG_FILES =  \
        config/10.config.analysis-base \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
-       config/50.config.cuda \
-       config/50.config.gpu \
-       config/50.config.omp.fortran \
+       config/40.config.cuda \
        config/50.config.omp.fpga \
        config/50.config.omp.mercurium \
-       config/50.config.omp.ocl \
        config/50.config.omp.profiling \
 	   config/50.config.omp.intel-rtl \
        config/55.config.omp.ibm \
-       config/55.config.omp.ibm.fortran \
        config/55.config.omp.intel \
-       config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
+       config/55.config.omp.ocl \
        config/56.config.omp.mpi \
        config/56.config.omp.intel.mpi \
-       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
+       config/57.config.omp.smp.intel \
+       config/57.config.omp.smp.ibm \
        config/mpimcc \
        config/mpimcxx \
        config/mpimfc \
