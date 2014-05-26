@@ -1,4 +1,4 @@
-[mpimcc_mcc_base : mcc]
+[mpimcc_imcc_base : imcc]
 language = C
 options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICC@
@@ -9,7 +9,8 @@ linker_name = @MPICXX@
 {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
 compiler_phase = libtlnanox-mpi.so
 
-[mpimcxx_mcc_base : mcxx]
+
+[mpimcxx_imcc_base : imcxx]
 language = C++
 options= --variable=nanos_main_enabled:1
 preprocessor_name = @MPICXX@
@@ -18,17 +19,4 @@ preprocessor_name = @MPICXX@
 compiler_name = @MPICXX@
 linker_name = @MPICXX@
 {mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
-compiler_phase = libtlnanox-mpi.so
-
-[mpimfc_mcc_base : mfc]
-language = Fortran
-options = --variable=nanos_main_enabled:1
-preprocessor_name = @MPICC@
-{!mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DX86_ARCH
-{mmic} preprocessor_options = -E -D_MERCURIUM_MPI_ -include nanos-mpi.h -DMIC_ARCH
-fortran_preprocessor_name = @MPIFORT@
-{!mmic} fortran_preprocessor_options = -cpp -P -DX86_ARCH
-{mmic} fortran_preprocessor_options = -cpp -P -DMIC_ARCH
-compiler_name = @MPIFORT@
-linker_name = @MPICXX@
 compiler_phase = libtlnanox-mpi.so

@@ -1465,6 +1465,16 @@ namespace TL
     {
         return ::is_variably_modified_type(_type_info);
     }
+    
+    Type Type::get_size_t_type()
+    {
+        return ::get_size_t_type();
+    }
+
+    Type Type::get_ptrdiff_t_type()
+    {
+        return ::get_ptrdiff_t_type();
+    }
 
     std::string Type::print_declarator()
     {

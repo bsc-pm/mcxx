@@ -756,7 +756,8 @@ namespace Analysis {
     void ExtensibleGraph::clear_visits_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited( ) &&
-            ( current->node_is_enclosed_by( outer_node ) || current->is_omp_task_node( ) ) )
+            ( current->node_is_enclosed_by( outer_node ) || 
+              current->is_omp_task_node( ) || current->is_omp_virtual_tasksync( ) ) )
         {
             current->set_visited( false );
 
@@ -857,12 +858,12 @@ namespace Analysis {
         return _sc;
     }
 
-    std::set<Symbol> ExtensibleGraph::get_global_variables( ) const
+    GlobalVarsSet ExtensibleGraph::get_global_variables( ) const
     {
         return _global_vars;
     }
 
-    void ExtensibleGraph::set_global_vars( const std::set<Symbol>& global_vars )
+    void ExtensibleGraph::set_global_vars( const GlobalVarsSet& global_vars )
     {
         _global_vars.insert( global_vars.begin( ), global_vars.end( ) );
     }

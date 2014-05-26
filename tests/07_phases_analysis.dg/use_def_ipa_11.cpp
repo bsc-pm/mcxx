@@ -28,38 +28,36 @@
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_nolink=yes
  </testinfo>
  */
 
-// #include<iostream>
-// #include <assert.h>
-// #include <cstdarg>
 
-void foo(int n, ...);
-// void foo(int n, int x, int y, int* res);
-// {
-//     va_list arg_ptr;
-//     va_start(arg_ptr, n);
-//     
-//     int tmp_res = 0;
-//     for(int i=0; i<n-1; ++i)
-//         tmp_res += va_arg(arg_ptr, int);
-//     int* res = va_arg(arg_ptr, int*);
-//     *res = tmp_res;
-//     
-//     va_end(arg_ptr);
-// }
+const int a = 10;
+int b;
 
-int main()
+const int e[2] = {0, 1};
+int f[2];
+
+const int* g = &a;          // Pointer to constant
+int* const h = &b;          // Constant pointer
+const int* const i = &b;    // Constant pointer to constant
+int *j;
+
+void rec(int p1, int &p2, int *p3, int *&p4, int *p5)
 {
-    int n = 3;
-    int x = 2, y = 2;
-    int empty_res;
-    int* res = &empty_res;
-    #pragma analysis_check assert upper_exposed(x, y, n) undefined(*res)
-    foo(n, x, y, res);
+    p1 = b + *p4;
+    p2 = a + *p5;
     
-//     assert(*res == 4);
-    return 0;
+    p3++;
+    p4 = j;
+    
+    int x;
+    j = &x;
+    
+    const int *v = g;
+    int* const w = h;
+    
+    int *z;
+    #pragma analysis_check assert upper_exposed(h, *h, j, *j, p3, z, *z, g, a, b, x) defined(*j, j, z)
+    rec(*h, *j, p3+1, z, &x);
 }

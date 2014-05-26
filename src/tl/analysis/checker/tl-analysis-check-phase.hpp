@@ -54,6 +54,7 @@ namespace Analysis {
         void check_analysis_assertions( ExtensibleGraph* graph );
         
         //!Entry point of the phase
+        virtual void pre_run( TL::DTO& dto );
         virtual void run( TL::DTO& dto );
         
         virtual ~AnalysisCheckPhase( ) { }

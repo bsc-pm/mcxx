@@ -461,8 +461,26 @@ namespace Vectorization
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
 
-        // If lhs and rhs is invariant, keep scalar!
-        if(!VectorizationAnalysisInterface::_vectorizer_analysis->
+        bool has_vector_type = false;
+        // Look for vector types in the assignment 
+        const objlist_nodecl_t mem_accesses = 
+            Nodecl::Utils::get_all_memory_accesses(n);
+
+        for(objlist_nodecl_t::const_iterator it = mem_accesses.begin();
+                it != mem_accesses.end();
+                it++)
+        {
+            if ((it->get_type().is_vector()) || 
+                (it->is<Nodecl::Symbol>() && 
+                 it->as<Nodecl::Symbol>().get_symbol().get_type().is_vector()))
+            {
+                has_vector_type = true;
+                break;
+            }
+        }
+
+        // If assignment has vector type or lhs or rhs aren't invariant, vectorize
+        if(has_vector_type || !VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_invariant(_environment._analysis_simd_scope, lhs, lhs) ||
                 !VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_invariant(_environment._analysis_simd_scope, rhs, rhs))
@@ -924,9 +942,9 @@ namespace Vectorization
                                 _environment._unroll_factor),
                             n.get_locus());
 
-                vector_conv.set_constant(
-                        Vectorization::Utils::get_const_conversion(
-                            n.get_nest().get_constant(), dst_type));
+                vector_conv.set_constant(const_value_convert_to_type(
+                            n.get_nest().get_constant(),
+                            dst_type.get_internal_type()));
 
                 n.replace(vector_conv);
             }
@@ -985,7 +1003,7 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     n, n))
         {
-            std::cerr << "Vectorizer: Vector promotion: " << n.prettyprint() << "\n";
+            std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
 
             // Deal with Nodecl::Conversions
             Nodecl::NodeclBase encapsulated_symbol = n;

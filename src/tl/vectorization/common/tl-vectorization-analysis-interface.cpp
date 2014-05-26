@@ -296,6 +296,13 @@ namespace Vectorization
                 translate_input(n));
     }
 
+    bool VectorizationAnalysisInterface::has_been_defined(
+            const Nodecl::NodeclBase& n) 
+    {
+        return Analysis::AnalysisInterface::has_been_defined(
+                translate_input(n));
+    }
+
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
@@ -402,11 +409,11 @@ namespace Vectorization
             int unroll_factor, int alignment, int& vector_size_module)
     {
         Nodecl::NodeclBase translated_scope = translate_input(scope);
-        const objlist_nodecl_t& translated_suitable_expressions =
-            translate_input(suitable_expressions);
+//        const objlist_nodecl_t& translated_suitable_expressions =
+//            translate_input(suitable_expressions);
 
         return is_suitable_expression_internal(translated_scope, n,
-                translated_suitable_expressions, unroll_factor, alignment,
+                suitable_expressions, unroll_factor, alignment,
                 vector_size_module);
     }
 

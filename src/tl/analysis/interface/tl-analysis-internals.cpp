@@ -102,6 +102,43 @@ namespace Analysis {
         return result.is_true();
     }
 
+    bool has_been_defined_internal(Node* const n_node,
+            const Nodecl::NodeclBase& n,
+            const GlobalVarsSet& global_variables)
+    {
+        bool result = false;
+
+        if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::ArraySubscript>( )
+                || n.is<Nodecl::ClassMemberAccess>( ) )
+        {
+            Utils::ext_sym_map rd_in = n_node->get_reaching_definitions_in();
+            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> n_rds =
+                rd_in.equal_range(n);
+    
+            if(n_rds.first != n_rds.second) // n has RDs
+            {
+                return true;
+            }
+            else // n doesn't have RDs
+            {
+                Nodecl::NodeclBase nodecl_base = Utils::get_nodecl_base(n);
+                if (!nodecl_base.is_null())
+                {
+                    if(global_variables.find(nodecl_base) != 
+                                global_variables.end()) // n is a global var
+                        result = true;
+                }
+            }
+        }
+        else
+        {
+            WARNING_MESSAGE( "Nodecl '%s' is neither symbol, ArraySubscript or ClassMemberAccess. " \
+                    "One of these types required as defined option. Returning false.\n", n.prettyprint( ).c_str( ) );
+        }
+
+        return result;
+    }
+
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
     { 
         bool result = false;
@@ -128,23 +165,28 @@ namespace Analysis {
             const Nodecl::NodeclBase& n)
     {
         bool result = false;
-
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs =
-            scope_node->get_induction_variables();
-        ObjectList<TL::Symbol> reductions =
-            scope_node->get_reductions();
-
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
-                it != ivs.end( ); ++it )
+        
+                                           //TODO: Implement a is_function_code_node        
+        if (scope_node->is_loop_node() || (scope_node->is_graph_node() &&
+                    scope_node->get_graph_related_ast().is<Nodecl::FunctionCode>()))
         {
-            if( !reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
+            ObjectList<Analysis::Utils::InductionVariableData*> ivs =
+                scope_node->get_induction_variables();
+            ObjectList<TL::Symbol> reductions =
+                scope_node->get_reductions();
+
+            for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
+                    it != ivs.end( ); ++it )
             {
-                if ( Nodecl::Utils::structurally_equal_nodecls(
-                            ( *it )->get_variable( ).get_nodecl( ), n,
-                            /* skip conversion nodes */ true ) )
+                if( !reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
                 {
-                    result = ( *it )->is_basic( );
-                    break;
+                    if ( Nodecl::Utils::structurally_equal_nodecls(
+                                ( *it )->get_variable( ).get_nodecl( ), n,
+                                /* skip conversion nodes */ true ) )
+                    {
+                        result = ( *it )->is_basic( );
+                        break;
+                    }
                 }
             }
         }

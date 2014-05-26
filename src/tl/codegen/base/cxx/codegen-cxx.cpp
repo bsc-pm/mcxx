@@ -165,7 +165,29 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
-
+    BINARY_EXPRESSION(VectorAdd, " + ") \
+    BINARY_EXPRESSION(VectorMul, " * ") \
+    BINARY_EXPRESSION(VectorDiv, " / ") \
+    BINARY_EXPRESSION(VectorMod, " % ") \
+    BINARY_EXPRESSION(VectorMinus, " - ") \
+    BINARY_EXPRESSION(VectorEqual, " == ") \
+    BINARY_EXPRESSION(VectorDifferent, " != ") \
+    BINARY_EXPRESSION(VectorLowerThan, " < ") \
+    BINARY_EXPRESSION(VectorLowerOrEqualThan, " <= ") \
+    BINARY_EXPRESSION_EX(VectorGreaterThan, " > ") \
+    BINARY_EXPRESSION_EX(VectorGreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION(VectorLogicalAnd, " && ") \
+    BINARY_EXPRESSION(VectorLogicalOr, " || ") \
+    BINARY_EXPRESSION(VectorBitwiseAnd, " & ") \
+    BINARY_EXPRESSION(VectorBitwiseOr, " | ") \
+    BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
+    BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
+    BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+ 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
     { \
@@ -4179,6 +4201,12 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorConversion& node)
+{
+    // Do nothing
+    walk(node.get_nest());
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
 {
     indent();
@@ -6900,6 +6928,8 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     // We only generate user declared code
     if (!symbol.is_user_declared())
         return;
+
+    emit_line_marker(symbol.get_locus());
 
     if (symbol.is_variable())
     {

@@ -51,6 +51,11 @@ namespace Analysis {
             ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
 
+    bool has_been_defined_internal(Node* const n_node,
+            const Nodecl::NodeclBase& n,
+            const GlobalVarsSet& global_variables);
+ 
+    // IVS
     bool is_iv_internal(Node* const scope_node, const Nodecl::NodeclBase& n);
     bool is_non_reduction_basic_iv_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
@@ -59,6 +64,7 @@ namespace Analysis {
     Nodecl::NodeclBase get_iv_increment_internal(Node* const scope_node,
             const Nodecl::NodeclBase& n);
 
+    // Generic queries
     template <typename PropertyFunctor>
     TL::tribool reach_defs_have_property_in_scope(
             Node* const scope_node,
@@ -189,8 +195,11 @@ namespace Analysis {
                             ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
 
                         if((control_structure != NULL) && 
-                                //(scope_node == control_structure) || Condition of the SIMD scope must me skipped!
-                                ExtensibleGraph::node_contains_node(scope_node, control_structure))
+                                !(control_structure->is_loop_node() &&
+                                    ExtensibleGraph::node_contains_node(control_structure, original_n)))
+                                // If the original node (not any RD) is enclosed in the loop,
+                                // the condition of the loop doesn't define the value of that
+                                // node inside the loop
                         {
                             Node* cond_node = control_structure->get_condition_node();
                             ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();

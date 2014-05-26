@@ -28,32 +28,19 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-int main(int argc, char** argv)
+template <int I, typename T>
+T f(T);
+
+template <int I, typename T>
+void g(T a, T b)
 {
-    volatile unsigned char gate = 0;
-   
-#pragma omp parallel shared(gate)
-    {
-#pragma omp master
-        {
-            int i, j;
-            for (i = 0; i < 100; i++)
-            {
-                for (j = 0; j < 100; j++)
-                {
-                }
-            }
-            gate = 1;
-#pragma omp flush
-        }
+    f<I>(a) < f<I>(b);
+    f<I>(a) > f<I>(b);
 
-        // Make all threads busy wait here
-        while (gate == 0);
-    }
-
-    return 0;
+    f<I>(a) >= f<I>(b);
+    f<I>(a) <= f<I>(b);
 }

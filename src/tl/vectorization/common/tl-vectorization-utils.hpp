@@ -123,9 +123,6 @@ namespace TL
 
             Nodecl::NodeclBase get_denormalized_ub(Nodecl::ForStatement for_statement);
 
-            const_value_t* get_const_conversion(
-                    const_value_t* const_value, TL::Type dst_type);
-
             template <typename ScalarNode, typename Functor>
                 ScalarNode make_scalar_binary_node(
                         const Nodecl::NodeclBase& lhs,

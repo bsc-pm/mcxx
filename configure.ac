@@ -524,7 +524,7 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
-   NANOX_MIC="${nanox}"
+   NANOX_MIC="${nanox_mic}" 
    
 
    AC_ARG_WITH([mic-tools],
@@ -965,7 +965,7 @@ AC_ARG_ENABLE([nanox-mpi-device],
     mpi_enabled="yes"
     AC_MSG_RESULT([no])
   ]
-)
+) 
 
 if test x$mpi_enabled = xyes;
 then
@@ -1065,9 +1065,9 @@ then
        CPPFLAGSBACKUP="$CPPFLAGS"
        CXXFLAGSBACKUP="$CXXFLAGS"
 
-       CFLAGS="$CFLAGS -I$nanox_include"
-       CPPFLAGS="$CPPFLAGS -I$nanox_include"
-       CXXFLAGS="$CXXFLAGS -I$nanox_include"
+       CFLAGS="$CFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+       CPPFLAGS="$CPPFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+       CXXFLAGS="$CXXFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
        AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
 
        CFLAGS="$CFLAGSBACKUP"
@@ -1078,11 +1078,21 @@ fi
 
 if test x$mpi_valid = xyes;
 then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcc"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcxx"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimfc"
-    COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+   if test x$ICC != x -o x$ICPC != x;
+   then
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
+   fi
+
+   if test x$IFORT != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.fortran.mpi"
+   fi
+
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcxx"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimfc"
+   COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
     DISABLE_MPI="\#do not uncomment"
 fi

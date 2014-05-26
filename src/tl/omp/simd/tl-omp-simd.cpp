@@ -211,8 +211,7 @@ namespace TL {
             Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
             Nodecl::OpenMP::Simd simd_node_for = simd_input_node.shallow_copy().
                 as<Nodecl::OpenMP::Simd>();
-            Nodecl::ForStatement for_statement = simd_node_for.get_statement().
-                as<Nodecl::ForStatement>();
+            Nodecl::NodeclBase loop_statement = simd_node_for.get_statement();
             Nodecl::List simd_environment = simd_node_for.get_environment().
                 as<Nodecl::List>();
 
@@ -253,7 +252,7 @@ namespace TL {
                     simd_enclosing_node.retrieve_context());
 
             // Vectorizer Environment
-            VectorizerEnvironment for_environment(
+            VectorizerEnvironment loop_environment(
                     _device_name,
                     _vector_length,
                     _support_masking,
@@ -269,10 +268,10 @@ namespace TL {
                     &new_external_vector_symbol_map);
 
             // Add scopes, default masks, etc.
-            for_environment.load_environment(for_statement);
+            loop_environment.load_environment(loop_statement);
 
             // Get code ready for vectorisation
-            _vectorizer.preprocess_code(for_statement, for_environment);
+            _vectorizer.preprocess_code(loop_statement, loop_environment);
 
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
@@ -300,19 +299,19 @@ namespace TL {
 
             // Get epilog information
             bool only_epilog;
-            int epilog_iterations = _vectorizer.get_epilog_info(for_statement,
-                    for_environment, only_epilog);
+            int epilog_iterations = _vectorizer.get_epilog_info(loop_statement,
+                    loop_environment, only_epilog);
 
             // Cache init
             vectorizer_cache.declare_cache_symbols(
-                    for_statement.retrieve_context(), for_environment);
+                    loop_statement.retrieve_context(), loop_environment);
             output_code_list.prepend(
-                    vectorizer_cache.get_init_statements(for_environment));
+                    vectorizer_cache.get_init_statements(loop_environment));
 
             // MAIN LOOP VECTORIZATION
             if (!only_epilog)
             {
-                _vectorizer.vectorize(for_statement, for_environment);
+                _vectorizer.vectorize_loop(loop_statement, loop_environment);
             }
 
             // Add new vector symbols
@@ -347,14 +346,14 @@ namespace TL {
                                 omp_red.is_builtin(reduction_name),
                                 reduction_name,
                                 reduction_type,
-                                for_environment))
+                                loop_environment))
                     {
                         _vectorizer.vectorize_reduction(scalar_tl_symbol,
                                 vector_tl_symbol,
                                 reduction_initializer,
                                 reduction_name,
                                 reduction_type,
-                                for_environment,
+                                loop_environment,
                                 pre_for_nodecls,
                                 post_for_nodecls);
                     }
@@ -373,7 +372,7 @@ namespace TL {
                 // firstprivate in SIMD
             }
 
-            for_environment.unload_environment();
+            loop_environment.unload_environment();
 
             // Process epilog
             if (epilog_iterations != 0)
@@ -383,10 +382,10 @@ namespace TL {
                     get_statement().as<Nodecl::ForStatement>();
 
                 // Load environment epilog
-                for_environment.load_environment(for_stmt_epilog);
+                loop_environment.load_environment(for_stmt_epilog);
 
                 _vectorizer.process_epilog(for_stmt_epilog,
-                        for_environment,
+                        loop_environment,
                         net_epilog_node,
                         epilog_iterations,
                         only_epilog,
@@ -395,7 +394,7 @@ namespace TL {
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
 
-                for_environment.unload_environment();
+                loop_environment.unload_environment();
             }
             else // Remove epilog
             {
@@ -409,8 +408,8 @@ namespace TL {
             }
             else
             {
-                // Remove Simd node from for_statement
-                simd_node_for.replace(for_statement);
+                // Remove Simd node from loop_statement
+                simd_node_for.replace(loop_statement);
 
                 // Unroll clause
                 int unroll_clause_arg = process_unroll_clause(simd_environment);
@@ -555,7 +554,7 @@ namespace TL {
             // VECTORIZE FOR
             if(!only_epilog)
             {
-                _vectorizer.vectorize(for_statement, for_environment);
+                _vectorizer.vectorize_loop(for_statement, for_environment);
             }
 
             // Add new vector symbols
@@ -847,7 +846,8 @@ namespace TL {
             // Initialize analysis info
             _vectorizer.initialize_analysis(vector_func_code);
 
-            _vectorizer.vectorize(vector_func_code, function_environment, masked_version);
+            _vectorizer.vectorize_function(vector_func_code,
+                    function_environment, masked_version);
 
             function_environment.unload_environment();
 
@@ -868,7 +868,8 @@ namespace TL {
                 get_environment().as<Nodecl::List>();
 
             // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements();
+            Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements().
+                as<Nodecl::List>().front();
 
             // Aligned clause
             aligned_expr_map_t aligned_expressions;

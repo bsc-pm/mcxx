@@ -28,38 +28,31 @@
 /*
  <testinfo>
  test_generator=config/mercurium-analysis
- test_nolink=yes
  </testinfo>
  */
 
-// #include<iostream>
-// #include <assert.h>
-// #include <cstdarg>
+int N = 0;
+int M = 1;
 
-void foo(int n, ...);
-// void foo(int n, int x, int y, int* res);
-// {
-//     va_list arg_ptr;
-//     va_start(arg_ptr, n);
-//     
-//     int tmp_res = 0;
-//     for(int i=0; i<n-1; ++i)
-//         tmp_res += va_arg(arg_ptr, int);
-//     int* res = va_arg(arg_ptr, int*);
-//     *res = tmp_res;
-//     
-//     va_end(arg_ptr);
-// }
+void foo(int *p, int *&q, int u, int &v)
+{
+    p = &N;
+    *p = 5;
+    
+    q = &M;
+    *q = 10;
+    
+    u = v + 2;
+    v = u;
+}
 
 int main()
 {
-    int n = 3;
-    int x = 2, y = 2;
-    int empty_res;
-    int* res = &empty_res;
-    #pragma analysis_check assert upper_exposed(x, y, n) undefined(*res)
-    foo(n, x, y, res);
+    int *a, *b;
+    int c, d;
+
+    #pragma analysis_check assert upper_exposed(a, b, c, d) defined(*a, b, *b, d)
+    foo(a, b, c, d);
     
-//     assert(*res == 4);
     return 0;
 }

@@ -317,6 +317,9 @@ namespace Nodecl
         }
         else if (n.is<Nodecl::Reference>())
         {   // Nothing to be done for &x
+            // * &s       -> there is no load of s
+            // * &a[i]    -> there is only a load of i
+            // * &(p + q) -> there is a load of p and q
             in_ref = true;
         }
 
@@ -767,7 +770,6 @@ namespace Nodecl
     {
         void simple_replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
         {
-            // Simple case
             Nodecl::NodeclBase nodecl_original_parent = dest.get_parent();
             ::nodecl_replace(dest.get_internal_nodecl(), src.get_internal_nodecl());
 
@@ -782,11 +784,40 @@ namespace Nodecl
                 }
             }
         }
+
+        void update_locus(nodecl_t n, const locus_t* l)
+        {
+            if (nodecl_is_null(n))
+                return;
+
+            std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+
+            const locus_t* n_locus = nodecl_get_locus(n);
+
+            // Only update if this comes from internal_source
+            if (n_locus == NULL
+                    || locus_get_filename(n_locus) == NULL
+                    || (std::string(locus_get_filename(n_locus))
+                        .substr(0, internal_source.size()) == internal_source))
+            {
+                nodecl_set_locus(n, l);
+            }
+
+            for (int i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            {
+                update_locus(nodecl_get_child(n, i), l);
+            }
+        }
     }
 
     void Utils::replace(Nodecl::NodeclBase dest, Nodecl::NodeclBase src)
     {
         ERROR_CONDITION(src.is_null(), "Invalid node", 0);
+
+        if (CURRENT_CONFIGURATION->line_markers)
+        {
+            update_locus(src.get_internal_nodecl(), dest.get_locus());
+        }
 
         if (src.is<Nodecl::List>()
                 && !dest.is<Nodecl::List>())
