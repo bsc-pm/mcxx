@@ -2193,6 +2193,9 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
             "Invalid symbol", 0);
 
+    if (entry->defined)
+        return 0;
+
     int i;
     for (i = 0; i < num_being_instantiated_now; i++)
     {
@@ -2288,9 +2291,6 @@ static void instantiate_template_function_and_add_to_instantiation_units(scope_e
 
 static void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t* locus)
 {
-    if (entry->defined)
-        return;
-
     instantiate_template_function_and_add_to_instantiation_units(entry, locus);
 }
 
@@ -2304,7 +2304,7 @@ static void instantiate_every_symbol(scope_entry_t* entry,
     }
 }
 
-void instantiate_template_function(scope_entry_t* entry, const locus_t* locus UNUSED_PARAMETER)
+void instantiate_template_function(scope_entry_t* entry, const locus_t* locus)
 {
     instantiate_template_function_internal(entry, locus);
 }
