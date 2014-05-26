@@ -917,7 +917,7 @@ then
 fi
 
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
     DISABLE_OPENCL="\#OpenCL support disabled"
