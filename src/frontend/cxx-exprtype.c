@@ -5605,22 +5605,33 @@ static type_t* compute_type_no_overload_plus(nodecl_t *op, char *is_lvalue, cons
     if (is_pointer_type(no_ref(op_type)))
     {
         // Bypass
-        return no_ref(op_type);
+        type_t* result = no_ref(op_type);
+
+        unary_record_conversion_to_result(result, op);
+
+        return result;
     }
     else if (is_arithmetic_type(no_ref(op_type)))
     {
+        type_t* result = NULL;
         if (is_promoteable_integral_type(no_ref(op_type)))
         {
-            return promote_integral_type(no_ref(op_type));
+            result = promote_integral_type(no_ref(op_type));
         }
         else
         {
-            return no_ref(op_type);
+            result = no_ref(op_type);
         }
+
+        unary_record_conversion_to_result(result, op);
+        return result;
     }
     else if (is_vector_type(no_ref(op_type)))
     {
-        return no_ref(op_type);
+        type_t* result = no_ref(op_type);
+
+        unary_record_conversion_to_result(result, op);
+        return result;
     }
     else
     {
@@ -5686,22 +5697,31 @@ static type_t* compute_type_no_overload_neg(nodecl_t *op, char *is_lvalue, const
 
     if (is_arithmetic_type(no_ref(op_type)))
     {
+        type_t* result = NULL;
         if (is_promoteable_integral_type(no_ref(op_type)))
         {
-            return promote_integral_type(no_ref(op_type));
+            result = promote_integral_type(no_ref(op_type));
         }
         else
         {
-            return no_ref(op_type);
+            result = no_ref(op_type);
         }
+
+        unary_record_conversion_to_result(result, op);
+
+        return result;
     }
     else if (is_vector_type(no_ref(op_type)))
     {
-        return no_ref(op_type);
+        type_t* result = no_ref(op_type);
+
+        unary_record_conversion_to_result(result, op);
+
+        return result;
     }
     else
     {
-        return get_error_type(); 
+        return get_error_type();
     }
 }
 
@@ -5817,15 +5837,20 @@ static type_t* compute_type_no_overload_logical_not(nodecl_t *op, char *is_lvalu
     if (standard_conversion_between_types(&to_bool,
                 op_type, get_bool_type(), locus))
     {
+        type_t* result = NULL;
         C_LANGUAGE()
         {
-            return get_signed_int_type();
+            result = get_signed_int_type();
         }
         CXX_LANGUAGE()
         {
-            return get_bool_type();
+            result = get_bool_type();
         }
-        internal_error("Code unreachable", 0);
+        ERROR_CONDITION(result == NULL, "Invalid type", 0);
+
+        unary_record_conversion_to_result(result, op);
+
+        return result;
     }
     else
     {
