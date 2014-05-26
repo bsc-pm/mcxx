@@ -1389,7 +1389,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     decl_context_t inner_decl_context = new_class_context(instantiation_context, 
             being_instantiated_sym);
-    inner_decl_context.template_parameters->is_explicit_specialization = 1;
+    if (inner_decl_context.template_parameters->num_parameters > 0)
+    {
+        // Only real template types can become explicit specializations
+        inner_decl_context.template_parameters->is_explicit_specialization = 1;
+    }
 
     being_instantiated_sym->decl_context = instantiation_context;
 
