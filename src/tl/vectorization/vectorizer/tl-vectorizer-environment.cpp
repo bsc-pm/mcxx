@@ -59,8 +59,11 @@ namespace Vectorization
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
-        std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
-            << " . Unroll factor: " << _unroll_factor << std::endl;
+        VECTORIZATION_DEBUG()
+        {
+            std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
+                << " . Unroll factor: " << _unroll_factor << std::endl;
+        }
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);

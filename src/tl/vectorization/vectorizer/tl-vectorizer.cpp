@@ -270,7 +270,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_sse()
     {
-        fprintf(stderr, "Enabling SVML SSE\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML SSE\n");
+        }
 
         if (!_svml_sse_enabled)
         {
@@ -342,7 +345,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_avx2()
     {
-        fprintf(stderr, "Enabling SVML AVX2\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML AVX2\n");
+        }
 
         if (!_svml_avx2_enabled)
         {
@@ -420,7 +426,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_knc()
     {
-        fprintf(stderr, "Enabling SVML KNC\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML KNC\n");
+        }
 
         if (!_svml_knc_enabled)
         {

@@ -580,11 +580,14 @@ namespace Vectorization
                     is_invariant(_environment._analysis_simd_scope,
                         lhs, lhs))
             {
-                std::cerr << "VECTORIZER: Constant store: " << lhs.prettyprint()
-                    << std::endl;
+                VECTORIZATION_DEBUG()
+                {
+                    std::cerr << "VECTORIZER: Constant store: " << lhs.prettyprint()
+                        << std::endl;
+                }
+
                 running_error("Vectorizer: Extract operation is not "\
                         "supported yet (%s).", lhs.prettyprint().c_str());
-
             }
             // ArraySubscript indexed by nested IV, nothing to do
             /*
@@ -968,7 +971,10 @@ namespace Vectorization
                     _environment._analysis_simd_scope,
                     n, n))
         {
-            std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
+            }
 
             // Deal with Nodecl::Conversions
             Nodecl::NodeclBase encapsulated_symbol = n;
@@ -1443,7 +1449,7 @@ namespace Vectorization
             {
                 //TODO: If you are from outside of the loop -> Vector local copy.
                 running_error("Vectorizer: Loop is not vectorizable. '%s' "\
-                        "is not IV, Constant, Local, Reduction or LastPrivate.",
+                        "is not IV, Invariant, Local, Reduction or LastPrivate.",
                         n.get_symbol().get_name().c_str());
             }
         }

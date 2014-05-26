@@ -232,9 +232,9 @@ namespace Vectorization
                 long long int num_its = (((const_ub - const_lb)%const_step) == 0) ?
                     ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
 
-                std::cerr << num_its << " " << const_ub << " " << const_lb << " " << const_step << " " << ub_vector_size_module << " "
-                    << lb_vector_size_module << " " << ub_is_suitable << " "
-                    << lb_is_suitable << std::endl;
+                //std::cerr << num_its << " " << const_ub << " " << const_lb << " " << const_step << " " << ub_vector_size_module << " "
+                //    << lb_vector_size_module << " " << ub_is_suitable << " "
+                //    << lb_is_suitable << std::endl;
 
                 if ((num_its < _environment._unroll_factor) &&
                         (!ub_is_suitable) && (!lb_is_suitable) &&
