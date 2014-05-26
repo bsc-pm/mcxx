@@ -12006,7 +12006,7 @@ static char find_function_declaration(AST declarator_id,
 
     scope_entry_list_t* result_function_list = NULL;
 
-    // 1. Non template functions or template functions not when the declaration
+    // 1. Non template functions or template functions unless the declaration
     // is an explicit specialization or instantiation
     {
         // In this case a simple scan through the candidates should be enough

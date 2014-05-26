@@ -2875,7 +2875,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "SCOPE: No update performed for template parameter '%s'"
-                            " since a template new_sym for it was not found\n",
+                            " since a template symbol for it was not found\n",
                             print_declarator(orig_type));
                 }
                 return orig_type;
