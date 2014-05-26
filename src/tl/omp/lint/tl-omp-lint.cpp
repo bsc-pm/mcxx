@@ -45,7 +45,8 @@ namespace {
     
     #define CORRECTNESS_WARN_TYPE_LIST \
     CORRECTNESS_WARN_TYPE(Dead) \
-    CORRECTNESS_WARN_TYPE(Incoherent) \
+    CORRECTNESS_WARN_TYPE(IncoherentFirstprivate) \
+    CORRECTNESS_WARN_TYPE(IncoherentPrivate) \
     CORRECTNESS_WARN_TYPE(Race) \
     CORRECTNESS_WARN_TYPE(SharedAutoStorage) \
     CORRECTNESS_WARN_TYPE(Unused)
@@ -902,7 +903,7 @@ namespace {
                              "but their input value is used in a serial execution of the code.\n"
                              "%sConsider defining them as firstprivate instead.\n",
                              task_locus.c_str(), incoherent_private_vars.c_str(), tabulation.c_str() );
-                print_warn_to_file(task_nodecl, __Incoherent);
+                print_warn_to_file(task_nodecl, __IncoherentPrivate);
             }
             
             // Case4: Firstprivate variables must never be written before they are read
@@ -926,7 +927,7 @@ namespace {
                              "but their value captured is never read.\n"
                              "%sConsider defining them as private instead.\n",
                              task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
-                print_warn_to_file(task_nodecl, __Incoherent);
+                print_warn_to_file(task_nodecl, __IncoherentFirstprivate);
             }
         }
     };
