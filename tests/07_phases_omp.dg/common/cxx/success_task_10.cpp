@@ -26,26 +26,61 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
+#include <cstdlib>
 
-#ifndef CXX_TYPEORDER_H
-#define CXX_TYPEORDER_H
+template <typename T>
+struct C
+{
+    T p;
+    // This should not be needed but our transformation requires it
+    C() : p(0) { }
+    C(const C &c) : p(c.p) { }
+    C(T _p) : p(_p) { }
 
-#include "libmcxx-common.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
+    C& operator++(int)
+    {
+        p++;
+    }
+};
 
-MCXX_BEGIN_DECLS
+template <typename T>
+struct B
+{
+    static void f(C<T>&);
+};
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments, 
-        const locus_t* locus);
+template <typename T>
+void B<T>::f(C<T>& x)
+{
+#pragma omp task firstprivate(x)
+    {
+        x++;
+    }
+}
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_tag* f1, struct type_tag* f2,
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
-        template_parameter_list_t* explicit_template_parameters,
-        const locus_t* locus, char is_conversion);
+int main(int argc, char *argv[])
+{
+    {
+        B<int> b;
+        C<int> c(2);
+        b.f(c);
+#pragma omp taskwait
 
-MCXX_END_DECLS
+        if (c.p != 2) abort();
+    }
+    {
+        B<long> b;
+        C<long> c(3L);
+        b.f(c);
+#pragma omp taskwait
 
-#endif // CXX_TYPEORDER_H
+        if (c.p != 3L) abort();
+    }
+
+    return 0;
+}

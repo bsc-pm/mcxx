@@ -26,26 +26,64 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+test_compile_fail=yes
+</testinfo>
+*/
 
-#ifndef CXX_TYPEORDER_H
-#define CXX_TYPEORDER_H
+// This test fails because C does not have a default constructor. Our
+// transformation requires it, so let's keep a record of this problem
 
-#include "libmcxx-common.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
+#include <cstdlib>
 
-MCXX_BEGIN_DECLS
+template <typename T>
+struct C
+{
+    T p;
+    C(const C &c) : p(c.p) { }
+    C(T _p) : p(_p) { }
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments, 
-        const locus_t* locus);
+    C& operator++(int)
+    {
+        p++;
+    }
+};
 
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_tag* f1, struct type_tag* f2,
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
-        template_parameter_list_t* explicit_template_parameters,
-        const locus_t* locus, char is_conversion);
+template <typename T>
+struct B
+{
+    static void f(C<T>&);
+};
 
-MCXX_END_DECLS
+template <typename T>
+void B<T>::f(C<T>& x)
+{
+#pragma omp task firstprivate(x)
+    {
+        x++;
+    }
+}
 
-#endif // CXX_TYPEORDER_H
+int main(int argc, char *argv[])
+{
+    {
+        B<int> b;
+        C<int> c(2);
+        b.f(c);
+#pragma omp taskwait
+
+        if (c.p != 2) abort();
+    }
+    {
+        B<long> b;
+        C<long> c(3L);
+        b.f(c);
+#pragma omp taskwait
+
+        if (c.p != 3L) abort();
+    }
+
+    return 0;
+}

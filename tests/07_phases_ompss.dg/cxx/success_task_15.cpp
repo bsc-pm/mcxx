@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,26 +26,19 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
 
-#ifndef CXX_TYPEORDER_H
-#define CXX_TYPEORDER_H
-
-#include "libmcxx-common.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif.h"
-#include "cxx-buildscope-decls.h"
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments, 
-        const locus_t* locus);
-
-LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_tag* f1, struct type_tag* f2,
-        decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
-        template_parameter_list_t* explicit_template_parameters,
-        const locus_t* locus, char is_conversion);
-
-MCXX_END_DECLS
-
-#endif // CXX_TYPEORDER_H
+int main()
+{
+    double d1 = 0.0, d2 = 0.0;
+    #pragma omp task shared(d1, d2)
+    {
+        #pragma omp atomic
+        d1 += d2;
+    }
+    #pragma omp taskwait
+}

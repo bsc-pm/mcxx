@@ -471,6 +471,9 @@ namespace Codegen
             template <typename Node>
                 static bool is_implicit_function_call(const Node& node);
 
+            template <typename Node>
+                static bool is_implicit_braced_function_call(const Node& node);
+
             static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
             template <typename Node>

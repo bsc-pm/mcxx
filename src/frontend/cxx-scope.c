@@ -2436,6 +2436,7 @@ static nodecl_t update_dependent_typename_dependent_parts(
 }
 
 static type_t* update_dependent_typename(
+        type_t* orig_dependent_type,
         type_t* dependent_entry_type,
         nodecl_t dependent_parts,
         decl_context_t decl_context,
@@ -2466,7 +2467,7 @@ static type_t* update_dependent_typename(
 
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
 
-    if(nodecl_is_null(dependent_parts))
+    if (nodecl_is_null(dependent_parts))
     {
         return get_user_defined_type(dependent_entry);
     }
@@ -2489,7 +2490,12 @@ static type_t* update_dependent_typename(
             new_dependent_parts, &field_path);
 
     if (entry_list == NULL)
+    {
+        error_printf("%s: error: type '%s' does not refer to an existing entity\n",
+                locus_to_str(locus),
+                print_type_str(orig_dependent_type, decl_context));
         return NULL;
+    }
 
     scope_entry_t* member = entry_list_head(entry_list);
 
@@ -2519,6 +2525,9 @@ static type_t* update_dependent_typename(
             fprintf(stderr, "SCOPE: After updating dependent typename the obtained symbol has kind '%s' which is not a valid type\n",
                     symbol_kind_name(member));
         }
+        error_printf("%s: error: type '%s' does not refer to a valid typename\n",
+                locus_to_str(locus),
+                print_type_str(orig_dependent_type, decl_context));
         return NULL;
     }
 }
@@ -3305,6 +3314,13 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (updated_pointee == NULL)
             return NULL;
 
+        if (is_any_reference_type(updated_pointee))
+        {
+            error_printf("%s: error: attempt to create a pointer to reference\n",
+                    locus_to_str(locus));
+            return NULL;
+        }
+
         type_t* result_type = get_pointer_type(updated_pointee);
 
         result_type = get_cv_qualified_type(result_type, cv_qualifier);
@@ -3380,6 +3396,13 @@ static type_t* update_type_aux_(type_t* orig_type,
             if (param_orig_type == NULL)
                 return NULL;
 
+            if (is_void_type(param_orig_type))
+            {
+                error_printf("%s: error: attempt to create a function type with a void parameter type\n",
+                        locus_to_str(locus));
+                return NULL;
+            }
+
             parameter_info_t parameter_info = get_parameter_info_for_type(param_orig_type);
             P_LIST_ADD(packed_parameter_types, num_packed_parameter_types, parameter_info);
         }
@@ -3412,6 +3435,14 @@ static type_t* update_type_aux_(type_t* orig_type,
                     for (j = 0; j < N; j++)
                     {
                         type_t* param_orig_type = sequence_of_types_get_type_num(packed_parameter_types[i].type_info, j);
+
+                        if (is_void_type(param_orig_type))
+                        {
+                            error_printf("%s: error: attempt to create a function type with a void parameter type\n",
+                                    locus_to_str(locus));
+                            return NULL;
+                        }
+
                         parameter_info_t parameter_info = get_parameter_info_for_type(param_orig_type);
                         P_LIST_ADD(unpacked_parameter_types, num_unpacked_parameter_types, parameter_info);
                     }
@@ -3449,6 +3480,32 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
+        type_t* element_type = array_type_get_element_type(orig_type);
+        element_type = update_type_aux_(element_type, decl_context, 
+                locus, instantiation_symbol_map, pack_index);
+
+        if (element_type == NULL)
+            return NULL;
+
+        if (is_void_type(element_type))
+        {
+            error_printf("%s: error: attempt to create an array to void\n",
+                    locus_to_str(locus));
+            return NULL;
+        }
+        else if (is_any_reference_type(element_type))
+        {
+            error_printf("%s: error: attempt to create an array to reference type\n",
+                    locus_to_str(locus));
+            return NULL;
+        }
+        else if (is_function_type(element_type))
+        {
+            error_printf("%s: error: attempt to create an array to function type\n",
+                    locus_to_str(locus));
+            return NULL;
+        }
+
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
 
         // Context of the array
@@ -3460,9 +3517,16 @@ static type_t* update_type_aux_(type_t* orig_type,
                     instantiation_symbol_map, pack_index);
 
             if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
+                return NULL;
+
+            if (nodecl_is_constant(array_size)
+                    && const_value_is_zero(
+                        const_value_gt(
+                            nodecl_get_constant(array_size),
+                            const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
             {
-                error_printf("%s: error: could not update array dimension",
-                        nodecl_locus_to_str(array_size));
+                error_printf("%s: error: attempt to create an array of negative size\n",
+                        locus_to_str(locus));
                 return NULL;
             }
 
@@ -3472,13 +3536,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                         codegen_to_str(array_size, decl_context));
             }
         }
-
-        type_t* element_type = array_type_get_element_type(orig_type);
-        element_type = update_type_aux_(element_type, decl_context, 
-                locus, instantiation_symbol_map, pack_index);
-
-        if (element_type == NULL)
-            return NULL;
 
         type_t* updated_array_type = get_array_type(element_type, 
                 array_size, 
@@ -3574,6 +3631,11 @@ static type_t* update_type_aux_(type_t* orig_type,
                 fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
                         print_declarator(fixed_type));
             }
+            error_printf("%s: error: '%s' in '%s' is not a valid typename\n",
+                    locus_to_str(locus),
+                    dependent_entry->symbol_name,
+                    print_type_str(orig_type, decl_context));
+
             return NULL;
         }
 
@@ -3584,6 +3646,10 @@ static type_t* update_type_aux_(type_t* orig_type,
                 fprintf(stderr, "SCOPE: Dependent type '%s' is an enumerator\n", 
                         print_declarator(fixed_type));
             }
+            error_printf("%s: error: '%s' in '%s' has become an enumerator name\n",
+                    locus_to_str(locus),
+                    dependent_entry->symbol_name,
+                    print_type_str(orig_type, decl_context));
             return NULL;
         }
 
@@ -3594,7 +3660,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_type =
-            update_dependent_typename(fixed_type, dependent_parts, decl_context,
+            update_dependent_typename(
+                    orig_type,
+                    fixed_type, dependent_parts, decl_context,
                     instantiation_symbol_map, locus, pack_index);
 
         if (updated_type != NULL)
@@ -3676,6 +3744,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else
         {
+            error_printf("%s: error: __underlying_type(%s) is not a class or enum\n",
+                    locus_to_str(locus),
+                    print_type_str(updated_underlying_type, decl_context));
             return NULL;
         }
     }
@@ -3793,8 +3864,8 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     if (result == NULL)
     {
-        error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
-                locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
+        // error_printf("%s: error: type '%s' rendered invalid during instantiation\n",
+        //         locus_to_str(locus), print_type_str(orig_type, context_of_being_instantiated));
         result = get_error_type();
     }
 
