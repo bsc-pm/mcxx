@@ -7299,7 +7299,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        char is_primary_template = 0;
+        bool is_template_function = false;
+        bool is_primary_template = false;
+        bool member_of_explicit_template_class = false;
+
         bool requires_extern_linkage = false;
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
@@ -7325,6 +7328,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
             if (symbol.get_type().is_template_specialized_type())
             {
+                is_template_function = true;
+
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
                 TL::Symbol primary_symbol = primary_template.get_symbol();
@@ -7332,14 +7337,15 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
                 if (primary_symbol == symbol)
                 {
-                    is_primary_template = 1;
+                    is_primary_template = true;
                 }
                 if (symbol.is_member())
                 {
                     if (scope != NULL
                             && scope->is_namespace_scope())
                     {
-                        codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
+                        codegen_template_headers_all_levels(template_parameters,
+                                /* show_default_values */ is_primary_template);
                     }
                     else
                     {
@@ -7350,7 +7356,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 }
                 else
                 {
-                    codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
+                    codegen_template_headers_all_levels(template_parameters,
+                            /* show_default_values */ is_primary_template);
                 }
             }
             else if (symbol.is_member())
@@ -7367,6 +7374,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                         {
                             indent();
                             *(file) << "template <>\n";
+                            member_of_explicit_template_class = true;
                         }
                         tpl = tpl.get_enclosing_parameters();
                     }
@@ -7380,8 +7388,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
                 // We want default arguments if this is a primary template
                 is_primary_template
-                // or if it is not a primary template, if this is not a specialized template function
-                || symbol.get_scope().get_template_parameters() == NULL
+                // otherwise we want them only for nontemplate functions
+                || (!is_template_function && !member_of_explicit_template_class)
                 );
 
         std::string decl_spec_seq;
