@@ -486,23 +486,8 @@ namespace Vectorization
                 Nodecl::NodeclBase add_rhs = 
                     Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
 
-                // = i + 3
-                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs))
-                {
-                    Nodecl::Mul mul = Nodecl::Mul::make(
-                            add_rhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    _environment._unroll_factor),
-                                n.get_locus()),
-                            TL::Type::get_int_type(),
-                            n.get_locus());
-                    
-                    add_rhs.replace(mul);
-                }
                 // = 3 + i
-                else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
                 {
                     Nodecl::Mul mul = Nodecl::Mul::make(
                             add_lhs.shallow_copy(),
@@ -515,6 +500,11 @@ namespace Vectorization
                             n.get_locus());
                     
                     add_lhs.replace(mul);
+                }
+                else
+                {
+                    running_error("Vectorizer: This IV update is not supported yet"\
+                            "(%s).", n.prettyprint().c_str());
                 }
             }
             else
@@ -1313,8 +1303,9 @@ namespace Vectorization
             {
                 symbol_type_promotion(n);
             }
-            // Vectorize BASIC induction variable
-            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+            // Vectorize BASIC induction variable  // visiting RHS of an assignment
+            else if (!encapsulated_symbol_type.is_lvalue_reference() &&
+                    VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope, n))
             {
@@ -1713,18 +1704,37 @@ namespace Vectorization
                     offset_vector_literal.set_constant(
                             offset_list.get_constant());
 
+                    // Pomoted Conversion
+                    Nodecl::VectorPromotion promoted_conversion =
+                        Nodecl::VectorPromotion::make(
+                                conversion.shallow_copy(),
+                                Utils::get_null_mask(),
+                                ind_var_type,
+                                n.get_locus());
+
+                    if (conversion.is_constant())
+                    {
+                        promoted_conversion.set_constant(
+                                const_value_make_vector_from_scalar(
+                                    _environment._unroll_factor,
+                                    conversion.get_constant()));
+                    }
+
                     vector_induction_var =
                         Nodecl::VectorAdd::make(
-                                Nodecl::VectorPromotion::make(
-                                    conversion.shallow_copy(),
-                                    Utils::get_null_mask(),
-                                    ind_var_type,
-                                    n.get_locus()),
+                                promoted_conversion,
                                 offset_vector_literal,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(ind_var_type,
                                     _environment._unroll_factor),
                                 n.get_locus());
+
+                    if (promoted_conversion.is_constant() &&
+                            offset_vector_literal.is_constant())
+                        vector_induction_var.set_constant(
+                            const_value_add(promoted_conversion.get_constant(),
+                                offset_vector_literal.get_constant()));
+
                 }
                 else // Conversion of values
                 {
@@ -1743,18 +1753,43 @@ namespace Vectorization
                     offset_vector_literal.set_constant(
                             offset_list.get_constant());
 
-                    vector_induction_var =
-                        Nodecl::VectorConversion::make(
-                                Nodecl::VectorAdd::make(
-                                    Nodecl::VectorPromotion::make(
-                                        conversion.get_nest().shallow_copy(),
-                                        Utils::get_null_mask(),
-                                        ind_var_type,
-                                        n.get_locus()),
+                    // Pomoted Conversion
+                    Nodecl::VectorPromotion promoted_nest =
+                        Nodecl::VectorPromotion::make(
+                                conversion.get_nest().shallow_copy(),
+                                Utils::get_null_mask(),
+                                ind_var_type,
+                                n.get_locus());
+
+                    if (conversion.get_nest().is_constant())
+                    {
+                        promoted_nest.set_constant(
+                                const_value_make_vector_from_scalar(
+                                    _environment._unroll_factor,
+                                    conversion.get_nest().get_constant()));
+                    }
+
+                    // IV + Offset
+                    Nodecl::VectorAdd iv_plus_offset =
+                        Nodecl::VectorAdd::make(
+                                    promoted_nest,
                                     offset_vector_literal,
                                     Utils::get_null_mask(),
                                     ind_var_type,
-                                    n.get_locus()),
+                                    n.get_locus());
+
+                    if (promoted_nest.is_constant() && 
+                            offset_vector_literal.is_constant())
+                    {
+                        iv_plus_offset.set_constant(
+                                const_value_add(promoted_nest.get_constant(),
+                                    offset_vector_literal.get_constant()));
+                    }
+
+
+                    vector_induction_var =
+                        Nodecl::VectorConversion::make(
+                                iv_plus_offset,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(dest_type,
                                     _environment._unroll_factor),
@@ -1795,7 +1830,8 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: IV increment is not constant.");
+            running_error("Vectorizer: IV increment is not constant: %s.",
+                    ind_var_increment.prettyprint().c_str());
         }
     }
 

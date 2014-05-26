@@ -77,7 +77,7 @@ namespace TL
                 void vectorize_parallel(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment);
  
-                void process_epilog(Nodecl::ForStatement& for_statement,
+                void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,
                         int epilog_iterations,

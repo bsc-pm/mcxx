@@ -248,7 +248,7 @@ namespace Vectorization
             //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
 
             internal_error("VectorizerAnalysis: Error translating "\
-            "Nodecl from copy to origin", 0);
+                    "Nodecl from copy to origin", 0);
             return n;
         }
 
