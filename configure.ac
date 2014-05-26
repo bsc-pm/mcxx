@@ -917,7 +917,7 @@ then
 fi
 
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
     DISABLE_OPENCL="\#OpenCL support disabled"
@@ -1141,22 +1141,22 @@ then
 
    if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel 57.config.omp.smp.intel"
 
       # Intel C/C++/Fortran + Nanos++
       if test x$ICC != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} imcc"
+          COMPILER_NAMES="${COMPILER_NAMES} imcc ismpcc"
       fi
 
       if test x$ICPC != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+          COMPILER_NAMES="${COMPILER_NAMES} imcxx ismpcxx"
       fi
 
       if test -x$IFORT != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
       fi
    fi
 
@@ -1164,22 +1164,22 @@ then
 
    if test x$XLC != x -o x$XLCXX != x -o test x$XLF != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm 57.config.omp.smp.ibm"
 
       # IBM XL C/C++/Fortran + Nanos++
       if test x$XLC != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcc xlsmpcc"
       fi
 
       if test x$XLCXX != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcxx xlsmpcxx"
       fi
 
       if test x$XLF != x;
       then
-          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95 xlsmpfc"
       fi
    fi
 fi
