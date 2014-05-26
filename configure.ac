@@ -1143,28 +1143,28 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   # Intel C/C++ + Nanos++
-   if test x$ICC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} imcc"
-   fi
 
-   if test x$ICPC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-   fi
-
-   if test x$ICC != x -o x$ICPC != x;
+   if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
+
+      # Intel C/C++/Fortran + Nanos++
+      if test x$ICC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      fi
+
+      if test x$ICPC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+      fi
+
+      if test -x$IFORT != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
+      fi
    fi
 
-   # Intel Fortran + Nanos++
-   if test x$IFORT != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
-   fi
 
 
    if test x$XLC != x -o x$XLCXX != x -o test x$XLF != x;
