@@ -198,12 +198,11 @@ namespace {
                         {
                             Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
                             std::string task_locus = task.get_locus_str();
-                            std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
+                            std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
                             std::string local_vars_str = get_nodecl_list_str( local_vars );
-                            warn_printf( "%s: warning: OpenMP task defines as shared local data '%s' "
-                                         "whose lifetime may have ended when the task is executed.\n"
-                                         "%sConsider privatizing the variable or synchronizing "
-                                         "the task before the local data is deallocated.\n", 
+                            warn_printf( "%s: omp-warning: Local variables '%s' are defined as shared in the task, "
+                                         "but their lifetime may have ended when the task is executed.\n"
+                                         "%sConsider privatizing them or synchronizing the task before the local data is deallocated.\n", 
                                          task_locus.c_str(), local_vars_str.c_str(), tabulation.c_str() );
                             print_warn_to_file(task, __SharedAutoStorage);
                         }
@@ -221,8 +220,7 @@ namespace {
                     {
                         Nodecl::NodeclBase task = (*it)->get_graph_related_ast( );
                         std::string race_cond_vars_str = get_nodecl_list_str( race_cond_vars );
-                        warn_printf( "%s: warning: OpenMP task uses data '%s' "
-                                     "which is in a race condition with another usage of the same variable\n",
+                        warn_printf( "%s: omp-warning: Variables '%s' are in a race condition due to a concurrent usage.\n",
                                      task.get_locus_str().c_str(), race_cond_vars_str.c_str() );
                         print_warn_to_file(task, __Race);
                     }
@@ -620,7 +618,7 @@ namespace {
                         if( tmp == task_used_vars.end( ) )
                         {
                             // FIXME Not really sure about the case being covered within this branch
-                            warn_printf( "%s: warning: Variable %s is marked as shared in a task but it is not used inside the task\n", 
+                            warn_printf( "%s: omp-warning: Variable %s is marked as shared in a task but it is not used inside the task\n", 
                                          task.get_locus_str().c_str(), it->first.prettyprint( ).c_str( ) );
                             print_warn_to_file(task, __Unused);
                         }
@@ -854,8 +852,9 @@ namespace {
             {
                 Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
                 unnecessarily_scoped_vars = unnecessarily_scoped_vars.substr(0, unnecessarily_scoped_vars.size()-2);
-                warn_printf( "%s: warning: OpenMP task defines the scope of the variables '%s' "
-                             "which are not used at all within the task\n",
+                warn_printf( "%s: omp-warning: Variables '%s' are not used at all within the task "
+                             "but they have a data-sharing attribute associated.\n" 
+                             "Consider removing the attribute.",
                              task_nodecl.get_locus_str().c_str(), unnecessarily_scoped_vars.c_str() );
                 print_warn_to_file(task_nodecl, __Unused);
             }
@@ -877,9 +876,9 @@ namespace {
                 Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
                 std::string task_locus = task_nodecl.get_locus_str();
                 dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
-                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
-                warn_printf( "%s: warning: OpenMP task defines as (first)private the variables '%s' "
-                             "and this update will not be visible after the task.\n" 
+                std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
+                warn_printf( "%s: omp-warning: Variables '%s' are scoped as (first)private in the task."
+                             "The updates on these variables will not be visible after the task.\n" 
                              "%sConsider defining them as shared or removing the statement writing them.\n",
                              task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __Dead);
@@ -898,9 +897,9 @@ namespace {
                 Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
                 std::string task_locus = task_nodecl.get_locus_str();
                 incoherent_private_vars = incoherent_private_vars.substr(0, incoherent_private_vars.size()-2);
-                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
-                warn_printf( "%s: warning: OpenMP task defines as private the variables '%s' "
-                             "but those variables are upwards exposed.\n"
+                std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
+                warn_printf( "%s: omp-warning: Variables '%s' are scope as private in the task, "
+                             "but their input value is used in a serial execution of the code.\n"
                              "%sConsider defining them as firstprivate instead.\n",
                              task_locus.c_str(), incoherent_private_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __Incoherent);
@@ -922,9 +921,9 @@ namespace {
                 Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
                 std::string task_locus = task_nodecl.get_locus_str();
                 incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
-                std::string tabulation( (task_locus+": warning: ").size( ), ' ' );
-                warn_printf( "%s: warning: OpenMP task defines as firstprivate the variables '%s' "
-                             "but the value captured is never read.\n"
+                std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
+                warn_printf( "%s: omp-warning: Variables '%s' are scoped as firstprivate within the task, "
+                             "but their value captured is never read.\n"
                              "%sConsider defining them as private instead.\n",
                              task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __Incoherent);
