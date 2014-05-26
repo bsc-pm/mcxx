@@ -33,3 +33,58 @@ linker_name = @G++@
 @DISABLE_OPENCL@{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
 @DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
 @DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
+
+[mfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @GFORTRAN@
+compiler_options = -frecursive
+linker_name = @GFORTRAN@
+linker_options =
+#cuda
+@DISABLE_CUDA@options = --cuda
+@DISABLE_CUDA@{openmp} preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+@DISABLE_CUDA@{openmp} linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{openmp} compiler_phase = libtlnanox-cuda.so
+#opencl
+@DISABLE_OPENCL@options = --opencl
+@DISABLE_OPENCL@{openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
+
+[mf95 : mfc]
+
+[auxcc : plaincc]
+language = C
+{mmic} options =
+{mmic} preprocessor_name = @ICC@
+{mmic} preprocessor_options = -E
+{mmic} compiler_name = @ICC@
+{mmic} linker_name = @ICC@
+{mmic} compiler_options = -mmic
+codegen_phase = libcodegen-cxx.so
+# gfortran
+target_options[smpfc] = no_sublink embed
+target_options[mfc] = no_sublink embed
+target_options[mf95] = no_sublink embed
+# ifort
+target_options[imfc] = no_sublink embed
+target_options[imf95] = no_sublink embed
+target_options[ifort-mfc] = no_sublink embed
+# xlf
+target_options[xlmfc] = no_sublink embed
+target_options[xlmf95] = no_sublink embed
+# opencl
+target_options[oclmfc] = no_sublink embed
+target_options[oclmf95] = no_sublink embed
+# nvidia
+target_options[mnvfc] = no_sublink embed
+# mpi
+target_options[mpimcxx_imcc_base] = no_sublink embed
+target_options[mpimcxx_mcc_base] = no_sublink embed
+target_options[mpimcc_imcc_base] = no_sublink embed
+target_options[mpimcc_mcc_base] = no_sublink embed
+target_options[mpimfc_imcc_base] = no_sublink embed
+target_options[mpimfc_mcc_base] = no_sublink embed

@@ -558,10 +558,7 @@ then
    NANOX_LIBS="${nanox_lib}"
    NANOX="${nanox}"
 
-   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
-
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
-   COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
