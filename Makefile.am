@@ -2725,6 +2725,13 @@ INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
 # that we know are deprecated and should not be
 # in the user installation anymore
 REMOVE_CONFIG_FILES=\
+					50.config.gpu \
+					50.config.cuda \
+					50.config.omp.ocl \
+					50.config.omp.fortran \
+					55.config.omp.ibm.fortran \
+					55.config.omp.intel.fortran \
+					56.config.omp.intel.fortran.mpi \
 					57.config.omp.all \
 					$(END)
 
