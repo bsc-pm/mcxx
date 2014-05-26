@@ -1166,26 +1166,26 @@ then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
    fi
 
-   # IBM XL C/C++ + Nanos++
-   if test x$XLC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-   fi
-   if test x$XLCXX != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-   fi
 
-   if test x$XLC != x -o x$XLCXX != x;
+   if test x$XLC != x -o x$XLCXX != x -o test x$XLF != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
-   fi
 
-   # IBM XL Fortran + Nanos++
-   if test x$XLF != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+      # IBM XL C/C++/Fortran + Nanos++
+      if test x$XLC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+      fi
+
+      if test x$XLCXX != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+      fi
+
+      if test x$XLF != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
+      fi
    fi
 fi
 
