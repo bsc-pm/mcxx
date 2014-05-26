@@ -566,7 +566,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda"
 fi
 
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
