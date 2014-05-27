@@ -794,6 +794,8 @@ namespace {
             _current_nodecl = current_nodecl;
         walk(n.get_subscripted());
         _current_nodecl = Nodecl::NodeclBase::null();
+        
+        _node->add_used_address(Utils::ExtendedSymbol(n.get_subscripted()));
     }
 
     void UsageVisitor::visit(const Nodecl::Assignment& n)
