@@ -1162,7 +1162,7 @@ then
 
 
 
-   if test x$XLC != x -o x$XLCXX != x -o test x$XLF != x;
+   if test x$XLC != x -o x$XLCXX != x -o x$XLF != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm 57.config.omp.smp.ibm"
 
