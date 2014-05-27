@@ -857,7 +857,7 @@ namespace {
             std::string unnecessarily_scoped_vars;
             for( Nodecl::List::iterator it = task_scoped_vars.begin( ); it != task_scoped_vars.end( ); ++it )
             {
-                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl(*it, all_vars) && 
+                if( TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, all_vars).is_null() && 
                     !list_elements_contain_nodecl(dependency_vars, *it) && 
                     TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, used_addresses).is_null() )
                 {
