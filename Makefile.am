@@ -2823,7 +2823,7 @@ BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
-config-install-data-hook:
+config-install-data-hook: remove-old-profiles
 	for compiler_name in ${COMPILER_NAMES}; \
 	do \
 		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
@@ -2831,6 +2831,8 @@ config-install-data-hook:
 		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
 		fi) \
 	done
+
+remove-old-profiles:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \
 		if test -e $(configdir)/$${oldfile};\
@@ -2840,7 +2842,6 @@ config-install-data-hook:
 		fi \
 	done
 
-	
 install-data-hook: config-install-data-hook
 
 # Where and what to install
