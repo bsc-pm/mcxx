@@ -39,7 +39,7 @@ You will need
   automake-1.9 (or newer)
   autoconf-2.59 (or newer)
   libtool-1.5.22 (or newer)
-  gcc and g++ (4.1 or newer)
+  gcc and g++ (4.4 or newer)
 
 Provided you use a Bourne alike shell you must bootstrap
 
