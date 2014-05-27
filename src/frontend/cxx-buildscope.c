@@ -17452,7 +17452,8 @@ static void build_scope_return_statement(AST a,
     }
     else
     {
-        if (!return_type && NULL
+        if (return_type != NULL
+                && !is_error_type(return_type)
                 && !is_void_type(return_type))
         {
             error_printf("%s: error: return with no expression in a non-void function\n", ast_location(a));

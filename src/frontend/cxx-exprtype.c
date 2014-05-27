@@ -6816,6 +6816,25 @@ nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor)
     }
 }
 
+static char any_is_member_function_of_a_dependent_class(scope_entry_list_t* candidates)
+{
+    char result = 0;
+
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it) && !result;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_function = entry_list_iterator_current(it);
+        result = (current_function->entity_specs.is_member
+                && is_dependent_type(current_function->entity_specs.class_type));
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
+
 static void cxx_compute_name_from_entry_list(
         nodecl_t nodecl_name,
         scope_entry_list_t* entry_list,
@@ -7050,31 +7069,22 @@ static void cxx_compute_name_from_entry_list(
             nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
         }
     }
-    else if (entry->kind == SK_FUNCTION)
+    else if (entry->kind == SK_FUNCTION
+            || entry->kind == SK_TEMPLATE)
     {
-        type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
-
-        *nodecl_output = nodecl_shallow_copy(nodecl_name);
-        nodecl_set_type(*nodecl_output, t);
-
-        if (last_template_args != NULL
-                && has_dependent_template_parameters(last_template_args))
+        if (entry->kind == SK_TEMPLATE)
         {
-            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-        }
-    }
-    else if (entry->kind == SK_TEMPLATE)
-    {
-        type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
-        scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
+            type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+            scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
 
-        if (named_type->kind != SK_FUNCTION)
-        {
-            error_printf("%s: error: invalid template class-name '%s' in expression\n", 
-                    nodecl_locus_to_str(nodecl_name),
-                    codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
-            *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
-            return;
+            if (named_type->kind != SK_FUNCTION)
+            {
+                error_printf("%s: error: invalid template class-name '%s' in expression\n", 
+                        nodecl_locus_to_str(nodecl_name),
+                        codegen_to_str(nodecl_name, nodecl_retrieve_context(nodecl_name)));
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_name));
+                return;
+            }
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
@@ -7085,6 +7095,12 @@ static void cxx_compute_name_from_entry_list(
                 && has_dependent_template_parameters(last_template_args))
         {
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
+
+        if (any_is_member_function_of_a_dependent_class(entry_list))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
     }
     else if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
@@ -10855,24 +10871,6 @@ static char any_is_nonstatic_member_function(scope_entry_list_t* candidates)
 }
 
 
-static char any_is_member_function_of_a_dependent_class(scope_entry_list_t* candidates)
-{
-    char result = 0;
-
-    scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(candidates);
-            !entry_list_iterator_end(it) && !result;
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_function = entry_list_iterator_current(it);
-        result = (current_function->entity_specs.is_member
-                && is_dependent_type(current_function->entity_specs.class_type));
-    }
-    entry_list_iterator_free(it);
-
-    return result;
-}
-
 char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments)
 {
     type_t* function_type = entry->type_information;
@@ -11213,9 +11211,6 @@ static void check_nodecl_function_call_cxx(
         any_arg_is_type_dependent = 1;
     }
 
-    if (nodecl_expr_is_type_dependent(nodecl_called))
-        any_arg_is_type_dependent = 1;
-
     if (!nodecl_is_err_expr(nodecl_called)
             && (any_arg_is_type_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called)))
@@ -11225,9 +11220,17 @@ static void check_nodecl_function_call_cxx(
 
         if (nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_SIMPLE)
         {
-            // The call is dependent. For this reason we should ignore the nodecl constructed in
-            // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
-            nodecl_called = nodecl_called_name;
+            // The call is of the form F(X) (where F is an unqualified-id)
+            if (!any_arg_is_type_dependent)
+            {
+                // No argument was found dependent, so the name F should have
+                // already been bound here
+            }
+            else
+            {
+                // The called name is not bound
+                nodecl_called = nodecl_called_name;
+            }
         }
 
         // Create a dependent call

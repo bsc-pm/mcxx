@@ -288,7 +288,7 @@ namespace TL
                 // Now lookup a FunctionTaskInfo
                 if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
-                    warn_printf("%s: warning: '%s' is not a is not a '#pragma omp task' function, skipping\n",
+                    warn_printf("%s: warning: '%s' is not a '#pragma omp task' function, skipping\n",
                             ctr.get_locus_str().c_str(),
                             target_ctx.implements.get_qualified_name().c_str());
                 }
