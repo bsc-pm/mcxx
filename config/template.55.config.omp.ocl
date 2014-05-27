@@ -1,5 +1,5 @@
 # OpenCL profile
-[oclmcc : omp-base ]
+[oclmcc : omp-base]
 language = C
 options = --opencl
 {openmp} preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_

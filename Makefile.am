@@ -2697,23 +2697,20 @@ CONFIG_FILES =  \
        config/10.config.analysis-base \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
-       config/50.config.cuda \
-       config/50.config.gpu \
-       config/50.config.omp.fortran \
+       config/40.config.cuda \
        config/50.config.omp.fpga \
        config/50.config.omp.mercurium \
-       config/50.config.omp.ocl \
        config/50.config.omp.profiling \
 	   config/50.config.omp.intel-rtl \
        config/55.config.omp.ibm \
-       config/55.config.omp.ibm.fortran \
        config/55.config.omp.intel \
-       config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
+       config/55.config.omp.ocl \
        config/56.config.omp.mpi \
        config/56.config.omp.intel.mpi \
-       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
+       config/57.config.omp.smp.intel \
+       config/57.config.omp.smp.ibm \
        config/mpimcc \
        config/mpimcxx \
        config/mpimfc \
@@ -2725,6 +2722,13 @@ INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
 # that we know are deprecated and should not be
 # in the user installation anymore
 REMOVE_CONFIG_FILES=\
+					50.config.gpu \
+					50.config.cuda \
+					50.config.omp.ocl \
+					50.config.omp.fortran \
+					55.config.omp.ibm.fortran \
+					55.config.omp.intel.fortran \
+					56.config.omp.intel.fortran.mpi \
 					57.config.omp.all \
 					$(END)
 
@@ -2820,7 +2824,7 @@ BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
-config-install-data-hook:
+config-install-data-hook: remove-old-profiles
 	for compiler_name in ${COMPILER_NAMES}; \
 	do \
 		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
@@ -2828,6 +2832,8 @@ config-install-data-hook:
 		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
 		fi) \
 	done
+
+remove-old-profiles:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \
 		if test -e $(configdir)/$${oldfile};\
@@ -2837,7 +2843,6 @@ config-install-data-hook:
 		fi \
 	done
 
-	
 install-data-hook: config-install-data-hook
 
 # Where and what to install
