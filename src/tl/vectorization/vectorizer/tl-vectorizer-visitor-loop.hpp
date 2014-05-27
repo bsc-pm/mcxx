@@ -53,10 +53,10 @@ namespace Vectorization
     class VectorizerVisitorLoopHeader : public Nodecl::NodeclVisitor<void>
     {
         private:
-            const VectorizerEnvironment& _environment;
+            VectorizerEnvironment& _environment;
 
         public:
-            VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment);
+            VectorizerVisitorLoopHeader(VectorizerEnvironment& environment);
 
             virtual void visit(const Nodecl::LoopControl& loop_header);
 
@@ -97,18 +97,15 @@ namespace Vectorization
     class VectorizerVisitorLoopNext : public Nodecl::NodeclVisitor<void>
     {
         private:
-            const VectorizerEnvironment& _environment;
+            VectorizerEnvironment& _environment;
 
             void visit_increment(const Nodecl::NodeclBase& node,
                     const Nodecl::NodeclBase& lhs);
 
         public:
-            VectorizerVisitorLoopNext(const VectorizerEnvironment& environment);
+            VectorizerVisitorLoopNext(VectorizerEnvironment& environment);
 
             void visit(const Nodecl::Comma& node);
-            void visit(const Nodecl::Preincrement& node);
-            void visit(const Nodecl::Postincrement& node);
-            void visit(const Nodecl::AddAssignment& node);
             void visit(const Nodecl::Assignment& node);
 
             Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& node);

@@ -481,25 +481,48 @@ namespace Vectorization
             {
                 Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
 
-                Nodecl::NodeclBase add_lhs = 
-                    Nodecl::Utils::advance_conversions(rhs_add.get_lhs());
-                Nodecl::NodeclBase add_rhs = 
-                    Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
+                Nodecl::NodeclBase add_lhs = rhs_add.get_lhs();
+                Nodecl::NodeclBase add_lhs_no_conv = add_lhs.no_conv();
+                Nodecl::NodeclBase add_rhs = rhs_add.get_rhs();
+                Nodecl::NodeclBase add_rhs_no_conv = add_rhs.no_conv();
 
-                // = 3 + i
-                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+                // = 3 + i | n + i
+                if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs_no_conv))
                 {
-                    Nodecl::Mul mul = Nodecl::Mul::make(
-                            add_lhs.shallow_copy(),
-                            Nodecl::IntegerLiteral::make(
-                                TL::Type::get_int_type(),
-                                const_value_get_signed_int(
-                                    _environment._unroll_factor),
+                    Nodecl::Add new_add = Nodecl::Add::make(
+                            Nodecl::Mul::make(
+                                add_lhs, //Do not shallow copy!
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        _environment._unroll_factor),
+                                    n.get_locus()),
+                                rhs_add.get_type(),
                                 n.get_locus()),
-                            TL::Type::get_int_type(),
+                            add_rhs,    //Do not shallow copy!
+                            rhs_add.get_type(),
                             n.get_locus());
                     
-                    add_lhs.replace(mul);
+                    rhs_add.replace(new_add);
+                }
+                // = i + n
+                else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs_no_conv))
+                {
+                    Nodecl::Add new_add = Nodecl::Add::make(
+                            Nodecl::Mul::make(
+                                add_rhs, //Do not shallow copy!
+                                Nodecl::IntegerLiteral::make(
+                                    TL::Type::get_int_type(),
+                                    const_value_get_signed_int(
+                                        _environment._unroll_factor),
+                                    n.get_locus()),
+                                rhs_add.get_type(),
+                                n.get_locus()),
+                            add_lhs,    //Do not shallow copy!
+                            rhs_add.get_type(),
+                            n.get_locus());
+                    
+                    rhs_add.replace(new_add);
                 }
                 else
                 {

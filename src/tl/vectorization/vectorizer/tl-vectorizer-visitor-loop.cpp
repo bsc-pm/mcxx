@@ -123,7 +123,7 @@ namespace Vectorization
         return Ret();
     }
 
-    VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(const VectorizerEnvironment& environment)
+    VectorizerVisitorLoopHeader::VectorizerVisitorLoopHeader(VectorizerEnvironment& environment)
         : _environment(environment)
     {
     }
@@ -348,24 +348,9 @@ namespace Vectorization
             << std::endl;
     }
 
-    VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(const VectorizerEnvironment& environment) :
+    VectorizerVisitorLoopNext::VectorizerVisitorLoopNext(VectorizerEnvironment& environment) :
         _environment(environment)
     {
-    }
-
-    void VectorizerVisitorLoopNext::visit(const Nodecl::Preincrement& node)
-    {
-        visit_increment(node, node.get_rhs());
-    }
-
-    void VectorizerVisitorLoopNext::visit(const Nodecl::Postincrement& node)
-    {
-        visit_increment(node, node.get_rhs());
-    }
-
-    void VectorizerVisitorLoopNext::visit(const Nodecl::AddAssignment& node)
-    {
-        visit_increment(node, node.get_lhs());
     }
 
     void VectorizerVisitorLoopNext::visit(const Nodecl::Assignment& node)
@@ -382,55 +367,9 @@ namespace Vectorization
 
     void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
     {
-        if (VectorizationAnalysisInterface::_vectorizer_analysis->is_induction_variable(
-                    _environment._analysis_simd_scope,
-                    lhs))
-        {
-            Nodecl::NodeclBase step = VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_induction_variable_increment(
-                    _environment._analysis_scopes.back(),
-                    lhs);
+        VectorizerVisitorExpression visitor_expression(_environment, true);
 
-            Nodecl::Assignment new_node;
-
-            if (step.is_constant())
-            {
-                new_node =
-                    Nodecl::Assignment::make(
-                            lhs.shallow_copy(),
-                            Nodecl::Add::make(
-                                lhs.shallow_copy(),
-                                const_value_to_nodecl(
-                                    const_value_mul(const_value_get_signed_int(
-                                            _environment._unroll_factor),
-                                    step.get_constant())),
-                                node.get_type(),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus());
-            }
-            else
-            {
-                new_node = Nodecl::Assignment::make(
-                        lhs.shallow_copy(),
-                        Nodecl::Add::make(
-                            lhs.shallow_copy(),
-                            Nodecl::Mul::make(
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(_environment._unroll_factor),
-                                    node.get_locus()),
-                                step.shallow_copy(),
-                                node.get_type(),
-                                node.get_locus()),
-                            node.get_type(),
-                            node.get_locus()),
-                        node.get_type(),
-                        node.get_locus());
-            }
-
-            node.replace(new_node);
-        }
+        visitor_expression.walk(node);
     }
 
     Nodecl::NodeclVisitor<void>::Ret VectorizerVisitorLoopNext::unhandled_node(
