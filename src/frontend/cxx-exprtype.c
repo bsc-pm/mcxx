@@ -11211,9 +11211,6 @@ static void check_nodecl_function_call_cxx(
         any_arg_is_type_dependent = 1;
     }
 
-    if (nodecl_expr_is_type_dependent(nodecl_called))
-        any_arg_is_type_dependent = 1;
-
     if (!nodecl_is_err_expr(nodecl_called)
             && (any_arg_is_type_dependent
                 || nodecl_expr_is_type_dependent(nodecl_called)))
@@ -11223,9 +11220,17 @@ static void check_nodecl_function_call_cxx(
 
         if (nodecl_get_kind(nodecl_called_name) == NODECL_CXX_DEP_NAME_SIMPLE)
         {
-            // The call is dependent. For this reason we should ignore the nodecl constructed in
-            // the function 'check_expression_impl_' and compute a new nodecl using the original AST.
-            nodecl_called = nodecl_called_name;
+            // The call is of the form F(X) (where F is an unqualified-id)
+            if (!any_arg_is_type_dependent)
+            {
+                // No argument was found dependent, so the name F should have
+                // already been bound here
+            }
+            else
+            {
+                // The called name is not bound
+                nodecl_called = nodecl_called_name;
+            }
         }
 
         // Create a dependent call
