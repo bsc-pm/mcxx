@@ -53,6 +53,9 @@ LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry
 
 LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, const locus_t* locus);
 
+LIBMCXX_EXTERN void instantiate_template_function_and_integrate_in_translation_unit(scope_entry_t* entry,
+        const locus_t* locus);
+
 // Instantiation map
 LIBMCXX_EXTERN scope_entry_t* instantiation_symbol_do_map(instantiation_symbol_map_t* map, scope_entry_t* orig);
 LIBMCXX_EXTERN scope_entry_t* instantiation_symbol_try_to_map(instantiation_symbol_map_t* map, scope_entry_t* orig);
