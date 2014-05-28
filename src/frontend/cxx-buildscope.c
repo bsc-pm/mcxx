@@ -19292,15 +19292,29 @@ static void instantiate_goto_statement(nodecl_instantiate_stmt_visitor_t* v, nod
 
 static void instantiate_pragma_custom_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    nodecl_t pragma_line = nodecl_get_child(node, 0);
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
     nodecl_t statements = nodecl_get_child(node, 1);
 
-    pragma_line = nodecl_shallow_copy(pragma_line);
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
     statements = instantiate_stmt_walk(v, statements);
 
     v->nodecl_result = nodecl_make_pragma_custom_statement(
-            pragma_line,
+            nodecl_pragma_line,
             statements,
+            nodecl_get_text(node),
+            nodecl_get_locus(node));
+}
+
+static void instantiate_pragma_custom_directive(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
+
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
+    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(v->new_decl_context, nodecl_get_locus(node));
+
+    v->nodecl_result = nodecl_make_pragma_custom_directive(
+            nodecl_pragma_line,
+            nodecl_pragma_context,
             nodecl_get_text(node),
             nodecl_get_locus(node));
 }
@@ -19364,6 +19378,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context);
 
     NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
+    NODECL_VISITOR(v)->visit_pragma_custom_directive = instantiate_stmt_visitor_fun(instantiate_pragma_custom_directive);
     NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);
 }
 
