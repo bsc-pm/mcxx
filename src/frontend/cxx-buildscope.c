@@ -9567,6 +9567,14 @@ static void set_array_type(type_t** declarator_type,
 {
     type_t* element_type = *declarator_type;
 
+    if (element_type == NULL)
+    {
+        error_printf("%s: error: array declaration without a type-specifier\n",
+                locus_to_str(locus));
+        *declarator_type = get_error_type();
+        return;
+    }
+
     nodecl_t nodecl_expr = nodecl_null();
     if (constant_expr != NULL)
     {
