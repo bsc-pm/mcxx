@@ -163,15 +163,36 @@ namespace TL { namespace OpenMP {
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
             const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
-            OpenMP::Base *base)
+            OpenMP::Base *base,
+            bool ignore_template_functions)
         :
             _function_task_set(function_task_set),
             _funct_call_to_enclosing_stmt_map(funct_call_to_enclosing_stmt_map),
             _enclosing_stmt_to_original_stmt_map(enclosing_stmt_to_original_stmt_map),
             _enclosing_stmt_to_return_vars_map(enclosing_stmt_to_return_vars_map),
             _enclosing_stmt_to_task_calls_map(),
-            _base(base)
+            _base(base),
+            _ignore_template_functions(ignore_template_functions)
     {
+    }
+
+    void FunctionCallVisitor::visit(const Nodecl::FunctionCode& node)
+    {
+        if (IS_CXX_LANGUAGE
+                && _ignore_template_functions
+                && node.get_symbol().is_member()
+                && node.get_symbol().get_class_type().is_dependent())
+            return;
+
+        this->Nodecl::ExhaustiveVisitor<void>::visit(node);
+    }
+
+    void FunctionCallVisitor::visit(const Nodecl::TemplateFunctionCode& node)
+    {
+        if (_ignore_template_functions)
+            return;
+
+        this->Nodecl::ExhaustiveVisitor<void>::visit(node);
     }
 
     void FunctionCallVisitor::visit(const Nodecl::FunctionCall& call)
@@ -1357,9 +1378,13 @@ namespace TL { namespace OpenMP {
         return join_task;
     }
 
-    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled)
+    TransformNonVoidFunctionCalls::TransformNonVoidFunctionCalls(
+            RefPtr<FunctionTaskSet> function_task_set,
+            bool task_expr_optim_disabled,
+            bool ignore_template_functions)
         :
             _task_expr_optim_disabled(task_expr_optim_disabled),
+            _ignore_template_functions(ignore_template_functions),
             _optimized_task_expr_counter(0),
             _new_return_vars_counter(0),
             _enclosing_stmt(nodecl_null()),
@@ -1371,6 +1396,25 @@ namespace TL { namespace OpenMP {
             _enclosing_stmt_to_original_stmt(),
             _enclosing_stmt_to_return_vars_map()
     {
+    }
+
+    void TransformNonVoidFunctionCalls::visit(const Nodecl::FunctionCode& node)
+    {
+        if (IS_CXX_LANGUAGE
+                && _ignore_template_functions
+                && node.get_symbol().is_member()
+                && node.get_symbol().get_class_type().is_dependent())
+            return;
+
+        this->Nodecl::ExhaustiveVisitor<void>::visit(node);
+    }
+
+    void TransformNonVoidFunctionCalls::visit(const Nodecl::TemplateFunctionCode& node)
+    {
+        if (_ignore_template_functions)
+            return;
+
+        this->Nodecl::ExhaustiveVisitor<void>::visit(node);
     }
 
     void TransformNonVoidFunctionCalls::visit(const Nodecl::ObjectInit& object_init)

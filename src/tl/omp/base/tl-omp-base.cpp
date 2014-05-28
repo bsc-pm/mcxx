@@ -53,7 +53,8 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
-        _copy_deps_by_default(true)
+        _copy_deps_by_default(true),
+        _instantiate_omp(false)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -103,6 +104,11 @@ namespace TL { namespace OpenMP {
                 "Disables some optimizations applied to task expressions",
                 _disable_task_expr_optim_str,
                 "0");
+
+        register_parameter("instantiate_omp",
+                "EXPERIMENTAL FEATURE: In C++, instantiates functions containing #pragma omp",
+                _instantiate_omp_str,
+                "0").connect(functor(&Base::set_instantiate_omp, *this));
 
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
@@ -166,6 +172,9 @@ namespace TL { namespace OpenMP {
                 << "=================================================================\n";
         }
 
+        if (_instantiate_omp)
+            this->set_ignore_template_functions(true);
+
         this->PragmaCustomCompilerPhase::run(dto);
 
         RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
@@ -173,7 +182,8 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled);
+        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
+                /* ignore_template_functions */ _instantiate_omp);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
 
@@ -191,7 +201,8 @@ namespace TL { namespace OpenMP {
                 funct_call_to_enclosing_stmt_map,
                 enclosing_stmt_to_original_stmt_map,
                 enclosing_stmt_to_return_vars_map,
-                this);
+                this,
+                /* ignore_template_functions */ _instantiate_omp);
 
         function_call_visitor.walk(translation_unit);
         function_call_visitor.build_all_needed_task_expressions();
@@ -300,6 +311,12 @@ namespace TL { namespace OpenMP {
     {
         parse_boolean_option("copy_deps", str, _copy_deps_by_default, "Assuming true.");
         _core.set_copy_deps_by_default(_copy_deps_by_default);
+    }
+
+    void Base::set_instantiate_omp(const std::string& str)
+    {
+        parse_boolean_option("instantiate_omp", str, _instantiate_omp, "Assuming false");
+        _core.set_instantiate_omp(_instantiate_omp);
     }
 
     bool Base::copy_deps_by_default() const
