@@ -123,7 +123,7 @@ namespace TL
 
     // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
-        : _pragma_handled(pragma_handled)
+        : _pragma_handled(pragma_handled), _ignore_template_functions(false)
     {
     }
 
@@ -141,7 +141,7 @@ namespace TL
 
     void PragmaCustomCompilerPhase::walk(Nodecl::NodeclBase& node)
     {
-        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher);
+        PragmaVisitor visitor(_pragma_handled, _pragma_map_dispatcher, _ignore_template_functions);
         visitor.walk(node);
     }
 
