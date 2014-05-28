@@ -1045,9 +1045,19 @@ namespace TL { namespace Nanox {
 
         // Now everything is set to register the function
         scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
+        if (!current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
+            decl_context_t new_decl_context = decl_context;
+            if (current_function.get_scope().get_template_parameters() != NULL
+                && current_function.get_scope().get_template_parameters()->is_explicit_specialization)
+            {
+                new_decl_context.template_parameters = new_decl_context.template_parameters->enclosing;
+            }
+
+            new_function_sym = new_symbol(new_decl_context,
+                    new_decl_context.current_scope,
+                    uniquestr(function_name.c_str()));
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);
