@@ -19292,7 +19292,17 @@ static void instantiate_goto_statement(nodecl_instantiate_stmt_visitor_t* v, nod
 
 static void instantiate_pragma_custom_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    instantiate_stmt_not_implemented_yet(v, node);
+    nodecl_t pragma_line = nodecl_get_child(node, 0);
+    nodecl_t statements = nodecl_get_child(node, 1);
+
+    pragma_line = nodecl_shallow_copy(pragma_line);
+    statements = instantiate_stmt_walk(v, statements);
+
+    v->nodecl_result = nodecl_make_pragma_custom_statement(
+            pragma_line,
+            statements,
+            nodecl_get_text(node),
+            nodecl_get_locus(node));
 }
 
 static void instantiate_pragma_custom_declaration(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
