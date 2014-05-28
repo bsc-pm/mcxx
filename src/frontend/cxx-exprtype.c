@@ -8115,10 +8115,10 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         return;
     }
 
-    nodecl_t nodecl_conditional[3] = {
-        first_op,
-        second_op,
-        third_op
+    nodecl_t* nodecl_conditional[3] = {
+        &first_op,
+        &second_op,
+        &third_op
     };
 
     {
@@ -8126,7 +8126,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         int i;
         for (i = 0; i < 3; i++)
         {
-            type_t* current_type = nodecl_get_type(nodecl_conditional[i]);
+            type_t* current_type = nodecl_get_type(*nodecl_conditional[i]);
 
             if (is_unresolved_overloaded_type(current_type))
             {
@@ -8141,7 +8141,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                             entry,
                             decl_context,
                             locus,
-                            &nodecl_conditional[i]))
+                            nodecl_conditional[i]))
                     {
                         *nodecl_output = nodecl_make_err_expr(locus);
                         return;
@@ -8214,9 +8214,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         }
 
         *nodecl_output = nodecl_make_conditional_expression(
-                nodecl_conditional[0],
-                nodecl_conditional[1],
-                nodecl_conditional[2],
+                *nodecl_conditional[0],
+                *nodecl_conditional[1],
+                *nodecl_conditional[2],
                 final_type, locus);
 
         // Nothing else has to be done for 'void' types
@@ -8397,10 +8397,10 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
                         return;
                     }
 
-                    nodecl_conditional[k] = cxx_nodecl_make_function_call(
+                    *nodecl_conditional[k] = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[k], locus),
                             /* called name */ nodecl_null(),
-                            nodecl_make_list_1(nodecl_conditional[k]),
+                            nodecl_make_list_1(*nodecl_conditional[k]),
                             nodecl_make_cxx_function_form_implicit(locus),
                             actual_type_of_conversor(conversors[k]),
                             decl_context,
@@ -8473,9 +8473,9 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
     }
 
     *nodecl_output = nodecl_make_conditional_expression(
-            nodecl_conditional[0],
-            nodecl_conditional[1],
-            nodecl_conditional[2],
+            *nodecl_conditional[0],
+            *nodecl_conditional[1],
+            *nodecl_conditional[2],
             final_type, locus);
 }
 
