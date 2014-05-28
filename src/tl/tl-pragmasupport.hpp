@@ -570,6 +570,8 @@ namespace TL
         LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
                 const std::string& pragma_name,
                 Nodecl::NodeclBase n);
+        LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
+                Nodecl::NodeclBase n);
     }
 }
 
