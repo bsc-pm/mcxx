@@ -136,6 +136,10 @@ namespace TL { namespace OpenMP {
 
     void Base::pre_run(TL::DTO& dto)
     {
+        if (_instantiate_omp)
+        {
+            _core.set_instantiate_omp(true);
+        }
         _core.pre_run(dto);
 
         // Do nothing once we have analyzed everything
@@ -147,6 +151,15 @@ namespace TL { namespace OpenMP {
 
     void Base::run(TL::DTO& dto)
     {
+        if (_instantiate_omp)
+        {
+            _core.set_instantiate_omp(true);
+            this->set_ignore_template_functions(true);
+
+            InstantiateVisitorOmp instantiate_omp_functions(dto);
+            instantiate_omp_functions.instantiate();
+        }
+
         _core.run(dto);
 
         if (diagnostics_get_error_count() != 0)
