@@ -27,6 +27,7 @@
 #include "tl-omp-base.hpp"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
+#include "tl-omp-base-instantiation.hpp"
 
 #include "config.h"
 #include "tl-nodecl-utils.hpp"
@@ -173,7 +174,12 @@ namespace TL { namespace OpenMP {
         }
 
         if (_instantiate_omp)
+        {
+            InstantiateVisitorOmp instantiate_omp_functions(dto);
+            instantiate_omp_functions.instantiate();
+
             this->set_ignore_template_functions(true);
+        }
 
         this->PragmaCustomCompilerPhase::run(dto);
 
