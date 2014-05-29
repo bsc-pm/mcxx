@@ -10653,13 +10653,11 @@ static type_t* compute_default_argument_conversion(type_t* arg_type,
     else if (is_pointer_type(result_type)
             || is_nullptr_type(result_type))
     {
-        // T* -> intptr_t (we use size_t)
-        result_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
+        // Use the pointer type we have right now
     }
     else if (is_pointer_to_member_type(result_type))
     {
-        // T C::* -> intptr_t (we use size_t)
-        result_type = (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
+        // Use the pointer to member we have right now
     }
     else if (is_enum_type(result_type))
     {
