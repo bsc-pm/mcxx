@@ -21491,6 +21491,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else
     {
+        char was_unresolved = is_unresolved_overloaded_type(nodecl_get_type(node));
         scope_entry_t* mapped_symbol = instantiation_symbol_try_to_map(v->instantiation_symbol_map, nodecl_get_symbol(node));
 
         // FIXME - Can this name be other than an unqualified thing?
@@ -21502,6 +21503,24 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
 
         entry_list_free(entry_list);
         nodecl_free(nodecl_name);
+
+        if (is_unresolved_overloaded_type(nodecl_get_type(result))
+                && !was_unresolved)
+        {
+            // If the original name was not unresolved then attempt to simplify it here
+            scope_entry_t* function = unresolved_overloaded_type_simplify(
+                    nodecl_get_type(result),
+                    v->decl_context,
+                    nodecl_get_locus(result));
+            if (function != NULL)
+            {
+                update_simplified_unresolved_overloaded_type(
+                        function,
+                        v->decl_context,
+                        nodecl_get_locus(result),
+                        &result);
+            }
+        }
     }
 
     v->nodecl_result = result;
