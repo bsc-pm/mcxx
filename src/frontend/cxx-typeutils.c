@@ -47,6 +47,7 @@
 #include "cxx-gccbuiltins.h"
 #include "cxx-instantiation.h"
 #include "cxx-typededuc.h"
+#include "cxx-diagnostic.h"
 
 #include "fortran03-scope.h"
 
@@ -2720,15 +2721,18 @@ static type_t* template_type_get_specialized_type_(
         decl_context_t updated_context = primary_symbol->decl_context;
         updated_context.template_parameters = template_arguments;
 
+        diagnostic_context_push_buffered();
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context,
                 locus);
 
         // If we cannot update the type, give up, as probably this is SFINAE
         if (updated_function_type == NULL)
         {
+            diagnostic_context_pop_and_discard();
             free_template_parameter_list(template_arguments);
             return NULL;
         }
+        diagnostic_context_pop_and_commit();
 
         // This will give us a new function type
         specialized_type = _get_duplicated_function_type(updated_function_type);
@@ -10436,8 +10440,7 @@ const char* print_declarator(type_t* printed_declarator)
     return tmp_result;
 }
 
-
-static standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
+standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest)
 {
     standard_conversion_t result = {
         .orig = t_orig,
@@ -10681,7 +10684,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     // Identity check
     if (equivalent_types(orig, dest))
     {
-        (*result) = identity_scs(t_orig, t_dest);
+        (*result) = get_identity_scs(t_orig, t_dest);
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: Exactly the same type\n");
@@ -10701,7 +10704,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         // T -> T @ref@
         if (equivalent_types(unqualif_orig, unqualif_ref_dest))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Mercurium Extension for C: binding a type to a reference type\n");
@@ -10712,7 +10715,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (is_lvalue_reference_type(orig)
                 && is_void_type(no_ref(orig)))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: Mercurium Extension for C: binding a void& to a reference type\n");
@@ -10738,7 +10741,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: This is a binding to a lvalue-reference by means of a lvalue-reference\n");
@@ -10764,7 +10767,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                         && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
                 && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
         {
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a rvalue-reference\n");
@@ -10792,7 +10795,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
-        (*result) = identity_scs(orig, dest);
+        (*result) = get_identity_scs(orig, dest);
 
         char ok = 0;
         if (is_class_type(no_ref(orig))
@@ -11018,6 +11021,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_integer_type(dest)
+                && !is_bool_type(dest)
                 && is_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && !equivalent_types(orig_underlying_type, dest))
@@ -11501,7 +11505,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Exactly the same type after removing cv-qualifiers of the first type\n");
             }
-            (*result) = identity_scs(t_orig, t_dest);
+            (*result) = get_identity_scs(t_orig, t_dest);
         }
         DEBUG_CODE()
         {
@@ -12013,7 +12017,7 @@ char is_literal_type(type_t* t)
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                if (!entry->entity_specs.is_constexpr
+                if (entry->entity_specs.is_constexpr
                         && !entry->entity_specs.is_move_constructor
                         && !entry->entity_specs.is_copy_constructor)
                 {
@@ -12539,6 +12543,10 @@ char is_aggregate_type(type_t* t)
 
     // GCC seems to understand vector types as aggregates
     if (is_vector_type(t))
+        return 1;
+
+    // G++ seems to understand complex types as aggregates
+    if (IS_CXX_LANGUAGE && is_complex_type(t))
         return 1;
 
     /*

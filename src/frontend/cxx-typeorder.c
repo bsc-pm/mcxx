@@ -36,121 +36,6 @@
 #include "cxx-exprtype.h"
 #include "cxx-limits.h"
 
-char is_sound_type(type_t* t, decl_context_t decl_context)
-{
-    ERROR_CONDITION(t == NULL, "Invalid NULL here", 0);
-
-    if (is_array_type(t))
-    {
-        type_t* element_type = array_type_get_element_type(t);
-        if (is_void_type(element_type)
-                || is_lvalue_reference_type(element_type)
-                || is_function_type(element_type))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is an array of void/references/functions\n");
-            }
-            return 0;
-        }
-
-        nodecl_t expr_size = array_type_get_array_size_expr(t);
-
-        if (nodecl_is_constant(expr_size))
-        {
-            if (const_value_is_zero(
-                        const_value_gt(
-                            nodecl_get_constant(expr_size),
-                            const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is an array of negative length\n");
-                }
-                return 0;
-            }
-        }
-
-        return is_sound_type(element_type, decl_context);
-    }
-    else if (is_pointer_type(t))
-    {
-        // A pointer to a reference is not valid (int*& is valid but int&* not)
-        if (is_lvalue_reference_type(pointer_type_get_pointee_type(t)))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is a pointer to a reference type\n");
-            }
-            return 0;
-        }
-
-        return is_sound_type(pointer_type_get_pointee_type(t), decl_context);
-    }
-    else if (is_lvalue_reference_type(t))
-    {
-        // A reference to a reference is not valid (int&& is not valid)
-        // (Note: in newer versions of C++ int&& is a rvalue-reference we do not support that)
-        if( (is_lvalue_reference_type(reference_type_get_referenced_type(t))
-                    || is_void_type(reference_type_get_referenced_type(t))))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is a reference to a reference type\n");
-            }
-            return 0;
-        }
-
-        return is_sound_type(reference_type_get_referenced_type(t), decl_context);
-    }
-    else if (is_function_type(t))
-    {
-        int num_parameters = function_type_get_num_parameters(t);
-
-        if (function_type_get_has_ellipsis(t))
-            num_parameters--;
-
-        int i;
-        for (i = 0; i < num_parameters; i++)
-        {
-            type_t* parameter_type = function_type_get_parameter_type_num(t, i);
-
-            if (is_void_type(parameter_type)
-                    || !is_sound_type(parameter_type, decl_context))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is a function type with a void type parameter\n");
-                }
-                return 0;
-            }
-        }
-
-        return is_sound_type(function_type_get_return_type(t), decl_context);
-    }
-    else if (is_named_type(t))
-    {
-        scope_entry_t* entry = named_type_get_symbol(t);
-
-        if (entry == NULL
-                || entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER
-                || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-        {
-            // This is trivially sound always
-            return 1;
-        }
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "TYPEORDER: Deduced type seems sound\n");
-    }
-
-    // Seems fine
-    return 1;
-}
-
 static char is_less_or_equal_specialized_template_conversion_function(
         type_t* f1, type_t* f2, 
         decl_context_t decl_context, template_parameter_list_t** deduced_template_arguments,
@@ -252,20 +137,11 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
                 locus);
 
         // Check the soundness of the updated type
-        if (updated_type == NULL
-                || !is_sound_type(updated_type, updated_context))
+        if (updated_type == NULL)
         {
             DEBUG_CODE()
             {
-                if (updated_type == NULL)
-                {
-                    fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
-                }
-                else
-                {
-                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type));
-                }
-
+                fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function because type deduction failed\n");
             }
             return 0;
@@ -426,20 +302,11 @@ static char is_less_or_equal_specialized_template_conversion_function(
                 locus);
 
         // Check the soundness of the updated type
-        if (updated_type == NULL
-                || !is_sound_type(updated_type, updated_context))
+        if (updated_type == NULL)
         {
             DEBUG_CODE()
             {
-                if (updated_type == NULL)
-                {
-                    fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
-                }
-                else
-                {
-                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type));
-                }
-
+                fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function because type deduction failed\n");
             }
             return 0;

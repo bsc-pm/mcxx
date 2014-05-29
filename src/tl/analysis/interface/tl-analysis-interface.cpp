@@ -158,7 +158,7 @@ namespace Analysis {
         return it->second;
     }
 
-    bool AnalysisInterface::is_invariant(
+    bool AnalysisInterface::is_uniform(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
@@ -180,9 +180,9 @@ namespace Analysis {
 
         std::set<Nodecl::NodeclBase> visited_nodes;
 
-        //has_property implements is_invariant so far
-        return is_invariant_internal(
-                scope_node, stmt_node, n_node,n, pcfg, visited_nodes);
+        //has_property implements is_uniform so far
+        return is_uniform_internal(scope_node, stmt_node, n,
+                pcfg, visited_nodes);
     }
 
     bool AnalysisInterface::is_induction_variable(
@@ -530,7 +530,7 @@ end_depends:
     }*/
 
 #if 0
-    bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
+    bool AnalysisInterface::nodecl_value_is_uniform_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
             const Nodecl::NodeclBase& n,
@@ -539,10 +539,10 @@ end_depends:
         TL::tribool result = nodecl_has_property_in_scope(scope_node,
                 stmt_node, n, pcfg, 
                 false /*control structures*/,
-                invariant_property);
+                uniform_property);
 
         ERROR_CONDITION(result.is_unknown(),
-                "nodecl_value_is_invariant_in_scope returns unknown!", 0);
+                "nodecl_value_is_uniform_in_scope returns unknown!", 0);
 
         return result.is_true();
     }
@@ -550,7 +550,7 @@ end_depends:
     // nodecl_value means that control structures are not taking into account.
     // Only the value (definition) of the nodecl
 #if 0    
-    bool AnalysisInterface::nodecl_value_is_invariant_in_scope(
+    bool AnalysisInterface::nodecl_value_is_uniform_in_scope(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
@@ -565,8 +565,8 @@ end_depends:
         ERROR_CONDITION(stmt_node==NULL, "No PCFG node found for statement '%s:%s'. \n",
                 stmt.get_locus_str().c_str(), stmt.prettyprint().c_str());
 
-        //has_property implements is_invariant so far
-        return nodecl_value_is_invariant_in_scope(scope_node, stmt_node, n, pcfg);
+        //has_property implements is_uniform so far
+        return nodecl_value_is_uniform_in_scope(scope_node, stmt_node, n, pcfg);
     }
 #endif
 }

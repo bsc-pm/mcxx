@@ -41,6 +41,7 @@ namespace TL
         typedef std::map<TL::Symbol, int> aligned_expr_map_t;
         typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontmp_expr_map_t;
         typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
+        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
         typedef TL::ObjectList<TL::Symbol> objlist_tlsymbol_t;
 
         typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;

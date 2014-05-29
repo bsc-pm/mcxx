@@ -90,13 +90,14 @@ namespace Vectorization
             friend class VectorizerCache;
             friend class VectorizerLoopInfo;
             friend class VectorizerVectorReduction;
-            friend class VectorizerVisitorFor;
-            friend class VectorizerVisitorForEpilog;
+            friend class VectorizerVisitorLoop;
+            friend class VectorizerVisitorLoopEpilog;
             friend class VectorizerVisitorLoopHeader;
             friend class VectorizerVisitorLoopCond;
             friend class VectorizerVisitorLoopNext;
             friend class VectorizerVisitorFunction;
             friend class VectorizerVisitorStatement;
+            friend class VectorizerVisitorLocalSymbol;
             friend class VectorizerVisitorExpression;
             friend class VectorizerVisitorPreprocessor;
             friend class StrideSplitterVisitor;

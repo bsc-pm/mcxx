@@ -214,6 +214,9 @@ namespace Analysis {
             //! Returns true when the node is an EXIT node
             bool is_exit_node( );
 
+            //! Returns true when the node contains a FunctionCode nodecl
+            bool is_function_code_node( );
+
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
 

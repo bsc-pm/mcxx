@@ -54,8 +54,7 @@ namespace Vectorization
             for(; it != subscript.end() - 1 && result; ++it )
             {   
                 // All dimensions but the less significant must be constant
-                if(!is_invariant_internal(
-                            scope_node, n_node, n_node, *it, pcfg))
+                if(!is_uniform_internal(scope_node, n_node, *it, pcfg))
                 {
                     result = false;
                 }

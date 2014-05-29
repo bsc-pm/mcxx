@@ -209,10 +209,10 @@ namespace TL {
         void SimdVisitor::visit(const Nodecl::OpenMP::Simd& simd_input_node)
         {
             Nodecl::NodeclBase simd_enclosing_node = simd_input_node.get_parent();
-            Nodecl::OpenMP::Simd simd_node_for = simd_input_node.shallow_copy().
+            Nodecl::OpenMP::Simd simd_node_main_loop = simd_input_node.shallow_copy().
                 as<Nodecl::OpenMP::Simd>();
-            Nodecl::NodeclBase loop_statement = simd_node_for.get_statement();
-            Nodecl::List simd_environment = simd_node_for.get_environment().
+            Nodecl::NodeclBase loop_statement = simd_node_main_loop.get_statement();
+            Nodecl::List simd_environment = simd_node_main_loop.get_environment().
                 as<Nodecl::List>();
 
             // Aligned clause
@@ -275,12 +275,12 @@ namespace TL {
 
             // Add epilog before vectorization
             Nodecl::OpenMP::Simd simd_node_epilog = Nodecl::Utils::deep_copy(
-                    simd_node_for, simd_enclosing_node)
+                    simd_node_main_loop, simd_enclosing_node)
                 .as<Nodecl::OpenMP::Simd>();
 
             // OUTPUT CODE STRUCTURE
             Nodecl::List output_code_list;
-            output_code_list.append(simd_node_for);      // Main For
+            output_code_list.append(simd_node_main_loop);// Main For
             output_code_list.append(simd_node_epilog);   // Epilog
 
             Nodecl::CompoundStatement output_code =
@@ -378,13 +378,13 @@ namespace TL {
             if (epilog_iterations != 0)
             {
                 Nodecl::NodeclBase net_epilog_node;
-                Nodecl::ForStatement for_stmt_epilog = simd_node_epilog.
-                    get_statement().as<Nodecl::ForStatement>();
+                Nodecl::NodeclBase loop_stmt_epilog = simd_node_epilog.
+                    get_statement();
 
                 // Load environment epilog
-                loop_environment.load_environment(for_stmt_epilog);
+                loop_environment.load_environment(loop_stmt_epilog);
 
-                _vectorizer.process_epilog(for_stmt_epilog,
+                _vectorizer.process_epilog(loop_stmt_epilog,
                         loop_environment,
                         net_epilog_node,
                         epilog_iterations,
@@ -404,12 +404,12 @@ namespace TL {
             // For statement is not necessary
             if (only_epilog)
             {
-                Nodecl::Utils::remove_from_enclosing_list(simd_node_for);
+                Nodecl::Utils::remove_from_enclosing_list(simd_node_main_loop);
             }
             else
             {
                 // Remove Simd node from loop_statement
-                simd_node_for.replace(loop_statement);
+                simd_node_main_loop.replace(loop_statement);
 
                 // Unroll clause
                 int unroll_clause_arg = process_unroll_clause(simd_environment);
@@ -423,7 +423,7 @@ namespace TL {
                     Nodecl::UnknownPragma unroll_pragma =
                         Nodecl::UnknownPragma::make(unroll_pragma_strm.str());
 
-                    simd_node_for.prepend_sibling(unroll_pragma);
+                    simd_node_main_loop.prepend_sibling(unroll_pragma);
                 }
 
                 // Unroll and Jam clause
@@ -438,7 +438,7 @@ namespace TL {
                     Nodecl::UnknownPragma unroll_and_jam_pragma =
                         Nodecl::UnknownPragma::make(unroll_and_jam_pragma_strm.str());
 
-                    simd_node_for.prepend_sibling(unroll_and_jam_pragma);
+                    simd_node_main_loop.prepend_sibling(unroll_and_jam_pragma);
                 }
             }
 

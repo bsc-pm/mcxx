@@ -58,31 +58,31 @@ namespace Vectorization
         }
     }
 
-    bool VectorizerLoopInfo::ivs_values_are_invariant_in_simd_scope()
+    bool VectorizerLoopInfo::ivs_values_are_uniform_in_simd_scope()
     {
-        bool ivs_values_invariant = true;
+        bool ivs_values_uniform = true;
 
         // It also works for Whiles
         Nodecl::NodeclBase statements = _loop.as<Nodecl::ForStatement>()
             .get_statement().as<Nodecl::List>().front();
 
         for(objlist_nodecl_t::const_iterator it = _ivs.begin();
-                ivs_values_invariant && it != _ivs.end();
+                ivs_values_uniform && it != _ivs.end();
                 it ++)
         {
             // Use for statements as statement
             // nodecl_value
-            ivs_values_invariant = VectorizationAnalysisInterface::
-                _vectorizer_analysis->is_invariant(
+            ivs_values_uniform = VectorizationAnalysisInterface::
+                _vectorizer_analysis->is_uniform(
                         _environment._analysis_simd_scope,
                         statements,
                         *it);
         }
 
-        return ivs_values_invariant;
+        return ivs_values_uniform;
     }
 
-    bool VectorizerLoopInfo::condition_is_invariant_in_simd_scope()
+    bool VectorizerLoopInfo::condition_is_uniform_in_simd_scope()
     {
         // It also works for Whiles
         Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
@@ -90,7 +90,7 @@ namespace Vectorization
             .front();
 
         return VectorizationAnalysisInterface::_vectorizer_analysis->
-            is_invariant(_environment._analysis_simd_scope,
+            is_uniform(_environment._analysis_simd_scope,
                     statements, _condition);
     }
 
@@ -232,9 +232,9 @@ namespace Vectorization
                 long long int num_its = (((const_ub - const_lb)%const_step) == 0) ?
                     ((const_ub - const_lb)/const_step) : ((const_ub - const_lb)/const_step) + 1;
 
-                std::cerr << num_its << " " << const_ub << " " << const_lb << " " << const_step << " " << ub_vector_size_module << " "
-                    << lb_vector_size_module << " " << ub_is_suitable << " "
-                    << lb_is_suitable << std::endl;
+                //std::cerr << num_its << " " << const_ub << " " << const_lb << " " << const_step << " " << ub_vector_size_module << " "
+                //    << lb_vector_size_module << " " << ub_is_suitable << " "
+                //    << lb_is_suitable << std::endl;
 
                 if ((num_its < _environment._unroll_factor) &&
                         (!ub_is_suitable) && (!lb_is_suitable) &&

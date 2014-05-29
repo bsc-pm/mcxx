@@ -79,7 +79,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, returns_exit );
         _utils->_return_nodes.clear( );
 
-        _pcfg->dress_up_graph( );
+        //_pcfg->dress_up_graph( );
 
         return _pcfg;
     }

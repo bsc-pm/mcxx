@@ -351,8 +351,6 @@ namespace Vectorization
 
             if(Utils::is_all_one_mask(prev_mask))
             {
-                std::cerr << n.get_true().retrieve_context().is_namespace_scope() << std::endl;
-
                 // ConditionalExpression doesn't allow new contexts 
                 _environment._mask_list.push_back(condition);
                 walk(n.get_true());
@@ -438,9 +436,6 @@ namespace Vectorization
             walk(n.get_false());
         }
 
-        std::cerr << "CN: " << print_declarator(n.get_type().get_internal_type()) << std::endl
-            << n.prettyprint() << std::endl;
-
         const Nodecl::VectorConditionalExpression vector_cond =
             Nodecl::VectorConditionalExpression::make(
                     condition.shallow_copy(),
@@ -461,6 +456,7 @@ namespace Vectorization
         Nodecl::NodeclBase mask = Utils::get_proper_mask(
                 _environment._mask_list.back());
 
+        /*
         bool has_vector_type = false;
         // Look for vector types in the assignment 
         const objlist_nodecl_t mem_accesses = 
@@ -471,19 +467,23 @@ namespace Vectorization
                 it++)
         {
             if ((it->get_type().is_vector()) || 
-                (it->is<Nodecl::Symbol>() && 
-                 it->as<Nodecl::Symbol>().get_symbol().get_type().is_vector()))
+                    (it->is<Nodecl::Symbol>() && 
+                     it->as<Nodecl::Symbol>().get_symbol().get_type().is_vector()))
             {
                 has_vector_type = true;
                 break;
             }
         }
+        */
 
-        // If assignment has vector type or lhs or rhs aren't invariant, vectorize
-        if(has_vector_type || !VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_invariant(_environment._analysis_simd_scope, lhs, lhs) ||
+        // If lhs or rhs aren't uniform, vectorize
+        if((lhs.is<Nodecl::Symbol>() && 
+                    lhs.as<Nodecl::Symbol>().get_symbol().get_type().is_vector()) ||
+                //TODO: is_uniform on lhs won't be eventually necessary
                 !VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_invariant(_environment._analysis_simd_scope, rhs, rhs))
+                is_uniform(_environment._analysis_simd_scope, lhs, lhs) ||
+                !VectorizationAnalysisInterface::_vectorizer_analysis->
+                is_uniform(_environment._analysis_simd_scope, rhs, rhs))
         {
             // Computing new vector type
             TL::Type vector_type = Utils::get_qualified_vector_to(assignment_type,
@@ -505,77 +505,85 @@ namespace Vectorization
                 {
                     Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
 
-                    Nodecl::NodeclBase add_lhs = 
-                        Nodecl::Utils::advance_conversions(rhs_add.get_lhs());
-                    Nodecl::NodeclBase add_rhs = 
-                        Nodecl::Utils::advance_conversions(rhs_add.get_rhs());
+                    Nodecl::NodeclBase add_lhs = rhs_add.get_lhs();
+                    Nodecl::NodeclBase add_lhs_no_conv = add_lhs.no_conv();
+                    Nodecl::NodeclBase add_rhs = rhs_add.get_rhs();
+                    Nodecl::NodeclBase add_rhs_no_conv = add_rhs.no_conv();
 
-                    // = i + 3
-                    if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs))
+                    // = 3 + i | n + i
+                    if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs_no_conv))
                     {
-                        Nodecl::Mul mul = Nodecl::Mul::make(
-                                add_rhs.shallow_copy(),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(
-                                        _environment._unroll_factor),
+                        Nodecl::Add new_add = Nodecl::Add::make(
+                                Nodecl::Mul::make(
+                                    add_lhs, //Do not shallow copy!
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(
+                                            _environment._unroll_factor),
+                                        n.get_locus()),
+                                    rhs_add.get_type(),
                                     n.get_locus()),
-                                TL::Type::get_int_type(),
+                                add_rhs,    //Do not shallow copy!
+                                rhs_add.get_type(),
                                 n.get_locus());
 
-                        add_rhs.replace(mul);
+                        rhs_add.replace(new_add);
                     }
-                    // = 3 + i
-                    else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_rhs))
+                    // = i + n
+                    else if (Nodecl::Utils::structurally_equal_nodecls(lhs, add_lhs_no_conv))
                     {
-                        Nodecl::Mul mul = Nodecl::Mul::make(
-                                add_lhs.shallow_copy(),
-                                Nodecl::IntegerLiteral::make(
-                                    TL::Type::get_int_type(),
-                                    const_value_get_signed_int(
-                                        _environment._unroll_factor),
+                        Nodecl::Add new_add = Nodecl::Add::make(
+                                Nodecl::Mul::make(
+                                    add_rhs, //Do not shallow copy!
+                                    Nodecl::IntegerLiteral::make(
+                                        TL::Type::get_int_type(),
+                                        const_value_get_signed_int(
+                                            _environment._unroll_factor),
+                                        n.get_locus()),
+                                    rhs_add.get_type(),
                                     n.get_locus()),
-                                TL::Type::get_int_type(),
+                                add_lhs,    //Do not shallow copy!
+                                rhs_add.get_type(),
                                 n.get_locus());
 
-                        add_lhs.replace(mul);
+                        rhs_add.replace(new_add);
                     }
+                    else
+                    {
+                        running_error("Vectorizer: This IV update is not supported yet"\
+                                "(%s).", n.prettyprint().c_str());
+                    }
+
+                    /*
+                       Nodecl::NodeclBase step = VectorizationAnalysisInterface::
+                       _vectorizer_analysis->get_induction_variable_increment(
+                       _environment._analysis_simd_scope, lhs);
+
+                    //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
+                    //    _environment._analysis_simd_scope, lhs);
+
+                    objlist_nodecl_t step_list =
+                    Nodecl::Utils::get_all_nodecl_occurrences(step, lhs);
+
+                    for(objlist_nodecl_t::iterator it = step_list.begin();
+                    it != step_list.end();
+                    it ++)
+                    {
+                    Nodecl::Mul new_step =
+                    Nodecl::Mul::make(
+                    it->shallow_copy(),
+                    Nodecl::IntegerLiteral::make(
+                    TL::Type::get_int_type(),
+                    const_value_get_signed_int(
+                    _environment._unroll_factor),
+                    it->get_locus()),
+                    TL::Type::get_int_type(),
+                    it->get_locus());
+
+                    it->replace(new_step);
+                    }
+                     */
                 }
-                else
-                {
-                    running_error("Vectorizer: This IV update is not supported yet"\
-                            "(%s).", n.prettyprint().c_str());
-                }
-
-                /*
-                   Nodecl::NodeclBase step = VectorizationAnalysisInterface::
-                   _vectorizer_analysis->get_induction_variable_increment(
-                   _environment._analysis_simd_scope, lhs);
-
-                //VectorizationAnalysisInterface::_vectorizer_analysis->get_induction_variable_increment(
-                //    _environment._analysis_simd_scope, lhs);
-
-                objlist_nodecl_t step_list =
-                Nodecl::Utils::get_all_nodecl_occurrences(step, lhs);
-
-                for(objlist_nodecl_t::iterator it = step_list.begin();
-                it != step_list.end();
-                it ++)
-                {
-                Nodecl::Mul new_step =
-                Nodecl::Mul::make(
-                it->shallow_copy(),
-                Nodecl::IntegerLiteral::make(
-                TL::Type::get_int_type(),
-                const_value_get_signed_int(
-                _environment._unroll_factor),
-                it->get_locus()),
-                TL::Type::get_int_type(),
-                it->get_locus());
-
-                it->replace(new_step);
-                }
-                 */
             }
             else if(lhs.is<Nodecl::ArraySubscript>())
             {
@@ -601,7 +609,7 @@ namespace Vectorization
                 // Vector Store
                 // Constant ArraySubscript, nothing to do
                 if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                        is_invariant(_environment._analysis_simd_scope,
+                        is_uniform(_environment._analysis_simd_scope,
                             lhs, lhs))
                 {
                     std::cerr << "Vectorizer: Constant store: "
@@ -833,9 +841,11 @@ namespace Vectorization
                 }
                 else
                 {
-                    internal_error("Vectorizer: Unsupported assignment on %s at %s,"\
-                            " which is has no vector type.\n",
-                            lhs.prettyprint().c_str(), n.get_locus());
+                    VECTORIZATION_DEBUG()
+                    {
+                        fprintf(stderr, "VECTORIZER: Keep assignment scalar '%s'\n",
+                                n.prettyprint().c_str());
+                    }
                 }
             }
             else if (lhs.is<Nodecl::ClassMemberAccess>())
@@ -908,7 +918,7 @@ namespace Vectorization
         {
             VECTORIZATION_DEBUG()
             {
-                fprintf(stderr, "Vectorizer: Keep scalar %s\n",
+                fprintf(stderr, "VECTORIZER: Keep scalar %s\n",
                         lhs.prettyprint().c_str());
             }
         }
@@ -999,11 +1009,14 @@ namespace Vectorization
 
         // Vector Promotion from constant ArraySubscript
         if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_invariant(
+                is_uniform(
                     _environment._analysis_simd_scope,
                     n, n))
         {
-            std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "VECTORIZER: Constant load: " << n.prettyprint() << "\n";
+            }
 
             // Deal with Nodecl::Conversions
             Nodecl::NodeclBase encapsulated_symbol = n;
@@ -1335,95 +1348,64 @@ namespace Vectorization
 
         //std::cerr << "scalar_type: " << n.prettyprint() << std::endl;
 
-        if (!sym_type.is_vector() && !sym_type.is_mask())
+        if(!sym_type.is_vector() && !sym_type.is_mask())
         {
-            // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            if(tl_sym_type.is_vector())
-            {
-                symbol_type_promotion(n);
-            }
-            // Vectorize BASIC induction variable
-            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+           // Vectorize BASIC induction variable  // visiting RHS of an assignment
+            if (!encapsulated_symbol_type.is_lvalue_reference() &&
+                    VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_non_reduction_basic_induction_variable(
                         _environment._analysis_simd_scope, n))
             {
                 vectorize_basic_induction_variable(n);
             }
-            // Invariants                // visiting RHS of an assignment
-            else if (!encapsulated_symbol_type.is_lvalue_reference() &&
-                    VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_invariant(_environment._analysis_simd_scope, n, n))
-            {
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr,"VECTORIZER: Promotion '%s'\n",
-                            n.prettyprint().c_str());
-                }
-
-                Nodecl::VectorPromotion vector_prom =
-                    Nodecl::VectorPromotion::make(
-                            encapsulated_symbol.shallow_copy(),
-                            Utils::get_null_mask(),
-                            Utils::get_qualified_vector_to(
-                                encapsulated_symbol_type,
-                                _environment._unroll_factor),
-                            n.get_locus());
-
-                if(encapsulated_symbol.is_constant())
-                    vector_prom.set_constant(
-                            const_value_make_vector_from_scalar(
-                                _environment._unroll_factor,
-                                encapsulated_symbol.get_constant()));
-
-                encapsulated_symbol.replace(vector_prom);
-            }
+            /*
             // Vectorize symbols declared in the SIMD scope
             else if (Utils::is_declared_in_inner_scope(
-                        _environment._analysis_simd_scope,
-                        n.get_symbol()))
+            _environment._analysis_simd_scope,
+            n.get_symbol()))
             {
-                symbol_type_promotion(n);
+            symbol_type_promotion(n);
             }
- 
-/*
+
+
             // Vectorize NESTED IV
             else if (// Is nested IV and
-                    VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_nested_non_reduction_basic_induction_variable(
-                        _environment, n)
-                    &&
-                    // Lb doesn't depend on SIMD IV and
-                    !VectorizationAnalysisInterface::_vectorizer_analysis->
-                    iv_lb_depends_on_ivs_from_scope(
-                        _environment._analysis_scopes.back(),
-                        n,
-                        _environment._analysis_simd_scope)
-                    &&
-                    // Step doesn't depend on SIMD IV
-                    !VectorizationAnalysisInterface::_vectorizer_analysis->
-                    iv_step_depends_on_ivs_from_scope(
-                        _environment._analysis_scopes.back(),
-                        n,
-                        _environment._analysis_simd_scope))
+            VectorizationAnalysisInterface::_vectorizer_analysis->
+            is_nested_non_reduction_basic_induction_variable(
+            _environment, n)
+            &&
+            // Lb doesn't depend on SIMD IV and
+            !VectorizationAnalysisInterface::_vectorizer_analysis->
+            iv_lb_depends_on_ivs_from_scope(
+            _environment._analysis_scopes.back(),
+            n,
+            _environment._analysis_simd_scope)
+            &&
+            // Step doesn't depend on SIMD IV
+            !VectorizationAnalysisInterface::_vectorizer_analysis->
+            iv_step_depends_on_ivs_from_scope(
+            _environment._analysis_scopes.back(),
+            n,
+            _environment._analysis_simd_scope))
             {
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr,"VECTORIZER: Promotion '%s' (nested IV)\n",
-                            n.prettyprint().c_str());
-                }
-
-                const Nodecl::VectorPromotion vector_prom =
-                    Nodecl::VectorPromotion::make(
-                            encapsulated_symbol.shallow_copy(),
-                            Utils::get_null_mask(),
-                            Utils::get_qualified_vector_to(encapsulated_symbol_type,
-                                _environment._unroll_factor),
-                            n.get_locus());
-
-                encapsulated_symbol.replace(vector_prom);
+            VECTORIZATION_DEBUG()
+            {
+            fprintf(stderr,"VECTORIZER: Promotion '%s' (nested IV)\n",
+            n.prettyprint().c_str());
             }
-            */
-           // Is a reduction symbol
+
+            const Nodecl::VectorPromotion vector_prom =
+            Nodecl::VectorPromotion::make(
+            encapsulated_symbol.shallow_copy(),
+            Utils::get_null_mask(),
+            Utils::get_qualified_vector_to(encapsulated_symbol_type,
+            _environment._unroll_factor),
+            n.get_locus());
+
+            encapsulated_symbol.replace(vector_prom);
+            }
+             */
+            // Is a reduction symbol
             else if(_environment._reduction_list != NULL &&
                     _environment._reduction_list->contains(tl_sym))
             {
@@ -1445,10 +1427,13 @@ namespace Vectorization
 
                 n.replace(new_red_symbol);
             }
-            // Vectorize constants
-            /*
-            else if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
+            // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
+            else if(tl_sym_type.is_vector())
+            {
+                symbol_type_promotion(n);
+            }
+            // Promotion: scalar_type and visiting RHS of an assignment
+            else if (!encapsulated_symbol_type.is_lvalue_reference())
             {
                 VECTORIZATION_DEBUG()
                 {
@@ -1473,14 +1458,43 @@ namespace Vectorization
 
                 encapsulated_symbol.replace(vector_prom);
             }
-            */
-            else
-            {
-                //TODO: If you are from outside of the loop -> Vector local copy.
-                running_error("Vectorizer: Loop is not vectorizable. '%s' "\
-                        "is not IV, Constant, Local, Reduction or LastPrivate.",
-                        n.get_symbol().get_name().c_str());
-            }
+
+            // Vectorize constants
+            /*
+               else if (VectorizationAnalysisInterface::_vectorizer_analysis->
+               variable_is_constant_at_statement(_environment._analysis_simd_scope, n))
+               {
+               VECTORIZATION_DEBUG()
+               {
+               fprintf(stderr,"VECTORIZER: Promotion '%s'\n",
+               n.prettyprint().c_str());
+               }
+
+               Nodecl::VectorPromotion vector_prom =
+               Nodecl::VectorPromotion::make(
+               encapsulated_symbol.shallow_copy(),
+               Utils::get_null_mask(),
+               Utils::get_qualified_vector_to(
+               encapsulated_symbol_type,
+               _environment._unroll_factor),
+               n.get_locus());
+
+               if(encapsulated_symbol.is_constant())
+               vector_prom.set_constant(
+               const_value_make_vector_from_scalar(
+               _environment._unroll_factor,
+               encapsulated_symbol.get_constant()));
+
+               encapsulated_symbol.replace(vector_prom);
+               }
+             */
+               else
+               {
+                   //TODO: If you are from outside of the loop -> Vector local copy.
+                   running_error("Vectorizer: Loop is not vectorizable. '%s' "\
+                           "is not IV, Invariant, Reduction or LastPrivate.",
+                           n.get_symbol().get_name().c_str());
+               }
         }
         else
         {
@@ -1742,18 +1756,37 @@ namespace Vectorization
                     offset_vector_literal.set_constant(
                             offset_list.get_constant());
 
+                    // Pomoted Conversion
+                    Nodecl::VectorPromotion promoted_conversion =
+                        Nodecl::VectorPromotion::make(
+                                conversion.shallow_copy(),
+                                Utils::get_null_mask(),
+                                ind_var_type,
+                                n.get_locus());
+
+                    if (conversion.is_constant())
+                    {
+                        promoted_conversion.set_constant(
+                                const_value_make_vector_from_scalar(
+                                    _environment._unroll_factor,
+                                    conversion.get_constant()));
+                    }
+
                     vector_induction_var =
                         Nodecl::VectorAdd::make(
-                                Nodecl::VectorPromotion::make(
-                                    conversion.shallow_copy(),
-                                    Utils::get_null_mask(),
-                                    ind_var_type,
-                                    n.get_locus()),
+                                promoted_conversion,
                                 offset_vector_literal,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(ind_var_type,
                                     _environment._unroll_factor),
                                 n.get_locus());
+
+                    if (promoted_conversion.is_constant() &&
+                            offset_vector_literal.is_constant())
+                        vector_induction_var.set_constant(
+                            const_value_add(promoted_conversion.get_constant(),
+                                offset_vector_literal.get_constant()));
+
                 }
                 else // Conversion of values
                 {
@@ -1772,18 +1805,43 @@ namespace Vectorization
                     offset_vector_literal.set_constant(
                             offset_list.get_constant());
 
-                    vector_induction_var =
-                        Nodecl::VectorConversion::make(
-                                Nodecl::VectorAdd::make(
-                                    Nodecl::VectorPromotion::make(
-                                        conversion.get_nest().shallow_copy(),
-                                        Utils::get_null_mask(),
-                                        ind_var_type,
-                                        n.get_locus()),
+                    // Pomoted Conversion
+                    Nodecl::VectorPromotion promoted_nest =
+                        Nodecl::VectorPromotion::make(
+                                conversion.get_nest().shallow_copy(),
+                                Utils::get_null_mask(),
+                                ind_var_type,
+                                n.get_locus());
+
+                    if (conversion.get_nest().is_constant())
+                    {
+                        promoted_nest.set_constant(
+                                const_value_make_vector_from_scalar(
+                                    _environment._unroll_factor,
+                                    conversion.get_nest().get_constant()));
+                    }
+
+                    // IV + Offset
+                    Nodecl::VectorAdd iv_plus_offset =
+                        Nodecl::VectorAdd::make(
+                                    promoted_nest,
                                     offset_vector_literal,
                                     Utils::get_null_mask(),
                                     ind_var_type,
-                                    n.get_locus()),
+                                    n.get_locus());
+
+                    if (promoted_nest.is_constant() && 
+                            offset_vector_literal.is_constant())
+                    {
+                        iv_plus_offset.set_constant(
+                                const_value_add(promoted_nest.get_constant(),
+                                    offset_vector_literal.get_constant()));
+                    }
+
+
+                    vector_induction_var =
+                        Nodecl::VectorConversion::make(
+                                iv_plus_offset,
                                 Utils::get_null_mask(),
                                 Utils::get_qualified_vector_to(dest_type,
                                     _environment._unroll_factor),
@@ -1824,7 +1882,8 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: IV increment is not constant.");
+            running_error("Vectorizer: IV increment is not constant: %s.",
+                    ind_var_increment.prettyprint().c_str());
         }
     }
 

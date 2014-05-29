@@ -74,9 +74,9 @@ namespace Vectorization
 
         // PROCESING LOOP CONTROL
         bool init_next_need_vectorization =
-            !loop_info.ivs_values_are_invariant_in_simd_scope();
+            !loop_info.ivs_values_are_uniform_in_simd_scope();
         bool condition_needs_vectorization =
-            !loop_info.condition_is_invariant_in_simd_scope();
+            !loop_info.condition_is_uniform_in_simd_scope();
 
         // Init
 
@@ -435,26 +435,9 @@ namespace Vectorization
                     _environment._unroll_factor);
         }
 
-
-        Nodecl::NodeclBase init = sym.get_value();
-
-        // If init value is invariant, keep it scalar!
-        if (!VectorizationAnalysisInterface::_vectorizer_analysis->is_invariant(
-                    _environment._analysis_simd_scope, init, init))
+        if (scalar_type.is_vector())
         {
-            // Vectorizing symbol type
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type vectorization "\
-                        "from '%s' to '%s'\n",
-                        sym.make_nodecl().prettyprint().c_str(),
-                        scalar_type.get_simple_declaration(
-                            n.retrieve_context(), "").c_str(),
-                        vector_type.get_simple_declaration(
-                            n.retrieve_context(), "").c_str());
-            }
-
-            sym.set_type(vector_type);
+            Nodecl::NodeclBase init = sym.get_value();
 
             // Vectorizing initialization
             if(!init.is_null())
