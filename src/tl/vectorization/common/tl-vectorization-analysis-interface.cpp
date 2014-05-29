@@ -286,12 +286,12 @@ namespace Vectorization
     }
 
 
-    bool VectorizationAnalysisInterface::is_invariant(
+    bool VectorizationAnalysisInterface::is_uniform(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
     {
-        return Analysis::AnalysisInterface::is_invariant(
+        return Analysis::AnalysisInterface::is_uniform(
                 translate_input(scope), translate_input(stmt),
                 translate_input(n));
     }

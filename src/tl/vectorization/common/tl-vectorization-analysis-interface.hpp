@@ -87,7 +87,7 @@ namespace Vectorization
 
             virtual ~VectorizationAnalysisInterface();
 
-            virtual bool is_invariant(
+            virtual bool is_uniform(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
@@ -147,7 +147,7 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& ivs_scope);
 
-            virtual bool nodecl_value_is_invariant_in_scope(
+            virtual bool nodecl_value_is_uniform_in_scope(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);

@@ -58,31 +58,31 @@ namespace Vectorization
         }
     }
 
-    bool VectorizerLoopInfo::ivs_values_are_invariant_in_simd_scope()
+    bool VectorizerLoopInfo::ivs_values_are_uniform_in_simd_scope()
     {
-        bool ivs_values_invariant = true;
+        bool ivs_values_uniform = true;
 
         // It also works for Whiles
         Nodecl::NodeclBase statements = _loop.as<Nodecl::ForStatement>()
             .get_statement().as<Nodecl::List>().front();
 
         for(objlist_nodecl_t::const_iterator it = _ivs.begin();
-                ivs_values_invariant && it != _ivs.end();
+                ivs_values_uniform && it != _ivs.end();
                 it ++)
         {
             // Use for statements as statement
             // nodecl_value
-            ivs_values_invariant = VectorizationAnalysisInterface::
-                _vectorizer_analysis->is_invariant(
+            ivs_values_uniform = VectorizationAnalysisInterface::
+                _vectorizer_analysis->is_uniform(
                         _environment._analysis_simd_scope,
                         statements,
                         *it);
         }
 
-        return ivs_values_invariant;
+        return ivs_values_uniform;
     }
 
-    bool VectorizerLoopInfo::condition_is_invariant_in_simd_scope()
+    bool VectorizerLoopInfo::condition_is_uniform_in_simd_scope()
     {
         // It also works for Whiles
         Nodecl::ForStatement for_stmt = _loop.as<Nodecl::ForStatement>();
@@ -90,7 +90,7 @@ namespace Vectorization
             .front();
 
         return VectorizationAnalysisInterface::_vectorizer_analysis->
-            is_invariant(_environment._analysis_simd_scope,
+            is_uniform(_environment._analysis_simd_scope,
                     statements, _condition);
     }
 

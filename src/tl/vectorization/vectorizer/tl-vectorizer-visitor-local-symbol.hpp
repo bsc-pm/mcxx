@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,32 +24,34 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZATION_COMMON_HPP
-#define TL_VECTORIZATION_COMMON_HPP
+#ifndef TL_VECTORIZER_VISITOR_LOCAL_SYMBOL_HPP
+#define TL_VECTORIZER_VISITOR_LOCAL_SYMBOL_HPP
 
-#include <list>
-#include <map>
-
-#include "tl-symbol.hpp"
-
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
+#include "tl-nodecl-visitor.hpp"
+#include "tl-vectorizer.hpp"
 
 namespace TL
 {
     namespace Vectorization
     {
-        typedef std::map<TL::Symbol, int> aligned_expr_map_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontmp_expr_map_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
-        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
-        typedef TL::ObjectList<TL::Symbol> objlist_tlsymbol_t;
+        class VectorizerVisitorLocalSymbol : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                VectorizerEnvironment& _environment;
 
-        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
-        typedef std::list<TL::Scope> stdlist_scope_t;
+                virtual void vectorize_local_symbols_type(const Nodecl::NodeclBase& n);
 
-        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
+            public:
+                VectorizerVisitorLocalSymbol(
+                        VectorizerEnvironment& environment);
+
+                virtual void visit(const Nodecl::ForStatement& n);
+                virtual void visit(const Nodecl::WhileStatement& n);
+                virtual void visit(const Nodecl::FunctionCode& n);
+
+                Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
+        };
     }
 }
 
-#endif //TL_VECTORIZATION_COMMON_HPP
-
+#endif //TL_VECTORIZER_VISITOR_LOCAL_SYMBOL_HPP

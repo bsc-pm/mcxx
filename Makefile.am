@@ -1578,6 +1578,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-local-symbol.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-visitor-local-symbol.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-statement.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.hpp \

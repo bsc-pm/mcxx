@@ -30,7 +30,7 @@
 #include "tl-vectorization-analysis-interface.hpp"
 
 #include "tl-vectorizer.hpp"
-#include "tl-vectorization-analysis-interface.hpp"
+#include "tl-vectorizer-visitor-local-symbol.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 
@@ -53,6 +53,10 @@ namespace Vectorization
         // CACHE: Before vectorizing!
         Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
         Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
+
+        // Vectorize Local Symbols
+        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+        visitor_local_symbol.walk(for_statement);
 
         // Vectorize Loop Header
         VectorizerVisitorLoopHeader visitor_loop_header(_environment);
@@ -85,6 +89,10 @@ namespace Vectorization
         // CACHE: Before vectorizing!
         Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
         Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
+
+        // Vectorize Local Symbols
+        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+        visitor_local_symbol.walk(while_statement);
 
         // Vectorize Loop Header
         VectorizerVisitorLoopCond visitor_loop_cond(_environment);
@@ -223,10 +231,10 @@ namespace Vectorization
         Nodecl::NodeclBase rhs = condition.get_rhs();
 
         bool lhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->is_invariant(
+            _vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, lhs, lhs);
         bool rhs_const_flag = VectorizationAnalysisInterface::
-            _vectorizer_analysis->is_invariant(
+            _vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, rhs, rhs);
 
         Nodecl::NodeclBase result = Nodecl::NodeclBase::null();
@@ -424,6 +432,10 @@ namespace Vectorization
         Nodecl::CompoundStatement comp_statement = loop_statement.as<Nodecl::ForStatement>().
             get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context().
             as<Nodecl::List>().front().as<Nodecl::CompoundStatement>();
+
+        // Vectorize Local Symbols
+        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+        visitor_local_symbol.walk(loop_statement);
 
         Nodecl::NodeclBase mask_nodecl_sym = Utils::get_new_mask_symbol(
                 _environment._analysis_simd_scope,

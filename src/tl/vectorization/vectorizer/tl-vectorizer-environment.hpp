@@ -97,6 +97,7 @@ namespace Vectorization
             friend class VectorizerVisitorLoopNext;
             friend class VectorizerVisitorFunction;
             friend class VectorizerVisitorStatement;
+            friend class VectorizerVisitorLocalSymbol;
             friend class VectorizerVisitorExpression;
             friend class VectorizerVisitorPreprocessor;
             friend class StrideSplitterVisitor;
