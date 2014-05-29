@@ -14630,7 +14630,7 @@ static void build_scope_function_definition_body(
             // Adjust type to include room for the final \0
             nodecl_set_type(nice_name_tree,
                     get_array_type(
-                        get_const_qualified_type(get_char_type()),
+                        get_char_type(),
                         nodecl_make_integer_literal(get_signed_int_type(),
                             const_value_get_signed_int(strlen(nice_name) + 1),
                             make_locus("", 0, 0)),
@@ -14645,7 +14645,8 @@ static void build_scope_function_definition_body(
                     block_context.current_scope,
                     "__MERCURIUM_PRETTY_FUNCTION__");
             mercurium_pretty_function->kind = SK_VARIABLE;
-            mercurium_pretty_function->type_information = no_ref(nodecl_get_type(nice_name_tree));
+            mercurium_pretty_function->type_information =
+                get_const_qualified_type(no_ref(nodecl_get_type(nice_name_tree)));
             mercurium_pretty_function->value = nice_name_tree;
             mercurium_pretty_function->entity_specs.is_user_declared = 1;
             mercurium_pretty_function->entity_specs.is_static = 1;
