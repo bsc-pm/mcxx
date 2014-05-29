@@ -49,6 +49,7 @@ namespace TL { namespace OpenMP {
         public:
             InstantiateVisitorOmp(TL::DTO& dto);
             virtual void visit(const Nodecl::Symbol& node);
+            virtual void visit(const Nodecl::ObjectInit& node);
             void instantiate();
     };
 

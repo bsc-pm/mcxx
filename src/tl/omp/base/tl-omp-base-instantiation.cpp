@@ -72,6 +72,12 @@ namespace TL { namespace OpenMP {
     {
     }
 
+    void InstantiateVisitorOmp::visit(const Nodecl::ObjectInit& node)
+    {
+        TL::Symbol sym = node.get_symbol();
+        this->walk(sym.get_value());
+    }
+
     void InstantiateVisitorOmp::visit(const Nodecl::Symbol& node)
     {
         TL::Symbol sym = node.get_symbol();
