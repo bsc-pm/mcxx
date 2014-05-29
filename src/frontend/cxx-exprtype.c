@@ -17971,14 +17971,10 @@ static void check_sizeof_type(type_t* t,
     }
 }
 
-static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_nodecl_sizeof_expr(nodecl_t nodecl_expr, decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
-    AST sizeof_expression = ASTSon0(expr);
-
-    nodecl_t nodecl_expr = nodecl_null();
-    check_expression_non_executable(sizeof_expression, decl_context, &nodecl_expr);
-
-    const locus_t* locus = ast_get_locus(expr);
+    const locus_t* locus = nodecl_get_locus(nodecl_expr);
 
     if (nodecl_is_err_expr(nodecl_expr))
     {
@@ -18000,6 +17996,16 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* n
     }
 
     check_sizeof_type(t, nodecl_expr, decl_context, locus, nodecl_output);
+}
+
+static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST sizeof_expression = ASTSon0(expr);
+
+    nodecl_t nodecl_expr = nodecl_null();
+    check_expression_non_executable(sizeof_expression, decl_context, &nodecl_expr);
+
+    check_nodecl_sizeof_expr(nodecl_expr, decl_context, nodecl_output);
 }
 
 static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -22093,12 +22099,9 @@ static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, no
     }
     else
     {
-        type_t* t = nodecl_get_type(expr);
-
-        check_sizeof_type(t, 
+        check_nodecl_sizeof_expr(
                 expr,
                 v->decl_context, 
-                nodecl_get_locus(node), 
                 &result);
     }
 
