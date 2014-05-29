@@ -2586,9 +2586,7 @@ driver-install-exec-hook:
 	for compiler_name in ${COMPILER_NAMES}; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			( if [[ ! -f $(srcdir)/config/template.$${real_compiler_name} ]] ; then\
 			cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
-			fi) \
 		done
 
 driver-uninstall-local:
@@ -2711,9 +2709,6 @@ CONFIG_FILES =  \
        config/57.config.omp.smp \
        config/57.config.omp.smp.intel \
        config/57.config.omp.smp.ibm \
-       config/mpimcc \
-       config/mpimcxx \
-       config/mpimfc \
 	   $(END)
 
 INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
@@ -2738,6 +2733,7 @@ config-files-dist-hook:
     do \
        cp -v "$(srcdir)/config/template.$${i}" "$(distdir)/config" || exit $?; \
     done
+
 
 CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 
@@ -2801,7 +2797,7 @@ config_edit = \
 # Cross compiler profile names
 #
 # Profiles of Mercurium
-profiles = mcxx $(COMPILER_NAMES)
+profiles = mcxx $(COMPILER_NAMES) $(SCRIPT_COMPILER_NAMES)
 config_edit += $(foreach profile, $(profiles), \
     -e 's|^\[\( *\)$(profile)\( *\)\(:.*\)\?\]|\[\1'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\2\3\]|g' \
     -e 's|^\[\(.*\):\( *\)$(profile)\( *\)\]|\[\1:\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3\]|g' \
@@ -2817,20 +2813,32 @@ config_edit += $(foreach profile, $(profiles), \
   -e 's|^\( *\)*target_options\[\( *\)$(profile)\( *\)\]\( .*\)=|\1target_options[\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3]\4=|g' \
    )
 
-BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
+BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES) $(INSTALL_SCRIPT_COMPILER_NAMES)
 
-# This is valid in parallel make since we are generating one goal file at a time
+# Generates configs
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
 config-install-data-hook: remove-old-profiles
-	for compiler_name in ${COMPILER_NAMES}; \
-	do \
-		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-		( if [[ -f ${configdir}/$${real_compiler_name} ]] ; then\
-		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
-		fi) \
-	done
+
+EXTRA_DIST += \
+       config/template.mpimcc \
+       config/template.mpimcxx \
+       config/template.mpimfc \
+	   $(END)
+
+# Generates driver scripts
+config/driver-scripts:
+	$(MKDIR_P) config/driver-scripts
+config/driver-scripts/%: config/template.$(notdir %) Makefile | config/driver-scripts
+	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+
+INSTALL_SCRIPT_COMPILER_NAMES=$(addprefix config/driver-scripts/, @SCRIPT_COMPILER_NAMES@)
+
+mcxxexec_SCRIPTS =
+mcxxexec_SCRIPTS += $(INSTALL_SCRIPT_COMPILER_NAMES)
+
+script-driver-install-data-hook:
 
 remove-old-profiles:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
@@ -2842,7 +2850,7 @@ remove-old-profiles:
 		fi \
 	done
 
-install-data-hook: config-install-data-hook
+install-data-hook: config-install-data-hook script-driver-install-data-hook
 
 # Where and what to install
 pkgdata_DATA = \
@@ -3101,7 +3109,7 @@ uninstall-local : driver-uninstall-local
 clean-local: scripts-clean-rpm \
 	         scripts-clean-deb
 
-dist-hook : config-files-dist-hook git-version-dist-hook
+dist-hook : config-files-dist-hook git-version-dist-hook script-driver-files-dist-hook
 
 # This is a hack that workarounds libtool trying to relink in parallel when it
 # should wait for all its dependences. This only happens when a single Makefile
