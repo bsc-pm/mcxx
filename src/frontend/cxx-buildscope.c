@@ -19162,7 +19162,7 @@ static nodecl_t instantiate_loop_control(nodecl_instantiate_stmt_visitor_t* v, n
                 v->instantiation_symbol_map,
                 /* pack_index */ -1);
         
-        next = instantiate_expression(cond,
+        next = instantiate_expression(next,
                 v->new_decl_context,
                 v->instantiation_symbol_map,
                 /* pack_index */ -1);
