@@ -40,15 +40,15 @@ namespace TL { namespace OpenMP {
         private:
             TL::DTO &_dto;
 
-            template <typename NodeKind>
-                void walk_function_code(const NodeKind& node);
+            void walk_function_code(
+                    TL::Symbol function_symbol,
+                    const Nodecl::NodeclBase& related_function_code);
             void instantiate_single_function(TL::Symbol symbol);
             void keep_for_instantiation(TL::Symbol symbol);
 
         public:
             InstantiateVisitorOmp(TL::DTO& dto);
-            virtual void visit(const Nodecl::FunctionCode& function_code);
-            virtual void visit(const Nodecl::TemplateFunctionCode& function_code);
+            virtual void visit(const Nodecl::Symbol& node);
             void instantiate();
     };
 

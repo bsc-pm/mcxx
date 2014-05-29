@@ -72,74 +72,52 @@ namespace TL { namespace OpenMP {
     {
     }
 
-    void InstantiateVisitorOmp::visit(const Nodecl::FunctionCode& function_code)
+    void InstantiateVisitorOmp::visit(const Nodecl::Symbol& node)
     {
-        TL::Symbol function_symbol = function_code.get_symbol();
-        if (function_symbol.is_member()
-                && function_symbol.get_class_type().is_dependent())
+        TL::Symbol sym = node.get_symbol();
+
+        if (!sym.is_function())
+            return;
+
+        // We only care about functions that have not been defined yet
+        if (sym.is_defined())
+            return;
+
+        // Ignore already processed functions
+        if (instantiated_function_set.find(sym) != instantiated_function_set.end())
+            return;
+
+        ContainsOpenMP c;
+        if (sym.get_type().is_template_specialized_type())
         {
-            walk_function_code(function_code);
+            // Any specialization of a function type is going to be non-dependent
+            if (sym.get_type() != sym.get_type().get_related_template_type().get_primary_template())
+            {
+                TL::Symbol primary_function =
+                    sym.get_type().get_related_template_type().get_primary_template().get_symbol();
+
+                c.walk(primary_function.get_function_code());
+            }
+        }
+        else if (sym.is_member()
+                && sym.get_class_type().is_template_specialized_type()
+                // Note that the compiler creates partial specializations (which are dependent)
+                && !sym.get_class_type().is_dependent())
+        {
+            TL::Symbol emission_template = sym.get_internal_symbol()->entity_specs.emission_template;
+
+            if (!emission_template.is_valid())
+                return;
+
+            c.walk(emission_template.get_function_code());
+        }
+
+        if (c.result)
+        {
+            keep_for_instantiation(sym);
         }
     }
 
-    void InstantiateVisitorOmp::visit(const Nodecl::TemplateFunctionCode& function_code)
-    {
-        TL::Symbol function_symbol = function_code.get_symbol();
-        TL::Type function_type = function_symbol.get_type();
-
-        if (function_type.is_template_specialized_type())
-        {
-            TL::Type template_type = function_type.get_related_template_type();
-
-            TL::ObjectList<TL::Type> specializations = template_type.get_specializations();
-            if (specializations.size() == 1)
-            {
-                // This template has not been instantiated at all (there is
-                // only a primary function)
-                return;
-            }
-        }
-        walk_function_code(function_code);
-    }
-
-    template <typename NodeKind>
-        void InstantiateVisitorOmp::walk_function_code(const NodeKind& node)
-        {
-            TL::Symbol function_symbol = node.get_symbol();
-
-            ContainsOpenMP c;
-            c.walk(node.get_statements());
-
-            if (!c.result)
-                return;
-
-            TL::Type function_type = function_symbol.get_type();
-
-            if (function_type.is_template_specialized_type())
-            {
-                TL::Type template_type = function_type.get_related_template_type();
-                TL::ObjectList<TL::Type> specializations = template_type.get_specializations();
-                TL::Type primary_specialization = template_type.get_primary_template();
-
-                for (TL::ObjectList<TL::Type>::iterator it = specializations.begin();
-                        it != specializations.end();
-                        it++)
-                {
-                    if (*it == primary_specialization
-                            // Skip explicit specializations as well
-                            || (it->get_symbol().get_scope().get_template_parameters() != NULL
-                                && it->get_symbol().get_scope().get_template_parameters()->is_explicit_specialization))
-                        continue;
-
-                    TL::Symbol specialized_symbol = it->get_symbol();
-                    this->keep_for_instantiation(specialized_symbol);
-                }
-            }
-            else
-            {
-                this->keep_for_instantiation(function_symbol);
-            }
-        }
 
     void InstantiateVisitorOmp::keep_for_instantiation(TL::Symbol symbol)
     {
