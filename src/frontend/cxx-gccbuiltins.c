@@ -1560,6 +1560,8 @@ SIMPLIFY_BUILTIN_FUN1(truncl, long_double, long_double);
 
 static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
+    // GCC 4.3 does not implement '__builtin_fpclassify'
+#if ((__GNUC__ > 4) || (( __GNUC__ == 4) && __GNUC_MINOR__ > 3))
     if (num_arguments == 6
             && nodecl_is_constant(arguments[0])
             && nodecl_is_constant(arguments[1])
@@ -1596,8 +1598,10 @@ static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int n
                             const_value_cast_to_long_double(v))));
         }
     }
+#endif
     return nodecl_null();
 }
+
 
 static nodecl_t simplify_nan(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
