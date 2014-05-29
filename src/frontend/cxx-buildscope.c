@@ -14494,6 +14494,73 @@ static scope_entry_t* build_scope_function_definition_declarator(
     return entry;
 }
 
+static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context)
+{
+    const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+    const char* mercurium_pretty_function_str = UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__");
+
+    const char* nice_name =
+        print_decl_type_str(entry->type_information,
+                entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
+    const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
+    nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
+
+    // Adjust type to include room for the final \0
+    nodecl_set_type(nice_name_tree,
+            get_array_type(
+                get_char_type(),
+                nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_signed_int(strlen(nice_name) + 1),
+                    make_locus("", 0, 0)),
+                block_context));
+
+    // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
+    // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
+    // to it
+    //
+    // Sign in __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = new_symbol(block_context,
+            block_context.current_scope,
+            mercurium_pretty_function_str);
+    mercurium_pretty_function->kind = SK_VARIABLE;
+    mercurium_pretty_function->type_information =
+        get_const_qualified_type(no_ref(nodecl_get_type(nice_name_tree)));
+    mercurium_pretty_function->value = nice_name_tree;
+    mercurium_pretty_function->entity_specs.is_user_declared = 1;
+    mercurium_pretty_function->entity_specs.is_static = 1;
+    mercurium_pretty_function->locus = entry->locus;
+
+    // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
+    insert_alias(block_context.current_scope, mercurium_pretty_function, pretty_function_str);
+
+    return mercurium_pretty_function;
+}
+
+static void emit_mercurium_pretty_function(nodecl_t* body_nodecl, scope_entry_t* mercurium_pretty_function)
+{
+    // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
+    if (mercurium_pretty_function != NULL
+            && mercurium_pretty_function_has_been_used(mercurium_pretty_function, *body_nodecl))
+    {
+        nodecl_t emit_mercurium_pretty_function_tree = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                    emit_mercurium_pretty_function_tree,
+                    nodecl_make_cxx_def(
+                        nodecl_null(),
+                        mercurium_pretty_function,
+                        mercurium_pretty_function->locus));
+        }
+        emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                emit_mercurium_pretty_function_tree,
+                nodecl_make_object_init(mercurium_pretty_function,
+                    mercurium_pretty_function->locus));
+
+        *body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function_tree, *body_nodecl);
+    }
+}
+
 static void build_scope_function_definition_body(
         AST function_definition,
         scope_entry_t* entry,
@@ -14593,10 +14660,12 @@ static void build_scope_function_definition_body(
                         make_locus("", 0, 0)),
                     block_context));
 
+        const char *special__func__ = UNIQUESTR_LITERAL("__func__");
+        const char *special__FUNCTION__ = UNIQUESTR_LITERAL("__FUNCTION__");
         const char* func_names[] =
         {
-            "__func__",
-            "__FUNCTION__",
+            special__func__,
+            special__FUNCTION__,
         };
 
         unsigned int j;
@@ -14609,50 +14678,21 @@ static void build_scope_function_definition_body(
             func_var->entity_specs.is_builtin = 1;
         }
 
-        // if (is_dependent_function(entry))
-        // {
-        //     // Insert a dependent __PRETTY_FUNCTION__
-        //     scope_entry_t* pretty_function = new_symbol(block_context,
-        //             block_context.current_scope,
-        //             "__PRETTY_FUNCTION__");
-        //     pretty_function->kind = SK_VARIABLE;
-        //     pretty_function->type_information = get_unknown_dependent_type();
-        //     pretty_function->entity_specs.is_builtin = 1;
-        // }
-        // else
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+
+        if (is_dependent_function(entry))
         {
-            const char* nice_name =
-                print_decl_type_str(entry->type_information,
-                        entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
-            const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
-            nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
-
-            // Adjust type to include room for the final \0
-            nodecl_set_type(nice_name_tree,
-                    get_array_type(
-                        get_char_type(),
-                        nodecl_make_integer_literal(get_signed_int_type(),
-                            const_value_get_signed_int(strlen(nice_name) + 1),
-                            make_locus("", 0, 0)),
-                        block_context));
-
-            // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
-            // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
-            // to it
-            //
-            // Sign in __MERCURIUM_PRETTY_FUNCTION__
-            mercurium_pretty_function = new_symbol(block_context,
+            // Insert a dependent __PRETTY_FUNCTION__
+            scope_entry_t* pretty_function = new_symbol(block_context,
                     block_context.current_scope,
-                    "__MERCURIUM_PRETTY_FUNCTION__");
-            mercurium_pretty_function->kind = SK_VARIABLE;
-            mercurium_pretty_function->type_information =
-                get_const_qualified_type(no_ref(nodecl_get_type(nice_name_tree)));
-            mercurium_pretty_function->value = nice_name_tree;
-            mercurium_pretty_function->entity_specs.is_user_declared = 1;
-            mercurium_pretty_function->entity_specs.is_static = 1;
-
-            // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
-            insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
+                    pretty_function_str);
+            pretty_function->kind = SK_VARIABLE;
+            pretty_function->type_information = get_unknown_dependent_type();
+            pretty_function->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            mercurium_pretty_function = register_mercurium_pretty_print(entry, block_context);
         }
     }
 
@@ -14684,27 +14724,7 @@ static void build_scope_function_definition_body(
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
 
-        // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
-        if (mercurium_pretty_function != NULL
-                && mercurium_pretty_function_has_been_used(mercurium_pretty_function, body_nodecl))
-        {
-            nodecl_t emit_mercurium_pretty_function = nodecl_null();
-            CXX_LANGUAGE()
-            {
-                emit_mercurium_pretty_function = nodecl_append_to_list(
-                        emit_mercurium_pretty_function,
-                        nodecl_make_cxx_def(
-                            nodecl_null(),
-                            mercurium_pretty_function,
-                            ast_get_locus(statement)));
-            }
-            emit_mercurium_pretty_function = nodecl_append_to_list(
-                    emit_mercurium_pretty_function,
-                    nodecl_make_object_init(mercurium_pretty_function,
-                        ast_get_locus(statement)));
-
-            body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function, body_nodecl);
-        }
+        emit_mercurium_pretty_function(&body_nodecl, mercurium_pretty_function);
 
         // C99 VLA object-inits
         C_LANGUAGE()
@@ -18715,6 +18735,24 @@ static void instantiate_template_function_code(
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_this_symbol, this_symbol);
     }
 
+    // Register __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = NULL;
+    {
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+        mercurium_pretty_function = register_mercurium_pretty_print(v->new_function_instantiated, new_decl_context);
+
+        // Now map the orig __PRETTY_FUNCTION__ to __MERCURIUM_PRETTY_FUNCTION__
+        decl_context_t orig_decl_context = nodecl_get_decl_context(nodecl_context);
+
+        scope_entry_list_t* entry_list = query_in_scope_str(orig_decl_context, pretty_function_str, NULL);
+        ERROR_CONDITION(entry_list == NULL, "'this' not found", 0);
+
+        scope_entry_t* orig_pretty_function = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        instantiation_symbol_map_add(v->instantiation_symbol_map, orig_pretty_function, mercurium_pretty_function);
+    }
+
 
     decl_context_t previous_orig_decl_context = v->orig_decl_context;
     decl_context_t previous_new_decl_context = v->new_decl_context;
@@ -18727,6 +18765,15 @@ static void instantiate_template_function_code(
     nodecl_t nodecl_stmt_list = nodecl_get_child(nodecl_context, 0);
 
     nodecl_t new_nodecl_stmt_list = instantiate_stmt_walk(v, nodecl_stmt_list);
+
+    {
+        // Emit __MERCURIUM_PRETTY_FUNCTION__
+        nodecl_t new_compound_stmt = nodecl_list_head(new_nodecl_stmt_list);
+        nodecl_t new_list_of_stmts = nodecl_get_child(new_compound_stmt, 0);
+        emit_mercurium_pretty_function(&new_list_of_stmts, mercurium_pretty_function);
+        nodecl_set_child(new_compound_stmt, 0, new_list_of_stmts);
+    }
+
     nodecl_t new_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
 
     v->nodecl_result =
@@ -18829,6 +18876,7 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack_index */ -1);
 
                     nodecl_t nodecl_init = nodecl_null();
+
                     if (!nodecl_is_null(value))
                     {
                         if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
