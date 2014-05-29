@@ -92,7 +92,7 @@ namespace Analysis {
 
             ~AnalysisInterface();
 
-            virtual bool is_invariant(
+            virtual bool is_uniform(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);

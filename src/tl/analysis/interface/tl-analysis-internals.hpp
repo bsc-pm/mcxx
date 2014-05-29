@@ -37,8 +37,10 @@ namespace Analysis {
      *  PROPERTIES
      */
 
-    TL::tribool invariant_property( Node* const scope_node,
-            Node* const stmt_node, const Nodecl::NodeclBase& n,
+    TL::tribool uniform_property( Node* const scope_node,
+            Node* const stmt_node, 
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& prev_n, 
             ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes);
 
@@ -46,9 +48,8 @@ namespace Analysis {
      *  QUERIES
      */
     
-    bool is_invariant_internal(Node* const scope_node, Node* const stmt_node,
-            Node* const n_node, const Nodecl::NodeclBase& n,
-            ExtensibleGraph* const pcfg,
+    bool is_uniform_internal(Node* const scope_node, Node* const stmt_node,
+            const Nodecl::NodeclBase& n, ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
 
     bool has_been_defined_internal(Node* const n_node,
@@ -69,18 +70,23 @@ namespace Analysis {
     TL::tribool reach_defs_have_property_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
-            Node* const original_n,
+            Node* const original_stmt,
             const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& prev_n,
             ExtensibleGraph* const pcfg,
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes);
 
+#ifndef DEBUG_PROPERTY
+#define DEBUG_PROPERTY
+#endif
     template <typename PropertyFunctor>
     TL::tribool nodecl_has_property_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
-            Node* const original_n,
+            Node* const original_stmt,
             const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& prev_n,
             ExtensibleGraph* const pcfg,
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes)
@@ -92,8 +98,9 @@ namespace Analysis {
         }
 
         // Check if n satisfy base cases
-        TL::tribool t = property_functor(scope_node, stmt_node, n, pcfg,
-                visited_nodes);
+        TL::tribool t = property_functor(scope_node, 
+                stmt_node, n, prev_n,
+                pcfg, visited_nodes);
 
         if (!t.is_unknown())
         {
@@ -103,8 +110,8 @@ namespace Analysis {
 
         // If 'n' is not a base case, then study its RDs
         TL::tribool result = reach_defs_have_property_in_scope(
-                scope_node, stmt_node, original_n, n, pcfg,
-                property_functor, visited_nodes);
+                scope_node, stmt_node, original_stmt, n, prev_n,
+                pcfg, property_functor, visited_nodes);
 
         // Remove node from visited
         if (visited_nodes.erase(n) != 1)
@@ -119,8 +126,9 @@ namespace Analysis {
     TL::tribool reach_defs_have_property_in_scope(
             Node* const scope_node,
             Node* const stmt_node,
-            Node* const original_n,
+            Node* const original_stmt,
             const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& prev_n,
             ExtensibleGraph* const pcfg,
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes)
@@ -139,9 +147,11 @@ namespace Analysis {
                 n_ma_it != n_mem_accesses.end();
                 n_ma_it++)
         {
-            //std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " - " 
-            //    << nodecl_get_ast(n_ma_it->get_internal_nodecl()) << std::endl;
 
+#ifdef DEBUG_PROPERTY
+            std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " --> Parent: " 
+                << (n_ma_it->get_parent().is_null() ? "NULL" : n_ma_it->get_parent().prettyprint()) << std::endl;
+#endif
             Utils::ExtendedSymbol n_ma_es(*n_ma_it);
             if(all_reach_defs_in.find(n_ma_es) == all_reach_defs_in.end())
             {
@@ -164,90 +174,168 @@ namespace Analysis {
                 rd_it != bounds.second;
                 rd_it++)
             {
-                // Skip Unknown RDs
-                if(!rd_it->second.first.is<Nodecl::Unknown>())
+                // Get the PCFG nodes where the reaching definitions where produced
+                const Nodecl::NodeclBase& reach_def_nodecl = 
+                    rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+
+#ifdef DEBUG_PROPERTY
+                std::cerr << "      RD: " << reach_def_nodecl.prettyprint() << std::endl;
+#endif
+                // Skip visided nodes. Recursive RD (IV step)
+                if (visited_nodes.find(reach_def_nodecl) == visited_nodes.end())
                 {
-                    // Get the PCFG nodes where the reaching definitions where produced
-                    const Nodecl::NodeclBase& reach_def_nodecl = 
-                        rd_it->second.second.is_null() ? rd_it->second.first : rd_it->second.second;
+#ifdef DEBUG_PROPERTY
+                    std::cerr << "           Visiting it" << std::endl;
+#endif
+                    Node* reach_defs_node = NULL;
+                    bool unknown_rd = reach_def_nodecl.is<Nodecl::Unknown>();
 
-                    // std::cerr << "      RD of " << n.prettyprint() <<": " << stmt_reach_def.prettyprint() << " - " 
-                    //    << nodecl_get_ast(stmt_reach_def.get_internal_nodecl()) << std::endl << std::endl;
+                    if (!unknown_rd)
+                        reach_defs_node = pcfg->find_nodecl_pointer(reach_def_nodecl);
 
-                    // Skip visided nodes. Recursive RD (IV step)
-                    if (visited_nodes.find(reach_def_nodecl) == visited_nodes.end())
+                    // Visit and check property in current RD
+                    TL::tribool reach_def_property =
+                        nodecl_has_property_in_scope(scope_node, reach_defs_node, 
+                                original_stmt, reach_def_nodecl, *n_ma_it, pcfg, property_functor,
+                                visited_nodes);
+#ifdef DEBUG_PROPERTY
+                    std::cerr << "       <---End previous visit" << std::endl;
+#endif
+
+                    //TODO: Combine all results with a parametrized operator (OR / AND)
+                    // If property is false, we don't need to continue
+                    if (reach_def_property.is_false())
                     {
-                        Node* reach_defs_node = pcfg->find_nodecl_pointer(reach_def_nodecl);
+#ifdef DEBUG_PROPERTY
+                        std::cerr << "          FALSE" << std::endl;
+#endif
+                        return reach_def_property;
+                    }
 
-                        // Visit and check property in current RD
-                        TL::tribool reach_def_property =
-                            nodecl_has_property_in_scope(scope_node, reach_defs_node, 
-                                    original_n, reach_def_nodecl, pcfg, property_functor,
-                                    visited_nodes);
-
-                        //TODO: Combine all results with a parametrized operator (OR / AND)
-                        // If property is false, we don't need to continue
-                        if (reach_def_property.is_false())
-                            return reach_def_property;
-
-                        // CONDITIONAL NODES
+                    // CONDITIONAL NODES
+                    if (!unknown_rd)
+                    {
                         Node* control_structure = 
                             ExtensibleGraph::get_enclosing_control_structure(reach_defs_node);
 
                         if((control_structure != NULL) && 
-                                !(control_structure->is_loop_node() &&
-                                    ExtensibleGraph::node_contains_node(control_structure, original_n)))
-                                // If the original node (not any RD) is enclosed in the loop,
-                                // the condition of the loop doesn't define the value of that
-                                // node inside the loop
+                                (control_structure != scope_node))
                         {
-                            Node* cond_node = control_structure->get_condition_node();
-                            ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+                           bool is_loop_node = control_structure->is_loop_node();
+                           bool loop_stmts_contains_node = false;
 
-                            // if cond_node == stmt_node means that we are in a loop asking for the condition,
-                            // let say j < 10. We get the RD of 'j' and then we get the conditon node of them,
-                            // which is again the j < 10.
-                            //if (cond_node == stmt_node)
-                            //    continue;
+                           Node* cond_node = control_structure->get_condition_node();
 
-                            Node* cond_outer_node = cond_node->get_outer_node();
+                           if (is_loop_node)
+                           {
+                               if(cond_node == NULL)
+                                   internal_error("Conditional node is null", 0);
 
-                            // If it's a loop node and ORIGINAL node (not RD) is enclosed
-                            // we don't have to take into account the condition since it's not
-                            // defining the value of the ORIGINAL node inside the loop.
-                            if(!(cond_node->is_loop_node() && 
-                                        original_n->node_is_enclosed_by(cond_outer_node)))
+                               // Check if the original node is 
+                               // contained in the stmts (context node) of the loop
+                               ObjectList<Edge*> exits = cond_node->get_exit_edges();
+                               for(ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+                               {
+                                   if((*it)->is_true_edge())
+                                   {
+                                       Node* loop_stmts_node = (*it)->get_target();
+                                       if(loop_stmts_node != NULL &&
+                                               loop_stmts_node->is_context_node())
+                                       {
+                                           loop_stmts_contains_node = 
+                                               ExtensibleGraph::node_contains_node(
+                                                       loop_stmts_node,
+                                                       original_stmt);
+                                       }
+                                   }
+                               }
+                           }
+
+                           if (!(is_loop_node && loop_stmts_contains_node))
+                           { 
+                               // If the original node (not any RD) is enclosed in the loop,
+                               // the condition of the loop doesn't define the value of that
+                               // node inside the loop
+                               ObjectList<Nodecl::NodeclBase> cond_node_stmts = cond_node->get_statements();
+
+                               // if cond_node == stmt_node means that we are in a loop asking for the condition,
+                               // let say j < 10. We get the RD of 'j' and then we get the conditon node of them,
+                               // which is again the j < 10.
+                               //    if (ExtensibleGraph::node_contains_node(cond_node, original_stmt)
+                               //          || (cond_node == original_stmt))
+                               //          continue;
+
+                               // Sara? Will be there more than one statement here? If so, the previous condition
+                               // will have to be more sophisticated
+                               ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
+
+#ifdef DEBUG_PROPERTY
+                               std::cerr << "          Visiting condition'" << std::endl;
+#endif
+
+                               for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
+                                       it != cond_node_stmts.end(); 
+                                       ++it)
+                               {
+#ifdef DEBUG_PROPERTY
+                                   std::cerr << "              stmt: '" << it->prettyprint() << std::endl;
+#endif
+                                   const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
+                                       Nodecl::Utils::get_all_memory_accesses(*it);
+                                   for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
+                                           itt != stms_mem_accesses.end();
+                                           ++itt)
+                                   {
+                                       // Skip recursive RD 
+                                       if (visited_nodes.find(*itt) == visited_nodes.end())
+                                       {
+                                           TL::tribool cond_stmt_ma_property = 
+                                               nodecl_has_property_in_scope(scope_node,
+                                                       cond_node, original_stmt, *itt, *n_ma_it, pcfg, 
+                                                       property_functor, visited_nodes);
+
+                                           if(cond_stmt_ma_property.is_false())
+                                               return cond_stmt_ma_property;
+                                       }
+                                   }
+                               }
+                           }
+
+#ifdef DEBUG_PROPERTY
+                           else
+                           {
+                               if (control_structure->is_loop_node())
+                                   std::cerr << "          control_structure is LOOP:"
+                                       << control_structure->get_id() << std::endl;
+
+                               if (ExtensibleGraph::node_contains_node(control_structure, original_stmt))
+                                   std::cerr << "          control_structure contains ORIGINAL STMT:"
+                                       << original_stmt->get_id() << std::endl;
+                               else
+                                   std::cerr << "          control_structure DON'T contains ORIGINAL STMT:"
+                                       << original_stmt->get_id() << std::endl;
+                           }
+#endif
+                        }
+#ifdef DEBUG_PROPERTY
+                        else
+                        {
+                            if(control_structure == NULL)
+                                std::cerr << "          control_structure is NULL" << std::endl;
+                            else
                             {
-                                // Sara? Will be there more than one statement here? If so, the previous condition
-                                // will have to be more sophisticated
-                                ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
-
-                                for(ObjectList<Nodecl::NodeclBase>::const_iterator it = cond_node_stmts.begin(); 
-                                        it != cond_node_stmts.end(); 
-                                        ++it)
-                                {
-                                    const ObjectList<Nodecl::NodeclBase> stms_mem_accesses = 
-                                        Nodecl::Utils::get_all_memory_accesses(*it);
-                                    for(ObjectList<Nodecl::NodeclBase>::const_iterator itt = stms_mem_accesses.begin();
-                                            itt != stms_mem_accesses.end();
-                                            ++itt)
-                                    {
-                                        // Skip recursive RD 
-                                        if (visited_nodes.find(*itt) == visited_nodes.end())
-                                        {
-                                            TL::tribool cond_stmt_ma_property = 
-                                                nodecl_has_property_in_scope(scope_node,
-                                                        cond_node, original_n, *itt, pcfg, 
-                                                        property_functor, visited_nodes);
-
-                                            if(cond_stmt_ma_property.is_false())
-                                                return cond_stmt_ma_property;
-                                        }
-                                    }
-                                }
+                                if (control_structure == scope_node)
+                                    std::cerr << "          control_structure is SCOPE_NODE: " 
+                                        << control_structure->get_id() << std::endl;
                             }
                         }
+#endif
                     }
+                }
+                else
+                {
+                    std::cerr << "          Already visited" << std::endl
+                        << std::endl;
                 }
             }
         }

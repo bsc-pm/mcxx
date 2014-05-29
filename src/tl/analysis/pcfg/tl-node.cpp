@@ -331,6 +331,11 @@ namespace Analysis {
         return ( get_type( ) == __Exit );
     }
 
+    bool Node::is_function_code_node()
+    {
+        return is_graph_node() && get_graph_related_ast().is<Nodecl::FunctionCode>();
+    }
+
     bool Node::is_break_node( )
     {
         return ( get_type( ) == __Break );
