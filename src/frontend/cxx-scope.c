@@ -4693,17 +4693,29 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
 // in a nest of namespaces
-static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context,
+static const char* get_fully_qualified_symbol_name_simple(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
         const char* current_qualif_name)
 {
+    decl_context_t symbol_decl_context = entry->decl_context;
     const char* result = current_qualif_name;
 
-    scope_t* current_scope = decl_context.current_scope;
+    scope_t* current_scope = symbol_decl_context.current_scope;
 
     if (current_scope->kind == NAMESPACE_SCOPE)
     {
+        char last_is_anonymous = 0;
         while (current_scope != NULL)
         {
+            if (decl_context.namespace_scope == current_scope
+                    && current_scope->related_entry->symbol_name != NULL
+                    && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") == 0)
+            {
+                last_is_anonymous = 1;
+                break;
+            }
+
             if (current_scope->related_entry != NULL
                     && current_scope->related_entry->symbol_name != NULL
                     && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") != 0)
@@ -4717,7 +4729,10 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
 
         CXX_LANGUAGE()
         {
-            result = strappend("::", result);
+            if (!last_is_anonymous)
+            {
+                result = strappend("::", result);
+            }
         }
     }
 
@@ -5039,74 +5054,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     // Do not qualify symbol names if they appear inside an anonymous namespace
     const char* result = "";
     char current_has_template_parameters = 0;
-    if (entry->decl_context.namespace_scope->related_entry->symbol_name != NULL
-            && strcmp(entry->decl_context.namespace_scope->related_entry->symbol_name, "(unnamed)") == 0)
-    {
-        result = uniquestr(unmangle_symbol_name(entry));
-
-        if (entry->entity_specs.is_member
-                // Lambda classes are unnamed by definition
-                && !class_type_is_lambda(entry->entity_specs.class_type))
-        {
-            // We need the qualification of the class
-            ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
-
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
-
-            (*max_qualif_level)++;
-
-            char prev_is_dependent = 0;
-            const char* class_qualification =
-                get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
-                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
-
-            if (!class_symbol->entity_specs.is_anonymous_union)
-            {
-                class_qualification = strappend(class_qualification, "::");
-            }
-
-            if (prev_is_dependent
-                    && current_has_template_parameters
-                    && !do_not_emit_template_keywords)
-            {
-                class_qualification = strappend(class_qualification, "template ");
-            }
-
-            (*is_dependent) |= prev_is_dependent;
-
-            result = strappend(class_qualification, result);
-        }
-
-        if (!no_templates
-                && entry->type_information != NULL
-                && is_template_specialized_type(entry->type_information)
-                && template_specialized_type_get_template_arguments(entry->type_information) != NULL
-                && !entry->entity_specs.is_conversion)
-        {
-            current_has_template_parameters = 1;
-
-            template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
-            const char* template_parameters =  template_arguments_to_str_ex(template_parameter_list,
-                    /* first_argument_to_be_printed */ 0,
-                    /* first_level_brackets */ 1,
-                    decl_context,
-                    print_type_fun,
-                    print_type_data);
-
-            result = strappend(result, template_parameters);
-
-            (*is_dependent) |= is_dependent_type(entry->type_information);
-
-            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
-            scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
-            if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-            {
-                // This is dependent
-                (*is_dependent) = 1;
-            }
-        }
-        return result;
-    }
 
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
@@ -5259,7 +5206,7 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && !only_classes)
     {
         // This symbol is already simple enough
-        result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);
+        result = get_fully_qualified_symbol_name_simple(entry, decl_context, result);
     }
 
     return result;
