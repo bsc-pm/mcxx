@@ -107,11 +107,18 @@ namespace TL
 
     std::string ExpressionTokenizerTrim::trimExp (const std::string &str) 
     {
+        std::string::size_type first = str.find_first_not_of(" \t");
+        std::string::size_type last = str.find_last_not_of(" \t");
 
-        ssize_t first = str.find_first_not_of(" \t");
-        ssize_t last = str.find_last_not_of(" \t");
-
-        return str.substr(first, last - first + 1);
+        if (first == std::string::npos)
+        {
+            // The string is only blanks
+            return std::string();
+        }
+        else
+        {
+            return str.substr(first, last - first + 1);
+        }
     }
 
     // Initialize here the warnings to the dispatcher
@@ -209,6 +216,9 @@ namespace TL
                 it != str_list.end();
                 it++)
         {
+            if (it->empty())
+                continue;
+
             Source src;
             src << "#line " << this->get_line() << " \"" << this->get_filename() << "\"\n"
                 << *it;
