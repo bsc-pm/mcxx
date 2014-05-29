@@ -32,6 +32,9 @@ test_generator=config/mercurium
 test_CXXFLAGS="--instantiate"
 </testinfo>
 */
+
+#if defined(__GNUC__) && (__GNUC__ >= 4 && __GNUC_MINOR__ >= 6)
+
 template <typename T>
 struct A
 {
@@ -53,3 +56,5 @@ void g()
     char c;
     a.f(c);
 }
+
+#endif
