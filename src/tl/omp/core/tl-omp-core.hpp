@@ -177,6 +177,11 @@ namespace TL
                         const std::string &typenames,
                         const std::string &combiner,
                         const std::string &initializer);
+                void parse_builtin_reduction(ReferenceScope ref_sc,
+                        const std::string &name,
+                        const std::string &typenames,
+                        const std::string &combiner,
+                        const std::string &initializer);
 
                 void initialize_builtin_reductions(Scope sc);
 
