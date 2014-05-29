@@ -332,11 +332,13 @@ namespace Analysis {
 #endif
                     }
                 }
+#ifdef DEBUG_PROPERTY                
                 else
                 {
                     std::cerr << "          Already visited" << std::endl
                         << std::endl;
                 }
+#endif
             }
         }
         
