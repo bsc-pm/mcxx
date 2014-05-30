@@ -63,9 +63,7 @@ namespace TL { namespace OpenMP {
             }
     };
 
-    namespace {
-        std::set<TL::Symbol> instantiated_function_set;
-    }
+    static std::set<TL::Symbol> instantiated_function_set;
 
     InstantiateVisitorOmp::InstantiateVisitorOmp(TL::DTO& dto)
         : _dto(dto)
