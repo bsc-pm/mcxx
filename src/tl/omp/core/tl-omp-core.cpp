@@ -1651,7 +1651,7 @@ namespace TL
                     construct.get_pragma_line().get_clause("on"),
                     data_sharing,
                     DEP_DIR_INOUT,
-                    DS_UNDEFINED,
+                    /* default data sharing */ DS_UNDEFINED,
                     "on");
         }
 
