@@ -9187,6 +9187,7 @@ const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void
                 /* parameter_names */ NULL,
                 /* parameter_attributes */ NULL,
                 /* is_parameter */ 0,
+                /* unparenthesize_ptr_operator */ 0,
                 print_name_str,
                 data);
     }
@@ -9198,8 +9199,8 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return get_declaration_string_ex(t.get_internal_type(), scope.get_decl_context(),
-            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, print_name_str,
-            /* we need to store the current codegen */ (void*) this);
+            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, /* unparenthesize_ptr_operator */ 0,
+            print_name_str, /* we need to store the current codegen */ (void*) this);
 }
 
 std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
@@ -9326,7 +9327,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     const char* result = get_declaration_string_ex(t.get_internal_type(),
             scope.get_decl_context(), symbol_name.c_str(), "", 0,
             num_parameters, parameter_names, param_attributes,
-            /* is_parameter */ 1, print_name_str,
+            /* is_parameter */ 1,
+            /* unparenthesize_ptr_operator */ 0,
+            print_name_str,
             /* we need to store the current codegen */ (void*) this);
 
     for (int i = 0; i < num_parameters; i++)
