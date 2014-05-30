@@ -413,7 +413,8 @@ namespace TL
                                 construct.get_locus_str().c_str(),
                                 sym.get_name().c_str());
                         // Make it shared if we know nothing about this entity
-                        data_sharing.set_data_sharing(sym, DS_SHARED);
+                        data_sharing.set_data_sharing(sym, DS_SHARED,
+                                "specified in copy_in/copy_out/copy_inout but no data-sharing was defined for it");
                     }
 
                     if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
@@ -429,7 +430,9 @@ namespace TL
                         else
                         {
                             // Otherwise just override the sharing attribute with shared
-                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                    "entity was privatized but it appears in copy_in/copy_out/copy_inout, "
+                                    "so it has been coerced to shared");
                         }
                     }
                 }
@@ -443,11 +446,13 @@ namespace TL
 
                     if (sym_type.is_array())
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "it is an array mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
                     }
                     else
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                                "it is an object mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
                     }
                 }
 

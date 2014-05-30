@@ -131,11 +131,13 @@ namespace TL
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info(PragmaCustomLine construct, 
                         DataSharingEnvironment& data_sharing, 
-                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
-                void get_dependences_info_clause(PragmaCustomClause clause,
+                        DataSharingAttribute default_data_attr);
+                void get_dependences_info_clause(
+                        PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr,
-                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
+                        DataSharingAttribute default_data_attr,
+                        const std::string& clause_name);
 
                 void get_dependences_info_std_clause(
                         TL::PragmaCustomLine construct,

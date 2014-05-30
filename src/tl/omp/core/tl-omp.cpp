@@ -103,7 +103,7 @@ namespace TL
                     it++)
             {
                 // Remove implicit bit
-                if ((DataSharingAttribute)(it->second & ~DS_IMPLICIT) 
+                if ((DataSharingAttribute)(it->second.attr & ~DS_IMPLICIT) 
                         == data_attribute)
                 {
                     sym_list.append(it->first);
@@ -153,19 +153,22 @@ namespace TL
             return result;
         }
 
-        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
+                const std::string& reason)
         {
-            (_map->operator[](sym)) = data_attr;
+            (_map->operator[](sym)) = DataSharingAttributeInfo(data_attr, reason);
         }
 
-        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
+                const std::string& reason)
         {
-            set_data_sharing(sym, data_attr);
+            set_data_sharing(sym, data_attr, reason);
         }
 
-        void DataSharingEnvironment::set_reduction(const ReductionSymbol &reduction_symbol)
+        void DataSharingEnvironment::set_reduction(const ReductionSymbol &reduction_symbol,
+                const std::string& reason)
         {
-            (_map->operator[](reduction_symbol.get_symbol())) = DS_REDUCTION;
+            (_map->operator[](reduction_symbol.get_symbol())) = DataSharingAttributeInfo(DS_REDUCTION, reason);
             _reduction_symbols.append(reduction_symbol);
         }
 
@@ -196,14 +199,14 @@ namespace TL
 
         DataSharingAttribute DataSharingEnvironment::get_internal(Symbol sym)
         {
-            std::map<Symbol, DataSharingAttribute>::iterator it = _map->find(sym);
+            std::map<Symbol, DataSharingAttributeInfo>::iterator it = _map->find(sym);
             if (it == _map->end())
             {
                 return DS_UNDEFINED;
             }
             else
             {
-                return it->second;
+                return it->second.attr;
             }
         }
 

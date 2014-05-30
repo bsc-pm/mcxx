@@ -331,7 +331,19 @@ namespace OpenMP
     {
         private:
             int *_num_refs;
-            typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
+            struct DataSharingAttributeInfo
+            {
+                DataSharingAttribute attr;
+                std::string reason;
+
+                DataSharingAttributeInfo() 
+                    : attr(DS_UNDEFINED), reason() { }
+                DataSharingAttributeInfo(DataSharingAttribute a,
+                        const std::string r)
+                    : attr(a), reason(r) { }
+            };
+
+            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_t;
             map_symbol_data_t  *_map;
             DataSharingEnvironment *_enclosing;
 
@@ -362,7 +374,8 @@ namespace OpenMP
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
+                    const std::string& reason);
 
             //! Sets a data sharing attribute of a symbol
             /*!
@@ -370,14 +383,15 @@ namespace OpenMP
                 * \param data_attr The symbol to which the data sharing will be set
                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
+                    const std::string& reason);
 
             //! Adds a reduction symbol
             /*!
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
-            void set_reduction(const ReductionSymbol& reduction_symbol);
+            void set_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
 
             //! Gets the data sharing attribute of a symbol
             /*!
@@ -636,7 +650,9 @@ namespace OpenMP
         };
 
         // Implemented in tl-omp-deps.cpp
-        void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
+        void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
+                DataSharingEnvironment& ds,
+                const std::string& clause_name);
 
         // Implemented in tl-omp.cpp
         std::string string_of_data_sharing(DataSharingAttribute data_attr);

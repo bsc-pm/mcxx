@@ -260,14 +260,17 @@ namespace TL
                 TL::PragmaCustomLine _ref_tree;
                 DataSharingEnvironment& _data_sharing;
                 DataSharingAttribute _data_attrib;
+                std::string _clause_name;
             public:
                 DataSharingEnvironmentSetter(
                         TL::PragmaCustomLine ref_tree,
                         DataSharingEnvironment& data_sharing, 
-                        DataSharingAttribute data_attrib)
+                        DataSharingAttribute data_attrib,
+                        const std::string& clause_name)
                     : _ref_tree(ref_tree),
                     _data_sharing(data_sharing),
-                    _data_attrib(data_attrib) { }
+                    _data_attrib(data_attrib),
+                    _clause_name(clause_name) { }
 
                 void operator()(DataReference data_ref)
                 {
@@ -303,13 +306,16 @@ namespace TL
                         return;
                     }
 
+                    std::stringstream ss;
+                    ss << "explicitly mentioned in clause '" << _clause_name << "'";
+
                     if (data_ref.has_symbol())
                     {
-                        _data_sharing.set_data_sharing(sym, _data_attrib);
+                        _data_sharing.set_data_sharing(sym, _data_attrib, ss.str());
                     }
                     else
                     {
-                        _data_sharing.set_data_sharing(sym, _data_attrib, data_ref);
+                        _data_sharing.set_data_sharing(sym, _data_attrib, data_ref, ss.str());
                     }
                 }
         };
@@ -327,7 +333,7 @@ namespace TL
 
                 void operator()(ReductionSymbol red_sym)
                 {
-                    _data_sharing.set_reduction(red_sym);
+                    _data_sharing.set_reduction(red_sym, "mentioned in 'reduction' clause");
                 }
         };
 
@@ -369,12 +375,12 @@ namespace TL
             ObjectList<DataReference> shared_references;
             get_clause_symbols(construct.get_clause("shared"), nonlocal_symbols, shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_SHARED));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_SHARED, "shared"));
 
             ObjectList<DataReference> private_references;
             get_clause_symbols(construct.get_clause("private"), nonlocal_symbols, private_references);
             std::for_each(private_references.begin(), private_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE, "private"));
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), nonlocal_symbols, firstprivate_references);
@@ -390,11 +396,11 @@ namespace TL
             firstlastprivate_references = intersect_ref_list(lastprivate_references, firstprivate_references);
 
             std::for_each(only_firstprivate_references.begin(), only_firstprivate_references.end(),
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE, "firstprivate"));
             std::for_each(only_lastprivate_references.begin(), only_lastprivate_references.end(),
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_LASTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_LASTPRIVATE, "lastprivate"));
             std::for_each(firstlastprivate_references.begin(), firstlastprivate_references.end(),
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTLASTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate"));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"),
@@ -402,15 +408,17 @@ namespace TL
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 
+            // Do not confuse OpenMP copyin (related with threadprivate) with
+            // OmpSs copy_in (related to copies between targets)
             ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols, copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYIN));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYIN, "copyin"));
 
             ObjectList<DataReference> copyprivate_references;
             get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
-                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE, "copyprivate"));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
@@ -722,7 +730,8 @@ namespace TL
 
                         if (data_attr == DS_UNDEFINED)
                         {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                                    "induction variable of a sequential loop enclosed by a parallel construct");
                         }
                     }
                 }
@@ -753,14 +762,16 @@ namespace TL
                         && sym.get_name() == "this")
                 {
                     // 'this' is special
-                    data_sharing.set_data_sharing(sym, DS_SHARED);
+                    data_sharing.set_data_sharing(sym, DS_SHARED,
+                            "'this' pseudo-variable is always shared");
                     continue;
                 }
 
                 // Saved expressions must be, as their name says, saved
                 if (sym.is_saved_expression())
                 {
-                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE);
+                    data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE,
+                            "internal saved-expression must have their value captured");
                     continue;
                 }
 
@@ -778,13 +789,15 @@ namespace TL
                     {
                         if (!already_nagged.contains(sym))
                         {
-                            std::cerr << it->get_locus_str() 
-                                << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
+                            std::cerr << it->get_locus_str()
+                                << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope())
                                 << "' does not have data sharing and 'default(none)' was specified. Assuming shared "
                                 << std::endl;
 
                             // Maybe we do not want to assume always shared?
-                            data_sharing.set_data_sharing(sym, DS_SHARED);
+                            data_sharing.set_data_sharing(sym, DS_SHARED,
+                                    "'default(none)' was specified but this entity (incorreclty) does not  "
+                                    "have an explicit or predetermined data-sharing. 'shared' was chosen instead");
 
                             already_nagged.append(sym);
                         }
@@ -792,7 +805,9 @@ namespace TL
                     else
                     {
                         // Set the symbol as having default data sharing
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
+                                "because of 'default' clause and the entity does "
+                                "not have any explicit or predetermined data-sharing");
                     }
                 }
             }
@@ -1079,7 +1094,8 @@ namespace TL
                                 sym.get_name().c_str()
                                 );
                     }
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                            "the induction variable of OpenMP loop construct has predetermined private data-sharing");
                 }
 
                 sanity_check_for_loop(statement);
@@ -1145,7 +1161,8 @@ namespace TL
 
                     if (data_attr == DS_UNDEFINED)
                     {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                                "induction variable of a sequential loop enclosed by a task");
                     }
                 }
             }
@@ -1166,13 +1183,15 @@ namespace TL
                         && sym.get_name() == "this")
                 {
                     // 'this' is special
-                    data_sharing.set_data_sharing(sym, DS_SHARED);
+                    data_sharing.set_data_sharing(sym, DS_SHARED,
+                            "'this' pseudo-variable is always shared");
                     continue;
                 }
 
                 if (sym.is_cray_pointee())
                 {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT));
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
+                            "Cray pointee is private");
                     sym  = sym.get_cray_pointer();
                 }
 
@@ -1184,6 +1203,7 @@ namespace TL
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
+                std::string reason;
                 if (data_attr == DS_UNDEFINED)
                 {
                     if (default_data_attr == DS_NONE)
@@ -1194,6 +1214,10 @@ namespace TL
                             << std::endl;
 
                         data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
+                        reason =
+                            "'default(none)' was specified but this entity (incorreclty) does not  "
+                            "have an explicit or predetermined data-sharing. 'firstprivate' was chosen instead "
+                            "as the current construct is a task";
                     }
                     else if (default_data_attr == DS_UNDEFINED)
                     {
@@ -1217,6 +1241,18 @@ namespace TL
                                     break;
                                 enclosing = enclosing->get_enclosing();
                             }
+                            if (is_shared)
+                            {
+                                reason = "the entity is local but happens to be 'shared' in an enclosing construct";
+                            }
+                            else
+                            {
+                                reason = "the entity is local but does not seem to be shared in any enclosing construct";
+                            }
+                        }
+                        else
+                        {
+                            reason = "the entity is not local to the function";
                         }
 
                         if (is_shared)
@@ -1232,9 +1268,11 @@ namespace TL
                     {
                         // Set the symbol as having the default data sharing
                         data_attr = (DataSharingAttribute)(default_data_attr | DS_IMPLICIT);
+                        reason = "because of 'default' clause and the entity does "
+                            "not have any explicit or predetermined data-sharing";
                     }
 
-                    data_sharing.set_data_sharing(sym, data_attr);
+                    data_sharing.set_data_sharing(sym, data_attr, reason);
                 }
 
                 if (IS_FORTRAN_LANGUAGE
@@ -1247,10 +1285,9 @@ namespace TL
                     std::cerr << it->get_locus_str()
                         << ": warning: assumed-size array '" << sym.get_name() << "' cannot be privatized. Assuming shared" << std::endl;
                     data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
-                    data_sharing.set_data_sharing(sym, data_attr);
+                    data_sharing.set_data_sharing(sym, data_attr,
+                            "this is an assumed size array that was attempted to be privatized");
                 }
-
-
             }
 
             get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_sharing, nonlocal_symbols);
@@ -1312,7 +1349,8 @@ namespace TL
                     if (data_attr == DS_UNDEFINED)
                     {
                         data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
-                        data_sharing.set_data_sharing(sym, data_attr);
+                        data_sharing.set_data_sharing(sym, data_attr,
+                                "this entity happens to be indirectly accesible in the body of the construct");
                     }
                 }
             }
@@ -1332,7 +1370,8 @@ namespace TL
                 if (data_attr == DS_UNDEFINED)
                 {
                     data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
-                    data_sharing.set_data_sharing(sym, data_attr);
+                    data_sharing.set_data_sharing(sym, data_attr,
+                            "internal variable that captures the size of a variable-length array");
                 }
             }
         }
@@ -1406,7 +1445,8 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_for_handler(construct, stmt, data_sharing);
             common_workshare_handler(construct, data_sharing);
-            get_dependences_info(construct.get_pragma_line(), data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing,
+                    /* default_data_sharing */ DS_UNDEFINED);
         }
 
         void Core::for_handler_post(TL::PragmaCustomStatement construct)
@@ -1431,7 +1471,8 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_for_handler(construct, stmt, data_sharing);
             common_workshare_handler(construct, data_sharing);
-            get_dependences_info(construct.get_pragma_line(), data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing,
+                    /* default_data_sharing */ DS_UNDEFINED);
         }
 
         void Core::do_handler_post(TL::PragmaCustomStatement construct)
@@ -1456,7 +1497,8 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_for_handler(construct, stmt, data_sharing);
             common_parallel_handler(construct, data_sharing);
-            get_dependences_info(construct.get_pragma_line(), data_sharing);
+            get_dependences_info(construct.get_pragma_line(), data_sharing,
+                    /* default_data_sharing */ DS_UNDEFINED);
         }
 
         void Core::parallel_do_handler_post(TL::PragmaCustomStatement construct)
@@ -1561,7 +1603,8 @@ namespace TL
                         continue;
                     }
 
-                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
+                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE,
+                            "explicitly mentioned in a 'threadprivate' directive");
                 }
             }
         }
@@ -1604,7 +1647,12 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            get_dependences_info_clause(construct.get_pragma_line().get_clause("on"), data_sharing, DEP_DIR_IN);
+            get_dependences_info_clause(
+                    construct.get_pragma_line().get_clause("on"),
+                    data_sharing,
+                    DEP_DIR_INOUT,
+                    DS_UNDEFINED,
+                    "on");
         }
 
         void Core::taskwait_handler_post(TL::PragmaCustomDirective construct)
