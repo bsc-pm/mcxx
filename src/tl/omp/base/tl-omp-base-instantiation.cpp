@@ -106,7 +106,7 @@ namespace TL { namespace OpenMP {
             }
         }
         else if (sym.is_member()
-                && sym.get_class_type().is_template_specialized_type()
+                && sym.get_class_type().get_symbol().get_type().is_template_specialized_type()
                 // Note that the compiler creates partial specializations (which are dependent)
                 && !sym.get_class_type().is_dependent())
         {
