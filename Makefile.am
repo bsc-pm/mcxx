@@ -3109,7 +3109,7 @@ uninstall-local : driver-uninstall-local
 clean-local: scripts-clean-rpm \
 	         scripts-clean-deb
 
-dist-hook : config-files-dist-hook git-version-dist-hook script-driver-files-dist-hook
+dist-hook : config-files-dist-hook git-version-dist-hook
 
 # This is a hack that workarounds libtool trying to relink in parallel when it
 # should wait for all its dependences. This only happens when a single Makefile
