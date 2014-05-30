@@ -4956,8 +4956,20 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     }
     else if (entry->entity_specs.is_conversion)
     {
-        return strappend("operator ", 
-                print_type_str(function_type_get_return_type(entry->type_information), entry->decl_context));
+        return strappend("operator ",
+                get_declaration_string_ex(
+                    function_type_get_return_type(entry->type_information),
+                    entry->decl_context,
+                    /* symbol_name */"",
+                    /* initializer */ "",
+                    /* semicolon */ 0,
+                    /* num_parameter_names */ 0,
+                    /* parameter_names */ NULL,
+                    /* parameter_attributes */ NULL,
+                    /* is_parameter */ 0,
+                    /* unparenthesize_operator_ptr */ 1,
+                    get_simple_type_name_string_internal_common,
+                    NULL));
     }
     return name;
 }
