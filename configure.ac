@@ -776,7 +776,7 @@ if test x$cuda_enabled = xyes ; then
     then
         AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
-            AC_MSG_WARN([nvcc not found. Disabling GPU support])
+            AC_MSG_WARN([nvcc not found. Disabling CUDA support])
             cuda_valid=no
         else
             CUDA_INCLUDES="$CUDADIR/include"
@@ -788,7 +788,7 @@ if test x$cuda_enabled = xyes ; then
             cuda_valid=yes
         fi
     else
-         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling GPU Support])
+         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling CUDA Support])
 	     cuda_valid=no
     fi
 fi
@@ -1972,7 +1972,7 @@ then
 fi
 
 echo "   MPI testing enabled:" $mpi_valid
-echo "   GPU testing enabled:" $cuda_valid
+echo "   CUDA testing enabled:" $cuda_valid
 echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
