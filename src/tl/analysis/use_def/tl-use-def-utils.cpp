@@ -277,9 +277,11 @@ namespace Analysis {
         }
         else if(contained.is<Nodecl::ClassMemberAccess>())
         {
-            TL::Type ctr_t = container.get_type();
-            if(ctr_t.is_lvalue_reference())
-                ctr_t = ctr_t.references_to();
+            TL::Type ctr_t = container.get_type().no_ref();
+            // We may have here a class or a pointer to a class
+            if(ctr_t.is_pointer())
+                ctr_t = ctr_t.points_to();
+            
             if(ctr_t.is_class())
             {   // struct t { ... }
                 // Compute the nest of members accessed by 'contained'

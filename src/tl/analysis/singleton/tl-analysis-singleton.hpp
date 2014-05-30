@@ -181,7 +181,7 @@ namespace Analysis {
         // ************** Singleton methods *************** //
 
         //!Single instance constructor
-        static AnalysisSingleton& get_analysis( );
+        static AnalysisSingleton& get_analysis(bool is_ompss_enabled);
 
 
         // *************** Analysis methods *************** //

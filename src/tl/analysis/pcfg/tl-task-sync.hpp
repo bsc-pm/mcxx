@@ -77,7 +77,7 @@ namespace TaskAnalysis {
         ExtensibleGraph* _graph;
 
     public:
-        TaskSynchronizations( ExtensibleGraph* graph );
+        TaskSynchronizations( ExtensibleGraph* graph, bool is_ompss_enabled );
 
         void compute_task_synchronizations( );
     };

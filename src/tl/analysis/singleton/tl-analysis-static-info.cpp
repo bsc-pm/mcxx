@@ -492,16 +492,15 @@ namespace Analysis {
     // ********************************************************************************************* //
     // **************************** User interface for static analysis ***************************** //
 
-    AnalysisStaticInfo::AnalysisStaticInfo( )
-        : _node( Nodecl::NodeclBase::null( ) ), _static_info_map( )
+    AnalysisStaticInfo::AnalysisStaticInfo()
+        : _node( Nodecl::NodeclBase::null( ) ), _static_info_map( ), _ompss_mode_enabled(false)
     {}
 
     AnalysisStaticInfo::AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
-                                            WhereAnalysis nested_analysis_mask, int nesting_level )
+                                            WhereAnalysis nested_analysis_mask, int nesting_level, bool ompss_mode_enabled )
+        : _node(n), _static_info_map(), _ompss_mode_enabled(ompss_mode_enabled)
     {
-        _node = n;
-
-        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
+        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis(_ompss_mode_enabled);
 
         TL::Analysis::PCFGAnalysis_memento analysis_state;
 

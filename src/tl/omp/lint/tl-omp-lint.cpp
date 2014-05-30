@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 namespace TL { 
 namespace OpenMP {
@@ -73,10 +74,11 @@ namespace {
     }
 }
     
+    static bool ompss_mode_enabled = false;
+    
     struct FunctionCodeVisitor : Nodecl::ExhaustiveVisitor<void>
     {
         typedef TL::ObjectList<TL::Analysis::Node*> PCFG_Node_list;
-        
         FILE* log_file;
         
         std::string get_nodecl_list_str( const Nodecl::List& nodecl_list )
@@ -108,7 +110,7 @@ namespace {
         
         void visit( const Nodecl::FunctionCode& function_code )
         {
-            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis( );
+            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
             TL::Analysis::PCFGAnalysis_memento memento;
             // We compute liveness analysis (that includes PCFG and use-def) because 
             // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
@@ -538,35 +540,35 @@ namespace {
             }
             
             // Get the previous and next synchronization points (computed during Liveness analysis)
-            TL::ObjectList<TL::Analysis::Node*> last_sync;
-            TL::ObjectList<TL::Analysis::Node*> last_sync_list = pcfg->get_task_last_synchronization( n );
-            if( last_sync_list.empty( ) )
-            {   // Consider as last synchronization point the creation of the task or,
-                // if the task is inside a loop, the entry of the loop
-                TL::Analysis::Node* task_creation = n->get_parents( )[0];
-                if( TL::Analysis::ExtensibleGraph::node_is_in_loop( task_creation ) )
-                {
-                    TL::Analysis::Node* outer_node = task_creation->get_outer_node( );
-                    TL::Analysis::Node* most_outer_loop = NULL;
-                    while( outer_node != NULL )
-                    {
-                        if( outer_node->is_loop_node( ) )
-                            most_outer_loop = outer_node;
-                        outer_node = outer_node->get_outer_node( );
-                    }
-                    ERROR_CONDITION( most_outer_loop == NULL, 
-                                     "Node %d is recognized to be in a loop node, but it has not been found", n->get_id( ) );
-                    last_sync.insert( most_outer_loop->get_graph_entry_node( ) );
-                }
-                else
-                    last_sync.insert( task_creation );   // The task creation node
-            }
-            else
-                last_sync = last_sync_list;
-            
+            TL::ObjectList<TL::Analysis::Node*> last_sync = pcfg->get_task_last_synchronization( n );
             TL::ObjectList<TL::Analysis::Node*> next_sync = pcfg->get_task_next_synchronization( n );
-            if( next_sync.empty( ) )        // Consider as next synchronization point the exit of the graph
-                next_sync.insert( pcfg->get_graph( )->get_graph_exit_node( ) );
+            
+            if(VERBOSE)
+            {
+                // Get last synchronization node list as a string
+                std::string last_syncs;
+                for(TL::ObjectList<TL::Analysis::Node*>::iterator it = last_sync.begin(); it != last_sync.end(); )
+                {
+                    std::stringstream ss; ss << (*it)->get_id();
+                    last_syncs +=  ss.str();
+                    ++it;
+                    if(it != last_sync.end())
+                        last_syncs += ", ";
+                }
+                
+                // Get next synchronization node list as a string
+                std::string next_syncs;
+                for(TL::ObjectList<TL::Analysis::Node*>::iterator it = next_sync.begin(); it != next_sync.end(); )
+                {
+                    std::stringstream ss; ss << (*it)->get_id();
+                    next_syncs +=  ss.str();
+                    ++it;
+                    if(it != next_sync.end())
+                        next_syncs += ", ";
+                }
+                 
+                std::cerr << "OMP-LINT_ Task " << n->get_id() << " has last_syncs(" << last_syncs << ") and next_syncs(" << next_syncs << ")" << std::endl;
+            }
             
             // Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
             std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > concurrently_used_vars;
@@ -644,6 +646,43 @@ namespace {
                             }
                         }
                     }
+                }
+            }
+            
+            // If the task is in a parallel construct, then 
+            // any shared variable of the task that is not protected 
+            // with an atomic or critical construct, are in a race condition
+            for(TL::ObjectList<TL::Analysis::Node*>::iterator it = last_sync.begin(); it != last_sync.end(); ++it)
+            {
+                if((*it)->is_omp_flush_node())
+                {
+                    // Check that some access is not protected and at least one of the accesses is a write
+                    for(std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator itt = task_used_vars.begin(); 
+                        itt != task_used_vars.end(); ++itt)
+                    {
+                        std::cerr << "   - " << itt->first.prettyprint() << std::endl;
+                        if(Nodecl::Utils::nodecl_is_in_nodecl_list(itt->first, task_shared_variables))
+                        {   // Check whether the accesses to the variable are protected or not
+                            TL::ObjectList<TL::Analysis::Node*> nodes = itt->second;
+                            bool defined = false;
+                            bool safe = true;
+                            for(TL::ObjectList<TL::Analysis::Node*>::iterator ittt = nodes.begin(); ittt != nodes.end(); ++ittt)
+                            {
+                                TL::Analysis::Utils::ext_sym_set killed_vars = (*ittt)->get_killed_vars();
+                                if(!TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(itt->first, killed_vars).is_null())
+                                    defined = true;
+                                if(!TL::Analysis::ExtensibleGraph::node_is_in_synchronous_construct(*ittt))
+                                    safe = false;
+                            }
+                            if(!safe && defined)
+                            {   // Some access is not protected and at least one of the accesses is a write
+                                race_cond_vars.append(itt->first);
+                                result = true;
+                            }
+                        }
+                    }
+                    
+                    break;
                 }
             }
             
@@ -1121,14 +1160,21 @@ namespace {
         set_phase_name("OpenMP Lint");
         set_phase_description("This phase is able to detect some common pitfalls when using OpenMP");
 
+        // Register parameters
         register_parameter("disable-omp-lint",
                 "Disables this phase. You should not need this. If you do, then it is an error. Please fill a bug",
                 _disable_phase,
                 "0");
+        
         register_parameter("correctness_log_dir",
                 "Sets the path where correctness logs will be stored, in addition to showing them in the standard output",
                 _correctness_log_path,
                 "");
+        
+        register_parameter("ompss_mode",
+                           "Enables OmpSs semantics instead of OpenMP semantics",
+                           _ompss_mode_str,
+                           "0").connect(functor(&Lint::set_ompss_mode, *this));
     }
 
     void Lint::run(TL::DTO& dto)
@@ -1140,6 +1186,7 @@ namespace {
             // Get the path to the file where we will store the logs (in addition to showing them in the stdout)
             log_file_path = _correctness_log_path;
             
+            ompss_mode_enabled = _ompss_mode_enabled;
             FunctionCodeVisitor function_codes;
             function_codes.walk(top_level);
         }
@@ -1147,6 +1194,12 @@ namespace {
 
     void Lint::pre_run(TL::DTO& dto)
     {}
+    
+    void Lint::set_ompss_mode( const std::string& ompss_mode_str)
+    {
+        if( ompss_mode_str == "1")
+            _ompss_mode_enabled = true;
+    }
     
     // ****************************** END OpenMP scope checking phase ****************************** //
     // ********************************************************************************************* //

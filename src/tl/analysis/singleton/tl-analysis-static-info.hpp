@@ -191,6 +191,7 @@ namespace Analysis {
         private:
             Nodecl::NodeclBase _node;
             static_info_map_t _static_info_map;
+            bool _ompss_mode_enabled;
 
         public:
             // *** Constructors *** //
@@ -198,7 +199,7 @@ namespace Analysis {
             AnalysisStaticInfo( );
 
             AnalysisStaticInfo( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask,
-                                WhereAnalysis nested_analysis_mask, int nesting_level );
+                                WhereAnalysis nested_analysis_mask, int nesting_level, bool ompss_mode_enabled );
 
             virtual ~AnalysisStaticInfo();
 

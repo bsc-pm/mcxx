@@ -586,6 +586,12 @@ namespace {
         dispatcher( ).statement.post["assert"].connect( functor( &AnalysisCheckPhase::assert_handler_post, *this ) );
         dispatcher( ).declaration.pre["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_pre, *this ) );
         dispatcher( ).declaration.post["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_post, *this ) );
+        
+        // Register parameters
+        register_parameter("ompss_mode",
+                           "Enables OmpSs semantics instead of OpenMP semantics",
+                           _ompss_mode_str,
+                           "0").connect(functor(&AnalysisCheckPhase::set_ompss_mode, *this));
     }
 
     void AnalysisCheckPhase::assert_handler_pre( TL::PragmaCustomStatement directive )
@@ -637,7 +643,7 @@ namespace {
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis( );
+        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
         PCFGAnalysis_memento memento;
 
         Nodecl::NodeclBase ast = dto["nodecl"];
@@ -685,6 +691,12 @@ namespace {
         ExtensibleGraph::clear_visits( graph_node );
     }
 
+    void AnalysisCheckPhase::set_ompss_mode( const std::string& ompss_mode_str)
+    {
+        if( ompss_mode_str == "1")
+            _ompss_mode_enabled = true;
+    }
+    
     void AnalysisCheckVisitor::visit( const Nodecl::Analysis::Assert& n )
     {
         Nodecl::Utils::remove_from_enclosing_list( n );

@@ -29,6 +29,8 @@
 #include "tl-task-sync.hpp"
 #include "tl-tribool.hpp"
 
+#include <queue>
+
 namespace TL {
 namespace Analysis {
 namespace TaskAnalysis{
@@ -882,11 +884,14 @@ namespace {
             compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync, current_domain_id, next_domain_id);
         }
     }
+    
+    static bool IsOmpssEnabled = false;
 }
 
-    TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph)
+    TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled)
         : _graph(graph)
     {
+        IsOmpssEnabled = is_ompss_enabled;
     }
 
     void TaskSynchronizations::compute_task_synchronizations()
@@ -1296,6 +1301,56 @@ namespace {
         }
     }
 
+    static Node* get_most_outer_parallel(Node* task)
+    {
+        // Look for the parallel with no immediate inner single
+        Node* parallel = NULL;
+        std::queue<Node*> queue; queue.push(task);
+        while(!queue.empty())
+        {
+            // Get the first element in the queue
+            Node* current = queue.front();
+            queue.pop();
+            current->set_visited_aux(true);
+            
+            // Check for the structure we look for
+            if(current->is_omp_parallel_node())
+            {
+                Node* flush = current->get_graph_entry_node()->get_children()[0];
+                Node* child = flush->get_children()[0];
+                if(!child->is_omp_single_node())
+                {   // We found the first parallel with no single
+                    parallel = current;
+                }
+            }
+            
+            // Enqueue the children of the node we just treated
+            ObjectList<Node*> parents;
+            if(current->is_graph_node() && !ExtensibleGraph::node_contains_node(current, task))
+                parents.insert(current->get_graph_exit_node());
+            else if(current->is_entry_node())
+            {
+                Node* outer = current->get_outer_node();
+                if(outer->is_visited_aux())
+                    parents = outer->get_parents();
+                else
+                    parents.insert(outer);
+            }
+            else
+                parents = current->get_parents();
+            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {
+                if(!(*it)->is_visited_aux())
+                    queue.push(*it);
+            }
+        }
+        
+        // Clear the visits
+        ExtensibleGraph::clear_visits_aux_backwards(task);
+        
+        return parallel;
+    }
+    
     void TaskConcurrency::compute_concurrent_tasks( Node* task )
     {
         // When the task is in a loop and it is not synchronized inside the loop and
@@ -1305,12 +1360,59 @@ namespace {
             task_in_loop_is_synchronized_within_loop( task ) )
             skip_task = task;
 
-        // When _last_sync is unknown, we use the entry of the graph where the task is defined
+        // Compute the more accurate last synchronization point if we have not found one
         ObjectList<Node*> last_sync;
         if( !_last_sync.empty( ) )
             last_sync = _last_sync;
         else
-            last_sync.insert( ExtensibleGraph::get_extensible_graph_from_node( task )->get_graph_entry_node( ) );
+        {
+            Node* pcfg = ExtensibleGraph::get_extensible_graph_from_node(task);
+            Nodecl::NodeclBase related_ast = pcfg->get_graph_related_ast();
+            if (related_ast.is<Nodecl::FunctionCode>() && 
+                related_ast.get_symbol().get_name() == "main")
+            {
+                if(IsOmpssEnabled)
+                {   // From the beginning, but only tasks created there can be concurrent
+                    last_sync.insert(pcfg->get_graph_entry_node());
+                }
+                else
+                {   
+                    Node* task_creation = NULL;
+                    ObjectList<Node*> task_parents = task->get_parents();
+                    for(ObjectList<Node*>::iterator it = task_parents.begin(); it != task_parents.end(); ++it)
+                    {
+                        if((*it)->is_omp_task_creation_node())
+                            task_creation = *it;
+                    }
+                    ERROR_CONDITION(task_creation==NULL, "No task creation node found for task %s (node %d).\n", 
+                                    task->get_graph_related_ast().get_locus_str().c_str(), task->get_id());
+                    Node* parallel = get_most_outer_parallel(task_creation);
+                    if(parallel != NULL)
+                    {   // The most outer parallel without a single: we take the Flush node
+                        last_sync.insert(parallel->get_graph_entry_node()->get_children()[0]);
+                    }
+                    else
+                    {   // Cannot assume anything: the last synchronization point is the creation of the task
+                        Node* current_outer = task_creation->get_outer_node();
+                        Node* most_outer_loop = NULL;
+                        while(current_outer != NULL)
+                        {
+                            if(current_outer->is_loop_node())
+                                most_outer_loop = current_outer;
+                            current_outer = current_outer->get_outer_node();
+                        }
+                        if(most_outer_loop != NULL)
+                            last_sync.insert(most_outer_loop->get_graph_entry_node());
+                        else
+                            last_sync.insert(task_creation);
+                    }
+                }
+            }
+            else
+            {
+                last_sync.insert( pcfg->get_graph_entry_node( ) );
+            }
+        }
 
         ObjectList<Node*> concurrent_tasks;
         for( ObjectList<Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
@@ -1320,7 +1422,7 @@ namespace {
                 collect_tasks_between_nodes( *itl, *itn, skip_task, concurrent_tasks );
                 if( ( *itl )->is_omp_taskwait_node( ) )
                 {   // Only previous tasks in the same nesting level are synchronized.
-                    // We have to add here previous nested tasks here
+                    // We have to add here previous nested tasks
                     ObjectList<Node*> it_parents = ( *itl )->get_parents( );
                     collect_previous_tasks_synchronized_after_scheduling_point( task, it_parents, concurrent_tasks );
                     // We don want to clear the visit in *itl, but from its parents
@@ -1334,7 +1436,7 @@ namespace {
 
         // Set the information computed to the graph
         _graph->add_concurrent_task_group( task, concurrent_tasks );
-        _graph->add_last_synchronization( task, _last_sync );
+        _graph->add_last_synchronization( task, last_sync );
         _graph->add_next_synchronization( task, _next_sync );
     }
 
