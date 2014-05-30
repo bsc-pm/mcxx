@@ -730,8 +730,15 @@ LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter,
+        char unparenthesize_ptr_operator,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
+
+// This function is extern because it's used in cxx-scope.c
+LIBMCXX_EXTERN const char* get_simple_type_name_string_internal_common(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        void* data UNUSED_PARAMETER);
 
 // Like get_declarator_name_string_ex but only returns the declarator part, ignoring the type specifier
 LIBMCXX_EXTERN const char* get_declarator_name_string_ex(decl_context_t decl_context,

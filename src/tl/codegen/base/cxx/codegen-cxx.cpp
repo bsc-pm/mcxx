@@ -2583,7 +2583,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     while (tpl.is_valid())
     {
         // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        if (tpl.get_num_parameters() > 0
+                && tpl.get_is_explicit_specialization())
         {
              indent();
              *(file) << "template <>\n";
@@ -7149,16 +7150,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
 
-                if (primary_symbol != symbol)
-                {
-                    // Before the declaration of this specialization we should ensure
-                    // that the primary specialization has been defined
-                    (this->*decl_sym_fun)(primary_symbol);
-                }
-                else
-                {
-                    is_primary_template = 1;
-                }
+                is_primary_template = primary_symbol == symbol;
             }
 
             std::string class_key;
@@ -7298,7 +7290,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        char is_primary_template = 0;
+        bool is_template_function = false;
+        bool is_primary_template = false;
+        bool member_of_explicit_template_class = false;
+
         bool requires_extern_linkage = false;
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
@@ -7324,6 +7319,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
             if (symbol.get_type().is_template_specialized_type())
             {
+                is_template_function = true;
+
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
                 TL::Symbol primary_symbol = primary_template.get_symbol();
@@ -7331,17 +7328,27 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
                 if (primary_symbol == symbol)
                 {
-                    is_primary_template = 1;
+                    is_primary_template = true;
                 }
                 if (symbol.is_member())
                 {
-                    codegen_template_headers_bounded(template_parameters,
-                            symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
-                            /* show_default_values */ is_primary_template);
+                    if (scope != NULL
+                            && scope->is_namespace_scope())
+                    {
+                        codegen_template_headers_all_levels(template_parameters,
+                                /* show_default_values */ is_primary_template);
+                    }
+                    else
+                    {
+                        codegen_template_headers_bounded(template_parameters,
+                                symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                                /* show_default_values */ is_primary_template);
+                    }
                 }
                 else
                 {
-                    codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
+                    codegen_template_headers_all_levels(template_parameters,
+                            /* show_default_values */ is_primary_template);
                 }
             }
             else if (symbol.is_member())
@@ -7353,10 +7360,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     while (tpl.is_valid())
                     {
                         // We should ignore some 'fake' empty template headers
-                        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+                        if (tpl.get_num_parameters() > 0
+                                && tpl.get_is_explicit_specialization())
                         {
                             indent();
                             *(file) << "template <>\n";
+                            member_of_explicit_template_class = true;
                         }
                         tpl = tpl.get_enclosing_parameters();
                     }
@@ -7368,8 +7377,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         TL::ObjectList<std::string> parameter_names(num_parameters);
         TL::ObjectList<std::string> parameter_attributes(num_parameters);
         fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
-                !symbol.get_type().is_template_specialized_type() || is_primary_template);
-
+                // We want default arguments if this is a primary template
+                is_primary_template
+                // otherwise we want them only for nontemplate functions
+                || (!is_template_function && !member_of_explicit_template_class)
+                );
 
         std::string decl_spec_seq;
 
@@ -7421,6 +7433,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
+        if (gcc_attributes != "")
+            gcc_attributes = " " + gcc_attributes;
         std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
         TL::Type real_type = symbol.get_type();
@@ -8764,7 +8778,8 @@ void CxxBase::codegen_template_header(
         return;
 
     indent();
-    if (template_parameters.get_is_explicit_specialization())
+    if (template_parameters.get_num_parameters() > 0 
+            && template_parameters.get_is_explicit_specialization())
     {
         *(file) << "template <>";
         if (endline)
@@ -9172,6 +9187,7 @@ const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void
                 /* parameter_names */ NULL,
                 /* parameter_attributes */ NULL,
                 /* is_parameter */ 0,
+                /* unparenthesize_ptr_operator */ 0,
                 print_name_str,
                 data);
     }
@@ -9183,8 +9199,8 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return get_declaration_string_ex(t.get_internal_type(), scope.get_decl_context(),
-            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, print_name_str,
-            /* we need to store the current codegen */ (void*) this);
+            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, /* unparenthesize_ptr_operator */ 0,
+            print_name_str, /* we need to store the current codegen */ (void*) this);
 }
 
 std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
@@ -9311,7 +9327,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     const char* result = get_declaration_string_ex(t.get_internal_type(),
             scope.get_decl_context(), symbol_name.c_str(), "", 0,
             num_parameters, parameter_names, param_attributes,
-            /* is_parameter */ 1, print_name_str,
+            /* is_parameter */ 1,
+            /* unparenthesize_ptr_operator */ 0,
+            print_name_str,
             /* we need to store the current codegen */ (void*) this);
 
     for (int i = 0; i < num_parameters; i++)
