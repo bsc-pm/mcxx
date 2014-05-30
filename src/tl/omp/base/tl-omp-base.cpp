@@ -79,6 +79,11 @@ namespace TL { namespace OpenMP {
                 _ompss_mode_str,
                 "0").connect(functor(&Base::set_ompss_mode, *this));
 
+        register_parameter("omp_report",
+                "Emits an OpenMP report describing the OpenMP semantics of the code",
+                _omp_report_str,
+                "0").connect(functor(&Base::set_omp_report, *this));
+
         register_parameter("copy_deps_by_default",
                 "Enables copy_deps by default",
                 _copy_deps_str,
@@ -237,9 +242,19 @@ namespace TL { namespace OpenMP {
         _core.set_ompss_mode(_ompss_mode);
     }
 
+    void Base::set_omp_report(const std::string& str)
+    {
+        parse_boolean_option("omp_report", str, _omp_report, "Assuming false.");
+    }
+
     bool Base::in_ompss_mode() const
     {
         return _ompss_mode;
+    }
+
+    bool Base::emit_omp_report() const
+    {
+        return _omp_report;
     }
 
     void Base::set_copy_deps_by_default(const std::string& str)

@@ -64,6 +64,11 @@ namespace TL
                 void set_ompss_mode(const std::string &str);
                 bool in_ompss_mode() const;
 
+                std::string _omp_report_str;
+                bool _omp_report;
+                void set_omp_report(const std::string &str);
+                bool emit_omp_report() const;
+
                 std::string _copy_deps_str;
                 bool _copy_deps_by_default;
                 void set_copy_deps_by_default(const std::string& str);
