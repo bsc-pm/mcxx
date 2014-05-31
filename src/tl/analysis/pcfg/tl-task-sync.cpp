@@ -90,25 +90,29 @@ namespace {
 #endif
                     }
 
-#ifdef TASK_SYNC_DEBUG
-                    std::pair<AliveTaskSet::iterator, bool> res =
-#endif
-                    // TODO - We do this even if task_sync_rel returned tribool::yes. Why?
-                    current->get_live_out_tasks().insert(*alive_tasks_it);
-#ifdef TASK_SYNC_DEBUG
-                    if (res.second)
-                    {
-                            std::cerr << __FILE__ << ":" << __LINE__
-                            << " task is (potentially) still alive after execution" << std::endl;
-                    }
-#endif
-
                     if (task_sync_rel == tribool::yes)
                     {
 #ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
 #endif
                         current->get_static_sync_out_tasks().insert(*alive_tasks_it);
+                    }
+                    else
+                    {
+#ifdef TASK_SYNC_DEBUG
+                        std::pair<AliveTaskSet::iterator, bool> res =
+#endif
+                        // Note: this statement was previously done for both tribool::yes and tribool::unknown
+                        //       but we do not see reason for doing that anymore
+                        //       Otherwise, we may have 'false' synchronizations between tasks
+                        current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
+                        if (res.second)
+                        {
+                                std::cerr << __FILE__ << ":" << __LINE__
+                                << " but it is (potentially) still alive after execution" << std::endl;
+                        }
+#endif
                     }
                     break;
                 }
