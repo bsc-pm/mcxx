@@ -119,7 +119,17 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
 #define NODECL_EXPR_SET_PTR(type, what, field_name) \
 static void nodecl_expr_set_##what(AST expr, type * datum) \
 { \
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr); \
+    nodecl_expr_info_t* expr_info; \
+    if (datum == NULL) \
+    { \
+       expr_info = nodecl_expr_get_expression_info_noalloc(expr); \
+       if (expr_info == NULL) \
+         return; \
+    } \
+    else \
+    { \
+     expr_info = nodecl_expr_get_expression_info(expr); \
+    } \
     expr_info->field_name = datum; \
 }
 
