@@ -806,13 +806,14 @@ namespace Analysis {
         {
             current->set_visited( false );
 
-            if( current->is_entry_node( ) )
-                return;
-
             if( current->is_graph_node( ) )
                 clear_visits_backwards( current->get_graph_exit_node( ) );
 
-            ObjectList<Node*> parents = current->get_parents( );
+            ObjectList<Node*> parents;
+            if(current->is_entry_node())
+                parents.insert(current->get_outer_node());
+            else
+                parents = current->get_parents( );
             for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
                 clear_visits_backwards( *it );
         }
@@ -824,13 +825,14 @@ namespace Analysis {
         {
             current->set_visited_aux( false );
             
-            if( current->is_entry_node( ) )
-                return;
-            
             if( current->is_graph_node( ) )
                 clear_visits_aux_backwards( current->get_graph_exit_node( ) );
             
-            ObjectList<Node*> parents = current->get_parents( );
+            ObjectList<Node*> parents;
+            if(current->is_entry_node())
+                parents.insert(current->get_outer_node());
+            else
+                parents = current->get_parents( );
             for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
                 clear_visits_aux_backwards( *it );
         }

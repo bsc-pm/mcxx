@@ -458,8 +458,10 @@ namespace {
             if( source != ommited_node )
             {
                 if( source->is_graph_node( ) )
+                {
                     compute_usage_between_nodes( source->get_graph_entry_node( ), target, ommited_node, 
                                                  concurrently_used_vars, variables );
+                }
                 else if( source->has_statements( ) )
                 {
                     TL::Analysis::Utils::ext_sym_set ue = source->get_ue_vars( );
@@ -575,10 +577,10 @@ namespace {
             for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
                 for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
                     compute_usage_between_nodes( *itl, *itn, n, concurrently_used_vars, task_shared_variables );
-            std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > task_used_vars;
-            TL::Analysis::Node* task_entry = n->get_graph_entry_node( );
             for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
                 TL::Analysis::ExtensibleGraph::clear_visits( *itl );
+            std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > task_used_vars;
+            TL::Analysis::Node* task_entry = n->get_graph_entry_node( );
             compute_usage_between_nodes( task_entry, n->get_graph_exit_node( ), NULL, task_used_vars, task_shared_variables );
             TL::Analysis::ExtensibleGraph::clear_visits( task_entry );
             
@@ -587,12 +589,11 @@ namespace {
                     // To be conservative, the undef. variables count as definitions
             TL::Analysis::Utils::ext_sym_set task_undef = n->get_undefined_behaviour_vars( );  
             task_defs.insert( task_undef.begin( ), task_undef.end( ) );
-            bool var_warned;
+            std::map<Nodecl::NodeclBase, bool, Nodecl::Utils::Nodecl_structural_less> warned_vars;
             for( std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator it = concurrently_used_vars.begin( ); 
                  it != concurrently_used_vars.end( ); ++it )
             {
-                var_warned = false; // reset this value for each variable
-                
+                warned_vars[it->first] = false;
                 // At least one of the accesses must be a write
                 TL::Analysis::Utils::ext_sym_set node_defs;
                 for( TL::ObjectList<TL::Analysis::Node*>::iterator it2 = it->second.begin( ); it2 != it->second.end( ); ++it2 )
@@ -618,12 +619,12 @@ namespace {
                         {
                             result = true;
                             race_cond_vars.append( it->first );
-                            var_warned = true;
+                            warned_vars[it->first] = true;
                             break;
                         }
                     }
                     // 2. Check accesses in the task
-                    if( !var_warned )
+                    if( !warned_vars[it->first] )
                     {
                         std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator tmp = task_used_vars.find( it->first );
                         if( tmp == task_used_vars.end( ) )
@@ -641,6 +642,7 @@ namespace {
                                 {
                                     result = true;
                                     race_cond_vars.append( it->first );
+                                    warned_vars[it->first] = false;
                                     break;
                                 }
                             }
@@ -660,8 +662,8 @@ namespace {
                     for(std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator itt = task_used_vars.begin(); 
                         itt != task_used_vars.end(); ++itt)
                     {
-                        std::cerr << "   - " << itt->first.prettyprint() << std::endl;
-                        if(Nodecl::Utils::nodecl_is_in_nodecl_list(itt->first, task_shared_variables))
+                        if (Nodecl::Utils::nodecl_is_in_nodecl_list(itt->first, task_shared_variables) && 
+                            !warned_vars[itt->first])
                         {   // Check whether the accesses to the variable are protected or not
                             TL::ObjectList<TL::Analysis::Node*> nodes = itt->second;
                             bool defined = false;

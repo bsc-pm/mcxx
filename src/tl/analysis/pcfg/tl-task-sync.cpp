@@ -1320,9 +1320,9 @@ namespace {
             // Check for the structure we look for
             if(current->is_omp_parallel_node())
             {
-                Node* flush = current->get_graph_entry_node()->get_children()[0];
-                Node* child = flush->get_children()[0];
-                if(!child->is_omp_single_node())
+//                 Node* flush = current->get_graph_entry_node()->get_children()[0];
+//                 Node* child = flush->get_children()[0];
+//                 if(!child->is_omp_single_node())
                 {   // We found the first parallel with no single
                     parallel = current;
                 }
@@ -1371,9 +1371,10 @@ namespace {
         else
         {
             Node* pcfg = ExtensibleGraph::get_extensible_graph_from_node(task);
-            Nodecl::NodeclBase related_ast = pcfg->get_graph_related_ast();
-            if (related_ast.is<Nodecl::FunctionCode>() && 
-                related_ast.get_symbol().get_name() == "main")
+//             FIXME We need to work out this part... it is not real correct
+//             Nodecl::NodeclBase related_ast = pcfg->get_graph_related_ast();
+//             if (related_ast.is<Nodecl::FunctionCode>() && 
+//                 related_ast.get_symbol().get_name() == "main")
             {
                 if(IsOmpssEnabled)
                 {   // From the beginning, but only tasks created there can be concurrent
@@ -1412,10 +1413,10 @@ namespace {
                     }
                 }
             }
-            else
-            {
-                last_sync.insert( pcfg->get_graph_entry_node( ) );
-            }
+//             else
+//             {
+//                 last_sync.insert( pcfg->get_graph_entry_node( ) );
+//             }
         }
 
         ObjectList<Node*> concurrent_tasks;
