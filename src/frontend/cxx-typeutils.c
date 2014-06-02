@@ -3192,6 +3192,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     {
         _qualified_type_counter++;
         qualified_type = new_empty_type();
+        xfree(qualified_type->info);
         *qualified_type = *original;
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
@@ -11994,6 +11995,7 @@ char is_literal_type(type_t* t)
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(copy_constructors);
 
         if (found_bad_case)
             return 0;

@@ -11235,6 +11235,8 @@ static void check_nodecl_function_call_cxx(
             }
         }
 
+        entry_list_free(candidates);
+
         // Create a dependent call
         *nodecl_output = nodecl_make_cxx_dep_function_call(
                 nodecl_called,
@@ -11339,6 +11341,8 @@ static void check_nodecl_function_call_cxx(
             }
 
             scope_entry_list_t* first_set_candidates = get_member_of_class_type(class_type, operator, decl_context, NULL);
+
+            entry_list_free(candidates);
             candidates = unfold_and_mix_candidate_functions(first_set_candidates,
                     /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
@@ -13836,6 +13840,7 @@ static void check_postoperator_user_defined(
                 argument_types);
     }
     entry_list_iterator_free(it);
+    entry_list_free(overload_set);
 
     scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 

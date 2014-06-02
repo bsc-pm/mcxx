@@ -3158,6 +3158,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                 }
                 i_arg++;
             }
+            xfree(updated_parameter_values);
+
             // Allocate room for the parameters, this is required by complete_template_parameters_of_template_class
             expanded_template_parameters->parameters = xcalloc(expanded_template_parameters->num_parameters,
                     sizeof(*(expanded_template_parameters->parameters)));
@@ -3168,6 +3170,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                     expanded_template_parameters,
                     locus);
 
+            xfree(expanded_template_parameters->parameters);
             xfree(expanded_template_parameters->arguments);
             xfree(expanded_template_parameters);
 
@@ -3177,7 +3180,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Completion of template parameters failed\n");
                 }
-                xfree(expanded_template_parameters->parameters);
                 return NULL;
             }
 
