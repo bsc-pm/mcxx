@@ -1530,7 +1530,7 @@ namespace TL
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-            
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
@@ -1540,8 +1540,8 @@ namespace TL
             data_sharing.set_real_time_info(rt_info);
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
-            
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED, 
+
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED,
                     /*allow_default_auto*/ true);
 
             get_dependences_info(pragma_line, data_sharing, default_data_attr);

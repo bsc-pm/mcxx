@@ -460,7 +460,7 @@ namespace TL
             return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
         }
 
-        //Symbold::invalid it's theorically used when the outline has no symbol
+        //Symbol::invalid it's theorically used when the outline has no symbol
         //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
@@ -471,14 +471,15 @@ namespace TL
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
+                ObjectList<OutlineDataItem*> _dependency_items;
 
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
                 // Do not copy
-                OutlineInfo(const OutlineInfo&);
-                OutlineInfo& operator=(const OutlineInfo&);
+                // OutlineInfo(const OutlineInfo&);
+                // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
 
@@ -502,7 +503,11 @@ namespace TL
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
+                OutlineDataItem& get_dependency_entity_for_symbol(TL::Symbol sym);
+                OutlineDataItem& get_dependency_entity_for_symbol(TL::Symbol sym, bool &new_item);
+
                 ObjectList<OutlineDataItem*> get_data_items();
+                ObjectList<OutlineDataItem*> get_dependency_items();
 
                 TL::Symbol get_funct_symbol() const;
 

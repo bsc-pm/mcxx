@@ -813,8 +813,10 @@ namespace TL { namespace OpenMP {
 
         const locus_t* locus = enclosing_stmt.get_locus();
 
-        TL::ObjectList<Nodecl::NodeclBase> target_items, copy_in, copy_out, copy_inout,
-            in_alloca_deps, concurrent_deps, out_deps, assumed_firstprivates, alloca_exprs;
+        TL::ObjectList<Nodecl::NodeclBase> target_items,
+            /* copies information */ copy_in, copy_out, copy_inout,
+            /* dependences information */ in_alloca_deps, concurrent_deps, out_deps,
+            /* data-sharing information */ firstprivate_symbols, alloca_symbols;
 
         Nodecl::NodeclBase lhs_expr, rhs_expr;
         decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
@@ -853,7 +855,7 @@ namespace TL { namespace OpenMP {
             if (it_sym == return_arguments.end())
             {
                 // The expressions that are not return arguments are passed as firstprivates
-                assumed_firstprivates.append((*it2).shallow_copy());
+                firstprivate_symbols.append((*it2).shallow_copy());
             }
             else
             {
@@ -889,26 +891,26 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
             sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
-            alloca_exprs.append(
+            alloca_symbols.append(
                     Nodecl::Dereference::make(
                         sym_nodecl,
                         sym.get_type().points_to().get_lvalue_reference_to(),
                         locus));
         }
 
-        if (!assumed_firstprivates.empty())
+        if (!firstprivate_symbols.empty())
         {
             exec_environment.append(
                     Nodecl::OpenMP::Firstprivate::make(
-                        Nodecl::List::make(assumed_firstprivates),
+                        Nodecl::List::make(firstprivate_symbols),
                         locus));
         }
 
-        if (!alloca_exprs.empty())
+        if (!alloca_symbols.empty())
         {
             exec_environment.append(
                     Nodecl::OpenMP::Alloca::make(
-                        Nodecl::List::make(alloca_exprs),
+                        Nodecl::List::make(alloca_symbols),
                         locus));
         }
 

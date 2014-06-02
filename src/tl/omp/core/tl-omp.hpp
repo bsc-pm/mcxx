@@ -634,13 +634,14 @@ namespace OpenMP
 
                 virtual ~OpenMPPhase() { }
         };
-        
+
         // Implemented in tl-omp-deps.cpp
         void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
 
+        // Implemented in tl-omp.cpp
+        std::string string_of_data_sharing(DataSharingAttribute data_attr);
     // @}
     }
-    
 }
 
 extern "C"

@@ -1612,21 +1612,6 @@ namespace TL { namespace OpenMP {
     {
         TL::ObjectList<Symbol> symbols;
         data_sharing_env.get_all_symbols(data_attr, symbols);
-
-        if (!avoid_dependency_clause_symbols)
-        {
-            // Get the symbols in dependences
-            TL::ObjectList<DependencyItem> all_dependences;
-            data_sharing_env.get_all_dependences(all_dependences);
-            TL::ObjectList<DataReference> dependences_in_symbols
-                = all_dependences.map(functor(&DependencyItem::get_dependency_expression));
-            TL::ObjectList<Symbol> symbols_in_dependences
-                = dependences_in_symbols.map(functor(&DataReference::get_base_symbol));
-
-            // Remove all symbols appearing in dependences
-            symbols = symbols.filter(not_in_set(symbols_in_dependences));
-        }
-        
         if (!symbols.empty())
         {
             TL::ObjectList<Nodecl::NodeclBase> nodecl_symbols = symbols.map(SymbolBuilder(locus));

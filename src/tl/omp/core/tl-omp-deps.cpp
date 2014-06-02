@@ -99,10 +99,11 @@ namespace TL { namespace OpenMP {
         data_ref_visitor_dep.walk(data_ref);
     }
 
-    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
-            DataSharingEnvironment& data_sharing, 
-            DependencyDirection dep_attr, 
-            DataSharingAttribute default_data_attr)
+    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
+            DataSharingEnvironment& data_sharing,
+            DependencyDirection dep_attr,
+            DataSharingAttribute default_data_attr,
+            bool in_ompss_mode)
     {
         DataRefVisitorDep data_ref_visitor_dep(data_sharing);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
@@ -136,15 +137,28 @@ namespace TL { namespace OpenMP {
             //
             // Note, though, that if the base symbol 'x' is an array, it will always be shared.
             //
-            if((default_data_attr & DS_AUTO) == DS_AUTO) 
+            if((default_data_attr & DS_AUTO) == DS_AUTO)
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO));
             }
-            else if (expr.is<Nodecl::Symbol>()
-                    || sym.get_type().is_array()
-                    || (sym.get_type().is_any_reference()
-                        && sym.get_type().references_to().is_array()))
+            else if (in_ompss_mode
+                    && (expr.is<Nodecl::Symbol>()
+                        || sym.get_type().is_array()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_array())))
             {
+                DataSharingAttribute dsa = data_sharing.get_data_sharing(sym);
+                if  (dsa != DS_UNDEFINED && dsa != DS_SHARED)
+                {
+                    warn_printf("%s: warning: invalid data-sharing '%s' for the dependence '%s', skipping it\n",
+                            expr.get_locus_str().c_str(),
+                            string_of_data_sharing(dsa).c_str(),
+                            expr.prettyprint().c_str());
+
+                    info_printf("%s: info: dependences are always passed as SHARED in OmpSs\n",
+                            expr.get_locus_str().c_str());
+                }
+
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
 
@@ -303,7 +317,8 @@ namespace TL { namespace OpenMP {
             // Singleton
             ObjectList<Nodecl::NodeclBase> expr_list;
             expr_list.append(expr);
-            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
+            add_data_sharings(expr_list, data_sharing,
+                    dep_attr, default_data_attr, this->in_ompss_mode());
         }
 
         regfree(&preg);
@@ -317,7 +332,8 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
-            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
+            add_data_sharings(expr_list, data_sharing,
+                    dep_attr, default_data_attr, this->in_ompss_mode());
         }
     }
 

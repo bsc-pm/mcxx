@@ -122,37 +122,35 @@ namespace TL
             return _is_parallel;
         }
 
-        namespace {
-            std::string string_of_data_sharing(DataSharingAttribute data_attr)
+        std::string string_of_data_sharing(DataSharingAttribute data_attr)
+        {
+            std::string result;
+            if ((data_attr & DS_IMPLICIT) == DS_IMPLICIT)
             {
-                std::string result;
-                if ((data_attr & DS_IMPLICIT) == DS_IMPLICIT)
-                {
-                    result += "DS_IMPLICIT ";
-                }
-                data_attr = DataSharingAttribute(data_attr & ~DS_IMPLICIT);
-
-                switch (data_attr)
-                {
-#define CASE(x) case x : result += #x; break;
-                    CASE(DS_UNDEFINED)
-                        CASE(DS_SHARED)
-                        CASE(DS_PRIVATE)
-                        CASE(DS_FIRSTPRIVATE)
-                        CASE(DS_LASTPRIVATE)
-                        CASE(DS_FIRSTLASTPRIVATE)
-                        CASE(DS_REDUCTION)
-                        CASE(DS_THREADPRIVATE)
-                        CASE(DS_COPYIN)
-                        CASE(DS_COPYPRIVATE)
-                        CASE(DS_NONE)
-                        CASE(DS_AUTO)
-#undef CASE
-                    default: result += "<<UNKNOWN?>>";
-                }
-
-                return result;
+                result += "DS_IMPLICIT ";
             }
+            data_attr = DataSharingAttribute(data_attr & ~DS_IMPLICIT);
+
+            switch (data_attr)
+            {
+#define CASE(x) case x : result += #x; break;
+                CASE(DS_UNDEFINED)
+                    CASE(DS_SHARED)
+                    CASE(DS_PRIVATE)
+                    CASE(DS_FIRSTPRIVATE)
+                    CASE(DS_LASTPRIVATE)
+                    CASE(DS_FIRSTLASTPRIVATE)
+                    CASE(DS_REDUCTION)
+                    CASE(DS_THREADPRIVATE)
+                    CASE(DS_COPYIN)
+                    CASE(DS_COPYPRIVATE)
+                    CASE(DS_NONE)
+                    CASE(DS_AUTO)
+#undef CASE
+                default: result += "<<UNKNOWN?>>";
+            }
+
+            return result;
         }
 
         void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr)

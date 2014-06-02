@@ -106,6 +106,31 @@ namespace TL { namespace Nanox {
         return (*_data_env_items.back());
     }
 
+    OutlineDataItem& OutlineInfo::get_dependency_entity_for_symbol(TL::Symbol sym)
+    {
+        bool dummy;
+        return get_dependency_entity_for_symbol(sym, dummy);
+    }
+
+    OutlineDataItem& OutlineInfo::get_dependency_entity_for_symbol(TL::Symbol sym, bool &is_new)
+    {
+        is_new = false;
+        for (ObjectList<OutlineDataItem*>::iterator it = _dependency_items.begin();
+                it != _dependency_items.end();
+                it++)
+        {
+            if ((*it)->get_symbol() == sym)
+                return *(*it);
+        }
+
+        std::string field_name = get_field_name(sym.get_name());
+        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
+        is_new = true;
+
+        _dependency_items.append(env_item);
+        return (*_dependency_items.back());
+    }
+
     void OutlineInfoRegisterEntities::add_shared_opaque(Symbol sym)
     {
         bool is_new = false;
@@ -812,46 +837,46 @@ namespace TL { namespace Nanox {
         return t;
     }
 
-    void OutlineInfoRegisterEntities::add_dependence(Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality)
+    void OutlineInfoRegisterEntities::add_dependence(
+            Nodecl::NodeclBase node, OutlineDataItem::DependencyDirectionality directionality)
     {
         TL::DataReference data_ref(node);
         if (data_ref.is_valid())
         {
             TL::Symbol sym = data_ref.get_base_symbol();
 
-            if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
-            {
-                add_shared_alloca(sym);
-            }
-            else
-            {
-                if (IS_FORTRAN_LANGUAGE)
-                {
-                    // For ALLOCATABLE and shared pointers, copy the descriptor
-                    if ((sym.is_allocatable()
-                            && sym.get_type().no_ref().is_fortran_array())
-                            || (sym.get_type().no_ref().is_pointer()
-                                && sym.get_type().no_ref().points_to().is_fortran_array()))
-                    {
-                        add_shared_opaque_and_captured_array_descriptor(sym);
-                    }
-                    else
-                    {
-                        add_shared_opaque(sym);
-                    }
-                }
-                else if (data_ref.is<Nodecl::Symbol>())
-                {
-                    add_shared(sym);
-                }
-                else
-                {
-                    add_capture_address(sym, data_ref);
-                }
-            }
-
-            OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
-            outline_info.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, directionality));
+            // if (directionality == OutlineDataItem::DEP_IN_ALLOCA)
+            // {
+            //     add_shared_alloca(sym);
+            // }
+            // else
+            // {
+            //     if (IS_FORTRAN_LANGUAGE)
+            //     {
+            //         // For ALLOCATABLE and shared pointers, copy the descriptor
+            //         if ((sym.is_allocatable()
+            //                 && sym.get_type().no_ref().is_fortran_array())
+            //                 || (sym.get_type().no_ref().is_pointer()
+            //                     && sym.get_type().no_ref().points_to().is_fortran_array()))
+            //         {
+            //             add_shared_opaque_and_captured_array_descriptor(sym);
+            //         }
+            //         else
+            //         {
+            //             add_shared_opaque(sym);
+            //         }
+            //     }
+            //     else if (data_ref.is<Nodecl::Symbol>())
+            //     {
+            //         add_shared(sym);
+            //     }
+            //     else
+            //     {
+            //         add_capture_address(sym, data_ref);
+            //     }
+            // }
+            OutlineDataItem &dep_item = _outline_info.get_dependency_entity_for_symbol(sym);
+            dep_item.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, directionality));
         }
         else
         {
@@ -1100,11 +1125,13 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::DepInValue& dep_in_value)
             {
+                std::cerr << "dep_in_value" << std::endl;
                 add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
             }
 
             void visit(const Nodecl::OpenMP::DepInAlloca& dep_in_alloca)
             {
+                std::cerr << "dep_in_alloca" << std::endl;
                 add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
             }
 
@@ -1257,7 +1284,7 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo() : _data_env_items() { }
+    OutlineInfo::OutlineInfo() : _data_env_items(), _dependency_items() { }
 
     OutlineInfo::~OutlineInfo()
     {
@@ -1269,7 +1296,8 @@ namespace TL { namespace Nanox {
         }
     }
 
-    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment, TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
+    OutlineInfo::OutlineInfo(Nodecl::NodeclBase environment,
+            TL::Symbol funct_symbol, RefPtr<OpenMP::FunctionTaskSet> function_task_set)
         : _data_env_items(), _function_task_set(function_task_set)
     {
         TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
@@ -1307,6 +1335,11 @@ namespace TL { namespace Nanox {
     ObjectList<OutlineDataItem*> OutlineInfo::get_data_items()
     {
         return _data_env_items;
+    }
+
+    ObjectList<OutlineDataItem*> OutlineInfo::get_dependency_items()
+    {
+        return _dependency_items;
     }
 
     TL::Symbol OutlineInfo::get_funct_symbol() const
