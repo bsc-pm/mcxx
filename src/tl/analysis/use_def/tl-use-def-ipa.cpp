@@ -32,6 +32,8 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
+    std::set<std::string> _warned_unreach_funcs;
+    
     // ******************************************************************************************** //
     // ********************* Known function code IP usage propagation methods ********************* //
     
@@ -433,11 +435,16 @@ namespace Analysis {
 
             if(side_effects && VERBOSE)
             {
-                WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
-                                "reference parameters will be limited. \nIf you know the side effects of this function, "\
-                                "add it to the file and recompile your code. \n(If you recompile the compiler, "\
-                                "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-                                func_sym.get_name().c_str(), cLibFuncsPath.c_str());
+                std::string func_name = func_sym.get_name();
+                if(_warned_unreach_funcs.find(func_name)==_warned_unreach_funcs.end())
+                {   // Each function is warned only once
+                    _warned_unreach_funcs.insert(func_name);
+                    WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
+                                    "reference parameters will be limited. \nIf you know the side effects of this function, "\
+                                    "add it to the file and recompile your code. \n(If you recompile the compiler, "\
+                                    "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
+                                    func_sym.get_name().c_str(), cLibFuncsPath.c_str());
+                }
             }
             cLibFuncs.close();
         }
