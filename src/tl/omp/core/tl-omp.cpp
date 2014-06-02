@@ -197,33 +197,44 @@ namespace TL
             _target_info = target_info;
         }
 
-        DataSharingAttribute DataSharingEnvironment::get_internal(Symbol sym)
+        DataSharingEnvironment::DataSharingAttributeInfo
+            DataSharingEnvironment::get_internal(Symbol sym)
         {
             std::map<Symbol, DataSharingAttributeInfo>::iterator it = _map->find(sym);
             if (it == _map->end())
             {
-                return DS_UNDEFINED;
+                return DataSharingAttributeInfo();
             }
             else
             {
-                return it->second.attr;
+                return it->second;
             }
+        }
+
+        DataSharingEnvironment::DataSharingAttributeInfo
+            DataSharingEnvironment::get_data_sharing_info(Symbol sym, bool check_enclosing)
+        {
+            DataSharingAttributeInfo result = get_internal(sym);
+
+            DataSharingEnvironment *enclosing = NULL;
+            if (result.attr == DS_UNDEFINED
+                    && check_enclosing
+                    && ((enclosing = get_enclosing()) != NULL))
+            {
+                return enclosing->get_data_sharing_info(sym, check_enclosing);
+            }
+
+            return result;
         }
 
         DataSharingAttribute DataSharingEnvironment::get_data_sharing(Symbol sym, bool check_enclosing)
         {
-            DataSharingAttribute result;
-            result = get_internal(sym);
+            return get_data_sharing_info(sym, check_enclosing).attr;
+        }
 
-            DataSharingEnvironment *enclosing = NULL;
-            if (result == DS_UNDEFINED
-                    && check_enclosing
-                    && ((enclosing = get_enclosing()) != NULL))
-            {
-                return enclosing->get_data_sharing(sym, check_enclosing);
-            }
-
-            return result;
+        std::string DataSharingEnvironment::get_data_sharing_reason(Symbol sym, bool check_enclosing)
+        {
+            return get_data_sharing_info(sym, check_enclosing).reason;
         }
 
         void DataSharingEnvironment::add_dependence(const DependencyItem& dependency_item)

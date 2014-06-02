@@ -354,7 +354,8 @@ namespace OpenMP
 
             bool _is_parallel;
 
-            DataSharingAttribute get_internal(Symbol sym);
+            DataSharingAttributeInfo get_internal(Symbol sym);
+            DataSharingAttributeInfo get_data_sharing_info(Symbol sym, bool check_enclosing);
 
             RealTimeInfo _real_time_info;
         public:
@@ -373,6 +374,7 @@ namespace OpenMP
             /*!
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
+                * \param reason String used in data-sharing reports
                 */
             void set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
                     const std::string& reason);
@@ -382,6 +384,7 @@ namespace OpenMP
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
+                * \param reason String used in data-sharing reports
                 */
             void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
                     const std::string& reason);
@@ -400,6 +403,17 @@ namespace OpenMP
                 * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                 */
             DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
+
+            //! Gets the data sharing attribute reason of a symbol
+            /*!
+             * This reason is the string passed to set_data_sharing and typically contains
+             * report information useful to tell why a symbol was set a specific data-sharing
+             * attribute
+             * \param sym The symbol requested its data sharing attribute
+             * \param check_enclosing Checks enclosing data sharings
+             * \return The reason or "(symbol has undefined data-sharing)" if no data-sharing for it was set
+             */
+            std::string get_data_sharing_reason(Symbol sym, bool check_enclosing = true);
 
             //! Returns the enclosing data sharing
             DataSharingEnvironment* get_enclosing();
