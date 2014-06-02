@@ -806,18 +806,38 @@ namespace Analysis {
         {
             current->set_visited( false );
 
-            if( current->is_entry_node( ) )
-                return;
-
             if( current->is_graph_node( ) )
                 clear_visits_backwards( current->get_graph_exit_node( ) );
 
-            ObjectList<Node*> parents = current->get_parents( );
+            ObjectList<Node*> parents;
+            if(current->is_entry_node())
+                parents.insert(current->get_outer_node());
+            else
+                parents = current->get_parents( );
             for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
                 clear_visits_backwards( *it );
         }
     }
 
+    void ExtensibleGraph::clear_visits_aux_backwards( Node* current )
+    {
+        if( current->is_visited_aux( ) )
+        {
+            current->set_visited_aux( false );
+            
+            if( current->is_graph_node( ) )
+                clear_visits_aux_backwards( current->get_graph_exit_node( ) );
+            
+            ObjectList<Node*> parents;
+            if(current->is_entry_node())
+                parents.insert(current->get_outer_node());
+            else
+                parents = current->get_parents( );
+            for( ObjectList<Node*>::iterator it = parents.begin( ); it != parents.end( ); ++it )
+                clear_visits_aux_backwards( *it );
+        }
+    }
+    
     void ExtensibleGraph::clear_visits_backwards_in_level( Node* current, Node* outer_node )
     {
         if( current->is_visited( ) && current->node_is_enclosed_by( outer_node ) )
@@ -1240,7 +1260,7 @@ namespace Analysis {
     Node* ExtensibleGraph::get_enclosing_context( Node* n )
     {
         Node* sc = NULL;
-        Node* outer = n;
+        Node* outer = (n->is_context_node() ? n->get_outer_node() : n);
         while( sc == NULL && outer != NULL )
         {
             if( outer->is_context_node( ) )
@@ -1324,6 +1344,31 @@ namespace Analysis {
         return get_enclosing_control_structure_rec( node->get_outer_node( ) );
     }
 
+    Node* ExtensibleGraph::get_task_creation_node( Node* task )
+    {
+        if(!task->is_omp_task_node())
+            return NULL;
+        
+        ObjectList<Node*> parents = task->get_parents();
+        Node* creation_node = NULL;
+        for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+        {
+            if((*it)->is_omp_task_creation_node())
+            {
+                creation_node = *it;
+                break;
+            }
+        }
+        
+        if( VERBOSE && (creation_node == NULL))
+        {
+            WARNING_MESSAGE("The creation node of task %s (node %d) could not be found.\n", 
+                            task->get_graph_related_ast().get_locus_str().c_str(), task->get_id());
+        }
+        
+        return creation_node;
+    }
+    
     Node* ExtensibleGraph::find_nodecl_rec( Node* current, const Nodecl::NodeclBase& n )
     {
         Node* result = NULL;

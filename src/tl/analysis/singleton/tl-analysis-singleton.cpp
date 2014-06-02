@@ -407,14 +407,19 @@ namespace Analysis {
     // ************************************************************************ //
     // *********** Analysis Singleton class ( Memento originator ) ************ //
 
+    static bool IsOmpssEnabled = false;
+    
     // Private constructor
     AnalysisSingleton::AnalysisSingleton( )
     {}
 
     // Single instance constructor
-    AnalysisSingleton& AnalysisSingleton::get_analysis( )
+    AnalysisSingleton& AnalysisSingleton::get_analysis(bool is_ompss_enabled)
     {
         static AnalysisSingleton analysis;
+
+        IsOmpssEnabled = is_ompss_enabled;
+        
         return analysis;
     }
 
@@ -461,7 +466,7 @@ namespace Analysis {
                     // Synchronize the tasks, if applies
                     if( VERBOSE )
                         printf( "Task sync of PCFG '%s'\n", pcfg_name.c_str( ) );
-                    TaskAnalysis::TaskSynchronizations task_sync_analysis( pcfg );
+                    TaskAnalysis::TaskSynchronizations task_sync_analysis( pcfg, IsOmpssEnabled );
                     task_sync_analysis.compute_task_synchronizations( );
 
                     // Store the pcfg in the singleton

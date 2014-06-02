@@ -32,6 +32,8 @@
 namespace TL {
 namespace OpenMP {
 
+    static bool IsOmpssEnabled = false;
+    
     // ****************************************************************************** //
     // *************** Phase for Automatic Data-Sharing computation ***************** //
 
@@ -46,6 +48,11 @@ namespace OpenMP {
                            "If set to '1' enables pcfg analysis, otherwise it is disabled",
                            _auto_scope_enabled_str,
                            "0").connect(functor(&AutoScopePhase::set_auto_scope, *this));
+
+        register_parameter("ompss_mode",
+                            "Enables OmpSs semantics instead of OpenMP semantics",
+                            _ompss_mode_str,
+                            "0").connect(functor(&AutoScopePhase::set_ompss_mode, *this));
     }
 
     void AutoScopePhase::pre_run(TL::DTO& dto)
@@ -65,6 +72,7 @@ namespace OpenMP {
             {
                 std::cerr << "Phase calculating automatic scope for tasks =========" << std::endl;
             }
+            IsOmpssEnabled = _ompss_mode_enabled;
             AutoScopeVisitor sv;
             sv.walk( translation_unit );
         }
@@ -74,6 +82,12 @@ namespace OpenMP {
     {
         if( auto_scope_enabled_str == "1" )
             _auto_scope_enabled = true;
+    }
+    
+    void AutoScopePhase::set_ompss_mode( const std::string& ompss_mode_str)
+    {
+        if( ompss_mode_str == "1")
+            _ompss_mode_enabled = true;
     }
 
     // ************* END phase for Automatic Data-Sharing computation *************** //
@@ -99,7 +113,7 @@ namespace OpenMP {
         // Automatically set the scope of the variables involved in the task, if possible
         AutoScopeVisitor::_analysis_info
                 = new Analysis::AnalysisStaticInfo( n, Analysis::WhichAnalysis::AUTO_SCOPING,
-                                                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, INT_MAX );
+                                                    Analysis::WhereAnalysis::NESTED_ALL_STATIC_INFO, INT_MAX, IsOmpssEnabled );
 
         // Print the results for each task with a default(AUTO) clause
         std::cerr << "***********************************************************" << std::endl;

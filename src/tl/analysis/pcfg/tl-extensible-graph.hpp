@@ -342,6 +342,7 @@ namespace Analysis {
         static void clear_visits_in_level( Node* node, Node* outer_node );
         static void clear_visits_aux_in_level( Node* node, Node* outer_node );
         static void clear_visits_backwards( Node* node );
+        static void clear_visits_aux_backwards( Node* node );
         static void clear_visits_backwards_in_level( Node* current, Node* outer_node );
         
         
@@ -414,6 +415,7 @@ namespace Analysis {
         static bool task_encloses_task( Node* container, Node* contained );
         static bool node_contains_tasks( Node* graph_node, Node* current, ObjectList<Node*>& tasks );
         static Node* get_enclosing_control_structure( Node* node );
+        static Node* get_task_creation_node( Node* task );
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context

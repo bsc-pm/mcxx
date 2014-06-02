@@ -1,4 +1,7 @@
 # CUDA profile
+#
+# Note: This profile is used in the driver to compile each CUDA file (*.cu) specified in the
+# command line and It's also used in the cuda device to compile the generated CUDA file
 [cuda]
 language = C
 options =

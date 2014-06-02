@@ -232,10 +232,6 @@ namespace Utils {
         {
             return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Conversion>( ).get_nest( ), sym_set );
         }
-        else if( n.is<Nodecl::Reference>( ) )
-        {
-            return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Reference>( ).get_rhs( ), sym_set );
-        }
         else
         {
             if( ext_sym_set_contains_nodecl( n, sym_set ) )
@@ -247,13 +243,24 @@ namespace Utils {
 
     Nodecl::List ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
-        ext_sym_set fake_set;
-        fake_set.insert( ExtendedSymbol( n ) );
         Nodecl::List result;
-        for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
+        
+        //Symbols which are pointers are not considered to contain any access to the pointed object
+        if(!n.no_conv().is<Nodecl::Symbol>() || !n.no_conv().get_symbol().get_type().is_pointer())
         {
-            if( !ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), fake_set ).is_null( ) )
-                result.append(it->get_nodecl().shallow_copy());
+            ext_sym_set fake_set;
+            fake_set.insert( ExtendedSymbol( n ) );
+            
+            for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
+            {
+                if( !ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), fake_set ).is_null( ) )
+                    result.append(it->get_nodecl().shallow_copy());
+            }
+        }
+        else
+        {   // But check whether the pointer is in the set
+            if(ext_sym_set_contains_nodecl(n, sym_set))
+                result.append(n.shallow_copy());
         }
         return result;
     }

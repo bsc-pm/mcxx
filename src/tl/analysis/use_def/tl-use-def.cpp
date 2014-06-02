@@ -794,6 +794,8 @@ namespace {
             _current_nodecl = current_nodecl;
         walk(n.get_subscripted());
         _current_nodecl = Nodecl::NodeclBase::null();
+        
+        _node->add_used_address(Utils::ExtendedSymbol(n.get_subscripted()));
     }
 
     void UsageVisitor::visit(const Nodecl::Assignment& n)
@@ -951,6 +953,10 @@ namespace {
             set_var_usage_to_node(Utils::ExtendedSymbol(var_in_use), usage_kind);
             store_ipa_information(var_in_use);
         }
+        
+        // The the usage of the symbol to the list of accessed addresses, if necessary
+        if(!var_in_use.is<Nodecl::Reference>() && n.get_symbol().get_type().is_pointer())
+            _node->add_used_address(Utils::ExtendedSymbol(n));
     }
 
     void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)

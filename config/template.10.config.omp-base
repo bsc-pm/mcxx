@@ -12,6 +12,7 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlomp-base.so
 {openmp, openmp-lint} compiler_phase = libtlomp-lint.so
 {complexity} compiler_phase = libtlcomplexity.so
+{openmp, openmp-lint} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} pragma_prefix = nanos
@@ -33,8 +34,9 @@ linker_name = @GCC@
 {simd, mmic} options = --variable=mic_enabled:1
 {cluster} options = --variable=nanos_main_enabled:1
 {ompss} options = --variable=ompss_mode:1
-{!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
-{?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
+{ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 {openmp} compiler_phase = libtlnanox-nanosmain.so

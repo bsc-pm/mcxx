@@ -59,7 +59,7 @@ namespace TL { namespace HLT {
         ERROR_CONDITION(function_code.is_null(), "Invalid node", 0);
 
         Analysis::AnalysisStaticInfo analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS,
-                                                     Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, INT_MAX);
+                                                     Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, INT_MAX, /*ompss_enabled*/ false);
 
         // ObjectList<InductionVariableData*> induction_vars = analysis_static.get_induction_variables();
 

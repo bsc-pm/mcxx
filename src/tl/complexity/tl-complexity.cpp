@@ -48,7 +48,9 @@ namespace TL {
     {
         Nodecl::NodeclBase top_level = dto["nodecl"];
 
-        TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis();
+        // This phase does not care about OpenMP or OmpSs, so we use 'false' by default
+        // To be more accurate, we could register the parameter 'is_ompss_enabled' and use it
+        TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(/*is_ompss_enabled*/false);
         TL::Analysis::PCFGAnalysis_memento memento;
         singleton.cyclomatic_complexity(memento, top_level);
     }

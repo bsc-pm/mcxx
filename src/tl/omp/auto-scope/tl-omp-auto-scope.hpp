@@ -45,6 +45,11 @@ namespace OpenMP {
     private:
         std::string _auto_scope_enabled_str;
         bool _auto_scope_enabled;
+        void set_auto_scope(const std::string auto_scope_enabled_str);
+        
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
 
     public:
         AutoScopePhase( );
@@ -52,8 +57,6 @@ namespace OpenMP {
 
         virtual void pre_run(TL::DTO& dto);
         virtual void run( TL::DTO& dto );
-
-        void set_auto_scope( const std::string auto_scope_enabled_str );
     };
     // ************* END phase for Automatic Data-Sharing computation *************** //
     // ****************************************************************************** //

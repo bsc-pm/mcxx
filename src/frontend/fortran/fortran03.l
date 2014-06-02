@@ -3031,12 +3031,18 @@ static int is_format_statement(char* token)
 		return 1;
 	}
 
-	if (*p != ';' && *p != '\n')
+    if (*p != ';'
+            && *p != '\n'
+            // DOS CR-NL
+            && !(*p == '\r'
+                && *(p+1) == '\n'))
 	{
 		DEBUG_CODE() DEBUG_MESSAGE("This format statement does not end with an EOS (*p = '%c')", *p);
 		return 0;
 	}
-	if (*p == ';') *p = '\n';
+
+	if (*p == ';'
+            || *p == '\r') *p = '\n';
 
 	return 1;
 }
