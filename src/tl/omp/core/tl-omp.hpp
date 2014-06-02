@@ -336,10 +336,10 @@ namespace OpenMP
                 DataSharingAttribute attr;
                 std::string reason;
 
-                DataSharingAttributeInfo() 
-                    : attr(DS_UNDEFINED), reason() { }
+                DataSharingAttributeInfo()
+                    : attr(DS_UNDEFINED), reason("(symbol has undefined data-sharing)") { }
                 DataSharingAttributeInfo(DataSharingAttribute a,
-                        const std::string r)
+                        const std::string &r)
                     : attr(a), reason(r) { }
             };
 
