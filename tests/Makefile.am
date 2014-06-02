@@ -27,9 +27,9 @@
 SUBDIRS = config .
 
 END=
-CLEANFILES=
+DISTCLEANFILES=
 
-CLEANFILES+=test.log test.log.xml
+DISTCLEANFILES+=test.log test.log.xml
 
 prepare-check: ./config/bets wipe-modules
 	chmod +x config/bets
