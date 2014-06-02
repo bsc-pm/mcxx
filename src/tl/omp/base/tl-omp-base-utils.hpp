@@ -26,11 +26,12 @@
 #ifndef TL_OMP_BASE_UTILS_HPP
 #define TL_OMP_BASE_UTILS_HPP
 
+#include "tl-omp-base.hpp"
 #include "tl-omp-core.hpp"
 namespace TL { namespace OpenMP {
 
     template <typename T, typename List>
-        void make_dependency_list(
+        void Base::make_dependency_list(
                 List& dependences,
                 DependencyDirection kind,
                 const locus_t* locus,
@@ -45,6 +46,14 @@ namespace TL { namespace OpenMP {
                     continue;
 
                 data_ref_list.append(it->get_dependency_expression().shallow_copy());
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << locus_to_str(locus) << ": "
+                        << "This task specifies an '" << dependence_direction_to_str(kind) << "' dependence "
+                        << "on the expression '" << it->get_dependency_expression().prettyprint() << "'\n";
+                }
             }
 
             if (!data_ref_list.empty())
@@ -54,7 +63,7 @@ namespace TL { namespace OpenMP {
         }
 
     template <typename T, typename List>
-        void make_copy_list(
+        void Base::make_copy_list(
                 List& dependences,
                 CopyDirection kind,
                 const locus_t* locus,
@@ -69,6 +78,13 @@ namespace TL { namespace OpenMP {
                     continue;
 
                 data_ref_list.append(it->get_copy_expression().shallow_copy());
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file 
+                        << locus_to_str(locus) << ": " << "This task specifies that '"
+                        << it->get_copy_expression().prettyprint() << "' be " << copy_direction_to_str(kind) << "\n";
+                }
             }
 
             if (!data_ref_list.empty())

@@ -421,6 +421,9 @@ namespace OpenMP
             //! Returns all symbols that match the given data attribute
             void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
+            typedef std::pair<Symbol, std::string> DataSharingInfoPair;
+            void get_all_symbols_info(DataSharingAttribute data_attr, ObjectList<DataSharingInfoPair> &symbols);
+
             void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
             TargetInfo& get_target_info();

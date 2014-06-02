@@ -162,13 +162,15 @@ namespace TL { namespace OpenMP {
     FunctionCallVisitor::FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
             const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
-            const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map)
+            const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
+            OpenMP::Base *base)
         :
             _function_task_set(function_task_set),
             _funct_call_to_enclosing_stmt_map(funct_call_to_enclosing_stmt_map),
             _enclosing_stmt_to_original_stmt_map(enclosing_stmt_to_original_stmt_map),
             _enclosing_stmt_to_return_vars_map(enclosing_stmt_to_return_vars_map),
-            _enclosing_stmt_to_task_calls_map()
+            _enclosing_stmt_to_task_calls_map(),
+            _base(base)
     {
     }
 
@@ -176,123 +178,132 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase called = call.get_called();
 
-        if (called.is<Nodecl::Symbol>())
+        if (!called.is<Nodecl::Symbol>())
+            return;
+
+        Symbol sym = called.as<Nodecl::Symbol>().get_symbol();
+
+        if (sym.is_from_module())
         {
-            Symbol sym = called.as<Nodecl::Symbol>().get_symbol();
+            // This symbol comes from a module
+            TL::Symbol module = sym.from_module();
+            sym = sym.aliased_from_module();
 
-            if (sym.is_from_module())
+            // Check if we already saw this module
+            module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
+            if (it == _module_function_tasks.end())
             {
-                // This symbol comes from a module
-                TL::Symbol module = sym.from_module();
-                sym = sym.aliased_from_module();
+                // Not seen before, load
+                _function_task_set->load_from_module(module);
 
-                // Check if we already saw this module
-                module_function_tasks_set_t::iterator it = _module_function_tasks.find(module);
-                if (it == _module_function_tasks.end())
-                {
-                    // Not seen before, load
-                    _function_task_set->load_from_module(module);
-
-                    _module_function_tasks.insert(module);
-                }
+                _module_function_tasks.insert(module);
             }
+        }
 
-            FunctionTaskInfo task_info;
-            bool valid_task_info = false;
-            if (_function_task_set->is_function_task(sym))
+        FunctionTaskInfo task_info;
+        bool valid_task_info = false;
+        if (_function_task_set->is_function_task(sym))
+        {
+            // Usual case
+            task_info = _function_task_set->get_function_task(sym);
+            valid_task_info = true;
+        }
+        else if (sym.get_type().is_template_specialized_type()
+                && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
+        {
+            // Note that the pragma of the current task is written in terms of the primary symbol
+            TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
+
+            // This map will be used to instantiate the function task info
+            instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+
+            TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
+            prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
+
+            TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
+            TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
+            ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
+
+            int num_params = primary_params.size();
+
+            // Create the related symbols of the new specialization, using the parameter types of the specialization function type
+            // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
+            TL::ObjectList<TL::Symbol> spec_related_symbols;
+            for (int i = 0; i < num_params; ++i)
             {
-                // Usual case
-                task_info = _function_task_set->get_function_task(sym);
-                valid_task_info = true;
-            }
-            else if (sym.get_type().is_template_specialized_type()
-                    && _function_task_set->is_function_task(sym.get_type().get_related_template_type().get_primary_template().get_symbol()))
-            {
-                // Note that the pragma of the current task is written in terms of the primary symbol
-                TL::Symbol primary_sym  = sym.get_type().get_related_template_type().get_primary_template().get_symbol();
+                TL::Symbol prim_param_sym = primary_params[i];
+                TL::Type spec_param_type =  spec_param_types[i];
 
-                // This map will be used to instantiate the function task info
-                instantiation_symbol_map_t* instantiation_symbol_map = instantiation_symbol_map_push(/* parent */ NULL);
+                TL::Symbol spec_param_sym = prototype_scope.new_symbol(prim_param_sym.get_name());
 
-                TL::Scope prototype_scope = new_prototype_context(sym.get_scope().get_decl_context());
-                prototype_scope.get_decl_context().current_scope->related_entry = sym.get_internal_symbol();
-
-                TL::ObjectList<TL::Symbol> primary_params = primary_sym.get_related_symbols();
-                TL::ObjectList<TL::Type> spec_param_types = sym.get_type().parameters();
-                ERROR_CONDITION(primary_params.size() != spec_param_types.size(), "", 0);
-
-                int num_params = primary_params.size();
-
-                // Create the related symbols of the new specialization, using the parameter types of the specialization function type
-                // FIXME: I'm not sure, but maybe the instantiation phase should provided the related symbols of the specialization
-                TL::ObjectList<TL::Symbol> spec_related_symbols;
-                for (int i = 0; i < num_params; ++i)
-                {
-                    TL::Symbol prim_param_sym = primary_params[i];
-                    TL::Type spec_param_type =  spec_param_types[i];
-
-                    TL::Symbol spec_param_sym = prototype_scope.new_symbol(prim_param_sym.get_name());
-
-                    spec_param_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                    spec_param_sym.get_internal_symbol()->type_information = update_type(
-                            spec_param_type.get_internal_type(),
-                            sym.get_scope().get_decl_context(),
-                            call.get_locus());
-
-                    spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-
-                    spec_related_symbols.append(spec_param_sym);
-
-                    symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
-                    instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
-                }
-
-                sym.set_related_symbols(spec_related_symbols);
-
-                FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
-
-                task_info = template_task_info.instantiate_function_task_info(sym, prototype_scope, instantiation_symbol_map);
-                valid_task_info = true;
-
-                // We update the function task set with the new specialized task info. Note that
-                // future calls to the same specialization will use the same FunctionTaskInfo
-                _function_task_set->add_function_task(sym, task_info);
-            }
-
-
-            if (valid_task_info)
-            {
-                Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
-
-                Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
-
-                Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
-                        exec_env,
-                        // We need to copy the call because we need to preserve
-                        // the original place of the call
-                        call.shallow_copy(),
-                        // Site environment, do not use it
-                        call_site_exec_env,
+                spec_param_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                spec_param_sym.get_internal_symbol()->type_information = update_type(
+                        spec_param_type.get_internal_type(),
+                        sym.get_scope().get_decl_context(),
                         call.get_locus());
 
-                std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::const_iterator it =
-                    _funct_call_to_enclosing_stmt_map.find(call);
+                spec_param_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
 
-                if (it == _funct_call_to_enclosing_stmt_map.end())
-                {
-                    call.replace(task_call);
-                }
-                else
-                {
-                    // This was a nonvoid task call!
-                    Nodecl::NodeclBase enclosing_stmt = it->second;
+                spec_related_symbols.append(spec_param_sym);
 
-                    _enclosing_stmt_to_task_calls_map[enclosing_stmt].append(Nodecl::ExpressionStatement::make(task_call));
-
-                    // Remove from the enclosing list the expression statement which contains the task call
-                    Nodecl::Utils::remove_from_enclosing_list(call.get_parent());
-                }
+                symbol_set_as_parameter_of_function(spec_param_sym.get_internal_symbol(), sym.get_internal_symbol(), /* nesting */ 0, /* position */ i);
+                instantiation_symbol_map_add(instantiation_symbol_map, prim_param_sym.get_internal_symbol(), spec_param_sym.get_internal_symbol());
             }
+
+            sym.set_related_symbols(spec_related_symbols);
+
+            FunctionTaskInfo template_task_info = _function_task_set->get_function_task(primary_sym);
+
+            task_info = template_task_info.instantiate_function_task_info(sym, prototype_scope, instantiation_symbol_map);
+            valid_task_info = true;
+
+            // We update the function task set with the new specialized task info. Note that
+            // future calls to the same specialization will use the same FunctionTaskInfo
+            _function_task_set->add_function_task(sym, task_info);
+        }
+
+        if (!valid_task_info)
+            return;
+
+        if (_base->emit_omp_report())
+        {
+            *(_base->get_omp_report_file())
+                << "\n"
+                << call.get_locus_str() << ": " << "TASK call\n"
+                << call.get_locus_str() << ": " << "---------\n"
+                << call.get_locus_str() << ": " << "Call to task '" << sym.get_qualified_name()
+                << "' declared at '" << sym.get_locus_str() << "'\n"
+                ;
+        }
+        Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
+
+        Nodecl::NodeclBase call_site_exec_env = instantiate_exec_env(exec_env, call);
+
+        Nodecl::OpenMP::TaskCall task_call = Nodecl::OpenMP::TaskCall::make(
+                exec_env,
+                // We need to copy the call because we need to preserve
+                // the original place of the call
+                call.shallow_copy(),
+                // Site environment, do not use it
+                call_site_exec_env,
+                call.get_locus());
+
+        std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::const_iterator it =
+            _funct_call_to_enclosing_stmt_map.find(call);
+
+        if (it == _funct_call_to_enclosing_stmt_map.end())
+        {
+            call.replace(task_call);
+        }
+        else
+        {
+            // This was a nonvoid task call!
+            Nodecl::NodeclBase enclosing_stmt = it->second;
+
+            _enclosing_stmt_to_task_calls_map[enclosing_stmt].append(Nodecl::ExpressionStatement::make(task_call));
+
+            // Remove from the enclosing list the expression statement which contains the task call
+            Nodecl::Utils::remove_from_enclosing_list(call.get_parent());
         }
     }
 
@@ -352,42 +363,46 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<FunctionTaskDependency> task_dependences = function_task_info.get_parameter_info();
 
-        make_dependency_list<Nodecl::OpenMP::DepIn>(
+        // This makes the report confusing, disable it
+        bool old_omp_report = _base->emit_omp_report();
+
+        _base->set_omp_report(false);
+        _base->make_dependency_list<Nodecl::OpenMP::DepIn>(
                 task_dependences,
                 OpenMP::DEP_DIR_IN,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
+        _base->make_dependency_list<Nodecl::OpenMP::DepInPrivate>(
                 task_dependences,
                 OpenMP::DEP_DIR_IN_PRIVATE,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInValue>(
+        _base->make_dependency_list<Nodecl::OpenMP::DepInValue>(
                 task_dependences,
                 OpenMP::DEP_DIR_IN_VALUE,
                 locus,
                 result_list);
-        make_dependency_list<Nodecl::OpenMP::DepOut>(
+        _base->make_dependency_list<Nodecl::OpenMP::DepOut>(
                 task_dependences,
                 OpenMP::DEP_DIR_OUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::DepInout>(
+        _base->make_dependency_list<Nodecl::OpenMP::DepInout>(
                 task_dependences,
                 OpenMP::DEP_DIR_INOUT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Concurrent>(
+        _base->make_dependency_list<Nodecl::OpenMP::Concurrent>(
                 task_dependences,
                 OpenMP::DEP_CONCURRENT,
                 locus,
                 result_list);
 
-        make_dependency_list<Nodecl::OpenMP::Commutative>(
+        _base->make_dependency_list<Nodecl::OpenMP::Commutative>(
                 task_dependences,
                 OpenMP::DEP_COMMUTATIVE,
                 locus,
@@ -493,21 +508,21 @@ namespace TL { namespace OpenMP {
         }
 
         ObjectList<CopyItem> copy_in = target_info.get_copy_in();
-        make_copy_list<Nodecl::OpenMP::CopyIn>(
+        _base->make_copy_list<Nodecl::OpenMP::CopyIn>(
                 copy_in,
                 OpenMP::COPY_DIR_IN,
                 locus,
                 target_items);
 
         ObjectList<CopyItem> copy_out = target_info.get_copy_out();
-        make_copy_list<Nodecl::OpenMP::CopyOut>(
+        _base->make_copy_list<Nodecl::OpenMP::CopyOut>(
                 copy_out,
                 OpenMP::COPY_DIR_OUT,
                 locus,
                 target_items);
 
         ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
-        make_copy_list<Nodecl::OpenMP::CopyInout>(
+        _base->make_copy_list<Nodecl::OpenMP::CopyInout>(
                 copy_inout,
                 OpenMP::COPY_DIR_INOUT,
                 locus,
@@ -620,6 +635,7 @@ namespace TL { namespace OpenMP {
                     Nodecl::PragmaContext::make(function_task_info.get_parsing_scope()),
                     function_task_info.get_locus()
                     ));
+        _base->set_omp_report(old_omp_report);
 
         return Nodecl::List::make(result_list);
     }
@@ -711,6 +727,91 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    struct ReportExecEnvironment : public Nodecl::ExhaustiveVisitor<void>
+    {
+        const locus_t* _locus;
+        std::ofstream* _omp_report_file;
+
+        ReportExecEnvironment(const locus_t* locus, std::ofstream* omp_report_file)
+            : _locus(locus), _omp_report_file(omp_report_file)
+        {
+        }
+
+        void report_dep(Nodecl::NodeclBase items, DependencyDirection kind)
+        {
+            Nodecl::List list = items.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = list.begin();
+                    it != list.end();
+                    it++)
+            {
+                *_omp_report_file << locus_to_str(_locus) << ": The task call defines '" << it->prettyprint() << "' as an '"
+                    << Base::dependence_direction_to_str(kind) << "' dependence\n";
+            }
+        }
+
+        void visit(const Nodecl::OpenMP::DepIn& dep_in)
+        {
+            report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN);
+        }
+
+        void visit(const Nodecl::OpenMP::DepOut& dep_out)
+        {
+            report_dep(dep_out.get_out_deps(), OpenMP::DEP_DIR_OUT);
+        }
+
+        void visit(const Nodecl::OpenMP::DepInout& dep_inout)
+        {
+            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_DIR_INOUT);
+        }
+
+        void visit(const Nodecl::OpenMP::DepInPrivate& dep_in)
+        {
+            report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN_PRIVATE);
+        }
+
+        void visit(const Nodecl::OpenMP::DepInValue& dep_in)
+        {
+            report_dep(dep_in.get_in_deps(), OpenMP::DEP_DIR_IN_VALUE);
+        }
+
+        void visit(const Nodecl::OpenMP::Concurrent& dep_inout)
+        {
+            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_CONCURRENT);
+        }
+
+        void visit(const Nodecl::OpenMP::Commutative& dep_inout)
+        {
+            report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_COMMUTATIVE);
+        }
+
+        void report_copy(Nodecl::NodeclBase items, CopyDirection kind)
+        {
+            Nodecl::List list = items.as<Nodecl::List>();
+            for (Nodecl::List::iterator it = list.begin();
+                    it != list.end();
+                    it++)
+            {
+                *_omp_report_file << locus_to_str(_locus) << ": The task call defines that '" << it->prettyprint() << "' be "
+                    << Base::copy_direction_to_str(kind) << "\n";
+            }
+        }
+
+        void visit(const Nodecl::OpenMP::CopyIn& copy_in)
+        {
+            report_copy(copy_in.get_input_copies(), OpenMP::COPY_DIR_IN);
+        }
+
+        void visit(const Nodecl::OpenMP::CopyOut& copy_out)
+        {
+            report_copy(copy_out.get_output_copies(), OpenMP::COPY_DIR_OUT);
+        }
+
+        void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
+        {
+            report_copy(copy_inout.get_inout_copies(), OpenMP::COPY_DIR_INOUT);
+        }
+    };
+
     Nodecl::NodeclBase FunctionCallVisitor::instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call)
     {
         sym_to_argument_expr_t param_to_arg_expr;
@@ -726,6 +827,12 @@ namespace TL { namespace OpenMP {
         // Simplify dependences
         SimplifyExecEnvironment simplify_env;
         simplify_env.walk(result);
+
+        if (_base->emit_omp_report())
+        {
+            ReportExecEnvironment report_env(call.get_locus(), _base->get_omp_report_file());
+            report_env.walk(result);
+        }
 
         return result;
     }

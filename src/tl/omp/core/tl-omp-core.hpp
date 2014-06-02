@@ -66,7 +66,6 @@ namespace TL
 
                 void register_omp_constructs();
 
-
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
@@ -117,10 +116,12 @@ namespace TL
                         DataSharingEnvironment& data_sharing);
                 void get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                         DataSharingAttribute default_data_attr, 
-                        DataSharingEnvironment& data_sharing);
+                        DataSharingEnvironment& data_sharing,
+                        bool there_is_default_clause);
                 void get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
-                        DataSharingAttribute default_data_attr);
+                        DataSharingAttribute default_data_attr,
+                        bool there_is_default_clause);
 
                 void get_data_implicit_attributes_of_indirectly_accessible_symbols(
                         TL::PragmaCustomStatement construct,
@@ -147,6 +148,7 @@ namespace TL
 
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing, 
+                        bool &there_is_default_clause,
                         bool allow_default_auto=false);
 
                 void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);

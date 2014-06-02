@@ -111,6 +111,24 @@ namespace TL
             }
         } 
 
+        void DataSharingEnvironment::get_all_symbols_info(DataSharingAttribute data_attribute, 
+                ObjectList<DataSharingInfoPair>& sym_list)
+        {
+            // Remove implicit bit
+            data_attribute = (DataSharingAttribute)(data_attribute & ~DS_IMPLICIT);
+            for (map_symbol_data_t::iterator it = _map->begin();
+                    it != _map->end();
+                    it++)
+            {
+                // Remove implicit bit
+                if ((DataSharingAttribute)(it->second.attr & ~DS_IMPLICIT) 
+                        == data_attribute)
+                {
+                    sym_list.append(std::make_pair(it->first, it->second.reason));
+                }
+            }
+        } 
+
         DataSharingEnvironment& DataSharingEnvironment::set_is_parallel(bool b)
         {
             _is_parallel = b;

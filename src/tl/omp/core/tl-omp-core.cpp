@@ -422,11 +422,15 @@ namespace TL
         }
 
         DataSharingAttribute Core::get_default_data_sharing(TL::PragmaCustomLine construct,
-                DataSharingAttribute fallback_data_sharing, bool allow_default_auto)
+                DataSharingAttribute fallback_data_sharing,
+                bool &there_is_default_clause,
+                bool allow_default_auto)
         {
             PragmaCustomClause default_clause = construct.get_clause("default");
 
-            if (!default_clause.is_defined())
+            there_is_default_clause = default_clause.is_defined();
+
+            if (!there_is_default_clause)
             {
                 return fallback_data_sharing;
             }
@@ -436,7 +440,7 @@ namespace TL
 
                 if(!allow_default_auto && args[0] == std::string("auto"))
                     error_printf("directives other than tasks do not allow the clause default(auto)");
-                
+
                 struct pairs_t
                 {
                     const char* name;
@@ -704,7 +708,8 @@ namespace TL
 
         void Core::get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                 DataSharingAttribute default_data_attr, 
-                DataSharingEnvironment& data_sharing)
+                DataSharingEnvironment& data_sharing,
+                bool there_is_default_clause)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
 
@@ -805,9 +810,17 @@ namespace TL
                     else
                     {
                         // Set the symbol as having default data sharing
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
-                                "because of 'default' clause and the entity does "
-                                "not have any explicit or predetermined data-sharing");
+                        if (there_is_default_clause)
+                        {
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
+                                    "there is a 'default' clause and the entity does "
+                                    "not have any explicit or predetermined data-sharing");
+                        }
+                        else
+                        {
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
+                                    "the entity does not have any explicit or predetermined data-sharing");
+                        }
                     }
                 }
             }
@@ -825,9 +838,11 @@ namespace TL
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
 
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED);
+            bool there_is_default_clause = false;
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED,
+                    there_is_default_clause);
 
-            get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+            get_data_implicit_attributes(construct, default_data_attr, data_sharing, there_is_default_clause);
         }
 
         void Core::fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name)
@@ -1128,9 +1143,11 @@ namespace TL
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
 
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED);
+            bool there_is_default_clause = false;
+            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED,
+                    there_is_default_clause);
 
-            get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+            get_data_implicit_attributes(construct, default_data_attr, data_sharing, there_is_default_clause);
         }
 
         // Data sharing computation for tasks.
@@ -1139,7 +1156,8 @@ namespace TL
         // can't be merged easily
         void Core::get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
                 DataSharingEnvironment& data_sharing,
-                DataSharingAttribute default_data_attr)
+                DataSharingAttribute default_data_attr,
+                bool there_is_default_clause)
         {
             Nodecl::NodeclBase statement = construct.get_statements();
 
@@ -1268,8 +1286,16 @@ namespace TL
                     {
                         // Set the symbol as having the default data sharing
                         data_attr = (DataSharingAttribute)(default_data_attr | DS_IMPLICIT);
-                        reason = "because of 'default' clause and the entity does "
-                            "not have any explicit or predetermined data-sharing";
+                        if (there_is_default_clause)
+                        {
+                            reason = "there is a 'default' clause and the entity does "
+                                "not have any explicit or predetermined data-sharing";
+                        }
+                        else
+                        {
+                            reason = "the entity does not have any explicit or predetermined data-sharing so the "
+                                "implicit data-sharing is used instead";
+                        }
                     }
 
                     data_sharing.set_data_sharing(sym, data_attr, reason);

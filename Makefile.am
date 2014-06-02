@@ -1608,6 +1608,7 @@ endif
 
 src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base-utils.hpp \
+   src/tl/omp/base/tl-omp-base-utils.cpp \
    src/tl/omp/base/tl-omp-base.hpp \
    src/tl/omp/base/tl-omp-base.cpp \
    src/tl/omp/base/tl-omp-base-task.hpp \
