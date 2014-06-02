@@ -3085,6 +3085,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                      {
                          fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
                      }
+                     xfree(updated_parameter_values);
                      return NULL;
                 }
             }
@@ -3176,6 +3177,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Completion of template parameters failed\n");
                 }
+                xfree(expanded_template_parameters->parameters);
                 return NULL;
             }
 
