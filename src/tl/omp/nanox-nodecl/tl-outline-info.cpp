@@ -1100,7 +1100,7 @@ namespace TL { namespace Nanox {
 
             void visit(const Nodecl::OpenMP::Alloca& alloca)
             {
-                Nodecl::List l = alloca.get_alloca_expressions().as<Nodecl::List>();
+                Nodecl::List l = alloca.get_exprs().as<Nodecl::List>();
                 for (Nodecl::List::iterator it = l.begin();
                         it != l.end();
                         it++)
@@ -1117,6 +1117,24 @@ namespace TL { namespace Nanox {
                 }
             }
 
+            void visit(const Nodecl::OpenMP::SharedAndAlloca& alloca)
+            {
+                Nodecl::List l = alloca.get_exprs().as<Nodecl::List>();
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    TL::DataReference data_ref(*it);
+
+                    ERROR_CONDITION(!data_ref.is_valid(), "%s: data reference '%s' must be valid at this point!\n",
+                            it->get_locus_str().c_str(),
+                            Codegen::get_current().codegen_to_str(*it, it->retrieve_context()).c_str());
+
+                    TL::Symbol sym = data_ref.get_base_symbol();
+
+                    add_shared_alloca(sym);
+                }
+            }
 
             void visit(const Nodecl::OpenMP::DepIn& dep_in)
             {
@@ -1127,12 +1145,6 @@ namespace TL { namespace Nanox {
             {
                 std::cerr << "dep_in_value" << std::endl;
                 add_dependences(dep_in_value.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_VALUE);
-            }
-
-            void visit(const Nodecl::OpenMP::DepInAlloca& dep_in_alloca)
-            {
-                std::cerr << "dep_in_alloca" << std::endl;
-                add_dependences(dep_in_alloca.get_in_deps().as<Nodecl::List>(), OutlineDataItem::DEP_IN_ALLOCA);
             }
 
             void visit(const Nodecl::OpenMP::DepInPrivate& dep_in_private)
@@ -1602,6 +1614,11 @@ namespace TL { namespace Nanox {
     void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
     {
         _data_env_items.append(new OutlineDataItem(ol));
+    }
+
+    void OutlineInfo::add_copy_of_outline_dependency_item(const OutlineDataItem& ol)
+    {
+        _dependency_items.append(new OutlineDataItem(ol));
     }
 
     namespace

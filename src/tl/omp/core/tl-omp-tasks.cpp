@@ -1271,7 +1271,8 @@ namespace TL
             if (!function_sym.is_function())
             {
                 std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to this declaration since it does not declare a function, skipping" << std::endl;
+                    << ": warning: '#pragma omp task' cannot be applied to this declaration"
+                    << "since it does not declare a function, skipping" << std::endl;
                 return;
             }
 
@@ -1283,7 +1284,8 @@ namespace TL
             if (has_ellipsis)
             {
                 std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
+                    << ": warning: '#pragma omp task' cannot be applied to functions"
+                    << "declarations with ellipsis, skipping" << std::endl;
                 return;
             }
 

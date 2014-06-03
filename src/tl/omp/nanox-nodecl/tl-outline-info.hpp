@@ -541,6 +541,7 @@ namespace TL
                 OutlineDataItem& prepend_field(TL::Symbol sym);
 
                 void add_copy_of_outline_data_item(const OutlineDataItem& ol);
+                void add_copy_of_outline_dependency_item(const OutlineDataItem& ol);
 
                 // This is needed for VLAs
                 void move_at_end(OutlineDataItem&);

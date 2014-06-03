@@ -396,12 +396,16 @@ namespace TL { namespace OpenMP {
         // Make sure the remaining symbols are firstprivate
         std::vector<bool> has_dep(function_sym.get_type().parameters().size(), false);
 
+        TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
         for (TL::ObjectList<FunctionTaskDependency>::iterator it = task_dependences.begin();
                 it != task_dependences.end();
                 it++)
         {
             TL::DataReference data_ref = it->get_data_reference();
             TL::Symbol base_sym = data_ref.get_base_symbol();
+
+            // OmpSs Assumption: dependences are passed always as SHARED
+            assumed_shareds.append(base_sym.make_nodecl(base_sym.get_locus()));
 
             if (base_sym.is_parameter_of(function_sym))
             {
@@ -411,10 +415,8 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<TL::Symbol> parameters = function_sym.get_related_symbols();
 
-        TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
 
         Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
-
         int i = 0;
         for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
                 it != parameters.end();
@@ -815,8 +817,9 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<Nodecl::NodeclBase> target_items,
             /* copies information */ copy_in, copy_out, copy_inout,
-            /* dependences information */ in_alloca_deps, concurrent_deps, out_deps,
-            /* data-sharing information */ firstprivate_symbols, alloca_symbols;
+            /* dependences information */ in_deps, concurrent_deps, out_deps,
+            /* data-sharing information */ shared_symbols, shared_and_alloca_exprs,
+            /* more data-sharings */ firstprivate_symbols, alloca_exprs;
 
         Nodecl::NodeclBase lhs_expr, rhs_expr;
         decompose_expression_statement(enclosing_stmt, lhs_expr, rhs_expr);
@@ -825,6 +828,11 @@ namespace TL { namespace OpenMP {
         bool is_reduction = expression_stmt_is_a_reduction(enclosing_stmt, _function_task_set);
         if (!lhs_expr.is_null())
         {
+            // OmpSs Assumption: dependences are passed always as SHARED
+            TL::DataReference data_ref(lhs_expr);
+            TL::Symbol sym = data_ref.get_base_symbol();
+            shared_symbols.append(sym.make_nodecl(sym.get_locus()));
+
             if (is_reduction)
             {
                 concurrent_deps.append(lhs_expr.shallow_copy());
@@ -863,7 +871,7 @@ namespace TL { namespace OpenMP {
                 Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
                 sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
-                in_alloca_deps.append(
+                in_deps.append(
                         Nodecl::Dereference::make(
                             sym_nodecl,
                             sym.get_type().points_to().get_lvalue_reference_to(),
@@ -875,6 +883,11 @@ namespace TL { namespace OpenMP {
                             sym.get_type().points_to().get_lvalue_reference_to(),
                             locus));
 
+                shared_and_alloca_exprs.append(
+                        Nodecl::Dereference::make(
+                            sym_nodecl.shallow_copy(),
+                            sym.get_type().points_to().get_lvalue_reference_to(),
+                            locus));
                 // Remove this item from the return arguments set!
                 return_arguments.erase(it_sym);
             }
@@ -891,7 +904,7 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase sym_nodecl = Nodecl::Symbol::make(sym, locus);
             sym_nodecl.set_type(lvalue_ref(sym.get_type().get_internal_type()));
 
-            alloca_symbols.append(
+            alloca_exprs.append(
                     Nodecl::Dereference::make(
                         sym_nodecl,
                         sym.get_type().points_to().get_lvalue_reference_to(),
@@ -906,19 +919,35 @@ namespace TL { namespace OpenMP {
                         locus));
         }
 
-        if (!alloca_symbols.empty())
+        if (!shared_symbols.empty())
         {
             exec_environment.append(
-                    Nodecl::OpenMP::Alloca::make(
-                        Nodecl::List::make(alloca_symbols),
+                    Nodecl::OpenMP::Shared::make(
+                        Nodecl::List::make(shared_symbols),
                         locus));
         }
 
-        if (!in_alloca_deps.empty())
+        if (!shared_and_alloca_exprs.empty())
         {
             exec_environment.append(
-                    Nodecl::OpenMP::DepInAlloca::make(
-                        Nodecl::List::make(in_alloca_deps),
+                    Nodecl::OpenMP::SharedAndAlloca::make(
+                        Nodecl::List::make(shared_and_alloca_exprs),
+                        locus));
+        }
+
+        if (!alloca_exprs.empty())
+        {
+            exec_environment.append(
+                    Nodecl::OpenMP::Alloca::make(
+                        Nodecl::List::make(alloca_exprs),
+                        locus));
+        }
+
+        if (!in_deps.empty())
+        {
+            exec_environment.append(
+                    Nodecl::OpenMP::DepIn::make(
+                        Nodecl::List::make(in_deps),
                         locus));
         }
 

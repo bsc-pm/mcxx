@@ -795,6 +795,9 @@ void LoweringVisitor::visit_task_call_c(
     // Get parameters outline info
     OutlineInfo parameters_outline_info(parameters_environment, called_sym, _function_task_set);
 
+    std::cerr << "Task call data-shs: " << parameters_outline_info.get_data_items().size() << std::endl;
+    std::cerr << "Task call deps: " << parameters_outline_info.get_dependency_items().size() << std::endl;
+
     TaskEnvironmentVisitor task_environment;
     task_environment.walk(parameters_environment);
 
@@ -1026,6 +1029,23 @@ void LoweringVisitor::visit_task_call_c(
         outline_register_entities.add_copy_of_outline_data_item(**it);
     }
 
+    // Handle the dependences!
+    TL::ObjectList<OutlineDataItem*> dependency_items = parameters_outline_info.get_dependency_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = dependency_items.begin(); it != dependency_items.end(); it++)
+    {
+        OutlineDataItem* current = *it;
+        TL::ObjectList<OutlineDataItem::DependencyItem> dependences = current->get_dependences();
+        for (TL::ObjectList<OutlineDataItem::DependencyItem>::iterator it2 = dependences.begin();
+                it2 != dependences.end();
+                it2++)
+        {
+            OutlineDataItem::DependencyItem dep = *it2;
+
+            outline_register_entities.add_dependence(
+                    Nodecl::Utils::deep_copy(dep.expression, new_block_context_sc, param_to_args_map),
+                    dep.directionality);
+        }
+    }
 
     // Now update them (we don't do this in the previous traversal because we allow forward references)
     // like in

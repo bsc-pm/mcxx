@@ -349,7 +349,6 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Critical& n );
         Ret visit( const Nodecl::OpenMP::CriticalName& n );
         Ret visit( const Nodecl::OpenMP::DepIn& n );
-        Ret visit( const Nodecl::OpenMP::DepInAlloca& n );
         Ret visit( const Nodecl::OpenMP::DepInValue& n );
         Ret visit( const Nodecl::OpenMP::DepInout& n );
         Ret visit( const Nodecl::OpenMP::DepOut& n );
