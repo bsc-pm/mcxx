@@ -851,24 +851,43 @@ namespace TL { namespace OpenMP {
 
         void visit(const Nodecl::OpenMP::Target& node)
         {
-            *_omp_report_file << locus_to_str(_locus) << ": The task call uses the following devices: ";
 
             Nodecl::List l = node.get_devices().as<Nodecl::List>();
 
-            for (Nodecl::List::iterator it = l.begin();
-                    it != l.end();
-                    it++)
+            if (l.size() == 1)
             {
-                if (it != l.begin())
-                    *_omp_report_file << ", ";
-
-                *_omp_report_file << it->prettyprint();
+                *_omp_report_file << locus_to_str(_locus) << ": The main implementation of this task targets the device '"
+                    << l[0].prettyprint() << "'\n"
+                    ;
             }
+            else
+            {
+                *_omp_report_file << locus_to_str(_locus) << ": The main implementation of this task targets devices "
+                    ;
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    if (it != l.begin())
+                        *_omp_report_file << ", ";
 
-            *_omp_report_file << "\n";
+                    *_omp_report_file << "'" << it->prettyprint() << "'";
+                }
+
+                *_omp_report_file << "\n";
+            }
 
             // Make sure we walk the TARGET-associated items
             walk(node.get_items());
+        }
+
+        void visit(const Nodecl::OpenMP::Implements& node)
+        {
+            TL::Symbol implementation_symbol = node.get_function_name().get_symbol();
+
+            *_omp_report_file << locus_to_str(_locus) << ": There is an alternate implementation for the device '"
+                << node.get_device().prettyprint() << "' specified by the function task '"
+                << implementation_symbol.get_qualified_name() << "' at '" << implementation_symbol.get_locus_str() << "'\n";
         }
     };
 
