@@ -810,6 +810,66 @@ namespace TL { namespace OpenMP {
         {
             report_copy(copy_inout.get_inout_copies(), OpenMP::COPY_DIR_INOUT);
         }
+
+        void visit(const Nodecl::OpenMP::NDRange& node)
+        {
+            *_omp_report_file << locus_to_str(_locus) << ": The task call specifies the following NDRANGE(";
+
+            Nodecl::List l = node.get_ndrange_expressions().as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                if (it != l.begin())
+                    *_omp_report_file << ", ";
+
+                *_omp_report_file << it->prettyprint();
+            }
+
+            *_omp_report_file << ")\n";
+        }
+
+        void visit(const Nodecl::OpenMP::ShMem& node)
+        {
+            *_omp_report_file << locus_to_str(_locus) << ": The task call specifies the following SHMEM(";
+
+            Nodecl::List l = node.get_shmem_expressions().as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                if (it != l.begin())
+                    *_omp_report_file << ", ";
+
+                *_omp_report_file << it->prettyprint();
+            }
+
+            *_omp_report_file << ")\n";
+        }
+
+        void visit(const Nodecl::OpenMP::Target& node)
+        {
+            *_omp_report_file << locus_to_str(_locus) << ": The task call uses the following devices: ";
+
+            Nodecl::List l = node.get_devices().as<Nodecl::List>();
+
+            for (Nodecl::List::iterator it = l.begin();
+                    it != l.end();
+                    it++)
+            {
+                if (it != l.begin())
+                    *_omp_report_file << ", ";
+
+                *_omp_report_file << it->prettyprint();
+            }
+
+            *_omp_report_file << "\n";
+
+            // Make sure we walk the TARGET-associated items
+            walk(node.get_items());
+        }
     };
 
     Nodecl::NodeclBase FunctionCallVisitor::instantiate_exec_env(Nodecl::NodeclBase exec_env, Nodecl::FunctionCall call)
