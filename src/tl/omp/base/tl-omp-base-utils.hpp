@@ -83,7 +83,7 @@ namespace TL { namespace OpenMP {
                 {
                     *_omp_report_file 
                         << locus_to_str(locus) << ": " << "This task specifies that '"
-                        << it->get_copy_expression().prettyprint() << "' be " << copy_direction_to_str(kind) << "\n";
+                        << it->get_copy_expression().prettyprint() << "' will be " << copy_direction_to_str(kind) << "\n";
                 }
             }
 

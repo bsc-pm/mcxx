@@ -791,7 +791,7 @@ namespace TL { namespace OpenMP {
                     it != list.end();
                     it++)
             {
-                *_omp_report_file << locus_to_str(_locus) << ": The task call defines that '" << it->prettyprint() << "' be "
+                *_omp_report_file << locus_to_str(_locus) << ": The task call defines that '" << it->prettyprint() << "' will be "
                     << Base::copy_direction_to_str(kind) << "\n";
             }
         }
