@@ -249,6 +249,8 @@ static void private_fusion(const char **list, int ind_lower, int ind_upper, unsi
             list[k] = str;
         }
     }
+
+    xfree(aux_list);
 }
 
 static void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)

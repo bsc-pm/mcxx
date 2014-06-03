@@ -2430,6 +2430,8 @@ static nodecl_t update_dependent_typename_dependent_parts(
                 new_current_part);
     }
 
+    xfree(list);
+
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, locus);
 
     return new_dependent_parts;
@@ -3170,9 +3172,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                     expanded_template_parameters,
                     locus);
 
-            xfree(expanded_template_parameters->parameters);
-            xfree(expanded_template_parameters->arguments);
-            xfree(expanded_template_parameters);
+            free_template_parameter_list(expanded_template_parameters);
 
             if (updated_template_arguments == NULL)
             {
@@ -3938,7 +3938,10 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
 
                 if (nodecl_is_err_expr(nodecl_expr))
+                {
+                    xfree(t_argument);
                     return NULL;
+                }
 
                 if (is_expansion)
                 {
@@ -3980,6 +3983,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(type_info))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -3992,6 +3996,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(declarator_type))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -4005,6 +4010,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     if (abstract_decl != NULL)
                     {
+                        xfree(t_argument);
                         error_printf("%s: error: invalid template-argument number %d\n",
                                 ast_location(template_parameter),
                                 position);
