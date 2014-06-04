@@ -91,8 +91,10 @@ namespace Utils {
     bool ext_sym_map_equivalence( ext_sym_map c1, ext_sym_map c2 );
     
     bool ext_sym_set_contains_sym( const ExtendedSymbol& s, const ext_sym_set& sym_set );
+
     bool ext_sym_set_contains_nodecl( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set );
-    
+    bool ext_sym_set_contains_nodecl_pointer( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set );
+
     /*!This method returns a null nodecl if the list #sym_set does not contain a Nodecl equal to #n or containing #n
      * The cases where a nodecl contains a nodecl are the following:
      * - v contains v (this is the case when the two nodecls are equal)

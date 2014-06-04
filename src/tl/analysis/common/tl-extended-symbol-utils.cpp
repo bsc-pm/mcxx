@@ -211,6 +211,17 @@ namespace Utils {
         return false;
     }
 
+    bool ext_sym_set_contains_nodecl_pointer( const Nodecl::NodeclBase& nodecl, const ext_sym_set& sym_set )
+    {
+        for(ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
+        {
+            if( it->get_nodecl().no_conv() == nodecl.no_conv() )
+                return true;
+        }
+
+        return false;
+    }
+
     Nodecl::NodeclBase ext_sym_set_contains_enclosing_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
         if( n.is<Nodecl::ArraySubscript>( ) )

@@ -133,7 +133,25 @@ namespace Analysis {
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
-        Utils::ext_sym_map all_reach_defs_in = stmt_node->get_reaching_definitions_in();
+        Utils::ext_sym_map all_reach_defs;
+        Utils::ext_sym_set killed_vars = stmt_node->get_killed_vars();
+
+        // If n is being defined (killed) in this stmt, we don't look into their RD in
+        // We study their RD out (LHS) instead.
+        if (Utils::ext_sym_set_contains_nodecl_pointer(n, killed_vars))
+        {
+
+#ifdef DEBUG_PROPERTY
+            std::cerr << "   " << n.prettyprint() << 
+                " is killed! Look into the RD OUT"
+                << std::endl;
+#endif
+            all_reach_defs = stmt_node->get_reaching_definitions_out();
+        }
+        else
+        {
+            all_reach_defs = stmt_node->get_reaching_definitions_in();
+        }
 
         // Get all memory accesses and study their RDs 
         // Note that we want all memory access, not only the symbols.
@@ -149,11 +167,24 @@ namespace Analysis {
         {
 
 #ifdef DEBUG_PROPERTY
-            std::cerr << "   Mem access: " << n_ma_it->prettyprint() << " --> Parent: " 
-                << (n_ma_it->get_parent().is_null() ? "NULL" : n_ma_it->get_parent().prettyprint()) << std::endl;
+            std::string parent_str = "NULL";
+
+            if (!n_ma_it->get_parent().is_null())
+            {
+                Nodecl::NodeclBase parent_node = n_ma_it->get_parent();
+                if (parent_node.is<Nodecl::Conversion>())
+                    parent_str = parent_node.get_parent().prettyprint();
+                else
+                    parent_str = parent_node.prettyprint();
+            }
+            
+            std::cerr << "   Mem access: " << n_ma_it->prettyprint() 
+                << " --> Parent: " << parent_str 
+                << " . Original node: " << original_stmt->get_id() 
+                << std::endl;
 #endif
             Utils::ExtendedSymbol n_ma_es(*n_ma_it);
-            if(all_reach_defs_in.find(n_ma_es) == all_reach_defs_in.end())
+            if(all_reach_defs.find(n_ma_es) == all_reach_defs.end())
             {
                 if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
                 {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
@@ -167,7 +198,7 @@ namespace Analysis {
             }
 
             std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
-                all_reach_defs_in.equal_range(*n_ma_it);
+                all_reach_defs.equal_range(*n_ma_it);
 
             // REACHING DEFINITIONS
             for(Utils::ext_sym_map::iterator rd_it = bounds.first;
@@ -221,37 +252,114 @@ namespace Analysis {
                         if((control_structure != NULL) && 
                                 (control_structure != scope_node))
                         {
-                           bool is_loop_node = control_structure->is_loop_node();
-                           bool loop_stmts_contains_node = false;
+                           bool control_is_loop_node = control_structure->is_loop_node();
+                           bool skip_loop_condition = false;
 
                            Node* cond_node = control_structure->get_condition_node();
 
-                           if (is_loop_node)
+                           if (control_is_loop_node)
                            {
                                if(cond_node == NULL)
                                    internal_error("Conditional node is null", 0);
 
-                               // Check if the original node is 
-                               // contained in the stmts (context node) of the loop
-                               ObjectList<Edge*> exits = cond_node->get_exit_edges();
-                               for(ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+                               // Look into the condition of the loop
+                               skip_loop_condition = 
+                                   (cond_node == original_stmt) ||
+                                   ExtensibleGraph::node_contains_node(
+                                           cond_node,
+                                           original_stmt);
+#ifdef DEBUG_PROPERTY
+                               std::cerr << "          Original contained in loop cond: " 
+                                   << skip_loop_condition << std::endl;
+#endif
+
+                               // Look into the increment of the loop
+                               if (!skip_loop_condition)
                                {
-                                   if((*it)->is_true_edge())
+                                   ObjectList<Edge*> entries = cond_node->get_entry_edges();
+
+
+                                   ERROR_CONDITION(entries.size() != 2, 
+                                           "Loop Condition with %d entry edges", entries.size());
+
+                                   for(ObjectList<Edge*>::iterator it = entries.begin(); it != entries.end(); ++it)
                                    {
-                                       Node* loop_stmts_node = (*it)->get_target();
-                                       if(loop_stmts_node != NULL &&
-                                               loop_stmts_node->is_context_node())
+                                       Edge* current_entry = *it;
+                                       Node* loop_increment_node = current_entry->get_source();
+                                       if(current_entry->is_back_edge() &&
+                                               // If there is a context node there is no 
+                                               // expression in the loop next
+                                               !loop_increment_node->is_context_node() )
                                        {
-                                           loop_stmts_contains_node = 
+                                           skip_loop_condition =
+                                               ((loop_increment_node == original_stmt) ||
                                                ExtensibleGraph::node_contains_node(
-                                                       loop_stmts_node,
-                                                       original_stmt);
+                                                       loop_increment_node,
+                                                       original_stmt));
+#ifdef DEBUG_PROPERTY
+                                           std::cerr << "          Original contained in loop incr: " 
+                                               << skip_loop_condition << std::endl;
+#endif
                                        }
                                    }
                                }
+
+                               // Check if the original node is 
+                               // contained in the stmts (context node) of the loop
+                               if (!skip_loop_condition)
+                               {
+                                   ObjectList<Edge*> exits = cond_node->get_exit_edges();
+                                   for(ObjectList<Edge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+                                   {
+                                       if((*it)->is_true_edge())
+                                       {
+                                           Node* loop_stmts_node = (*it)->get_target();
+                                           if(loop_stmts_node != NULL &&
+                                                   loop_stmts_node->is_context_node())
+                                           {
+                                               skip_loop_condition = 
+                                                   ExtensibleGraph::node_contains_node(
+                                                           loop_stmts_node,
+                                                           original_stmt);
+#ifdef DEBUG_PROPERTY
+                                               std::cerr << "          Original contained in loop: " 
+                                                   << skip_loop_condition << std::endl;
+#endif
+                                           }
+                                       }
+                                   }
+                               }
+
+                               /*
+                               // If original node is not contained in the previo
+                               if (!loop_stmts_contains_node)
+                               {
+                                   bool node_is_previous = false;
+                                   std::queue<Node*> buffer;
+                                   buffer.push(control_structure);
+                                   while(!buffer.empty())
+                                   {
+                                       Node* current = buffer.top();
+                                       buffer.pop();
+
+                                       if(current==original_stmt)
+                                       {
+                                           node_is_previous = true;
+                                           break;
+                                       }
+
+                                       
+                                   }
+
+                                    Node* current = controscope_node
+                                    control_structure 
+                               }
+                               */
+ 
                            }
 
-                           if (!(is_loop_node && loop_stmts_contains_node))
+                           if (!control_is_loop_node || 
+                                   (control_is_loop_node && !skip_loop_condition))
                            { 
                                // If the original node (not any RD) is enclosed in the loop,
                                // the condition of the loop doesn't define the value of that
