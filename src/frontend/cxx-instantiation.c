@@ -1124,6 +1124,7 @@ static void instantiate_dependent_friend_function(
                     new_friend = sym_candidate;
                 }
             }
+            entry_list_iterator_free(it);
             entry_list_free(filtered_entry_list);
 
             //  1.3 It's a qualified name and we have not found a candidate in 1.2 ->
@@ -1288,6 +1289,7 @@ static void instantiate_dependent_friend_function(
                     new_friend = primary_symbol_candidate;
                 }
             }
+            entry_list_iterator_free(it);
             entry_list_free(filtered_entry_list);
 
             if (new_friend == NULL)

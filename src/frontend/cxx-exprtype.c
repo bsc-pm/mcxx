@@ -22000,6 +22000,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
             nodecl_free(new_list);
             nodecl_free(current_arg);
+            xfree(list);
             return;
         }
 
@@ -22016,6 +22017,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
                     current_arg);
         }
     }
+    xfree(list);
 
     check_nodecl_function_call(nodecl_called,
             new_list,

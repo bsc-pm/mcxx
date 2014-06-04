@@ -6521,6 +6521,7 @@ static type_t* advance_dependent_typename_aux(
     }
 
     nodecl_t nodecl_unqualified_name = nodecl_shallow_copy(dep_parts[num_items - 1]);
+    xfree(dep_parts);
 
     // Last part
     ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE

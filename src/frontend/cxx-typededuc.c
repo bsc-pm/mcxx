@@ -1781,6 +1781,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     {
                         fprintf(stderr, "TYPEDEDUC: Types cannot be adjusted at all\n");
                     }
+
+                    xfree(argument_types);
+                    xfree(parameter_types);
+
                     return 0;
                 }
             }
