@@ -597,6 +597,8 @@ namespace TL
 
                 virtual Ret visit(const Nodecl::Symbol &n)
                 {
+                    walk_type(n.get_type());
+
                     TL::Symbol sym = n.get_symbol();
                     if (sym.is_saved_expression()
                             && is_local_to_current_function(sym))
