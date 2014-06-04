@@ -3509,6 +3509,8 @@ const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_
     }
     str[num_elements] = '\0';
 
+    xfree(values);
+
     return uniquestr(str);
 }
 

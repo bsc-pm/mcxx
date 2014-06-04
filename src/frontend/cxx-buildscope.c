@@ -455,10 +455,7 @@ static void build_scope_translation_unit_pre(translation_unit_t* translation_uni
     }
     CXX_LANGUAGE()
     {
-        if (CURRENT_CONFIGURATION->explicit_instantiation)
-        {
-            instantiation_init();
-        }
+        instantiation_init();
     }
 }
 
@@ -470,15 +467,7 @@ static void build_scope_translation_unit_post(
     {
         if (CURRENT_CONFIGURATION->explicit_instantiation)
         {
-            nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
-            if (!nodecl_is_null(instantiated_units))
-            {
-                *nodecl_output = nodecl_append_to_list(*nodecl_output,
-                        nodecl_make_source_comment("Explicit instantiation of functions",
-                            nodecl_get_locus(*nodecl_output)));
-                *nodecl_output = nodecl_concat_lists(*nodecl_output,
-                        instantiated_units);
-            }
+            instantiation_instantiate_pending_functions(nodecl_output);
         }
     }
     C_LANGUAGE()
@@ -9578,6 +9567,14 @@ static void set_array_type(type_t** declarator_type,
 {
     type_t* element_type = *declarator_type;
 
+    if (element_type == NULL)
+    {
+        error_printf("%s: error: array declaration without a type-specifier\n",
+                locus_to_str(locus));
+        *declarator_type = get_error_type();
+        return;
+    }
+
     nodecl_t nodecl_expr = nodecl_null();
     if (constant_expr != NULL)
     {
@@ -11408,6 +11405,17 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         {
             if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
+                if (gather_info->is_explicit_specialization)
+                {
+                    error_printf("%s: error: default template arguments in explicit specialization function declaration\n",
+                        ast_location(declarator_id));
+                }
+                else if (gather_info->is_explicit_instantiation)
+                {
+                    error_printf("%s: error: default template arguments in explicit instantiation function declaration\n",
+                        ast_location(declarator_id));
+                }
+
                 new_entry->entity_specs.default_argument_info[i] = 
                     (default_argument_info_t*)counted_xcalloc(1, sizeof(default_argument_info_t), 
                             &_bytes_used_buildscope);
@@ -11705,7 +11713,9 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
     new_entry->entity_specs.num_parameters = gather_info->num_arguments_info;
 
     new_entry->entity_specs.default_argument_info =
-        counted_xcalloc(new_entry->entity_specs.num_parameters, sizeof(*(new_entry->entity_specs.default_argument_info)), &_bytes_used_buildscope);
+        counted_xcalloc(new_entry->entity_specs.num_parameters,
+                sizeof(*(new_entry->entity_specs.default_argument_info)),
+                &_bytes_used_buildscope);
     int i;
     for (i = 0; i < gather_info->num_arguments_info; i++)
     {
@@ -12017,7 +12027,7 @@ static char find_function_declaration(AST declarator_id,
 
     scope_entry_list_t* result_function_list = NULL;
 
-    // 1. Non template functions or template functions not when the declaration
+    // 1. Non template functions or template functions unless the declaration
     // is an explicit specialization or instantiation
     {
         // In this case a simple scan through the candidates should be enough
@@ -13039,6 +13049,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             // Only variables are actually defined, everything else is a declaration
             (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+
+        decl_context.template_parameters = entry->decl_context.template_parameters;
 
         nodecl_t nodecl_context =
             nodecl_make_context(/* optional statement sequence */ nodecl_null(),
@@ -14678,27 +14690,7 @@ static void build_scope_function_definition_body(
             entry,
             ast_get_locus(function_definition));
 
-    if (CURRENT_CONFIGURATION->explicit_instantiation
-                && is_dependent_function(entry))
-    {
-        // If we are going to instantiate later, emit only a declaration if not
-        // a member
-        if (!entry->entity_specs.is_member)
-        {
-            nodecl_t nodecl_context =
-                nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                        entry->decl_context, ast_get_locus(function_definition));
-            *nodecl_output =
-                nodecl_make_list_1(
-                        nodecl_make_cxx_decl(nodecl_context, entry, ast_get_locus(function_definition))
-                        );
-        }
-    }
-    else
-    {
-        *nodecl_output = nodecl_make_list_1(nodecl_function_def);
-    }
-
+    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
     entry->entity_specs.function_code = nodecl_function_def;
 }
 
@@ -17452,7 +17444,8 @@ static void build_scope_return_statement(AST a,
     }
     else
     {
-        if (!return_type && NULL
+        if (return_type != NULL
+                && !is_error_type(return_type)
                 && !is_void_type(return_type))
         {
             error_printf("%s: error: return with no expression in a non-void function\n", ast_location(a));
@@ -18750,13 +18743,29 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack_index */ -1);
 
                     nodecl_t nodecl_init = nodecl_null();
-                    check_nodecl_initialization(
-                            value,
-                            v->new_decl_context,
-                            new_entry,
-                            get_unqualified_type(new_entry->type_information),
-                            &nodecl_init,
-                            /* FIXME is_auto */ 0);
+                    if (!nodecl_is_null(value))
+                    {
+                        if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
+                                || nodecl_get_kind(value) == NODECL_CXX_BRACED_INITIALIZER
+                                || nodecl_get_kind(value) == NODECL_CXX_PARENTHESIZED_INITIALIZER)
+                        {
+                            check_nodecl_initialization(
+                                    value,
+                                    v->new_decl_context,
+                                    new_entry,
+                                    get_unqualified_type(new_entry->type_information),
+                                    &nodecl_init,
+                                    /* FIXME is_auto */ 0);
+                        }
+                        else
+                        {
+                            check_nodecl_expr_initializer(value, 
+                                    v->new_decl_context,
+                                    get_unqualified_type(new_entry->type_information),
+                                    /* disallow_narrowing */ 0,
+                                    &nodecl_init);
+                        }
+                    }
 
                     new_entry->value = nodecl_init;
 
@@ -18834,7 +18843,13 @@ static void instantiate_cxx_member_init(
         nodecl_t node)
 {
     nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
+
     nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
+
+    nodecl_cxx_dependent_name = update_cxx_dep_qualified_name(nodecl_cxx_dependent_name,
+            v->new_decl_context,
+            v->instantiation_symbol_map,
+            /* FIXME - pack_index */ -1);
 
     scope_entry_list_t *entry_list = query_nodecl_name_in_class(
             v->new_decl_context,
@@ -18860,12 +18875,18 @@ static void instantiate_cxx_member_init(
                 v->instantiation_symbol_map,
                 /* FIXME: pack_index */ -1);
 
+        type_t* type_to_initialize = NULL;
+        if (entry->kind == SK_VARIABLE)
+            type_to_initialize = get_unqualified_type(entry->type_information);
+        else
+            type_to_initialize = get_user_defined_type(entry);
+
         nodecl_t nodecl_init = nodecl_null();
         check_nodecl_initialization(
                 nodecl_initialization_expression,
                 v->new_decl_context,
                 entry,
-                get_unqualified_type(entry->type_information),
+                type_to_initialize,
                 &nodecl_init,
                 /* is_auto */ 0);
 
@@ -19090,9 +19111,62 @@ static void instantiate_case_statement(nodecl_instantiate_stmt_visitor_t* v, nod
             nodecl_get_locus(node));
 }
 
+static void instantiate_catch_handler(nodecl_instantiate_stmt_visitor_t *v, nodecl_t node)
+{
+    nodecl_t exception_name = nodecl_get_child(node, 0);
+    nodecl_t stmt_list = nodecl_get_child(node, 1);
+    type_t* catch_type = nodecl_get_type(node);
+
+    {
+        // This is a bit silly because exception name is in the context of statement
+        // so we cannot use instantiate_context directly
+        decl_context_t existing_context = v->new_decl_context;
+        v->new_decl_context = new_block_context(existing_context);
+
+        exception_name = instantiate_stmt_walk(v, exception_name);
+
+        nodecl_t nodecl_statement = nodecl_list_head(stmt_list);
+        nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+
+        stmt_list = nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_statement,
+                    v->new_decl_context,
+                    nodecl_get_locus(stmt_list)));
+
+        v->new_decl_context = existing_context;
+
+    }
+
+    catch_type = update_type_for_instantiation(
+            catch_type,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            v->instantiation_symbol_map,
+            /* pack */ -1);
+
+    v->nodecl_result = nodecl_make_catch_handler(
+        exception_name,
+        stmt_list,
+        catch_type,
+        nodecl_get_locus(node));
+}
+
 static void instantiate_try_block(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    instantiate_stmt_not_implemented_yet(v, node);
+    nodecl_t nodecl_statement = nodecl_get_child(node, 0);
+    nodecl_t nodecl_catch_list = nodecl_get_child(node, 1);
+    nodecl_t nodecl_catch_any = nodecl_get_child(node, 2);
+
+    nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
+    nodecl_catch_list = instantiate_stmt_walk(v, nodecl_catch_list);
+    nodecl_catch_any = instantiate_stmt_walk(v, nodecl_catch_any);
+
+    v->nodecl_result = nodecl_make_try_block(
+            nodecl_statement,
+            nodecl_catch_list,
+            nodecl_catch_any,
+            nodecl_get_locus(node));
 }
 
 static void instantiate_switch_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19185,6 +19259,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_default_statement = instantiate_stmt_visitor_fun(instantiate_default_statement);
     NODECL_VISITOR(v)->visit_case_statement = instantiate_stmt_visitor_fun(instantiate_case_statement);
     NODECL_VISITOR(v)->visit_try_block = instantiate_stmt_visitor_fun(instantiate_try_block);
+    NODECL_VISITOR(v)->visit_catch_handler = instantiate_stmt_visitor_fun(instantiate_catch_handler);
     NODECL_VISITOR(v)->visit_switch_statement = instantiate_stmt_visitor_fun(instantiate_switch_statement);
     NODECL_VISITOR(v)->visit_empty_statement = instantiate_stmt_visitor_fun(instantiate_empty_statement);
     NODECL_VISITOR(v)->visit_break_statement = instantiate_stmt_visitor_fun(instantiate_break_statement);

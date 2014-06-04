@@ -2738,9 +2738,9 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
                         << " + 1";
                     n = src.parse_expression(Scope(CURRENT_COMPILED_FILE->global_decl_context));
                 }
-                else
+                else if (fortran_dimension != 1)
                 {
-                    internal_error("Assumed size array does not have a range", 0);
+                    n = const_value_to_nodecl(const_value_get_signed_int(1));
                 }
             }
             else

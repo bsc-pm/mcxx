@@ -1,0 +1,34 @@
+[ismpcc : omp-base]
+language = C
+preprocessor_name = @ICC@
+compiler_name = @ICC@
+linker_name = @ICC@
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types -std=gnu99
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+
+[ismpcxx : omp-base]
+language = C++
+{openmp} preprocessor_options = -include new
+preprocessor_name = @ICPC@
+compiler_name = @ICPC@
+linker_name = @ICPC@
+options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+
+[ismpfc: omp-base]
+language = Fortran
+options = --do-not-wrap-modules --fortran-array-descriptor=ifort --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = -I @PKGDATADIR@/fortran/openmp
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+fortran_preprocessor_name = @IFORT@
+fortran_preprocessor_options = -P
+compiler_name = @IFORT@
+compiler_options = -recursive -assume realloc_lhs -reentrancy threaded
+linker_name = @IFORT@
+linker_options = -reentrancy threaded

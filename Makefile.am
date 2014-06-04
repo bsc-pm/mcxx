@@ -2587,9 +2587,7 @@ driver-install-exec-hook:
 	for compiler_name in ${COMPILER_NAMES}; \
 		do \
 			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-			( if [[ ! -f $(srcdir)/config/template.$${real_compiler_name} ]] ; then\
 			cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) -f $${real_mcxx_name} $${real_compiler_name} ; \
-			fi) \
 		done
 
 driver-uninstall-local:
@@ -2698,26 +2696,20 @@ CONFIG_FILES =  \
        config/10.config.analysis-base \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
-       config/50.config.cuda \
-       config/50.config.gpu \
-       config/50.config.omp.fortran \
+       config/40.config.cuda \
        config/50.config.omp.fpga \
        config/50.config.omp.mercurium \
-       config/50.config.omp.ocl \
        config/50.config.omp.profiling \
 	   config/50.config.omp.intel-rtl \
        config/55.config.omp.ibm \
-       config/55.config.omp.ibm.fortran \
        config/55.config.omp.intel \
-       config/55.config.omp.intel.fortran \
        config/55.config.omp.nvidia \
+       config/55.config.omp.ocl \
        config/56.config.omp.mpi \
        config/56.config.omp.intel.mpi \
-       config/56.config.omp.intel.fortran.mpi \
        config/57.config.omp.smp \
-       config/mpimcc \
-       config/mpimcxx \
-       config/mpimfc \
+       config/57.config.omp.smp.intel \
+       config/57.config.omp.smp.ibm \
 	   $(END)
 
 INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
@@ -2726,6 +2718,13 @@ INSTALL_CONFIG_FILES = $(addprefix config/, @INSTALL_CONFIG_FILES@)
 # that we know are deprecated and should not be
 # in the user installation anymore
 REMOVE_CONFIG_FILES=\
+					50.config.gpu \
+					50.config.cuda \
+					50.config.omp.ocl \
+					50.config.omp.fortran \
+					55.config.omp.ibm.fortran \
+					55.config.omp.intel.fortran \
+					56.config.omp.intel.fortran.mpi \
 					57.config.omp.all \
 					$(END)
 
@@ -2735,6 +2734,7 @@ config-files-dist-hook:
     do \
        cp -v "$(srcdir)/config/template.$${i}" "$(distdir)/config" || exit $?; \
     done
+
 
 CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 
@@ -2798,7 +2798,7 @@ config_edit = \
 # Cross compiler profile names
 #
 # Profiles of Mercurium
-profiles = mcxx $(COMPILER_NAMES)
+profiles = mcxx $(COMPILER_NAMES) $(SCRIPT_COMPILER_NAMES)
 config_edit += $(foreach profile, $(profiles), \
     -e 's|^\[\( *\)$(profile)\( *\)\(:.*\)\?\]|\[\1'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\2\3\]|g' \
     -e 's|^\[\(.*\):\( *\)$(profile)\( *\)\]|\[\1:\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3\]|g' \
@@ -2814,20 +2814,34 @@ config_edit += $(foreach profile, $(profiles), \
   -e 's|^\( *\)*target_options\[\( *\)$(profile)\( *\)\]\( .*\)=|\1target_options[\2'`echo '$(profile)' | $(SED) '$(program_transform_name)'`'\3]\4=|g' \
    )
 
-BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
+BUILT_SOURCES += $(CONFIG_MCXX) $(INSTALL_CONFIG_FILES) $(INSTALL_SCRIPT_COMPILER_NAMES)
 
-# This is valid in parallel make since we are generating one goal file at a time
+# Generates configs
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
  
-config-install-data-hook:
-	for compiler_name in ${COMPILER_NAMES}; \
-	do \
-		real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
-		( if [[ -f ${configdir}/$${real_compiler_name} ]] ; then\
-		mv -f ${configdir}/$${real_compiler_name} /$(mcxxexecdir)/$${real_compiler_name}; chmod a+x $(mcxxexecdir)/$${real_compiler_name}; \
-		fi) \
-	done
+config-install-data-hook: remove-old-profiles
+
+EXTRA_DIST += \
+       config/template.mpimcc \
+       config/template.mpimcxx \
+       config/template.mpimfc \
+	   $(END)
+
+# Generates driver scripts
+config/driver-scripts:
+	$(MKDIR_P) config/driver-scripts
+config/driver-scripts/%: config/template.$(notdir %) Makefile | config/driver-scripts
+	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+
+INSTALL_SCRIPT_COMPILER_NAMES=$(addprefix config/driver-scripts/, @SCRIPT_COMPILER_NAMES@)
+
+mcxxexec_SCRIPTS =
+mcxxexec_SCRIPTS += $(INSTALL_SCRIPT_COMPILER_NAMES)
+
+script-driver-install-data-hook:
+
+remove-old-profiles:
 	for oldfile in $(REMOVE_CONFIG_FILES); \
 	do \
 		if test -e $(configdir)/$${oldfile};\
@@ -2837,8 +2851,7 @@ config-install-data-hook:
 		fi \
 	done
 
-	
-install-data-hook: config-install-data-hook
+install-data-hook: config-install-data-hook script-driver-install-data-hook
 
 # Where and what to install
 pkgdata_DATA = \

@@ -139,9 +139,9 @@ void set_implicit_info(decl_context_t decl_context, char from_letter, char to_le
     char letter = from_letter;
     while (letter <= to_letter)
     {
-        ERROR_CONDITION(!('a' <= tolower(letter)
-                    && tolower(letter) <= 'z'), "Invalid letter %c", letter);
-        (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(letter) - 'a'] = type;
+        ERROR_CONDITION(!('a' <= letter
+                    && letter <= 'z'), "Invalid letter %c", letter);
+        (*(decl_context.implicit_info->data->implicit_letter_set))[letter - 'a'] = type;
 
         letter++;
     }
@@ -186,12 +186,13 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
 
 static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST location, const char* name)
 {
+    char first_letter = tolower(name[0]);
     // Special names for operators and other non regularly named stuff will not get here
-    if (('a' <= tolower(name[0]))
-            && (tolower(name[0]) <= 'z'))
+    if (('a' <= first_letter)
+            && (first_letter <= 'z'))
     {
         type_t* implicit_type = 
-            (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
+            (*(decl_context.implicit_info->data->implicit_letter_set))[first_letter - 'a'];
 
         ERROR_CONDITION(implicit_type == NULL, "this type can not be NULL", 0);
 
@@ -216,15 +217,16 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locat
 type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* name)
 {
     type_t* implicit_type = NULL;
+    char first_letter = tolower(name[0]);
 
     if (decl_context.implicit_info != NULL
             && decl_context.implicit_info->data != NULL
             && decl_context.implicit_info->data->implicit_letter_set != NULL
-            && ('a' <= tolower(name[0]))
-            && (tolower(name[0]) <= 'z'))
+            && ('a' <= first_letter)
+            && (first_letter <= 'z'))
     {
         implicit_type = 
-            (*(decl_context.implicit_info->data->implicit_letter_set))[tolower(name[0]) - 'a'];
+            (*(decl_context.implicit_info->data->implicit_letter_set))[first_letter - 'a'];
     }
 
     // This is a special void that can be distinguished from plain void
