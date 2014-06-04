@@ -267,6 +267,7 @@ namespace TL
 
                 void set_sharing(Sharing s)
                 {
+                    ERROR_CONDITION(_sharing != SHARING_UNDEFINED, "Overwriting data-sharing", 0);
                     _sharing = s;
                 }
 
@@ -499,7 +500,6 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
-                OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
                 ObjectList<OutlineDataItem*> get_data_items();
 
