@@ -551,6 +551,8 @@ namespace TL
                 OutlineInfo& _outline_info;
                 Scope _sc;
 
+                void add_shared_common(Symbol sym, TL::Type field_type);
+
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)
                     : _outline_info(outline_info), _sc(sc) { }
