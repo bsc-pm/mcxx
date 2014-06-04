@@ -269,8 +269,9 @@ namespace Analysis {
                                            cond_node,
                                            original_stmt);
 #ifdef DEBUG_PROPERTY
-                               std::cerr << "          Original contained in loop cond: " 
-                                   << skip_loop_condition << std::endl;
+                               std::cerr << "          Original " << original_stmt->get_id()
+                                  << " is contained in loop cond " << cond_node->get_id()
+                                  << "?: " << skip_loop_condition << std::endl;
 #endif
 
                                // Look into the increment of the loop
@@ -297,8 +298,9 @@ namespace Analysis {
                                                        loop_increment_node,
                                                        original_stmt));
 #ifdef DEBUG_PROPERTY
-                                           std::cerr << "          Original contained in loop incr: " 
-                                               << skip_loop_condition << std::endl;
+                                           std::cerr << "          Original " << original_stmt->get_id()
+                                               << " is contained in loop incr " << loop_increment_node->get_id()
+                                               << "?: " << skip_loop_condition << std::endl;
 #endif
                                        }
                                    }
@@ -318,12 +320,16 @@ namespace Analysis {
                                                    loop_stmts_node->is_context_node())
                                            {
                                                skip_loop_condition = 
+                                                   (loop_stmts_node == original_stmt) ||
                                                    ExtensibleGraph::node_contains_node(
                                                            loop_stmts_node,
                                                            original_stmt);
 #ifdef DEBUG_PROPERTY
                                                std::cerr << "          Original contained in loop: " 
                                                    << skip_loop_condition << std::endl;
+                                           std::cerr << "          Original " << original_stmt->get_id()
+                                               << " is contained in loop stmts " << loop_stmts_node->get_id()
+                                               << "?: " << skip_loop_condition << std::endl;
 #endif
                                            }
                                        }
