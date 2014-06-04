@@ -95,7 +95,10 @@ namespace TL { namespace Nanox {
                 it++)
         {
             if ((*it)->get_symbol() == sym)
+            {
+                is_new = ((*it)->get_sharing() == OutlineDataItem::SHARING_UNDEFINED);
                 return *(*it);
+            }
         }
 
         std::string field_name = get_field_name(sym.get_name());
@@ -104,31 +107,6 @@ namespace TL { namespace Nanox {
 
         _data_env_items.append(env_item);
         return (*_data_env_items.back());
-    }
-
-    OutlineDataItem& OutlineInfo::get_dependency_entity_for_symbol(TL::Symbol sym)
-    {
-        bool dummy;
-        return get_dependency_entity_for_symbol(sym, dummy);
-    }
-
-    OutlineDataItem& OutlineInfo::get_dependency_entity_for_symbol(TL::Symbol sym, bool &is_new)
-    {
-        is_new = false;
-        for (ObjectList<OutlineDataItem*>::iterator it = _dependency_items.begin();
-                it != _dependency_items.end();
-                it++)
-        {
-            if ((*it)->get_symbol() == sym)
-                return *(*it);
-        }
-
-        std::string field_name = get_field_name(sym.get_name());
-        OutlineDataItem* env_item = new OutlineDataItem(sym, field_name);
-        is_new = true;
-
-        _dependency_items.append(env_item);
-        return (*_dependency_items.back());
     }
 
     void OutlineInfoRegisterEntities::add_shared_opaque(Symbol sym)
@@ -698,7 +676,7 @@ namespace TL { namespace Nanox {
 
                     Source lbound_src;
                     lbound_src << "LBOUND(" << as_expression(symbol_ref) << ", DIM=" << dim << ")";
-                    
+
                     Nodecl::NodeclBase lbound_tree = lbound_src.parse_expression(_sc);
 
                     this->add_capture_with_value(bound_sym, lbound_tree, conditional_bound);
@@ -875,7 +853,9 @@ namespace TL { namespace Nanox {
             //         add_capture_address(sym, data_ref);
             //     }
             // }
-            OutlineDataItem &dep_item = _outline_info.get_dependency_entity_for_symbol(sym);
+            //
+            std::cerr << "adding  dep: " << sym.get_name() << std::endl;
+            OutlineDataItem &dep_item = _outline_info.get_entity_for_symbol(sym);
             dep_item.get_dependences().append(OutlineDataItem::DependencyItem(data_ref, directionality));
         }
         else
@@ -1086,13 +1066,27 @@ namespace TL { namespace Nanox {
                         it++)
                 {
                     TL::Symbol sym = it->as<Nodecl::Symbol>().get_symbol();
-
+                    std::cerr << "adding shared: " << sym.get_name() << ". Type -> ";
                     if (IS_FORTRAN_LANGUAGE)
                     {
-                        add_shared_opaque(sym);
+                        // For ALLOCATABLE and shared pointers, copy the descriptor
+                        if ((sym.is_allocatable()
+                                    && sym.get_type().no_ref().is_fortran_array())
+                                || (sym.get_type().no_ref().is_pointer()
+                                    && sym.get_type().no_ref().points_to().is_fortran_array()))
+                        {
+                            std::cerr << "shared_opaque_and_capture_array_descriptor" << std::endl;
+                            add_shared_opaque_and_captured_array_descriptor(sym);
+                        }
+                        else
+                        {
+                            std::cerr << "shared_opaque" << std::endl;
+                            add_shared_opaque(sym);
+                        }
                     }
                     else
                     {
+                        std::cerr << "shared" << std::endl;
                         add_shared(sym);
                     }
                 }
@@ -1296,7 +1290,7 @@ namespace TL { namespace Nanox {
             }
     };
 
-    OutlineInfo::OutlineInfo() : _data_env_items(), _dependency_items() { }
+    OutlineInfo::OutlineInfo() : _data_env_items() { }
 
     OutlineInfo::~OutlineInfo()
     {
@@ -1347,11 +1341,6 @@ namespace TL { namespace Nanox {
     ObjectList<OutlineDataItem*> OutlineInfo::get_data_items()
     {
         return _data_env_items;
-    }
-
-    ObjectList<OutlineDataItem*> OutlineInfo::get_dependency_items()
-    {
-        return _dependency_items;
     }
 
     TL::Symbol OutlineInfo::get_funct_symbol() const
@@ -1614,11 +1603,6 @@ namespace TL { namespace Nanox {
     void OutlineInfo::add_copy_of_outline_data_item(const OutlineDataItem& ol)
     {
         _data_env_items.append(new OutlineDataItem(ol));
-    }
-
-    void OutlineInfo::add_copy_of_outline_dependency_item(const OutlineDataItem& ol)
-    {
-        _dependency_items.append(new OutlineDataItem(ol));
     }
 
     namespace

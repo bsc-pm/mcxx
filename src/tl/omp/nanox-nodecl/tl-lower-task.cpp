@@ -754,7 +754,6 @@ void LoweringVisitor::emit_async_common(
             ;
     }
 
-    std::cerr << "dependency_items: " << outline_info.get_dependency_items().size() << std::endl;
     fill_dependences(construct, outline_info, dependences_info);
 
     FORTRAN_LANGUAGE()
@@ -811,8 +810,6 @@ void LoweringVisitor::visit_task(
     Symbol function_symbol = Nodecl::Utils::get_enclosing_function(construct);
 
     OutlineInfo outline_info(environment,function_symbol);
-
-    std::cerr << "dependency_items: " << outline_info.get_dependency_items().size() << std::endl;
 
     // Handle the special object 'this'
     if (IS_CXX_LANGUAGE
@@ -1481,9 +1478,9 @@ int LoweringVisitor::count_dependences(OutlineInfo& outline_info)
 {
     int num_deps = 0;
 
-    TL::ObjectList<OutlineDataItem*> deps_items = outline_info.get_dependency_items();
-    for (TL::ObjectList<OutlineDataItem*>::iterator it = deps_items.begin();
-            it != deps_items.end();
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
+    for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+            it != data_items.end();
             it++)
     {
         num_deps += (*it)->get_dependences().size();
@@ -2624,8 +2621,7 @@ void LoweringVisitor::fill_dependences_internal(
 
     int num_deps = count_dependences(outline_info);
 
-    TL::ObjectList<OutlineDataItem*> dependency_items = outline_info.get_dependency_items();
-    std::cerr << "dependency_items: " << outline_info.get_dependency_items().size() << std::endl;
+    TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
 
     if (num_deps == 0)
     {
@@ -2664,8 +2660,8 @@ void LoweringVisitor::fill_dependences_internal(
             ;
 
         int current_dep_num = 0;
-        for (TL::ObjectList<OutlineDataItem*>::iterator it = dependency_items.begin();
-                it != dependency_items.end();
+        for (TL::ObjectList<OutlineDataItem*>::iterator it = data_items.begin();
+                it != data_items.end();
                 it++)
         {
             TL::ObjectList<OutlineDataItem::DependencyItem> deps = (*it)->get_dependences();
