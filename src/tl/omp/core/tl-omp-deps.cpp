@@ -62,7 +62,7 @@ namespace TL { namespace OpenMP {
                         == DS_UNDEFINED)
                 {
                     std::stringstream reason;
-                    reason << "entity is used in the expression of a '" << _clause_name << "' clause";
+                    reason << "variable is used in the expression of a '" << _clause_name << "' clause";
 
                     // Mark this as an implicit firstprivate
                     _data_sharing.set_data_sharing(sym,

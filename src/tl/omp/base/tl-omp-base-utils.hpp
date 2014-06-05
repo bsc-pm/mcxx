@@ -28,6 +28,7 @@
 
 #include "tl-omp-base.hpp"
 #include "tl-omp-core.hpp"
+
 namespace TL { namespace OpenMP {
 
     template <typename T, typename List>
@@ -49,10 +50,25 @@ namespace TL { namespace OpenMP {
 
                 if (emit_omp_report())
                 {
+                    // Let's make sure this is properly aligned
+                    std::stringstream ss;
+                    ss
+                        << OpenMP::Report::indent
+                        << OpenMP::Report::indent
+                        << it->get_dependency_expression().prettyprint()
+                        ;
+
+                    int length = ss.str().size();
+                    int diff = 26 - length;
+                    if (diff > 0)
+                        std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                    ss
+                        << " " << dependence_direction_to_str(kind) << "\n"
+                        ;
+
                     *_omp_report_file
-                        << locus_to_str(locus) << ": "
-                        << "This task specifies an '" << dependence_direction_to_str(kind) << "' dependence "
-                        << "on the expression '" << it->get_dependency_expression().prettyprint() << "'\n";
+                        << ss.str();
                 }
             }
 
@@ -81,9 +97,25 @@ namespace TL { namespace OpenMP {
 
                 if (emit_omp_report())
                 {
-                    *_omp_report_file 
-                        << locus_to_str(locus) << ": " << "This task specifies that '"
-                        << it->get_copy_expression().prettyprint() << "' will be " << copy_direction_to_str(kind) << "\n";
+                    // Let's make sure this is properly aligned
+                    std::stringstream ss;
+                    ss
+                        << OpenMP::Report::indent
+                        << OpenMP::Report::indent
+                        << it->get_copy_expression().prettyprint()
+                        ;
+
+                    int length = ss.str().size();
+                    int diff = 20 - length;
+                    if (diff > 0)
+                        std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                    ss
+                        << " " << copy_direction_to_str(kind) << "\n"
+                        ;
+
+                    *_omp_report_file
+                        << ss.str();
                 }
             }
 

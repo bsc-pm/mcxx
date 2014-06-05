@@ -271,8 +271,8 @@ namespace TL { namespace OpenMP {
                 << "\n"
                 << call.get_locus_str() << ": " << "TASK call\n"
                 << call.get_locus_str() << ": " << "---------\n"
-                << call.get_locus_str() << ": " << "Call to task '" << sym.get_qualified_name()
-                << "' declared at '" << sym.get_locus_str() << "'\n"
+                << OpenMP::Report::indent
+                << "Call to task '" << sym.get_qualified_name() << "' declared at '" << sym.get_locus_str() << "'\n"
                 ;
         }
         Nodecl::NodeclBase exec_env = this->make_exec_environment(call, sym, task_info);
@@ -727,12 +727,72 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    struct ReportExecEnvironment : public Nodecl::ExhaustiveVisitor<void>
+    struct ReportTaskInfo : public Nodecl::ExhaustiveVisitor<void>
     {
-        const locus_t* _locus;
-        std::ofstream* _omp_report_file;
+        bool there_are_dependences, there_are_copies;
+        ReportTaskInfo() : there_are_dependences(false), there_are_copies(false) { }
 
-        ReportExecEnvironment(const locus_t* locus, std::ofstream* omp_report_file)
+
+        void visit(const Nodecl::OpenMP::DepIn& dep_in)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::DepOut& dep_out)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::DepInout& dep_inout)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::DepInPrivate& dep_in)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::DepInValue& dep_in)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::Concurrent& dep_inout)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::Commutative& dep_inout)
+        {
+            there_are_dependences = true;
+        }
+
+        void visit(const Nodecl::OpenMP::CopyIn& copy_in)
+        {
+            there_are_copies = true;
+        }
+
+        void visit(const Nodecl::OpenMP::CopyOut& copy_out)
+        {
+            there_are_copies = true;
+        }
+
+        void visit(const Nodecl::OpenMP::CopyInout& copy_inout)
+        {
+            there_are_copies = true;
+        }
+    };
+
+    struct ReportExecEnvironmentDependences : public Nodecl::ExhaustiveVisitor<void>
+    {
+        private:
+            const locus_t* _locus;
+            std::ofstream* _omp_report_file;
+
+        public:
+
+        ReportExecEnvironmentDependences(const locus_t* locus, std::ofstream* omp_report_file)
             : _locus(locus), _omp_report_file(omp_report_file)
         {
         }
@@ -744,8 +804,24 @@ namespace TL { namespace OpenMP {
                     it != list.end();
                     it++)
             {
-                *_omp_report_file << locus_to_str(_locus) << ": The task call defines '" << it->prettyprint() << "' as an '"
-                    << Base::dependence_direction_to_str(kind) << "' dependence\n";
+                std::stringstream ss;
+                ss
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << it->prettyprint()
+                    ;
+
+                int length = ss.str().size();
+                int diff = 20 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss
+                    << " " << Base::dependence_direction_to_str(kind) << "\n"
+                    ;
+
+                *_omp_report_file
+                    << ss.str();
             }
         }
 
@@ -783,6 +859,17 @@ namespace TL { namespace OpenMP {
         {
             report_dep(dep_inout.get_inout_deps(), OpenMP::DEP_COMMUTATIVE);
         }
+    };
+
+    struct ReportExecEnvironmentCopies : public Nodecl::ExhaustiveVisitor<void>
+    {
+        const locus_t* _locus;
+        std::ofstream* _omp_report_file;
+
+        ReportExecEnvironmentCopies(const locus_t* locus, std::ofstream* omp_report_file)
+            : _locus(locus), _omp_report_file(omp_report_file)
+        {
+        }
 
         void report_copy(Nodecl::NodeclBase items, CopyDirection kind)
         {
@@ -791,8 +878,25 @@ namespace TL { namespace OpenMP {
                     it != list.end();
                     it++)
             {
-                *_omp_report_file << locus_to_str(_locus) << ": The task call defines that '" << it->prettyprint() << "' will be "
-                    << Base::copy_direction_to_str(kind) << "\n";
+                // Let's make sure this is properly aligned
+                std::stringstream ss;
+                ss
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << it->prettyprint()
+                    ;
+
+                int length = ss.str().size();
+                int diff = 20 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss
+                    << " " << Base::copy_direction_to_str(kind) << "\n"
+                    ;
+
+                *_omp_report_file
+                    << ss.str();
             }
         }
 
@@ -810,10 +914,58 @@ namespace TL { namespace OpenMP {
         {
             report_copy(copy_inout.get_inout_copies(), OpenMP::COPY_DIR_INOUT);
         }
+    };
+
+    struct ReportExecEnvironmentTarget : public Nodecl::ExhaustiveVisitor<void>
+    {
+        const locus_t* _locus;
+        std::ofstream* _omp_report_file;
+
+        ReportExecEnvironmentTarget(const locus_t* locus, std::ofstream* omp_report_file)
+            : _locus(locus), _omp_report_file(omp_report_file)
+        {
+        }
+
+        void visit(const Nodecl::OpenMP::Target& node)
+        {
+
+            Nodecl::List l = node.get_devices().as<Nodecl::List>();
+
+            if (l.size() == 1)
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "The main implementation of this task targets the device '"
+                    << l[0].prettyprint() << "'\n"
+                    ;
+            }
+            else
+            {
+                *_omp_report_file << locus_to_str(_locus) << ": The main implementation of this task targets devices "
+                    ;
+                for (Nodecl::List::iterator it = l.begin();
+                        it != l.end();
+                        it++)
+                {
+                    if (it != l.begin())
+                        *_omp_report_file << ", ";
+
+                    *_omp_report_file << "'" << it->prettyprint() << "'";
+                }
+
+                *_omp_report_file << "\n";
+            }
+
+            // Make sure we walk the TARGET-associated items
+            walk(node.get_items());
+        }
+
 
         void visit(const Nodecl::OpenMP::NDRange& node)
         {
-            *_omp_report_file << locus_to_str(_locus) << ": The task call specifies the following NDRANGE(";
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "The task call specifies the following NDRANGE(";
 
             Nodecl::List l = node.get_ndrange_expressions().as<Nodecl::List>();
 
@@ -849,43 +1001,13 @@ namespace TL { namespace OpenMP {
             *_omp_report_file << ")\n";
         }
 
-        void visit(const Nodecl::OpenMP::Target& node)
-        {
-
-            Nodecl::List l = node.get_devices().as<Nodecl::List>();
-
-            if (l.size() == 1)
-            {
-                *_omp_report_file << locus_to_str(_locus) << ": The main implementation of this task targets the device '"
-                    << l[0].prettyprint() << "'\n"
-                    ;
-            }
-            else
-            {
-                *_omp_report_file << locus_to_str(_locus) << ": The main implementation of this task targets devices "
-                    ;
-                for (Nodecl::List::iterator it = l.begin();
-                        it != l.end();
-                        it++)
-                {
-                    if (it != l.begin())
-                        *_omp_report_file << ", ";
-
-                    *_omp_report_file << "'" << it->prettyprint() << "'";
-                }
-
-                *_omp_report_file << "\n";
-            }
-
-            // Make sure we walk the TARGET-associated items
-            walk(node.get_items());
-        }
-
         void visit(const Nodecl::OpenMP::Implements& node)
         {
             TL::Symbol implementation_symbol = node.get_function_name().get_symbol();
 
-            *_omp_report_file << locus_to_str(_locus) << ": There is an alternate implementation for the device '"
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "There is an alternate implementation for the device '"
                 << node.get_device().prettyprint() << "' specified by the function task '"
                 << implementation_symbol.get_qualified_name() << "' at '" << implementation_symbol.get_locus_str() << "'\n";
         }
@@ -909,8 +1031,31 @@ namespace TL { namespace OpenMP {
 
         if (_base->emit_omp_report())
         {
-            ReportExecEnvironment report_env(call.get_locus(), _base->get_omp_report_file());
-            report_env.walk(result);
+            ReportTaskInfo report_info;
+            report_info.walk(result);
+
+            if (report_info.there_are_dependences)
+            {
+                *(_base->get_omp_report_file())
+                    << OpenMP::Report::indent
+                    << "Dependences\n"
+                    ;
+                ReportExecEnvironmentDependences report_deps(call.get_locus(), _base->get_omp_report_file());
+                report_deps.walk(result);
+            }
+
+            if (report_info.there_are_copies)
+            {
+                *(_base->get_omp_report_file())
+                    << OpenMP::Report::indent
+                    << "Copies\n"
+                    ;
+                ReportExecEnvironmentCopies report_copies(call.get_locus(), _base->get_omp_report_file());
+                report_copies.walk(result);
+            }
+
+            ReportExecEnvironmentTarget report_target(call.get_locus(), _base->get_omp_report_file());
+            report_target.walk(result);
         }
 
         return result;

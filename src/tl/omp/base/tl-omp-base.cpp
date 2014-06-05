@@ -38,7 +38,15 @@
 #include "cxx-cexpr.h"
 #include "fortran03-scope.h"
 
+#include <algorithm>
+#include <iterator>
+
 namespace TL { namespace OpenMP {
+
+    namespace Report
+    {
+        const char indent[] = "  ";
+    }
 
     Base::Base()
         : PragmaCustomCompilerPhase("omp"),
@@ -342,7 +350,7 @@ namespace TL { namespace OpenMP {
                 << "\n"
                 << directive.get_locus_str() << ": " << "ATOMIC construct\n"
                 << directive.get_locus_str() << ": " << "----------------\n"
-                << directive.get_locus_str() << ": " << directive.get_statements().prettyprint() << "\n"
+                << OpenMP::Report::indent << directive.get_statements().prettyprint() << "\n"
                 ;
         }
 
@@ -396,8 +404,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": "
-                        << "Named critical construct: '" << critical_name[0] << "'\n";
+                    << OpenMP::Report::indent
+                    << "Named critical construct: '" << critical_name[0] << "'\n";
             }
         }
         else
@@ -407,7 +415,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Unnamed critical construct\n";
+                    << OpenMP::Report::indent
+                    << "Unnamed critical construct\n";
             }
         }
 
@@ -431,7 +440,7 @@ namespace TL { namespace OpenMP {
                 << "\n"
                 << directive.get_locus_str() << ": " << "BARRIER construct\n"
                 << directive.get_locus_str() << ": " << "-----------------\n"
-                << directive.get_locus_str() << ": " << "(There is no more information for BARRIER)\n"
+                << OpenMP::Report::indent << "(There is no more information for BARRIER)\n"
                 ;
         }
 
@@ -462,7 +471,7 @@ namespace TL { namespace OpenMP {
                 << "\n"
                 << directive.get_locus_str() << ": " << "FLUSH construct\n"
                 << directive.get_locus_str() << ": " << "---------------\n"
-                << directive.get_locus_str() << ": " << "(There is no more information for FLUSH)\n"
+                << OpenMP::Report::indent << "(There is no more information for FLUSH)\n"
                 ;
         }
 
@@ -491,7 +500,7 @@ namespace TL { namespace OpenMP {
                 << "\n"
                 << directive.get_locus_str() << ": " << "MASTER construct\n"
                 << directive.get_locus_str() << ": " << "----------------\n"
-                << directive.get_locus_str() << ": " << "(There is no more information for MASTER)\n"
+                << OpenMP::Report::indent << "(There is no more information for MASTER)\n"
                 ;
         }
 
@@ -528,7 +537,8 @@ namespace TL { namespace OpenMP {
                 if (!expr_list.empty())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This taskwait contains an 'on' clause and "
+                        << OpenMP::Report::indent
+                        << "This taskwait contains an 'on' clause and "
                         "will wait for the following dependences\n"
                         ;
 
@@ -537,7 +547,8 @@ namespace TL { namespace OpenMP {
                             it++)
                     {
                         *_omp_report_file
-                            << directive.get_locus_str() << ": " << "   " << it->prettyprint() << "\n";
+                            << OpenMP::Report::indent
+                            << "   " << it->prettyprint() << "\n";
                     }
                 }
             }
@@ -553,7 +564,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This taskwait does NOT flush device caches due to 'noflush' clause\n"
+                    << OpenMP::Report::indent
+                    << "This taskwait does not flush device caches due to 'noflush' clause\n"
                     ;
             }
         }
@@ -562,7 +574,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This taskwait DOES flush device caches (if any device is used)\n"
+                    << OpenMP::Report::indent
+                    << "This taskwait flushes device caches (if any device is used)\n"
                     ;
             }
         }
@@ -570,12 +583,6 @@ namespace TL { namespace OpenMP {
         pragma_line.diagnostic_unused_clauses();
         if (!expr_list.empty())
         {
-            if (emit_omp_report())
-            {
-            *_omp_report_file
-                << directive.get_locus_str() << ": " << "This taskwait will also wait for tasks created in the current context\n"
-                ;
-            }
             Nodecl::OpenMP::DepInout dep_inout = Nodecl::OpenMP::DepInout::make(
                     Nodecl::List::make(expr_list),
                     directive.get_locus());
@@ -593,8 +600,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This taskwait will only wait for tasks "
-                    "created in the current context\n"
+                    << OpenMP::Report::indent
+                    << "This taskwait waits for all tasks created in the current context\n"
                     ;
             }
             directive.replace(
@@ -649,7 +656,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This is an untied task. The thread that executes the task may change "
+                    << OpenMP::Report::indent
+                    << "This is an untied task. The thread that executes the task may change "
                     "during the execution of the task (i.e. because of preemptions)\n"
                     ;
             }
@@ -659,7 +667,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This is a tied task. The thread that executes the task will not change "
+                    << OpenMP::Report::indent
+                    << "This is a tied task. The thread that executes the task will not change "
                     "during the execution of the task\n"
                     ;
             }
@@ -675,7 +684,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This task has priority '" << expr_list[0].prettyprint() << "'\n";
+                        << OpenMP::Report::indent
+                        << "This task has priority '" << expr_list[0].prettyprint() << "'\n";
                     ;
                 }
                 execution_environment.append(
@@ -693,7 +703,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "No priority was defined for this task\n";
+                        << OpenMP::Report::indent
+                        << "No priority was defined for this task\n";
                     ;
                 }
             }
@@ -719,7 +730,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Label of this task is '" << str_list[0] << "'\n";
+                        << OpenMP::Report::indent
+                        << "Label of this task is '" << str_list[0] << "'\n";
                     ;
                 }
                 execution_environment.append(
@@ -738,7 +750,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This task does not have any label\n";
+                        << OpenMP::Report::indent
+                        << "This task does not have any label\n";
                     ;
                 }
             }
@@ -755,12 +768,16 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This task will be deferred only if expression '"
+                        << OpenMP::Report::indent
+                        << "This task will be deferred only if expression '"
                         << expr_list[0].prettyprint() << "'\n"
-                        << directive.get_locus_str() << ": " << "  Note that this does not affect dependences: if "
-                        "the task is not deferred the current thread will block until they are sasisfied\n"
-                        << directive.get_locus_str() << ": " << "  Note also that there is some unavoidable overhead "
-                        "caused by the required bookkeeping of the task context, even if the task is not deferred\n"
+                        // << OpenMP::Report::indent
+                        // << OpenMP::Report::indent
+                        // << "Note that this does not affect dependences: if "
+                        // "the task is not deferred the current thread will block until they are satisfied\n"
+                        // << OpenMP::Report::indent
+                        // << "Note also that there is some unavoidable overhead "
+                        // "caused by the required bookkeeping of the task context, even if the task is not deferred\n"
                     ;
                 }
             }
@@ -772,13 +789,15 @@ namespace TL { namespace OpenMP {
                             directive.get_locus_str().c_str());
                 }
 
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This task may run deferred because it does not have any 'if' clause\n"
-                        << directive.get_locus_str() << ": " << "  Note that the runtime may still choose not to run the task deferredly by a number of reasons\n"
-                        ;
-                }
+                // if (emit_omp_report())
+                // {
+                //     *_omp_report_file
+                //         << OpenMP::Report::indent
+                //         "This task may run deferred because it does not have any 'if' clause\n"
+                //         // << OpenMP::Report::indent
+                //         // << "Note that the runtime may still choose not to run the task deferredly by a number of reasons\n"
+                //         ;
+                // }
             }
         }
 
@@ -793,9 +812,12 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "When this task is executed it will be final "
+                        << OpenMP::Report::indent
+                        << "When this task is executed it will be final "
                         "if the expression '" << expr_list[0].prettyprint() << "' holds\n"
-                        << directive.get_locus_str() << ": " << "    A final task does not create any deferred task when it is executed\n"
+                        // << OpenMP::Report::indent
+                        // << OpenMP::Report::indent
+                        // << "A final task does not create any deferred task when it is executed\n"
                         ;
                 }
             }
@@ -852,7 +874,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This construct is ignored in OmpSs mode\n"
+                    << OpenMP::Report::indent
+                    << "This construct is ignored in OmpSs mode\n"
                     ;
             }
             return;
@@ -877,7 +900,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Parallel construct labeled '" << str_list[0] << "'\n";
+                        << OpenMP::Report::indent
+                        << "Parallel construct labeled '" << str_list[0] << "'\n";
                 }
             }
             else
@@ -890,7 +914,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Label of this parallel construct '" << str_list[0] << "'\n";
+                        << OpenMP::Report::indent
+                        << "Label of this parallel construct '" << str_list[0] << "'\n";
                 }
             }
         }
@@ -907,7 +932,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
+                        << OpenMP::Report::indent
+                        << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
                 }
             }
             else
@@ -947,7 +973,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will be created only if '"
+                        << OpenMP::Report::indent
+                        << "A team of threads will be created only if '"
                         << expr_list[0].prettyprint()
                         << "' holds\n";
                 }
@@ -961,19 +988,21 @@ namespace TL { namespace OpenMP {
                 }
                 if (emit_omp_report())
                 {
-                    *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will always be created\n"
-                        ;
+                    // *_omp_report_file
+                    //     << OpenMP::Report::indent
+                    //     << "A team of threads will always be created\n"
+                    //     ;
                 }
             }
         }
 
-        if (emit_omp_report())
-        {
-            *_omp_report_file
-                << directive.get_locus_str() << ": " << "Recall that a PARALLEL construct always implies a BARRIER at the end\n"
-                ;
-        }
+        // if (emit_omp_report())
+        // {
+        //     *_omp_report_file
+        //         << OpenMP::Report::indent
+        //         << "Recall that a PARALLEL construct always implies a BARRIER at the end\n"
+        //         ;
+        // }
 
         Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
@@ -1016,7 +1045,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This SINGLE construct does NOT have a BARRIER at the"
+                    << OpenMP::Report::indent
+                    << "This SINGLE construct does NOT have a BARRIER at the"
                     " end because of the 'nowait' clause\n";
                     ;
             }
@@ -1026,7 +1056,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This SINGLE construct implies a BARRIER at the end\n";
+                    << OpenMP::Report::indent
+                    << "This SINGLE construct implies a BARRIER at the end\n";
                     ;
             }
         }
@@ -1073,7 +1104,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This WORKSHARE construct does not have a "
+                    << OpenMP::Report::indent
+                    << "This WORKSHARE construct does not have a "
                     "BARRIER at the end due to the 'nowait' clause\n"
                     ;
             }
@@ -1083,7 +1115,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This WORKSHARE construct implies a BARRIER at the end\n"
+                    << OpenMP::Report::indent
+                    << "This WORKSHARE construct implies a BARRIER at the end\n"
                     ;
             }
         }
@@ -1152,7 +1185,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This SECTIONS construct implies a BARRIER at the end\n"
+                    << OpenMP::Report::indent
+                    << "This SECTIONS construct implies a BARRIER at the end\n"
                     ;
             }
         }
@@ -1161,7 +1195,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This SECTIONS construct does not have a barrier at end\n"
+                    << OpenMP::Report::indent
+                    << "This SECTIONS construct does not have a barrier at end\n"
                     ;
             }
         }
@@ -1230,7 +1265,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Label of this loop '" << str_list[0] << "'\n";
+                        << OpenMP::Report::indent
+                        << "Label of this loop '" << str_list[0] << "'\n";
                         ;
                 }
             }
@@ -1244,7 +1280,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This loop does not have any label\n";
+                        << OpenMP::Report::indent
+                        << "This loop does not have any label\n";
                         ;
                 }
             }
@@ -1322,7 +1359,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Loop has been explictly scheduled as '"
+                    << OpenMP::Report::indent
+                    << "Loop has been explictly scheduled as '"
                     << schedule << "'";
 
                if (!default_chunk)
@@ -1346,7 +1384,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Loop has been implicitly scheduled as 'STATIC'\n"
+                    << OpenMP::Report::indent
+                    << "Loop has been implicitly scheduled as 'STATIC'\n"
                     ;
             }
         }
@@ -1365,7 +1404,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "This loop implies a BARRIER at end\n"
+                    << OpenMP::Report::indent
+                    << "This loop implies a BARRIER at end\n"
                     ;
             }
         }
@@ -1376,13 +1416,15 @@ namespace TL { namespace OpenMP {
                 if (!is_combined_worksharing)
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This loop does not have any BARRIER at end\n"
+                        << OpenMP::Report::indent
+                        << "This loop does not have any BARRIER at end\n"
                         ;
                 }
                 else
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "This loop implies a BARRIER at end of the enclosing PARALLEL\n"
+                        << OpenMP::Report::indent
+                        << "This loop implies a BARRIER at end of the enclosing PARALLEL\n"
                         ;
                 }
             }
@@ -1461,7 +1503,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Note that in OmpSs the PARALLEL part of a PARALLEL DO is ignored\n"
+                    << OpenMP::Report::indent
+                    << "Note that in OmpSs the PARALLEL part of a PARALLEL DO is ignored\n"
                     ;
             }
             do_handler_post(directive);
@@ -1497,7 +1540,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
+                    << OpenMP::Report::indent
+                    << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
             }
         }
 
@@ -1912,7 +1956,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Note that the PARALLEL part of PARALLEL SECTIONS is ignored in OmpSs\n"
+                    << OpenMP::Report::indent
+                    << "Note that the PARALLEL part of PARALLEL SECTIONS is ignored in OmpSs\n"
                     ;
             }
             sections_handler_post(directive);
@@ -1950,7 +1995,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
+                    << OpenMP::Report::indent
+                    << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
             }
         }
 
@@ -1980,7 +2026,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will be created only if '"
+                        << OpenMP::Report::indent
+                        << "A team of threads will be created only if '"
                         << expr_list[0].prettyprint()
                         << "' holds\n";
                 }
@@ -1992,12 +2039,12 @@ namespace TL { namespace OpenMP {
                     running_error("%s: error: clause 'if' requires just one argument\n",
                             directive.get_locus_str().c_str());
                 }
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will always be created\n"
-                        ;
-                }
+                // if (emit_omp_report())
+                // {
+                //     *_omp_report_file
+                //         << directive.get_locus_str() << ": " << "A team of threads will always be created\n"
+                //         ;
+                // }
             }
         }
 
@@ -2039,7 +2086,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "Note that in OmpSs the PARALLEL part of PARALLEL FOR is ignored\n"
+                    << OpenMP::Report::indent
+                    << "Note that in OmpSs the PARALLEL part of PARALLEL FOR is ignored\n"
                     ;
             }
             for_handler_post(directive);
@@ -2069,7 +2117,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
+                        << OpenMP::Report::indent
+                        << "Number of threads requested '" << num_threads.prettyprint() << "'\n";
                 }
             }
             else
@@ -2110,7 +2159,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will be created only if '"
+                        << OpenMP::Report::indent
+                        << "A team of threads will be created only if '"
                         << expr_list[0].prettyprint()
                         << "' holds\n";
                 }
@@ -2122,12 +2172,13 @@ namespace TL { namespace OpenMP {
                     error_printf("%s: error: ignoring invalid 'if' clause\n",
                             directive.get_locus_str().c_str());
                 }
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << directive.get_locus_str() << ": " << "A team of threads will always be created\n"
-                        ;
-                }
+                // if (emit_omp_report())
+                // {
+                //     *_omp_report_file
+                //         << OpenMP::Report::indent
+                //         << "A team of threads will always be created\n"
+                //         ;
+                // }
             }
         }
 
@@ -2165,7 +2216,8 @@ namespace TL { namespace OpenMP {
             if (emit_omp_report())
             {
                 *_omp_report_file
-                    << directive.get_locus_str() << ": " << "List of variables set as threadprivate\n"
+                    << OpenMP::Report::indent
+                    << "List of variables set as threadprivate\n"
                     ;
             }
 
@@ -2177,7 +2229,8 @@ namespace TL { namespace OpenMP {
                 if (emit_omp_report())
                 {
                     *_omp_report_file
-                        << directive.get_locus_str() << ": " << sym.get_qualified_name() << std::endl;
+                        << OpenMP::Report::indent
+                        << sym.get_qualified_name() << std::endl;
                         ;
                 }
 
@@ -2252,17 +2305,17 @@ namespace TL { namespace OpenMP {
                 {
 #define CASE(x, str) case x : result += str; break;
                     CASE(DS_UNDEFINED, "<<undefined>>")
-                    CASE(DS_SHARED, "SHARED")
-                    CASE(DS_PRIVATE, "PRIVATE")
-                    CASE(DS_FIRSTPRIVATE, "FIRSTPRIVATE")
-                    CASE(DS_LASTPRIVATE, "LASTPRIVATE")
-                    CASE(DS_FIRSTLASTPRIVATE, "FIRSTPRIVATE and LASTPRIVATE")
-                    CASE(DS_REDUCTION, "REDUCTION")
-                    CASE(DS_THREADPRIVATE, "THREADPRIVATE")
-                    CASE(DS_COPYIN, "COPYIN")
-                    CASE(DS_COPYPRIVATE, "COPYPRIVATE")
+                    CASE(DS_SHARED, "shared")
+                    CASE(DS_PRIVATE, "private")
+                    CASE(DS_FIRSTPRIVATE, "firstprivate")
+                    CASE(DS_LASTPRIVATE, "lastprivate")
+                    CASE(DS_FIRSTLASTPRIVATE, "firstprivate and lastprivate")
+                    CASE(DS_REDUCTION, "reduction")
+                    CASE(DS_THREADPRIVATE, "threadprivate")
+                    CASE(DS_COPYIN, "copyin")
+                    CASE(DS_COPYPRIVATE, "copyprivate")
                     CASE(DS_NONE, "<<none>>")
-                    CASE(DS_AUTO, "AUTO")
+                    CASE(DS_AUTO, "auto")
 #undef CASE
                     default: result += "<<???unknown>>";
                 }
@@ -2282,9 +2335,33 @@ namespace TL { namespace OpenMP {
 
             virtual void do_(ArgType arg) const
             {
-                *_omp_report_file
-                    << locus_to_str(_locus) << ": Entity '" << arg.first.get_qualified_name() << "' has a "
-                    << string_of_data_sharing(_data_sharing) << " because " << arg.second << std::endl;
+                // These variables confuse the user
+                if (arg.first.is_saved_expression())
+                    return;
+
+                // Let's make sure this is properly aligned
+                std::stringstream ss;
+                ss
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << arg.first.get_qualified_name()
+                    ;
+
+                int length = ss.str().size();
+                int diff = 10 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss << string_of_data_sharing(_data_sharing);
+
+                length = ss.str().size();
+                diff = 20 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss << " (" << arg.second << ")" << std::endl;
+
+                *_omp_report_file << ss.str();
             }
     };
 
@@ -2325,10 +2402,32 @@ namespace TL { namespace OpenMP {
 
             virtual void do_(ArgType arg) const
             {
+                std::stringstream ss;
+                ss
+                    << OpenMP::Report::indent
+                    << OpenMP::Report::indent
+                    << arg.get_symbol().get_qualified_name()
+                    ;
+
+                int length = ss.str().size();
+                int diff = 10 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss << "reduction";
+
+                length = ss.str().size();
+                diff = 26 - length;
+                if (diff > 0)
+                    std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
+
+                ss
+                    << " (explicitly declared as reduction in 'reduction' clause'."
+                    " Using reduction declared in '"
+                    << arg.get_reduction()->get_symbol().get_locus_str() << ")\n";
+
                 *_omp_report_file
-                    << locus_to_str(_locus) << ": entity '" << arg.get_symbol().get_qualified_name()
-                    << "' has REDUCTION data-sharing. The used reduction was declared in '"
-                    << arg.get_reduction()->get_symbol().get_locus_str() << "\n";
+                    << ss.str();
             }
     };
 
@@ -2502,6 +2601,13 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << OpenMP::Report::indent
+                << "Data sharings of variables\n"
+                ;
+        }
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_SHARED,
                 locus,
@@ -2547,6 +2653,16 @@ namespace TL { namespace OpenMP {
         TL::ObjectList<OpenMP::DependencyItem> dependences;
         data_sharing_env.get_all_dependences(dependences);
 
+        if (emit_omp_report())
+        {
+            if (!dependences.empty())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "Dependences\n"
+                    ;
+            }
+        }
         make_dependency_list<Nodecl::OpenMP::DepIn>(
                 dependences,
                 OpenMP::DEP_DIR_IN,
@@ -2593,20 +2709,32 @@ namespace TL { namespace OpenMP {
         }
 
         ObjectList<CopyItem> copy_in = target_info.get_copy_in();
+        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
+        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
+        if (emit_omp_report())
+        {
+            if (!copy_in.empty()
+                    || !copy_out.empty()
+                    || !copy_inout.empty())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "Copies\n"
+                    ;
+            }
+        }
         make_copy_list<Nodecl::OpenMP::CopyIn>(
                 copy_in,
                 OpenMP::COPY_DIR_IN,
                 locus,
                 target_items);
 
-        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
         make_copy_list<Nodecl::OpenMP::CopyOut>(
                 copy_out,
                 OpenMP::COPY_DIR_OUT,
                 locus,
                 target_items);
 
-        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
         make_copy_list<Nodecl::OpenMP::CopyInout>(
                 copy_inout,
                 OpenMP::COPY_DIR_INOUT,

@@ -409,7 +409,7 @@ namespace TL
                 {
                     if (data_sharing_attr == DS_UNDEFINED)
                     {
-                        warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming SHARED\n",
+                        warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming 'shared'\n",
                                 construct.get_locus_str().c_str(),
                                 sym.get_name().c_str());
                         // Make it shared if we know nothing about this entity

@@ -738,7 +738,7 @@ namespace TL
                         if (data_attr == DS_UNDEFINED)
                         {
                             data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_PRIVATE | DS_IMPLICIT),
-                                    "induction variable of a sequential loop enclosed by a parallel construct");
+                                    "this is the induction variable of a sequential loop inside the current construct");
                         }
                     }
                 }
@@ -803,7 +803,7 @@ namespace TL
 
                             // Maybe we do not want to assume always shared?
                             data_sharing.set_data_sharing(sym, DS_SHARED,
-                                    "'default(none)' was specified but this entity (incorreclty) does not  "
+                                    "'default(none)' was specified but this variable (incorrectly) does not  "
                                     "have an explicit or predetermined data-sharing. 'shared' was chosen instead");
 
                             already_nagged.append(sym);
@@ -815,13 +815,13 @@ namespace TL
                         if (there_is_default_clause)
                         {
                             data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
-                                    "there is a 'default' clause and the entity does "
+                                    "there is a 'default' clause and the variable does "
                                     "not have any explicit or predetermined data-sharing");
                         }
                         else
                         {
                             data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT),
-                                    "the entity does not have any explicit or predetermined data-sharing");
+                                    "the variable does not have any explicit or predetermined data-sharing");
                         }
                     }
                 }
@@ -1235,7 +1235,7 @@ namespace TL
 
                         data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
                         reason =
-                            "'default(none)' was specified but this entity (incorreclty) does not  "
+                            "'default(none)' was specified but this variable (incorreclty) does not  "
                             "have an explicit or predetermined data-sharing. 'firstprivate' was chosen instead "
                             "as the current construct is a task";
                     }
@@ -1263,16 +1263,30 @@ namespace TL
                             }
                             if (is_shared)
                             {
-                                reason = "the entity is local but happens to be 'shared' in an enclosing construct";
+                                reason = "the variable is local but is 'shared' in an enclosing construct";
                             }
                             else
                             {
-                                reason = "the entity is local but does not seem to be shared in any enclosing construct";
+                                reason = "the variable is local";
                             }
                         }
                         else
                         {
-                            reason = "the entity is not local to the function";
+                            if (IS_FORTRAN_LANGUAGE
+                                    && sym.is_from_module())
+                            {
+                                reason = "the variable is a component of a module";
+                            }
+                            else if (IS_CXX_LANGUAGE
+                                    && sym.is_member()
+                                    && sym.is_static())
+                            {
+                                reason = "the variable is a static data-member";
+                            }
+                            else
+                            {
+                                reason = "the variable is not local to the function";
+                            }
                         }
 
                         if (is_shared)
@@ -1290,12 +1304,12 @@ namespace TL
                         data_attr = (DataSharingAttribute)(default_data_attr | DS_IMPLICIT);
                         if (there_is_default_clause)
                         {
-                            reason = "there is a 'default' clause and the entity does "
+                            reason = "there is a 'default' clause and the variable does "
                                 "not have any explicit or predetermined data-sharing";
                         }
                         else
                         {
-                            reason = "the entity does not have any explicit or predetermined data-sharing so the "
+                            reason = "the variable does not have any explicit or predetermined data-sharing so the "
                                 "implicit data-sharing is used instead";
                         }
                     }
@@ -1378,7 +1392,7 @@ namespace TL
                     {
                         data_attr = (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT);
                         data_sharing.set_data_sharing(sym, data_attr,
-                                "this entity happens to be indirectly accesible in the body of the construct");
+                                "this variable happens to be indirectly accesible in the body of the construct");
                     }
                 }
             }

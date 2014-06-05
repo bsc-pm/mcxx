@@ -30,6 +30,8 @@
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-core.hpp"
 #include <fstream>
+#include <iterator>
+#include <algorithm>
 
 namespace TL
 {
@@ -157,6 +159,11 @@ namespace TL
                 {
                     _omp_report = b;
                 }
+        };
+
+        namespace Report
+        {
+            extern const char indent[];
         };
     }
 }
