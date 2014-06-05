@@ -272,7 +272,7 @@ int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
 {
     int result;
     int size = 512;
-    char* c = xcalloc(size, sizeof(char));
+    char* c = xmalloc(size * sizeof(char));
     va_list va;
 
     va_copy(va, args);
@@ -283,8 +283,7 @@ int uniquestr_vsprintf(const char** out_str, const char* format, va_list args)
     {
         va_copy(va, args);
         size *= 2;
-        xfree(c);
-        c = xcalloc(size, sizeof(char));
+        c = xrealloc(c, size * sizeof(char));
         result = vsnprintf(c, size, format, va);
         va_end(va);
     }
