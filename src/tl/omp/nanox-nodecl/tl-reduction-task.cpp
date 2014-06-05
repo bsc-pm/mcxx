@@ -416,7 +416,7 @@ namespace TL { namespace Nanox {
                 || (Nanos::Version::interface_is_at_least("reduction_on_task", 1000)))
         {
             bool there_are_reductions_on_task = false;
-            TL::Source reductions_stuff;
+            TL::Source reductions_stuff, reductions_stuff_final;
             std::map<TL::Symbol, std::string> reduction_symbols_map;
 
             TL::ObjectList<OutlineDataItem*> data_items = outline_info.get_data_items();
@@ -459,6 +459,17 @@ namespace TL { namespace Nanox {
                         <<      "(void *) &"<< (*it)->get_field_name() << ","
                         <<      "(void **) &" << storage_name << ");"
                         ;
+
+                    reductions_stuff_final
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "err = nanos_task_reduction_get_thread_storage("
+                        <<      "(void *) &"<< (*it)->get_field_name() << ","
+                        <<      "(void **) &" << storage_name << ");"
+                        << "if (" << storage_name << " == 0)"
+                        << "{"
+                        <<      storage_name  << " = &" << (*it)->get_field_name() << ";"
+                        << "}"
+                        ;
                 }
                 else
                 {
@@ -474,6 +485,29 @@ namespace TL { namespace Nanox {
                         <<      "(void (*)(void *, void *, void*)) reduction_reduce," // reducer atomic
                         <<      "(void (*)(void *)) reduction_flush," // flush
                         <<      "&" << cache_storage << ");"  // storage
+                        ;
+
+                    TL::Source auxiliar_final;
+                    reductions_stuff_final
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
+                        << "if (is_registered)"
+                        << "{"
+                        <<      "nanos_TPRS_t* " << cache_storage << ";"
+                        <<      "err = nanos_reduction_request_tprs("
+                        <<           "(void *) &" << (*it)->get_field_name() << "," // target
+                        <<           "sizeof(" << as_type(reduction_type) << "),"  // size
+                        <<           "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
+                        <<           "(void (*)(void *)) & " << initializer_function.get_name() << "," // initializer
+                        <<           "(void (*)(void *, void *, void*)) reduction_reduce," // reducer atomic
+                        <<           "(void (*)(void *)) reduction_flush," // flush
+                        <<           "&" << cache_storage << ");"  // storage
+                        <<      auxiliar_final
+                        << "}"
+                        << "else"
+                        << "{"
+                        <<      storage_name << " = &" << (*it)->get_field_name() << ";"
+                        << "}"
                         ;
 
                     if (IS_FORTRAN_LANGUAGE)
@@ -492,9 +526,18 @@ namespace TL { namespace Nanox {
                         reductions_stuff
                             << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
                             ;
+
+                       auxiliar_final
+                            << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
+                            ;
                     }
                     else
                     {
+                        auxiliar_final
+                            << storage_name << " = "
+                            <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
+                            ;
+
                         reductions_stuff
                             << storage_name << " = "
                             <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
@@ -507,13 +550,20 @@ namespace TL { namespace Nanox {
 
             if (there_are_reductions_on_task)
             {
+                // Generating the final code
                 {
+                    TL::Source extra_declarations;
+                    extra_declarations << "nanos_err_t err;";
+
+                    if (Nanos::Version::interface_is_at_least("reduction_on_task", 1000))
+                        extra_declarations << as_type(TL::Type::get_bool_type()) << "is_registered;";
+
                     Nodecl::NodeclBase placeholder;
                     TL::Source new_statements_src;
                     new_statements_src
                         << "{"
-                        <<      "nanos_err_t err;"
-                        <<      reductions_stuff
+                        <<      extra_declarations
+                        <<      reductions_stuff_final
                         <<      statement_placeholder(placeholder)
                         << "}"
                         ;
@@ -526,9 +576,6 @@ namespace TL { namespace Nanox {
                     if (IS_FORTRAN_LANGUAGE)
                         Source::source_language = SourceLanguage::Current;
 
-
-                    TL::Source final_statements_src;
-
                     TL::Scope new_scope = ReferenceScope(placeholder).get_scope();
                     std::map<TL::Symbol, Nodecl::NodeclBase> reduction_symbol_to_nodecl_map;
                     for (std::map<TL::Symbol, std::string>::iterator it = reduction_symbols_map.begin();
@@ -539,12 +586,7 @@ namespace TL { namespace Nanox {
                         std::string storage_name = it->second;
                         TL::Symbol storage_sym = new_scope.get_symbol_from_name(storage_name);
                         ERROR_CONDITION(!storage_sym.is_valid(), "This symbol is not valid\n", 0);
-                        final_statements_src
-                            << "if (" << storage_sym.get_name() << " == 0)"
-                            << "{"
-                            <<      storage_sym.get_name() << " = &" << reduction_sym.get_name() << ";"
-                            << "}"
-                            ;
+
                         Nodecl::NodeclBase deref_storage = Nodecl::Dereference::make(
                                 storage_sym.make_nodecl(/* set_ref_type */ true, storage_sym.get_locus()),
                                 storage_sym.get_type().points_to());
@@ -552,28 +594,16 @@ namespace TL { namespace Nanox {
                         reduction_symbol_to_nodecl_map[reduction_sym] = deref_storage;
                     }
 
-                    Nodecl::NodeclBase placeholder2;
-
                     ReplaceReductionSymbols visitor(reduction_symbol_to_nodecl_map);
                     Nodecl::NodeclBase copied_statements = statements.shallow_copy();
                     visitor.walk(copied_statements);
 
-                    final_statements_src << as_statement(copied_statements);
-
-
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::C;
-
-                    Nodecl::NodeclBase new_final_statements = final_statements_src.parse_statement(new_scope);
-
-                    if (IS_FORTRAN_LANGUAGE)
-                        Source::source_language = SourceLanguage::Current;
-
-                    placeholder.replace(new_final_statements);
+                    placeholder.replace(copied_statements);
 
                     final_statements = new_statements;
                 }
 
+                // Generating the task code
                 {
                     TL::Source new_statements_src;
                     Nodecl::NodeclBase placeholder;
