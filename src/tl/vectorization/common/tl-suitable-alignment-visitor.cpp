@@ -209,9 +209,22 @@ namespace Vectorization
 
     bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
     {
-        bool result = true;
-        if( !Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
-            result = false;
+        bool result = false;
+        if( Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
+            result = true;
+
+        if (!result && n.is<Nodecl::Symbol>())
+        {
+            TL::Symbol tl_sym = n.as<Nodecl::Symbol>().get_symbol();
+            //VLA dimension
+            if (tl_sym.is_saved_expression())
+            {
+               if(Nodecl::Utils::list_contains_nodecl(
+                           _suitable_expressions, tl_sym.get_value()))
+                   result = true;
+            }
+        }
+
         return result;
     }
 
