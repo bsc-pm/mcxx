@@ -367,7 +367,9 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::lower_for_slicer(const Nodecl::OpenMP::For& construct)
     {
-        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
+        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
+                get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+
         ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
         Nodecl::RangeLoopControl range =

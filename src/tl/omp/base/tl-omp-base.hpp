@@ -124,6 +124,8 @@ namespace TL
                 static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
                         TL::Scope sc);
 
+                static Nodecl::NodeclBase wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context,
+                        TL::Scope sc);
             public:
                 template <typename T>
                 void make_data_sharing_list(
