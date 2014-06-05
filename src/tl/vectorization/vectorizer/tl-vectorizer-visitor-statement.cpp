@@ -66,7 +66,7 @@ namespace Vectorization
         _environment._analysis_scopes.push_back(n);
 
         VectorizerLoopInfo loop_info(n, _environment);
-        Nodecl::LoopControl loop_control = n.get_loop_header().
+        Nodecl::LoopControl main_loop_control = n.get_loop_header().
             as<Nodecl::LoopControl>();
 
         VectorizerVisitorExpression visitor_expression(_environment,
@@ -93,81 +93,124 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Condition '%s' needs vectorization\n",
-                        loop_control.get_cond().prettyprint().c_str());
+                        main_loop_control.get_cond().prettyprint().c_str());
             }
         }
 
-        // If Init or Step depends on SIMD IV both need to be vectorized
-        if (init_next_need_vectorization)
+
+        if (init_next_need_vectorization || condition_needs_vectorization)
         {
-            VECTORIZATION_DEBUG()
+            Nodecl::ForStatement epilog = 
+                VectorizationAnalysisInterface::_vectorizer_analysis->
+                deep_copy(n, n).as<Nodecl::ForStatement>();
+
+            n.append_sibling(epilog);
+
+            Nodecl::LoopControl epilog_loop_control = epilog.get_loop_header().
+                as<Nodecl::LoopControl>();
+
+
+            // If Init or Step depends on SIMD IV both need to be vectorized
+            if (init_next_need_vectorization)
             {
-                fprintf(stderr, "VECTORIZER: Vectorizing init\n");
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "VECTORIZER: Vectorizing init\n");
+                }
+
+                visitor_expression.walk(main_loop_control.get_init());
+
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "VECTORIZER: Vectorizing next\n");
+                }
+
+                visitor_expression.walk(epilog_loop_control.get_next());
+                visitor_expression.walk(main_loop_control.get_next());
             }
 
-            visitor_expression.walk(loop_control.get_init());
-
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: Vectorizing next\n");
-            }
-
-            visitor_expression.walk(loop_control.get_next());
-        }
-
-        // Condition
-        if (condition_needs_vectorization)
-        {
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: Condition '%s' needs vectorization\n",
-                        loop_control.get_cond().prettyprint().c_str());
-            }
-        
+            // Condition
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Vectorizing loop condition\n");
             }
 
-            // New condition: while((mask = cmp) != 0) do
+            // EPILOG condition: while((mask = cmp) != 0) do
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
                         _environment._unroll_factor,
                         true /*ref_type*/);
 
-            Nodecl::NodeclBase condition = loop_control.get_cond();
+            Nodecl::NodeclBase epilog_condition = epilog_loop_control.get_cond();
 
-            visitor_expression.walk(condition);
+            visitor_expression.walk(epilog_condition);
 
-            Nodecl::Different new_condition =
+            Nodecl::Different epilog_new_condition =
                 Nodecl::Different::make(
-                        Nodecl::Assignment::make(mask_condition_symbol,
-                            condition.shallow_copy(),
+                        Nodecl::Assignment::make(
+                            mask_condition_symbol.shallow_copy(),
+                            epilog_condition.shallow_copy(),
                             mask_condition_symbol.get_type()),
                         const_value_to_nodecl(const_value_get_zero(4, 1)),
                         Type::get_bool_type());
 
-            condition.replace(new_condition);
+            epilog_condition.replace(epilog_new_condition);
 
-            // Add loop condition as mask for vectorization
+            // Main loop condition: while((mask == 0xFFFF) != 0) do
+            Nodecl::NodeclBase main_loop_condition = main_loop_control.get_cond();
+
+            visitor_expression.walk(main_loop_condition);
+
+            Nodecl::Equal new_main_loop_condition =
+                Nodecl::Equal::make(
+                        Nodecl::Assignment::make(
+                            mask_condition_symbol.shallow_copy(),
+                            main_loop_condition.shallow_copy(),
+                            mask_condition_symbol.get_type()),
+                        const_value_to_nodecl(const_value_get_unsigned_int(0xFFFF)),
+                        Type::get_bool_type());
+
+            main_loop_condition.replace(new_main_loop_condition);
+
+            _environment._analysis_scopes.pop_back();
+
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
+            }
+
+            // EPILOG BODY
+            _environment._analysis_scopes.push_back(epilog);
+            // Add loop condition as mask for epilog vectorization
             _environment._mask_list.push_back(mask_condition_symbol);
-        }
 
-        // LOOP BODY
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
-        }
+            walk(epilog.get_statement());
 
+            // Remove Init
+            epilog_loop_control.set_init(
+                    Nodecl::NodeclBase::null());
 
-        walk(n.get_statement());
-
-        _environment._analysis_scopes.pop_back();
-
-
-        if(condition_needs_vectorization) // Remove mask pushed by loop control
-        {
+            _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
+
+
+            // MAIN LOOP BODY
+            _environment._analysis_scopes.push_back(n);
+            walk(n.get_statement());
+
+            _environment._analysis_scopes.pop_back();
+        }
+        else
+        {
+            // LOOP BODY
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
+            }
+
+            walk(n.get_statement());
+
+            _environment._analysis_scopes.pop_back();
         }
 
         VECTORIZATION_DEBUG()

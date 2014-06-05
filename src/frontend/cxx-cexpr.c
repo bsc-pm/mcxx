@@ -208,6 +208,7 @@ const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
     
 
 GET_INTEGER(int)
+GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 

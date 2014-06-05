@@ -126,6 +126,11 @@ namespace Vectorization
 
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
+
+            virtual Nodecl::NodeclBase deep_copy(
+                    const Nodecl::NodeclBase& n,
+                    TL::ReferenceScope ref_scope);
+
 /*
             DEPRECATED virtual bool is_nested_induction_variable_dependent_access(
                     const VectorizerEnvironment& environment,
