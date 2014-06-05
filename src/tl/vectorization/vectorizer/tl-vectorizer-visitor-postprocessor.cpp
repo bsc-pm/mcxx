@@ -38,6 +38,17 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorPostprocessor::visit(const Nodecl::ObjectInit& n)
+    {
+        TL::Symbol sym = n.get_symbol();
+        Nodecl::NodeclBase init = sym.get_value();
+
+        if(!init.is_null())
+        {
+            walk(init);
+        }
+    }
+ 
     void VectorizerVisitorPostprocessor::visit(const Nodecl::VectorGather& n)
     {
         VectorizerGatherScatterOptimizer gather_scatter_optimizer;

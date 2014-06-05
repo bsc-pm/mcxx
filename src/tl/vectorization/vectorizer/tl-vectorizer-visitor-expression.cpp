@@ -587,10 +587,13 @@ namespace Vectorization
             }
             else if(lhs.is<Nodecl::ArraySubscript>())
             {
-                Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(
-                        lhs.as<Nodecl::ArraySubscript>().get_subscripted());
+                Nodecl::NodeclBase subscripted = lhs.as<Nodecl::ArraySubscript>().
+                    get_subscripted().no_conv();
 
-                TL::Type subscripted_type = subscripted.get_type();
+                ERROR_CONDITION(lhs.as<Nodecl::ArraySubscript>().
+                        get_subscripts().as<Nodecl::List>().size() > 1,
+                        "Vectorizer: ArraySubscript has not been linearized: %s",
+                        lhs.prettyprint().c_str());
 
                 if (subscripted.is<Nodecl::Cast>())
                 {
@@ -651,9 +654,10 @@ namespace Vectorization
                      */
                     const Nodecl::NodeclBase base = 
                         lhs_array_copy.get_subscripted();
-                    Nodecl::NodeclBase strides =  // The array must have been linearized
-                        lhs_array_copy.get_subscripts().as<Nodecl::List>().front();
-
+                    // The array must have been linearized
+                    Nodecl::NodeclBase strides = lhs_array_copy.as<Nodecl::ArraySubscript>().
+                        get_subscripts().as<Nodecl::List>().front();
+                       
                     // Vectorize strides
                     walk(strides);
 

@@ -88,6 +88,15 @@ namespace Vectorization
             }
         }
 
+        if (condition_needs_vectorization)
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: Condition '%s' needs vectorization\n",
+                        loop_control.get_cond().prettyprint().c_str());
+            }
+        }
+
         // If Init or Step depends on SIMD IV both need to be vectorized
         if (init_next_need_vectorization)
         {

@@ -39,6 +39,17 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorPreprocessor::visit(const Nodecl::ObjectInit& n)
+    {
+        TL::Symbol sym = n.get_symbol();
+        Nodecl::NodeclBase init = sym.get_value();
+
+        if(!init.is_null())
+        {
+            walk(init);
+        }
+    }
+
     void VectorizerVisitorPreprocessor::visit(const Nodecl::ArraySubscript& n)
     {
         walk(n.get_subscripted());

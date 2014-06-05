@@ -442,16 +442,6 @@ namespace Vectorization
         return is_adjacent_access_internal(scope_node, n_node, translated_n, pcfg);
     }
 
-    Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
-            const Nodecl::NodeclBase& n)
-    {
-        Nodecl::NodeclBase n_copy = n.shallow_copy();
-        
-        shallow_copy_rec(n, n_copy);
-
-        return n_copy;
-    }
- 
     void VectorizationAnalysisInterface::shallow_copy_rec(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
@@ -498,6 +488,17 @@ namespace Vectorization
             }
         }
     }
+
+    Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
+            const Nodecl::NodeclBase& n)
+    {
+        Nodecl::NodeclBase n_copy = n.shallow_copy();
+        
+        shallow_copy_rec(n, n_copy);
+
+        return n_copy;
+    }
+ 
 
     /*
     bool VectorizationAnalysisInterface::

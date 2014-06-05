@@ -39,6 +39,8 @@ namespace Vectorization
         public:
             VectorizerVisitorPostprocessor();
 
+            void visit(const Nodecl::ObjectInit& n);
+
             void visit(const Nodecl::VectorGather& n);
             void visit(const Nodecl::VectorScatter& n);
     };
