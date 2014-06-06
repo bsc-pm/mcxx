@@ -157,12 +157,12 @@ namespace TL { namespace OpenMP {
 
             info_printf("%s: creating %s report in '%s'\n",
                     current.get_filename().c_str(),
-                    in_ompss_mode() ? "OmpSS" : "OpenMP",
+                    in_ompss_mode() ? "OmpSs" : "OpenMP",
                     report_filename.c_str());
 
             _omp_report_file = new std::ofstream(report_filename.c_str());
             *_omp_report_file
-                << (in_ompss_mode() ? "OmpSS " : "OpenMP ") << "Report for file '" << current.get_filename() << "'\n"
+                << (in_ompss_mode() ? "OmpSs " : "OpenMP ") << "Report for file '" << current.get_filename() << "'\n"
                 << "=================================================================\n";
         }
 
