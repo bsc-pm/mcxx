@@ -26,21 +26,46 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
+#include <cassert>
 
-MCXX_BEGIN_DECLS
+template <typename T>
+void f(T& t)
+{
+#pragma omp task default(shared)
+    {
+        t(2);
+    }
+#pragma omp taskwait
+}
 
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
+struct A
+{
+    int x;
 
-MCXX_END_DECLS
+    A(int x_) : x(x_) { }
 
-#endif // FORTRAN03_PRETTYPRINT_H
+    void operator()(int n) { x = n; }
+};
+
+int main(int argc, char* argv[])
+{
+    A a(1);
+
+#pragma omp parallel
+    {
+#pragma omp single
+        {
+            f(a);
+        }
+    }
+
+    assert(a.x == 2);
+
+    return 0;
+}

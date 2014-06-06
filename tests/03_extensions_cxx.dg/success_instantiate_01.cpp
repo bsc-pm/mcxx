@@ -26,21 +26,78 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium
+test_CXXFLAGS="--instantiate"
+</testinfo>
+*/
+template <typename T>
+void m(T t)
+{
+    T p;
+    p = t;
+}
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
+template <typename T>
+struct A
+{
+    void f(T t)
+    {
+        T p;
+        p = t;
+    }
 
-MCXX_BEGIN_DECLS
+    void g(T t);
 
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
+    template <typename Q>
+        void h(T t, Q q)
+        {
+            T p1;
+            Q p2;
 
-MCXX_END_DECLS
+            p1 = t;
+            p2 = q;
+        }
 
-#endif // FORTRAN03_PRETTYPRINT_H
+    template <typename Q>
+        void i(T, Q);
+};
+
+template <typename T1>
+void A<T1>::g(T1 t)
+{
+    T1 p;
+    p = t;
+}
+
+template <typename T1>
+template <typename Q1>
+void A<T1>::i(T1 t, Q1 q)
+{
+    T1 p1;
+    Q1 p2;
+
+    p1 = t;
+    p2 = q;
+}
+
+void h()
+{
+    m(3);
+    m(4.0);
+
+    A<int> a;
+
+    a.f(3);
+    a.f(4.0);
+
+    a.g(3);
+    a.g(4.0);
+
+    a.h(3, 3);
+    a.h(3, 4.0);
+
+    a.i(3, 3);
+    a.i(3, 4.0);
+}

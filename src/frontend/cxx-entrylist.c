@@ -614,6 +614,7 @@ void entry_list_to_symbol_array(scope_entry_list_t* list, scope_entry_t*** array
         (*array)[*num_items] = entry_list_iterator_current(it);
         (*num_items)++;
     }
+    entry_list_iterator_free(it);
 }
 
 scope_entry_list_t* entry_list_from_symbol_array(int num_items, scope_entry_t** list)

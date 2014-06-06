@@ -26,21 +26,13 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
-
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
-
-MCXX_BEGIN_DECLS
-
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
-
-MCXX_END_DECLS
-
-#endif // FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+static void my_funct() {}
+void get_func()
+{
+    (false) ? 0 : my_funct;
+}

@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,21 +26,35 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium
+test_CXXFLAGS="--instantiate"
+</testinfo>
+*/
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
+#if defined(__GNUC__) && (__GNUC__ >= 4 && __GNUC_MINOR__ >= 6)
 
-MCXX_BEGIN_DECLS
+template <typename T>
+struct A
+{
+    struct B
+    {
+        void f(T &t = 0);
+    };
+};
 
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
+template <typename T>
+void A<T>::B::f(T &t)
+{
+    T& p = t;
+}
 
-MCXX_END_DECLS
+void g()
+{
+    A<char>::B a;
+    char c;
+    a.f(c);
+}
 
-#endif // FORTRAN03_PRETTYPRINT_H
+#endif

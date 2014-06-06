@@ -26,21 +26,32 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium
+test_CXXFLAGS="--instantiate"
+</testinfo>
+*/
+template <typename T>
+struct A
+{
+    struct B
+    {
+        void f(T t2);
+    };
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
+    B b;
+};
 
-MCXX_BEGIN_DECLS
+template <typename T>
+void A<T>::B::f(T t2)
+{
+    t2 = 3;
+}
 
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
+void h()
+{
+    A<int> a;
 
-MCXX_END_DECLS
-
-#endif // FORTRAN03_PRETTYPRINT_H
+    a.b.f(3);
+}

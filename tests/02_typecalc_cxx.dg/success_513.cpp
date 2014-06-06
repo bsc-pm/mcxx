@@ -26,21 +26,24 @@
 
 
 
-#ifndef FORTRAN03_PRETTYPRINT_H
-#define FORTRAN03_PRETTYPRINT_H
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+template < typename T>
+void f() {}
 
-#include "cxx-macros.h"
-#include "libmf03-common.h"
-#include "cxx-prettyprint.h"
-#include "cxx-ast.h"
 
-MCXX_BEGIN_DECLS
+template < typename T, int size = sizeof(f<T>()) >
+struct C
+{
+};
 
-LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
-LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-LIBMCXX_EXTERN const char* fortran_list_handler_in_buffer(AST a);
+template < typename T2>
+struct D
+{
+    C<T2> c;
+    C<T2*> d;
+};
 
-MCXX_END_DECLS
-
-#endif // FORTRAN03_PRETTYPRINT_H

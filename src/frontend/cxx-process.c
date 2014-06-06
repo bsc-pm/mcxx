@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <execinfo.h>
 
 #include <unistd.h>
 
@@ -41,6 +42,9 @@
 
 // Compilation options
 compilation_process_t compilation_process;
+
+#define BACKTRACE_SIZE 1024
+static void *backtrace_buffer[BACKTRACE_SIZE];
 
 translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
@@ -163,6 +167,15 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     xfree(kind_copy);
     xfree(sanitized_message);
     xfree(long_message);
+
+    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    {
+        int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
+
+        /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+           would produce similar output to the following: */
+        backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
+    }
 }
 
 void running_error(const char* message, ...)
@@ -187,8 +200,18 @@ void running_error(const char* message, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
+    if (CURRENT_CONFIGURATION->debug_options.backtrace_on_ice)
+    {
+        int nptrs = backtrace(backtrace_buffer, BACKTRACE_SIZE);
+
+        /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+           would produce similar output to the following: */
+        backtrace_symbols_fd(backtrace_buffer, nptrs, fileno(stderr));
+    }
+
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
+
 
     xfree(sanitized_message);
 

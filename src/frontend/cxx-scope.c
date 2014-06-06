@@ -2430,6 +2430,8 @@ static nodecl_t update_dependent_typename_dependent_parts(
                 new_current_part);
     }
 
+    xfree(list);
+
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, locus);
 
     return new_dependent_parts;
@@ -2875,7 +2877,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "SCOPE: No update performed for template parameter '%s'"
-                            " since a template new_sym for it was not found\n",
+                            " since a template symbol for it was not found\n",
                             print_declarator(orig_type));
                 }
                 return orig_type;
@@ -3085,6 +3087,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                      {
                          fprintf(stderr, "SCOPE: Update of template argument %d failed\n", i);
                      }
+                     xfree(updated_parameter_values);
                      return NULL;
                 }
             }
@@ -3157,6 +3160,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                 }
                 i_arg++;
             }
+            xfree(updated_parameter_values);
+
             // Allocate room for the parameters, this is required by complete_template_parameters_of_template_class
             expanded_template_parameters->parameters = xcalloc(expanded_template_parameters->num_parameters,
                     sizeof(*(expanded_template_parameters->parameters)));
@@ -3167,8 +3172,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                     expanded_template_parameters,
                     locus);
 
-            xfree(expanded_template_parameters->arguments);
-            xfree(expanded_template_parameters);
+            free_template_parameter_list(expanded_template_parameters);
 
             if (updated_template_arguments == NULL)
             {
@@ -3934,7 +3938,10 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
 
                 if (nodecl_is_err_expr(nodecl_expr))
+                {
+                    xfree(t_argument);
                     return NULL;
+                }
 
                 if (is_expansion)
                 {
@@ -3976,6 +3983,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(type_info))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -3988,6 +3996,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(declarator_type))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -4001,6 +4010,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     if (abstract_decl != NULL)
                     {
+                        xfree(t_argument);
                         error_printf("%s: error: invalid template-argument number %d\n",
                                 ast_location(template_parameter),
                                 position);
@@ -4693,17 +4703,29 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
 // in a nest of namespaces
-static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context,
+static const char* get_fully_qualified_symbol_name_simple(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
         const char* current_qualif_name)
 {
+    decl_context_t symbol_decl_context = entry->decl_context;
     const char* result = current_qualif_name;
 
-    scope_t* current_scope = decl_context.current_scope;
+    scope_t* current_scope = symbol_decl_context.current_scope;
 
     if (current_scope->kind == NAMESPACE_SCOPE)
     {
+        char last_is_anonymous = 0;
         while (current_scope != NULL)
         {
+            if (decl_context.namespace_scope == current_scope
+                    && current_scope->related_entry->symbol_name != NULL
+                    && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") == 0)
+            {
+                last_is_anonymous = 1;
+                break;
+            }
+
             if (current_scope->related_entry != NULL
                     && current_scope->related_entry->symbol_name != NULL
                     && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") != 0)
@@ -4717,7 +4739,10 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
 
         CXX_LANGUAGE()
         {
-            result = strappend("::", result);
+            if (!last_is_anonymous)
+            {
+                result = strappend("::", result);
+            }
         }
     }
 
@@ -4941,8 +4966,20 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     }
     else if (entry->entity_specs.is_conversion)
     {
-        return strappend("operator ", 
-                print_type_str(function_type_get_return_type(entry->type_information), entry->decl_context));
+        return strappend("operator ",
+                get_declaration_string_ex(
+                    function_type_get_return_type(entry->type_information),
+                    entry->decl_context,
+                    /* symbol_name */"",
+                    /* initializer */ "",
+                    /* semicolon */ 0,
+                    /* num_parameter_names */ 0,
+                    /* parameter_names */ NULL,
+                    /* parameter_attributes */ NULL,
+                    /* is_parameter */ 0,
+                    /* unparenthesize_operator_ptr */ 1,
+                    get_simple_type_name_string_internal_common,
+                    NULL));
     }
     return name;
 }
@@ -5039,74 +5076,6 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     // Do not qualify symbol names if they appear inside an anonymous namespace
     const char* result = "";
     char current_has_template_parameters = 0;
-    if (entry->decl_context.namespace_scope->related_entry->symbol_name != NULL
-            && strcmp(entry->decl_context.namespace_scope->related_entry->symbol_name, "(unnamed)") == 0)
-    {
-        result = uniquestr(unmangle_symbol_name(entry));
-
-        if (entry->entity_specs.is_member
-                // Lambda classes are unnamed by definition
-                && !class_type_is_lambda(entry->entity_specs.class_type))
-        {
-            // We need the qualification of the class
-            ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
-
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
-
-            (*max_qualif_level)++;
-
-            char prev_is_dependent = 0;
-            const char* class_qualification =
-                get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
-                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
-
-            if (!class_symbol->entity_specs.is_anonymous_union)
-            {
-                class_qualification = strappend(class_qualification, "::");
-            }
-
-            if (prev_is_dependent
-                    && current_has_template_parameters
-                    && !do_not_emit_template_keywords)
-            {
-                class_qualification = strappend(class_qualification, "template ");
-            }
-
-            (*is_dependent) |= prev_is_dependent;
-
-            result = strappend(class_qualification, result);
-        }
-
-        if (!no_templates
-                && entry->type_information != NULL
-                && is_template_specialized_type(entry->type_information)
-                && template_specialized_type_get_template_arguments(entry->type_information) != NULL
-                && !entry->entity_specs.is_conversion)
-        {
-            current_has_template_parameters = 1;
-
-            template_parameter_list_t* template_parameter_list = template_specialized_type_get_template_arguments(entry->type_information);
-            const char* template_parameters =  template_arguments_to_str_ex(template_parameter_list,
-                    /* first_argument_to_be_printed */ 0,
-                    /* first_level_brackets */ 1,
-                    decl_context,
-                    print_type_fun,
-                    print_type_data);
-
-            result = strappend(result, template_parameters);
-
-            (*is_dependent) |= is_dependent_type(entry->type_information);
-
-            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
-            scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
-            if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-            {
-                // This is dependent
-                (*is_dependent) = 1;
-            }
-        }
-        return result;
-    }
 
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
@@ -5259,7 +5228,7 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && !only_classes)
     {
         // This symbol is already simple enough
-        result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);
+        result = get_fully_qualified_symbol_name_simple(entry, decl_context, result);
     }
 
     return result;
@@ -6977,38 +6946,48 @@ static char check_symbol_is_base_or_member(
 
     if (nested_name_spec_symbol != NULL)
     {
-        if (nested_name_spec_symbol->kind != SK_CLASS)
+        scope_entry_t* checked_symbol = nested_name_spec_symbol;
+        if (nested_name_spec_symbol->kind == SK_NAMESPACE)
+        {
+            // This qualified-id is of the form N::C or N1::N2::C
+            checked_symbol = current_symbol;
+        }
+
+        if (checked_symbol->kind != SK_CLASS)
         {
             error_printf("%s: error: '%s' must be a class\n",
                     locus_to_str(locus),
-                    nested_name_spec_symbol->symbol_name);
+                    checked_symbol->symbol_name);
             return 0;
         }
         else if (!class_type_is_base_instantiating(
-                    nested_name_spec_symbol->type_information,
+                    checked_symbol->type_information,
                     class_symbol->type_information,
                     locus))
         {
             error_printf("%s: error: '%s' is not a base of '%s'\n",
                     locus_to_str(locus),
-                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
         else if (class_type_is_ambiguous_base_of_derived_class(
-                    nested_name_spec_symbol->type_information,
+                    checked_symbol->type_information,
                     class_symbol->type_information))
         {
             error_printf("%s: error: '%s' is an ambiguous base of '%s'\n",
                     locus_to_str(locus),
-                    get_qualified_symbol_name(nested_name_spec_symbol, nested_name_spec_symbol->decl_context),
+                    get_qualified_symbol_name(checked_symbol, checked_symbol->decl_context),
                     get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
             return 0;
         }
     }
 
-    // If we are the last component we must be a member of class_symbol
-    if (!(current_symbol->entity_specs.is_member
+    // If we are the last component we must be a member of class_symbol (unless
+    // our nested-name-specifier designated a namespace
+    if ((nested_name_spec_symbol == NULL
+            || nested_name_spec_symbol->kind != SK_NAMESPACE)
+            && !(current_symbol->entity_specs.is_member
                 && class_type_is_base_instantiating(
                     current_symbol->entity_specs.class_type,
                     get_user_defined_type(class_symbol),
@@ -7016,7 +6995,7 @@ static char check_symbol_is_base_or_member(
     {
         error_printf("%s: error: '%s' is not a member of '%s'\n",
                 locus_to_str(locus),
-                current_symbol->symbol_name,
+                get_qualified_symbol_name(current_symbol, current_symbol->decl_context),
                 get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
         return 0;
     }
