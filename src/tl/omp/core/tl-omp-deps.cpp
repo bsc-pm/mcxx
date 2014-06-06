@@ -139,11 +139,7 @@ namespace TL { namespace OpenMP {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
                         "'default(auto)'");
             }
-            else if (in_ompss_mode
-                    && (expr.is<Nodecl::Symbol>()
-                        || sym.get_type().is_array()
-                        || (sym.get_type().is_any_reference()
-                            && sym.get_type().references_to().is_array())))
+            else if (in_ompss_mode)
             {
                 // In OmpSs, the entity of a dependency should be shared
                 //
@@ -158,31 +154,39 @@ namespace TL { namespace OpenMP {
                 //   inout([10][20] x)
                 //
                 // Note, though, that if the base symbol 'x' is an array, it will always be shared.
-                //
+
                 DataSharingAttribute dsa = data_sharing.get_data_sharing(sym);
-                if  (dsa != DS_UNDEFINED && dsa != DS_SHARED)
-                {
-                    warn_printf("%s: warning: invalid data-sharing '%s' for the dependence '%s', skipping it\n",
-                            expr.get_locus_str().c_str(),
-                            string_of_data_sharing(dsa).c_str(),
-                            expr.prettyprint().c_str());
-
-                    info_printf("%s: info: dependences are always passed as SHARED in OmpSs\n",
-                            expr.get_locus_str().c_str());
-                }
-
-                std::string reason;
                 if (expr.is<Nodecl::Symbol>())
                 {
-                    reason = "the variable is mentioned in a dependence";
+                    if (dsa == DS_UNDEFINED
+                            || (dsa & DS_IMPLICIT) == DS_IMPLICIT)
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                    }
+                    else
+                    {
+                        if ((dsa & ~DS_IMPLICIT) != DS_SHARED)
+                        {
+                            error_printf("%s: error: invalid data-sharing '%s' for the dependence '%s'\n",
+                                    expr.get_locus_str().c_str(),
+                                    string_of_data_sharing(dsa).c_str(),
+                                    expr.prettyprint().c_str());
+
+                            info_printf("%s: info: dependences are always passed as SHARED in OmpSs\n",
+                                    expr.get_locus_str().c_str());
+                        }
+                    }
                 }
                 else
                 {
-                    reason = "the variable is involved in a non-trivial dependence and it is an array";
+                    // Overwrite the data sharing if it was not set explicitly
+                    if (dsa == DS_UNDEFINED)
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is involved in a non-trivial dependence");
+                    }
                 }
-
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                        reason);
             }
 
             data_sharing.add_dependence(dep_item);

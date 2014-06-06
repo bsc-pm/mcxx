@@ -413,55 +413,28 @@ namespace TL
                     {
                         if (data_sharing_attr == DS_UNDEFINED)
                         {
-                            warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming 'shared'\n",
-                                    construct.get_locus_str().c_str(),
-                                    sym.get_name().c_str());
                             // Make it shared if we know nothing about this entity
-                            data_sharing.set_data_sharing(sym, DS_SHARED,
-                                    "specified in copy_in/copy_out/copy_inout but no data-sharing was defined for it");
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                    "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                         }
-
-                        if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
+                        else
                         {
-                            if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
+                            if  ((data_sharing_attr & ~DS_IMPLICIT) != DS_SHARED)
                             {
-                                // This is an explicit data sharing of a private
-                                // entity, which is being copied, this is wrong
-                                running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                        construct.get_locus_str().c_str(),
-                                        sym.get_name().c_str());
-                            }
-                            else
-                            {
-                                // Otherwise just override the sharing attribute with shared
-                                data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                        "entity was privatized but it appears in copy_in/copy_out/copy_inout, "
-                                        "so it has been coerced to shared");
+                                error_printf("%s: error: invalid data-sharing '%s' for the copied entity '%s', skipping it\n",
+                                        expr.get_locus_str().c_str(),
+                                        string_of_data_sharing(data_sharing_attr).c_str(),
+                                        expr.prettyprint().c_str());
                             }
                         }
                     }
                     else
                     {
-                        Type sym_type = sym.get_type();
-                        if (sym_type.is_any_reference())
-                        {
-                            sym_type = sym_type.references_to();
-                        }
-
                         // Overwrite the data sharing if it was not set explicitly
-                        if ((data_sharing_attr & DS_IMPLICIT) == DS_IMPLICIT
-                                || data_sharing_attr == DS_UNDEFINED)
+                        if (data_sharing_attr == DS_UNDEFINED)
                         {
-                            if (sym_type.is_array())
-                            {
-                                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                        "it is an array mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
-                            }
-                            else
-                            {
-                                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
-                                        "it is an object mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
-                            }
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                    "the variable is involved in a non-trivial copy");
                         }
                     }
                 }
