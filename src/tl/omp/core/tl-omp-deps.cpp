@@ -134,31 +134,31 @@ namespace TL { namespace OpenMP {
 
             Symbol sym = expr.get_base_symbol();
 
-            // Note that in general a dependency should be shared
-            //
-            //   inout(x)    x must be shared
-            //
-            // But we allow more general cases. In these cases x, is not going to be shared
-            // and it will be left to the default data sharing
-            //
-            //   inout(*x)             We do not define a specific data sharing for these
-            //   inout(x[10])
-            //   inout(x[1:2])
-            //   inout([10][20] x)
-            //
-            // Note, though, that if the base symbol 'x' is an array, it will always be shared.
-            //
             if((default_data_attr & DS_AUTO) == DS_AUTO)
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
                         "'default(auto)'");
             }
-            else if (in_ompss_mode)
-                    // && (expr.is<Nodecl::Symbol>()
-                    //     || sym.get_type().is_array()
-                    //     || (sym.get_type().is_any_reference()
-                    //         && sym.get_type().references_to().is_array())))
+            else if (in_ompss_mode
+                    && (expr.is<Nodecl::Symbol>()
+                        || sym.get_type().is_array()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_array())))
             {
+                // In OmpSs, the entity of a dependency should be shared
+                //
+                //   inout(x)    x must be shared
+                //
+                // But we allow more general cases. In these cases x, is not going to be shared
+                // and it will be left to the default data sharing
+                //
+                //   inout(*x)             We do not define a specific data sharing for these
+                //   inout(x[10])
+                //   inout(x[1:2])
+                //   inout([10][20] x)
+                //
+                // Note, though, that if the base symbol 'x' is an array, it will always be shared.
+                //
                 DataSharingAttribute dsa = data_sharing.get_data_sharing(sym);
                 if  (dsa != DS_UNDEFINED && dsa != DS_SHARED)
                 {
@@ -183,8 +183,6 @@ namespace TL { namespace OpenMP {
 
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                         reason);
-
-                std::cerr << "CORE: Adding symbol '" << sym.get_name() << "' as SHARED because it's the base symbol of dependence '" << expr.prettyprint() << "'." <<std::endl;
             }
 
             data_sharing.add_dependence(dep_item);
