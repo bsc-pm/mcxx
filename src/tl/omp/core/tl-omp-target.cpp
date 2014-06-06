@@ -405,56 +405,58 @@ namespace TL
                 Symbol sym = expr.get_base_symbol();
                 OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
-                if (expr.is<Nodecl::Symbol>())
-                {
-                    if (data_sharing_attr == DS_UNDEFINED)
-                    {
-                        warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming 'shared'\n",
-                                construct.get_locus_str().c_str(),
-                                sym.get_name().c_str());
-                        // Make it shared if we know nothing about this entity
-                        data_sharing.set_data_sharing(sym, DS_SHARED,
-                                "specified in copy_in/copy_out/copy_inout but no data-sharing was defined for it");
-                    }
+                std::cerr << "CORE-TARGET: " << sym.get_name() << " has data-sharing: " << string_of_data_sharing(data_sharing_attr) << std::endl;
 
-                    if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
-                    {
-                        if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
-                        {
-                            // This is an explicit data sharing of a private
-                            // entity, which is being copied, this is wrong
-                            running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                    construct.get_locus_str().c_str(),
-                                    sym.get_name().c_str());
-                        }
-                        else
-                        {
-                            // Otherwise just override the sharing attribute with shared
-                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                    "entity was privatized but it appears in copy_in/copy_out/copy_inout, "
-                                    "so it has been coerced to shared");
-                        }
-                    }
-                }
-                else
-                {
-                    Type sym_type = sym.get_type();
-                    if (sym_type.is_any_reference())
-                    {
-                        sym_type = sym_type.references_to();
-                    }
+                // if (expr.is<Nodecl::Symbol>())
+                // {
+                //     if (data_sharing_attr == DS_UNDEFINED)
+                //     {
+                //         warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming 'shared'\n",
+                //                 construct.get_locus_str().c_str(),
+                //                 sym.get_name().c_str());
+                //         // Make it shared if we know nothing about this entity
+                //         data_sharing.set_data_sharing(sym, DS_SHARED,
+                //                 "specified in copy_in/copy_out/copy_inout but no data-sharing was defined for it");
+                //     }
 
-                    if (sym_type.is_array())
-                    {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                "it is an array mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
-                    }
-                    else
-                    {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
-                                "it is an object mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
-                    }
-                }
+                //     if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
+                //     {
+                //         if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
+                //         {
+                //             // This is an explicit data sharing of a private
+                //             // entity, which is being copied, this is wrong
+                //             running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
+                //                     construct.get_locus_str().c_str(),
+                //                     sym.get_name().c_str());
+                //         }
+                //         else
+                //         {
+                //             // Otherwise just override the sharing attribute with shared
+                //             data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                //                     "entity was privatized but it appears in copy_in/copy_out/copy_inout, "
+                //                     "so it has been coerced to shared");
+                //         }
+                //     }
+                // }
+                // else
+                // {
+                //     Type sym_type = sym.get_type();
+                //     if (sym_type.is_any_reference())
+                //     {
+                //         sym_type = sym_type.references_to();
+                //     }
+
+                //     if (sym_type.is_array())
+                //     {
+                //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                //                 "it is an array mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
+                //     }
+                //     else
+                //     {
+                //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                //                 "it is an object mentioned in a non-trivial way in a copy_in/copy_out/copy_inout clause");
+                //     }
+                // }
 
                 CopyItem copy_item(expr, copy_direction);
                 items.append(copy_item);

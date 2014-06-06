@@ -2481,10 +2481,6 @@ namespace TL { namespace OpenMP {
         bool old_emit_omp_report = this->_omp_report;
         this->_omp_report = false;
 
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_SHARED,
-                locus,
-                result_list);
         // Everything should go transparent here
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
@@ -2500,6 +2496,11 @@ namespace TL { namespace OpenMP {
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Shared>(
                 data_sharing_env, OpenMP::DS_FIRSTLASTPRIVATE,
+                locus,
+                result_list);
+
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_SHARED,
                 locus,
                 result_list);
 
@@ -2625,10 +2626,6 @@ namespace TL { namespace OpenMP {
                 << "Data sharings of variables\n"
                 ;
         }
-        make_data_sharing_list<Nodecl::OpenMP::Shared>(
-                data_sharing_env, OpenMP::DS_SHARED,
-                locus,
-                result_list);
         make_data_sharing_list<Nodecl::OpenMP::Private>(
                 data_sharing_env, OpenMP::DS_PRIVATE,
                 locus,
@@ -2647,6 +2644,11 @@ namespace TL { namespace OpenMP {
                 result_list);
         make_data_sharing_list<Nodecl::OpenMP::Auto>(
                 data_sharing_env, OpenMP::DS_AUTO,
+                locus,
+                result_list);
+
+        make_data_sharing_list<Nodecl::OpenMP::Shared>(
+                data_sharing_env, OpenMP::DS_SHARED,
                 locus,
                 result_list);
 

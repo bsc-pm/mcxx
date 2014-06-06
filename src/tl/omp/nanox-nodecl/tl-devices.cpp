@@ -891,6 +891,7 @@ namespace TL { namespace Nanox {
                         it2 != symbols.end();
                         it2++)
                 {
+                    std::cerr << "UPDATING TYPE OF " << it2->get_name() << " " << print_declarator(it2->get_type().get_internal_type())   << std::endl;
                     it2->get_internal_symbol()->type_information =
                         type_deep_copy(it2->get_internal_symbol()->type_information,
                                 function_context,

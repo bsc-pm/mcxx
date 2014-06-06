@@ -435,7 +435,8 @@ namespace TL { namespace Nanox {
             argument_outline_data_item.set_is_cxx_this(true);
 
             // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 

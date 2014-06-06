@@ -153,11 +153,11 @@ namespace TL { namespace OpenMP {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
                         "'default(auto)'");
             }
-            else if (in_ompss_mode
-                    && (expr.is<Nodecl::Symbol>()
-                        || sym.get_type().is_array()
-                        || (sym.get_type().is_any_reference()
-                            && sym.get_type().references_to().is_array())))
+            else if (in_ompss_mode)
+                    // && (expr.is<Nodecl::Symbol>()
+                    //     || sym.get_type().is_array()
+                    //     || (sym.get_type().is_any_reference()
+                    //         && sym.get_type().references_to().is_array())))
             {
                 DataSharingAttribute dsa = data_sharing.get_data_sharing(sym);
                 if  (dsa != DS_UNDEFINED && dsa != DS_SHARED)
@@ -183,6 +183,8 @@ namespace TL { namespace OpenMP {
 
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                         reason);
+
+                std::cerr << "CORE: Adding symbol '" << sym.get_name() << "' as SHARED because it's the base symbol of dependence '" << expr.prettyprint() << "'." <<std::endl;
             }
 
             data_sharing.add_dependence(dep_item);
