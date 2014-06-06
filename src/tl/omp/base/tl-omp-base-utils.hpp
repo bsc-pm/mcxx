@@ -59,7 +59,7 @@ namespace TL { namespace OpenMP {
                         ;
 
                     int length = ss.str().size();
-                    int diff = 26 - length;
+                    int diff = 20 - length;
                     if (diff > 0)
                         std::fill_n( std::ostream_iterator<const char*>(ss), diff, " ");
 
