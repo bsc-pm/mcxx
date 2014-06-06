@@ -1439,29 +1439,7 @@ src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               src/tl/analysis/test_phase/tl-test-analysis-phase.cpp \
                               $(END)
 
-##########################################################################
-# src/tl/analysis/checker
-##########################################################################
-
-phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
-
-src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
-						$(ANALYSIS_CFLAGS) \
-						-I$(srcdir)/src/tl/analysis/singleton \
-						-I$(srcdir)/src/tl/analysis/tdg
-
-src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
-src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
-						$(ANALYSIS_LIBADD) \
-						src/tl/analysis/singleton/libanalysis_singleton.la \
-						src/tl/analysis/tdg/libtdg.la
-
-src_tl_analysis_libanalysis_check_la_SOURCES = \
-			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
-						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
-						$(END)
-endif
+endif		# BUILD_ANALYSIS
 
 ##########################################################################
 # src/tl/complexity
@@ -1991,6 +1969,34 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
    src/tl/omp/lint/tl-omp-lint.hpp \
    src/tl/omp/lint/tl-omp-lint.cpp \
    $(END)
+endif
+
+
+##########################################################################
+# src/tl/analysis/checker
+##########################################################################
+
+if BUILD_ANALYSIS
+phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
+
+src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
+src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
+						$(ANALYSIS_CFLAGS) \
+						-I$(srcdir)/src/tl/analysis/singleton \
+						-I$(srcdir)/src/tl/analysis/tdg \
+						-I$(srcdir)/src/tl/omp/lint
+
+src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
+src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
+						$(ANALYSIS_LIBADD) \
+						src/tl/analysis/singleton/libanalysis_singleton.la \
+						src/tl/analysis/tdg/libtdg.la \
+						src/tl/omp/lint/libtlomp-lint.la
+
+src_tl_analysis_libanalysis_check_la_SOURCES = \
+			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
+						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
+						$(END)
 endif
 
 ##########################################################################

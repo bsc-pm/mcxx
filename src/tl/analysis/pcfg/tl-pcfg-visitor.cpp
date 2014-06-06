@@ -661,6 +661,14 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Dead& n )
+    {
+        PCFGClause current_clause( __assert_correctness_dead, n.get_correctness_variables( ) );
+        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_assert_nodes.top( )->set_assert_correctness_dead_var( current_clause.get_args( ) );
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Dead& n )
     {
         PCFGClause current_clause( __assert_dead, n.get_dead_exprs( ) );

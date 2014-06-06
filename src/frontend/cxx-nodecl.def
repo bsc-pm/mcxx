@@ -666,6 +666,7 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_variables] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

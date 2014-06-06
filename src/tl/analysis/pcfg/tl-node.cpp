@@ -159,6 +159,11 @@ namespace Analysis {
                  has_key( _ASSERT_AUTOSC_SHARED ) );
     }
     
+    bool Node::has_correctness_dead_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
     bool Node::is_visited( ) const
     {
         return _visited;
@@ -2068,6 +2073,29 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
+
+    // ****************************************************************************** //
+    // **************** Getters and setters for correctness analysis **************** //
+
+    Nodecl::List Node::get_correctness_dead_vars()
+    {
+        Nodecl::List dead_vars;
+        if(has_key(_CORRECTNESS_DEAD_VARS))
+            dead_vars = get_data<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
+        return dead_vars;
+    }
+    
+    void Node::add_correctness_dead_var(const Nodecl::NodeclBase& n)
+    {
+        Nodecl::List dead_vars = get_correctness_dead_vars();
+        dead_vars.append(n);
+        set_data(_CORRECTNESS_DEAD_VARS, dead_vars);
+    }
+    
+    // **************** Getters and setters for correctness analysis **************** //
+    // ****************************************************************************** //
+
+
     
     // ****************************************************************************** //
     // **************** Getters and setters for vectorization analysis ************** //
@@ -2117,12 +2145,12 @@ namespace Analysis {
              it != new_assert_ue_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_ue_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_ue_var.get_nodecl( ), assert_ue_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_ue_vars ).is_null( ) )
             {
                 assert_ue_vars.insert( new_assert_ue_var );
-                set_data( _ASSERT_UPPER_EXPOSED, assert_ue_vars );
             }
         }
+        set_data( _ASSERT_UPPER_EXPOSED, assert_ue_vars );
     }
 
     Utils::ext_sym_set Node::get_assert_killed_vars( )
@@ -2140,12 +2168,12 @@ namespace Analysis {
              it != new_assert_killed_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_killed_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_killed_var.get_nodecl( ), assert_killed_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_killed_vars ).is_null( ) )
             {
                 assert_killed_vars.insert( new_assert_killed_var );
-                set_data( _ASSERT_KILLED, assert_killed_vars );
             }
         }
+        set_data( _ASSERT_KILLED, assert_killed_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_undefined_behaviour_vars( )
@@ -2163,12 +2191,12 @@ namespace Analysis {
              it != new_assert_undefined_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_undefined_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_undefined_var.get_nodecl( ), assert_undefined_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_undefined_vars ).is_null( ) )
             {
                 assert_undefined_vars.insert( new_assert_undefined_var );
-                set_data( _ASSERT_UNDEFINED, assert_undefined_vars );
             }
         }
+        set_data( _ASSERT_UNDEFINED, assert_undefined_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_live_in_vars( )
@@ -2186,12 +2214,12 @@ namespace Analysis {
              it != new_assert_live_in_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_live_in_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_live_in_var.get_nodecl( ), assert_live_in_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_live_in_vars ).is_null( ) )
             {
                 assert_live_in_vars.insert( new_assert_live_in_var );
-                set_data( _ASSERT_LIVE_IN, assert_live_in_vars );
             }
         }
+        set_data( _ASSERT_LIVE_IN, assert_live_in_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_live_out_vars( )
@@ -2209,12 +2237,12 @@ namespace Analysis {
              it != new_assert_live_out_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_live_out_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_live_out_var.get_nodecl( ), assert_live_out_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_live_out_vars ).is_null( ) )
             {
                 assert_live_out_vars.insert( new_assert_live_out_var );
-                set_data( _ASSERT_LIVE_OUT, assert_live_out_vars );
             }
         }
+        set_data( _ASSERT_LIVE_OUT, assert_live_out_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_dead_vars( )
@@ -2232,12 +2260,12 @@ namespace Analysis {
              it != new_assert_dead_vars.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_dead_var( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_dead_var.get_nodecl( ), assert_dead_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_dead_vars ).is_null( ) )
             {
                 assert_dead_vars.insert( new_assert_dead_var );
-                set_data( _ASSERT_DEAD, assert_dead_vars );
             }
         }
+        set_data( _ASSERT_DEAD, assert_dead_vars );
     }    
     
     Utils::ext_sym_map Node::get_assert_reaching_definitions_in( )
@@ -2324,13 +2352,12 @@ namespace Analysis {
              it != new_assert_auto_sc_fp.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_firstprivate_vars( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_firstprivate_vars.get_nodecl( ), 
-                                                              assert_auto_sc_firstprivate_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_auto_sc_firstprivate_vars ).is_null( ) )
             {
                 assert_auto_sc_firstprivate_vars.insert( new_assert_auto_sc_firstprivate_vars );
-                set_data( _ASSERT_AUTOSC_FIRSTPRIVATE, assert_auto_sc_firstprivate_vars );
             }
         }
+        set_data( _ASSERT_AUTOSC_FIRSTPRIVATE, assert_auto_sc_firstprivate_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_auto_sc_private_vars( )
@@ -2348,13 +2375,12 @@ namespace Analysis {
             it != new_assert_auto_sc_p.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_private_vars( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_private_vars.get_nodecl( ), 
-                                                              assert_auto_sc_private_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_auto_sc_private_vars ).is_null( ) )
             {
                 assert_auto_sc_private_vars.insert( new_assert_auto_sc_private_vars );
-                set_data( _ASSERT_AUTOSC_PRIVATE, assert_auto_sc_private_vars );
             }
         }
+        set_data( _ASSERT_AUTOSC_PRIVATE, assert_auto_sc_private_vars );
     }
     
     Utils::ext_sym_set Node::get_assert_auto_sc_shared_vars( )
@@ -2372,13 +2398,38 @@ namespace Analysis {
              it != new_assert_auto_sc_s.end( ); ++it )
         {
             Utils::ExtendedSymbol new_assert_auto_sc_shared_vars( *it );
-            if( Utils::ext_sym_set_contains_enclosing_nodecl( new_assert_auto_sc_shared_vars.get_nodecl( ), 
-                                                              assert_auto_sc_shared_vars ).is_null( ) )
+            if( Utils::ext_sym_set_contains_enclosing_nodecl( *it, assert_auto_sc_shared_vars ).is_null( ) )
             {
                 assert_auto_sc_shared_vars.insert( new_assert_auto_sc_shared_vars );
-                set_data( _ASSERT_AUTOSC_SHARED, assert_auto_sc_shared_vars );
             }
         }
+        set_data( _ASSERT_AUTOSC_SHARED, assert_auto_sc_shared_vars );
+    }
+    
+    Nodecl::List Node::get_assert_correctness_dead_vars()
+    {
+        Nodecl::List assert_dead_vars;
+        if(has_key(_ASSERT_CORRECTNESS_DEAD_VARS))
+        {
+            assert_dead_vars = get_data<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
+        }
+        return assert_dead_vars;
+    }
+    
+    void Node::set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars)
+    {
+        Nodecl::List assert_correct_dead_vars = get_assert_correctness_dead_vars();
+        for(Nodecl::List::const_iterator it = new_assert_correct_dead_vars.begin( ); 
+            it != new_assert_correct_dead_vars.end( ); ++it)
+        {
+            // FIXME When we delete ExtendedSymbol and transform this methods to nodecl instead of extended symbol
+//             Utils::ExtendedSymbol new_assert_correct_dead_var(*it);
+//             if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, assert_correct_dead_vars).is_null())
+            {
+                assert_correct_dead_vars.append(*it);
+            }
+        }
+        set_data(_ASSERT_CORRECTNESS_DEAD_VARS, assert_correct_dead_vars);
     }
     
     // **************** END getters and setters for analysis checking *************** //
