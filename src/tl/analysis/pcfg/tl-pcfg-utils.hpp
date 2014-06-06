@@ -871,6 +871,8 @@ namespace Analysis {
     friend class PCFGVisitor;
     };
 
+    std::string print_node_list(const ObjectList<Node*>& list);
+    
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
     

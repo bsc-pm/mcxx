@@ -195,20 +195,18 @@ namespace {
                 // }
                 {
                     Nodecl::List local_vars;
-                    if( task_is_locally_bound(*it, local_vars).is_true( ) )
+                    if( task_is_locally_bound(*it, local_vars).is_true( ) && 
+                        task_only_synchronizes_in_enclosing_scopes(*it).is_false( ))
                     {
-                        if( task_only_synchronizes_in_enclosing_scopes(*it).is_false( ) )
-                        {
-                            Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
-                            std::string task_locus = task.get_locus_str();
-                            std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
-                            std::string local_vars_str = get_nodecl_list_str( local_vars );
-                            warn_printf( "%s: omp-warning: Local variables '%s' are defined as shared in the task, "
-                                         "but their lifetime may have ended when the task is executed.\n"
-                                         "%sConsider privatizing them or synchronizing the task before the local data is deallocated.\n", 
-                                         task_locus.c_str(), local_vars_str.c_str(), tabulation.c_str() );
-                            print_warn_to_file(task, __SharedAutoStorage);
-                        }
+                        Nodecl::NodeclBase task = (*it)->get_graph_related_ast();
+                        std::string task_locus = task.get_locus_str();
+                        std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
+                        std::string local_vars_str = get_nodecl_list_str( local_vars );
+                        warn_printf( "%s: omp-warning: Local variables '%s' are defined as shared in the task, "
+                                     "but their lifetime may have ended when the task is executed.\n"
+                                     "%sConsider privatizing them or synchronizing the task before the local data is deallocated.\n", 
+                                     task_locus.c_str(), local_vars_str.c_str(), tabulation.c_str() );
+                        print_warn_to_file(task, __SharedAutoStorage);
                     }
                 }
                 
@@ -442,31 +440,31 @@ namespace {
             return result;
         }
         
-        // This method returns in #concurrently_used_vars a relation of variables and 
+        // This method returns in #used_vars a relation of variables and 
         // the nodes where these variables have an access (use|definition|undefined)
-        void compute_usage_between_nodes( TL::Analysis::Node* source, TL::Analysis::Node* target, 
+        void compute_usage_between_nodes( TL::Analysis::Node* current, TL::Analysis::Node* source, TL::Analysis::Node* target, 
                                           TL::Analysis::Node* ommited_node,
-                                          std::map<Nodecl::NodeclBase, ObjectList<TL::Analysis::Node*> >& concurrently_used_vars, 
+                                          std::map<Nodecl::NodeclBase, ObjectList<TL::Analysis::Node*> >& used_vars, 
                                           const Nodecl::List& variables )
         {
-            if( source->is_visited( ) || source == target )
+            if( current->is_visited( ) || current == target )
                 return;
             
-            source->set_visited( true );
+            current->set_visited( true );
             
             // Treat the current node
-            if( source != ommited_node )
+            if( current != ommited_node )
             {
-                if( source->is_graph_node( ) )
+                if( current->is_graph_node( ) )
                 {
-                    compute_usage_between_nodes( source->get_graph_entry_node( ), target, ommited_node, 
-                                                 concurrently_used_vars, variables );
+                    compute_usage_between_nodes( current->get_graph_entry_node( ), source, target, ommited_node, 
+                                                 used_vars, variables );
                 }
-                else if( source->has_statements( ) )
+                else if( current->has_statements( ) )
                 {
-                    TL::Analysis::Utils::ext_sym_set ue = source->get_ue_vars( );
-                    TL::Analysis::Utils::ext_sym_set kill = source->get_killed_vars( );
-                    TL::Analysis::Utils::ext_sym_set undef = source->get_undefined_behaviour_vars( );
+                    TL::Analysis::Utils::ext_sym_set ue = current->get_ue_vars( );
+                    TL::Analysis::Utils::ext_sym_set kill = current->get_killed_vars( );
+                    TL::Analysis::Utils::ext_sym_set undef = current->get_undefined_behaviour_vars( );
                     
                     TL::Analysis::Utils::ext_sym_set accessed_vars;
                     accessed_vars.insert( ue.begin( ), ue.end( ) );
@@ -480,12 +478,12 @@ namespace {
                             !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( *it, accessed_vars ).is_null( ) || 
                             !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, accessed_vars ).is_null( ) )
                         {
-                            if( concurrently_used_vars.find( *it ) != concurrently_used_vars.end( ) )
-                                concurrently_used_vars[*it].insert( source );
+                            if( used_vars.find( *it ) != used_vars.end( ) )
+                                used_vars[*it].insert( current );
                             else
-                                concurrently_used_vars.insert( 
+                                used_vars.insert( 
                                         std::pair<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >( 
-                                        *it, TL::ObjectList<TL::Analysis::Node*>( 1, source ) ) );
+                                        *it, TL::ObjectList<TL::Analysis::Node*>( 1, current ) ) );
                         }
                     }
                 }
@@ -493,26 +491,29 @@ namespace {
             
             // Treat the children
             TL::ObjectList<TL::Analysis::Node*> children;
-            if( source->is_exit_node( ) )
-                children = source->get_outer_node( )->get_children( );
+            if( current->is_exit_node( ) )
+            {   // Check we are not exiting the scope of the task scheduling point
+                TL::Analysis::Node* outer = current->get_outer_node();
+                if((outer != NULL) && TL::Analysis::ExtensibleGraph::node_contains_node(outer, source))
+                    children = current->get_outer_node()->get_children();
+            }
             else
-                children = source->get_children( );
+                children = current->get_children( );
             for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-                compute_usage_between_nodes( *it, target, ommited_node, concurrently_used_vars, variables );
+                compute_usage_between_nodes( *it, source, target, ommited_node, used_vars, variables );
         }
         
         tribool task_may_cause_race_condition( TL::Analysis::ExtensibleGraph* pcfg, 
                                                TL::Analysis::Node *n, Nodecl::List& race_cond_vars )
         {
+            // 1.- Check the correctness of the parameters
             ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
                              n->get_type_as_string( ).c_str( ) );
             
             Nodecl::NodeclBase task = n->get_graph_related_ast( );
             ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
             
-            tribool result = false;
-            
-            // Collect all symbols/data references that may cause a race condition
+            // 2.- Collect all symbols/data references that may cause a race condition
             Nodecl::List task_shared_variables;
             TL::Analysis::PCFGPragmaInfo task_pragma_info = n->get_pragma_node_info( );
             if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
@@ -541,50 +542,44 @@ namespace {
                 task_shared_variables.append( inout );
             }
             
-            // Get the previous and next synchronization points (computed during Liveness analysis)
+            // 3.- Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
+            
+            // 3.1.- Get the previous and next synchronization points (computed during Liveness analysis)
             TL::ObjectList<TL::Analysis::Node*> last_sync = pcfg->get_task_last_synchronization( n );
             TL::ObjectList<TL::Analysis::Node*> next_sync = pcfg->get_task_next_synchronization( n );
-            
             if(VERBOSE)
             {
-                // Get last synchronization node list as a string
-                std::string last_syncs;
-                for(TL::ObjectList<TL::Analysis::Node*>::iterator it = last_sync.begin(); it != last_sync.end(); )
-                {
-                    std::stringstream ss; ss << (*it)->get_id();
-                    last_syncs +=  ss.str();
-                    ++it;
-                    if(it != last_sync.end())
-                        last_syncs += ", ";
-                }
-                
-                // Get next synchronization node list as a string
-                std::string next_syncs;
-                for(TL::ObjectList<TL::Analysis::Node*>::iterator it = next_sync.begin(); it != next_sync.end(); )
-                {
-                    std::stringstream ss; ss << (*it)->get_id();
-                    next_syncs +=  ss.str();
-                    ++it;
-                    if(it != next_sync.end())
-                        next_syncs += ", ";
-                }
-                 
-                std::cerr << "OMP-LINT_ Task " << n->get_id() << " has last_syncs(" << last_syncs << ") and next_syncs(" << next_syncs << ")" << std::endl;
+                std::cerr << "OMP-LINT_ Task " << n->get_id() << " "
+                          << "has last_syncs(" << print_node_list(last_sync) << ") "
+                          << "and next_syncs(" << print_node_list(next_sync) << ")" << std::endl;
             }
             
-            // Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
+            tribool result = false;
+            
+            // 3.2.- Compute usage of concurrent sequential code
             std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > concurrently_used_vars;
             for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
                 for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
-                    compute_usage_between_nodes( *itl, *itn, n, concurrently_used_vars, task_shared_variables );
+                    compute_usage_between_nodes( *itl, *itl, *itn, n, concurrently_used_vars, task_shared_variables );
             for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
                 TL::Analysis::ExtensibleGraph::clear_visits( *itl );
+            
+            // 3.3.- Compute usage in concurrent tasks
+            TL::ObjectList<TL::Analysis::Node*> concurrent_tasks = pcfg->get_task_concurrent_tasks(n);
+            for(ObjectList<TL::Analysis::Node*>::iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
+            {
+                TL::Analysis::Node* task_entry = n->get_graph_entry_node();
+                compute_usage_between_nodes(task_entry, task_entry, n->get_graph_exit_node(), n, concurrently_used_vars, task_shared_variables);
+                TL::Analysis::ExtensibleGraph::clear_visits_in_level(task_entry, n);
+            }
+            
+            // 3.4.- Compute usage in the task
             std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > task_used_vars;
             TL::Analysis::Node* task_entry = n->get_graph_entry_node( );
-            compute_usage_between_nodes( task_entry, n->get_graph_exit_node( ), NULL, task_used_vars, task_shared_variables );
-            TL::Analysis::ExtensibleGraph::clear_visits( task_entry );
+            compute_usage_between_nodes( task_entry, task_entry, n->get_graph_exit_node( ), NULL, task_used_vars, task_shared_variables );
+            TL::Analysis::ExtensibleGraph::clear_visits_in_level( task_entry, n );
             
-            // Detect data races on the variables that appear in both the task and concurrent code with the task
+            // 3.5.- Detect data races on the variables that appear in both the task and concurrent code with the task
             TL::Analysis::Utils::ext_sym_set task_defs = n->get_killed_vars( );
                     // To be conservative, the undef. variables count as definitions
             TL::Analysis::Utils::ext_sym_set task_undef = n->get_undefined_behaviour_vars( );  
@@ -648,43 +643,6 @@ namespace {
                             }
                         }
                     }
-                }
-            }
-            
-            // If the task is in a parallel construct, then 
-            // any shared variable of the task that is not protected 
-            // with an atomic or critical construct, are in a race condition
-            for(TL::ObjectList<TL::Analysis::Node*>::iterator it = last_sync.begin(); it != last_sync.end(); ++it)
-            {
-                if((*it)->is_omp_flush_node())
-                {
-                    // Check that some access is not protected and at least one of the accesses is a write
-                    for(std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator itt = task_used_vars.begin(); 
-                        itt != task_used_vars.end(); ++itt)
-                    {
-                        if (Nodecl::Utils::nodecl_is_in_nodecl_list(itt->first, task_shared_variables) && 
-                            !warned_vars[itt->first])
-                        {   // Check whether the accesses to the variable are protected or not
-                            TL::ObjectList<TL::Analysis::Node*> nodes = itt->second;
-                            bool defined = false;
-                            bool safe = true;
-                            for(TL::ObjectList<TL::Analysis::Node*>::iterator ittt = nodes.begin(); ittt != nodes.end(); ++ittt)
-                            {
-                                TL::Analysis::Utils::ext_sym_set killed_vars = (*ittt)->get_killed_vars();
-                                if(!TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(itt->first, killed_vars).is_null())
-                                    defined = true;
-                                if(!TL::Analysis::ExtensibleGraph::node_is_in_synchronous_construct(*ittt))
-                                    safe = false;
-                            }
-                            if(!safe && defined)
-                            {   // Some access is not protected and at least one of the accesses is a write
-                                race_cond_vars.append(itt->first);
-                                result = true;
-                            }
-                        }
-                    }
-                    
-                    break;
                 }
             }
             
@@ -918,33 +876,7 @@ namespace {
                 print_warn_to_file(task_nodecl, __Unused);
             }
             
-            // Case2: Any private|firstprivate variable defined within the task must use that definition.
-            // Otherwise the variable should be shared or the statement can be removed because it produces dead code
-            std::string dead_code_vars;
-            for( Nodecl::List::iterator it = all_private_vars.begin( ); it != all_private_vars.end( ); ++it )
-            {
-                
-                if( !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed_vars ).is_null() || 
-                    !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, private_killed_vars ).is_null() )
-                {
-                    if( !var_is_used_in_task_after_definition( *it, task ) )
-                        dead_code_vars += it->prettyprint() + ", ";
-                }
-            }
-            if( !dead_code_vars.empty( ) )
-            {
-                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
-                std::string task_locus = task_nodecl.get_locus_str();
-                dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
-                std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
-                warn_printf( "%s: omp-warning: Variables '%s' are scoped as (first)private in the task."
-                             "The updates on these variables will not be visible after the task.\n" 
-                             "%sConsider defining them as shared or removing the statement writing them.\n",
-                             task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
-                print_warn_to_file(task_nodecl, __Dead);
-            }
-            
-            // Case3: Private variables must never be read before they are written
+            // Case2: Private variables must never be read before they are written
             std::string incoherent_private_vars;
             for( Nodecl::List::iterator it = private_vars.begin( ); it != private_vars.end( ); ++it )
             {
@@ -965,7 +897,7 @@ namespace {
                 print_warn_to_file(task_nodecl, __IncoherentPrivate);
             }
             
-            // Case4: Firstprivate variables must never be written before they are read
+            // Case3: Firstprivate variables must never be written before they are read
             // unless they only appear in the directive within a shape expression or an array subscript
             std::string incoherent_firstprivate_vars;
             for( Nodecl::List::iterator it = firstprivate_vars.begin( ); it != firstprivate_vars.end( ); ++it )
@@ -987,6 +919,32 @@ namespace {
                              "%sConsider defining them as private instead.\n",
                              task_locus.c_str(), incoherent_firstprivate_vars.c_str(), tabulation.c_str() );
                 print_warn_to_file(task_nodecl, __IncoherentFirstprivate);
+            }
+            
+            // Case4: Any private|firstprivate variable defined within the task must use that definition.
+            // Otherwise the variable should be shared or the statement can be removed because it produces dead code
+            std::string dead_code_vars;
+            for( Nodecl::List::iterator it = all_private_vars.begin( ); it != all_private_vars.end( ); ++it )
+            {
+                
+                if( !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed_vars ).is_null() || 
+                    !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, private_killed_vars ).is_null() )
+                {
+                    if( !var_is_used_in_task_after_definition( *it, task ) )
+                        dead_code_vars += it->prettyprint() + ", ";
+                }
+            }
+            if( !dead_code_vars.empty( ) )
+            {
+                Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
+                std::string task_locus = task_nodecl.get_locus_str();
+                dead_code_vars = dead_code_vars.substr(0, dead_code_vars.size()-2);
+                std::string tabulation( (task_locus+": omp-warning: ").size( ), ' ' );
+                warn_printf( "%s: omp-warning: Variables '%s' are scoped as private or firstprivate in the task."
+                             "The updates on these variables will not be visible after the task.\n" 
+                             "%sConsider defining them as shared or removing the statement writing them.\n",
+                             task_locus.c_str(), dead_code_vars.c_str(), tabulation.c_str() );
+                print_warn_to_file(task_nodecl, __Dead);
             }
         }
     };
