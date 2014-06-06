@@ -37,13 +37,14 @@ test_generator=config/mercurium-ompss
 void g(int **a)
 {
     int ** b = a;
-#pragma omp task inout([10](a[3])) firstprivate(b)
+#pragma omp task inout([10](a[3])) firstprivate(b) no_copy_deps
     {
         if (a != b)
         {
             abort();
         }
     }
+#pragma omp taskwait
 }
 
 int main(int argc, char* argv[])
@@ -55,6 +56,5 @@ int main(int argc, char* argv[])
 
     g(a);
 
-#pragma omp taskwait
     return 0;
 }
