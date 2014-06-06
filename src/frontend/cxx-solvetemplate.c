@@ -138,7 +138,12 @@ type_t* solve_class_template(type_t* template_type,
                 locus);
 
         if (more_specialized == NULL)
+        {
+            xfree(matching_set);
+            xfree(deduction_results);
+
             return NULL;
+        }
 
         if (is_unresolved_overloaded_type(more_specialized))
         {
@@ -162,6 +167,10 @@ type_t* solve_class_template(type_t* template_type,
             error_printf("%s: error: ambiguous template type for '%s'\n", 
                     locus_to_str(locus),
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
+
+            xfree(matching_set);
+            xfree(deduction_results);
+
             return NULL;
         }
 
@@ -172,6 +181,9 @@ type_t* solve_class_template(type_t* template_type,
                 *deduced_template_arguments = deduction_results[i];
             }
         }
+
+        xfree(matching_set);
+        xfree(deduction_results);
 
         return more_specialized;
     }
