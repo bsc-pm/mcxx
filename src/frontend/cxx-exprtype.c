@@ -11235,6 +11235,8 @@ static void check_nodecl_function_call_cxx(
             }
         }
 
+        entry_list_free(candidates);
+
         // Create a dependent call
         *nodecl_output = nodecl_make_cxx_dep_function_call(
                 nodecl_called,
@@ -11339,6 +11341,8 @@ static void check_nodecl_function_call_cxx(
             }
 
             scope_entry_list_t* first_set_candidates = get_member_of_class_type(class_type, operator, decl_context, NULL);
+
+            entry_list_free(candidates);
             candidates = unfold_and_mix_candidate_functions(first_set_candidates,
                     /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
@@ -13836,6 +13840,7 @@ static void check_postoperator_user_defined(
                 argument_types);
     }
     entry_list_iterator_free(it);
+    entry_list_free(overload_set);
 
     scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
@@ -15259,7 +15264,7 @@ void check_nodecl_braced_initializer(
                 entry_list_to_symbol_array(fields, &type_stack[type_stack_idx].fields, &type_stack[type_stack_idx].num_items);
 
                 if (is_union_type(declared_type))
-                        type_stack[type_stack_idx].num_items = 1;
+                    type_stack[type_stack_idx].num_items = 1;
 
                 entry_list_free(fields);
             }
@@ -15388,6 +15393,13 @@ void check_nodecl_braced_initializer(
                             &nodecl_init_output);
                     if (nodecl_is_err_expr(nodecl_init_output))
                     {
+                        // Free the stack
+                        while (type_stack_idx >= 0)
+                        {
+                            xfree(type_stack[type_stack_idx].fields);
+                            type_stack_idx--;
+                        }
+
                         *nodecl_output = nodecl_make_err_expr(locus);
                         return;
                     }
@@ -16183,7 +16195,9 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 diagnostic_candidates(candidates, &message, locus);
                 error_printf("%s", message);
             }
+
             entry_list_free(candidates);
+            xfree(list);
 
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
@@ -16193,6 +16207,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             entry_list_free(candidates);
             if (function_has_been_deleted(decl_context, chosen_constructor, locus))
             {
+                xfree(list);
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
             }
@@ -16243,6 +16258,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                     if (is_error_type(default_argument_promoted_type))
                     {
+                        xfree(list);
                         *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(direct_initializer));
                         return;
                     }
@@ -16260,6 +16276,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                     decl_context,
                     locus);
         }
+        xfree(list);
     }
     else
     {
@@ -21983,6 +22000,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
             v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
             nodecl_free(new_list);
             nodecl_free(current_arg);
+            xfree(list);
             return;
         }
 
@@ -21999,6 +22017,7 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
                     current_arg);
         }
     }
+    xfree(list);
 
     check_nodecl_function_call(nodecl_called,
             new_list,

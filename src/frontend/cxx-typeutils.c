@@ -3192,6 +3192,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     {
         _qualified_type_counter++;
         qualified_type = new_empty_type();
+        xfree(qualified_type->info);
         *qualified_type = *original;
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
@@ -6520,6 +6521,7 @@ static type_t* advance_dependent_typename_aux(
     }
 
     nodecl_t nodecl_unqualified_name = nodecl_shallow_copy(dep_parts[num_items - 1]);
+    xfree(dep_parts);
 
     // Last part
     ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE
@@ -11994,6 +11996,7 @@ char is_literal_type(type_t* t)
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(copy_constructors);
 
         if (found_bad_case)
             return 0;

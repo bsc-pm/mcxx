@@ -7474,6 +7474,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     && !is_trivially_copiable_type(member_type);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_base_without_move_constructor_that_cannot_be_trivially_copied = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7487,6 +7488,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 class_type_get_move_constructors(base_type) == NULL
                 && !is_trivially_copiable_type(base_type);
         }
+        entry_list_iterator_free(it);
 
         if (has_member_with_nontrivial_move_constructor
                     || has_member_with_unusable_move_constructor
@@ -7674,6 +7676,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     entry_list_free(copy_assignment_ops);
                 }
             }
+            entry_list_iterator_free(it);
         }
 
         char has_nonstatic_data_member_const_of_non_class_type = 0;
@@ -7687,6 +7690,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_reference = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7696,6 +7700,7 @@ static void finish_class_type_cxx(type_t* class_type,
             scope_entry_t* data_member = entry_list_iterator_current(it);
             has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_copiable_data_member = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7716,6 +7721,7 @@ static void finish_class_type_cxx(type_t* class_type,
                         locus);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_copiable_base = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7731,6 +7737,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     decl_context,
                     locus);
         }
+        entry_list_iterator_free(it);
 
         if (union_has_member_with_nontrivial_copy_assignment
                 || has_nonstatic_data_member_const_of_non_class_type
@@ -7805,6 +7812,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     entry_list_free(move_assignment_ops);
                 }
             }
+            entry_list_iterator_free(it);
         }
 
         char has_nonstatic_data_member_const_of_non_class_type = 0;
@@ -7818,6 +7826,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_reference = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7827,6 +7836,7 @@ static void finish_class_type_cxx(type_t* class_type,
             scope_entry_t* data_member = entry_list_iterator_current(it);
             has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_moveable_data_member = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7847,6 +7857,7 @@ static void finish_class_type_cxx(type_t* class_type,
                         locus);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_moveable_base = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7862,6 +7873,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     decl_context,
                     locus);
         }
+        entry_list_iterator_free(it);
 
         /*
            for the move assignment operator, a non-static data member or direct base class with a type that does
@@ -11574,6 +11586,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 found_candidate = 1;
             }
         }
+        entry_list_iterator_free(it);
     }
 
     if (!is_template_function)
@@ -11609,6 +11622,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     found_candidate = 1;
                 }
             }
+            entry_list_iterator_free(it);
 
             if (!found_candidate)
             {
