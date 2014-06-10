@@ -2271,6 +2271,8 @@ void LoweringVisitor::emit_translation_function_region(
         if (copies.empty())
             continue;
 
+        //ERROR_CONDITION((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED, "Unexpected sharing\n", 0);
+
         translations
             << "{"
             << "void *device_base_address;"
@@ -2302,10 +2304,25 @@ void LoweringVisitor::emit_translation_function_region(
         }
         else
         {
-            translations
-                << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-                << "}"
-                ;
+            std::cerr << "COPY: " << (*it)->get_symbol().get_name()
+                      << " which type is: " << (*it)->get_symbol().get_type().print_declarator() << std::endl;
+
+            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    && (*it)->get_symbol().get_type().is_pointer()
+                    && !(*it)->get_symbol().get_type().points_to().is_array())
+            {
+                translations
+                    << "*(arg." << (*it)->get_field_name() << ") = (" << as_type((*it)->get_symbol().get_type()) << ")device_base_address;"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                translations
+                    << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+                    << "}"
+                    ;
+            }
         }
 
         copy_num += copies.size();
