@@ -407,7 +407,8 @@ namespace TL
                 if (in_ompss_mode)
                 {
                     Symbol sym = expr.get_base_symbol();
-                    OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+                    OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym,
+                            /* check_enclosing */ false);
 
                     if (expr.is<Nodecl::Symbol>())
                     {

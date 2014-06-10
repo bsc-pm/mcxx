@@ -155,7 +155,7 @@ namespace TL { namespace OpenMP {
                 //
                 // Note, though, that if the base symbol 'x' is an array, it will always be shared.
 
-                DataSharingAttribute dsa = data_sharing.get_data_sharing(sym);
+                DataSharingAttribute dsa = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
                 if (expr.is<Nodecl::Symbol>())
                 {
                     if (dsa == DS_UNDEFINED
