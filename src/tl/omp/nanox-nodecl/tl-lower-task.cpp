@@ -2304,25 +2304,13 @@ void LoweringVisitor::emit_translation_function_region(
         }
         else
         {
-            std::cerr << "COPY: " << (*it)->get_symbol().get_name()
-                      << " which type is: " << (*it)->get_symbol().get_type().print_declarator() << std::endl;
+            // Currently we do not support copies on non-shared stuff, so this should be always a pointer
+            ERROR_CONDITION(!(*it)->get_field_type().is_pointer(), "Invalid type, expecting a pointer", 0);
 
-            if ((IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-                    && (*it)->get_symbol().get_type().is_pointer()
-                    && !(*it)->get_symbol().get_type().points_to().is_array())
-            {
-                translations
-                    << "*(arg." << (*it)->get_field_name() << ") = (" << as_type((*it)->get_symbol().get_type()) << ")device_base_address;"
-                    << "}"
-                    ;
-            }
-            else
-            {
-                translations
-                    << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
-                    << "}"
-                    ;
-            }
+            translations
+                << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
+                << "}"
+                ;
         }
 
         copy_num += copies.size();
