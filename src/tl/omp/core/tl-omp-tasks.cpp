@@ -1549,8 +1549,6 @@ namespace TL
 
             get_dependences_info(pragma_line, data_sharing, default_data_attr);
 
-            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr, there_is_default_clause);
-
             if (_target_context.empty())
             {
                 // Create an implicit target for this one
@@ -1565,6 +1563,8 @@ namespace TL
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);
+
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr, there_is_default_clause);
         }
 
 
