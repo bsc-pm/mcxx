@@ -101,9 +101,13 @@ CORE_DIRS=\
 
 OMP_DIRS= \
         $(BETS_DIRS)/07_phases_omp.dg \
-        $(BETS_DIRS)/07_phases_ompss.dg \
+        $(OMPSS_DIRS) \
         $(END)
-        
+
+OMPSS_DIRS=\
+        $(BETS_DIRS)/07_phases_ompss.dg \
+		$(END)
+
 ANALYSIS_DIRS=\
 	$(BETS_DIRS)/07_phases_analysis.dg \
 	$(END)
@@ -127,6 +131,11 @@ omp-check : prepare-check
 	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
+
+ompss-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_DIRS)
 
 analysis-check : prepare-check
 	export MALLOC_CHECK_=2; \
