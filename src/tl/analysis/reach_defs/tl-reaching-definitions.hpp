@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+ (C) Copyright 2006-2013 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -27,7 +27,6 @@
 #ifndef TL_REACHING_DEFINITIONS_HPP
 #define TL_REACHING_DEFINITIONS_HPP
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 
@@ -45,27 +44,27 @@ namespace Analysis {
 
         //!Computes the reaching definitions of each node regarding only its inner statements
         //!Reach Out (X) = Gen (X)
-        void gather_reaching_definitions_initial_information( Node* current );
+        void gather_reaching_definitions_initial_information(Node* current);
 
         //!Computes reaching definition equations for a given node and calls recursively to its children
         /*!
          * Reach in (X) = Union of all Reach Out (Y), for all Y predecessors of X
-         * Reach out (X) = Gen (X) + ( Reach In (X) - Killed (X) )
+         * Reach out (X) = Gen (X) + (Reach In (X) - Killed (X))
          */
-        void solve_reaching_definition_equations( Node* current );
-        void solve_reaching_definition_equations_rec( Node* current, bool& changed );
+        void solve_reaching_definition_equations(Node* current);
+        void solve_reaching_definition_equations_rec(Node* current, bool& changed);
 
         //! Propagates reaching definitions information from inner to outer nodes
-        void set_graph_node_reaching_definitions( Node* current );
+        void set_graph_node_reaching_definitions(Node* current);
 
-        Utils::ext_sym_map combine_generated_statements( Node* current );
+        NodeclMap combine_generated_statements(Node* current);
 
     public:
         //! Constructor
-        ReachingDefinitions( ExtensibleGraph* graph );
+        ReachingDefinitions(ExtensibleGraph* graph);
 
         //! Method computing the Reaching Definitions on the member #graph
-        void compute_reaching_definitions( );
+        void compute_reaching_definitions();
     };
 
     // *********************** End class implementing reaching definitions analysis *********************** //
@@ -89,36 +88,36 @@ namespace Analysis {
          *                   v = w;
          *      Gen (X)  :=  v = w;
          */
-        Utils::ext_sym_map _gen;
+        NodeclMap _gen;
 
     public:
 
         //! Constructor
-        GeneratedStatementsVisitor( );
+        GeneratedStatementsVisitor();
 
         // **************** Getters and setters *************** //
-        Utils::ext_sym_map get_gen( );
+        NodeclMap get_gen();
 
         // ***************** Visiting methods ***************** //
-        void visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs );
+        void visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
 
-        Ret visit( const Nodecl::AddAssignment& n );
-        Ret visit( const Nodecl::ArithmeticShrAssignment& n );
-        Ret visit( const Nodecl::Assignment& n );
-        Ret visit( const Nodecl::BitwiseAndAssignment& n );
-        Ret visit( const Nodecl::BitwiseOrAssignment& n );
-        Ret visit( const Nodecl::BitwiseShlAssignment& n );
-        Ret visit( const Nodecl::BitwiseShrAssignment& n );
-        Ret visit( const Nodecl::BitwiseXorAssignment& n );
-        Ret visit( const Nodecl::DivAssignment& n );
-        Ret visit( const Nodecl::MinusAssignment& n );
-        Ret visit( const Nodecl::ModAssignment& n );
-        Ret visit( const Nodecl::MulAssignment& n );
-        Ret visit( const Nodecl::ObjectInit& n );
-        Ret visit( const Nodecl::Postdecrement& n );
-        Ret visit( const Nodecl::Postincrement& n );
-        Ret visit( const Nodecl::Predecrement& n );
-        Ret visit( const Nodecl::Preincrement& n );
+        Ret visit(const Nodecl::AddAssignment& n);
+        Ret visit(const Nodecl::ArithmeticShrAssignment& n);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::BitwiseAndAssignment& n);
+        Ret visit(const Nodecl::BitwiseOrAssignment& n);
+        Ret visit(const Nodecl::BitwiseShlAssignment& n);
+        Ret visit(const Nodecl::BitwiseShrAssignment& n);
+        Ret visit(const Nodecl::BitwiseXorAssignment& n);
+        Ret visit(const Nodecl::DivAssignment& n);
+        Ret visit(const Nodecl::MinusAssignment& n);
+        Ret visit(const Nodecl::ModAssignment& n);
+        Ret visit(const Nodecl::MulAssignment& n);
+        Ret visit(const Nodecl::ObjectInit& n);
+        Ret visit(const Nodecl::Postdecrement& n);
+        Ret visit(const Nodecl::Postincrement& n);
+        Ret visit(const Nodecl::Predecrement& n);
+        Ret visit(const Nodecl::Preincrement& n);
     };
 
     // ********************** END class implementing a visitor of reaching definition ********************* //

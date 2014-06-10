@@ -37,7 +37,6 @@
 #include "cxx-utils.h"
 #include "tl-analysis-utils.hpp"
 #include "tl-edge.hpp"
-#include "tl-extended-symbol-utils.hpp"
 #include "tl-node.hpp"
 #include "tl-nodecl.hpp"
 #include "tl-pcfg-utils.hpp"
@@ -45,7 +44,7 @@
 namespace TL {
 namespace Analysis {
     
-    typedef std::map<Nodecl::NodeclBase, Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> SizeMap;
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> SizeMap;
     
     class LIBTL_CLASS ExtensibleGraph
     {
@@ -56,7 +55,7 @@ namespace Analysis {
 
         PCFGVisitUtils* _utils;      /*!< Class storing temporary values for the construction of the graph */
 
-        const Nodecl::NodeclBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
+        const NBase _nodecl;  /*!< Nodecl corresponding to the code contained in the graph */
 
         /*!Graph scope (This variable is used when the variables are tagged as global)
          * If the graph contains a function code, the scope is the function's scope.
@@ -126,10 +125,10 @@ namespace Analysis {
         void erase_jump_nodes(Node* current);
 
         //! Structurally looks for nodecl 'n' in 'current' and its successors
-        Node* find_nodecl_rec(Node* current, const Nodecl::NodeclBase& n);
+        Node* find_nodecl_rec(Node* current, const NBase& n);
         
         //! Looks for the same pointer nodecl 'n' in 'current' and its successors
-        Node* find_nodecl_pointer_rec(Node* current, const Nodecl::NodeclBase& n);
+        Node* find_nodecl_pointer_rec(Node* current, const NBase& n);
         
         
         // *************************************************************************************** //
@@ -183,7 +182,7 @@ namespace Analysis {
         /*!
         \param name Name which will identify the graph.
         */
-        ExtensibleGraph(std::string name, const Nodecl::NodeclBase& nodecl, PCFGVisitUtils* utils);
+        ExtensibleGraph(std::string name, const NBase& nodecl, PCFGVisitUtils* utils);
 
 
         // *** Modifiers *** //
@@ -197,15 +196,15 @@ namespace Analysis {
          * \param etype      Type of the new edge/s connecting the new node with \p parents. Default: Always.
          * \return           The new node
          */
-        Node* append_new_child_to_parent(ObjectList<Node*> parents, ObjectList<Nodecl::NodeclBase> stmts,
+        Node* append_new_child_to_parent(ObjectList<Node*> parents, ObjectList<NBase> stmts,
                                          Node_type ntype = __Normal, Edge_type etype = __Always);
         
         //! Overladed method for unique \p parent and unique \p statement
-        Node* append_new_child_to_parent(Node* parent, Nodecl::NodeclBase stmt,
+        Node* append_new_child_to_parent(Node* parent, NBase stmt,
                                          Node_type ntype = __Normal, Edge_type etype = __Always);
 
         //! Overladed method for multiple \p parents and unique \p statement
-        Node* append_new_child_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase stmt,
+        Node* append_new_child_to_parent(ObjectList<Node*> parents, NBase stmt,
                                          Node_type ntype = __Normal, Edge_type etype = __Always);
 
         //! Connects two nodes by creating a new edge between them. Only if they were not connected.
@@ -221,23 +220,23 @@ namespace Analysis {
          * \return              The new edge created between the two nodes
          */
         Edge* connect_nodes(Node* parent, Node* child, Edge_type etype = __Always, 
-                            const Nodecl::NodeclBase& label = Nodecl::NodeclBase::null(),
+                            const NBase& label = NBase::null(),
                             bool is_task_edge=false, bool is_back_edge=false);
 
         //! Overloaded method for a set of \p parents and a set of \p children.
         void connect_nodes(const ObjectList<Node*>& parents, const ObjectList<Node*>& children,
                            const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
-                           const ObjectList<Nodecl::NodeclBase>& elabels=ObjectList<Nodecl::NodeclBase>());
+                           const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a \p parent and a set of \p children.
         void connect_nodes(Node* parent, const ObjectList<Node*>& children,
                            const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(),
-                           const ObjectList<Nodecl::NodeclBase>& elabels=ObjectList<Nodecl::NodeclBase>());
+                           const ObjectList<NBase>& elabels=ObjectList<NBase>());
 
         //! Overloaded method for a set of \p parents and a \p children.
         void connect_nodes(const ObjectList<Node*>& parents, Node* child, 
                            const ObjectList<Edge_type>& etypes=ObjectList<Edge_type>(), 
-                           const ObjectList<Nodecl::NodeclBase>& elabels=ObjectList<Nodecl::NodeclBase>(), 
+                           const ObjectList<NBase>& elabels=ObjectList<NBase>(), 
                            bool is_task_edge=false, bool is_back_edge=false);
 
         //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
@@ -267,17 +266,17 @@ namespace Analysis {
         *                It is only not null for graph nodes containing tasks
         * \return The new composite node.
         */
-        Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label,
-                                Graph_type graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
+        Node* create_graph_node(Node* outer_node, NBase label,
+                                Graph_type graph_type, NBase context = NBase::null());
 
         //! Builds a Flush node and connects it with the existent graph
-        Node* create_flush_node(Node* outer_node, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+        Node* create_flush_node(Node* outer_node, NBase n = NBase::null());
 
         //! Builds a basic normal node (BASIC_NORMAL_NODE)
         /*!
         * \param nodecl Statement that will be added to the new node
         */
-        Node* create_unconnected_node(Node_type type, Nodecl::NodeclBase nodecl);
+        Node* create_unconnected_node(Node_type type, NBase nodecl);
 
         //! Deletes a node from the graph
         /*!
@@ -337,7 +336,7 @@ namespace Analysis {
         std::string get_name() const;
 
         //! Returns the nodecl contained in the graph
-        Nodecl::NodeclBase get_nodecl() const;
+        NBase get_nodecl() const;
 
         //! Returns the scope enclosing the code contained in the graph
         Scope get_scope() const;
@@ -349,8 +348,8 @@ namespace Analysis {
         //! It is null when the graph do not corresponds to a function code
         Symbol get_function_symbol() const;
 
-        void set_pointer_n_elems(const Nodecl::NodeclBase& s, const Nodecl::NodeclBase& size);
-        Nodecl::NodeclBase get_pointer_n_elems(const Nodecl::NodeclBase& s);
+        void set_pointer_n_elems(const NBase& s, const NBase& size);
+        NBase get_pointer_n_elems(const NBase& s);
         SizeMap get_pointer_n_elements_map();
         void purge_non_constant_pointer_n_elems();
         
@@ -396,12 +395,12 @@ namespace Analysis {
         
         // *** Analysis methods *** //
         //!Returns true if a given nodecl is not modified in a given context
-        static bool is_constant_in_context(Node* context, Nodecl::NodeclBase c);
+        static bool is_constant_in_context(Node* context, NBase c);
         
-        static bool has_been_defined(Node* current, Node* scope, const Nodecl::NodeclBase& n);
+        static bool has_been_defined(Node* current, Node* scope, const NBase& n);
         
-        Node* find_nodecl(const Nodecl::NodeclBase& n);           // structural search
-        Node* find_nodecl_pointer(const Nodecl::NodeclBase& n);   // pointer search
+        Node* find_nodecl(const NBase& n);           // structural search
+        Node* find_nodecl_pointer(const NBase& n);   // pointer search
         
         bool usage_is_computed();
 

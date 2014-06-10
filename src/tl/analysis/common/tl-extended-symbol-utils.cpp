@@ -34,51 +34,6 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
-    // **************************************************************************************** //
-    // **************************** Class for Auto-Scoping purposes *************************** //
-
-    AutoScopedVariables::AutoScopedVariables( )
-            : _private_vars( ), _firstprivate_vars( ),
-              _race_vars( ), _shared_vars( ), _undef_vars( )
-    {}
-
-    AutoScopedVariables::AutoScopedVariables( ext_sym_set private_vars, ext_sym_set firstprivate_vars,
-                                              ext_sym_set race_vars, ext_sym_set shared_vars,
-                                              ext_sym_set undef_vars )
-            : _private_vars( private_vars ), _firstprivate_vars( firstprivate_vars ),
-              _race_vars( race_vars ), _shared_vars( shared_vars ), _undef_vars( undef_vars )
-    {}
-
-    ext_sym_set AutoScopedVariables::get_private_vars( )
-    {
-        return _private_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_firstprivate_vars( )
-    {
-        return _firstprivate_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_race_vars( )
-    {
-        return _race_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_shared_vars( )
-
-    {
-        return _shared_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_undef_vars( )
-    {
-        return _undef_vars;
-    }
-
-    // ************************** END class for Auto-Scoping purposes ************************* //
-    // **************************************************************************************** //
-
-
 
     // **************************************************************************************** //
     // *************** Methods for dealing with containers of Extended Symbols **************** //

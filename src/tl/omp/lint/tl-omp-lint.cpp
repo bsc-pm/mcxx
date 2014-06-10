@@ -464,11 +464,11 @@ namespace {
                 }
                 else if( source->has_statements( ) )
                 {
-                    TL::Analysis::Utils::ext_sym_set ue = source->get_ue_vars( );
-                    TL::Analysis::Utils::ext_sym_set kill = source->get_killed_vars( );
-                    TL::Analysis::Utils::ext_sym_set undef = source->get_undefined_behaviour_vars( );
+                    TL::Analysis::NodeclSet ue = source->get_ue_vars( );
+                    TL::Analysis::NodeclSet kill = source->get_killed_vars( );
+                    TL::Analysis::NodeclSet undef = source->get_undefined_behaviour_vars( );
                     
-                    TL::Analysis::Utils::ext_sym_set accessed_vars;
+                    TL::Analysis::NodeclSet accessed_vars;
                     accessed_vars.insert( ue.begin( ), ue.end( ) );
                     accessed_vars.insert( kill.begin( ), kill.end( ) );
                     accessed_vars.insert( undef.begin( ), undef.end( ) );
@@ -476,9 +476,9 @@ namespace {
                     for( Nodecl::List::const_iterator it = variables.begin( ); it != variables.end( ); ++it )
                     {
                         // If the variable #*it or a subpart/superpart have some usage, we add it to the map
-                        if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, accessed_vars ) || 
-                            !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( *it, accessed_vars ).is_null( ) || 
-                            !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, accessed_vars ).is_null( ) )
+                        if( TL::Analysis::Utils::nodecl_set_contains_nodecl( *it, accessed_vars ) || 
+                            !TL::Analysis::Utils::nodecl_set_contains_enclosing_nodecl( *it, accessed_vars ).is_null( ) || 
+                            !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( *it, accessed_vars ).is_null( ) )
                         {
                             if( concurrently_used_vars.find( *it ) != concurrently_used_vars.end( ) )
                                 concurrently_used_vars[*it].insert( source );
@@ -585,9 +585,9 @@ namespace {
             TL::Analysis::ExtensibleGraph::clear_visits( task_entry );
             
             // Detect data races on the variables that appear in both the task and concurrent code with the task
-            TL::Analysis::Utils::ext_sym_set task_defs = n->get_killed_vars( );
+            TL::Analysis::NodeclSet task_defs = n->get_killed_vars( );
                     // To be conservative, the undef. variables count as definitions
-            TL::Analysis::Utils::ext_sym_set task_undef = n->get_undefined_behaviour_vars( );  
+            TL::Analysis::NodeclSet task_undef = n->get_undefined_behaviour_vars( );  
             task_defs.insert( task_undef.begin( ), task_undef.end( ) );
             std::map<Nodecl::NodeclBase, bool, Nodecl::Utils::Nodecl_structural_less> warned_vars;
             for( std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator it = concurrently_used_vars.begin( ); 
@@ -595,22 +595,22 @@ namespace {
             {
                 warned_vars[it->first] = false;
                 // At least one of the accesses must be a write
-                TL::Analysis::Utils::ext_sym_set node_defs;
+                TL::Analysis::NodeclSet node_defs;
                 for( TL::ObjectList<TL::Analysis::Node*>::iterator it2 = it->second.begin( ); it2 != it->second.end( ); ++it2 )
                 {
-                    TL::Analysis::Utils::ext_sym_set node_kill = ( *it2 )->get_killed_vars( );
-                    TL::Analysis::Utils::ext_sym_set node_undef = ( *it2 )->get_undefined_behaviour_vars( );
+                    TL::Analysis::NodeclSet node_kill = ( *it2 )->get_killed_vars( );
+                    TL::Analysis::NodeclSet node_undef = ( *it2 )->get_undefined_behaviour_vars( );
                     node_defs.insert( node_kill.begin( ), node_kill.end( ) );
                     node_defs.insert( node_undef.begin( ), node_undef.end( ) );
                 }
                 if( ( !task_defs.empty( ) &&
-                      ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, task_defs ) || 
-                        !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, task_defs ).is_null( ) || 
-                        !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, task_defs ).is_null( ) ) ) || 
+                      ( TL::Analysis::Utils::nodecl_set_contains_nodecl( it->first, task_defs ) || 
+                        !TL::Analysis::Utils::nodecl_set_contains_enclosing_nodecl( it->first, task_defs ).is_null( ) || 
+                        !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( it->first, task_defs ).is_null( ) ) ) || 
                     ( !node_defs.empty( ) &&
-                      ( TL::Analysis::Utils::ext_sym_set_contains_nodecl( it->first, node_defs ) || 
-                        !TL::Analysis::Utils::ext_sym_set_contains_enclosing_nodecl( it->first, node_defs ).is_null( ) || 
-                        !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( it->first, node_defs ).is_null( ) ) ) )
+                      ( TL::Analysis::Utils::nodecl_set_contains_nodecl( it->first, node_defs ) || 
+                        !TL::Analysis::Utils::nodecl_set_contains_enclosing_nodecl( it->first, node_defs ).is_null( ) || 
+                        !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( it->first, node_defs ).is_null( ) ) ) )
                 {   // If all accesses are protected in a critical/atomic construct, then there is no race condition
                     // 1. Check accesses in the concurrent nodes
                     for( TL::ObjectList<TL::Analysis::Node*>::iterator it2 = it->second.begin( ); it2 != it->second.end( ); ++it2 )
@@ -670,8 +670,8 @@ namespace {
                             bool safe = true;
                             for(TL::ObjectList<TL::Analysis::Node*>::iterator ittt = nodes.begin(); ittt != nodes.end(); ++ittt)
                             {
-                                TL::Analysis::Utils::ext_sym_set killed_vars = (*ittt)->get_killed_vars();
-                                if(!TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(itt->first, killed_vars).is_null())
+                                TL::Analysis::NodeclSet killed_vars = (*ittt)->get_killed_vars();
+                                if(!TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(itt->first, killed_vars).is_null())
                                     defined = true;
                                 if(!TL::Analysis::ExtensibleGraph::node_is_in_synchronous_construct(*ittt))
                                     safe = false;
@@ -695,7 +695,7 @@ namespace {
         {
             TL::Analysis::Node* result = NULL;
             TL::ObjectList<TL::Analysis::Node*> parents = task_exit->get_parents( );
-            TL::Analysis::Utils::ext_sym_set killed_vars;
+            TL::Analysis::NodeclSet killed_vars;
             while( !parents.empty( ) && ( result == NULL ) )
             {
                 TL::ObjectList<TL::Analysis::Node*> new_parents;
@@ -704,8 +704,8 @@ namespace {
                     killed_vars = (*it)->get_killed_vars( );
                     // When a variable has pointer or array type, only the variable itself is included in the data-sharing attributes list
                     // Nonetheless, we also need to check the usage of the pointed values
-                    // Thus, we use the ext_sym_set_contains_enclosed_nodecl instead of using ext_sym_set_contains_nodecl
-                    if( !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( n, killed_vars ).is_null() ) {
+                    // Thus, we use the nodecl_set_contains_enclosed_nodecl instead of using nodecl_set_contains_nodecl
+                    if( !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( n, killed_vars ).is_null() ) {
                         result = *it;
                         break;
                     }
@@ -865,15 +865,15 @@ namespace {
             }
             
             // Collect usage of variables inside the task
-            TL::Analysis::Utils::ext_sym_set ue_vars = task->get_ue_vars( );
-            TL::Analysis::Utils::ext_sym_set killed_vars = task->get_killed_vars( );
-            TL::Analysis::Utils::ext_sym_set undef_vars = task->get_undefined_behaviour_vars( );
+            TL::Analysis::NodeclSet ue_vars = task->get_ue_vars( );
+            TL::Analysis::NodeclSet killed_vars = task->get_killed_vars( );
+            TL::Analysis::NodeclSet undef_vars = task->get_undefined_behaviour_vars( );
             
-            TL::Analysis::Utils::ext_sym_set private_ue_vars = task->get_private_ue_vars( );
-            TL::Analysis::Utils::ext_sym_set private_killed_vars = task->get_private_killed_vars( );
-            TL::Analysis::Utils::ext_sym_set private_undef_vars = task->get_private_undefined_behaviour_vars( );
+            TL::Analysis::NodeclSet private_ue_vars = task->get_private_ue_vars( );
+            TL::Analysis::NodeclSet private_killed_vars = task->get_private_killed_vars( );
+            TL::Analysis::NodeclSet private_undef_vars = task->get_private_undefined_behaviour_vars( );
             
-            TL::Analysis::Utils::ext_sym_set all_vars = ue_vars;
+            TL::Analysis::NodeclSet all_vars = ue_vars;
             all_vars.insert(killed_vars.begin(), killed_vars.end());
             all_vars.insert(undef_vars.begin(), undef_vars.end());
             all_vars.insert(private_ue_vars.begin(), private_ue_vars.end());
@@ -892,15 +892,15 @@ namespace {
                 dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_args());
             
             // Collect the addresses used within the task
-            TL::Analysis::Utils::ext_sym_set used_addresses = task->get_used_addresses( );
+            TL::Analysis::NodeclSet used_addresses = task->get_used_addresses( );
             
             // Case1: No variable should be scoped if it is not used at all inside the task 
             std::string unnecessarily_scoped_vars;
             for( Nodecl::List::iterator it = task_scoped_vars.begin( ); it != task_scoped_vars.end( ); ++it )
             {
-                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl(*it, all_vars) && 
+                if( !TL::Analysis::Utils::nodecl_set_contains_nodecl(*it, all_vars) && 
                     !list_elements_contain_nodecl(dependency_vars, *it) && 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, used_addresses).is_null() )
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, used_addresses).is_null() )
                 {
                     unnecessarily_scoped_vars += it->prettyprint() + ", ";
                 }
@@ -924,8 +924,8 @@ namespace {
             for( Nodecl::List::iterator it = all_private_vars.begin( ); it != all_private_vars.end( ); ++it )
             {
                 
-                if( !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, killed_vars ).is_null() || 
-                    !TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl( *it, private_killed_vars ).is_null() )
+                if( !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( *it, killed_vars ).is_null() || 
+                    !TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl( *it, private_killed_vars ).is_null() )
                 {
                     if( !var_is_used_in_task_after_definition( *it, task ) )
                         dead_code_vars += it->prettyprint() + ", ";
@@ -948,8 +948,8 @@ namespace {
             std::string incoherent_private_vars;
             for( Nodecl::List::iterator it = private_vars.begin( ); it != private_vars.end( ); ++it )
             {
-                if( TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) || 
-                    TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) )
+                if( TL::Analysis::Utils::nodecl_set_contains_nodecl( *it, ue_vars ) || 
+                    TL::Analysis::Utils::nodecl_set_contains_nodecl( *it, private_ue_vars ) )
                     incoherent_private_vars += it->prettyprint() + ", ";
             }
             if( !incoherent_private_vars.empty( ) )
@@ -970,9 +970,9 @@ namespace {
             std::string incoherent_firstprivate_vars;
             for( Nodecl::List::iterator it = firstprivate_vars.begin( ); it != firstprivate_vars.end( ); ++it )
             {
-                if( !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, ue_vars ) && 
-                    !TL::Analysis::Utils::ext_sym_set_contains_nodecl( *it, private_ue_vars ) && 
-                    TL::Analysis::Utils::ext_sym_set_contains_enclosed_nodecl(*it, used_addresses).is_null() && 
+                if( !TL::Analysis::Utils::nodecl_set_contains_nodecl( *it, ue_vars ) && 
+                    !TL::Analysis::Utils::nodecl_set_contains_nodecl( *it, private_ue_vars ) && 
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(*it, used_addresses).is_null() && 
                     !list_elements_contain_nodecl(dependency_vars, *it) )
                     incoherent_firstprivate_vars += it->prettyprint() + ", ";
             }

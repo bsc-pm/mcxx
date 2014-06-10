@@ -39,7 +39,7 @@ namespace Analysis {
     // **************************************************************************************************** //
     // **************************** Class implementing use-definition analysis **************************** //
     
-    typedef std::map<Nodecl::NodeclBase, Utils::UsageKind, Nodecl::Utils::Nodecl_structural_less> IpUsageMap;
+    typedef std::map<NBase, Utils::UsageKind, Nodecl::Utils::Nodecl_structural_less> IpUsageMap;
     
     extern SizeMap _pointer_to_size_map;
     
@@ -66,7 +66,7 @@ namespace Analysis {
          * - The second is the list of killed variables of the graph node
          * - The third is the list of undefined variables of the graph
          */
-        ObjectList<Utils::ext_sym_set> get_use_def_over_nodes(Node* current);
+        ObjectList<NodeclSet> get_use_def_over_nodes(Node* current);
 
         //!Propagate the Use-Def information from inner nodes to outer nodes
         void set_graph_node_use_def(Node* graph_node);
@@ -74,8 +74,8 @@ namespace Analysis {
         //! Propagate the use-def of the children of a task creation to the task_creation node
         void propagate_task_usage_to_task_creation_node(Node* task_creation);
         
-        void merge_children_usage(Utils::ext_sym_set& ue_vars, Utils::ext_sym_set& killed_vars, 
-                                   Utils::ext_sym_set& undef_vars, int node_id);
+        void merge_children_usage(NodeclSet& ue_vars, NodeclSet& killed_vars, 
+                                   NodeclSet& undef_vars, int node_id);
 
     public:
         /*! Constructor
@@ -122,7 +122,7 @@ namespace Analysis {
          * This attribute stores the actual nodecl when we are traversing class member access.
          * It can be of type reference, dereference or array subscript
          */
-        Nodecl::NodeclBase _current_nodecl;
+        NBase _current_nodecl;
 
         //! List of IPA modifiable variables appeared until a given point of the analysis
         IpUsageMap* _ipa_modif_vars;
@@ -142,10 +142,10 @@ namespace Analysis {
         
         // ****************** Private visiting methods ****************** //
         
-        void visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
-        void visit_binary_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
-        void visit_function(const Nodecl::NodeclBase& called_sym, const Nodecl::List& arguments);
-        void visit_increment(const Nodecl::NodeclBase& n);
+        void visit_assignment(const NBase& lhs, const NBase& rhs);
+        void visit_binary_assignment(const NBase& lhs, const NBase& rhs);
+        void visit_function(const NBase& called_sym, const Nodecl::List& arguments);
+        void visit_increment(const NBase& n);
         
         
         // ********************** Private modifiers ********************** //
@@ -157,27 +157,27 @@ namespace Analysis {
          * For nodes that has a part of an object that is upwards exposed and a part of an object that is killed,
          * this method computes the different parts
          */
-        void set_var_usage_to_node(const Utils::ExtendedSymbol& var, Utils::UsageKind usage_kind);
+        void set_var_usage_to_node(const NBase& var, Utils::UsageKind usage_kind);
         
         //! Overloaded method to compute a nodes usage for a set of extended symbols instead of a single symbol
-        void set_var_usage_to_node(const Utils::ext_sym_set& var_set, Utils::UsageKind usage_kind);
+        void set_var_usage_to_node(const NodeclSet& var_set, Utils::UsageKind usage_kind);
         
         
         // ************************ IPA methods ************************ //
         
         // *** Known called function code use-def analysis *** //
         void propagate_called_func_pointed_values_usage_to_func_call(
-                const Utils::ext_sym_set& called_func_usage, 
+                const NodeclSet& called_func_usage, 
                 const sym_to_nodecl_map& ptr_param_to_arg_map, 
                 Utils::UsageKind usage_kind);
         
         void propagate_called_func_ref_params_usage_to_func_call(
-                const Utils::ext_sym_set& called_func_usage,
+                const NodeclSet& called_func_usage,
                 const sym_to_nodecl_map& ref_param_to_arg_map,
                 Utils::UsageKind usage_kind);
         
         void propagate_global_variables_usage(
-                const Utils::ext_sym_set& called_func_usage, 
+                const NodeclSet& called_func_usage, 
                 const GlobalVarsSet& called_global_vars, 
                 const sym_to_nodecl_map& param_to_arg_map,
                 Utils::UsageKind usage_kind);
@@ -188,7 +188,7 @@ namespace Analysis {
         
         
         // *** Unknown called function code use-def analysis *** //
-        void parse_parameter(std::string current_param, const Nodecl::NodeclBase& arg);
+        void parse_parameter(std::string current_param, const NBase& arg);
         
         bool parse_c_functions_file(Symbol func_sym, const Nodecl::List& args);
         
@@ -201,9 +201,9 @@ namespace Analysis {
         
         
         // *** Recursive calls use-def analysis *** //
-        void set_ipa_variable_as_defined(const Nodecl::NodeclBase& var);
-        void set_ipa_variable_as_upwards_exposed(const Nodecl::NodeclBase& var);
-        void store_ipa_information(const Nodecl::NodeclBase& n);        
+        void set_ipa_variable_as_defined(const NBase& var);
+        void set_ipa_variable_as_upwards_exposed(const NBase& var);
+        void store_ipa_information(const NBase& n);        
         void ipa_propagate_recursive_call_usage(const ObjectList<Symbol>& params, const Nodecl::List& args);
         
         
@@ -215,10 +215,10 @@ namespace Analysis {
         UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars);
         
         // *** Modifiers *** //
-        void compute_statement_usage(Nodecl::NodeclBase st);
+        void compute_statement_usage(NBase st);
 
         // *** Visitors *** //
-        Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret unhandled_node(const NBase& n);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::ArithmeticShrAssignment& n);
         Ret visit(const Nodecl::ArraySubscript& n);
@@ -262,10 +262,10 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************** Utils methods for use-def analysis ******************************** //
     
-    Nodecl::NodeclBase simplify_pointer(const Nodecl::NodeclBase& original_variables);
+    NBase simplify_pointer(const NBase& original_variables);
     Nodecl::List simplify_pointers(const Nodecl::List& original_variables);
     
-    Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained);
+    NBase split_var_depending_on_usage(NBase container, NBase contained);
     
     void get_modifiable_parameters_to_arguments_map(
         const ObjectList<Symbol>& params, 

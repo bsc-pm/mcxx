@@ -37,7 +37,7 @@ namespace Analysis {
         _const_val( Nodecl::NodeclBase::null( ) )
     {}
 
-    void LatticeCellValue::set_ext_sym( Utils::ExtendedSymbol es )
+    void LatticeCellValue::set_ext_sym( Nodecl::NodeclBase es )
     {
         _ext_sym = es;
     }
@@ -60,16 +60,16 @@ namespace Analysis {
     // ******************************************************************************************* //
     // ******************** Visitor computing the Extensible Symbols modified ******************** //
 
-    AssignedExtSymVisitor::AssignedExtSymVisitor( )
-            : _assigned_ext_syms( ), _is_lhs( false )
+    AssignedNodeclVisitor::AssignedNodeclVisitor( )
+            : _assigned_nodecls( ), _is_lhs( false )
     {}
 
-    ObjectList<Utils::ExtendedSymbol> AssignedExtSymVisitor::get_assigned_ext_syms()
+    ObjectList<Nodecl::NodeclBase> AssignedNodeclVisitor::get_assigned_nodecls()
     {
-        return _assigned_ext_syms;
+        return _assigned_nodecls;
     }
 
-    void AssignedExtSymVisitor::visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
+    void AssignedNodeclVisitor::visit_assignment( Nodecl::NodeclBase lhs, Nodecl::NodeclBase rhs )
     {
         //! Keep record of the value of \_lhs for nested assignments
         bool is_lhs = _is_lhs;
@@ -82,7 +82,7 @@ namespace Analysis {
         walk( rhs );
     }
 
-    void AssignedExtSymVisitor::visit_xx_crements( Nodecl::NodeclBase n )
+    void AssignedNodeclVisitor::visit_xx_crements( Nodecl::NodeclBase n )
     {
         bool is_lhs = _is_lhs;
         _is_lhs = true;
@@ -90,102 +90,102 @@ namespace Analysis {
         _is_lhs = is_lhs;
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::AddAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::AddAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::ArithmeticShrAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ArraySubscript& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::ArraySubscript& n )
     {
         if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
+            _assigned_nodecls.insert( n );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Assignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Assignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::BitwiseAndAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::BitwiseOrAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::BitwiseShlAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::BitwiseShrAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::BitwiseXorAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ClassMemberAccess& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::ClassMemberAccess& n )
     {
         if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
+            _assigned_nodecls.insert( n );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::DivAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::DivAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MinusAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::MinusAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::ModAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::ModAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::MulAssignment& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::MulAssignment& n )
     {
         visit_assignment( n.get_lhs( ), n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postdecrement& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Postdecrement& n )
     {
         visit_xx_crements( n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Postincrement& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Postincrement& n )
     {
         visit_xx_crements( n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Predecrement& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Predecrement& n )
     {
         visit_xx_crements( n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Preincrement& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Preincrement& n )
     {
         visit_xx_crements( n.get_rhs( ) );
     }
 
-    AssignedExtSymVisitor::Ret AssignedExtSymVisitor::visit( const Nodecl::Symbol& n )
+    AssignedNodeclVisitor::Ret AssignedNodeclVisitor::visit( const Nodecl::Symbol& n )
     {
         if ( _is_lhs )
-            _assigned_ext_syms.insert( n );
+            _assigned_nodecls.insert( n );
     }
 
     // ****************** END visitor computing the Extensible Symbols modified ****************** //
@@ -264,11 +264,11 @@ namespace Analysis {
             }
             else
             {
-                AssignedExtSymVisitor v;
+                AssignedNodeclVisitor v;
                 ObjectList<Nodecl::NodeclBase> stmts;
                 ObjectList<Nodecl::NodeclBase>::iterator it_s;
-                ObjectList<Utils::ExtendedSymbol> assigned_ext_syms;
-                ObjectList<Utils::ExtendedSymbol>::iterator it_es;
+                ObjectList<Nodecl::NodeclBase> assigned_nodecls;
+                ObjectList<Nodecl::NodeclBase>::iterator it_es;
 
                 if( ipa )
                 {
@@ -276,8 +276,8 @@ namespace Analysis {
                     for( it_s = stmts.begin( ); it_s != stmts.end( ); ++it_s )
                     {
                         v.walk( *it_s );
-                        assigned_ext_syms = v.get_assigned_ext_syms( );
-                        for( it_es = assigned_ext_syms.begin( ); it_es != assigned_ext_syms.end( ); ++it_es )
+                        assigned_nodecls = v.get_assigned_nodecls( );
+                        for( it_es = assigned_nodecls.begin( ); it_es != assigned_nodecls.end( ); ++it_es )
                         {
                             LatticeCellValue lcv;
                             lcv.set_ext_sym( *it_es );
@@ -292,8 +292,8 @@ namespace Analysis {
                     for( it_s = stmts.begin( ); it_s != stmts.end( ); ++it_s )
                     {
                         v.walk( *it_s );
-                        assigned_ext_syms = v.get_assigned_ext_syms( );
-                        for( it_es = assigned_ext_syms.begin( ); it_es != assigned_ext_syms.end( ); ++it_es )
+                        assigned_nodecls = v.get_assigned_nodecls( );
+                        for( it_es = assigned_nodecls.begin( ); it_es != assigned_nodecls.end( ); ++it_es )
                         {
                             LatticeCellValue lcv;
                             if ( !it_es->get_nodecl().retrieve_context( ).scope_is_enclosed_by( sc ) )

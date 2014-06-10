@@ -1,7 +1,7 @@
 
 
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2012 Barcelona Supercomputing Center             **
+ (C) Copyright 2006-2012 Barcelona Supercomputing Center             **
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -39,9 +39,9 @@ namespace Utils {
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
-    Nodecl::NodeclBase range_sub( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
-    Nodecl::NodeclBase range_intersection( const Nodecl::NodeclBase& r, const Nodecl::NodeclBase& r2 );
-    Nodecl::NodeclBase range_union( const Nodecl::NodeclBase& r1, const Nodecl::NodeclBase& r2 );
+    NBase range_sub(const NBase& r1, const NBase& r2);
+    NBase range_intersection(const NBase& r, const NBase& r2);
+    NBase range_union(const NBase& r1, const NBase& r2);
 
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
@@ -59,22 +59,22 @@ namespace Utils {
      */
     struct Constraint {
         TL::Symbol _constr_sym;               /*!< symbol associated to a given variable at this point of the program */
-        Nodecl::NodeclBase _constraint;       /*!< actual constraint applying to the variable */
+        NBase _constraint;       /*!< actual constraint applying to the variable */
         
         // *** Constructors *** //
         Constraint();
-        Constraint( const TL::Symbol& constr_sym, const Nodecl::NodeclBase& constraint );
+        Constraint(const TL::Symbol& constr_sym, const NBase& constraint);
         
         // *** Getters and Setters *** //
         TL::Symbol get_symbol() const;
-        Nodecl::NodeclBase get_constraint() const;
+        NBase get_constraint() const;
         
         // *** Comparators *** //
         bool operator!=(const Constraint& c) const;
         bool operator==(const Constraint& c) const;
     };
     
-    typedef std::map<Nodecl::NodeclBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;
+    typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;
     
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
@@ -92,19 +92,18 @@ namespace Utils {
      *       |___________________ range constant
      */
     union RangeValue_tag {
-        Nodecl::NodeclBase* n;          // This represents a constant range
-        InductionVariableData* iv;      // This represents a variable range
+        NBase* n;           // This represents a constant range
+        InductionVar* iv;   // This represents a variable range
     };
     
-    typedef std::pair<Nodecl::NodeclBase, ObjectList<RangeValue_tag> > RangeValuesMapEntry;
-    typedef std::map<Nodecl::NodeclBase, ObjectList<RangeValue_tag> > RangeValuesMap;
-    
-    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1, 
-                           std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 );
+    typedef std::pair<NBase, ObjectList<RangeValue_tag> > RangeValuesMapEntry;
+    typedef std::map<NBase, ObjectList<RangeValue_tag> > RangeValuesMap;
     
     // *********************** END Range analysis methods and definitions ************************ //
     // ******************************************************************************************* //
 
+    std::string prettyprint_range_values_map(RangeValuesMap s, bool print_in_dot );
+    
 }
 }
 }

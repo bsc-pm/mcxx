@@ -61,24 +61,23 @@ namespace Analysis {
         }
     }
 
-    Node::Node(unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls)
+    Node::Node(unsigned int& id, Node_type type, Node* outer_node, NodeclList nodecls)
         : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
           _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, type);
         set_data(_OUTER_NODE, outer_node);
-
         set_data(_NODE_STMTS, nodecls);
     }
 
-    Node::Node(unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl)
+    Node::Node(unsigned int& id, Node_type type, Node* outer_node, NBase nodecl)
         : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
           _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, type);
         set_data(_OUTER_NODE, outer_node);
 
-        set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1, nodecl));
+        set_data(_NODE_STMTS, NodeclList(1, nodecl));
     }
 
     bool Node::operator==(const Node& node) const
@@ -88,7 +87,7 @@ namespace Analysis {
 
     void Node::erase_entry_edge(Node* source)
     {
-        ObjectList<Edge*>::iterator it;
+        EdgeList::iterator it;
         for (it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
         {
             if((*it)->get_source() == source)
@@ -106,7 +105,7 @@ namespace Analysis {
 
     void Node::erase_exit_edge(Node* target)
     {
-        ObjectList<Edge*>::iterator it;
+        EdgeList::iterator it;
         for(it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
             if((*it)->get_target() == target)
@@ -134,8 +133,7 @@ namespace Analysis {
     
     bool Node::has_usage_assertion() const
     {
-        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || 
-                 has_key(_ASSERT_DEAD));
+        return (has_key(_ASSERT_UPPER_EXPOSED) || has_key(_ASSERT_KILLED) || has_key(_ASSERT_DEAD));
     }
     
     bool Node::has_liveness_assertion() const
@@ -156,7 +154,7 @@ namespace Analysis {
     bool Node::has_autoscope_assertion() const
     {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
-                 has_key(_ASSERT_AUTOSC_SHARED));
+                has_key(_ASSERT_AUTOSC_SHARED));
     }
     
     bool Node::is_visited() const
@@ -204,7 +202,7 @@ namespace Analysis {
         return (_id==-1 && is_unclassified_node());
     }
 
-    ObjectList<Edge*> Node::get_entry_edges() const
+    EdgeList Node::get_entry_edges() const
     {
         return _entry_edges;
     }
@@ -214,31 +212,31 @@ namespace Analysis {
         _entry_edges.append(entry_edge);
     }
 
-    ObjectList<Edge_type> Node::get_entry_edge_types()
+    EdgeTypeList Node::get_entry_edge_types()
     {
-        ObjectList<Edge_type> result;
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        EdgeTypeList result;
+        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_type());
         return result;
     }
 
-    ObjectList<Nodecl::NodeclBase> Node::get_entry_edge_labels()
+    NodeclList Node::get_entry_edge_labels()
     {
-        ObjectList<Nodecl::NodeclBase> result;
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        NodeclList result;
+        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_label());
         return result;
     }
 
-    ObjectList<Node*> Node::get_parents()
+    NodeList Node::get_parents()
     {
-        ObjectList<Node*> result;
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        NodeList result;
+        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_source());
         return result;
     }
 
-    ObjectList<Edge*> Node::get_exit_edges() const
+    EdgeList Node::get_exit_edges() const
     {
         return _exit_edges;
     }
@@ -248,18 +246,18 @@ namespace Analysis {
         _exit_edges.append(exit_edge);
     }
 
-    ObjectList<Edge_type> Node::get_exit_edge_types()
+    EdgeTypeList Node::get_exit_edge_types()
     {
-        ObjectList<Edge_type> result;
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        EdgeTypeList result;
+        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_type());
         return result;
     }
 
-    ObjectList<Nodecl::NodeclBase> Node::get_exit_edge_labels()
+    NodeclList Node::get_exit_edge_labels()
     {
-        ObjectList<Nodecl::NodeclBase> result;
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        NodeclList result;
+        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_label());
         return result;
     }
@@ -267,7 +265,7 @@ namespace Analysis {
     Edge* Node::get_exit_edge(Node* target)
     {
         Edge* result = NULL;
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
             if((*it)->get_target() == target)
             {
@@ -278,32 +276,20 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<Node*> Node::get_children()
+    NodeList Node::get_children()
     {
-        ObjectList<Node*> result;
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
-        {
+        NodeList result;
+        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_target());
-        }
         return result;
     }
 
     bool Node::node_is_enclosed_by(Node* potential_encloser)
     {
         Node* outer_node = get_outer_node();
-        while((outer_node != NULL)
-               && (outer_node->get_id() != potential_encloser->get_id()))
-        {
+        while((outer_node != NULL) && (outer_node != potential_encloser))
             outer_node = outer_node->get_outer_node();
-        }
-        if(outer_node == NULL)
-        {
-            return false;
-        }
-        else
-        {
-            return true;
-        }
+        return (outer_node != NULL);
     }
 
     bool Node::is_basic_node()
@@ -585,7 +571,7 @@ namespace Analysis {
         bool result = false;
         int id = n->_id;
 
-        for(ObjectList<Edge*>::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
             if((*it)->get_target()->_id == id)
             {
@@ -602,7 +588,7 @@ namespace Analysis {
         bool result = false;
         int id = n->_id;
 
-        for(ObjectList<Edge*>::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
         {
             if((*it)->get_source()->_id == id)
             {
@@ -619,7 +605,7 @@ namespace Analysis {
         if(!is_function_call_node())
             return Symbol();
 
-        Nodecl::NodeclBase stmt = get_statements()[0];
+        NBase stmt = get_statements()[0];
         Symbol s;
         if(stmt.is<Nodecl::FunctionCall>())
         {
@@ -768,13 +754,13 @@ namespace Analysis {
                             get_type_as_string().c_str(), _id);
     }
 
-    Nodecl::NodeclBase Node::get_graph_related_ast()
+    NBase Node::get_graph_related_ast()
     {
         if(get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
-            Nodecl::NodeclBase res = Nodecl::NodeclBase::null();
+            NBase res = NBase::null();
             if(has_key(_NODE_LABEL))
-                res = get_data<Nodecl::NodeclBase>(_NODE_LABEL, Nodecl::NodeclBase::null());
+                res = get_data<NBase>(_NODE_LABEL, NBase::null());
             return res;
         }
         else
@@ -784,7 +770,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_graph_label(Nodecl::NodeclBase n)
+    void Node::set_graph_label(NBase n)
     {
         if(get_data<Node_type>(_NODE_TYPE) == __Graph)
             set_data(_NODE_LABEL, n);
@@ -870,14 +856,14 @@ namespace Analysis {
     Scope Node::get_node_scope()
     {
         // Get a nodecl included in the current node
-        Nodecl::NodeclBase n = Nodecl::NodeclBase::null();
+        NBase n = NBase::null();
         if(is_graph_node())
         {
             n = get_graph_related_ast();
         }
         else
         {
-            ObjectList<Nodecl::NodeclBase> stmts = get_statements();
+            NodeclList stmts = get_statements();
             if(!stmts.empty())
             {
                 n = stmts[0];
@@ -901,15 +887,15 @@ namespace Analysis {
         return has_key(_NODE_STMTS);
     }
 
-    ObjectList<Nodecl::NodeclBase> Node::get_statements()
+    NodeclList Node::get_statements()
     {
-        ObjectList<Nodecl::NodeclBase> stmts;
+        NodeclList stmts;
         if(has_key(_NODE_STMTS))
-            stmts = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            stmts = get_data<NodeclList >(_NODE_STMTS);
         return stmts;
     }
 
-    void Node::set_statements(ObjectList<Nodecl::NodeclBase> stmts)
+    void Node::set_statements(NodeclList stmts)
     {
         if((is_normal_node() || is_function_call_node()
             || is_labeled_node() || is_goto_node()
@@ -1057,233 +1043,168 @@ namespace Analysis {
     // ****************************************************************************** //
     // *************** Getters and setters for use-definition analysis ************** //
 
+    template <typename T>
+    T Node::get_vars(std::string data_name)
+    {
+        T c;
+        if(has_key(data_name))
+            c = get_data<T>(data_name);
+        return c;
+    }
+    
+    template <typename T>
+    void Node::add_var_to_container(const NBase& var, std::string data_name)
+    {
+        T c = get_data<T>(data_name);
+        if(Utils::nodecl_set_contains_enclosing_nodecl(var, c).is_null())
+        {
+            const Nodecl::List subparts = Utils::nodecl_set_contains_enclosed_nodecl(var, c);
+            if(!subparts.is_null())
+            {
+                for(Nodecl::List::const_iterator it = subparts.begin(); it != subparts.end(); ++it)
+                    c.erase(*it);
+            }
+            
+            c.insert(var);
+            set_data(data_name, c);
+        }
+    }
+    
+    template <typename T>
+    void Node::add_vars_to_container(const T& vars, std::string data_name)
+    {
+        for(typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
+            add_var_to_container<T>(*it, data_name);
+    }
+    
+    void Node::remove_var_from_set(const NBase& var, std::string data_name)
+    {
+        NodeclSet set = get_data<NodeclSet>(data_name);
+        set.erase(var);
+        set_data(data_name, set);
+    }
+    
     bool Node::usage_is_computed()
     {
         return (has_key(_UPPER_EXPOSED) || has_key(_KILLED) || has_key(_UNDEF));
     }
     
-    bool Node::uses_var(const Nodecl::NodeclBase& n)
+    bool Node::uses_var(const NBase& n)
     {
         bool result = false;
         if(has_key(_UPPER_EXPOSED)) 
         {
-            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            NodeclSet ue_vars = get_data<NodeclSet>(_UPPER_EXPOSED);
             if(ue_vars.find(n) != ue_vars.end())
                 result = true;
         }
         if(!result && has_key(_KILLED))
         {
-            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            NodeclSet killed_vars = get_data<NodeclSet>(_KILLED);
             if(killed_vars.find(n) != killed_vars.end())
                 result = true;
         }
         if(!result && has_key(_UNDEF))
         {
-            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            NodeclSet undef_vars = get_data<NodeclSet>(_UNDEF);
             if(undef_vars.find(n) != undef_vars.end())
                 result = true;
         }
         return result;
     }
     
-    Utils::ext_sym_set Node::get_ue_vars()
+    NodeclSet Node::get_ue_vars()
     {
-        Utils::ext_sym_set ue_vars;
-        if(has_key(_UPPER_EXPOSED))
-            ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
-        return ue_vars;
+        return get_vars<NodeclSet>(_UPPER_EXPOSED);
     }
 
-    void Node::add_ue_var(Utils::ExtendedSymbol new_ue_var)
+    void Node::add_ue_var(const NBase& new_ue_var)
     {
-        Utils::ext_sym_set ue_vars = get_ue_vars();
-        if(Utils::ext_sym_set_contains_enclosing_nodecl(new_ue_var.get_nodecl(), ue_vars).is_null())
-        {
-            if(!Utils::ext_sym_set_contains_enclosed_nodecl(new_ue_var.get_nodecl(), ue_vars).is_null())
-                delete_enclosed_var_from_list(new_ue_var, ue_vars);
-            
-            ue_vars.insert(new_ue_var);
-            set_data(_UPPER_EXPOSED, ue_vars);
-        }
+        add_var_to_container<NodeclSet>(new_ue_var, _UPPER_EXPOSED);
     }
 
-    void Node::add_ue_var(Utils::ext_sym_set new_ue_vars)
+    void Node::add_ue_var(const NodeclSet& new_ue_vars)
     {
-        Utils::ext_sym_set ue_vars = get_ue_vars();
-        Utils::ext_sym_set purged_ue_vars;
-        Utils::ext_sym_set::iterator it = new_ue_vars.begin();
-        for(; it != new_ue_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), ue_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), ue_vars).is_null())
-                    delete_enclosed_var_from_list(*it, ue_vars);
-                
-                purged_ue_vars.insert(*it);
-            }
-        }
-        ue_vars.insert(purged_ue_vars.begin(), purged_ue_vars.end());
-        set_data(_UPPER_EXPOSED, ue_vars);
+        add_vars_to_container<NodeclSet>(new_ue_vars, _UPPER_EXPOSED);
     }
 
-    void Node::set_ue_var(Utils::ext_sym_set new_ue_vars)
+    void Node::set_ue_var(const NodeclSet& new_ue_vars)
     {
         set_data(_UPPER_EXPOSED, new_ue_vars);
     }
     
-    void Node::remove_ue_var(Utils::ExtendedSymbol old_ue_var)
+    void Node::remove_ue_var(const NBase& old_ue_var)
     {
-        Utils::ext_sym_set ue_vars = get_ue_vars();
-        ue_vars.erase(old_ue_var);
-        set_data(_UPPER_EXPOSED, ue_vars);
+        remove_var_from_set(old_ue_var, _UPPER_EXPOSED);
     }
 
-    Utils::ext_sym_set Node::get_private_ue_vars()
+    NodeclSet Node::get_private_ue_vars()
     {
-        Utils::ext_sym_set private_ue_vars;
-        if(has_key(_PRIVATE_UPPER_EXPOSED))
-            private_ue_vars = get_data<Utils::ext_sym_set>(_PRIVATE_UPPER_EXPOSED);
-        return private_ue_vars;
+        return get_vars<NodeclSet>(_PRIVATE_UPPER_EXPOSED);
     }
 
-    void Node::add_private_ue_var(Utils::ext_sym_set new_private_ue_vars)
+    void Node::add_private_ue_var(const NodeclSet& new_private_ue_vars)
     {
-        Utils::ext_sym_set private_ue_vars = get_private_ue_vars();
-        Utils::ext_sym_set purged_private_ue_vars;
-        Utils::ext_sym_set::iterator it = new_private_ue_vars.begin();
-        for(; it != new_private_ue_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), private_ue_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), private_ue_vars).is_null())
-                    delete_enclosed_var_from_list(*it, private_ue_vars);
-                
-                purged_private_ue_vars.insert(*it);
-            }
-        }
-        private_ue_vars.insert(purged_private_ue_vars.begin(), purged_private_ue_vars.end());
-        set_data(_PRIVATE_UPPER_EXPOSED, private_ue_vars);
+        add_vars_to_container<NodeclSet>(new_private_ue_vars, _PRIVATE_UPPER_EXPOSED);
     }
 
-    Utils::ext_sym_set Node::get_killed_vars()
+    void Node::set_private_ue_var(const NodeclSet& new_private_ue_vars)
     {
-        Utils::ext_sym_set killed_vars;
-        if(has_key(_KILLED))
-            killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
-        return killed_vars;
+        set_data(_PRIVATE_UPPER_EXPOSED, new_private_ue_vars);
+    }
+    
+    NodeclSet Node::get_killed_vars()
+    {
+        return get_vars<NodeclSet>(_KILLED);
     }
 
-    void Node::add_killed_var(Utils::ExtendedSymbol new_killed_var)
+    void Node::add_killed_var(const NBase& new_killed_var)
     {
-        Utils::ext_sym_set killed_vars = get_killed_vars();
-        if(Utils::ext_sym_set_contains_enclosing_nodecl(new_killed_var.get_nodecl(), killed_vars).is_null())
-        {
-            if(!Utils::ext_sym_set_contains_enclosed_nodecl(new_killed_var.get_nodecl(), killed_vars).is_null())
-                delete_enclosed_var_from_list(new_killed_var, killed_vars);
-            
-            killed_vars.insert(new_killed_var);
-            set_data(_KILLED, killed_vars);
-        }
+        add_var_to_container<NodeclSet>(new_killed_var, _KILLED);
     }
 
-    void Node::add_killed_var(Utils::ext_sym_set new_killed_vars)
+    void Node::add_killed_var(const NodeclSet& new_killed_vars)
     {
-        Utils::ext_sym_set killed_vars = get_killed_vars();
-        Utils::ext_sym_set purged_killed_vars;
-        Utils::ext_sym_set::iterator it = new_killed_vars.begin();
-        for(; it != new_killed_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), killed_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), killed_vars).is_null())
-                    delete_enclosed_var_from_list(*it, killed_vars);
-                purged_killed_vars.insert(*it);
-            }
-        }
-
-        killed_vars.insert(purged_killed_vars.begin(), purged_killed_vars.end());
-        set_data(_KILLED, killed_vars);
+        add_vars_to_container<NodeclSet>(new_killed_vars, _KILLED);
     }
 
-    void Node::set_killed_var(Utils::ext_sym_set new_killed_vars)
+    void Node::set_killed_var(const NodeclSet& new_killed_vars)
     {
         set_data(_KILLED, new_killed_vars);
     }
     
-    void Node::remove_killed_var(Utils::ExtendedSymbol old_killed_var)
+    void Node::remove_killed_var(const NBase& old_killed_var)
     {
-        Utils::ext_sym_set killed_vars = get_killed_vars();
-        killed_vars.erase(old_killed_var);
-        set_data(_KILLED, killed_vars);
+        remove_var_from_set(old_killed_var, _KILLED);
     }
 
-    Utils::ext_sym_set Node::get_private_killed_vars()
+    NodeclSet Node::get_private_killed_vars()
     {
-        Utils::ext_sym_set private_killed_vars;
-        if(has_key(_PRIVATE_KILLED))
-            private_killed_vars = get_data<Utils::ext_sym_set>(_PRIVATE_KILLED);
-        return private_killed_vars;
+        return get_vars<NodeclSet>(_PRIVATE_KILLED);
     }
     
-    void Node::add_private_killed_var(Utils::ext_sym_set new_private_killed_vars)
+    void Node::add_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
-        Utils::ext_sym_set private_killed_vars = get_private_killed_vars();
-        Utils::ext_sym_set purged_private_killed_vars;
-        Utils::ext_sym_set::iterator it = new_private_killed_vars.begin();
-        for(; it != new_private_killed_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), private_killed_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), private_killed_vars).is_null())
-                    delete_enclosed_var_from_list(*it, private_killed_vars);
-                purged_private_killed_vars.insert(*it);
-            }
-        }
-        
-        private_killed_vars.insert(purged_private_killed_vars.begin(), purged_private_killed_vars.end());
-        set_data(_PRIVATE_KILLED, private_killed_vars);
+        add_vars_to_container<NodeclSet>(new_private_killed_vars, _PRIVATE_KILLED);
     }
     
-    Utils::ext_sym_set Node::get_undefined_behaviour_vars()
+    void Node::set_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
-        Utils::ext_sym_set undef_vars;
-        if(has_key(_UNDEF))
-            undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
-        return undef_vars;
+        set_data(_PRIVATE_KILLED, new_private_killed_vars);
+    }
+    
+    NodeclSet Node::get_undefined_behaviour_vars()
+    {
+        return get_vars<NodeclSet>(_UNDEF);
     }
 
-    void Node::add_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var)
+    void Node::add_undefined_behaviour_var(const NBase& new_undef_var)
     {
-        Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars();
-        if(Utils::ext_sym_set_contains_enclosing_nodecl(new_undef_var.get_nodecl(), undef_vars).is_null())
-        {
-            if(!Utils::ext_sym_set_contains_enclosed_nodecl(new_undef_var.get_nodecl(), undef_vars).is_null())
-                delete_enclosed_var_from_list(new_undef_var, undef_vars);
-            undef_vars.insert(new_undef_var);
-            set_data(_UNDEF, undef_vars);
-        }
-    }
-
-    void Node::add_undefined_behaviour_var(Utils::ext_sym_set new_undef_vars)
-    {
-        Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars();
-        Utils::ext_sym_set purged_undef_vars;
-        Utils::ext_sym_set::iterator it = new_undef_vars.begin();
-        for(; it != new_undef_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), undef_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), undef_vars).is_null())
-                    delete_enclosed_var_from_list(*it, undef_vars);
-                purged_undef_vars.insert(*it);
-            }
-        }
-        undef_vars.insert(purged_undef_vars.begin(), purged_undef_vars.end());
-        set_data(_UNDEF, undef_vars);
+        add_var_to_container<NodeclSet>(new_undef_var, _UNDEF);
     }
 
     void Node::add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-        Utils::ExtendedSymbol new_undef_var)
+        const NBase& new_undef_var)
     {
         // Conservatively, delete the reference argument of UE and KILL sets
         if(has_key(_UPPER_EXPOSED))
@@ -1294,68 +1215,45 @@ namespace Analysis {
         // Add the global variable to the UNDEF list
         add_undefined_behaviour_var(new_undef_var);
     }
-
-    void Node::set_undefined_behaviour_var(Utils::ExtendedSymbol new_undef_var)
-    {
-        Utils::ext_sym_set new_undef_var_set;
-        new_undef_var_set.insert(new_undef_var);
-        set_data(_UNDEF, new_undef_var_set);
-    }
     
-    void Node::set_undefined_behaviour_var(Utils::ext_sym_set new_undef_vars)
+    void Node::set_undefined_behaviour_var(const NodeclSet& new_undef_vars)
     {
         set_data(_UNDEF, new_undef_vars);
     }
         
-    void Node::remove_undefined_behaviour_var(Utils::ExtendedSymbol old_undef_var)
+    void Node::remove_undefined_behaviour_var(const NBase& old_undef_var)
     {
-        Utils::ext_sym_set undef_vars = get_undefined_behaviour_vars();
-        undef_vars.erase(old_undef_var);
-        set_data(_UNDEF, undef_vars);
+        remove_var_from_set(old_undef_var, _UNDEF);
     }
 
-    Utils::ext_sym_set Node::get_private_undefined_behaviour_vars()
+    NodeclSet Node::get_private_undefined_behaviour_vars()
     {
-        Utils::ext_sym_set private_undef_vars;
-        if(has_key(_PRIVATE_UNDEF))
-            private_undef_vars = get_data<Utils::ext_sym_set>(_PRIVATE_UNDEF);
-        return private_undef_vars;
+        return get_vars<NodeclSet>(_PRIVATE_UNDEF);
     }
     
-    void Node::add_private_undefined_behaviour_var(Utils::ext_sym_set new_private_undef_vars)
+    void Node::add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
-        Utils::ext_sym_set private_undef_vars = get_private_undefined_behaviour_vars();
-        Utils::ext_sym_set purged_private_undef_vars;
-        Utils::ext_sym_set::iterator it = new_private_undef_vars.begin();
-        for(; it != new_private_undef_vars.end(); ++it)
-        {
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(it->get_nodecl(), private_undef_vars).is_null())
-            {
-                if(!Utils::ext_sym_set_contains_enclosed_nodecl(it->get_nodecl(), private_undef_vars).is_null())
-                    delete_enclosed_var_from_list(*it, private_undef_vars);
-                purged_private_undef_vars.insert(*it);
-            }
-        }
-        private_undef_vars.insert(purged_private_undef_vars.begin(), purged_private_undef_vars.end());
-        set_data(_PRIVATE_UNDEF, private_undef_vars);
+        add_vars_to_container<NodeclSet>(new_private_undef_vars, _PRIVATE_UNDEF);
     }
     
-    Utils::ext_sym_set Node::get_used_addresses()
+    void Node::set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
-        Utils::ext_sym_set used_addresses;
-        if(has_key(_USED_ADDRESSES))
-            used_addresses = get_data<Utils::ext_sym_set>(_USED_ADDRESSES);
-        return used_addresses;
+        set_data(_PRIVATE_UNDEF, new_private_undef_vars);
     }
     
-    void Node::add_used_address(const Utils::ExtendedSymbol& es)
+    NodeclSet Node::get_used_addresses()
     {
-        Utils::ext_sym_set used_addresses = get_used_addresses();
+        return get_vars<NodeclSet>(_USED_ADDRESSES);
+    }
+    
+    void Node::add_used_address(const NBase& es)
+    {
+        NodeclSet used_addresses = get_used_addresses();
         used_addresses.insert(es);
         set_data(_USED_ADDRESSES, used_addresses);
     }
     
-    void Node::add_used_addresses(const Utils::ext_sym_set& used_addresses)
+    void Node::set_used_addresses(const NodeclSet& used_addresses)
     {
         set_data(_USED_ADDRESSES, used_addresses);
     }
@@ -1368,42 +1266,41 @@ namespace Analysis {
     // ****************************************************************************** //
     // ****************** Getters and setters for liveness analysis ***************** //
 
-    Utils::ext_sym_set Node::get_live_in_vars()
+    NodeclSet Node::get_live_in_vars()
     {
-        Utils::ext_sym_set live_in_vars;
-        if(has_key(_LIVE_IN))
-            live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
-        return live_in_vars;
+        return get_vars<NodeclSet>(_LIVE_IN);
     }
-
-    void Node::set_live_in(Utils::ExtendedSymbol new_live_in_var)
+    
+    void Node::set_live_in(const NBase& new_live_in_var)
     {
-        Utils::ext_sym_set live_in_vars = get_live_in_vars();
+        NodeclSet live_in_vars = get_live_in_vars();
         live_in_vars.insert(new_live_in_var);
         set_data(_LIVE_IN, live_in_vars);
     }
 
-    void Node::set_live_in(Utils::ext_sym_set new_live_in_set)
+    void Node::set_live_in(const NodeclSet& new_live_in_set)
     {
         set_data(_LIVE_IN, new_live_in_set);
     }
 
-    Utils::ext_sym_set Node::get_live_out_vars()
+    NodeclSet Node::get_live_out_vars()
     {
-        Utils::ext_sym_set live_out_vars;
-        if(has_key(_LIVE_OUT))
-            live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
-        return live_out_vars;
+        return get_vars<NodeclSet>(_LIVE_OUT);
     }
-
-    void Node::set_live_out(Utils::ExtendedSymbol new_live_out_var)
+    
+    void Node::add_live_out(const NBase& new_live_out_var)
     {
-        Utils::ext_sym_set live_out_vars = get_live_out_vars();
+        add_var_to_container<NodeclSet>(new_live_out_var, _LIVE_OUT);
+    }
+    
+    void Node::set_live_out(const NBase& new_live_out_var)
+    {
+        NodeclSet live_out_vars = get_live_out_vars();
         live_out_vars.insert(new_live_out_var);
         set_data(_LIVE_OUT, live_out_vars);
     }
 
-    void Node::set_live_out(Utils::ext_sym_set new_live_out_set)
+    void Node::set_live_out(const NodeclSet& new_live_out_set)
     {
         set_data(_LIVE_OUT, new_live_out_set);
     }
@@ -1416,21 +1313,18 @@ namespace Analysis {
     // ****************************************************************************** //
     // ************ Getters and setters for reaching definitions analysis *********** //
 
-    Utils::ext_sym_map Node::get_generated_stmts()
+    NodeclMap Node::get_generated_stmts()
     {
-        Utils::ext_sym_map gen_stmts;
-        if(has_key(_GEN))
-            gen_stmts = get_data<Utils::ext_sym_map>(_GEN);
-        return gen_stmts;
+        return get_vars<NodeclMap>(_GEN);
     }
 
-    Utils::ext_sym_map Node::set_generated_stmts(Utils::ext_sym_map gen)
+    NodeclMap Node::set_generated_stmts(const NodeclMap& gen)
     {
-        Utils::ext_sym_map gen_stmts;
+        NodeclMap gen_stmts;
         if(has_key(_GEN))
         {
-            gen_stmts = get_data<Utils::ext_sym_map>(_GEN);
-            for(Utils::ext_sym_map::iterator it = gen.begin(); it != gen.end(); ++it)
+            gen_stmts = get_data<NodeclMap>(_GEN);
+            for(NodeclMap::const_iterator it = gen.begin(); it != gen.end(); ++it)
             {
                 if(gen_stmts.find(it->first) != gen_stmts.end())
                     gen_stmts.erase(it->first);
@@ -1441,42 +1335,36 @@ namespace Analysis {
         return gen_stmts;
     }
 
-    Utils::ext_sym_map Node::get_reaching_definitions_in()
+    NodeclMap Node::get_reaching_definitions_in()
     {
-        Utils::ext_sym_map reaching_defs_in;
-        if(has_key(_REACH_DEFS_IN))
-            reaching_defs_in = get_data<Utils::ext_sym_map>(_REACH_DEFS_IN);
-        return reaching_defs_in;
+        return get_vars<NodeclMap>(_REACH_DEFS_IN);
     }
 
-    Utils::ext_sym_map Node::get_reaching_definitions_out()
+    NodeclMap Node::get_reaching_definitions_out()
     {
-        Utils::ext_sym_map reaching_defs_out;
-        if(has_key(_REACH_DEFS_OUT))
-            reaching_defs_out = get_data<Utils::ext_sym_map>(_REACH_DEFS_OUT);
-        return reaching_defs_out;
+        return get_vars<NodeclMap>(_REACH_DEFS_OUT);
     }
 
-    void Node::set_reaching_definition_in(Utils::ExtendedSymbol var, Nodecl::NodeclBase init)
+    void Node::set_reaching_definition_in(const NBase& var, const NBase& init)
     {
-        Utils::ext_sym_map reaching_defs_in = get_reaching_definitions_in();
-        reaching_defs_in.insert(std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(var, init));
+        NodeclMap reaching_defs_in = get_reaching_definitions_in();
+        reaching_defs_in.insert(std::pair<NBase, NBase>(var, init));
         set_data(_REACH_DEFS_IN, reaching_defs_in);
     }
 
-    void Node::set_reaching_definitions_in(Utils::ext_sym_map reach_defs_in)
+    void Node::set_reaching_definitions_in(const NodeclMap& reach_defs_in)
     {
         set_data(_REACH_DEFS_IN, reach_defs_in);
     }
 
-    void Node::set_reaching_definition_out(Utils::ExtendedSymbol var, Nodecl::NodeclBase init)
+    void Node::set_reaching_definition_out(const NBase& var, const NBase& init)
     {
-        Utils::ext_sym_map reaching_defs_out = get_reaching_definitions_out();
-        reaching_defs_out.insert(std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(var, init));
+        NodeclMap reaching_defs_out = get_reaching_definitions_out();
+        reaching_defs_out.insert(std::pair<NBase, NBase>(var, init));
         set_data(_REACH_DEFS_OUT, reaching_defs_out);
     }
 
-    void Node::set_reaching_definitions_out(Utils::ext_sym_map reach_defs_out)
+    void Node::set_reaching_definitions_out(const NodeclMap& reach_defs_out)
     {
         set_data(_REACH_DEFS_OUT, reach_defs_out);
     }
@@ -1489,30 +1377,29 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for loops analysis ******************* //
 
-    ObjectList<Utils::InductionVariableData*> Node::get_induction_variables()
+    Utils::InductionVarList Node::get_induction_variables()
     {
-        ObjectList<Utils::InductionVariableData*> ivs;
+        Utils::InductionVarList ivs;
         if(is_loop_node() || is_omp_loop_node())
         {
-            if(has_key(_INDUCTION_VARS))
-                ivs = get_data<ObjectList<Utils::InductionVariableData*> >(_INDUCTION_VARS);
+            ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
         }
         else
         {
-            internal_error("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                             _id, get_type_as_string().c_str());
+            if(VERBOSE)
+            {
+                WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
+                                _id, get_type_as_string().c_str());
+            }
         }
         return ivs;
     }
 
-    void Node::set_induction_variable(Utils::InductionVariableData* iv)
+    void Node::set_induction_variable(Utils::InductionVar* iv)
     {
         if(is_loop_node() || is_omp_loop_node())
         {
-            ObjectList<Utils::InductionVariableData*> ivs;
-            if(has_key(_INDUCTION_VARS))
-                ivs = get_data<ObjectList<Utils::InductionVariableData*> >(_INDUCTION_VARS);
-
+            Utils::InductionVarList ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
             ivs.insert(iv);
             set_data(_INDUCTION_VARS, ivs);
         }
@@ -1668,7 +1555,7 @@ namespace Analysis {
         return constraints_map;
     }
     
-    Utils::Constraint Node::get_constraint(const Nodecl::NodeclBase& var)
+    Utils::Constraint Node::get_constraint(const NBase& var)
     {
         Utils::ConstraintMap constraints_map;
         if(has_key(_CONSTRAINTS))
@@ -1713,12 +1600,12 @@ namespace Analysis {
         return ranges_in;
     }
     
-    void Node::set_range_in(const Nodecl::NodeclBase& var, 
+    void Node::set_range_in(const NBase& var, 
                              const ObjectList<Utils::RangeValue_tag>& values)
     {
         Utils::RangeValuesMap ranges_in = get_ranges_in();
         ranges_in.insert(
-                std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> >(var, values));
+                std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
         set_data(_RANGES_IN, ranges_in);
     }
     
@@ -1730,12 +1617,12 @@ namespace Analysis {
         return ranges_out;
     }
     
-    void Node::set_range_out(const Nodecl::NodeclBase& var, 
+    void Node::set_range_out(const NBase& var, 
                               const ObjectList<Utils::RangeValue_tag>& values)
     {
         Utils::RangeValuesMap ranges_out = get_ranges_out();
         ranges_out.insert(
-                std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> >(var, values));
+                std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
         set_data(_RANGES_OUT, ranges_out);
     }
     
@@ -1747,7 +1634,7 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for OmpSs analysis ******************* //
 
-    Nodecl::NodeclBase Node::get_task_context()
+    NBase Node::get_task_context()
     {
         if(get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
@@ -1765,7 +1652,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_task_context(Nodecl::NodeclBase c)
+    void Node::set_task_context(NBase c)
     {
         if(get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
@@ -1793,7 +1680,7 @@ namespace Analysis {
             else
                 internal_error("Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
                                "\"task\" type expected", get_graph_type_as_string().c_str(),
-                               get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+                               get_data<NBase>(_NODE_LABEL).prettyprint().c_str());
         }
         else
         {
@@ -1812,7 +1699,7 @@ namespace Analysis {
             else
                 internal_error("Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
                                 "\"task\" type expected", get_graph_type_as_string().c_str(),
-                                get_data<Nodecl::NodeclBase>(_NODE_LABEL).prettyprint().c_str());
+                                get_data<NBase>(_NODE_LABEL).prettyprint().c_str());
         }
         else
         {
@@ -1839,112 +1726,112 @@ namespace Analysis {
         set_data(_SC_AUTO, true);
     }
 
-    Utils::ext_sym_set Node::get_sc_shared_vars()
+    NodeclSet Node::get_sc_shared_vars()
     {
-        Utils::ext_sym_set sc_shared_vars;
+        NodeclSet sc_shared_vars;
         if(has_key(_SC_SHARED))
-            sc_shared_vars = get_data<Utils::ext_sym_set>(_SC_SHARED);
+            sc_shared_vars = get_data<NodeclSet>(_SC_SHARED);
         return sc_shared_vars;
     }
 
-    void Node::set_sc_shared_var(Utils::ExtendedSymbol es)
+    void Node::set_sc_shared_var(NBase es)
     {
-        Utils::ext_sym_set sc_shared_vars = get_sc_shared_vars();
+        NodeclSet sc_shared_vars = get_sc_shared_vars();
         sc_shared_vars.insert(es);
         set_data(_SC_SHARED, sc_shared_vars);
     }
-    void Node::set_sc_shared_var(Utils::ext_sym_set es_list)
+    void Node::set_sc_shared_var(NodeclSet es_list)
     {
-        Utils::ext_sym_set sc_shared_vars = get_sc_shared_vars();
+        NodeclSet sc_shared_vars = get_sc_shared_vars();
         sc_shared_vars.insert(es_list.begin(), es_list.end());
         set_data(_SC_SHARED, sc_shared_vars);
     }
 
-    Utils::ext_sym_set Node::get_sc_private_vars()
+    NodeclSet Node::get_sc_private_vars()
     {
-        Utils::ext_sym_set sc_private_vars;
+        NodeclSet sc_private_vars;
         if(has_key(_SC_PRIVATE))
-            sc_private_vars = get_data<Utils::ext_sym_set>(_SC_PRIVATE);
+            sc_private_vars = get_data<NodeclSet>(_SC_PRIVATE);
         return sc_private_vars;
     }
 
-    void Node::set_sc_private_var(Utils::ExtendedSymbol es)
+    void Node::set_sc_private_var(NBase es)
     {
-        Utils::ext_sym_set sc_private_vars = get_sc_private_vars();
+        NodeclSet sc_private_vars = get_sc_private_vars();
         sc_private_vars.insert(es);
         set_data(_SC_PRIVATE, sc_private_vars);
     }
-    void Node::set_sc_private_var(Utils::ext_sym_set es_list)
+    void Node::set_sc_private_var(NodeclSet es_list)
     {
-        Utils::ext_sym_set sc_private_vars = get_sc_private_vars();
+        NodeclSet sc_private_vars = get_sc_private_vars();
         sc_private_vars.insert(es_list.begin(), es_list.end());
         set_data(_SC_PRIVATE, sc_private_vars);
     }
 
-    Utils::ext_sym_set Node::get_sc_firstprivate_vars()
+    NodeclSet Node::get_sc_firstprivate_vars()
     {
-        Utils::ext_sym_set sc_firstprivate_vars;
+        NodeclSet sc_firstprivate_vars;
         if(has_key(_SC_FIRSTPRIVATE))
-            sc_firstprivate_vars = get_data<Utils::ext_sym_set>(_SC_FIRSTPRIVATE);
+            sc_firstprivate_vars = get_data<NodeclSet>(_SC_FIRSTPRIVATE);
         return sc_firstprivate_vars;
     }
 
-    void Node::set_sc_firstprivate_var(Utils::ExtendedSymbol es)
+    void Node::set_sc_firstprivate_var(NBase es)
     {
-        Utils::ext_sym_set sc_firstprivate_vars = get_sc_firstprivate_vars();
+        NodeclSet sc_firstprivate_vars = get_sc_firstprivate_vars();
         sc_firstprivate_vars.insert(es);
         set_data(_SC_FIRSTPRIVATE, sc_firstprivate_vars);
     }
-    void Node::set_sc_firstprivate_var(Utils::ext_sym_set es_list)
+    void Node::set_sc_firstprivate_var(NodeclSet es_list)
     {
-        Utils::ext_sym_set sc_firstprivate_vars = get_sc_firstprivate_vars();
+        NodeclSet sc_firstprivate_vars = get_sc_firstprivate_vars();
         sc_firstprivate_vars.insert(es_list.begin(), es_list.end());
         set_data(_SC_FIRSTPRIVATE, sc_firstprivate_vars);
     }
 
-    Utils::ext_sym_set Node::get_sc_undef_vars()
+    NodeclSet Node::get_sc_undef_vars()
     {
-        Utils::ext_sym_set undef_sc_vars;
+        NodeclSet undef_sc_vars;
         if(has_key(_SC_UNDEF))
-            undef_sc_vars = get_data<Utils::ext_sym_set>(_SC_UNDEF);
+            undef_sc_vars = get_data<NodeclSet>(_SC_UNDEF);
         return undef_sc_vars;
     }
 
-    void Node::set_sc_undef_var(Utils::ExtendedSymbol es)
+    void Node::set_sc_undef_var(NBase es)
     {
-        Utils::ext_sym_set sc_undef_vars = get_sc_undef_vars();
+        NodeclSet sc_undef_vars = get_sc_undef_vars();
         sc_undef_vars.insert(es);
         set_data(_SC_UNDEF, sc_undef_vars);
     }
-    void Node::set_sc_undef_var(Utils::ext_sym_set es_list)
+    void Node::set_sc_undef_var(NodeclSet es_list)
     {
-        Utils::ext_sym_set sc_undef_vars = get_sc_undef_vars();
+        NodeclSet sc_undef_vars = get_sc_undef_vars();
         sc_undef_vars.insert(es_list.begin(), es_list.end());
         set_data(_SC_UNDEF, sc_undef_vars);
     }
 
-    Utils::ext_sym_set Node::get_sc_race_vars()
+    NodeclSet Node::get_sc_race_vars()
     {
-        Utils::ext_sym_set race_vars;
+        NodeclSet race_vars;
         if(has_key(_SC_RACE))
-            race_vars = get_data<Utils::ext_sym_set>(_SC_RACE);
+            race_vars = get_data<NodeclSet>(_SC_RACE);
         return race_vars;
     }
 
-    void Node::set_sc_race_var(Utils::ExtendedSymbol es)
+    void Node::set_sc_race_var(NBase es)
     {
-        Utils::ext_sym_set sc_race_vars = get_sc_race_vars();
+        NodeclSet sc_race_vars = get_sc_race_vars();
         sc_race_vars.insert(es);
         set_data(_SC_RACE, sc_race_vars);
     }
 
     Utils::AutoScopedVariables Node::get_auto_scoped_variables()
     {
-        Utils::ext_sym_set private_vars = get_sc_private_vars();
-        Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars();
-        Utils::ext_sym_set race_vars = get_sc_race_vars();
-        Utils::ext_sym_set shared_vars = get_sc_shared_vars();
-        Utils::ext_sym_set undef_vars = get_sc_undef_vars();
+        NodeclSet private_vars = get_sc_private_vars();
+        NodeclSet firstprivate_vars = get_sc_firstprivate_vars();
+        NodeclSet race_vars = get_sc_race_vars();
+        NodeclSet shared_vars = get_sc_shared_vars();
+        NodeclSet undef_vars = get_sc_undef_vars();
 
         Utils::AutoScopedVariables res(private_vars, firstprivate_vars, race_vars,
                                         shared_vars, undef_vars);
@@ -1959,108 +1846,108 @@ namespace Analysis {
     // ****************************************************************************** //
     // ************** Getters and setters for task dependence analysis ************** //
 
-    Utils::ext_sym_set Node::get_deps_private_vars()
+    NodeclSet Node::get_deps_private_vars()
     {
-        Utils::ext_sym_set deps_private_vars;
+        NodeclSet deps_private_vars;
         if(has_key(_DEPS_PRIVATE))
-            deps_private_vars = get_data<Utils::ext_sym_set>(_DEPS_PRIVATE);
+            deps_private_vars = get_data<NodeclSet>(_DEPS_PRIVATE);
         return deps_private_vars;
     }
 
-    void Node::set_deps_private_vars(Utils::ext_sym_set new_deps_private_var)
+    void Node::set_deps_private_vars(NodeclSet new_deps_private_var)
     {
-        Utils::ext_sym_set deps_private_vars = get_deps_private_vars();
+        NodeclSet deps_private_vars = get_deps_private_vars();
         deps_private_vars.insert(new_deps_private_var.begin(), new_deps_private_var.end());
         set_data(_DEPS_PRIVATE, deps_private_vars);
     }
 
 
-    Utils::ext_sym_set Node::get_deps_firstprivate_vars()
+    NodeclSet Node::get_deps_firstprivate_vars()
     {
-        Utils::ext_sym_set deps_firstprivate_vars;
+        NodeclSet deps_firstprivate_vars;
         if(has_key(_DEPS_FIRSTPRIVATE))
-            deps_firstprivate_vars = get_data<Utils::ext_sym_set>(_DEPS_FIRSTPRIVATE);
+            deps_firstprivate_vars = get_data<NodeclSet>(_DEPS_FIRSTPRIVATE);
         return deps_firstprivate_vars;
     }
 
-    void Node::set_deps_firstprivate_vars(Utils::ext_sym_set new_deps_firstprivate_var)
+    void Node::set_deps_firstprivate_vars(NodeclSet new_deps_firstprivate_var)
     {
-        Utils::ext_sym_set deps_firstprivate_vars = get_deps_firstprivate_vars();
+        NodeclSet deps_firstprivate_vars = get_deps_firstprivate_vars();
         deps_firstprivate_vars.insert(new_deps_firstprivate_var.begin(), new_deps_firstprivate_var.end());
         set_data(_DEPS_FIRSTPRIVATE, deps_firstprivate_vars);
     }
 
-    Utils::ext_sym_set Node::get_deps_shared_vars()
+    NodeclSet Node::get_deps_shared_vars()
     {
-        Utils::ext_sym_set deps_shared_vars;
+        NodeclSet deps_shared_vars;
         if(has_key(_DEPS_SHARED))
-            deps_shared_vars = get_data<Utils::ext_sym_set>(_DEPS_SHARED);
+            deps_shared_vars = get_data<NodeclSet>(_DEPS_SHARED);
         return deps_shared_vars;
     }
 
-    void Node::set_deps_shared_vars(Utils::ext_sym_set new_deps_shared_var)
+    void Node::set_deps_shared_vars(NodeclSet new_deps_shared_var)
     {
-        Utils::ext_sym_set deps_shared_vars = get_deps_shared_vars();
+        NodeclSet deps_shared_vars = get_deps_shared_vars();
         deps_shared_vars.insert(new_deps_shared_var.begin(), new_deps_shared_var.end());
         set_data(_DEPS_SHARED, deps_shared_vars);
     }
 
-    Utils::ext_sym_set Node::get_deps_in_exprs()
+    NodeclSet Node::get_deps_in_exprs()
     {
-        Utils::ext_sym_set in_deps;
+        NodeclSet in_deps;
         if(has_key(_DEPS_IN))
-            in_deps = get_data<Utils::ext_sym_set>(_DEPS_IN);
+            in_deps = get_data<NodeclSet>(_DEPS_IN);
         return in_deps;
     }
 
-    void Node::set_deps_in_exprs(Utils::ext_sym_set new_in_deps)
+    void Node::set_deps_in_exprs(NodeclSet new_in_deps)
     {
-        Utils::ext_sym_set in_deps = get_deps_in_exprs();
+        NodeclSet in_deps = get_deps_in_exprs();
         in_deps.insert(new_in_deps.begin(), new_in_deps.end());
         set_data(_DEPS_IN, in_deps);
     }
 
-    Utils::ext_sym_set Node::get_deps_out_exprs()
+    NodeclSet Node::get_deps_out_exprs()
     {
-        Utils::ext_sym_set out_deps;
+        NodeclSet out_deps;
         if(has_key(_DEPS_OUT))
-            out_deps = get_data<Utils::ext_sym_set>(_DEPS_OUT);
+            out_deps = get_data<NodeclSet>(_DEPS_OUT);
         return out_deps;
     }
 
-    void Node::set_deps_out_exprs(Utils::ext_sym_set new_out_deps)
+    void Node::set_deps_out_exprs(NodeclSet new_out_deps)
     {
-        Utils::ext_sym_set out_deps = get_deps_out_exprs();
+        NodeclSet out_deps = get_deps_out_exprs();
         out_deps.insert(new_out_deps.begin(), new_out_deps.end());
         set_data(_DEPS_OUT, out_deps);
     }
 
-    Utils::ext_sym_set Node::get_deps_inout_exprs()
+    NodeclSet Node::get_deps_inout_exprs()
     {
-        Utils::ext_sym_set inout_deps;
+        NodeclSet inout_deps;
         if(has_key(_DEPS_INOUT))
-            inout_deps = get_data<Utils::ext_sym_set>(_DEPS_INOUT);
+            inout_deps = get_data<NodeclSet>(_DEPS_INOUT);
         return inout_deps;
     }
 
-    void Node::set_deps_inout_exprs(Utils::ext_sym_set new_inout_deps)
+    void Node::set_deps_inout_exprs(NodeclSet new_inout_deps)
     {
-        Utils::ext_sym_set inout_deps = get_deps_inout_exprs();
+        NodeclSet inout_deps = get_deps_inout_exprs();
         inout_deps.insert(new_inout_deps.begin(), new_inout_deps.end());
         set_data(_DEPS_INOUT, inout_deps);
     }
 
-    Utils::ext_sym_set Node::get_deps_undef_vars()
+    NodeclSet Node::get_deps_undef_vars()
     {
-        Utils::ext_sym_set undef_deps;
+        NodeclSet undef_deps;
         if(has_key(_DEPS_UNDEF))
-            undef_deps = get_data<Utils::ext_sym_set>(_DEPS_UNDEF);
+            undef_deps = get_data<NodeclSet>(_DEPS_UNDEF);
         return undef_deps;
     }
 
-    void Node::set_deps_undef_vars(Utils::ext_sym_set new_undef_deps)
+    void Node::set_deps_undef_vars(NodeclSet new_undef_deps)
     {
-        Utils::ext_sym_set undef_deps = get_deps_undef_vars();
+        NodeclSet undef_deps = get_deps_undef_vars();
         undef_deps.insert(new_undef_deps.begin(), new_undef_deps.end());
         set_data(_DEPS_UNDEF, undef_deps);
     }
@@ -2103,205 +1990,123 @@ namespace Analysis {
     // ****************************************************************************** //
     // ****************** Getters and setters for analysis checking ***************** //
     
-    Utils::ext_sym_set Node::get_assert_ue_vars()
+    NodeclSet Node::get_assert_ue_vars()
     {
-        Utils::ext_sym_set assert_ue_vars;
-        if(has_key(_ASSERT_UPPER_EXPOSED))
-            assert_ue_vars = get_data<Utils::ext_sym_set>(_ASSERT_UPPER_EXPOSED);
-        return assert_ue_vars;
+        return get_vars<NodeclSet>(_ASSERT_UPPER_EXPOSED);
     }
     
-    void Node::set_assert_ue_var(const Nodecl::List& new_assert_ue_vars)
+    void Node::add_assert_ue_var(const Nodecl::List& new_assert_ue_vars)
     {
-        Utils::ext_sym_set assert_ue_vars = get_assert_ue_vars();
-        for(Nodecl::List::const_iterator it = new_assert_ue_vars.begin(); 
-             it != new_assert_ue_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_ue_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_ue_var.get_nodecl(), assert_ue_vars).is_null())
-            {
-                assert_ue_vars.insert(new_assert_ue_var);
-                set_data(_ASSERT_UPPER_EXPOSED, assert_ue_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_ue_vars.begin(), new_assert_ue_vars.end()), 
+                                         _ASSERT_UPPER_EXPOSED);
     }
 
-    Utils::ext_sym_set Node::get_assert_killed_vars()
+    NodeclSet Node::get_assert_killed_vars()
     {
-        Utils::ext_sym_set assert_killed_vars;
-        if(has_key(_ASSERT_KILLED))
-            assert_killed_vars = get_data<Utils::ext_sym_set>(_ASSERT_KILLED);
-        return assert_killed_vars;
+        return get_vars<NodeclSet>(_ASSERT_KILLED);
     }
     
-    void Node::set_assert_killed_var(const Nodecl::List& new_assert_killed_vars)
+    void Node::add_assert_killed_var(const Nodecl::List& new_assert_killed_vars)
     {
-        Utils::ext_sym_set assert_killed_vars = get_assert_killed_vars();
-        for(Nodecl::List::const_iterator it = new_assert_killed_vars.begin(); 
-             it != new_assert_killed_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_killed_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_killed_var.get_nodecl(), assert_killed_vars).is_null())
-            {
-                assert_killed_vars.insert(new_assert_killed_var);
-                set_data(_ASSERT_KILLED, assert_killed_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_killed_vars.begin(), new_assert_killed_vars.end()), 
+                                         _ASSERT_KILLED);
     }
     
-    Utils::ext_sym_set Node::get_assert_undefined_behaviour_vars()
+    NodeclSet Node::get_assert_undefined_behaviour_vars()
     {
-        Utils::ext_sym_set assert_undefined_vars;
-        if(has_key(_ASSERT_UNDEFINED))
-            assert_undefined_vars = get_data<Utils::ext_sym_set>(_ASSERT_UNDEFINED);
-        return assert_undefined_vars;
+        return get_vars<NodeclSet>(_ASSERT_UNDEFINED);
     }
     
-    void Node::set_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars)
+    void Node::add_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars)
     {
-        Utils::ext_sym_set assert_undefined_vars = get_assert_undefined_behaviour_vars();
-        for(Nodecl::List::const_iterator it = new_assert_undefined_vars.begin(); 
-             it != new_assert_undefined_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_undefined_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_undefined_var.get_nodecl(), assert_undefined_vars).is_null())
-            {
-                assert_undefined_vars.insert(new_assert_undefined_var);
-                set_data(_ASSERT_UNDEFINED, assert_undefined_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_undefined_vars.begin(), new_assert_undefined_vars.end()), 
+                                         _ASSERT_UNDEFINED);
     }
     
-    Utils::ext_sym_set Node::get_assert_live_in_vars()
+    NodeclSet Node::get_assert_live_in_vars()
     {
-        Utils::ext_sym_set assert_live_in_vars;
-        if(has_key(_ASSERT_LIVE_IN))
-            assert_live_in_vars = get_data<Utils::ext_sym_set>(_ASSERT_LIVE_IN);
-        return assert_live_in_vars;
+        return get_vars<NodeclSet>(_ASSERT_LIVE_IN);
     }
     
-    void Node::set_assert_live_in_var(const Nodecl::List& new_assert_live_in_vars)
+    void Node::add_assert_live_in_var(const Nodecl::List& new_assert_live_in_vars)
     {
-        Utils::ext_sym_set assert_live_in_vars = get_assert_live_in_vars();
-        for(Nodecl::List::const_iterator it = new_assert_live_in_vars.begin(); 
-             it != new_assert_live_in_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_live_in_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_live_in_var.get_nodecl(), assert_live_in_vars).is_null())
-            {
-                assert_live_in_vars.insert(new_assert_live_in_var);
-                set_data(_ASSERT_LIVE_IN, assert_live_in_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_live_in_vars.begin(), new_assert_live_in_vars.end()), 
+                                         _ASSERT_LIVE_IN);
     }
     
-    Utils::ext_sym_set Node::get_assert_live_out_vars()
+    NodeclSet Node::get_assert_live_out_vars()
     {
-        Utils::ext_sym_set assert_live_out_vars;
-        if(has_key(_ASSERT_LIVE_OUT))
-            assert_live_out_vars = get_data<Utils::ext_sym_set>(_ASSERT_LIVE_OUT);
-        return assert_live_out_vars;
+        return get_vars<NodeclSet>(_ASSERT_LIVE_OUT);
     }
     
-    void Node::set_assert_live_out_var(const Nodecl::List& new_assert_live_out_vars)
+    void Node::add_assert_live_out_var(const Nodecl::List& new_assert_live_out_vars)
     {
-        Utils::ext_sym_set assert_live_out_vars = get_assert_live_out_vars();
-        for(Nodecl::List::const_iterator it = new_assert_live_out_vars.begin(); 
-             it != new_assert_live_out_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_live_out_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_live_out_var.get_nodecl(), assert_live_out_vars).is_null())
-            {
-                assert_live_out_vars.insert(new_assert_live_out_var);
-                set_data(_ASSERT_LIVE_OUT, assert_live_out_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_live_out_vars.begin(), new_assert_live_out_vars.end()), 
+                                         _ASSERT_LIVE_OUT);
     }
     
-    Utils::ext_sym_set Node::get_assert_dead_vars()
+    NodeclSet Node::get_assert_dead_vars()
     {
-        Utils::ext_sym_set assert_dead_vars;
-        if(has_key(_ASSERT_DEAD))
-            assert_dead_vars = get_data<Utils::ext_sym_set>(_ASSERT_DEAD);
-        return assert_dead_vars;
+        return get_vars<NodeclSet>(_ASSERT_DEAD);
     }
     
-    void Node::set_assert_dead_var(const Nodecl::List& new_assert_dead_vars)
+    void Node::add_assert_dead_var(const Nodecl::List& new_assert_dead_vars)
     {
-        Utils::ext_sym_set assert_dead_vars = get_assert_dead_vars();
-        for(Nodecl::List::const_iterator it = new_assert_dead_vars.begin(); 
-             it != new_assert_dead_vars.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_dead_var(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_dead_var.get_nodecl(), assert_dead_vars).is_null())
-            {
-                assert_dead_vars.insert(new_assert_dead_var);
-                set_data(_ASSERT_DEAD, assert_dead_vars);
-            }
-        }
+        add_vars_to_container<NodeclSet>(NodeclSet(new_assert_dead_vars.begin(), new_assert_dead_vars.end()), 
+                                         _ASSERT_DEAD);
     }    
     
-    Utils::ext_sym_map Node::get_assert_reaching_definitions_in()
+    NodeclMap Node::get_assert_reaching_definitions_in()
     {
-        Utils::ext_sym_map assert_reach_defs_in;
-        if(has_key(_ASSERT_REACH_DEFS_IN))
-            assert_reach_defs_in = get_data<Utils::ext_sym_map>(_ASSERT_REACH_DEFS_IN);
-        return assert_reach_defs_in;
+        return get_vars<NodeclMap>(_ASSERT_REACH_DEFS_IN);
     }
 
-    void Node::set_assert_reaching_definitions_in(const Nodecl::List& new_assert_reach_defs_in)
-    {   
-        Utils::ext_sym_map assert_reach_defs_in = get_assert_reaching_definitions_in();
+    void Node::add_assert_reaching_definitions_in(const Nodecl::List& new_assert_reach_defs_in)
+    {
+        NodeclMap assert_reach_defs_in = get_assert_reaching_definitions_in();
         for(Nodecl::List::const_iterator it = new_assert_reach_defs_in.begin(); 
              it != new_assert_reach_defs_in.end(); ++it)
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>();
-            Utils::ExtendedSymbol rd_var(rd.get_expression());
+            NBase rd_var(rd.get_expression());
             assert_reach_defs_in.insert(
-                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(rd_var, rd.get_value()));
+                std::pair<NBase, NBase>(rd_var, rd.get_value()));
         }
         set_data(_ASSERT_REACH_DEFS_IN, assert_reach_defs_in);
     }
     
-    Utils::ext_sym_map Node::get_assert_reaching_definitions_out()
+    NodeclMap Node::get_assert_reaching_definitions_out()
     {
-        Utils::ext_sym_map assert_reach_defs_out;
-        if(has_key(_ASSERT_REACH_DEFS_OUT))
-            assert_reach_defs_out = get_data<Utils::ext_sym_map>(_ASSERT_REACH_DEFS_OUT);
-        return assert_reach_defs_out;
+        return get_vars<NodeclMap>(_ASSERT_REACH_DEFS_OUT);
     }
     
-    void Node::set_assert_reaching_definitions_out(const Nodecl::List& new_assert_reach_defs_out)
+    void Node::add_assert_reaching_definitions_out(const Nodecl::List& new_assert_reach_defs_out)
     {   
-        Utils::ext_sym_map assert_reach_defs_out = get_assert_reaching_definitions_out();
+        NodeclMap assert_reach_defs_out = get_assert_reaching_definitions_out();
         for(Nodecl::List::const_iterator it = new_assert_reach_defs_out.begin(); 
              it != new_assert_reach_defs_out.end(); ++it)
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>();
-            Utils::ExtendedSymbol rd_var(rd.get_expression());
+            NBase rd_var(rd.get_expression());
             assert_reach_defs_out.insert(
-                std::pair<Utils::ExtendedSymbol, Nodecl::NodeclBase>(rd_var, rd.get_value()));
+                std::pair<NBase, NBase>(rd_var, rd.get_value()));
         }
         set_data(_ASSERT_REACH_DEFS_OUT, assert_reach_defs_out);
     }
     
-    ObjectList<Utils::InductionVariableData*> Node::get_assert_induction_vars()
+    Utils::InductionVarList Node::get_assert_induction_vars()
     {
-        ObjectList<Utils::InductionVariableData*> assert_induction_vars;
-        if(has_key(_ASSERT_INDUCTION_VARS))
-            assert_induction_vars = get_data<ObjectList<Utils::InductionVariableData*> >(_ASSERT_INDUCTION_VARS);
-        return assert_induction_vars;
+        return get_vars<Utils::InductionVarList>(_ASSERT_INDUCTION_VARS);
     }
     
-    void Node::set_assert_induction_variables(const Nodecl::List& new_assert_induction_vars)
+    void Node::add_assert_induction_variables(const Nodecl::List& new_assert_induction_vars)
     {
-        ObjectList<Utils::InductionVariableData*> assert_induction_vars = get_assert_induction_vars();
+        Utils::InductionVarList assert_induction_vars = get_assert_induction_vars();
         for(Nodecl::List::const_iterator it = new_assert_induction_vars.begin(); 
             it != new_assert_induction_vars.end(); ++it)
         {
             Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>();
-            Utils::InductionVariableData* iv_data = 
-                new Utils::InductionVariableData(Utils::ExtendedSymbol(iv.get_induction_variable()));
+            Utils::InductionVar* iv_data = new Utils::InductionVar(NBase(iv.get_induction_variable()));
             iv_data->set_lb(iv.get_lower());
             iv_data->set_ub(iv.get_upper());
             iv_data->set_increment(iv.get_stride());
@@ -2310,76 +2115,37 @@ namespace Analysis {
         set_data(_ASSERT_INDUCTION_VARS, assert_induction_vars);
     }
     
-    Utils::ext_sym_set Node::get_assert_auto_sc_firstprivate_vars()
+    NodeclSet Node::get_assert_auto_sc_firstprivate_vars()
     {
-        Utils::ext_sym_set assert_auto_sc_firstprivate_vars;
-        if(has_key(_ASSERT_AUTOSC_FIRSTPRIVATE))
-            assert_auto_sc_firstprivate_vars = get_data<Utils::ext_sym_set>(_ASSERT_AUTOSC_FIRSTPRIVATE);
-        return assert_auto_sc_firstprivate_vars;
+        return get_vars<NodeclSet>(_ASSERT_AUTOSC_FIRSTPRIVATE);
     }
     
-    void Node::set_assert_auto_sc_firstprivate_var(const Nodecl::List& new_assert_auto_sc_fp)
+    void Node::add_assert_auto_sc_firstprivate_var(const Nodecl::List& new_assert_auto_sc_fp)
     {
-        Utils::ext_sym_set assert_auto_sc_firstprivate_vars = get_assert_auto_sc_firstprivate_vars();
-        for(Nodecl::List::const_iterator it = new_assert_auto_sc_fp.begin(); 
-             it != new_assert_auto_sc_fp.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_auto_sc_firstprivate_vars(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_auto_sc_firstprivate_vars.get_nodecl(), 
-                                                              assert_auto_sc_firstprivate_vars).is_null())
-            {
-                assert_auto_sc_firstprivate_vars.insert(new_assert_auto_sc_firstprivate_vars);
-                set_data(_ASSERT_AUTOSC_FIRSTPRIVATE, assert_auto_sc_firstprivate_vars);
-            }
-        }
+        add_vars_to_container(NodeclSet(new_assert_auto_sc_fp.begin(), new_assert_auto_sc_fp.end()), 
+                              _ASSERT_AUTOSC_FIRSTPRIVATE);
     }
     
-    Utils::ext_sym_set Node::get_assert_auto_sc_private_vars()
+    NodeclSet Node::get_assert_auto_sc_private_vars()
     {
-        Utils::ext_sym_set assert_auto_sc_private_vars;
-        if(has_key(_ASSERT_AUTOSC_PRIVATE))
-            assert_auto_sc_private_vars = get_data<Utils::ext_sym_set>(_ASSERT_AUTOSC_PRIVATE);
-        return assert_auto_sc_private_vars;
+        return get_vars<NodeclSet>(_ASSERT_AUTOSC_PRIVATE);
     }
     
-    void Node::set_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p)
+    void Node::add_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p)
     {
-        Utils::ext_sym_set assert_auto_sc_private_vars = get_assert_auto_sc_private_vars();
-        for(Nodecl::List::const_iterator it = new_assert_auto_sc_p.begin(); 
-            it != new_assert_auto_sc_p.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_auto_sc_private_vars(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_auto_sc_private_vars.get_nodecl(), 
-                                                              assert_auto_sc_private_vars).is_null())
-            {
-                assert_auto_sc_private_vars.insert(new_assert_auto_sc_private_vars);
-                set_data(_ASSERT_AUTOSC_PRIVATE, assert_auto_sc_private_vars);
-            }
-        }
+        add_vars_to_container(NodeclSet(new_assert_auto_sc_p.begin(), new_assert_auto_sc_p.end()), 
+                              _ASSERT_AUTOSC_PRIVATE);
     }
     
-    Utils::ext_sym_set Node::get_assert_auto_sc_shared_vars()
+    NodeclSet Node::get_assert_auto_sc_shared_vars()
     {
-        Utils::ext_sym_set assert_auto_sc_shared_vars;
-        if(has_key(_ASSERT_AUTOSC_SHARED))
-            assert_auto_sc_shared_vars = get_data<Utils::ext_sym_set>(_ASSERT_AUTOSC_SHARED);
-        return assert_auto_sc_shared_vars;
+        return get_vars<NodeclSet>(_ASSERT_AUTOSC_SHARED);
     }
     
-    void Node::set_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s)
+    void Node::add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s)
     {
-        Utils::ext_sym_set assert_auto_sc_shared_vars = get_assert_auto_sc_shared_vars();
-        for(Nodecl::List::const_iterator it = new_assert_auto_sc_s.begin(); 
-             it != new_assert_auto_sc_s.end(); ++it)
-        {
-            Utils::ExtendedSymbol new_assert_auto_sc_shared_vars(*it);
-            if(Utils::ext_sym_set_contains_enclosing_nodecl(new_assert_auto_sc_shared_vars.get_nodecl(), 
-                                                              assert_auto_sc_shared_vars).is_null())
-            {
-                assert_auto_sc_shared_vars.insert(new_assert_auto_sc_shared_vars);
-                set_data(_ASSERT_AUTOSC_SHARED, assert_auto_sc_shared_vars);
-            }
-        }
+        add_vars_to_container(NodeclSet(new_assert_auto_sc_s.begin(), new_assert_auto_sc_s.end()), 
+                              _ASSERT_AUTOSC_SHARED);
     }
     
     // **************** END getters and setters for analysis checking *************** //
@@ -2390,15 +2156,13 @@ namespace Analysis {
     // ****************************************************************************** //
     // *********************************** Utils ************************************ //
 
-    static std::string print_set(Utils::ext_sym_set es_set)
+    static std::string print_set(NodeclSet es_set)
     {
         std::string result;
-        for(Utils::ext_sym_set::iterator it = es_set.begin(); it != es_set.end(); ++it)
-        {
-            nodecl_t internal_n = it->get_nodecl().get_internal_nodecl();
-            result += std::string(codegen_to_str(internal_n, nodecl_retrieve_context(internal_n))) + ", ";
-        }
-        result.erase(result.end() - 2, result.end());
+        for(NodeclSet::iterator it = es_set.begin(); it != es_set.end(); ++it)
+            result += it->prettyprint() + ", ";
+        if(!es_set.empty())
+            result.erase(result.end() - 2, result.end());
         return result;
     }
 
@@ -2406,13 +2170,13 @@ namespace Analysis {
     {
         if(VERBOSE)
         {
-            Utils::ext_sym_set ue_vars = get_data<Utils::ext_sym_set>(_UPPER_EXPOSED);
+            NodeclSet ue_vars = get_data<NodeclSet>(_UPPER_EXPOSED);
             std::cerr << " - Upper Exposed: " << print_set(ue_vars) << std::endl;
 
-            Utils::ext_sym_set killed_vars = get_data<Utils::ext_sym_set>(_KILLED);
+            NodeclSet killed_vars = get_data<NodeclSet>(_KILLED);
             std::cerr << " - Killed: " << print_set(killed_vars);
 
-            Utils::ext_sym_set undef_vars = get_data<Utils::ext_sym_set>(_UNDEF);
+            NodeclSet undef_vars = get_data<NodeclSet>(_UNDEF);
             std::cerr << " - Undefined usage: " << print_set(undef_vars);
         }
     }
@@ -2421,10 +2185,10 @@ namespace Analysis {
     {
         if(VERBOSE)
         {
-            Utils::ext_sym_set live_in_vars = get_data<Utils::ext_sym_set>(_LIVE_IN);
+            NodeclSet live_in_vars = get_data<NodeclSet>(_LIVE_IN);
             std::cerr << " - Live in: " << print_set(live_in_vars) << std::endl;
 
-            Utils::ext_sym_set live_out_vars = get_data<Utils::ext_sym_set>(_LIVE_OUT);
+            NodeclSet live_out_vars = get_data<NodeclSet>(_LIVE_OUT);
             std::cerr << " - Live out: " << print_set(live_out_vars) << std::endl;
         }
     }
@@ -2433,11 +2197,11 @@ namespace Analysis {
     {
         if(VERBOSE)
         {
-            Utils::ext_sym_set private_vars = get_sc_private_vars();
-            Utils::ext_sym_set firstprivate_vars = get_sc_firstprivate_vars();
-            Utils::ext_sym_set race_vars = get_sc_race_vars();
-            Utils::ext_sym_set shared_vars = get_sc_shared_vars();
-            Utils::ext_sym_set undef_vars = get_sc_undef_vars();
+            NodeclSet private_vars = get_sc_private_vars();
+            NodeclSet firstprivate_vars = get_sc_firstprivate_vars();
+            NodeclSet race_vars = get_sc_race_vars();
+            NodeclSet shared_vars = get_sc_shared_vars();
+            NodeclSet undef_vars = get_sc_undef_vars();
 
             if(!private_vars.empty())
                 std::cerr << "   Variables autoscoped as private: "             << print_set(private_vars)      << std::endl;

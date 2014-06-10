@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+(C) Copyright 2006-2013 Barcelona Supercomputing Center             *
 Centro Nacional de Supercomputacion
 
 This file is part of Mercurium C/C++ source-to-source compiler.
@@ -35,252 +35,238 @@ namespace Analysis {
     // **************************************************************************************************** //
     // ******************************* Class implementing liveness analysis ******************************* //
 
-    Liveness::Liveness( ExtensibleGraph* graph )
-            : _graph( graph )
+    Liveness::Liveness(ExtensibleGraph* graph)
+            : _graph(graph)
     {}
 
-    void Liveness::compute_liveness( )
+    void Liveness::compute_liveness()
     {
         // Compute graph concurrent tasks since this information is needed to
         // properly propagate liveness information over the graph
-        TaskAnalysis::TaskConcurrency tc( _graph );
-        tc.compute_tasks_concurrency( );
+        TaskAnalysis::TaskConcurrency tc(_graph);
+        tc.compute_tasks_concurrency();
         
-        Node* graph = _graph->get_graph( );
+        Node* graph = _graph->get_graph();
 
         // Compute initial info (liveness only regarding the current node)
-        gather_live_initial_information( graph );
-        ExtensibleGraph::clear_visits( graph );
+        gather_live_initial_information(graph);
+        ExtensibleGraph::clear_visits(graph);
 
         // Common Liveness analysis
-        solve_live_equations( graph );
-        ExtensibleGraph::clear_visits( graph );
+        solve_live_equations(graph);
+        ExtensibleGraph::clear_visits(graph);
 
         // Iterated tasks treatment
         // FIXME Is this necessary after changing equations taking into account task nodes?
-        solve_specific_live_in_tasks( graph );
-        ExtensibleGraph::clear_visits( graph );
+        solve_specific_live_in_tasks(graph);
+        ExtensibleGraph::clear_visits(graph);
     }
 
-    void Liveness::gather_live_initial_information( Node* current )
+    void Liveness::gather_live_initial_information(Node* current)
     {
-        if( !current->is_visited( ) )
+        if(!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
-            if( !current->is_exit_node( ) )
+            if(!current->is_exit_node())
             {
-                if( current->is_graph_node( ) )
+                if(current->is_graph_node())
                 {
-                    Node* entry = current->get_graph_entry_node( );
-                    gather_live_initial_information( entry );
-                    set_graph_node_liveness( current, NULL );
+                    Node* entry = current->get_graph_entry_node();
+                    gather_live_initial_information(entry);
+                    set_graph_node_liveness(current, NULL);
                 }
-                else if( !current->is_entry_node( ) )
+                else if(!current->is_entry_node())
                 {
-                    current->set_live_in( current->get_ue_vars( ) );
+                    current->set_live_in(current->get_ue_vars());
                 }
 
-                ObjectList<Edge*> exit_edges = current->get_exit_edges( );
-                for( ObjectList<Edge*>::iterator it = exit_edges.begin( ); it != exit_edges.end( ); ++it )
+                ObjectList<Edge*> exit_edges = current->get_exit_edges();
+                for(ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
                 {
-                    gather_live_initial_information( ( *it )->get_target( ) );
+                    gather_live_initial_information((*it)->get_target());
                 }
             }
         }
     }
 
-    void Liveness::solve_live_equations( Node* current )
+    void Liveness::solve_live_equations(Node* current)
     {
         bool changed = true;
-        while( changed )
+        while(changed)
         {
             changed = false;
-            solve_live_equations_rec( current, changed, NULL );
-            ExtensibleGraph::clear_visits( current );
+            solve_live_equations_rec(current, changed, NULL);
+            ExtensibleGraph::clear_visits(current);
         }
     }
 
-    void Liveness::solve_live_equations_rec( Node* current, bool& changed, Node* container_task )
+    void Liveness::solve_live_equations_rec(Node* current, bool& changed, Node* container_task)
     {
-        if ( !current->is_visited( ) )
+        if (!current->is_visited())
         {
-            current->set_visited( true );
+            current->set_visited(true);
 
-            if( !current->is_exit_node( ) )
+            if(!current->is_exit_node())
             {
-                ObjectList<Node*> children = current->get_children( );
+                ObjectList<Node*> children = current->get_children();
 
-                if( current->is_graph_node( ) )
+                if(current->is_graph_node())
                 {
-                    if( current->is_omp_task_node( ) )
+                    if(current->is_omp_task_node())
                     {
                         container_task = current;
                     }
-                    solve_live_equations_rec( current->get_graph_entry_node(), changed, container_task );
-                    set_graph_node_liveness( current, container_task );
-                    if( current->is_omp_task_node( ) )
+                    solve_live_equations_rec(current->get_graph_entry_node(), changed, container_task);
+                    set_graph_node_liveness(current, container_task);
+                    if(current->is_omp_task_node())
                     {
                         container_task = NULL;
                     }
                 }
-                else if( !current->is_entry_node( ) )
+                else if(!current->is_entry_node())
                 {
-                    Utils::ext_sym_set old_live_in = current->get_live_in_vars();
-                    Utils::ext_sym_set old_live_out = current->get_live_out_vars();
-                    Utils::ext_sym_set live_out, live_in, succ_live_in;
+                    NodeclSet old_live_in = current->get_live_in_vars();
+                    NodeclSet old_live_out = current->get_live_out_vars();
+                    NodeclSet live_out, live_in, succ_live_in;
 
                     // Computing Live out
-                    live_out = compute_live_out( current, container_task );
+                    live_out = compute_live_out(current, container_task);
 
                     // Computing Live In
-                    live_in = Utils::ext_sym_set_union( current->get_ue_vars( ),
-                                                        Utils::ext_sym_set_difference( live_out, current->get_killed_vars( ) ) );
+                    live_in = Utils::nodecl_set_union(current->get_ue_vars(),
+                                                      Utils::nodecl_set_difference(live_out, current->get_killed_vars()));
 
-                    if( !Utils::ext_sym_set_equivalence( old_live_in, live_in ) ||
-                        !Utils::ext_sym_set_equivalence( old_live_out, live_out ) )
+                    if (!Utils::nodecl_set_equivalence(old_live_in, live_in) ||
+                        !Utils::nodecl_set_equivalence(old_live_out, live_out))
                     {
-                        current->set_live_in( live_in );
-                        current->set_live_out( live_out );
+                        current->set_live_in(live_in);
+                        current->set_live_out(live_out);
                         changed = true;
                     }
                 }
 
-                for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    solve_live_equations_rec( *it, changed, container_task );
+                    solve_live_equations_rec(*it, changed, container_task);
                 }
             }
         }
     }
 
-    void Liveness::solve_specific_live_in_tasks( Node* current )
+    void Liveness::solve_specific_live_in_tasks(Node* current)
     {
-        if( !current->is_visited( ) )
+        if(!current->is_visited())
         {
-            current->set_visited( true );
-            if( current->is_graph_node( ) )
+            current->set_visited(true);
+            if(current->is_graph_node())
             {
-                if( current->is_omp_task_node( ) )
+                if(current->is_omp_task_node())
                 {
-                    if( ExtensibleGraph::node_is_in_loop( current ) )
+                    if(ExtensibleGraph::node_is_in_loop(current))
                     {
-                        Utils::ext_sym_set task_li = current->get_live_in_vars( );
-                        Utils::ext_sym_set task_lo = current->get_live_out_vars( );
-                        for( Utils::ext_sym_set::iterator it = task_li.begin( ); it != task_li.end( ); ++it )
-                        {
-                            if( !Utils::ext_sym_set_contains_enclosed_nodecl( it->get_nodecl( ), task_lo ).is_null( ) )
-                            {
-                                delete_enclosed_var_from_list( *it, task_lo );
-                                current->set_live_out( *it );
-                            }
-                            else if( Utils::ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), task_lo ).is_null( ) )
-                            {
-                                current->set_live_out( *it );
-                            }
-                        }
+                        NodeclSet task_li = current->get_live_in_vars();
+                        for(NodeclSet::iterator it = task_li.begin(); it != task_li.end(); ++it)
+                            current->add_live_out(*it);
                     }
                 }
 
-                solve_specific_live_in_tasks( current->get_graph_entry_node( ) );
+                solve_specific_live_in_tasks(current->get_graph_entry_node());
             }
 
-            ObjectList<Node*> children = current->get_children( );
-            for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            ObjectList<Node*> children = current->get_children();
+            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
             {
-                solve_specific_live_in_tasks( *it );
+                solve_specific_live_in_tasks(*it);
             }
         }
     }
 
-    Utils::ext_sym_set Liveness::compute_live_out( Node* current, Node* container_task )
+    NodeclSet Liveness::compute_live_out(Node* current, Node* container_task)
     {
-        Utils::ext_sym_set live_out, succ_live_in;
+        NodeclSet live_out, succ_live_in;
 
-        ObjectList<Node*> children = current->get_children( );
-        for( ObjectList<Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+        ObjectList<Node*> children = current->get_children();
+        for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
-            bool child_is_exit = ( *it )->is_exit_node( );
-            if( child_is_exit )
+            bool child_is_exit = (*it)->is_exit_node();
+            if(child_is_exit)
             {
                 // Iterate over outer children while we found an EXIT node
-                Node* exit_outer_node = ( *it )->get_outer_node( );
+                Node* exit_outer_node = (*it)->get_outer_node();
                 ObjectList<Node*> outer_children;
-                while( child_is_exit )
+                while(child_is_exit)
                 {
-                    outer_children = exit_outer_node->get_children( );
-                    child_is_exit = ( outer_children.size( ) == 1 ) && outer_children[0]->is_exit_node( );
-                    exit_outer_node = ( child_is_exit ? outer_children[0]->get_outer_node( ) : NULL );
+                    outer_children = exit_outer_node->get_children();
+                    child_is_exit = (outer_children.size() == 1) && outer_children[0]->is_exit_node();
+                    exit_outer_node = (child_is_exit ? outer_children[0]->get_outer_node() : NULL);
                 }
                 // Get the Live in of the current successors
-                for( ObjectList<Node*>::iterator itoc = outer_children.begin( ); itoc != outer_children.end( ); ++itoc )
+                for(ObjectList<Node*>::iterator itoc = outer_children.begin(); itoc != outer_children.end(); ++itoc)
                 {
-                    Utils::ext_sym_set outer_live_in = ( *itoc )->get_live_in_vars( );
-                    succ_live_in.insert( outer_live_in.begin( ), outer_live_in.end( ) );
+                    NodeclSet outer_live_in = (*itoc)->get_live_in_vars();
+                    succ_live_in.insert(outer_live_in.begin(), outer_live_in.end());
                 }
             }
             else
             {
-                succ_live_in = ( *it )->get_live_in_vars( );
+                succ_live_in = (*it)->get_live_in_vars();
             }
 
-            if( container_task != NULL )
+            if(container_task != NULL)
             {   // remove those variables that are killed in any task that run concurrently
-                ObjectList<Node*> concurrent_tasks = _graph->get_task_concurrent_tasks( container_task );
-                for( ObjectList<Node*>::iterator itc = concurrent_tasks.begin( ); itc != concurrent_tasks.end( ); ++itc )
+                ObjectList<Node*> concurrent_tasks = _graph->get_task_concurrent_tasks(container_task);
+                for(ObjectList<Node*>::iterator itc = concurrent_tasks.begin(); itc != concurrent_tasks.end(); ++itc)
                 {
-                    Utils::ext_sym_set task_killed_vars = ( *itc )->get_killed_vars( );
-                    for( Utils::ext_sym_set::iterator itk = task_killed_vars.begin( ); itk != task_killed_vars.end( ); ++itk )
+                    NodeclSet task_killed_vars = (*itc)->get_killed_vars();
+                    for(NodeclSet::iterator itk = task_killed_vars.begin(); itk != task_killed_vars.end(); ++itk)
                     {
-                        succ_live_in.erase( *itk );
+                        succ_live_in.erase(*itk);
                     }
                 }
             }
-            else if( current->is_omp_task_creation_node( ) )
+            else if(current->is_omp_task_creation_node())
             {   // remove those variables that are killed in the task I create
-                Node* created_task = current->get_children( )[0];
-                Utils::ext_sym_set task_killed_vars = created_task->get_killed_vars( );
-                for( Utils::ext_sym_set::iterator itk = task_killed_vars.begin( ); itk != task_killed_vars.end( ); ++itk )
+                Node* created_task = current->get_children()[0];
+                NodeclSet task_killed_vars = created_task->get_killed_vars();
+                for(NodeclSet::iterator itk = task_killed_vars.begin(); itk != task_killed_vars.end(); ++itk)
                 {
-                    succ_live_in.erase( *itk );
+                    succ_live_in.erase(*itk);
                 }
             }
-            live_out = Utils::ext_sym_set_union( live_out, succ_live_in );
+            live_out = Utils::nodecl_set_union(live_out, succ_live_in);
         }
 
         return live_out;
     }
 
-    void Liveness::set_graph_node_liveness( Node* current, Node* container_task )
+    void Liveness::set_graph_node_liveness(Node* current, Node* container_task)
     {
-        if( current->is_graph_node( ) )
+        if(current->is_graph_node())
         {
             // LI(graph) = U LI(inner entries)
-            Utils::ext_sym_set graph_li, live_in;
-            ObjectList<Node*> entries = current->get_graph_entry_node( )->get_children( );
-            for( ObjectList<Node*>::iterator it = entries.begin( ); it != entries.end( ); ++it )
+            NodeclSet graph_li, live_in;
+            ObjectList<Node*> entries = current->get_graph_entry_node()->get_children();
+            for(ObjectList<Node*>::iterator it = entries.begin(); it != entries.end(); ++it)
             {
-                live_in = Utils::ext_sym_set_union( live_in, ( *it )->get_live_in_vars( ) );
+                live_in = Utils::nodecl_set_union(live_in, (*it)->get_live_in_vars());
             }
             // Delete those variables which are local to the graph
-            Scope sc( current->get_node_scope( ) );
-            if( sc.is_valid( ) )
+            Scope sc(current->get_node_scope());
+            if(sc.is_valid())
             {
-                for( Utils::ext_sym_set::iterator it = live_in.begin( ); it != live_in.end( ); ++it )
+                for(NodeclSet::iterator it = live_in.begin(); it != live_in.end(); ++it)
                 {
-                    ObjectList<Symbol> syms = it->get_symbols( );
-                    for( ObjectList<Symbol>::iterator its = syms.begin( ); its != syms.end( ); ++its )
-                    {   // If one of the symbols in the expression is not local, then the whole symbol is not local
-                        if( !its->get_scope( ).scope_is_enclosed_by( sc ) )
-                            graph_li.insert( *it );
-                    }
+                    NBase it_base = Utils::get_nodecl_base(*it);
+                    if(!it_base.retrieve_context().scope_is_enclosed_by(sc))
+                        graph_li.insert(*it);
                 }
             }
-            current->set_live_in( graph_li );
+            current->set_live_in(graph_li);
 
-            // LO(graph) = U LI(S), where S successor( graph )
-            Utils::ext_sym_set graph_lo = compute_live_out( current, container_task );
-            current->set_live_out( graph_lo );
+            // LO(graph) = U LI(S), where S successor(graph)
+            NodeclSet graph_lo = compute_live_out(current, container_task);
+            current->set_live_out(graph_lo);
         }
     }
 

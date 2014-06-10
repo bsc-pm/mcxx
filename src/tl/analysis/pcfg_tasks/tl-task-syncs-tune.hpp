@@ -39,14 +39,14 @@ namespace TaskAnalysis{
         // *** Class members *** //
         ExtensibleGraph* _pcfg;                     /*!< PCFG being tuned */
         
-        void tune_task_synchronizations_rec( Node* current );
-        Nodecl::NodeclBase match_dependencies( Node* source, Node* target );
+        void tune_task_synchronizations_rec(Node* current);
+        NBase match_dependencies(Node* source, Node* target);
         
     public:
         // *** Constructor *** //
-        TaskSyncTunning( ExtensibleGraph* pcfg );
+        TaskSyncTunning(ExtensibleGraph* pcfg);
         
-        void tune_task_synchronizations( );
+        void tune_task_synchronizations();
     };
 
 }
