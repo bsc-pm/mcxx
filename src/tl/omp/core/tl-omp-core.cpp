@@ -1263,7 +1263,7 @@ namespace TL
                             }
                             if (is_shared)
                             {
-                                reason = "the variable is local but is 'shared' in an enclosing construct";
+                                reason = "the variable is local but is 'shared' in an enclosing parallel construct";
                             }
                             else
                             {
