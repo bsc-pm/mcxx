@@ -1235,7 +1235,7 @@ namespace TL
 
                         data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
                         reason =
-                            "'default(none)' was specified but this variable (incorreclty) does not  "
+                            "'default(none)' was specified but this variable (incorrectly) does not  "
                             "have an explicit or predetermined data-sharing. 'firstprivate' was chosen instead "
                             "as the current construct is a task";
                     }
