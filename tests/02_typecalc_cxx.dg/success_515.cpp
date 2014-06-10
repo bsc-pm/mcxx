@@ -24,37 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 /*
 <testinfo>
 test_generator=config/mercurium
 </testinfo>
 */
-template <typename T>
-struct A
+class A
 {
-    static void g(float *);
-    static void g(double *);
-
-    void f()
-    {
-        void (*pg)(void*);
-        pg = (void (*)(void*))g;
-        pg = g;
-    }
-};
-
-template <typename T>
-struct B
-{
-    static void g(B *);
-    static void g(double *);
-
-    void f()
-    {
-        void (*pg)(void*);
-        pg = (void (*)(void*))g;
-        pg = g;
-    }
+    virtual  void report_error( const char* error, ... ) __attribute__((format(printf,(1)+1,(1)+2))) = 0;
 };
