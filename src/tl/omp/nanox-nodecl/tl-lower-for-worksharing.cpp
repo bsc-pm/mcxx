@@ -57,10 +57,17 @@ namespace TL { namespace Nanox {
         OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
         outline_info_register.add_private(ind_var);
 
+        Nodecl::NodeclBase loop = construct.get_loop();
+        ERROR_CONDITION(!loop.is<Nodecl::Context>(), "Invalid node", 0);
+        loop = loop.as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0];
+        ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), "Invalid node", 0);
+
         Source loop_name;
-        if (!construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().is_null())
         {
-            loop_name << " [ " << as_symbol(construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            if (!loop.as<Nodecl::ForStatement>().get_loop_name().is_null())
+            {
+                loop_name << " [ " << as_symbol(loop.as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            }
         }
 
         if (range.get_step().is_constant())
