@@ -211,22 +211,39 @@ namespace TL { namespace Nanox {
 
         TL::Symbol ptr_of_sym = get_function_ptr_of(sym, _sc);
 
-        Source src;
-        src
-            << "{"
-            << "nanos_err_t err;"
-            << "err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
-            <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
-            <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
-            <<     size_of_array_descriptor
-            << ");"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "}"
-            ;
+        Nodecl::NodeclBase prepare_capture;
+        {
+            Source src;
+            src
+                << "{"
+                << "nanos_err_t err;"
+                << "err = nanos_memcpy(" << captured_array_descriptor.get_name() << ","
+                <<     as_expression(ptr_of_sym.make_nodecl(/* set_ref_type */ true))
+                <<            "(" << as_expression(sym.make_nodecl(/* set_ref_type */ true)) << "),"
+                <<     size_of_array_descriptor
+                << ");"
+                << "if (err != NANOS_OK) nanos_handle_error(err);"
+                << "}"
+                ;
 
-        Source::source_language = SourceLanguage::C;
-        Nodecl::NodeclBase prepare_capture = src.parse_statement(_sc);
-        Source::source_language = SourceLanguage::Fortran;
+            Source::source_language = SourceLanguage::C;
+            prepare_capture = src.parse_statement(_sc);
+            Source::source_language = SourceLanguage::Fortran;
+        }
+
+        if (sym.is_optional())
+        {
+            Source guard_src;
+
+            guard_src
+                << "IF (PRESENT(" << sym.get_name() << ")) THEN\n"
+                <<    as_statement(prepare_capture)
+                << "ELSE\n"
+                <<    as_symbol(captured_array_descriptor) << " = 0\n"
+                << "END IF\n"
+                ;
+            prepare_capture = guard_src.parse_statement(_sc);
+        }
 
         this->add_capture(captured_array_descriptor);
         OutlineDataItem &captured_array_descriptor_info = _outline_info.get_entity_for_symbol(captured_array_descriptor);
