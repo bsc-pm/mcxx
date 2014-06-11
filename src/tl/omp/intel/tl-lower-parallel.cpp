@@ -50,9 +50,9 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
     ERROR_CONDITION(!reduction_list.empty(), "Reductions in '#pragma omp parallel' not yet implemented", 0);
 
+    TL::ObjectList<TL::Symbol> all_symbols_passed; // Set of all symbols passed in the outline
     TL::ObjectList<TL::Symbol> private_symbols;
     TL::ObjectList<TL::Symbol> firstprivate_symbols;
-    TL::ObjectList<TL::Symbol> all_shared_symbols; // Set of all references needed in the outline
     TL::ObjectList<TL::Symbol> shared_symbols;
 
     if (!shared_list.empty())
@@ -67,7 +67,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             ;
 
         shared_symbols.insert(tmp);
-        all_shared_symbols.insert(tmp);
+        all_symbols_passed.insert(tmp);
     }
     if (!private_list.empty())
     {
@@ -95,7 +95,26 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
         private_symbols.insert(tmp);
         firstprivate_symbols.insert(tmp);
-        all_shared_symbols.insert(tmp);
+        all_symbols_passed.insert(tmp);
+    }
+
+    // Add the VLA symbols
+    {
+        TL::ObjectList<TL::Symbol> vla_symbols;
+        for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
+                it != all_symbols_passed.end();
+                it++)
+        {
+            Intel::gather_vla_symbols(*it, vla_symbols);
+        }
+
+        // VLA symbols are always firstprivate
+        private_symbols.insert(vla_symbols);
+        firstprivate_symbols.insert(vla_symbols);
+
+        // We want all the gathered VLA symbols be the first ones
+        vla_symbols.insert(all_symbols_passed);
+        all_symbols_passed = vla_symbols;
     }
 
     TL::Type kmp_int32_type = Source("kmp_int32").parse_c_type_id(construct);
@@ -117,8 +136,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     parameter_names.append("_global_tid"); parameter_types.append(kmp_int32_type.get_pointer_to());
     parameter_names.append("_bound_tid"); parameter_types.append(kmp_int32_type.get_pointer_to());
 
-    for (TL::ObjectList<TL::Symbol>::iterator it = all_shared_symbols.begin();
-            it != all_shared_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
+            it != all_symbols_passed.end();
             it++)
     {
         parameter_names.append(it->get_name());
@@ -141,8 +160,8 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
     TL::Scope block_scope = outline_function_stmt.retrieve_context();
 
-    for (TL::ObjectList<TL::Symbol>::iterator it = all_shared_symbols.begin();
-            it != all_shared_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
+            it != all_symbols_passed.end();
             it++)
     {
         TL::Symbol parameter = block_scope.get_symbol_from_name(it->get_name());
@@ -151,11 +170,48 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
         symbol_map.add_map(*it, parameter);
     }
 
+    // Make an extra pass on the parameters to update their types in case of VLAs
+    // We will use the symbol map computed above
+    {
+        // Update every parameter type
+        TL::ObjectList<TL::Type> updated_parameter_types = outline_function.get_type().parameters();
+        for (TL::ObjectList<TL::Type>::iterator it = updated_parameter_types.begin();
+                it != updated_parameter_types.end();
+                it++)
+        {
+            *it = ::type_deep_copy(it->get_internal_type(),
+                    outline_function_stmt.retrieve_context().get_decl_context(),
+                    symbol_map.get_symbol_map());
+        }
+        // Update the function type
+        outline_function.set_type(
+                TL::Type::get_void_type().get_function_returning(updated_parameter_types,
+                    /* has_ellipsis */ false,
+                    /* reference_qualifier */ REF_QUALIFIER_NONE));
+
+        // Now update the type of the symbols of the parameters
+        TL::ObjectList<TL::Symbol> parameter_symbols = outline_function.get_related_symbols();
+        for (TL::ObjectList<TL::Symbol>::iterator it = parameter_symbols.begin();
+                it != parameter_symbols.end();
+                it++)
+        {
+            it->get_internal_symbol()->type_information = ::type_deep_copy(
+                    it->get_internal_symbol()->type_information,
+                    outline_function_stmt.retrieve_context().get_decl_context(),
+                    symbol_map.get_symbol_map());
+        }
+    }
+
     for (TL::ObjectList<TL::Symbol>::iterator it = private_symbols.begin();
             it != private_symbols.end();
             it++)
     {
         TL::Symbol new_private_sym = Intel::new_private_symbol(*it, block_scope);
+
+        new_private_sym.get_internal_symbol()->type_information = ::type_deep_copy(
+                new_private_sym.get_internal_symbol()->type_information,
+                outline_function_stmt.retrieve_context().get_decl_context(),
+                symbol_map.get_symbol_map());
 
         if (firstprivate_symbols.contains(*it))
         {
@@ -181,7 +237,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             }
         }
 
-        // Will override firstprivates.
+        // Will override privates.
         // Do not move before the if (firstprivate_symbols.contains(*it))
         // or the __builtin_memcpy will not work
         symbol_map.add_map(*it, new_private_sym);
@@ -203,11 +259,11 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     Source fork_call;
     fork_call
         << "__kmpc_fork_call(&" << as_symbol(ident_symbol) << ", "
-        <<                           all_shared_symbols.size() << ", (" << as_type(kmp_micro_type) << ")"
+        <<                           all_symbols_passed.size() << ", (" << as_type(kmp_micro_type) << ")"
         <<                           as_symbol(outline_function)
         ;
-    for (TL::ObjectList<TL::Symbol>::iterator it = all_shared_symbols.begin();
-            it != all_shared_symbols.end();
+    for (TL::ObjectList<TL::Symbol>::iterator it = all_symbols_passed.begin();
+            it != all_symbols_passed.end();
             it++)
     {
         if (!it->get_type().is_array())
