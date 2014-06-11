@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2013 Barcelona Supercomputing Center
+  (C) Copyright 2006-2012 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,25 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-#ifndef TL_LOWERING_UTILS_HPP
-#define TL_LOWERING_UTILS_HPP
-
-#include "tl-symbol.hpp"
-
-namespace TL { namespace Intel {
-
-    TL::Symbol new_global_ident_symbol(Nodecl::NodeclBase location);
-    TL::Symbol new_private_symbol(TL::Symbol original_symbol, TL::Scope private_scope);
-
-    TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location, const std::string& name);
-    TL::Symbol get_global_lock_symbol(Nodecl::NodeclBase location);
-
-    void cleanup_lock_map();
-
-    void gather_vla_symbols(TL::Symbol symbol,
-            TL::ObjectList<TL::Symbol>& extra_symbols);
-
-} }
-
-#endif // TL_LOWERING_UTILS_HPP
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+class A
+{
+    virtual  void report_error( const char* error, ... ) __attribute__((format(printf,(1)+1,(1)+2))) = 0;
+};

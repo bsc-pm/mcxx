@@ -7625,12 +7625,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             // IBM XL requires asm_specification after the attributes, just the opposite
             // as GCC
             *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
-                << pure_spec << gcc_attributes << asm_specification << trailing_type_specifier << ";\n";
+                << gcc_attributes << asm_specification << pure_spec << trailing_type_specifier << ";\n";
         }
         else
         {
             *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
-                << pure_spec << asm_specification << gcc_attributes << trailing_type_specifier << ";\n";
+                    << asm_specification << gcc_attributes << pure_spec << trailing_type_specifier << ";\n";
         }
 
         if (IS_CXX_LANGUAGE
