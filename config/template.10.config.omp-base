@@ -1,4 +1,4 @@
-# OpenMP + Nanos 
+# OpenMP + Nanos
 [omp-base-common]
 options = --openmp
 {omp-dry-run|openmp-dry-run} options = --variable=omp_dry_run:1
@@ -12,6 +12,7 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlomp-base.so
 {openmp, openmp-lint} compiler_phase = libtlomp-lint.so
 {complexity} compiler_phase = libtlcomplexity.so
+{openmp, openmp-lint} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} pragma_prefix = nanos
@@ -41,6 +42,8 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlnanox-nanosmain.so
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
+{prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
+{optimize-gather-scatter-strides} options = --variable=optimize_gather_scatter_strides:1
 
 [omp-base : omp-base-common]
 linker_options = -Xlinker --add-needed

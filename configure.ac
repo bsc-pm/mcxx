@@ -367,6 +367,7 @@ then
                 then
                    AC_MSG_RESULT([yes])
                    mic_testing_device="$enableval"
+                   mic_testing="yes"
                 else
                    AC_MSG_RESULT([--enable-mic-testing requires the name of a remote host])
                 fi
@@ -744,19 +745,23 @@ then
     AC_ARG_WITH([intel-omp],
             AS_HELP_STRING([--with-intel-omp=dir], [Directory of Intel OpenMP RTL]),
             [
-             intel_omp_include="${withval}/exports/common/include"
+dnl             intel_omp_include="${withval}/exports/common/include"
+             intel_omp_include="${withval}/include"
 
-             case "$target" in
-                i?86-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32/lib"
-                    ;;
-                x86_64-*-linux*)
-                    intel_omp_lib="${withval}/exports/lin_32e/lib"
-                    ;;
-                *)
-                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
-                    ;;
-             esac
+dnl             intel_omp_lib="${withval}/exports/lrb_32e.knc.lin.off/lib"
+             intel_omp_lib="${withval}/lib"
+
+dnl             case "$target" in
+dnl                i?86-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32/lib"
+dnl                    ;;
+dnl                x86_64-*-linux*)
+dnl                    intel_omp_lib="${withval}/exports/lin_32e/lib"
+dnl                    ;;
+dnl                *)
+dnl                    AC_MSG_ERROR([Invalid architecture for Intel OpenMP RTL])
+dnl                    ;;
+dnl             esac
             ]
     )
 
@@ -1334,19 +1339,16 @@ dnl ------------------------------------
 
 dnl ---------------------- TL Vectorization ----------------------------
 
-dnl DISABLED BY DEFAULT IN MASTER
-dnl It should be no
-disable_vectorization="yes"
-AC_MSG_CHECKING([if vectorization was disabled])
+disable_vectorization="no"
+AC_MSG_CHECKING([if disabled Vectorization build and install])
 AC_ARG_ENABLE([vectorization],
   AS_HELP_STRING([--enable-vectorization], [Enables vectorization support in the compiler]),
   [
     if test x$enableval = xno -o x$enableval = x;
     then
-    dnl It should be no (both)
-      disable_vectorization="yes"
-      AC_MSG_RESULT([yes])
-    else if test x$enableval = xyes;
+      disable_vectorization="no"
+      AC_MSG_RESULT([no])
+    else if test x$enableval = xno;
       then
         disable_vectorization="no"
         AC_MSG_RESULT([no])
@@ -1356,9 +1358,8 @@ AC_ARG_ENABLE([vectorization],
     fi
   ],
   [
-    dnl It should be no (both)
-    disable_vectorization="yes"
-    AC_MSG_RESULT([yes])
+    disable_vectorization="no"
+    AC_MSG_RESULT([no])
   ]
 )
 
@@ -1367,8 +1368,7 @@ then
   AC_DEFINE([VECTORIZATION_DISABLED], 1, [Disables vectorization])
 fi
 
-AM_CONDITIONAL([BUILD_VECTORIZER], [test x$disable_vectorization = xno])
-AM_CONDITIONAL([BUILD_VECTOR_LOWERING], [test x$disable_vectorization = xno])
+AM_CONDITIONAL([BUILD_VECTORIZATION], [test x$disable_vectorization = xno])
 
 dnl ------------------------------------
 
@@ -1416,6 +1416,21 @@ AM_CONDITIONAL([BUILD_AUTO_SCOPE], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_OMP_LINT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_HLT], test x$disable_analysis = xno)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$disable_analysis = xno)
+
+
+CORRECTNESS_LOG_DIR=""
+
+if test x$disable_analysis = xno;
+then
+    AC_ARG_WITH([correctness-logs],
+        AS_HELP_STRING([--with-correctness-logs=dir], [Directory to store correctness logs]),
+            [
+                CORRECTNESS_LOG_DIR="${withval}"
+            ]
+    )
+fi
+
+AC_SUBST([CORRECTNESS_LOG_DIR])
 
 dnl ------------------------------------
 

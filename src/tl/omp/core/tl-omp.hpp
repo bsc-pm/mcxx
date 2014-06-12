@@ -92,7 +92,10 @@ namespace OpenMP
         DS_AUTO = BITMAP(9),
 
         //! States that the data sharing is implicit. Special attribute that makes no difference
-        DS_IMPLICIT = BITMAP(15)
+        DS_IMPLICIT = BITMAP(15),
+
+        //! Reduction data-sharing 
+        DS_SIMD_REDUCTION = BITMAP(16)
     };
 
 #undef BITMAP
@@ -336,6 +339,7 @@ namespace OpenMP
             DataSharingEnvironment *_enclosing;
 
             ObjectList<ReductionSymbol> _reduction_symbols;
+            ObjectList<ReductionSymbol> _simd_reduction_symbols;
             ObjectList<DependencyItem> _dependency_items;
 
             TargetInfo _target_info;
@@ -377,8 +381,15 @@ namespace OpenMP
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
-            void set_reduction(const ReductionSymbol& reduction_symbol);
-
+            void set_reduction(const ReductionSymbol &reduction_symbol);
+ 
+            //! Adds a SIMD reduction symbol
+            /*!
+                * Reduction symbols are special, adding them sets their attribute
+                * also their attribute and keeps the extra information stored in the ReductionSymbol
+                */
+            void set_simd_reduction(const ReductionSymbol &reduction_symbol);
+ 
             //! Gets the data sharing attribute of a symbol
             /*!
                 * \param sym The symbol requested its data sharing attribute
@@ -394,6 +405,7 @@ namespace OpenMP
             void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
             void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+            void get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
             TargetInfo& get_target_info();
             void set_target_info(const TargetInfo & target_info);

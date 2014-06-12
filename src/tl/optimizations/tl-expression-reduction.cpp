@@ -121,6 +121,38 @@ namespace Optimizations {
         }
     }
 
+    void ReduceExpressionVisitor::visit_post(const Nodecl::BitwiseAnd& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+ 
+    void ReduceExpressionVisitor::visit_post(const Nodecl::BitwiseOr& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+ 
+    void ReduceExpressionVisitor::visit_post(const Nodecl::BitwiseShl& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+
+    void ReduceExpressionVisitor::visit_post(const Nodecl::BitwiseShr& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+
     void ReduceExpressionVisitor::visit_post(const Nodecl::Div& n)
     {   
         if(n.is_constant())
@@ -296,7 +328,7 @@ namespace Optimizations {
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {
-                            n.replace(Nodecl::Minus::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
+                            n.replace(Nodecl::Add::make(const_value_to_nodecl(c_value), rhs_rhs.shallow_copy(),
                                                           rhs.get_type(), n.get_locus()));
                         }
                         else
@@ -384,6 +416,11 @@ namespace Optimizations {
             else if(lhs.is_constant() && const_value_is_one(lhs.get_constant()))
             {   // R11b
                 n.replace(const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)));
+            }
+            else if (rhs.get_type().is_integral_type() && lhs.get_type().is_integral_type() &&
+                    rhs.is_constant() && lhs.is_constant())
+            {   
+                Nodecl::Utils::replace(n, const_value_to_nodecl(const_value_mod(lhs.get_constant(), rhs.get_constant())));
             }
         }
     }
@@ -511,7 +548,7 @@ namespace Optimizations {
                         const_value_t* c_value = _calc.compute_const_value(c);
                         if(!const_value_is_zero(c_value))
                         {
-                            n.replace(Nodecl::VectorMinus::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
+                            n.replace(Nodecl::VectorAdd::make(const_value_to_nodecl(c_value), lhs_rhs.shallow_copy(), mask.shallow_copy(),
                                                                 lhs_lhs.get_type(), n.get_locus()));
                         }
                         else
@@ -568,6 +605,54 @@ namespace Optimizations {
                     }
                 }
             }
+        }
+    }
+
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseAnd& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+ 
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseOr& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+ 
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShl& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShlI& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShr& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
+        }
+    }
+
+    void ReduceExpressionVisitor::visit_post(const Nodecl::VectorBitwiseShrI& n)
+    {
+        if(n.is_constant())
+        {   // R1
+            n.replace(const_value_to_nodecl(n.get_constant()));
         }
     }
 
@@ -709,7 +794,7 @@ namespace Optimizations {
     }
 
     void ReduceExpressionVisitor::visit_post(const Nodecl::VectorMinus& n)
-    {
+    {    
         if(n.is_constant())
         {   // R3
             n.replace(const_value_to_nodecl(n.get_constant()));

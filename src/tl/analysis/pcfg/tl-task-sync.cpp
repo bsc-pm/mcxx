@@ -29,6 +29,8 @@
 #include "tl-task-sync.hpp"
 #include "tl-tribool.hpp"
 
+#include <queue>
+
 namespace TL {
 namespace Analysis {
 namespace TaskAnalysis{
@@ -88,25 +90,29 @@ namespace {
 #endif
                     }
 
-#ifdef TASK_SYNC_DEBUG
-                    std::pair<AliveTaskSet::iterator, bool> res =
-#endif
-                    // TODO - We do this even if task_sync_rel returned tribool::yes. Why?
-                    current->get_live_out_tasks().insert(*alive_tasks_it);
-#ifdef TASK_SYNC_DEBUG
-                    if (res.second)
-                    {
-                            std::cerr << __FILE__ << ":" << __LINE__
-                            << " task is (potentially) still alive after execution" << std::endl;
-                    }
-#endif
-
                     if (task_sync_rel == tribool::yes)
                     {
 #ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
 #endif
                         current->get_static_sync_out_tasks().insert(*alive_tasks_it);
+                    }
+                    else
+                    {
+#ifdef TASK_SYNC_DEBUG
+                        std::pair<AliveTaskSet::iterator, bool> res =
+#endif
+                        // Note: this statement was previously done for both tribool::yes and tribool::unknown
+                        //       but we do not see reason for doing that anymore
+                        //       Otherwise, we may have 'false' synchronizations between tasks
+                        current->get_live_out_tasks().insert(*alive_tasks_it);
+#ifdef TASK_SYNC_DEBUG
+                        if (res.second)
+                        {
+                                std::cerr << __FILE__ << ":" << __LINE__
+                                << " but it is (potentially) still alive after execution" << std::endl;
+                        }
+#endif
                     }
                     break;
                 }
@@ -184,18 +190,18 @@ namespace {
         return ss.str();
     }
 
-    bool is_strict_subobject_access(Nodecl::NodeclBase& data_ref)
+    bool is_strict_subobject_access(NBase& data_ref)
     {
         if (data_ref.is<Nodecl::Symbol>())
             return false;
 
-        Nodecl::NodeclBase current = data_ref;
+        NBase current = data_ref;
 
         while (!current.is<Nodecl::Symbol>())
         {
             if (current.is<Nodecl::ArraySubscript>())
             {
-                Nodecl::NodeclBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
+                NBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
                 if (subscripted.is<Nodecl::Symbol>())
                 {
                     // a[x]
@@ -205,7 +211,7 @@ namespace {
                 else if (subscripted.is<Nodecl::ClassMemberAccess>())
                 {
                     // b.a[x]
-                    Nodecl::NodeclBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+                    NBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
                     if (!member.get_symbol().get_type().is_array())
@@ -216,7 +222,7 @@ namespace {
             }
             else if (current.is<Nodecl::ClassMemberAccess>())
             {
-                Nodecl::NodeclBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
+                NBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
                 {
                     // a.b
@@ -226,7 +232,7 @@ namespace {
                 else if (lhs.is<Nodecl::ClassMemberAccess>())
                 {
                     // a.b.c
-                    Nodecl::NodeclBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
+                    NBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
                     if (!member.get_symbol().get_type().is_class())
@@ -244,7 +250,7 @@ namespace {
         return true;
     }
 
-    tribool may_have_dependence(Nodecl::NodeclBase source, Nodecl::NodeclBase target)
+    tribool may_have_dependence(NBase source, NBase target)
     {
         TL::DataReference source_data_ref(source);
         TL::DataReference target_data_ref(target);
@@ -306,7 +312,7 @@ namespace {
         return result;
     }
 
-    bool is_only_input_dependence(Nodecl::NodeclBase n)
+    bool is_only_input_dependence(NBase n)
     {
         return n.is<Nodecl::OpenMP::DepIn>()
             || n.is<Nodecl::OpenMP::DepInAlloca>();
@@ -315,7 +321,7 @@ namespace {
     tribool compute_taskwait_sync_relationship(Node* source, Node* target)
     {
         // Source (task)
-        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
+        NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -346,10 +352,10 @@ namespace {
 
         // TODO - Concurrent and commutative are not handled yet
         // TODO - OpenMP::Base may create more than ONE dep_xxx tree (here we would overwrite them)
-        Nodecl::NodeclBase source_dep_in;
-        Nodecl::NodeclBase source_dep_out;
-        Nodecl::NodeclBase source_dep_inout;
-        Nodecl::NodeclBase source_dep_in_alloca;
+        NBase source_dep_in;
+        NBase source_dep_out;
+        NBase source_dep_inout;
+        NBase source_dep_in_alloca;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -366,9 +372,9 @@ namespace {
 
         // Target (taskwait)
         ERROR_CONDITION(target->get_type() != __OmpWaitonDeps, "Invalid node", 0);
-        TL::ObjectList<Nodecl::NodeclBase> task_node_target_stmts = target->get_statements();
+        NodeclList task_node_target_stmts = target->get_statements();
         ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
-        Nodecl::NodeclBase taskwait_node_target = task_node_target_stmts[0];
+        NBase taskwait_node_target = task_node_target_stmts[0];
         ERROR_CONDITION(taskwait_node_target.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OpenMP::WaitOnDependences>(),
                 "Expecting an OpenMP::WaitOnDependences target node here got a %s",
@@ -379,9 +385,9 @@ namespace {
             .get_environment()
             .as<Nodecl::List>();
 
-        Nodecl::NodeclBase target_dep_in;
-        Nodecl::NodeclBase target_dep_out;
-        Nodecl::NodeclBase target_dep_inout;
+        NBase target_dep_in;
+        NBase target_dep_out;
+        NBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
                 it != task_target_env.end();
                 it++)
@@ -395,9 +401,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
+        NBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
+        NBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -430,9 +436,9 @@ namespace {
         std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
 #endif
 
-        // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
+        // TL::NodeclList source_statements = source->get_statements();
         // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
-        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
+        NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -460,10 +466,10 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
-        Nodecl::NodeclBase source_dep_in;
-        Nodecl::NodeclBase source_dep_in_alloca;
-        Nodecl::NodeclBase source_dep_out;
-        Nodecl::NodeclBase source_dep_inout;
+        NBase source_dep_in;
+        NBase source_dep_in_alloca;
+        NBase source_dep_out;
+        NBase source_dep_inout;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -478,9 +484,9 @@ namespace {
                 source_dep_inout = *it;
         }
 
-        // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
+        // TL::NodeclList target_statements = target->get_statements();
         // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
-        Nodecl::NodeclBase task_node_target = target->get_graph_related_ast();
+        NBase task_node_target = target->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
                 && !task_node_target.is<Nodecl::OpenMP::TaskExpression>()
@@ -508,10 +514,10 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
-        Nodecl::NodeclBase target_dep_in;
-        Nodecl::NodeclBase target_dep_in_alloca;
-        Nodecl::NodeclBase target_dep_out;
-        Nodecl::NodeclBase target_dep_inout;
+        NBase target_dep_in;
+        NBase target_dep_in_alloca;
+        NBase target_dep_out;
+        NBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
                 it != task_target_env.end();
                 it++)
@@ -529,9 +535,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
+        NBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
+        NBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -882,11 +888,14 @@ namespace {
             compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync, current_domain_id, next_domain_id);
         }
     }
+    
+    static bool IsOmpssEnabled = false;
 }
 
-    TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph)
+    TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled)
         : _graph(graph)
     {
+        IsOmpssEnabled = is_ompss_enabled;
     }
 
     void TaskSynchronizations::compute_task_synchronizations()
@@ -925,14 +934,14 @@ namespace {
                 std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
 #endif
                 Edge* edge = _graph->connect_nodes(it->first, (*jt).first, __Always,
-                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                                                   NBase::null(), /*is task edge*/ true);
                 const char* s = sync_kind_to_str((*jt).second);
                 edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                             const_value_make_string(s, strlen(s))));
             }
         }
 
-        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, Nodecl::NodeclBase::null());
+        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, NBase::null());
 
         Node* exit = root->get_graph_exit_node();
         for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();
@@ -945,7 +954,7 @@ namespace {
                 std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
 #endif
                 Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
-                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                                                   NBase::null(), /*is task edge*/ true);
                 const char* s = sync_kind_to_str(Sync_post);
                 edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
                                                             const_value_make_string(s, strlen(s))));
@@ -1296,6 +1305,56 @@ namespace {
         }
     }
 
+    static Node* get_most_outer_parallel(Node* task)
+    {
+        // Look for the parallel with no immediate inner single
+        Node* parallel = NULL;
+        std::queue<Node*> queue; queue.push(task);
+        while(!queue.empty())
+        {
+            // Get the first element in the queue
+            Node* current = queue.front();
+            queue.pop();
+            current->set_visited_aux(true);
+            
+            // Check for the structure we look for
+            if(current->is_omp_parallel_node())
+            {
+//                 Node* flush = current->get_graph_entry_node()->get_children()[0];
+//                 Node* child = flush->get_children()[0];
+//                 if(!child->is_omp_single_node())
+                {   // We found the first parallel with no single
+                    parallel = current;
+                }
+            }
+            
+            // Enqueue the children of the node we just treated
+            ObjectList<Node*> parents;
+            if(current->is_graph_node() && !ExtensibleGraph::node_contains_node(current, task))
+                parents.insert(current->get_graph_exit_node());
+            else if(current->is_entry_node())
+            {
+                Node* outer = current->get_outer_node();
+                if(outer->is_visited_aux())
+                    parents = outer->get_parents();
+                else
+                    parents.insert(outer);
+            }
+            else
+                parents = current->get_parents();
+            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            {
+                if(!(*it)->is_visited_aux())
+                    queue.push(*it);
+            }
+        }
+        
+        // Clear the visits
+        ExtensibleGraph::clear_visits_aux_backwards(task);
+        
+        return parallel;
+    }
+    
     void TaskConcurrency::compute_concurrent_tasks( Node* task )
     {
         // When the task is in a loop and it is not synchronized inside the loop and
@@ -1305,12 +1364,60 @@ namespace {
             task_in_loop_is_synchronized_within_loop( task ) )
             skip_task = task;
 
-        // When _last_sync is unknown, we use the entry of the graph where the task is defined
+        // Compute the more accurate last synchronization point if we have not found one
         ObjectList<Node*> last_sync;
         if( !_last_sync.empty( ) )
             last_sync = _last_sync;
         else
-            last_sync.insert( ExtensibleGraph::get_extensible_graph_from_node( task )->get_graph_entry_node( ) );
+        {
+            Node* pcfg = ExtensibleGraph::get_extensible_graph_from_node(task);
+//             FIXME We need to work out this part... it is not real correct
+//             NBase related_ast = pcfg->get_graph_related_ast();
+//             if (related_ast.is<Nodecl::FunctionCode>() && 
+//                 related_ast.get_symbol().get_name() == "main")
+            {
+                if(IsOmpssEnabled)
+                {   // From the beginning, but only tasks created there can be concurrent
+                    last_sync.insert(pcfg->get_graph_entry_node());
+                }
+                else
+                {   
+                    Node* task_creation = NULL;
+                    ObjectList<Node*> task_parents = task->get_parents();
+                    for(ObjectList<Node*>::iterator it = task_parents.begin(); it != task_parents.end(); ++it)
+                    {
+                        if((*it)->is_omp_task_creation_node())
+                            task_creation = *it;
+                    }
+                    ERROR_CONDITION(task_creation==NULL, "No task creation node found for task %s (node %d).\n", 
+                                    task->get_graph_related_ast().get_locus_str().c_str(), task->get_id());
+                    Node* parallel = get_most_outer_parallel(task_creation);
+                    if(parallel != NULL)
+                    {   // The most outer parallel without a single: we take the Flush node
+                        last_sync.insert(parallel->get_graph_entry_node()->get_children()[0]);
+                    }
+                    else
+                    {   // Cannot assume anything: the last synchronization point is the creation of the task
+                        Node* current_outer = task_creation->get_outer_node();
+                        Node* most_outer_loop = NULL;
+                        while(current_outer != NULL)
+                        {
+                            if(current_outer->is_loop_node())
+                                most_outer_loop = current_outer;
+                            current_outer = current_outer->get_outer_node();
+                        }
+                        if(most_outer_loop != NULL)
+                            last_sync.insert(most_outer_loop->get_graph_entry_node());
+                        else
+                            last_sync.insert(task_creation);
+                    }
+                }
+            }
+//             else
+//             {
+//                 last_sync.insert( pcfg->get_graph_entry_node( ) );
+//             }
+        }
 
         ObjectList<Node*> concurrent_tasks;
         for( ObjectList<Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
@@ -1320,7 +1427,7 @@ namespace {
                 collect_tasks_between_nodes( *itl, *itn, skip_task, concurrent_tasks );
                 if( ( *itl )->is_omp_taskwait_node( ) )
                 {   // Only previous tasks in the same nesting level are synchronized.
-                    // We have to add here previous nested tasks here
+                    // We have to add here previous nested tasks
                     ObjectList<Node*> it_parents = ( *itl )->get_parents( );
                     collect_previous_tasks_synchronized_after_scheduling_point( task, it_parents, concurrent_tasks );
                     // We don want to clear the visit in *itl, but from its parents
@@ -1334,7 +1441,7 @@ namespace {
 
         // Set the information computed to the graph
         _graph->add_concurrent_task_group( task, concurrent_tasks );
-        _graph->add_last_synchronization( task, _last_sync );
+        _graph->add_last_synchronization( task, last_sync );
         _graph->add_next_synchronization( task, _next_sync );
     }
 

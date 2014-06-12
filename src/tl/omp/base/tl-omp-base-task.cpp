@@ -32,7 +32,7 @@
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -783,7 +783,7 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
 #ifdef ANALYSIS_ENABLED
-        TL::Analysis::AnalysisStaticInfo a;
+        TL::Analysis::AnalysisInterface a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
         return is_reduc;
 #else

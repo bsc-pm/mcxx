@@ -37,7 +37,7 @@ namespace Analysis {
     // ************************************************************************************** //
     // ************************************ Constructors ************************************ //
 
-    PCFGVisitor::PCFGVisitor( std::string name, Nodecl::NodeclBase nodecl )
+    PCFGVisitor::PCFGVisitor(std::string name, NBase nodecl)
     {
         _utils = new PCFGVisitUtils( );
         _pcfg = new ExtensibleGraph( name, nodecl, _utils );
@@ -56,8 +56,8 @@ namespace Analysis {
         _pcfg = graph;
     }
 
-    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph( const Nodecl::NodeclBase& n,
-                                                               const std::map<Symbol, Nodecl::NodeclBase>& asserted_funcs )
+    ExtensibleGraph* PCFGVisitor::parallel_control_flow_graph(const NBase& n,
+                                                              const std::map<Symbol, NBase>& asserted_funcs)
     {
         _asserted_funcs = asserted_funcs;
 
@@ -79,7 +79,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, returns_exit );
         _utils->_return_nodes.clear( );
 
-        _pcfg->dress_up_graph( );
+        //_pcfg->dress_up_graph( );
 
         return _pcfg;
     }
@@ -144,7 +144,7 @@ namespace Analysis {
      * So, before iterate the list to get the parents of the new merging node
      * we are going to purge the list deleting those nodes depending on other nodes in the same list
      */
-    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, ObjectList<Node*> nodes_l )
+    Node* PCFGVisitor::merge_nodes(NBase n, ObjectList<Node*> nodes_l)
     {
         Node* result;
 
@@ -234,9 +234,7 @@ namespace Analysis {
                 }
                 if( !graph_parents.empty( ) )
                 {
-                    int n_connects = graph_parents.size( );
-                    _pcfg->connect_nodes( graph_parents, result, ObjectList<Edge_type>( n_connects, __Always ),
-                                          ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
+                    _pcfg->connect_nodes(graph_parents, result);
                 }
 
                 // Erase those positions in the list that are non-Graph nodes
@@ -288,9 +286,9 @@ namespace Analysis {
                     ObjectList<Node*> aux = (*it)->get_parents();
                     if( !aux.empty( ) )
                     {
-                        ObjectList<Nodecl::NodeclBase> stmts = (*it)->get_statements( );
+                        ObjectList<NBase> stmts = (*it)->get_statements();
                         std::string stmts_str = "";
-                        for( ObjectList<Nodecl::NodeclBase>::iterator it2 = stmts.begin(); it2 != stmts.end( ); ++it2 )
+                        for(ObjectList<NBase>::iterator it2 = stmts.begin(); it2 != stmts.end(); ++it2)
                         {
                             stmts_str += it2->prettyprint( ) + "\n";
                         }
@@ -313,7 +311,7 @@ namespace Analysis {
         return result;
     }
 
-    Node* PCFGVisitor::merge_nodes( Nodecl::NodeclBase n, Node* first, Node* second )
+    Node* PCFGVisitor::merge_nodes(NBase n, Node* first, Node* second)
     {
         ObjectList<Node*> previous_nodes;
 
@@ -333,7 +331,7 @@ namespace Analysis {
     // ************************************************************************************** //
     // ********************************** Visiting methods ********************************** //
 
-    ObjectList<Node*> PCFGVisitor::visit_barrier( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::visit_barrier(const NBase& n)
     {
         Node* barrier_graph = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpBarrierGraph );
         _pcfg->connect_nodes( _utils->_last_nodes, barrier_graph );
@@ -358,9 +356,9 @@ namespace Analysis {
         return ObjectList<Node*>( 1, barrier_graph );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_binary_node( const Nodecl::NodeclBase& n,
-                                                      const Nodecl::NodeclBase& lhs,
-                                                      const Nodecl::NodeclBase& rhs )
+    ObjectList<Node*> PCFGVisitor::visit_binary_node(const NBase& n,
+                                                      const NBase& lhs,
+                                                      const NBase& rhs)
     {
         bool is_vector = _utils->_is_vector;
         Node* left = walk( lhs )[0];
@@ -370,7 +368,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, merge_nodes( n, left, right ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_case_or_default( const Nodecl::NodeclBase& case_stmt,
+    ObjectList<Node*> PCFGVisitor::visit_case_or_default(const NBase& case_stmt,
                                                           const Nodecl::List& case_val )
     {
         Node* case_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), case_stmt, __SwitchCase );
@@ -389,6 +387,7 @@ namespace Analysis {
 
         _pcfg->connect_nodes( _utils->_last_nodes, case_node );
         Edge* e = _pcfg->connect_nodes( _utils->_switch_nodes.top( )->_condition, case_node, __Case );
+
         // case_val is a list (FORTRAN)
         ERROR_CONDITION( case_val.size()>1, "Case statement '%s' with more than one value per case is not yet supported\n",
                          case_stmt.prettyprint().c_str() );
@@ -406,6 +405,7 @@ namespace Analysis {
         _utils->_break_nodes.pop( );
 
         exit_node->set_id( ++( _utils->_nid ) );
+
         _pcfg->connect_nodes( _utils->_last_nodes, exit_node );
 
         // Set Case node as _last_nodes when it does not end with a break statement
@@ -500,7 +500,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, func_graph_node );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_literal_node( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::visit_literal_node(const NBase& n)
     {
         Node_type n_type = ( _utils->_is_vector ? __VectorNormal : __Normal );
         Node* basic_node = new Node( _utils->_nid, n_type, _utils->_outer_nodes.top( ), n );
@@ -508,7 +508,7 @@ namespace Analysis {
     }
 
     // Taskwait involving no dependences
-    ObjectList<Node*> PCFGVisitor::visit_taskwait( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::visit_taskwait(const NBase& n)
     {
         Node* taskwait_node = new Node( _utils->_nid, __OmpTaskwait, _utils->_outer_nodes.top( ), n );
         // Connect with the last nodes created
@@ -529,8 +529,8 @@ namespace Analysis {
         return ObjectList<Node*>();
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_unary_node( const Nodecl::NodeclBase& n,
-                                                     const Nodecl::NodeclBase& rhs )
+    ObjectList<Node*> PCFGVisitor::visit_unary_node(const NBase& n,
+                                                     const NBase& rhs)
     {
         bool is_vector = _utils->_is_vector;
         Node* right = walk( rhs )[0];
@@ -538,9 +538,9 @@ namespace Analysis {
         return ObjectList<Node*>( 1, merge_nodes( n, right, NULL ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_vector_binary_node( const Nodecl::NodeclBase& n,
-                                                             const Nodecl::NodeclBase& lhs,
-                                                             const Nodecl::NodeclBase& rhs )
+    ObjectList<Node*> PCFGVisitor::visit_vector_binary_node(const NBase& n,
+                                                             const NBase& lhs,
+                                                             const NBase& rhs)
     {
         _utils->_is_vector = true;
         ObjectList<Node*> result = visit_binary_node( n, lhs, rhs );
@@ -551,7 +551,7 @@ namespace Analysis {
     template <typename T>
     ObjectList<Node*> PCFGVisitor::visit_vector_function_call( const T& n )
     {
-        Nodecl::NodeclBase called_func = n.get_function_call( );
+        NBase called_func = n.get_function_call();
         if( !called_func.is<Nodecl::FunctionCall>( ) )
         {
             internal_error( "Unexpected nodecl type '%s' as function call member of a vector function call\n",
@@ -565,8 +565,8 @@ namespace Analysis {
         return vector_func_node_l;
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_vector_unary_node( const Nodecl::NodeclBase& n,
-                                                            const Nodecl::NodeclBase& rhs )
+    ObjectList<Node*> PCFGVisitor::visit_vector_unary_node(const NBase& n,
+                                                            const NBase& rhs)
     {
         _utils->_is_vector = true;
         ObjectList<Node*> result = visit_unary_node( n, rhs );
@@ -574,7 +574,7 @@ namespace Analysis {
         return result;
     }
 
-    ObjectList<Node*> PCFGVisitor::visit_vector_memory_func( const Nodecl::NodeclBase& n, char mem_access_type )
+    ObjectList<Node*> PCFGVisitor::visit_vector_memory_func(const NBase& n, char mem_access_type)
     {
         Node_type n_type;
         if( mem_access_type == '1' )
@@ -592,7 +592,7 @@ namespace Analysis {
         return ObjectList<Node*>( 1, vector_mem_node );
     }
 
-    ObjectList<Node*> PCFGVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    ObjectList<Node*> PCFGVisitor::unhandled_node(const NBase& n)
     {
         if( VERBOSE ) {
             WARNING_MESSAGE( "Unhandled node of type '%s' while PCFG construction.\n '%s' ",
@@ -641,7 +641,7 @@ namespace Analysis {
 
         PCFGClause current_clause( __assert_autosc_firstprivate, n.get_scoped_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_auto_sc_firstprivate_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_auto_sc_firstprivate_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -649,7 +649,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_autosc_private, n.get_scoped_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_auto_sc_private_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_auto_sc_private_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -657,7 +657,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_autosc_shared, n.get_scoped_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_auto_sc_shared_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_auto_sc_shared_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -665,7 +665,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_dead, n.get_dead_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_dead_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_dead_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -673,7 +673,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_defined, n.get_defined_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_killed_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_killed_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -681,7 +681,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_induction_var, n.get_induction_variables( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_induction_variables( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_induction_variables(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -689,7 +689,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_live_in, n.get_live_in_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_live_in_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_live_in_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -697,7 +697,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_live_out, n.get_live_out_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_live_out_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_live_out_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -705,7 +705,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_reach_in, n.get_reaching_definitions_in( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_reaching_definitions_in( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_reaching_definitions_in(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -713,7 +713,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_reach_out, n.get_reaching_definitions_out( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_reaching_definitions_out( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_reaching_definitions_out(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -721,7 +721,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_undefined_behaviour, n.get_undefined_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_undefined_behaviour_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_undefined_behaviour_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -729,7 +729,7 @@ namespace Analysis {
     {
         PCFGClause current_clause( __assert_upper_exposed, n.get_upper_exposed_exprs( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        _utils->_assert_nodes.top( )->set_assert_ue_var( current_clause.get_args( ) );
+        _utils->_assert_nodes.top()->add_assert_ue_var(current_clause.get_args());
         return ObjectList<Node*>( );
     }
 
@@ -826,9 +826,9 @@ namespace Analysis {
         // The only case when '_utils->_last_nodes' can be empty is when a Case Statement has no statements
         Node* break_node;
         if( _utils->_last_nodes.empty( ) )
-            break_node = _pcfg->append_new_node_to_parent( _utils->_switch_nodes.top( )->_condition, n, __Break );
+            break_node = _pcfg->append_new_child_to_parent(_utils->_switch_nodes.top()->_condition, n, __Break);
         else
-            break_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Break );
+            break_node = _pcfg->append_new_child_to_parent(_utils->_last_nodes, n, __Break);
         _pcfg->connect_nodes( break_node, _utils->_break_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, break_node );
@@ -856,7 +856,7 @@ namespace Analysis {
         current_tryblock->_handler_exits.append( catchs[0] );
 
         // Set the type of the edge between each handler parent and the actual handler
-        Nodecl::NodeclBase label = n.get_name( );
+        NBase label = n.get_name();
         if( label.is_null() )
         {
             const char* s = "...";
@@ -949,7 +949,7 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::ContinueStatement& n )
     {
-        Node* continue_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Continue );
+        Node* continue_node = _pcfg->append_new_child_to_parent(_utils->_last_nodes, n, __Continue);
         _pcfg->connect_nodes( continue_node, _utils->_continue_nodes.top( ) );
         _utils->_last_nodes.clear( );
         return ObjectList<Node*>( 1, continue_node );
@@ -1051,7 +1051,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_last_nodes, condition_node );
         if( !stmts.empty( ) )
         {
-            _pcfg->connect_nodes( condition_node, stmts[0], __TrueEdge, Nodecl::NodeclBase::null(), 
+            _pcfg->connect_nodes(condition_node, stmts[0], __TrueEdge, NBase::null(), 
                                   /*is_task_edge*/false, /*is_back_edge*/true );
         }
 
@@ -1105,9 +1105,7 @@ namespace Analysis {
                     int n_connects = expr_first_nodes.size( ) * expr_last_nodes.size( );
                     if( n_connects != 0 )
                     {
-                        _pcfg->connect_nodes( expr_last_nodes, expr_first_nodes,
-                                              ObjectList<Edge_type>( n_connects, __Always ),
-                                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null( ) ) );
+                        _pcfg->connect_nodes(expr_last_nodes, expr_first_nodes);
                     }
                 }
 
@@ -1152,7 +1150,7 @@ namespace Analysis {
             {
                 node_to_modify = next[0];
             }
-            ObjectList<Nodecl::NodeclBase> stmts = node_to_modify->get_statements( );
+            ObjectList<NBase> stmts = node_to_modify->get_statements();
             ERROR_CONDITION( stmts.size( )!=1, "More than one statement created for the 'next' member of a FieldDesignator", 0 );
             if( stmts[0].is<Nodecl::FieldDesignator>( ) )
             {
@@ -1161,11 +1159,11 @@ namespace Analysis {
                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                 Nodecl::ClassMemberAccess new_lhs =
                     Nodecl::ClassMemberAccess::make( n.get_field( ).shallow_copy( ), fd.get_field( ).shallow_copy( ),
-                                                     /* member-form */ Nodecl::NodeclBase::null( ),
+                                                     /* member-form */ NBase::null(),
                                                      t, n.get_locus( ) );
                 Nodecl::Assignment new_assign =
                     Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
-                node_to_modify->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                node_to_modify->set_statements(ObjectList<NBase>(1, new_assign));
             }
             else
             {
@@ -1196,15 +1194,10 @@ namespace Analysis {
         Node* next = _utils->_nested_loop_nodes.top( )->_next;
         _utils->_last_nodes = actual_last_nodes;
 
-        int n_connects = 0;
-
         // Connect the init
         if( init != NULL )
         {
-            n_connects = _utils->_last_nodes.size( );
-            _pcfg->connect_nodes( _utils->_last_nodes, init,
-                                  ObjectList<Edge_type>( n_connects, __Always ),
-                                  ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null( ) ) );
+            _pcfg->connect_nodes(_utils->_last_nodes, init);
             // Init can generate more than one node: find the last
             Node* last_init_node = init;
             ObjectList<Node*> init_children = last_init_node->get_children( );
@@ -1220,10 +1213,7 @@ namespace Analysis {
 
         // Create the loop graph node
         Node* for_graph_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __LoopFor );
-        n_connects = _utils->_last_nodes.size( );
-        _pcfg->connect_nodes( _utils->_last_nodes, for_graph_node,
-                              ObjectList<Edge_type>( n_connects, __Always ),
-                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
+        _pcfg->connect_nodes(_utils->_last_nodes, for_graph_node);
 
         // Connect the conditional node
         Node* entry_node = for_graph_node->get_graph_entry_node( );
@@ -1289,10 +1279,10 @@ namespace Analysis {
         if( next != NULL )
         {
             next->set_outer_node( for_graph_node );
-            _pcfg->connect_nodes( _utils->_last_nodes, next, aux_etype );
+            _pcfg->connect_nodes(_utils->_last_nodes, next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
             if( cond != NULL )
             {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
-                _pcfg->connect_nodes( next, cond, __Always, Nodecl::NodeclBase::null(), 
+                _pcfg->connect_nodes(next, cond, __Always, NBase::null(), 
                                       /*is_task_edge*/false, /*is_back_edge*/true );
             }
             else
@@ -1413,7 +1403,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::GotoStatement& n )
     {
-        Node* goto_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n, __Goto );
+        Node* goto_node = _pcfg->append_new_child_to_parent(_utils->_last_nodes, n, __Goto);
         goto_node->set_label( n.get_symbol( ) );
         _pcfg->connect_nodes( _utils->_last_nodes, goto_node );
 
@@ -1491,7 +1481,7 @@ namespace Analysis {
             if( !else_node_l.empty( ) )
                 _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit );
             else
-                _pcfg->connect_nodes( _utils->_last_nodes, if_else_exit, __FalseEdge );
+                _pcfg->connect_nodes(_utils->_last_nodes, if_else_exit, ObjectList<Edge_type>(_utils->_last_nodes.size(), __FalseEdge));
 
             // Connect the Exit node in that cases where it has not been connected before
             if( ( all_tasks_then && all_tasks_else ) || cond_node->get_exit_edges().empty() )
@@ -1540,10 +1530,11 @@ namespace Analysis {
             if( ( *it )->get_label( ) == n.get_symbol( ) )
             {   // Connect the nodes
                 const char* s = n.get_symbol( ).get_name( ).c_str();
-
-                _pcfg->connect_nodes( *it, labeled_node, __GotoEdge,
-                                      Nodecl::StringLiteral::make( Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
-                                                                   const_value_make_string( s, strlen(s) ) ) );
+                int slen = strlen(s);
+                NBase label = Nodecl::StringLiteral::make(
+                        Type(get_literal_string_type(slen+1, get_char_type())),
+                             const_value_make_string(s, slen));
+                _pcfg->connect_nodes(*it, labeled_node, __GotoEdge, label);
                 break;
             }
         }
@@ -1579,9 +1570,9 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit_loop_control(
-            const Nodecl::NodeclBase& init,
-            const Nodecl::NodeclBase& cond,
-            const Nodecl::NodeclBase& next )
+            const NBase& init,
+            const NBase& cond,
+            const NBase& next)
     {
         PCFGLoopControl* current_loop_ctrl = new PCFGLoopControl( );
 
@@ -1636,9 +1627,9 @@ namespace Analysis {
     {
         Nodecl::Symbol induction_var = n.get_induction_variable().as<Nodecl::Symbol>();
         // These are actually misleading names, they should be start and end
-        Nodecl::NodeclBase lower = n.get_lower();
-        Nodecl::NodeclBase upper = n.get_upper();
-        Nodecl::NodeclBase step = n.get_step();
+        NBase lower = n.get_lower();
+        NBase upper = n.get_upper();
+        NBase step = n.get_step();
         if (step.is_null())
             step = const_value_to_nodecl(const_value_get_signed_int(1));
 
@@ -1651,7 +1642,7 @@ namespace Analysis {
         induction_var_ref.set_type(sym_ref_type);
 
         // I = lower
-        Nodecl::NodeclBase fake_init =
+        NBase fake_init =
             Nodecl::Assignment::make(
                 induction_var.shallow_copy(),
                 lower.shallow_copy(),
@@ -1660,7 +1651,7 @@ namespace Analysis {
         // I <= upper                   if step is known to be > 0
         // I >= upper                   if step is known to be < 0
         // (I * step) <= (upper * step) if the step is nonconstant
-        Nodecl::NodeclBase fake_cond;
+        NBase fake_cond;
         if (step.is_constant())
         {
             const_value_t* c = step.get_constant();
@@ -1697,7 +1688,7 @@ namespace Analysis {
         }
 
         // I = I + step
-        Nodecl::NodeclBase fake_next =
+        NBase fake_next =
             Nodecl::Assignment::make(
                     induction_var.shallow_copy(),
                     Nodecl::Add::make(
@@ -1793,18 +1784,18 @@ namespace Analysis {
                             ERROR_CONDITION( exit_parents.size( ) != 1,
                                              "More than one parent found for the exit node of an split_node ", 0 );
                             Node* exit_parent = exit_parents[0];
-                            ObjectList<Nodecl::NodeclBase> stmts = exit_parent->get_statements( );
+                            ObjectList<NBase> stmts = exit_parent->get_statements();
                             ERROR_CONDITION( stmts.size( ) != 1, "More than one statement found in the last node of an split_node", 0 );
                             if( stmts[0].is<Nodecl::Assignment>( ) )
                             {   // struct A a = { .b = { .y = bar() } }  ->  b.y = bar() is Assignment created by visit::FieldDesignator
                                 Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>( );
                                 Nodecl::ClassMemberAccess new_lhs =
                                     Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ),
-                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    /* member-form */ NBase::null(),
                                                                     ass.get_type( ), n.get_locus( ) );
-                                Nodecl::NodeclBase new_assign =
+                                NBase new_assign =
                                     Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
-                                exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                                exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
                             }
                             else if( stmts[0].is<Nodecl::FieldDesignator>( ) )
                             {   // struct A a = { .x = bar() }            -> .x = bar() is FieldDesignator
@@ -1812,11 +1803,11 @@ namespace Analysis {
                                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                                 Nodecl::ClassMemberAccess new_lhs =
                                     Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ),
-                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    /* member-form */ NBase::null(),
                                                                     t, n.get_locus( ) );
-                                Nodecl::NodeclBase new_assign =
+                                NBase new_assign =
                                     Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
-                                exit_parent->set_statements( ObjectList<Nodecl::NodeclBase>( 1, new_assign ) );
+                                exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
                             }
                             else
                             {   // struct B b = { bar( ) };
@@ -1828,17 +1819,17 @@ namespace Analysis {
                         }
                         else
                         {
-                            ObjectList<Nodecl::NodeclBase> it_expr = ( *it )->get_statements( );
+                            ObjectList<NBase> it_expr = (*it)->get_statements();
                             ERROR_CONDITION( it_expr.size( ) != 1,
                                             "More than one statement created for an structured value initialization\n", 0 );
 
-                            Nodecl::NodeclBase it_init;
+                            NBase it_init;
                             if( it_expr[0].is<Nodecl::Assignment>( ) )
                             {   // struct A a = { .b = { .y = 3 } }  ->  b.y = 3 is Assignment created by visit::FieldDesignator
                                 Nodecl::Assignment ass = it_expr[0].as<Nodecl::Assignment>( );
                                 Nodecl::ClassMemberAccess new_lhs =
                                     Nodecl::ClassMemberAccess::make( n_sym, ass.get_lhs( ).shallow_copy( ),
-                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    /* member-form */ NBase::null(),
                                                                     ass.get_type( ), n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, ass.get_rhs( ).shallow_copy( ), ass.get_type( ), n.get_locus( ) );
                             }
@@ -1849,7 +1840,7 @@ namespace Analysis {
                                 Type t = fd.get_field( ).get_symbol( ).get_type( );
                                 Nodecl::ClassMemberAccess new_lhs =
                                     Nodecl::ClassMemberAccess::make( n_sym, fd.get_field( ).shallow_copy( ),
-                                                                    /* member-form */ Nodecl::NodeclBase::null( ),
+                                                                    /* member-form */ NBase::null(),
                                                                     t, n.get_locus( ) );
                                 it_init = Nodecl::Assignment::make( new_lhs, fd.get_next( ).shallow_copy( ), t, n.get_locus( ) );
                             }
@@ -2146,10 +2137,7 @@ namespace Analysis {
 
         // Create the flush node
         Node* entry_flush = _pcfg->create_flush_node( _utils->_outer_nodes.top( ) );
-        int n_connects = entry_children.size( );
-        _pcfg->connect_nodes( entry_flush, entry_children,
-                              ObjectList<Edge_type>( n_connects, __Always ),
-                              ObjectList<Nodecl::NodeclBase>( n_connects, Nodecl::NodeclBase::null() ) );
+        _pcfg->connect_nodes(entry_flush, entry_children);
 
         // Restore current info
         environ_entry = entry_flush;
@@ -2663,11 +2651,10 @@ namespace Analysis {
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
-
-        _pcfg->connect_nodes( task_creation, task_node, __Always,
-                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
-                                                          const_value_make_string(s, strlen(s))),
-                              /* is task */ true );
+        int slen = strlen(s);
+        NBase label = Nodecl::StringLiteral::make(
+                Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
+        _pcfg->connect_nodes(task_creation, task_node, __Always, label, /*is_task*/ true);
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
@@ -2694,7 +2681,7 @@ namespace Analysis {
         _pcfg->_task_nodes_l.insert( task_node );
         _utils->_last_nodes = ObjectList<Node*>( 1, task_creation );
         return ObjectList<Node*>( 1, task_creation );
-    }
+}
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
@@ -2704,11 +2691,10 @@ namespace Analysis {
         // Create the new graph node containing the task
         Node* task_node = _pcfg->create_graph_node( _pcfg->_graph, n, __OmpTask, _utils->_context_nodecl.top( ) );
         const char* s = "create";
-
-        _pcfg->connect_nodes( task_creation, task_node, __Always,
-                              Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
-                                                          const_value_make_string(s, strlen(s))),
-                              /* is task */ true );
+        int slen = strlen(s);
+        NBase label = Nodecl::StringLiteral::make(
+                Type(get_literal_string_type(slen+1, get_char_type())), const_value_make_string(s, slen));
+        _pcfg->connect_nodes(task_creation, task_node, __Always, label, /*is_task*/ true);
 
         Node* task_entry = task_node->get_graph_entry_node( );
         Node* task_exit = task_node->get_graph_exit_node( );
@@ -2981,7 +2967,7 @@ namespace Analysis {
         Node* throw_node;
         if( right.empty( ) )
         {   // Throw has no expression associated, we create now the throw node
-            throw_node = _pcfg->append_new_node_to_parent( _utils->_last_nodes, n );
+            throw_node = _pcfg->append_new_child_to_parent(_utils->_last_nodes, n);
         }
         else
         {   // Some expression has been built. We merge here the node with the whole throw node
@@ -3422,7 +3408,10 @@ namespace Analysis {
         _utils->_continue_nodes.pop( );
         _utils->_break_nodes.pop( );
 
-        _pcfg->connect_nodes( _utils->_last_nodes, cond_node, __Always, Nodecl::NodeclBase::null(), 
+        int n_conn = _utils->_last_nodes.size();
+        _pcfg->connect_nodes(_utils->_last_nodes, cond_node, 
+                             ObjectList<Edge_type>(n_conn, __Always), 
+                             ObjectList<NBase>(n_conn, NBase::null()),
                               /*is_task_edge*/false, /*is_back_edge*/true );
         ObjectList<Edge*> cond_exits = cond_node->get_exit_edges( );
         for( ObjectList<Edge*>::iterator it = cond_exits.begin( ); it != cond_exits.end( ); ++it )

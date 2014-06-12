@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006*-2012 Barcelona Supercomputing Center
+ (C) Copyright 2006*-2012 Barcelona Supercomputing Center
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -33,11 +33,11 @@ namespace Analysis {
     // ************************************************************************************** //
     // ******************************* PCFG Loop Control class ****************************** //
 
-    PCFGLoopControl::PCFGLoopControl( )
-        : _init( NULL ), _cond( NULL ), _next( NULL )
+    PCFGLoopControl::PCFGLoopControl()
+        : _init(NULL), _cond(NULL), _next(NULL)
     {}
 
-    PCFGLoopControl::~PCFGLoopControl( )
+    PCFGLoopControl::~PCFGLoopControl()
     {
         delete _init;
         delete _cond;
@@ -52,28 +52,28 @@ namespace Analysis {
     // ************************************************************************************** //
     // ******************************** PCFG Try block class ******************************** //
 
-    PCFGTryBlock::PCFGTryBlock( )
-        : _handler_parents( ), _handler_exits( ), _nhandlers( -1 )
+    PCFGTryBlock::PCFGTryBlock()
+        : _handler_parents(), _handler_exits(), _nhandlers(-1)
     {}
 
-    PCFGTryBlock::~PCFGTryBlock( )
+    PCFGTryBlock::~PCFGTryBlock()
     {}
 
     // ****************************** END PCFG Try block class ****************************** //
     // ************************************************************************************** //
 
 
-    PCFGSwitch::PCFGSwitch( Node* condition, Node* exit  )
-        : _condition( condition ), _exit( exit )
+    PCFGSwitch::PCFGSwitch(Node* condition, Node* exit )
+        : _condition(condition), _exit(exit)
     {}
 
-    PCFGSwitch::~PCFGSwitch( )
+    PCFGSwitch::~PCFGSwitch()
     {
         delete _condition;
         delete _exit;
     }
 
-    void PCFGSwitch::set_condition( Node* condition )
+    void PCFGSwitch::set_condition(Node* condition)
     {
         _condition = condition;
     }
@@ -81,87 +81,87 @@ namespace Analysis {
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
-    PCFGClause::PCFGClause( )
-        : _clause( __undefined_clause ), _args( )
+    PCFGClause::PCFGClause()
+        : _clause(__undefined_clause), _args()
     {}
 
-    PCFGClause::PCFGClause( Clause c )
-        : _clause( c ), _args( )
+    PCFGClause::PCFGClause(Clause c)
+        : _clause(c), _args()
     {}
 
-    PCFGClause::PCFGClause( Clause c, Nodecl::NodeclBase arg )
-        : _clause( c ), _args( )
+    PCFGClause::PCFGClause(Clause c, NBase arg)
+        : _clause(c), _args()
     {
-        _args.append( arg.shallow_copy( ) );
+        _args.append(arg.shallow_copy());
     }
 
-    PCFGClause::PCFGClause( const PCFGClause& c )
+    PCFGClause::PCFGClause(const PCFGClause& c)
     {
         _clause = c._clause;
         _args = c._args;
     }
 
-    Clause PCFGClause::get_clause( ) const
+    Clause PCFGClause::get_clause() const
     {
         return _clause;
     }
     
     //! Returns a string with the graph type of the node.
-    inline std::string clause_to_str( Clause c )
+    inline std::string clause_to_str(Clause c)
     {
-        switch( c )
+        switch(c)
         {
             #undef CLAUSE
             #define CLAUSE(X) case __##X : return #X;
             CLAUSE_LIST
             #undef CLAUSE
-            default: WARNING_MESSAGE( "Unexpected clause type '%d'", c );
+            default: WARNING_MESSAGE("Unexpected clause type '%d'", c);
         }
         return "";
     }
     
-    std::string PCFGClause::get_clause_as_string( ) const
+    std::string PCFGClause::get_clause_as_string() const
     {
-        return clause_to_str( _clause );
+        return clause_to_str(_clause);
     }
     
-    Nodecl::List PCFGClause::get_args( ) const
+    Nodecl::List PCFGClause::get_args() const
     {
         return _args;
     }
     
-    PCFGPragmaInfo::PCFGPragmaInfo( )
-        : _clauses( )
+    PCFGPragmaInfo::PCFGPragmaInfo()
+        : _clauses()
     {}
 
-    PCFGPragmaInfo::PCFGPragmaInfo( PCFGClause clause )
-        : _clauses( ObjectList<PCFGClause>( 1, clause ) )
+    PCFGPragmaInfo::PCFGPragmaInfo(PCFGClause clause)
+        : _clauses(ObjectList<PCFGClause>(1, clause))
     {}
 
-    PCFGPragmaInfo::PCFGPragmaInfo( const PCFGPragmaInfo& p )
+    PCFGPragmaInfo::PCFGPragmaInfo(const PCFGPragmaInfo& p)
     {
         _clauses = p._clauses;
     }
 
-    PCFGPragmaInfo::~PCFGPragmaInfo( )
+    PCFGPragmaInfo::~PCFGPragmaInfo()
     {}
 
-    bool PCFGPragmaInfo::has_clause( Clause clause ) const
+    bool PCFGPragmaInfo::has_clause(Clause clause) const
     {
-        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
+        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
         {
-            if ( it->_clause == clause )
+            if (it->_clause == clause)
                 return true;
         }
         return false;
     }
 
-    PCFGClause PCFGPragmaInfo::get_clause( Clause clause ) const
+    PCFGClause PCFGPragmaInfo::get_clause(Clause clause) const
     {
         PCFGClause pcfg_clause;
-        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin( ); it != _clauses.end( ); ++it )
+        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
         {
-            if ( it->_clause == clause )
+            if (it->_clause == clause)
             {
                 pcfg_clause = *it;
                 break;
@@ -170,12 +170,12 @@ namespace Analysis {
         return pcfg_clause;
     }
     
-    void PCFGPragmaInfo::add_clause( PCFGClause pcfg_clause )
+    void PCFGPragmaInfo::add_clause(PCFGClause pcfg_clause)
     {
-        _clauses.append( pcfg_clause );
+        _clauses.append(pcfg_clause);
     }
 
-    ObjectList<PCFGClause> PCFGPragmaInfo::get_clauses( ) const
+    ObjectList<PCFGClause> PCFGPragmaInfo::get_clauses() const
     {
         return _clauses;
     }
@@ -188,12 +188,12 @@ namespace Analysis {
     // ************************************************************************************** //
     // ********************************** PCFG utils class ********************************** //
 
-    PCFGVisitUtils::PCFGVisitUtils( )
-        : _last_nodes( ), _return_nodes( ), _outer_nodes( ),
-          _continue_nodes( ), _break_nodes( ), _labeled_nodes( ), _goto_nodes( ),
-          _switch_nodes( ), _nested_loop_nodes( ), _tryblock_nodes( ),
-          _pragma_nodes( ), _context_nodecl( ), _section_nodes( ), _assert_nodes( ),
-          _environ_entry_exit( ), _is_vector( false ), _is_simd( false ), _nid( -1 )
+    PCFGVisitUtils::PCFGVisitUtils()
+        : _last_nodes(), _return_nodes(), _outer_nodes(),
+          _continue_nodes(), _break_nodes(), _labeled_nodes(), _goto_nodes(),
+          _switch_nodes(), _nested_loop_nodes(), _tryblock_nodes(),
+          _pragma_nodes(), _context_nodecl(), _section_nodes(), _assert_nodes(),
+          _environ_entry_exit(), _is_vector(false), _is_simd(false), _nid(-1)
     {}
 
     // ************************************************************************************** //

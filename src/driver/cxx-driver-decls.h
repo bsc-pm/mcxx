@@ -173,6 +173,7 @@ typedef struct debug_options_tag
     char tdg_to_json;
     char do_not_codegen;
     char show_template_packs;
+    char vectorization_verbose;
 } debug_options_t;
 
 typedef struct external_var_tag {
