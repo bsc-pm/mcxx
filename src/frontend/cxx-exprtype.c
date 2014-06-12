@@ -16292,7 +16292,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
             nodecl_t nodecl_expr_out = nodecl_null();
             check_nodecl_expr_initializer(expr, decl_context, declared_type,
-                    /* disallow_narrowing */ IS_CXX11_LANGUAGE,
+                    /* disallow_narrowing */ 0,
                     &nodecl_expr_out);
 
             if (nodecl_is_err_expr(nodecl_expr_out))
