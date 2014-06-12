@@ -222,14 +222,8 @@ static void test_cholesky_in_place(int N, float (*a)[N],
 
 int main(int argc, char *argv[])
 {
-    if (argc != 3)
-    {
-        printf("Usage: ./cholesky #size #iters\n");
-        return 0;
-    }
-
-    int N = atoi(argv[1]);
-    int iters = atoi(argv[2]);
+    const int N = 160;
+    const int iters = 1;;
 
     float (*a)[N];
 
