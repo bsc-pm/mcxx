@@ -15958,7 +15958,7 @@ void check_nodecl_braced_initializer(
             nodecl_t initializer_clause = nodecl_list_head(initializer_clause_list);
             nodecl_t nodecl_expr_out = nodecl_null();
             check_nodecl_initializer_clause(initializer_clause, decl_context, declared_type,
-                    /* disallow_narrowing */ IS_CXX_LANGUAGE,
+                    /* disallow_narrowing */ IS_CXX11_LANGUAGE,
                     &nodecl_expr_out);
 
             if (nodecl_is_err_expr(nodecl_expr_out))
