@@ -248,7 +248,7 @@ namespace Vectorization
             //std::cerr << "From C to O: " << n.prettyprint() << ": " << &(it->first) <<  std::endl;
 
             internal_error("VectorizerAnalysis: Error translating "\
-            "Nodecl from copy to origin", 0);
+                    "Nodecl from copy to origin", 0);
             return n;
         }
 
@@ -286,12 +286,12 @@ namespace Vectorization
     }
 
 
-    bool VectorizationAnalysisInterface::is_invariant(
+    bool VectorizationAnalysisInterface::is_uniform(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
     {
-        return Analysis::AnalysisInterface::is_invariant(
+        return Analysis::AnalysisInterface::is_uniform(
                 translate_input(scope), translate_input(stmt),
                 translate_input(n));
     }
@@ -409,11 +409,11 @@ namespace Vectorization
             int unroll_factor, int alignment, int& vector_size_module)
     {
         Nodecl::NodeclBase translated_scope = translate_input(scope);
-        const objlist_nodecl_t& translated_suitable_expressions =
-            translate_input(suitable_expressions);
+//        const objlist_nodecl_t& translated_suitable_expressions =
+//            translate_input(suitable_expressions);
 
         return is_suitable_expression_internal(translated_scope, n,
-                translated_suitable_expressions, unroll_factor, alignment,
+                suitable_expressions, unroll_factor, alignment,
                 vector_size_module);
     }
 
@@ -442,16 +442,6 @@ namespace Vectorization
         return is_adjacent_access_internal(scope_node, n_node, translated_n, pcfg);
     }
 
-    Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
-            const Nodecl::NodeclBase& n)
-    {
-        Nodecl::NodeclBase n_copy = n.shallow_copy();
-        
-        shallow_copy_rec(n, n_copy);
-
-        return n_copy;
-    }
- 
     void VectorizationAnalysisInterface::shallow_copy_rec(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
@@ -497,6 +487,58 @@ namespace Vectorization
                 shallow_copy_rec(*children_it, *children_copy_it);
             }
         }
+    }
+
+    Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
+            const Nodecl::NodeclBase& n)
+    {
+        Nodecl::NodeclBase n_copy = n.shallow_copy();
+        
+        shallow_copy_rec(n, n_copy);
+
+        return n_copy;
+    }
+ 
+    Nodecl::NodeclBase VectorizationAnalysisInterface::deep_copy(
+            const Nodecl::NodeclBase& n,
+            TL::ReferenceScope ref_scope)
+    {
+        Nodecl::Utils::SimpleSymbolMap empty_sym_map;
+        Nodecl::Utils::NodeclDeepCopyMap new_origin_to_copy_nodes;
+        Nodecl::Utils::SymbolDeepCopyMap new_orig_to_copy_symbols;
+
+        Nodecl::NodeclBase n_copy = Nodecl::Utils::deep_copy(n, ref_scope,
+                empty_sym_map, new_origin_to_copy_nodes, new_orig_to_copy_symbols);
+        
+        // Register new Nodecl::Symbols
+        shallow_copy_rec(n, n_copy);
+
+        // Register new TL::Symbols
+        for(Nodecl::Utils::SymbolDeepCopyMap::iterator it = 
+                new_orig_to_copy_symbols.begin(); 
+                it != new_orig_to_copy_symbols.end();
+                it++)
+        {
+            Nodecl::Utils::SymbolDeepCopyMap::iterator found_it =
+                _orig_to_copy_symbols.find(it->first);
+
+            // There is equal symbol in origin and, therefore, in copy
+            // Insert the new copy
+            if (found_it != _orig_to_copy_symbols.end())
+            {
+                _orig_to_copy_symbols.insert(
+                        std::pair<TL::Symbol, TL::Symbol>(
+                            it->second, found_it->first));
+            }
+            // There is NO equal node in origin
+            else
+            {
+                internal_error("VectorizerAnalysis: Original node doesn't exist in the copy (Deep Copy)", 0);
+            }
+        }
+
+
+        return n_copy;
     }
 
     /*

@@ -31,6 +31,7 @@
 
 #include "tl-vectorization-utils.hpp"
 #include "tl-vectorizer.hpp"
+#include "tl-vectorizer-visitor-local-symbol.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
 
@@ -114,6 +115,10 @@ namespace TL
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
                         _environment._unroll_factor).get_function_returning(parameters_vector_type));
+
+            // Vectorize Local Symbols
+            VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+            visitor_local_symbol.walk(function_code);
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);

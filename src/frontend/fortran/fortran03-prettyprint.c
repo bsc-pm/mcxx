@@ -478,7 +478,7 @@ const char* fortran_prettyprint_in_buffer(AST a)
     return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
-char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
+const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
@@ -491,7 +491,7 @@ char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callb
 
 const char* fortran_prettyprint_in_buffer(AST a);
 
-char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
+const char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
 
 static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {

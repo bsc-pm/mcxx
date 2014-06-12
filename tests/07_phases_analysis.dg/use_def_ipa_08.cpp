@@ -57,7 +57,7 @@ int main()
     int x = 2, y = 2;
     int empty_res;
     int* res = &empty_res;
-    #pragma analysis_check assert upper_exposed(x, y, n) undefined(res)
+    #pragma analysis_check assert upper_exposed(x, y, n) undefined(*res)
     foo(n, x, y, res);
     
 //     assert(*res == 4);

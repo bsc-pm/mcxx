@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.99.1],[roger.ferrer@bsc.es])
+AC_INIT([mcxx],[1.99.2],[roger.ferrer@bsc.es])
 
 configure_orig_arguments="$@"
 
@@ -116,6 +116,7 @@ INSTALL_CONFIG_FILES="00.config.plain"
 
 # plaincxx is always installed as a binary
 COMPILER_NAMES="plaincc plainfc plainf95"
+SCRIPT_COMPILER_NAMES=""
 
 dnl ----- SQLITE - Required only for fortran ---
 
@@ -524,7 +525,7 @@ then
    fi
    NANOX_MIC_INCLUDES="${nanox_mic_include}"
    NANOX_MIC_LIBS="${nanox_mic_lib}"
-   NANOX_MIC="${nanox}"
+   NANOX_MIC="${nanox_mic}" 
    
 
    AC_ARG_WITH([mic-tools],
@@ -559,15 +560,12 @@ then
    NANOX_LIBS="${nanox_lib}"
    NANOX="${nanox}"
 
-   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx"
-
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
-   COMPILER_NAMES="${COMPILER_NAMES} mf95 mfc"
+   COMPILER_NAMES="${COMPILER_NAMES} mcc mcxx mf95 mfc"
 
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 57.config.omp.smp"
    COMPILER_NAMES="${COMPILER_NAMES} smpfc smpcc smpcxx"
 
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 40.config.cuda"
 fi
 
 AM_CONDITIONAL([BUILD_NANOS_COMMON], test x$is_enabled_tl_omp_nanox = xyes)
@@ -783,7 +781,7 @@ if test x$cuda_enabled = xyes ; then
     then
         AC_PATH_PROG([NVCC], [nvcc], [$NVCC], [$CUDADIR/bin$PATH_SEPARATOR$PATH])
         if test x$NVCC = x ; then
-            AC_MSG_WARN([nvcc not found. Disabling GPU support])
+            AC_MSG_WARN([nvcc not found. Disabling CUDA support])
             cuda_valid=no
         else
             CUDA_INCLUDES="$CUDADIR/include"
@@ -795,7 +793,7 @@ if test x$cuda_enabled = xyes ; then
             cuda_valid=yes
         fi
     else
-         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling GPU Support])
+         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling CUDA Support])
 	     cuda_valid=no
     fi
 fi
@@ -925,7 +923,7 @@ then
 fi
 
 if test x$is_enabled_tl_omp_nanox = xyes -a x$opencl_valid = xyes; then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ocl"
+    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ocl"
     COMPILER_NAMES="${COMPILER_NAMES} oclmcc oclmcxx oclmfc"
 else
     DISABLE_OPENCL="\#OpenCL support disabled"
@@ -965,7 +963,7 @@ AC_ARG_ENABLE([nanox-mpi-device],
     mpi_enabled="yes"
     AC_MSG_RESULT([no])
   ]
-)
+) 
 
 if test x$mpi_enabled = xyes;
 then
@@ -1065,9 +1063,9 @@ then
        CPPFLAGSBACKUP="$CPPFLAGS"
        CXXFLAGSBACKUP="$CXXFLAGS"
 
-       CFLAGS="$CFLAGS -I$nanox_include"
-       CPPFLAGS="$CPPFLAGS -I$nanox_include"
-       CXXFLAGS="$CXXFLAGS -I$nanox_include"
+       CFLAGS="$CFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+       CPPFLAGS="$CPPFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
+       CXXFLAGS="$CXXFLAGS -D_NANOS_MPI_H_ -I$nanox_include"
        AC_CHECK_HEADER([nanos-mpi.h], [mpi_valid=yes],[])
 
        CFLAGS="$CFLAGSBACKUP"
@@ -1078,11 +1076,13 @@ fi
 
 if test x$mpi_valid = xyes;
 then
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcc"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimcxx"
-    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} mpimfc"
-    COMPILER_NAMES="${COMPILER_NAMES} mpimcc mpimcxx mpimfc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.mpi"
+   if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
+   then
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 56.config.omp.intel.mpi"
+   fi
+
+   SCRIPT_COMPILER_NAMES="${SCRIPT_COMPILER_NAMES} mpimcc mpimcxx mpimfc"
 else
     DISABLE_MPI="\#do not uncomment"
 fi
@@ -1141,49 +1141,49 @@ then
        INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
    fi
 
-   # Intel C/C++ + Nanos++
-   if test x$ICC != x;
+
+   if test x$ICC != x -o x$ICPC != x -o x$IFORT != x;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} imcc"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel 57.config.omp.smp.intel"
+
+      # Intel C/C++/Fortran + Nanos++
+      if test x$ICC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} imcc ismpcc"
+      fi
+
+      if test x$ICPC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} imcxx ismpcxx"
+      fi
+
+      if test -x$IFORT != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc ismpfc"
+      fi
    fi
 
-   if test x$ICPC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
-   fi
 
-   if test x$ICC != x -o x$ICPC != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
-   fi
 
-   # Intel Fortran + Nanos++
-   if test x$IFORT != x;
+   if test x$XLC != x -o x$XLCXX != x -o x$XLF != x;
    then
-      COMPILER_NAMES="${COMPILER_NAMES} plainimfc imfc imf95 ifort-plainfc ifort-mfc"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel.fortran"
-   fi
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm 57.config.omp.smp.ibm"
 
-   # IBM XL C/C++ + Nanos++
-   if test x$XLC != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
-   fi
-   if test x$XLCXX != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
-   fi
+      # IBM XL C/C++/Fortran + Nanos++
+      if test x$XLC != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcc xlsmpcc"
+      fi
 
-   if test x$XLC != x -o x$XLCXX != x;
-   then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
-   fi
+      if test x$XLCXX != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmcxx xlsmpcxx"
+      fi
 
-   # IBM XL Fortran + Nanos++
-   if test x$XLF != x;
-   then
-      COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95"
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm.fortran"
+      if test x$XLF != x;
+      then
+          COMPILER_NAMES="${COMPILER_NAMES} xlmfc xlmf95 xlsmpfc"
+      fi
    fi
 fi
 
@@ -1855,6 +1855,7 @@ mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'
 AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
 AC_SUBST([COMPILER_NAMES])
+AC_SUBST([SCRIPT_COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
@@ -1971,7 +1972,7 @@ then
 fi
 
 echo "   MPI testing enabled:" $mpi_valid
-echo "   GPU testing enabled:" $cuda_valid
+echo "   CUDA testing enabled:" $cuda_valid
 echo "   OpenCL testing enabled:" $opencl_valid
 echo ""
 echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile

@@ -1,0 +1,47 @@
+# IBM XL
+[xlsmpcc : omp-base-ibm]
+language = C
+options = -qlanglvl=extc99
+options = --vector-flavor=altivec
+options = --xl-compat
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+preprocessor_name = @XLC@
+preprocessor_uses_stdout = yes
+# Hide annoying messages produced when XL finds a Nanos++ pragma
+preprocessor_options = -qsuppress=1506-224
+compiler_name = @XLC@
+linker_name = @XLC@
+
+[xlsmpcxx : omp-base-ibm]
+language = C++
+{openmp} preprocessor_options = -qinclude=new
+options = --vector-flavor=altivec
+options = --xl-compat
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+preprocessor_name = @XLCXX@
+preprocessor_uses_stdout = yes
+compiler_name = @XLCXX@
+linker_name = @XLCXX@
+
+[xlsmpfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp --fortran-array-descriptor=xlf
+# XL Fortran does not allow using LOC for functions
+# instead generate C-wrappers for this
+options = --variable=emit_fun_loc:1
+{!ompss} options = --variable=copy_deps_by_default:0
+{ompss,!?copy-deps|!copy-deps} options = --variable=copy_deps_by_default:0
+{ompss,?copy-deps,copy-deps}   options = --variable=copy_deps_by_default:1
+# IBM provides its own Fortran preprocessor but there is no way to make xlf only
+# preprocess a Fortran file, so lets use gfortran
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @XLF@
+# XL Fortran does not append _ to function names by default. It should, though.
+compiler_options = -qextname -qxlf2003=autorealloc
+linker_name = @XLF@
+linker_options =

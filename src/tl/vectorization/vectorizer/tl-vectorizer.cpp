@@ -34,7 +34,7 @@
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-preprocessor.hpp"
 #include "tl-vectorizer-visitor-postprocessor.hpp"
-#include "tl-vectorizer-visitor-for.hpp"
+#include "tl-vectorizer-visitor-loop.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
@@ -107,7 +107,7 @@ namespace Vectorization
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main ForStatement -----\n");
             }
 
-            VectorizerVisitorFor visitor_for(environment);
+            VectorizerVisitorLoop visitor_for(environment);
             visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
         }
         else if (loop_statement.is<Nodecl::WhileStatement>())
@@ -116,8 +116,9 @@ namespace Vectorization
             {
                 fprintf(stderr, "VECTORIZER: ----- Vectorizing main WhileStatement -----\n");
             }
-
-
+            
+            VectorizerVisitorLoop visitor_for(environment);
+            visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
         }
 
         // Applying strenth reduction
@@ -169,7 +170,7 @@ namespace Vectorization
         }
     }
 
-    void Vectorizer::process_epilog(Nodecl::ForStatement& for_statement,
+    void Vectorizer::process_epilog(Nodecl::NodeclBase& loop_statement,
             VectorizerEnvironment& environment,
             Nodecl::NodeclBase& net_epilog_node,
             int epilog_iterations,
@@ -181,12 +182,12 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: ----- Vectorizing epilog -----\n");
         }
 
-        VectorizerVisitorForEpilog visitor_epilog(environment,
+        VectorizerVisitorLoopEpilog visitor_epilog(environment,
                 epilog_iterations, only_epilog, is_parallel_loop);
-        visitor_epilog.visit(for_statement, net_epilog_node);
+        visitor_epilog.visit(loop_statement, net_epilog_node);
 
         // Applying strenth reduction
-        TL::Optimizations::canonicalize_and_fold(for_statement, _fast_math_enabled);
+        TL::Optimizations::canonicalize_and_fold(loop_statement, _fast_math_enabled);
         TL::Optimizations::canonicalize_and_fold(net_epilog_node, _fast_math_enabled);
 
         VECTORIZATION_DEBUG()
@@ -270,7 +271,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_sse()
     {
-        fprintf(stderr, "Enabling SVML SSE\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML SSE\n");
+        }
 
         if (!_svml_sse_enabled)
         {
@@ -342,7 +346,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_avx2()
     {
-        fprintf(stderr, "Enabling SVML AVX2\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML AVX2\n");
+        }
 
         if (!_svml_avx2_enabled)
         {
@@ -420,7 +427,10 @@ namespace Vectorization
 
     void Vectorizer::enable_svml_knc()
     {
-        fprintf(stderr, "Enabling SVML KNC\n");
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "Enabling SVML KNC\n");
+        }
 
         if (!_svml_knc_enabled)
         {

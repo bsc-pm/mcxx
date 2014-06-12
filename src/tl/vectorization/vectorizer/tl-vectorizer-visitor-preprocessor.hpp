@@ -47,6 +47,7 @@ namespace Vectorization
             VectorizerVisitorPreprocessor(
                     const VectorizerEnvironment& environment);
 
+            void visit(const Nodecl::ObjectInit& n);
             void visit(const Nodecl::ArraySubscript& n);
 
             void visit(const Nodecl::AddAssignment& n);

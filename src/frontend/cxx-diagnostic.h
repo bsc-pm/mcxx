@@ -60,6 +60,9 @@ diagnostic_context_t* diagnostic_context_push_buffered(void);
 void diagnostic_context_pop_and_discard(void);
 void diagnostic_context_pop_and_commit(void);
 
+diagnostic_context_t* diagnostic_context_new_instantiation(const char* header_message);
+diagnostic_context_t* diagnostic_context_push_instantiation(const char* header_message);
+
 MCXX_END_DECLS
 
 #endif // CXX_DIAGNOSTIC_H

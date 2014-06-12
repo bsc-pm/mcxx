@@ -1210,10 +1210,10 @@ static void build_scope_module_program_unit(AST program_unit,
     {
         *nodecl_output = nodecl_internal_subprograms;
     }
-    
-    // Add the body of the module to the list 
-    
-    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_body);
+
+    // Add the body of the module to the list. Note that if nodecl_body is
+    // non-empty we want it to appear before in the tree
+    *nodecl_output = nodecl_concat_lists(nodecl_body, *nodecl_output);
 
     // Now adjust attributes of symbols
     int i, num_symbols = new_entry->entity_specs.num_related_symbols;

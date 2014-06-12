@@ -317,6 +317,9 @@ namespace Nodecl
         }
         else if (n.is<Nodecl::Reference>())
         {   // Nothing to be done for &x
+            // * &s       -> there is no load of s
+            // * &a[i]    -> there is only a load of i
+            // * &(p + q) -> there is a load of p and q
             in_ref = true;
         }
 

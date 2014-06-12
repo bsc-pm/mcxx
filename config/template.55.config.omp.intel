@@ -43,3 +43,45 @@ options = --variable=weaks_as_statics:1 --vector-flavor=intel --enable-ms-builti
 @DISABLE_OPENCL@{!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
 @DISABLE_OPENCL@{!mmic,openmp}compiler_phase = libtlnanox-opencl.so
 @DISABLE_OPENCL@{!mmic,openmp}linker_options = -lnanox-opencl-api
+
+[plainimfc]
+language = Fortran
+options = --do-not-wrap-modules --fortran-array-descriptor=ifort
+fortran_preprocessor_name = @IFORT@
+fortran_preprocessor_options = -P
+compiler_name = @IFORT@
+linker_name = @IFORT@
+linker_options =
+
+[ifort-plainfc : plainimfc]
+
+[imfc : omp-base]
+language = Fortran
+options = --do-not-wrap-modules --fortran-array-descriptor=ifort --vector-flavor=intel --enable-ms-builtins --enable-intel-vector-types
+options = -I @PKGDATADIR@/fortran/openmp
+fortran_preprocessor_name = @IFORT@
+fortran_preprocessor_options = -P
+compiler_name = @IFORT@
+compiler_options = -recursive -assume realloc_lhs -reentrancy threaded
+linker_name = @IFORT@
+linker_options = -reentrancy threaded
+{mmic} preprocessor_name = @ICC@
+{mmic} preprocessor_options = -mmic
+{mmic} fortran_preprocessor_options = -mmic
+{mmic} compiler_options = -mmic
+{mmic} linker_options = -mmic -lifcore -limf -lirng -lintlc -lsvml
+{mmic} linker_options = -Xlinker @RPATH_PARAMETER@ -Xlinker @MIC_LIBS@ -lcilkrts
+@DISABLE_CUDA@{!mmic,openmp}preprocessor_options = -D__CUDABE__ -I@CUDA_INCLUDES@ -include nanos-gpu.h
+@DISABLE_CUDA@{!mmic,openmp}options = --cuda
+@DISABLE_CUDA@{!mmic,openmp}linker_options = -lnanox-gpu-api
+@DISABLE_CUDA@{!mmic,openmp}compiler_phase = libtlnanox-cuda.so
+@DISABLE_OPENCL@{!mmic,openmp}options = --opencl
+@DISABLE_OPENCL@{!mmic,openmp}preprocessor_options = -include nanos-opencl.h -D_MERCURIUM_OPENCL_
+@DISABLE_OPENCL@{!mmic,openmp}compiler_phase = libtlnanox-opencl.so
+@DISABLE_OPENCL@{!mmic,openmp}linker_options = -lnanox-opencl-api
+{mmic}target_objcopy=@MIC_TOOLS@objcopy
+{mmic}target_objdump=@MIC_TOOLS@objdump
+{mmic}target_ar=@MIC_TOOLS@ar
+
+[imf95 : imfc]
+[ifort-mfc : imfc]

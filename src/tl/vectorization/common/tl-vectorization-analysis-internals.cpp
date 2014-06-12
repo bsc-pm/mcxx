@@ -54,8 +54,7 @@ namespace Vectorization
             for(; it != subscript.end() - 1 && result; ++it )
             {   
                 // All dimensions but the less significant must be constant
-                if(!is_invariant_internal(
-                            scope_node, n_node, n_node, n, pcfg))
+                if(!is_uniform_internal(scope_node, n_node, *it, pcfg))
                 {
                     result = false;
                 }
@@ -118,7 +117,8 @@ namespace Vectorization
         bool result = false;
         int type_size = n.get_type().basic_type().get_size();
         
-        SuitableAlignmentVisitor sa_v( scope, suitable_expressions, unroll_factor, type_size, alignment );
+        SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
+                unroll_factor, type_size, alignment );
         int subscript_alignment = sa_v.walk( n );
 
         vector_size_module = ( ( subscript_alignment == -1 ) ? subscript_alignment :

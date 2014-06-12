@@ -86,6 +86,12 @@ LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_cont
 LIBMCXX_EXTERN char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, decl_context_t decl_context,
         const locus_t* locus);
 
+LIBMCXX_EXTERN char check_default_initialization_of_type(
+        type_t* t,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        scope_entry_t** constructor);
+
 LIBMCXX_EXTERN char check_copy_constructor(scope_entry_t* entry,
         decl_context_t decl_context,
         char has_const,
@@ -139,6 +145,18 @@ LIBMCXX_EXTERN char check_nodecl_nontype_template_argument_expression(nodecl_t n
 LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr, 
         decl_context_t decl_context, 
         type_t* declared_type, 
+        char disallow_narrowing,
+        nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void check_nodecl_function_argument_initialization(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        char disallow_narrowing,
+        nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void check_nodecl_braced_initializer(nodecl_t braced_initializer, 
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        char is_explicit_type_cast,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -168,6 +186,11 @@ void get_packs_in_expression(nodecl_t nodecl,
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int pack_index);
+
+nodecl_t update_cxx_dep_qualified_name(nodecl_t cxx_dep_name,
+        decl_context_t new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 

@@ -26,13 +26,14 @@
 
 #include "tl-vectorizer-visitor-statement.hpp"
 
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
-
-#include "tl-vectorization-utils.hpp"
-#include "tl-vectorizer.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
 #include "tl-vectorizer-loop-info.hpp"
 #include "tl-vectorizer-visitor-expression.hpp"
+#include "tl-vectorizer.hpp"
+#include "tl-vectorization-utils.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
+
 
 namespace TL
 {
@@ -65,7 +66,7 @@ namespace Vectorization
         _environment._analysis_scopes.push_back(n);
 
         VectorizerLoopInfo loop_info(n, _environment);
-        Nodecl::LoopControl loop_control = n.get_loop_header().
+        Nodecl::LoopControl main_loop_control = n.get_loop_header().
             as<Nodecl::LoopControl>();
 
         VectorizerVisitorExpression visitor_expression(_environment,
@@ -73,9 +74,9 @@ namespace Vectorization
 
         // PROCESING LOOP CONTROL
         bool init_next_need_vectorization =
-            !loop_info.ivs_values_are_invariant_in_simd_scope();
+            !loop_info.ivs_values_are_uniform_in_simd_scope();
         bool condition_needs_vectorization =
-            !loop_info.condition_is_invariant_in_simd_scope();
+            !loop_info.condition_is_uniform_in_simd_scope();
 
         // Init
 
@@ -87,77 +88,129 @@ namespace Vectorization
             }
         }
 
-        // If Init or Step depends on SIMD IV both need to be vectorized
-        if (init_next_need_vectorization)
-        {
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: Vectorizing init\n");
-            }
-
-            visitor_expression.walk(loop_control.get_init());
-
-            VECTORIZATION_DEBUG()
-            {
-                fprintf(stderr, "VECTORIZER: Vectorizing next\n");
-            }
-
-            visitor_expression.walk(loop_control.get_next());
-        }
-
-        // Condition
         if (condition_needs_vectorization)
         {
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Condition '%s' needs vectorization\n",
-                        loop_control.get_cond().prettyprint().c_str());
+                        main_loop_control.get_cond().prettyprint().c_str());
             }
-        
+        }
+
+
+        if (init_next_need_vectorization || condition_needs_vectorization)
+        {
+            Nodecl::ForStatement epilog = 
+                VectorizationAnalysisInterface::_vectorizer_analysis->
+                deep_copy(n, n).as<Nodecl::ForStatement>();
+
+            n.append_sibling(epilog);
+
+            Nodecl::LoopControl epilog_loop_control = epilog.get_loop_header().
+                as<Nodecl::LoopControl>();
+
+
+            // If Init or Step depends on SIMD IV both need to be vectorized
+            if (init_next_need_vectorization)
+            {
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "VECTORIZER: Vectorizing init\n");
+                }
+
+                visitor_expression.walk(main_loop_control.get_init());
+
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "VECTORIZER: Vectorizing next\n");
+                }
+
+                visitor_expression.walk(epilog_loop_control.get_next());
+                visitor_expression.walk(main_loop_control.get_next());
+            }
+
+            // Condition
             VECTORIZATION_DEBUG()
             {
                 fprintf(stderr, "VECTORIZER: Vectorizing loop condition\n");
             }
 
-            // New condition: while((mask = cmp) != 0) do
+            // EPILOG condition: while((mask = cmp) != 0) do
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
                         _environment._unroll_factor,
                         true /*ref_type*/);
 
-            Nodecl::NodeclBase condition = loop_control.get_cond();
+            Nodecl::NodeclBase epilog_condition = epilog_loop_control.get_cond();
 
-            visitor_expression.walk(condition);
+            visitor_expression.walk(epilog_condition);
 
-            Nodecl::Different new_condition =
+            Nodecl::Different epilog_new_condition =
                 Nodecl::Different::make(
-                        Nodecl::Assignment::make(mask_condition_symbol,
-                            condition.shallow_copy(),
+                        Nodecl::Assignment::make(
+                            mask_condition_symbol.shallow_copy(),
+                            epilog_condition.shallow_copy(),
                             mask_condition_symbol.get_type()),
                         const_value_to_nodecl(const_value_get_zero(4, 1)),
                         Type::get_bool_type());
 
-            condition.replace(new_condition);
+            epilog_condition.replace(epilog_new_condition);
 
-            // Add loop condition as mask for vectorization
+            // Main loop condition: while((mask == 0xFFFF) != 0) do
+            Nodecl::NodeclBase main_loop_condition = main_loop_control.get_cond();
+
+            visitor_expression.walk(main_loop_condition);
+
+            Nodecl::Equal new_main_loop_condition =
+                Nodecl::Equal::make(
+                        Nodecl::Assignment::make(
+                            mask_condition_symbol.shallow_copy(),
+                            main_loop_condition.shallow_copy(),
+                            mask_condition_symbol.get_type()),
+                        const_value_to_nodecl(const_value_get_unsigned_int(0xFFFF)),
+                        Type::get_bool_type());
+
+            main_loop_condition.replace(new_main_loop_condition);
+
+            _environment._analysis_scopes.pop_back();
+
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
+            }
+
+            // EPILOG BODY
+            _environment._analysis_scopes.push_back(epilog);
+            // Add loop condition as mask for epilog vectorization
             _environment._mask_list.push_back(mask_condition_symbol);
-        }
 
-        // LOOP BODY
-        VECTORIZATION_DEBUG()
-        {
-            fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
-        }
+            walk(epilog.get_statement());
 
+            // Remove Init
+            epilog_loop_control.set_init(
+                    Nodecl::NodeclBase::null());
 
-        walk(n.get_statement());
-
-        _environment._analysis_scopes.pop_back();
-
-
-        if(condition_needs_vectorization) // Remove mask pushed by loop control
-        {
+            _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
+
+
+            // MAIN LOOP BODY
+            _environment._analysis_scopes.push_back(n);
+            walk(n.get_statement());
+
+            _environment._analysis_scopes.pop_back();
+        }
+        else
+        {
+            // LOOP BODY
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
+            }
+
+            walk(n.get_statement());
+
+            _environment._analysis_scopes.pop_back();
         }
 
         VECTORIZATION_DEBUG()
@@ -434,26 +487,24 @@ namespace Vectorization
                     _environment._unroll_factor);
         }
 
-        // Vectorizing symbol type
-        VECTORIZATION_DEBUG()
+        if (scalar_type.is_vector())
         {
-            fprintf(stderr,"VECTORIZER: '%s' TL::Symbol type vectorization "\
-                    "from '%s' to '%s'\n",
-                    sym.make_nodecl().prettyprint().c_str(),
-                    scalar_type.get_simple_declaration(
-                        n.retrieve_context(), "").c_str(),
-                    vector_type.get_simple_declaration(
-                        n.retrieve_context(), "").c_str());
+            Nodecl::NodeclBase init = sym.get_value();
+
+            // Vectorizing initialization
+            if(!init.is_null())
+            {
+                VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
+                visitor_expression.walk(init);
+            }
         }
-
-        sym.set_type(vector_type);
-
-        // Vectorizing initialization
-        Nodecl::NodeclBase init = sym.get_value();
-        if(!init.is_null())
+        else
         {
-            VectorizerVisitorExpression visitor_expression(_environment, _cache_enabled);
-            visitor_expression.walk(init);
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: '%s' TL::Symbol is kept scalar\n",
+                        sym.make_nodecl().prettyprint().c_str());
+            }
         }
     }
 

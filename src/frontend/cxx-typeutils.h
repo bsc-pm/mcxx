@@ -44,6 +44,7 @@
 
 MCXX_BEGIN_DECLS
 
+LIBMCXX_EXTERN standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest);
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
 LIBMCXX_EXTERN type_t* standard_conversion_get_orig_type(standard_conversion_t scs);
@@ -729,8 +730,15 @@ LIBMCXX_EXTERN const char* get_declaration_string_ex(type_t* type_info,
         const char** parameter_names,
         const char** parameter_attributes,
         char is_parameter,
+        char unparenthesize_ptr_operator,
         print_symbol_callback_t print_symbol_fun,
         void* print_symbol_data);
+
+// This function is extern because it's used in cxx-scope.c
+LIBMCXX_EXTERN const char* get_simple_type_name_string_internal_common(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        void* data UNUSED_PARAMETER);
 
 // Like get_declarator_name_string_ex but only returns the declarator part, ignoring the type specifier
 LIBMCXX_EXTERN const char* get_declarator_name_string_ex(decl_context_t decl_context,

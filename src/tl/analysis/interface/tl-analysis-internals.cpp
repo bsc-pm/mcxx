@@ -38,25 +38,57 @@ namespace Analysis {
      *  PROPERTIES
      */
 
-    TL::tribool invariant_property(
+    TL::tribool uniform_property(
             Node* const scope_node,
             Node* const stmt_node,
             const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& prev_n,
             ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
-        // Start of base cases for Invariant.
+        // Start of base cases for Uniform.
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
+        // Unknown RD
+        if(n.is<Nodecl::Unknown>())
+        {
+            // Unknown parameter must be taken into account only
+            // if is inside the scope_node, i.e. is a scope_node
+            // is a function code
+            if (scope_node->is_function_code_node())
+            {
+                if (prev_n.is<Nodecl::Symbol>() && 
+                        prev_n.get_symbol().is_parameter())
+                {
+                    // TODO: if 'n' is uniform parameter: true
+                    // TODO: else false. (if 'n' is non uniform or linear (IV) parameter)
+
+                    // So far, assume not uniform by default
+                    return false;
+                }
+                else
+                {
+                    internal_error("UniformProperty: Unknown RD from a non parameter node '%s'",
+                            n.prettyprint().c_str());
+                }
+            }
+            else
+            {
+                // Unknown parameter is not inside the scope
+                // E.g. it's uniform
+                return true;
+            }
+        }
         // TODO: n instead of stmt_node.
         // If the 'n' is not contained in the scope node,
-        // then n is invariant in the scope
+        // then n is uniform in the scope
         if(!ExtensibleGraph::node_contains_node(
                     scope_node, stmt_node))
             return true;
 
-        if(Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::FunctionCall>(n)) 
+        if(Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::FunctionCall>(n)) 
             return false;
 
         // Check if n contains an IV of the scope
@@ -83,28 +115,26 @@ namespace Analysis {
      *  QUERIES
      */
 
-    bool is_invariant_internal(
+    bool is_uniform_internal(
             Node* const scope_node,
             Node* const stmt_node,
-            Node* const n_node,
             const Nodecl::NodeclBase& n,
             ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
         TL::tribool result = nodecl_has_property_in_scope(scope_node,
-                stmt_node, n_node, n, pcfg,
-                invariant_property,
-                visited_nodes);
+                stmt_node, stmt_node, n, Nodecl::NodeclBase::null(), pcfg,
+                uniform_property, visited_nodes);
 
         ERROR_CONDITION(result.is_unknown(),
-                "is_invariant_internal returns unknown!", 0);
+                "is_uniform_internal returns unknown!", 0);
 
         return result.is_true();
     }
 
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
-            const std::set<TL::Symbol>& global_variables)
+            const GlobalVarsSet& global_variables)
     {
         bool result = false;
 
@@ -124,7 +154,7 @@ namespace Analysis {
                 Nodecl::NodeclBase nodecl_base = Utils::get_nodecl_base(n);
                 if (!nodecl_base.is_null())
                 {
-                    if(global_variables.find(nodecl_base.get_symbol()) != 
+                    if(global_variables.find(nodecl_base) != 
                                 global_variables.end()) // n is a global var
                         result = true;
                 }
@@ -166,9 +196,7 @@ namespace Analysis {
     {
         bool result = false;
         
-                                           //TODO: Implement a is_function_code_node        
-        if (scope_node->is_loop_node() || (scope_node->is_graph_node() &&
-                    scope_node->get_graph_related_ast().is<Nodecl::FunctionCode>()))
+        if (scope_node->is_loop_node() || scope_node->is_function_code_node())
         {
             ObjectList<Analysis::Utils::InductionVariableData*> ivs =
                 scope_node->get_induction_variables();

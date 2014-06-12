@@ -39,6 +39,17 @@ namespace Vectorization
     {
     }
 
+    void VectorizerVisitorPreprocessor::visit(const Nodecl::ObjectInit& n)
+    {
+        TL::Symbol sym = n.get_symbol();
+        Nodecl::NodeclBase init = sym.get_value();
+
+        if(!init.is_null())
+        {
+            walk(init);
+        }
+    }
+
     void VectorizerVisitorPreprocessor::visit(const Nodecl::ArraySubscript& n)
     {
         walk(n.get_subscripted());
@@ -146,15 +157,28 @@ namespace Vectorization
             const Nodecl::Preincrement& n)
     {
         Nodecl::NodeclBase parent = n.get_parent();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        TL::Type rhs_type = rhs.get_type();
+        Nodecl::NodeclBase lhs;
+
+        if(rhs.is<Nodecl::Symbol>() && rhs_type.is_lvalue_reference())
+        {
+            lhs = Nodecl::Conversion::make(rhs.shallow_copy(),
+                    rhs_type.references_to());
+        }
+        else
+        {
+            lhs = rhs.shallow_copy();
+        }
 
         if(parent.is<Nodecl::ExpressionStatement>() || 
                  parent.is<Nodecl::LoopControl>())
         {
             Nodecl::Assignment new_increment = 
                 Nodecl::Assignment::make(
-                        n.get_rhs().shallow_copy(),
+                        rhs.shallow_copy(),
                         Nodecl::Add::make(
-                            n.get_rhs().shallow_copy(),
+                            lhs,
                             const_value_to_nodecl(const_value_get_one(
                                     n.get_type().get_size(), 1)),
                             n.get_type(),
@@ -170,15 +194,28 @@ namespace Vectorization
             const Nodecl::Predecrement& n)
     {
         Nodecl::NodeclBase parent = n.get_parent();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+        TL::Type rhs_type = rhs.get_type();
+        Nodecl::NodeclBase lhs;
+
+        if(rhs.is<Nodecl::Symbol>() && rhs_type.is_lvalue_reference())
+        {
+            lhs = Nodecl::Conversion::make(rhs.shallow_copy(),
+                    rhs_type.references_to());
+        }
+        else
+        {
+            lhs = rhs.shallow_copy();
+        }
 
         if(parent.is<Nodecl::ExpressionStatement>() || 
                 parent.is<Nodecl::LoopControl>())
         {
             Nodecl::Assignment new_decrement = 
                 Nodecl::Assignment::make(
-                        n.get_rhs().shallow_copy(),
+                        rhs.shallow_copy(),
                         Nodecl::Minus::make(
-                            n.get_rhs().shallow_copy(),
+                            lhs,
                             const_value_to_nodecl(const_value_get_one(
                                     n.get_type().get_size(), 1)),
                             n.get_type(),

@@ -69,6 +69,7 @@ namespace Vectorization
                 Analysis::Node* const scope_node,
                 Analysis::Node* const stmt_node,
                 const Nodecl::NodeclBase& n,
+                const Nodecl::NodeclBase& prev_n,
                 Analysis::ExtensibleGraph* const pcfg,
                 std::set<Nodecl::NodeclBase> visited_nodes)
         {
@@ -104,11 +105,40 @@ namespace Vectorization
                     return TL::tribool::unknown;
                 }
             }
+            // Unknown RD
+            else if(n.is<Nodecl::Unknown>())
+            {
+                // Unknown parameter must be taken into account only
+                // if is inside the scope_node, i.e. is a scope_node
+                // is a function code
+                if (scope_node->is_function_code_node())
+                {
+                    if (prev_n.is<Nodecl::Symbol>() && 
+                            prev_n.get_symbol().is_parameter())
+                    {
+                        // TODO: if 'n' is linear with step 1, then true
+
+                        // So far, assume not uniform by default
+                        return false;
+                    }
+                    else
+                    {
+                        internal_error("AdjacencyProperty: Unknown RD from a non parameter node '%s'",
+                                n.prettyprint().c_str());
+                    }
+                }
+                else
+                {
+                    // Unknown parameter is not inside the scope
+                    // E.g. it's uniform
+                    return false;
+                }
+            }
             else
             {
                 // TODO: n instead of stmt_node.
                 // If the 'n' is not contained in the scope node,
-                // then n is invariant in the scope, so is not
+                // then n is uniform in the scope, so is not
                 // adjacent
                 if(!Analysis::ExtensibleGraph::node_contains_node(
                             scope_node, stmt_node))
@@ -454,24 +484,24 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
 
-        //std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_invariant
-        //    << " and rhs is constant " << rhs_is_invariant << std::endl;
+        //std::cerr << "In " << n.prettyprint() << " lhs is constant " << lhs_is_uniform
+        //    << " and rhs is constant " << rhs_is_uniform << std::endl;
 
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_invariant )
-                           || ( lhs_is_invariant && rhs_is_adjacent_access )
-                           || ( lhs_is_adjacent_access && rhs_is_invariant )
-                           || ( lhs_is_invariant && rhs_is_adjacent_access );
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_uniform )
+                           || ( lhs_is_uniform && rhs_is_adjacent_access )
+                           || ( lhs_is_adjacent_access && rhs_is_uniform )
+                           || ( lhs_is_uniform && rhs_is_adjacent_access );
 
-        return ( rhs_is_invariant && lhs_is_invariant );
+        return ( rhs_is_uniform && lhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::ArraySubscript& n )
@@ -505,54 +535,54 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         // lhs does not affect adjacency
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
 
-        return ( rhs_is_invariant && lhs_is_invariant );
+        return ( rhs_is_uniform && lhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BitwiseShl& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_zero = false;
-        if( rhs_is_invariant )
+        if( rhs_is_uniform )
             rhs_is_zero = nodecl_is_zero( rhs );
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
 
-        return ( lhs_is_invariant && rhs_is_invariant );
+        return ( lhs_is_uniform && rhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BitwiseShr& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_zero = false;
-        if( rhs_is_invariant )
+        if( rhs_is_uniform )
             rhs_is_zero = nodecl_is_zero( rhs );
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_zero;
 
-        return ( lhs_is_invariant && rhs_is_invariant );
+        return ( lhs_is_uniform && rhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::BooleanLiteral& n )
@@ -579,20 +609,20 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_invariant )
+        if( rhs_is_uniform )
             rhs_is_one = nodecl_is_one( rhs );
 
         // Compute adjacency info
         _is_adjacent_access = lhs_is_adjacent_access && rhs_is_one;
 
-        return ( lhs_is_invariant && rhs_is_invariant );
+        return ( lhs_is_uniform && rhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::FloatingLiteral& n )
@@ -619,16 +649,16 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
 
         // Adjacency is not applicable
         _is_adjacent_access = false;
 
-        return ( rhs_is_invariant && lhs_is_invariant );
+        return ( rhs_is_uniform && lhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::MaskLiteral& n )
@@ -640,36 +670,36 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
 
         // Compute adjacency info
-        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_invariant )
-                           || ( lhs_is_invariant && rhs_is_adjacent_access );
+        _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_uniform )
+                           || ( lhs_is_uniform && rhs_is_adjacent_access );
 
-        return ( rhs_is_invariant && lhs_is_invariant );
+        return ( rhs_is_uniform && lhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Mul& n )
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_one = false;
-        if( lhs_is_invariant )
+        if( lhs_is_uniform )
             lhs_is_one = nodecl_is_one( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_invariant )
+        if( rhs_is_uniform )
             rhs_is_one = nodecl_is_one( rhs );
         bool rhs_is_adjacent_access = _is_adjacent_access;
 
@@ -677,7 +707,7 @@ namespace Vectorization
         _is_adjacent_access = ( lhs_is_adjacent_access && rhs_is_one )
                            || ( rhs_is_adjacent_access && lhs_is_one );
 
-        return ( lhs_is_invariant && rhs_is_invariant );
+        return ( lhs_is_uniform && rhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Neg& n )
@@ -732,20 +762,20 @@ namespace Vectorization
     {
         // Gather LHS info
         Nodecl::NodeclBase lhs = n.get_lhs( );
-        bool lhs_is_invariant = walk( lhs );
+        bool lhs_is_uniform = walk( lhs );
         bool lhs_is_adjacent_access = _is_adjacent_access;
 
         // Gather RHS info
         Nodecl::NodeclBase rhs = n.get_rhs( );
-        bool rhs_is_invariant = walk( rhs );
+        bool rhs_is_uniform = walk( rhs );
         bool rhs_is_one = false;
-        if( rhs_is_invariant )
+        if( rhs_is_uniform )
             rhs_is_one = nodecl_is_one( rhs );
 
         // Compute adjacency info
-        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_invariant && rhs_is_one;
+        _is_adjacent_access = lhs_is_adjacent_access && rhs_is_uniform && rhs_is_one;
 
-        return ( lhs_is_invariant && rhs_is_invariant );
+        return ( lhs_is_uniform && rhs_is_uniform );
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Predecrement& n )
@@ -773,11 +803,11 @@ namespace Vectorization
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::Sizeof& n )
     {
-        bool n_is_invariant = walk( n.get_expr( ) );
+        bool n_is_uniform = walk( n.get_expr( ) );
 
         _is_adjacent_access = false;
 
-        return n_is_invariant;
+        return n_is_uniform;
     }
 
     bool ExpressionEvolutionVisitor::visit( const Nodecl::StringLiteral& n )
@@ -792,12 +822,13 @@ namespace Vectorization
 
         //std::cerr << "Studying " << n.prettyprint() << std::endl;
 
-        bool n_is_invariant = false;
+        bool n_is_uniform = false;
         // bool reach_defs_are_adjacent = false;
-        // bool reach_defs_are_invariant = false;
+        // bool reach_defs_are_uniform = false;
 
         TL::tribool is_adjacent_tribool = nodecl_has_property_in_scope(
-                    _scope_node, _n_node, _n_node, n, _pcfg,
+                    _scope_node, _n_node, _n_node, n, 
+                    Nodecl::NodeclBase::null(),_pcfg,
                     adjacency_property(), _adjacency_visited_nodes);
 
         ERROR_CONDITION(is_adjacent_tribool.is_unknown(), 
@@ -805,10 +836,10 @@ namespace Vectorization
 
         _is_adjacent_access = is_adjacent_tribool.is_true();
 
-        n_is_invariant = is_invariant_internal(
-                _scope_node, _n_node, _n_node, n, _pcfg);
+        n_is_uniform = is_uniform_internal(
+                _scope_node, _n_node, n, _pcfg);
                 
-        return n_is_invariant;
+        return n_is_uniform;
     }
 
 #if 0

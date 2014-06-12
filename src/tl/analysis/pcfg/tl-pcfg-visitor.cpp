@@ -79,7 +79,7 @@ namespace Analysis {
         _pcfg->connect_nodes( _utils->_return_nodes, returns_exit );
         _utils->_return_nodes.clear( );
 
-        _pcfg->dress_up_graph( );
+        //_pcfg->dress_up_graph( );
 
         return _pcfg;
     }
@@ -2966,7 +2966,7 @@ namespace Analysis {
         // Tag the symbol if it is a global variable
         Scope s_sc = n.get_symbol( ).get_scope( );
         if( !s_sc.scope_is_enclosed_by( _pcfg->_sc ) )
-            _pcfg->_global_vars.insert( n.get_symbol( ) );
+            _pcfg->_global_vars.insert( n );
 
         // Create the node
         return visit_literal_node( n );

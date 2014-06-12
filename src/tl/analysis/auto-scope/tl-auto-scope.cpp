@@ -382,13 +382,10 @@ namespace {
             {
                 if( usage_in_task._usage_type & Utils::UsageKind::DEFINED )
                 {
-                    std::set<Symbol> global_vars = _graph->get_global_variables( );
-                    Symbol sym( Utils::get_nodecl_base( ei.get_nodecl( ) ).get_symbol( ) );
-                    ERROR_CONDITION( !sym.is_valid( ), 
-                                     "An ExtendedSymbol must have a symbol associated to it base nodecl, but %s does not have one", 
-                                     ei.get_nodecl( ).prettyprint( ).c_str( ) );
-                    if( ( global_vars.find( sym ) != global_vars.end( ) ) || 
-                        Utils::ext_sym_set_contains_nodecl( ei.get_nodecl( ), task->get_live_out_vars( ) ) )
+                    GlobalVarsSet global_vars = _graph->get_global_variables( );
+                    Nodecl::NodeclBase n = ei.get_nodecl();
+                    if( ( global_vars.find( n ) != global_vars.end( ) ) || 
+                        Utils::ext_sym_set_contains_nodecl( n, task->get_live_out_vars( ) ) )
                     {
                         task->set_sc_shared_var( ei );
                     }
