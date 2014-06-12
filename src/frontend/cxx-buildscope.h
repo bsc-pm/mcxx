@@ -86,8 +86,6 @@ LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* tran
 LIBMCXX_EXTERN void c_initialize_builtin_symbols(decl_context_t decl_context);
 
 LIBMCXX_EXTERN nodecl_t build_scope_translation_unit(translation_unit_t* translation_unit);
-LIBMCXX_EXTERN void build_scope_translation_unit_post(translation_unit_t* translation_unit UNUSED_PARAMETER);
-LIBMCXX_EXTERN void build_scope_translation_unit_pre(translation_unit_t* translation_unit UNUSED_PARAMETER);
 
 LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list,
         decl_context_t decl_context,
@@ -142,8 +140,6 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type,
         AST declarator);
 
-LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
-
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);
 LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type);
 
@@ -190,6 +186,7 @@ char check_constexpr_function(scope_entry_t* entry,
 char check_constexpr_function_code(scope_entry_t* entry,
         nodecl_t nodecl_body,
         char emit_error);
+scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus);
 
 
 MCXX_END_DECLS

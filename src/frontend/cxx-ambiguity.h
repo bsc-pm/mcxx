@@ -39,9 +39,11 @@
 
 MCXX_BEGIN_DECLS
 
-typedef char ambiguity_check_intepretation_fun_t(AST, decl_context_t, void* info);
-typedef int ambiguity_choose_interpretation_fun_t(AST current, AST previous, decl_context_t, void* info);
-typedef char ambiguity_fallback_interpretation_fun_t(AST, decl_context_t, void* info);
+typedef char ambiguity_check_intepretation_fun_t(AST, decl_context_t, int option_idx, void* info);
+typedef int ambiguity_choose_interpretation_fun_t(AST current, AST previous,
+        int current_idx, int previous_idx,
+        decl_context_t, void* info);
+typedef char ambiguity_fallback_interpretation_fun_t(AST, decl_context_t, int option_idx, void* info);
 
 LIBMCXX_EXTERN void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
         ambiguity_check_intepretation_fun_t* ambiguity_check_intepretation,
@@ -77,18 +79,11 @@ LIBMCXX_EXTERN char solve_ambiguous_list_of_expressions(AST ambiguous_list, decl
 
 LIBMCXX_EXTERN char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-LIBMCXX_EXTERN template_parameter_list_t* solve_ambiguous_list_of_template_arguments(AST ambiguous_list, decl_context_t decl_context);
-
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 
 // States if we are checking ambiguities
-LIBMCXX_EXTERN char checking_ambiguity(void);
-LIBMCXX_EXTERN void enter_test_expression(void);
-LIBMCXX_EXTERN void leave_test_expression(void);
-
-// This is used when instantiating
-LIBMCXX_EXTERN char get_test_expression_status(void);
-LIBMCXX_EXTERN void set_test_expression_status(char c);
+LIBMCXX_EXTERN DEPRECATED void enter_test_expression(void);
+LIBMCXX_EXTERN DEPRECATED void leave_test_expression(void);
 
 MCXX_END_DECLS
 

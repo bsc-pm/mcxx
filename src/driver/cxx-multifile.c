@@ -189,6 +189,11 @@ void multifile_extract_extended_info(const char* filename)
 // This routine works both for .a and for .o thanks to objdump
 char multifile_object_has_extended_info(const char* filename)
 {
+    // If the file cannot be accessed by some reason, ignore it
+    // and let the linker fail later
+    if (access(filename, R_OK) != 0)
+        return 0;
+
     temporal_file_t temp = new_temporal_file();
 
     const char* arguments[] =
@@ -202,14 +207,14 @@ char multifile_object_has_extended_info(const char* filename)
     if (execute_program_flags(CURRENT_CONFIGURATION->target_objdump,
                 arguments, /* stdout_f */ temp->name, /* stderr_f */ NULL) != 0)
     {
-        running_error("Error when identifying object file");
+        running_error("Error when identifying object file '%s'", filename);
     }
 
     FILE* stdout_file = fopen(temp->name, "r");
 
     if (stdout_file == NULL)
     {
-        running_error("Error when examining output of 'objdump'");
+        running_error("Error when examining output of 'objdump' of file '%s'", filename);
     }
 
     char line[256];

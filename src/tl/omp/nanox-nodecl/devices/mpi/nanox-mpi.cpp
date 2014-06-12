@@ -237,7 +237,7 @@ void DeviceMPI::generate_additional_mpi_code(
     }
     
     if (IS_CXX_LANGUAGE && Nanos::Version::interface_is_at_least("copies_api", 1003)){
-        int counter=0;
+//        int counter=0;
         for (TL::ObjectList<OutlineDataItem*>::const_iterator it = data_items.begin();
                     it != data_items.end();
                     it++)
@@ -247,43 +247,43 @@ void DeviceMPI::generate_additional_mpi_code(
             TL::Symbol data_sym= data_item.get_symbol();
 
             //Only serialize when there are no copies and the symbol is serializable
-            if (!copies.empty() && is_serializable(data_sym)){
-                TL::Type ser_type = data_sym.get_type();
-                TL::Symbol sym_serializer = ser_type.get_symbol();
-                if (sym_serializer.get_type().is_pointer_to_class()){
-                    ser_type= sym_serializer.get_type().get_pointer_to();
-                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
-                }
-                int input=0;
-                int output=0;
-                for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
-                        copy_it != copies.end();
-                        copy_it++)
-                {
-                    TL::DataReference data_ref(copy_it->expression);
-                    OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
-
-                    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
-
-                    input += (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
-                    output += (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
-                }
-
-                //If no input, warning (a serializable object MUST be input)
-                if (input==0){
-                    std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
-                } else {
-                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
-                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
-                    code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
-                    code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
-                    //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
-                    if (output!=0){
-                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
-                    }
-                }
-                ++counter;
-            }
+//            if (!copies.empty() && is_serializable(data_sym)){
+//                TL::Type ser_type = data_sym.get_type();
+//                TL::Symbol sym_serializer = ser_type.get_symbol();
+//                if (sym_serializer.get_type().is_pointer_to_class()){
+//                    ser_type= sym_serializer.get_type().get_pointer_to();
+//                    sym_serializer= sym_serializer.get_type().get_pointer_to().get_symbol();
+//                }
+//                int input=0;
+//                int output=0;
+//                for (TL::ObjectList<OutlineDataItem::CopyItem>::iterator copy_it = copies.begin();
+//                        copy_it != copies.end();
+//                        copy_it++)
+//                {
+//                    TL::DataReference data_ref(copy_it->expression);
+//                    OutlineDataItem::CopyDirectionality dir = copy_it->directionality;
+//
+//                    Nodecl::NodeclBase address_of_object = data_ref.get_address_of_symbol();
+//
+//                    input += (dir & OutlineDataItem::COPY_IN) == OutlineDataItem::COPY_IN;
+//                    output += (dir & OutlineDataItem::COPY_OUT) == OutlineDataItem::COPY_OUT;
+//                }
+//
+//                //If no input, warning (a serializable object MUST be input)
+//                if (input==0){
+//                    std::cerr << data_sym.get_locus_str() << ": warning: when serializing an object it must be declared as copy_in, skipping serialization "  << std::endl;
+//                } else {
+//                    if (output!=0) code_device_pre << "nanos::omemstream " << " " << "outbuff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";   
+//                    code_device_pre << "nanos::imemstream " << " " << "buff_" << data_sym.get_name() << counter << "((char*)args." << data_sym.get_name() << ",2147483647);";                    
+//                    code_device_pre << sym_serializer.get_qualified_name() << " " << "tmp_" << data_sym.get_name() << counter << "(buff_" << data_sym.get_name() << counter << ");";
+//                    code_device_pre << "args." << data_sym.get_name() << "=&tmp_" << data_sym.get_name() << counter << ";";
+//                    //If there is an output, serialize the object after the task, so when nanox comes back to the device, the buffer is updated
+//                    if (output!=0){
+//                          code_device_post << "tmp_" << data_sym.get_name() << counter << ".serialize(outbuff_" << data_sym.get_name() << counter << ");";
+//                    }
+//                }
+//                ++counter;
+//            }
         }
     }
     //Insert implicit #taskwait noflush after task
@@ -1080,7 +1080,11 @@ static std::ifstream::pos_type get_filesize(const char* filename)
 {
     std::ifstream in(filename, std::ifstream::in | std::ifstream::binary);
     in.seekg(0, std::ifstream::end);
-    return in.tellg(); 
+    std::ifstream::pos_type pos=in.tellg();
+    if (pos==-1) {
+        pos=1;
+    }
+    return pos; 
 }
 
 static unsigned hash_str(const char* s)
@@ -1127,6 +1131,13 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
     //This section will be synchronized in "nanos_sync_dev_pointers" nanox call
     //so we have function pointers in the same order in both processes
     if (_mpi_task_processed || main.is_valid()) {
+        
+//        if (main.is_valid()) {
+//        std::string new_filename = "/home/Computational/fsainz/mpiall.o";
+//        std::cout << "adding " << new_filename << "to files\n";
+//        TL::CompilationProcess::add_file(new_filename, "plaincxx");
+//        }
+//        
         Source functions_section;   
         
         //Extern declaration of fortran tasks in C file (needed, until codegen can do them, but it's this is unlikely to happen
@@ -1137,14 +1148,19 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         functions_section << "int (ompss_mpi_masks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_mask\"))) = { "
                 << MASK_TASK_NUMBER
                 << "}; ";
+        
         //Filename hash (so we can know in which order files linked)
+        std::stringstream filenameHash;
+        filenameHash << hash_str(TL::CompilationProcess::get_current_file().get_filename(true).c_str());
         functions_section << "unsigned int(ompss_mpi_filenames[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_names\"))) = { "
-                << hash_str(TL::CompilationProcess::get_current_file().get_filename().c_str())
+                << filenameHash.str()
                 << "}; ";
         
         //File size (so we "ensure" that both files compiled exactly the same code)
+        std::stringstream fileSize;
+        fileSize << get_filesize(TL::CompilationProcess::get_current_file().get_filename(true).c_str()) << _currTaskId;
         functions_section << "unsigned int (ompss_mpi_file_sizes[]) __attribute__((weak)) __attribute__ ((section (\"ompss_file_sizes\"))) = { "
-                << get_filesize(TL::CompilationProcess::get_current_file().get_filename().c_str()) << _currTaskId
+                << fileSize.str()
                 << "}; ";
         //Number of tasks in file  (used to ensure that both files had the same number, and also for ordering)
         functions_section << "unsigned int (ompss_mpi_file_ntasks[]) __attribute__((weak)) __attribute__ ((section (\"ompss_mpi_file_n_tasks\"))) = { "
@@ -1200,7 +1216,7 @@ void DeviceMPI::phase_cleanup(DTO& data_flow) {
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-        phase->codegen_top_level(_extra_c_code, ancillary_file);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 

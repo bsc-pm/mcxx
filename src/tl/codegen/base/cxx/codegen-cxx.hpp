@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-  
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -190,7 +190,34 @@ namespace Codegen
             Ret visit(const Nodecl::TryBlock &);
             Ret visit(const Nodecl::Type &);
             Ret visit(const Nodecl::Typeid &);
+            Ret visit(const Nodecl::Unknown &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
+            Ret visit(const Nodecl::VectorAdd &);
+            Ret visit(const Nodecl::VectorConversion &);
+            Ret visit(const Nodecl::VectorMul &);
+            Ret visit(const Nodecl::VectorDiv &);
+            Ret visit(const Nodecl::VectorMod &);
+            Ret visit(const Nodecl::VectorMinus &);
+            Ret visit(const Nodecl::VectorEqual &);
+            Ret visit(const Nodecl::VectorDifferent &);
+            Ret visit(const Nodecl::VectorLowerThan &);
+            Ret visit(const Nodecl::VectorLowerOrEqualThan &);
+            Ret visit(const Nodecl::VectorGreaterThan &);
+            Ret visit(const Nodecl::VectorGreaterOrEqualThan &);
+            Ret visit(const Nodecl::VectorLogicalAnd &);
+            Ret visit(const Nodecl::VectorLogicalOr &);
+            Ret visit(const Nodecl::VectorBitwiseAnd &);
+            Ret visit(const Nodecl::VectorBitwiseOr &);
+            Ret visit(const Nodecl::VectorBitwiseXor &);
+            Ret visit(const Nodecl::VectorBitwiseShl &);
+            Ret visit(const Nodecl::VectorBitwiseShr &);
+            Ret visit(const Nodecl::VectorBitwiseShrI &);
+            Ret visit(const Nodecl::VectorArithmeticShr &);
+            Ret visit(const Nodecl::VectorArithmeticShrI &);
+            Ret visit(const Nodecl::VectorAssignment &);
+            Ret visit(const Nodecl::VectorLaneId &);
+            Ret visit(const Nodecl::VectorLiteral &);
+            Ret visit(const Nodecl::VectorPromotion &);
             Ret visit(const Nodecl::WhileStatement &);
 
             Ret visit(const Nodecl::AsmDefinition& node);
@@ -264,8 +291,8 @@ namespace Codegen
 
                 // Used in define_required_before_class and define_symbol_if_nonnested
                 std::set<TL::Symbol> pending_nested_types_to_define;
-                
-                // Used in define_generic_entities  
+
+                // Used in define_generic_entities
                 std::set<TL::Symbol> walked_symbols;
 
                 // Object init
@@ -280,7 +307,7 @@ namespace Codegen
                 // Not to be used directly. Use start_inline_comment and end_inline_comment
                 int _inline_comment_nest;
 
-                // Not meant to be used directly, use functions 
+                // Not meant to be used directly, use functions
                 // get_indent_level, set_indent_level
                 // inc_indent, dec_indent
                 int _indent_level;
@@ -396,14 +423,14 @@ namespace Codegen
                     void (CxxBase::* symbol_to_declare)(TL::Symbol),
                     void (CxxBase::* symbol_to_define)(TL::Symbol));
 
-            void walk_type_for_symbols(TL::Type, 
+            void walk_type_for_symbols(TL::Type,
                     void (CxxBase::* declare_fun)(TL::Symbol),
                     void (CxxBase::* define_fun)(TL::Symbol),
                     void (CxxBase::* define_entities)(const Nodecl::NodeclBase&),
                     bool needs_definition = true);
 
             void entry_just_define(
-                    const Nodecl::NodeclBase&, 
+                    const Nodecl::NodeclBase&,
                     TL::Symbol symbol,
                     void (CxxBase::*def_sym_fun)(TL::Symbol));
 
@@ -415,8 +442,8 @@ namespace Codegen
             std::map<TL::Symbol, codegen_status_t> _codegen_status;
 
             void codegen_fill_namespace_list_rec(
-                    scope_entry_t* namespace_sym, 
-                    scope_entry_t** list, 
+                    scope_entry_t* namespace_sym,
+                    scope_entry_t** list,
                     int* position);
             void codegen_move_namespace_from_to(TL::Symbol from, TL::Symbol to);
 
@@ -443,6 +470,9 @@ namespace Codegen
 
             template <typename Node>
                 static bool is_implicit_function_call(const Node& node);
+
+            template <typename Node>
+                static bool is_implicit_braced_function_call(const Node& node);
 
             static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
@@ -552,6 +582,8 @@ namespace Codegen
 
             bool is_assignment_operator(const std::string& operator_name);
 
+            void emit_line_marker(Nodecl::NodeclBase n);
+            void emit_line_marker(const locus_t* locus);
         protected:
 
             void walk_list(const Nodecl::List&,

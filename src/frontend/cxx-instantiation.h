@@ -46,7 +46,7 @@ LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_bei
 
 LIBMCXX_EXTERN void instantiation_init(void);
 
-LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
+LIBMCXX_EXTERN void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const locus_t* locus);

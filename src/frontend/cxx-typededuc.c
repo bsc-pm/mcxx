@@ -42,6 +42,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 #include "cxx-exprtype.h"
+#include "cxx-diagnostic.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -593,12 +594,13 @@ char deduce_template_arguments_common(
                 && j < num_arguments; j++)
         {
             type_t* updated_parameter = NULL;
+            diagnostic_context_push_buffered();
             updated_parameter = update_type(parameters[j],
                     updated_context,
                     locus);
+            diagnostic_context_pop_and_discard();
 
-            if (updated_parameter == NULL
-                    || !is_sound_type(updated_parameter, updated_context))
+            if (updated_parameter == NULL)
             {
                 DEBUG_CODE()
                 {
@@ -1022,11 +1024,13 @@ char deduce_template_arguments_common(
                     = type_template_parameters->arguments[i_tpl_parameters];
                 ERROR_CONDITION(default_template_argument == NULL, "We need a default template argument here", 0);
 
+                diagnostic_context_push_buffered();
                 template_parameter_value_t* new_template_argument = update_template_parameter_value(default_template_argument,
                         updated_context,
                         /* instantiation_symbol_map */ NULL,
                         locus,
                         /* index_pack */ -1);
+                diagnostic_context_pop_and_discard();
 
                 if (new_template_argument == NULL)
                 {
@@ -1462,6 +1466,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 explicit_template_parameters,
                 deduction_flags_empty()))
     {
+        xfree(argument_types);
+        xfree(parameter_types);
+
         return 0;
     }
 
@@ -1496,14 +1503,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             }
         }
 
+        diagnostic_context_push_buffered();
         type_t* updated_type =
             update_type(adjusted_parameter_type,
                     updated_context,
                     locus);
+        diagnostic_context_pop_and_discard();
 
         // The type failed to be updated
         if (updated_type == NULL)
+        {
+            xfree(argument_types);
+            xfree(parameter_types);
+
             return 0;
+        }
 
         int current_arg = 0;
         for (current_arg = i_arg; current_arg < (i_arg + number_of_args); current_arg++)
@@ -1748,8 +1762,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
                     if (std_initializer_type != NULL
                             && is_named_class_type(no_ref(current_type))
-                            && (std_initializer_type->type_information
-                                == template_specialized_type_get_related_template_type(
+                            && equivalent_types(
+                                std_initializer_type->type_information,
+                                template_specialized_type_get_related_template_type(
                                     get_actual_class_type(no_ref(current_type)))))
                     {
                         DEBUG_CODE()
@@ -1766,6 +1781,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     {
                         fprintf(stderr, "TYPEDEDUC: Types cannot be adjusted at all\n");
                     }
+
+                    xfree(argument_types);
+                    xfree(parameter_types);
+
                     return 0;
                 }
             }
@@ -1787,15 +1806,20 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         }
     }
 
+    xfree(argument_types);
+    xfree(parameter_types);
+
     // Check that the return type makes sense, otherwise the whole deduction is wrong
     type_t* function_return_type = function_type_get_return_type(specialized_type);
 
     if (function_return_type != NULL)
     {
         // Now update it, if it returns NULL, everything was wrong :)
+        diagnostic_context_push_buffered();
         function_return_type = update_type(function_return_type,
                 updated_context,
                 locus);
+        diagnostic_context_pop_and_discard();
 
         if (function_return_type == NULL)
         {

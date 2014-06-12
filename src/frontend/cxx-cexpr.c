@@ -208,6 +208,7 @@ const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
     
 
 GET_INTEGER(int)
+GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
@@ -301,29 +302,32 @@ case 128: \
     } \
 }
 
-const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
+#define IS_MULTIVALUE(x) \
+    (x == CVK_COMPLEX \
+    || x == CVK_ARRAY \
+    || x == CVK_STRUCT \
+    || x == CVK_VECTOR \
+    || x == CVK_STRING \
+    || x == CVK_RANGE)
+
+#define CASE_MULTIVALUE \
+    case CVK_COMPLEX: \
+    case CVK_ARRAY: \
+    case CVK_STRUCT: \
+    case CVK_VECTOR: \
+    case CVK_STRING: \
+    case CVK_RANGE
+
+static int multival_get_num_elements(const_value_t* v)
 {
-    switch (val->kind)
-    {
-        case CVK_INTEGER:
-            return const_value_get_integer(val->value.i, bytes, sign);
-        case CVK_FLOAT:
-            CAST_FLOAT_POINT_TO_INT(f);
-            break;
-        case CVK_DOUBLE:
-            CAST_FLOAT_POINT_TO_INT(d);
-            break;
-        case CVK_LONG_DOUBLE:
-            CAST_FLOAT_POINT_TO_INT(ld);
-            break;
-#ifdef HAVE_QUADMATH_H
-        case CVK_FLOAT128:
-            CAST_FLOAT_POINT_TO_INT(f128);
-            break;
-#endif
-        OTHER_KIND;
-    }
-    return NULL;
+    return v->value.m->num_elements;
+}
+
+static const_value_t* multival_get_element_num(const_value_t* v, int element)
+{
+    ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
+            element, v->value.m->num_elements);
+    return v->value.m->elements[element];
 }
 
 static const_value_t* make_multival(int num_elements, const_value_t **elements)
@@ -344,25 +348,50 @@ static const_value_t* make_multival(int num_elements, const_value_t **elements)
     return result;
 }
 
-static const_value_t* multival_get_element_num(const_value_t* v, int element)
+static const_value_t* map_cast_to_bytes_to_structured_value(const_value_t* m1, int bytes, char sign)
 {
-    ERROR_CONDITION(element >= v->value.m->num_elements, "Invalid index %d in a multi-value constant with up to %d components", 
-            element, v->value.m->num_elements);
-    return v->value.m->elements[element];
+    ERROR_CONDITION(!IS_MULTIVALUE(m1->kind), "The value is not a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = const_value_cast_to_bytes(multival_get_element_num(m1, i), bytes, sign);
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
 }
 
-static int multival_get_num_elements(const_value_t* v)
+const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
 {
-    return v->value.m->num_elements;
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return const_value_get_integer(val->value.i, bytes, sign);
+        case CVK_FLOAT:
+            CAST_FLOAT_POINT_TO_INT(f);
+            break;
+        case CVK_DOUBLE:
+            CAST_FLOAT_POINT_TO_INT(d);
+            break;
+        case CVK_LONG_DOUBLE:
+            CAST_FLOAT_POINT_TO_INT(ld);
+            break;
+#ifdef HAVE_QUADMATH_H
+        case CVK_FLOAT128:
+            CAST_FLOAT_POINT_TO_INT(f128);
+            break;
+#endif
+        CASE_MULTIVALUE :
+            return map_cast_to_bytes_to_structured_value(val, bytes, sign);
+            break;
+        OTHER_KIND;
+    }
+    return NULL;
 }
-
-#define IS_MULTIVALUE(x) \
-    (x == CVK_COMPLEX \
-    || x == CVK_ARRAY \
-    || x == CVK_STRUCT \
-    || x == CVK_VECTOR \
-    || x == CVK_STRING \
-    || x == CVK_RANGE)
 
 // Use this to apply a unary function to a multival
 static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
@@ -1944,6 +1973,42 @@ const_value_t* const_value_get_element_num(const_value_t* value, int num)
     return multival_get_element_num(value, num);
 }
 
+const_value_t* const_value_convert_to_type(
+        const_value_t* const_value, type_t* dst_type)
+{
+    const_value_t* result = const_value;
+
+    type_t* scalar_dst_type;
+
+    if(is_vector_type(dst_type))
+        scalar_dst_type = vector_type_get_element_type(dst_type);
+    else
+        scalar_dst_type = dst_type;
+
+
+    if(const_value != NULL)
+    {
+        if (is_float_type(scalar_dst_type))
+            result = const_value_cast_to_float_value(const_value);
+        else if (is_double_type(scalar_dst_type))
+            result = const_value_cast_to_double_value(const_value);
+        else if (is_integral_type(scalar_dst_type))
+        {
+            result = const_value_cast_to_bytes(
+                    const_value, type_get_size(scalar_dst_type),
+                    is_signed_integral_type(scalar_dst_type));
+        }
+        else
+        {
+            internal_error("Unsupported conversion to %s",
+                    print_type_str(scalar_dst_type,
+                        CURRENT_COMPILED_FILE->global_decl_context));
+        }
+    }
+
+    return result;
+}
+
 const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elems)
 {
     const_value_t* array[num_elems];
@@ -3444,6 +3509,8 @@ const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_
         str[i] = (char)values[i];
     }
     str[num_elements] = '\0';
+
+    xfree(values);
 
     return uniquestr(str);
 }

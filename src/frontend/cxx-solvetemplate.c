@@ -138,11 +138,16 @@ type_t* solve_class_template(type_t* template_type,
                 locus);
 
         if (more_specialized == NULL)
+        {
+            xfree(matching_set);
+            xfree(deduction_results);
+
             return NULL;
+        }
 
         if (is_unresolved_overloaded_type(more_specialized))
         {
-            fprintf(stderr, "%s: note: template specialization candidate list\n", locus_to_str(locus));
+            info_printf("%s: note: template specialization candidate list\n", locus_to_str(locus));
 
             scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
 
@@ -152,7 +157,7 @@ type_t* solve_class_template(type_t* template_type,
                     entry_list_iterator_next(it))
             {
                 scope_entry_t* entry = entry_list_iterator_current(it);
-                fprintf(stderr, "%s: note:   %s\n",
+                info_printf("%s: note:   %s\n",
                         locus_to_str(entry->locus),
                         print_type_str(get_user_defined_type(entry), entry->decl_context));
             }
@@ -162,6 +167,10 @@ type_t* solve_class_template(type_t* template_type,
             error_printf("%s: error: ambiguous template type for '%s'\n", 
                     locus_to_str(locus),
                     print_type_str(specialized_type, named_type_get_symbol(specialized_type)->decl_context));
+
+            xfree(matching_set);
+            xfree(deduction_results);
+
             return NULL;
         }
 
@@ -172,6 +181,9 @@ type_t* solve_class_template(type_t* template_type,
                 *deduced_template_arguments = deduction_results[i];
             }
         }
+
+        xfree(matching_set);
+        xfree(deduction_results);
 
         return more_specialized;
     }

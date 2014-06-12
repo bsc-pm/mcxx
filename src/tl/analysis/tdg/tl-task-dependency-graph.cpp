@@ -47,9 +47,9 @@ namespace Analysis {
 namespace{
     
     //! TDG_Edge :: This method returns the clauses associated to a Nodecl::OpenMP::Task node
-    ObjectList<Nodecl::NodeclBase> get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
+    NodeclList get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
     {
-        ObjectList<Nodecl::NodeclBase> result;
+        NodeclList result;
         
         Nodecl::List task_environ = task.get_environment().as<Nodecl::List>();
         for(Nodecl::List::iterator it = task_environ.begin(); it != task_environ.end(); ++it)
@@ -77,7 +77,7 @@ namespace{
         return result;
     }
     
-    TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type(Nodecl::NodeclBase pcfg_edge_type)
+    TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type(NBase pcfg_edge_type)
     {
         TDGEdgeType result;
         ERROR_CONDITION(!pcfg_edge_type.is<Nodecl::StringLiteral>(), 
@@ -139,15 +139,15 @@ namespace{
         return result;
     }
     
-    Nodecl::NodeclBase get_condition_stmts(Node* cond_node)
+    NBase get_condition_stmts(Node* cond_node)
     {
-        Nodecl::NodeclBase cond_stmt;
+        NBase cond_stmt;
         
         if(cond_node->is_graph_node())
             cond_stmt = cond_node->get_graph_related_ast();
         else
         {
-            ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
+            NodeclList stmts = cond_node->get_statements();
             ERROR_CONDITION(stmts.size()!=1, "%s statements found in node %d condition. Only one statement expected.\n", 
                             stmts.size(), cond_node->get_id());
             cond_stmt = stmts[0];
@@ -158,12 +158,12 @@ namespace{
     
     //! TaskDependencyGraph :: Returns a nodecl containing the condition that must fulfill 
     //! to follow the branch of an ifelse that takes to 'task'
-    Nodecl::NodeclBase get_ifelse_condition_from_path(Node* control_structure, Node* task, ObjectList<unsigned int>& taken_branches)
+    NBase get_ifelse_condition_from_path(Node* control_structure, Node* task, ObjectList<unsigned int>& taken_branches)
     {
-        Nodecl::NodeclBase condition;
+        NBase condition;
         
         // Get the statements that form the condition
-        Nodecl::NodeclBase cond_stmt = get_condition_stmts(control_structure->get_condition_node());
+        NBase cond_stmt = get_condition_stmts(control_structure->get_condition_node());
         
         // Find which path (TRUE|FALSE) takes to the task and compute the condition accordingly
         ObjectList<Edge*> exit_edges = control_structure->get_condition_node()->get_exit_edges();
@@ -330,10 +330,10 @@ end_get_switch_cond:
             Node* cs_pcfg_node = cs_node->get_pcfg_node();
             if(cs_node->get_type() == Loop)
             {
-                ObjectList<Utils::InductionVariableData*> ivs = cs_pcfg_node->get_induction_variables();
+                Utils::InductionVarList ivs = cs_pcfg_node->get_induction_variables();
                 if(Utils::induction_variable_list_contains_variable(ivs, *it))
                 {
-                    Utils::InductionVariableData* iv = get_induction_variable_from_list(ivs, *it);
+                    Utils::InductionVar* iv = get_induction_variable_from_list(ivs, *it);
                     var_id_to_values[it->get_symbol()] = iv->print_iv_as_range();
                 }
                 else
@@ -344,16 +344,16 @@ end_get_switch_cond:
             }
             else
             {
-                Utils::ext_sym_map reach_def_in = cs_pcfg_node->get_reaching_definitions_in();
+                NodeclMap reach_def_in = cs_pcfg_node->get_reaching_definitions_in();
                 if(reach_def_in.find(*it) != reach_def_in.end())
                 {
-                    std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds = reach_def_in.equal_range(*it);
-                    Utils::ext_sym_map::iterator itt = bounds.first;
-                    std::string values = itt->second.prettyprint();
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> bounds = reach_def_in.equal_range(*it);
+                    NodeclMap::iterator itt = bounds.first;
+                    std::string values = itt->second.first.prettyprint();
                     ++itt;
                     while(itt != bounds.second)
                     {
-                        values += ", " + itt->second.prettyprint();
+                        values += ", " + itt->second.first.prettyprint();
                         ++itt;
                     }
                     var_id_to_values[it->get_symbol()] = values;
@@ -393,29 +393,28 @@ end_get_switch_cond:
             return _dependecy_size;
         }
         
-        std::string transform_condition_part(int pcfg_node_id, Utils::ext_sym_map reach_defs, const Nodecl::NodeclBase& n)
+        std::string transform_condition_part(int pcfg_node_id, NodeclMap reach_defs, const Nodecl::NodeclBase& n)
         {
             // Get the names of all involved symbols on the LHS of the condition
             ObjectList<Nodecl::Symbol> syms = Nodecl::Utils::get_all_symbols_first_occurrence(n);
             for(ObjectList<Nodecl::Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
             {
                 // Get the reaching definition of the symbol from the source node
-                Utils::ExtendedSymbol es(*it);
-                ERROR_CONDITION(reach_defs.find(es)==reach_defs.end(),
+                ERROR_CONDITION(reach_defs.find(*it)==reach_defs.end(),
                                 "No reaching definition arrives from node %d for symbol '%s' in condition part '%s'.\n", 
                                 pcfg_node_id, it->get_symbol().get_name().c_str(), 
                                 n.prettyprint().c_str());
                 
                 // Get the reaching definition corresponding to the current symbol
                 Nodecl::NodeclBase reach_def;
-                if(reach_defs.find(es)!=reach_defs.end())
+                if(reach_defs.find(*it)!=reach_defs.end())
                 {
-                    std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> reach_defs_map = reach_defs.equal_range(es);
-                    Utils::ext_sym_map::iterator itt = reach_defs_map.first;
-                    reach_def = itt->second;
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> reach_defs_map = reach_defs.equal_range(*it);
+                    NodeclMap::iterator itt = reach_defs_map.first;
+                    reach_def = itt->second.first;
                     ++itt;
                     for(; itt != reach_defs_map.second; ++itt)
-                        reach_def = Nodecl::LogicalOr::make(reach_def.shallow_copy(), itt->second, itt->second.get_type());
+                        reach_def = Nodecl::LogicalOr::make(reach_def.shallow_copy(), itt->second.first, itt->second.first.get_type());
                 }
                 else
                     reach_def = it->shallow_copy();
@@ -558,7 +557,7 @@ end_get_switch_cond:
     // ************ Task Dependency Graph Control Structures ************* //
     
     ControlStructure::ControlStructure(int cs_id, ControlStructureType type, 
-                                       const Nodecl::NodeclBase condition, Node* pcfg_node, 
+                                       const NBase condition, Node* pcfg_node, 
                                        ObjectList<unsigned int> taken_branches)
         : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node), _branch_ids(taken_branches)
     {}
@@ -627,7 +626,7 @@ end_get_switch_cond:
         return _control_structures;
     }
     
-    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition)
+    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition)
         : _source(source), _target(target), _type(type), 
           _source_clauses(), _target_clauses(), _condition(condition)
     {
@@ -687,7 +686,7 @@ end_get_switch_cond:
     }
     
     void TaskDependencyGraph::connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                                                Nodecl::NodeclBase type, const Nodecl::NodeclBase& condition)
+                                                NBase type, const NBase& condition)
     {    
         TDG_Edge* edge = new TDG_Edge(parent, child, get_tdg_edge_type_from_pcfg_edge_type(type), condition);
         parent->_exits.insert(edge);
@@ -760,7 +759,7 @@ end_get_switch_cond:
             {
                 // Get control structure type and condition
                 ControlStructureType cs_t;
-                Nodecl::NodeclBase condition;
+                NBase condition;
                 ObjectList<unsigned int> taken_branches;
                 if(control_structure->is_loop_node())
                 {
@@ -770,7 +769,7 @@ end_get_switch_cond:
                     // Get the condition of the loop
                     Node* cond = control_structure->get_condition_node();
                     assert(cond != NULL);
-                    ObjectList<Nodecl::NodeclBase> stmts = cond->get_statements();
+                    NodeclList stmts = cond->get_statements();
                     assert(stmts.size() == 1);
                     condition = stmts[0];
                 }
@@ -833,7 +832,7 @@ end_get_switch_cond:
         }
     }
     
-    void TaskDependencyGraph::store_condition_list_of_symbols(const Nodecl::NodeclBase& condition)
+    void TaskDependencyGraph::store_condition_list_of_symbols(const NBase& condition)
     {
         ObjectList<Nodecl::Symbol> cond_syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
         for(ObjectList<Nodecl::Symbol>::iterator it = cond_syms.begin(); it != cond_syms.end(); ++it)
@@ -903,7 +902,7 @@ end_get_switch_cond:
 //     {
 //         std::string result;
 //         
-//         for(ObjectList<Nodecl::NodeclBase>::iterator it = clauses.begin(); it != clauses.end();)
+//         for(NodeclList::iterator it = clauses.begin(); it != clauses.end();)
 //         {
 //             // Note: there is no codegen for OpenMP nodecls, 
 //             // that is why we print it manually instead of calling prettyprint
@@ -979,12 +978,12 @@ end_get_switch_cond:
         }
         else if(ntype == Taskwait)
         {
-            Nodecl::NodeclBase tw_stmt = n->get_statements()[0];
+            NBase tw_stmt = n->get_statements()[0];
             task_label = "Taskwait :: " + tw_stmt.get_locus_str();
         }
         else if(ntype == Barrier)
         {
-            Nodecl::NodeclBase barrier_stmt = n->get_graph_related_ast();
+            NBase barrier_stmt = n->get_graph_related_ast();
             task_label = "Barrier :: " + barrier_stmt.get_locus_str();
         }
         
@@ -1116,7 +1115,7 @@ end_get_switch_cond:
         if((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
         {   
             // Get the condition
-            Nodecl::NodeclBase condition;
+            NBase condition;
             std::map<TL::Symbol, std::string> var_id_to_values;
             if(node_cs != NULL)
             {

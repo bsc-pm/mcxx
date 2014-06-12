@@ -10,7 +10,7 @@
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
-  version 3 of the License, or (at your option ) any later version.
+  version 3 of the License, or (at your option) any later version.
 
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
@@ -27,7 +27,8 @@
 #ifndef TL_PCFGVISIT_UTILS_HPP
 #define TL_PCFGVISIT_UTILS_HPP
 
-#include "tl-nodecl.hpp"
+#include "tl-analysis-utils.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-objectlist.hpp"
 #include <set>
 #include <stack>
@@ -618,10 +619,10 @@ namespace Analysis {
 
     public:
         //! Empty constructor
-        PCFGLoopControl( );
+        PCFGLoopControl();
 
         //! Destructor
-        ~PCFGLoopControl( );
+        ~PCFGLoopControl();
 
     friend class PCFGVisitor;
     };
@@ -644,10 +645,10 @@ namespace Analysis {
 
     public:
         //! Empty constructor
-        PCFGTryBlock( );
+        PCFGTryBlock();
 
         //! Destructor
-        ~PCFGTryBlock( );
+        ~PCFGTryBlock();
 
     friend class PCFGVisitor;
     };
@@ -660,13 +661,13 @@ namespace Analysis {
 
     public:
         //! Empty constructor
-        PCFGSwitch( Node* condition, Node* exit );
+        PCFGSwitch(Node* condition, Node* exit);
 
         //! Destructor
-        ~PCFGSwitch( );
+        ~PCFGSwitch();
         
         //! Setters
-        void set_condition( Node* condition );
+        void set_condition(Node* condition);
 
     friend class PCFGVisitor;
     };
@@ -746,19 +747,19 @@ namespace Analysis {
 
     public:
         //! Empty constructor
-        PCFGClause( );
+        PCFGClause();
 
         //! Constructor
-        PCFGClause( Clause c );
-        PCFGClause( Clause c, Nodecl::NodeclBase arg );
+        PCFGClause(Clause c);
+        PCFGClause(Clause c, NBase arg);
 
         //! Copy constructor
-        PCFGClause( const PCFGClause& clause );
+        PCFGClause(const PCFGClause& clause);
 
         //! Getters
-        Clause get_clause( ) const;
-        std::string get_clause_as_string( ) const;
-        Nodecl::List get_args( ) const;
+        Clause get_clause() const;
+        std::string get_clause_as_string() const;
+        Nodecl::List get_args() const;
         
     friend class PCFGVisitor;
     friend class PCFGPragmaInfo;
@@ -772,23 +773,23 @@ namespace Analysis {
 
     public:
         //! Empty Constructor
-        PCFGPragmaInfo( );
+        PCFGPragmaInfo();
 
         //! Constructor
-        PCFGPragmaInfo( PCFGClause clause );
+        PCFGPragmaInfo(PCFGClause clause);
 
         //! Copy constructor
-        PCFGPragmaInfo( const PCFGPragmaInfo& pragma );
+        PCFGPragmaInfo(const PCFGPragmaInfo& pragma);
 
         //! Destructor
-        ~PCFGPragmaInfo( );
+        ~PCFGPragmaInfo();
 
-        bool has_clause( Clause clause ) const;
-        PCFGClause get_clause( Clause clause ) const;
+        bool has_clause(Clause clause) const;
+        PCFGClause get_clause(Clause clause) const;
 
-        void add_clause( PCFGClause pcfg_clause );
+        void add_clause(PCFGClause pcfg_clause);
         
-        ObjectList<PCFGClause> get_clauses( ) const;
+        ObjectList<PCFGClause> get_clauses() const;
 
     friend class PCFGVisitor;
     };
@@ -838,7 +839,7 @@ namespace Analysis {
         std::stack<PCFGPragmaInfo> _pragma_nodes;
 
         //! Container to store information about the current context
-        std::stack<Nodecl::NodeclBase> _context_nodecl;
+        std::stack<NBase> _context_nodecl;
 
         //! Container to store all SECTION nodes within a SECTIONS
         std::stack<ObjectList<Node*> > _section_nodes;
@@ -865,7 +866,7 @@ namespace Analysis {
     public:
 
         //! Constructor
-        PCFGVisitUtils( );
+        PCFGVisitUtils();
 
     friend class ExtensibleGraph;
     friend class PCFGVisitor;
@@ -907,6 +908,8 @@ namespace Analysis {
     
     // ************************** END class for task synchronizations **************************** //
     // ******************************************************************************************* //
+    
+    typedef std::set<NBase, Nodecl::Utils::Nodecl_structural_less> GlobalVarsSet;
 }
 }
 

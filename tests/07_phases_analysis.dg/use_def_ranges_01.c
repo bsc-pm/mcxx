@@ -45,7 +45,7 @@ int main()
         a[i] = b[i] = i;
     }
     
-    #pragma analysis_check assert upper_exposed(a[5], b[1:4]) defined(b[0], b[5], a)
+    #pragma analysis_check assert upper_exposed(a[5], b) defined(b[0], b[5], a)
     {
         b[0] = 5;
         b[5] = a[5];

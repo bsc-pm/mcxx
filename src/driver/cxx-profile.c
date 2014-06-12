@@ -108,6 +108,7 @@ DEF_COPY_ARRAY(copy_external_vars, external_var_t)
 DEF_COPY_ARRAY(copy_pragma_directive_set, pragma_directive_set_t)
 DEF_COPY_ARRAY(copy_compiler_phase_loader, compiler_phase_loader_t)
 DEF_COPY_ARRAY(copy_pragma_custom_prefix, const char)
+DEF_COPY_ARRAY(copy_target_options_maps, target_options_map_t)
 
 static void initialize_with_base_config(compilation_configuration_t* dst, 
         compilation_configuration_t const * base)
@@ -143,6 +144,8 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
             base->num_pragma_custom_prefix);
     dst->pragma_custom_prefix_info = copy_pragma_directive_set(base->pragma_custom_prefix_info, 
             base->num_pragma_custom_prefix);
+    dst->target_options_maps = copy_target_options_maps(base->target_options_maps,
+            base->num_target_option_maps);
 }
 
 compilation_configuration_t* get_compilation_configuration(const char* config_name)

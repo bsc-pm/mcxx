@@ -111,7 +111,7 @@ namespace TL
         append_text_chunk(ss.str());
         return *this;
     }
-
+    
     Source& Source::operator<<(Source& src)
     {
         RefPtr<Source> ref_src = RefPtr<Source>(new Source(src));

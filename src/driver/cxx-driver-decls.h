@@ -85,7 +85,7 @@ typedef struct sublanguage_profile_tag
 
 extern sublanguage_profile_t sublanguage_profiles[];
 
-extern char* source_language_names[];
+extern const char* source_language_names[];
 
 // File extensions table
 struct extensions_table_t
@@ -153,6 +153,7 @@ struct debug_flags_list_t
 typedef struct debug_options_tag
 {
     char abort_on_ice;
+    char backtrace_on_ice;
     char print_scope;
     char enable_debug_code;
     char debug_lexer;
@@ -172,6 +173,7 @@ typedef struct debug_options_tag
     char tdg_to_json;
     char do_not_codegen;
     char show_template_packs;
+    char vectorization_verbose;
 } debug_options_t;
 
 typedef struct external_var_tag {
@@ -522,6 +524,9 @@ typedef struct compilation_configuration_tag
 
     // Enable IBM XL compatibility
     char xl_compatibility;
+
+    // Emit line markers in the output files
+    char line_markers;
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

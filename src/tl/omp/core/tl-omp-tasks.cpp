@@ -1462,8 +1462,41 @@ namespace TL
             task_info.set_parsing_scope(parsing_scope);
             task_info.set_locus(construct.get_locus());
 
-            std::cerr << construct.get_locus_str()
-                << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
+            const char* devices_diagnostic = "";
+            if (!task_info.get_target_info().get_device_list().empty())
+            {
+                TL::ObjectList<std::string> devices = task_info.get_target_info().get_device_list();
+                if (devices.size() == 1)
+                {
+                    uniquestr_sprintf(&devices_diagnostic, " for device '%s'", devices[0].c_str());
+                }
+                else
+                {
+                    for (TL::ObjectList<std::string>::iterator it = devices.begin();
+                            it != devices.end();
+                            it++)
+                    {
+                        if (it + 1 == devices.end())
+                        {
+                            uniquestr_sprintf(&devices_diagnostic, "%s and '%s'", devices_diagnostic, it->c_str());
+                        }
+                        else
+                        {
+                            if (it != devices.begin())
+                                uniquestr_sprintf(&devices_diagnostic, "%s, '%s'", devices_diagnostic, it->c_str());
+                            else
+                                uniquestr_sprintf(&devices_diagnostic, "'%s'", it->c_str());
+                        }
+                    }
+
+                    uniquestr_sprintf(&devices_diagnostic, " for devices %s", devices_diagnostic);
+                }
+            }
+
+            info_printf("%s: note: adding task function '%s'%s\n",
+                    construct.get_locus_str().c_str(),
+                    function_sym.get_name().c_str(),
+                    devices_diagnostic);
             _function_task_set->add_function_task(function_sym, task_info);
 
             FORTRAN_LANGUAGE()

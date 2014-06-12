@@ -81,6 +81,14 @@ unqualified_id : symbol_literal_ref
 }
 ;
 
+/*!if CPLUSPLUS*/
+unqualified_id_no_destructor : symbol_literal_ref
+{
+    $$ = $1;
+}
+;
+/*!endif*/
+
 nondeclarating_statement : nodecl_literal_stmt
 {
     $$ = $1;

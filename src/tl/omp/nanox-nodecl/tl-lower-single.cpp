@@ -74,6 +74,7 @@ namespace TL { namespace Nanox {
         {
             Source::source_language = SourceLanguage::Current;
         }
+        placeholder.set_locus(construct.get_locus());
 
         // Create the environment
         Nodecl::NodeclBase private_syms = environment.find_first<Nodecl::OpenMP::Private>();

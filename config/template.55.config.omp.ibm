@@ -41,3 +41,22 @@ linker_name = @XLCXX@
 @DISABLE_OPENCL@{openmp} preprocessor_options = -qinclude=nanos-opencl.h -D_MERCURIUM_OPENCL_
 @DISABLE_OPENCL@{openmp} compiler_phase = libtlnanox-opencl.so
 @DISABLE_OPENCL@{openmp} linker_options = -lnanox-opencl-api
+
+# IBM XL
+[xlmfc : omp-base]
+language = Fortran
+options = -I @PKGDATADIR@/fortran/openmp --fortran-array-descriptor=xlf
+# XL Fortran does not allow using LOC for functions
+# instead generate C-wrappers for this
+options = --variable=emit_fun_loc:1
+# IBM provides its own Fortran preprocessor but there is no way to make xlf only
+# preprocess a Fortran file, so lets use gfortran
+fortran_preprocessor_name = @GFORTRAN@
+fortran_preprocessor_options = -cpp -E
+compiler_name = @XLF@
+# XL Fortran does not append _ to function names by default. It should, though.
+compiler_options = -qextname -qxlf2003=autorealloc
+linker_name = @XLF@
+linker_options =
+
+[xlmf95 : xlmfc]

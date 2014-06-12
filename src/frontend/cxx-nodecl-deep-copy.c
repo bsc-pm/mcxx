@@ -154,6 +154,13 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
                 nested_symbol_map,
                 nodecl_deep_copy_map,
                 symbol_deep_copy_map);
+
+        if (create_new_function_context)
+        {
+            new_decl_context.block_scope->related_entry
+                = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map,
+                        orig_decl_context.block_scope->related_entry);
+        }
     }
     else
     {
@@ -168,6 +175,11 @@ static nodecl_t nodecl_deep_copy_context_(nodecl_t n,
                 nested_symbol_map,
                 nodecl_deep_copy_map,
                 symbol_deep_copy_map);
+
+        new_decl_context.function_scope->related_entry
+            = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map,
+                    orig_decl_context.function_scope->related_entry);
+
     }
     else
     {
@@ -305,9 +317,6 @@ static void copy_scope(decl_context_t new_decl_context, scope_t* original_scope,
     dhash_ptr_walk(original_scope->dhash, (dhash_ptr_walk_fn*)fill_symbols, &closure_info);
 
     // xfree(closure_info.filled_symbols);
-    
-    new_decl_context.current_scope->related_entry 
-        = nested_symbol_map_fun((symbol_map_t*)nested_symbol_map, original_scope->related_entry);
 }
 
 static decl_context_t copy_function_scope(decl_context_t new_decl_context,

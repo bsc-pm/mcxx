@@ -48,18 +48,30 @@ namespace Codegen
     {
         private:
             bool _is_file_output;
+            bool _last_is_newline;
+            int _current_line;
         protected:
             std::ostream *file;
+            std::string output_filename;
             virtual void codegen(const Nodecl::NodeclBase&, std::ostream *out) = 0;
             virtual void codegen_cleanup() = 0;
 
         public:
             CodegenVisitor();
 
+            void set_output_filename(const std::string& str) { output_filename = str; }
+            std::string get_output_filename() const { return output_filename; }
+
             bool is_file_output() const;
             void set_is_file_output(bool b);
 
-            void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f);
+            void set_last_is_newline(bool b) { _last_is_newline = b; }
+            bool last_is_newline() const { return _last_is_newline; }
+
+            int get_current_line() const { return _current_line; }
+            void set_current_line(int n) { _current_line = n; }
+
+            void codegen_top_level(const Nodecl::NodeclBase& n, FILE* f, const std::string& output_filename);
             std::string codegen_to_str(const Nodecl::NodeclBase& n, TL::Scope sc);
 
             virtual Ret unhandled_node(const Nodecl::NodeclBase & n);

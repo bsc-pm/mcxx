@@ -992,7 +992,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         if (IS_FORTRAN_LANGUAGE)
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_C;
 
-        phase->codegen_top_level(_cuda_file_code, ancillary_file);
+        phase->codegen_top_level(_cuda_file_code, ancillary_file, new_filename);
 
         if (IS_FORTRAN_LANGUAGE)
             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
@@ -1033,7 +1033,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
         ::mark_file_for_cleanup(new_filename.c_str());
 
         Codegen::CodegenPhase* phase = reinterpret_cast<Codegen::CodegenPhase*>(configuration->codegen_phase);
-        phase->codegen_top_level(_extra_c_code, ancillary_file);
+        phase->codegen_top_level(_extra_c_code, ancillary_file, new_filename);
 
         CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
 

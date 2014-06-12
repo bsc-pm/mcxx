@@ -119,7 +119,17 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
 #define NODECL_EXPR_SET_PTR(type, what, field_name) \
 static void nodecl_expr_set_##what(AST expr, type * datum) \
 { \
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr); \
+    nodecl_expr_info_t* expr_info; \
+    if (datum == NULL) \
+    { \
+       expr_info = nodecl_expr_get_expression_info_noalloc(expr); \
+       if (expr_info == NULL) \
+         return; \
+    } \
+    else \
+    { \
+     expr_info = nodecl_expr_get_expression_info(expr); \
+    } \
     expr_info->field_name = datum; \
 }
 
@@ -431,6 +441,11 @@ void nodecl_expr_set_is_type_dependent(nodecl_t node, char is_type_dependent_exp
 char nodecl_is_err_expr(nodecl_t n)
 {
     return nodecl_get_kind(n) == NODECL_ERR_EXPR;
+}
+
+char nodecl_is_err_stmt(nodecl_t n)
+{
+    return nodecl_get_kind(n) == NODECL_ERR_STATEMENT;
 }
 
 nodecl_t nodecl_generic_make(node_t kind, const locus_t* location)

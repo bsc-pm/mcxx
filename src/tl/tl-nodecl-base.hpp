@@ -72,6 +72,7 @@ namespace Nodecl {
             int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
             const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
+            void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }
             const nodecl_t& get_internal_nodecl() const { return _n; }
             nodecl_t& get_internal_nodecl() { return _n; }
             TL::ObjectList<NodeclBase> children() const {
@@ -114,7 +115,7 @@ namespace Nodecl {
             }
 
             // Convenience function to skip conversion nodes
-            Nodecl::NodeclBase no_conv();
+            Nodecl::NodeclBase no_conv() const;
             
             // Prettyprint
             std::string prettyprint() const;
@@ -686,11 +687,17 @@ namespace Nodecl {
         private:
             void push_back_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->end(), n);
             }
 
             void push_front_(Nodecl::NodeclBase n)
             {
+                // A null node is conceptually the empty list
+                if (n.is_null())
+                    return;
                 insert(this->begin(), n);
             }
         public:

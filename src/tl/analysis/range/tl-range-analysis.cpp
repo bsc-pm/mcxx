@@ -31,6 +31,7 @@ Cambridge, MA 02139, USA.
 #include <algorithm>
 #include <fstream>
 #include <set>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -50,9 +51,9 @@ namespace {
     
     //! This maps stores the relationship between each variable in a given node and 
     //! the last identifier used to create a constraint for that variable
-    std::map<Nodecl::NodeclBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
+    std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> var_to_last_constraint_id;
     
-    unsigned int get_next_id(const Nodecl::NodeclBase& n)
+    unsigned int get_next_id(const NBase& n)
     {
         unsigned int next_id = 0;
         if(!n.is_null())
@@ -111,7 +112,7 @@ namespace {
           _output_true_constraints_map(), _output_false_constraints_map()
     {}
     
-    void ConstraintBuilderVisitor::compute_constraints(const Nodecl::NodeclBase& n)
+    void ConstraintBuilderVisitor::compute_constraints(const NBase& n)
     {
         walk(n);
     }
@@ -138,7 +139,7 @@ namespace {
         return result;    
     }
     
-    Utils::Constraint ConstraintBuilderVisitor::visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs)
+    Utils::Constraint ConstraintBuilderVisitor::visit_assignment(const NBase& lhs, const NBase& rhs)
     {
         // Build a symbol for the new constraint based on the name of the original variable
         std::stringstream ss; ss << get_next_id(lhs);
@@ -148,7 +149,7 @@ namespace {
         Type t = orig_s.get_type();
         s.set_type(t);
         // Build the value of the constraint
-        Nodecl::NodeclBase val;
+        NBase val;
         if(rhs.is_constant())       // x = c;    -->    X1 = c
             val = Nodecl::Analysis::Range::make(rhs.shallow_copy(), rhs.shallow_copy(), t);
         else 
@@ -171,9 +172,9 @@ namespace {
     
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::AddAssignment& n)
     {
-        Nodecl::NodeclBase lhs = n.get_lhs();
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase new_rhs = Nodecl::Assignment::make(lhs.shallow_copy(), 
+        NBase lhs = n.get_lhs();
+        NBase rhs = n.get_rhs();
+        NBase new_rhs = Nodecl::Assignment::make(lhs.shallow_copy(), 
                                                               Nodecl::Add::make(lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type()), 
                                                               lhs.get_type());
         n.replace(new_rhs);
@@ -190,10 +191,10 @@ namespace {
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::LowerThan& n)
     {
         Utils::Constraint c;
-        Nodecl::NodeclBase val;
+        NBase val;
         
-        Nodecl::NodeclBase lhs = n.get_lhs();
-        Nodecl::NodeclBase rhs = n.get_rhs();
+        NBase lhs = n.get_lhs();
+        NBase rhs = n.get_rhs();
         
         // Check the input is something we expect: LHS has a constraint or is a parameter
         ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
@@ -206,7 +207,7 @@ namespace {
         // 1. Compute the first constraint that corresponds to the current node: x < c
         // -->    X1 = [0, 1]
         // 1.1 Get a new symbol for the constraint
-        std::stringstream ss; ss << get_next_id(Nodecl::NodeclBase::null());
+        std::stringstream ss; ss << get_next_id(NBase::null());
         Symbol s_x(n.retrieve_context().new_symbol("_x_" + ss.str()));
         s_x.set_type(t);
         // 1.2 Build the value of the constraints
@@ -255,9 +256,9 @@ namespace {
         Symbol s_true(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_true.str()));
         s_true.set_type(t);
         // 3.1.2.- Build the TRUE constraint value
-        Nodecl::NodeclBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
+        NBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
                                                    : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
-        Nodecl::NodeclBase val_true = 
+        NBase val_true = 
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
                 Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), ub, t),
@@ -275,7 +276,7 @@ namespace {
         Symbol s_false(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_false.str()));
         s_false.set_type(t);
         // 3.2.2.- Build the FALSE constraint value
-        Nodecl::NodeclBase val_false = 
+        NBase val_false = 
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
                 Nodecl::Analysis::Range::make(val.shallow_copy(),
@@ -294,7 +295,7 @@ namespace {
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::Mod& n)
     {
         // Build the constraint symbol
-        std::stringstream ss; ss << get_next_id(Nodecl::NodeclBase::null());
+        std::stringstream ss; ss << get_next_id(NBase::null());
         std::string sym_name = "_x_" + ss.str();
         Symbol s(n.retrieve_context().new_symbol(sym_name));
         Type t = n.get_lhs().get_type();
@@ -303,11 +304,11 @@ namespace {
         // Build the constraint value
         const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
         const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
-        Nodecl::NodeclBase rhs = n.get_rhs();
-        Nodecl::NodeclBase ub = 
+        NBase rhs = n.get_rhs();
+        NBase ub = 
                 (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
                                    : Nodecl::Minus::make(rhs.shallow_copy(), const_value_to_nodecl(one), rhs.get_type()));
-        Nodecl::NodeclBase val = Nodecl::Analysis::Range::make(const_value_to_nodecl(zero), ub, t);
+        NBase val = Nodecl::Analysis::Range::make(const_value_to_nodecl(zero), ub, t);
         
         // Build the constraint
 #ifdef RANGES_DEBUG
@@ -324,14 +325,14 @@ namespace {
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::ObjectInit& n)
     {
         Nodecl::Symbol lhs = Nodecl::Symbol::make(n.get_symbol(), n.get_locus());
-        Nodecl::NodeclBase rhs = n.get_symbol().get_value();
+        NBase rhs = n.get_symbol().get_value();
         return visit_assignment(lhs, rhs);
     }
     
     // ++x;    -->    X1 = X0 + 1
     Utils::Constraint ConstraintBuilderVisitor::visit(const Nodecl::Preincrement& n)
     {
-        Nodecl::NodeclBase rhs = n.get_rhs();
+        NBase rhs = n.get_rhs();
         ERROR_CONDITION(_input_constraints_map.find(rhs) == _input_constraints_map.end(), 
                         "Some input constraint required for the RHS when parsing a %s nodecl", 
                         ast_print_node_type(n.get_kind()));
@@ -343,7 +344,7 @@ namespace {
         Symbol s(n.retrieve_context().new_symbol(constr_name));
         s.set_type(orig_s.get_type());
         
-        Nodecl::NodeclBase val = Nodecl::Add::make(Nodecl::Symbol::make(_input_constraints_map[rhs].get_symbol()), 
+        NBase val = Nodecl::Add::make(Nodecl::Symbol::make(_input_constraints_map[rhs].get_symbol()), 
                                                    const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)), 
                                                    rhs.get_type());
 #ifdef RANGES_DEBUG
@@ -374,7 +375,7 @@ namespace {
     }
 }
     
-    CGNode::CGNode(const Nodecl::NodeclBase& value)
+    CGNode::CGNode(const NBase& value)
         : _id(++cgnode_id), _value(value), _entries(), _exits(), 
         _scc_index(-1), _scc_lowlink_index(-1)
     {}
@@ -384,7 +385,7 @@ namespace {
         return _id;
     }
     
-    Nodecl::NodeclBase CGNode::get_value() const
+    NBase CGNode::get_value() const
     { 
         return _value; 
     }
@@ -407,7 +408,7 @@ namespace {
         _entries.insert(e);
     }
     
-    CGEdge* CGNode::add_parent(CGNode* parent, Nodecl::NodeclBase predicate)
+    CGEdge* CGNode::add_parent(CGNode* parent, NBase predicate)
     {
         CGEdge* e;
         ObjectList<CGNode*> parents = get_parents();
@@ -448,7 +449,7 @@ namespace {
         _exits.insert(e);
     }
     
-    CGEdge* CGNode::add_child(CGNode* child, Nodecl::NodeclBase predicate)
+    CGEdge* CGNode::add_child(CGNode* child, NBase predicate)
     {
         CGEdge* e;
         ObjectList<CGNode*> children = get_children();
@@ -491,7 +492,7 @@ namespace {
         _scc_lowlink_index = scc_lowlink_index;
     }
     
-    CGEdge::CGEdge(CGNode* source, CGNode* target, const Nodecl::NodeclBase& predicate)
+    CGEdge::CGEdge(CGNode* source, CGNode* target, const NBase& predicate)
         : _source(source), _target(target), _predicate(predicate)
     {}
     
@@ -505,7 +506,7 @@ namespace {
         return _target;
     }
     
-    Nodecl::NodeclBase CGEdge::get_predicate() const
+    NBase CGEdge::get_predicate() const
     {
         return _predicate;        
     }
@@ -529,7 +530,7 @@ namespace {
         : _name(name), _nodes()
     {}
     
-    CGNode* ConstraintGraph::insert_node(const Nodecl::NodeclBase& value)
+    CGNode* ConstraintGraph::insert_node(const NBase& value)
     {
         CGNode* node = get_node(value);
         if(node==NULL)
@@ -540,13 +541,13 @@ namespace {
         return node;
     }
     
-    CGNode* ConstraintGraph::get_node(const Nodecl::NodeclBase& value)
+    CGNode* ConstraintGraph::get_node(const NBase& value)
     {
         return ((_nodes.find(value)==_nodes.end()) ? NULL 
                                                    : _nodes[value]);
     }
     
-    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, Nodecl::NodeclBase predicate)
+    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, NBase predicate)
     {
         ObjectList<CGNode*> children = source->get_children();
         if(!children.contains(target))
@@ -570,7 +571,7 @@ namespace {
             for(ObjectList<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
             {
                 unsigned int target = (*ite)->get_target()->get_id();
-                const Nodecl::NodeclBase predicate = (*ite)->get_predicate();
+                const NBase predicate = (*ite)->get_predicate();
                 std::string label = (predicate.is_null() ? "" : " [label=\"" + predicate.prettyprint() + "\"]");
                 dot_file << "\t" << source << "->" << target << label << ";\n";
             }
@@ -753,7 +754,7 @@ namespace {
             s.set_type(t);
             
             // Get the value for the constraint
-            Nodecl::NodeclBase val = Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), Nodecl::Analysis::PlusInfinity::make(), t);
+            NBase val = Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), Nodecl::Analysis::PlusInfinity::make(), t);
             
             // Build the constraint and insert it in the constraints map
             constraints[param_s] = Utils::Constraint(s, val);
@@ -820,14 +821,14 @@ namespace {
                                     old_constraint = input_constraints_map[ittt->first];
                                 else
                                     old_constraint = new_input_constraints[ittt->first];
-                                Nodecl::NodeclBase current_constraint = ittt->second.get_constraint();
+                                NBase current_constraint = ittt->second.get_constraint();
                                 TL::Symbol current_symbol = ittt->second.get_symbol();
                                 // If the new constraint is different from the old one, compute the combination of both
                                 if(!Nodecl::Utils::structurally_equal_nodecls(old_constraint.get_constraint(), current_constraint, 
                                                                             /*skip_conversion_nodes*/true))
                                 {
                                     // Get a new symbol for the new constraint
-                                    Nodecl::NodeclBase lhs = ittt->first;
+                                    NBase lhs = ittt->first;
                                     std::stringstream ss; ss << get_next_id(lhs);
                                     Symbol orig_s(lhs.get_symbol());
                                     std::string constr_name = orig_s.get_name() + "_" + ss.str();
@@ -835,7 +836,7 @@ namespace {
                                     s.set_type(orig_s.get_type());
                                     
                                     // Build a the value of the new constraint
-                                    Nodecl::NodeclBase new_constraint_val;
+                                    NBase new_constraint_val;
                                     if(old_constraint.get_constraint().is<Nodecl::Analysis::Phi>())
                                     {   // Attach a new element to the list inside the node Phi
                                         Nodecl::List expressions = old_constraint.get_constraint().as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
@@ -878,8 +879,8 @@ namespace {
                         std::cerr << "NODE " << c->get_id() << std::endl;
 #endif
                         ConstraintBuilderVisitor cbv(input_constraints_map, current_constraints_map);
-                        ObjectList<Nodecl::NodeclBase> stmts = c->get_statements();
-                        for(ObjectList<Nodecl::NodeclBase>::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
+                        NodeclList stmts = c->get_statements();
+                        for(NodeclList::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
                             cbv.compute_constraints(*itt);
                         c->add_constraints_map(cbv.get_output_constraints_map());
                         
@@ -945,10 +946,10 @@ namespace {
             if((current_constraint_map.find(it->first) != current_constraint_map.end()) && 
                 (current_constraint_map[it->first] != it->second))
             {
-                Nodecl::NodeclBase c1 = current_constraint_map[it->first].get_constraint().shallow_copy();
-                Nodecl::NodeclBase c2 = Nodecl::Symbol::make(it->second.get_symbol());
+                NBase c1 = current_constraint_map[it->first].get_constraint().shallow_copy();
+                NBase c2 = Nodecl::Symbol::make(it->second.get_symbol());
                 Nodecl::List expressions = Nodecl::List::make(c1, c2);
-                Nodecl::NodeclBase c_val = Nodecl::Analysis::Phi::make(expressions, Utils::get_nodecl_base(it->first).get_symbol().get_type());
+                NBase c_val = Nodecl::Analysis::Phi::make(expressions, Utils::get_nodecl_base(it->first).get_symbol().get_type());
                 // Set the new constraint
                 current_constraint_map[it->first] = Utils::Constraint(current_constraint_map[it->first].get_symbol(), c_val);
             }
@@ -1004,7 +1005,7 @@ namespace {
                 {
                     Utils::Constraint c = it->second;
                     Nodecl::Symbol s = Nodecl::Symbol::make(c.get_symbol());
-                    Nodecl::NodeclBase val = c.get_constraint().no_conv();
+                    NBase val = c.get_constraint().no_conv();
                     
                     // Insert in the CG the nodes corresponding to the current Constraint
                     // A. Create a new node in the Contraint Graph for the current Constraint (if does not exist yet)
@@ -1035,8 +1036,8 @@ namespace {
                     }
                     else if(val.is<Nodecl::Analysis::RangeIntersection>())
                     {   // D.
-                        Nodecl::NodeclBase lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
-                        const Nodecl::NodeclBase rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs();
+                        NBase lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
+                        const NBase rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs();
                         ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || !rhs.is<Nodecl::Analysis::Range>(), 
                                         "Expected a RangeIntersection with the structure 'c0 ∩ [lb, ub]' but found %s.\n", 
                                         val.prettyprint().c_str());
@@ -1052,8 +1053,8 @@ namespace {
                     }
                     else if(val.is<Nodecl::Add>())
                     {
-                        Nodecl::NodeclBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
-                        const Nodecl::NodeclBase rhs = val.as<Nodecl::Add>().get_rhs();
+                        NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
+                        const NBase rhs = val.as<Nodecl::Add>().get_rhs();
                         ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
                                         "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
                                         val.prettyprint().c_str());
@@ -1064,15 +1065,15 @@ namespace {
                     }
                     else if(val.is<Nodecl::Minus>())
                     {
-                        Nodecl::NodeclBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
-                        const Nodecl::NodeclBase rhs = val.as<Nodecl::Add>().get_rhs();
+                        NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
+                        const NBase rhs = val.as<Nodecl::Add>().get_rhs();
                         ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
                                         "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
                                         val.prettyprint().c_str());
                         source = _cg->get_node(lhs);
                         if(source==NULL)
                             source = _cg->insert_node(lhs);
-                        Nodecl::NodeclBase neg_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
+                        NBase neg_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
                         _cg->connect_nodes(source, target, neg_rhs);
                     }
                     else

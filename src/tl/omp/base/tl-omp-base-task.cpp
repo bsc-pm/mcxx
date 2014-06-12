@@ -32,7 +32,7 @@
 #include "tl-omp-base-utils.hpp"
 #include "tl-symbol-utils.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -413,6 +413,8 @@ namespace TL { namespace OpenMP {
 
         TL::ObjectList<Nodecl::NodeclBase> assumed_firstprivates, assumed_shareds;
 
+        Nodecl::List arguments = call.get_arguments().as<Nodecl::List>();
+
         int i = 0;
         for (TL::ObjectList<TL::Symbol>::iterator it = parameters.begin();
                 it != parameters.end();
@@ -438,11 +440,21 @@ namespace TL { namespace OpenMP {
 
                     if(!it->get_type().is_fortran_array())
                     {
+                        Nodecl::NodeclBase arg;
+                        if ((unsigned int)i < arguments.size())
+                            arg = arguments[i];
+
                         warn_printf("%s: warning assuming dummy argument '%s' of function task '%s' "
                                 "is SHARED because it does not have VALUE attribute\n",
                                 function_sym.get_locus_str().c_str(),
                                 it->get_name().c_str(),
                                 function_sym.get_name().c_str());
+                        info_printf("%s: info: during the execution of task '%s', the dummy argument '%s' may not have "
+                                "the value that the actual argument '%s' had at task creation\n",
+                                function_sym.get_locus_str().c_str(),
+                                function_sym.get_name().c_str(),
+                                it->get_name().c_str(),
+                                arg.prettyprint().c_str());
                     }
 
                     assumed_shareds.append(symbol_ref);
@@ -771,7 +783,7 @@ namespace TL { namespace OpenMP {
         ERROR_CONDITION(!expr.is<Nodecl::ExpressionStatement>(),
                 "Unexpected node %s\n", ast_print_node_type(expr.get_kind()));
 #ifdef ANALYSIS_ENABLED
-        TL::Analysis::AnalysisStaticInfo a;
+        TL::Analysis::AnalysisInterface a;
         bool is_reduc = a.is_ompss_reduction(expr.as<Nodecl::ExpressionStatement>().get_nest(), function_task_set);
         return is_reduc;
 #else

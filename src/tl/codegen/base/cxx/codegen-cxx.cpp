@@ -3,7 +3,7 @@
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -165,10 +165,33 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
-
+    BINARY_EXPRESSION(VectorAdd, " + ") \
+    BINARY_EXPRESSION(VectorMul, " * ") \
+    BINARY_EXPRESSION(VectorDiv, " / ") \
+    BINARY_EXPRESSION(VectorMod, " % ") \
+    BINARY_EXPRESSION(VectorMinus, " - ") \
+    BINARY_EXPRESSION(VectorEqual, " == ") \
+    BINARY_EXPRESSION(VectorDifferent, " != ") \
+    BINARY_EXPRESSION(VectorLowerThan, " < ") \
+    BINARY_EXPRESSION(VectorLowerOrEqualThan, " <= ") \
+    BINARY_EXPRESSION_EX(VectorGreaterThan, " > ") \
+    BINARY_EXPRESSION_EX(VectorGreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION(VectorLogicalAnd, " && ") \
+    BINARY_EXPRESSION(VectorLogicalOr, " || ") \
+    BINARY_EXPRESSION(VectorBitwiseAnd, " & ") \
+    BINARY_EXPRESSION(VectorBitwiseOr, " | ") \
+    BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
+    BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
+    BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+ 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         *(file) << _operand; \
@@ -202,6 +225,53 @@ bool CxxBase::is_non_language_reference_variable(const Nodecl::NodeclBase &n)
         return is_non_language_reference_variable(n.get_symbol());
     }
     return false;
+}
+
+void CxxBase::emit_line_marker(const locus_t* locus)
+{
+    if (!CURRENT_CONFIGURATION->line_markers)
+        return;
+
+    // We do not emit line markers in prettyprint
+    if (!is_file_output())
+        return;
+
+    // Avoid nodes without locus
+    if (locus == NULL)
+        return;
+
+    // Avoid 0-th line
+    int line = locus_get_line(locus);
+    if (line == 0)
+        return;
+
+    // Avoid ""
+    std::string filename = locus_get_filename(locus);
+    if (filename == "")
+        return;
+
+    // Do we need a newline?
+    if (!last_is_newline())
+        *file << "\n";
+
+    std::string internal_source = "MERCURIUM_INTERNAL_SOURCE";
+    if (filename.size() >= internal_source.size())
+    {
+        std::string prefix = filename.substr(0, internal_source.size());
+
+        if (prefix == internal_source)
+        {
+            filename = this->get_output_filename();
+            line = get_current_line() + 1;
+        }
+    }
+
+    *file << "# " << line << " \"" << filename << "\"\n";
+}
+
+void CxxBase::emit_line_marker(Nodecl::NodeclBase n)
+{
+    emit_line_marker(n.get_locus());
 }
 
 void CxxBase::visit(const Nodecl::Reference &node)
@@ -272,6 +342,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name& node) \
     { \
+        emit_line_marker(node); \
         Nodecl::NodeclBase rhs = node.children()[0]; \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         if (needs_parentheses) \
@@ -293,6 +364,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    char needs_parentheses = operand_has_lower_priority(node, lhs); \
@@ -345,6 +417,7 @@ void CxxBase::visit(const Nodecl::Reference &node)
     }
 
 #define BINARY_EXPRESSION_ASSIG_IMPL(_name, _operand) \
+   emit_line_marker(node); \
    Nodecl::NodeclBase lhs = node.children()[0]; \
    Nodecl::NodeclBase rhs = node.children()[1]; \
    if (state.in_condition && state.condition_top == node) \
@@ -407,6 +480,7 @@ OPERATOR_TABLE
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase subscripted = node.get_subscripted();
     Nodecl::List subscript = node.get_subscripts().as<Nodecl::List>();
 
@@ -434,6 +508,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ArraySubscript& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 {
+    emit_line_marker(node);
     const_value_t* val = nodecl_get_constant(node.get_internal_nodecl());
 
     if (const_value_is_zero(val))
@@ -448,6 +523,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::BooleanLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::BreakStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "break;\n";
 }
@@ -477,6 +553,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
     Nodecl::NodeclBase expression = node.get_case();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "case ";
     walk(expression);
@@ -487,6 +564,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CaseStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Cast& node)
 {
+    emit_line_marker(node);
     std::string cast_kind = node.get_text();
     TL::Type t = fix_references(node.get_type());
     Nodecl::NodeclBase nest = node.get_rhs();
@@ -560,6 +638,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
     Nodecl::NodeclBase statement = node.get_statement();
     TL::Type type = node.get_type();
 
+    emit_line_marker(node);
     indent();
     *(file) << "catch (";
 
@@ -592,6 +671,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CatchHandler& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase lhs = node.get_lhs();
     Nodecl::NodeclBase rhs = node.get_member();
     Nodecl::NodeclBase member_literal = node.get_member_literal();
@@ -730,6 +810,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ClassMemberAccess& node)
 
 void CxxBase::visit(const Nodecl::Comma & node)
 {
+    emit_line_marker(node);
     *(file) << "(";
 
     Nodecl::NodeclBase lhs = node.children()[0];
@@ -794,6 +875,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 {
+    emit_line_marker(node);
     *(file) << " (";
 
     Nodecl::Context context = node.get_nest().as<Nodecl::Context>();
@@ -833,6 +915,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundExpression& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "{\n";
     inc_indent();
@@ -856,6 +939,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CompoundStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ConditionalExpression& node)
 {
+    emit_line_marker(node);
     Nodecl::NodeclBase cond = node.get_condition();
     Nodecl::NodeclBase then = node.get_true();
     Nodecl::NodeclBase _else = node.get_false();
@@ -910,6 +994,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Context& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::ContinueStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << "continue;\n";
 }
@@ -1144,6 +1229,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DefaultStatement& node)
 {
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "default :\n";
 
@@ -1155,6 +1241,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
     Nodecl::NodeclBase statement = node.get_statement();
     Nodecl::NodeclBase condition = node.get_condition();
 
+    emit_line_marker(node);
     indent();
     *(file) << "do\n";
 
@@ -1170,6 +1257,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::DoStatement& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::EmptyStatement& node)
 {
+    emit_line_marker(node);
     indent();
     *(file) << ";\n";
 }
@@ -1182,7 +1270,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
     }
     else
     {
-        internal_error("%s: error: <<error expression>> found when the output is a *(file)",
+        internal_error("%s: error: <<error expression>> found when the output is a file",
                 node.get_locus_str().c_str());
     }
 }
@@ -1190,6 +1278,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ErrExpr& node)
 CxxBase::Ret CxxBase::visit(const Nodecl::ExpressionStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_nest();
+
+    emit_line_marker(node);
     indent();
 
     bool need_extra_parentheses = false;
@@ -1331,6 +1421,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 
     if (loop_control.is<Nodecl::LoopControl>())
     {
+        emit_line_marker(node);
         indent();
         *(file) << "for (";
         walk(loop_control);
@@ -1343,6 +1434,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
     else if (loop_control.is<Nodecl::UnboundedLoopControl>())
     {
         // This only happens for DO without loop-control
+        emit_line_marker(node);
         indent();
         *(file) << "for (;;)\n";
         inc_indent();
@@ -1379,6 +1471,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
         }
         else
         {
+            emit_line_marker(node);
             indent();
             *(file) << "if (";
             walk(step);
@@ -1707,6 +1800,18 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
     return 0;
 }
 
+template <typename Node>
+bool CxxBase::is_implicit_braced_function_call(const Node& node)
+{
+    return (!node.get_function_form().is_null()
+            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicitBracedArguments>());
+}
+
+template <>
+bool CxxBase::is_implicit_braced_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
+{
+    return 0;
+}
 
 template <typename Node>
 bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
@@ -1789,6 +1894,15 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
         {
             walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
+        return;
+    }
+    else if (is_implicit_braced_function_call(node))
+    {
+        Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
+        // Only emit { ... }
+        *file << "{ ";
+        walk_expression_list(arguments);
+        *file << " }";
         return;
     }
 
@@ -2262,7 +2376,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::TemplateFunctionCode& node)
         codegen_template_headers_bounded(
                 template_parameters,
                 class_sym.get_scope().get_template_parameters(),
-                /*show default variables*/ false);
+                /*show default variables*/ IS_CXX11_LANGUAGE);
     }
     else
     {
@@ -2491,7 +2605,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     while (tpl.is_valid())
     {
         // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+        if (tpl.get_num_parameters() > 0
+                && tpl.get_is_explicit_specialization())
         {
              indent();
              *(file) << "template <>\n";
@@ -2673,6 +2788,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
         }
     }
 
+    emit_line_marker(node);
     indent();
     *(file) << gcc_extension << decl_spec_seq << gcc_attributes << declarator
         << exception_spec << trailing_type_specifier << "\n";
@@ -2743,6 +2859,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::GotoStatement& node)
 {
     TL::Symbol label_sym = node.get_symbol();
 
+    emit_line_marker(node);
     indent();
     *(file) << "goto " << label_sym.get_name() << ";\n";
 }
@@ -2753,6 +2870,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::IfElseStatement& node)
     Nodecl::NodeclBase then = node.get_then();
     Nodecl::NodeclBase _else = node.get_else();
 
+    emit_line_marker(node);
     indent();
 
     *(file) << "if (";
@@ -3034,6 +3152,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LabeledStatement& node)
     TL::Symbol label_sym = node.get_symbol();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << label_sym.get_name() << " : ";
 
@@ -3141,7 +3260,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::MemberInit& node)
     {
         bool braces = false;
         if (!init_expr.as<Nodecl::StructuredValue>().get_form().is_null()
-                && init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBraced>())
+                && (init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>()
+                    || init_expr.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedTypecast>()))
             braces = true;
 
         if (braces)
@@ -3406,6 +3526,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::PragmaCustomStatement& node)
     Nodecl::NodeclBase pragma_line = node.get_pragma_line();
     Nodecl::NodeclBase statement = node.get_statements();
 
+    emit_line_marker(node);
     indent();
     // FIXME  parallel|for must be printed as parallel for
     *(file) << "#pragma " << node.get_text() << " ";
@@ -3465,6 +3586,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ReturnStatement& node)
 {
     Nodecl::NodeclBase expression = node.get_value();
 
+    emit_line_marker(node);
     indent();
     *(file) << "return ";
     walk(expression);
@@ -3633,14 +3755,19 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         COMPOUND_LITERAL, // C99 (struct X){initializer-clause}
         EXPLICIT_TYPECAST_PARENTHESIZED, // C++03   T(1, 2)
         EXPLICIT_TYPECAST_BRACED, // C++11   T{1, 2}
+        IMPLICIT_BRACED, // C++11   {1, 2}
         UNKNOWN, // The node does not have an explicit form
     } structured_value_form = INVALID;
 
     if (!form.is_null())
     {
-        if (form.is<Nodecl::StructuredValueBraced>())
+        if (form.is<Nodecl::StructuredValueBracedTypecast>())
         {
             structured_value_form = EXPLICIT_TYPECAST_BRACED;
+        }
+        else if (form.is<Nodecl::StructuredValueBracedImplicit>())
+        {
+            structured_value_form = IMPLICIT_BRACED;
         }
         else if (form.is<Nodecl::StructuredValueParenthesized>())
         {
@@ -3705,6 +3832,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         *(file) << "(";
     }
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "{";
@@ -3716,6 +3844,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
     state.inside_structured_value = inside_structured_value;
 
     if (structured_value_form == EXPLICIT_TYPECAST_BRACED
+            || structured_value_form == IMPLICIT_BRACED
             || structured_value_form == COMPOUND_LITERAL)
     {
         *(file) << "}";
@@ -3911,6 +4040,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::SwitchStatement& node)
     Nodecl::NodeclBase expression = node.get_switch();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "switch (";
     Nodecl::NodeclBase old_condition_top = state.condition_top;
@@ -4091,9 +4221,53 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Unknown& node)
+{
+    *(file) << "UNKNOWN";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorConversion& node)
+{
+    // Do nothing
+    walk(node.get_nest());
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
+{
+    indent();
+    *(file) << "VECTOR_LANE_ID";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
+{
+    indent();
+    *(file) << "{";
+    
+    Nodecl::List scalar_values = node.get_scalar_values().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = scalar_values.begin();
+            it != scalar_values.end();
+            it++)
+    {
+        walk(*it);
+
+        if ((it+1) != scalar_values.end())
+            *(file) << ", ";
+    }
+
+    *(file) << "}";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
+{
+    indent();
+    *(file) << "{";
+    walk(node.get_rhs());
+    *(file) << "}";
 }
 
 // Bug in GCC 4.4
@@ -4104,6 +4278,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     Nodecl::NodeclBase condition = node.get_condition();
     Nodecl::NodeclBase statement = node.get_statement();
 
+    emit_line_marker(node);
     indent();
     *(file) << "while (";
 
@@ -4114,6 +4289,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::WhileStatement& node)
     state.in_condition = 1;
     state.condition_top = condition;
 
+    emit_line_marker(condition);
     walk(condition);
 
     set_indent_level(old_indent);
@@ -6783,6 +6959,8 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
     if (!symbol.is_user_declared())
         return;
 
+    emit_line_marker(symbol.get_locus());
+
     if (symbol.is_variable())
     {
         define_or_declare_variable(symbol, /* is definition */ true);
@@ -6837,7 +7015,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
-                    << " : " 
+                    << " : "
                     << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
                             symbol.get_scope().get_decl_context(),
                             /* we need to store the current codegen */ (void*) this)
@@ -7038,16 +7216,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 primary_template = template_type.get_primary_template();
                 primary_symbol = primary_template.get_symbol();
 
-                if (primary_symbol != symbol)
-                {
-                    // Before the declaration of this specialization we should ensure
-                    // that the primary specialization has been defined
-                    (this->*decl_sym_fun)(primary_symbol);
-                }
-                else
-                {
-                    is_primary_template = 1;
-                }
+                is_primary_template = primary_symbol == symbol;
             }
 
             std::string class_key;
@@ -7187,7 +7356,10 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     &CxxBase::define_nonlocal_nonprototype_entities_in_trees);
         }
 
-        char is_primary_template = 0;
+        bool is_template_function = false;
+        bool is_primary_template = false;
+        bool member_of_explicit_template_class = false;
+
         bool requires_extern_linkage = false;
         if (IS_CXX_LANGUAGE
                 || cuda_emit_always_extern_linkage())
@@ -7213,6 +7385,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                 (scope != NULL) ? scope->get_template_parameters() : symbol.get_scope().get_template_parameters();
             if (symbol.get_type().is_template_specialized_type())
             {
+                is_template_function = true;
+
                 TL::Type template_type = symbol.get_type().get_related_template_type();
                 TL::Type primary_template = template_type.get_primary_template();
                 TL::Symbol primary_symbol = primary_template.get_symbol();
@@ -7220,17 +7394,27 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
 
                 if (primary_symbol == symbol)
                 {
-                    is_primary_template = 1;
+                    is_primary_template = true;
                 }
                 if (symbol.is_member())
                 {
-                    codegen_template_headers_bounded(template_parameters,
-                            symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
-                            /* show_default_values */ is_primary_template);
+                    if (scope != NULL
+                            && scope->is_namespace_scope())
+                    {
+                        codegen_template_headers_all_levels(template_parameters,
+                                /* show_default_values */ is_primary_template);
+                    }
+                    else
+                    {
+                        codegen_template_headers_bounded(template_parameters,
+                                symbol.get_class_type().get_symbol().get_scope().get_template_parameters(),
+                                /* show_default_values */ is_primary_template);
+                    }
                 }
                 else
                 {
-                    codegen_template_headers_all_levels(template_parameters, /* show_default_values */ is_primary_template);
+                    codegen_template_headers_all_levels(template_parameters,
+                            /* show_default_values */ is_primary_template);
                 }
             }
             else if (symbol.is_member())
@@ -7242,10 +7426,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     while (tpl.is_valid())
                     {
                         // We should ignore some 'fake' empty template headers
-                        if (tpl.get_num_parameters() > 0 || tpl.get_is_explicit_specialization())
+                        if (tpl.get_num_parameters() > 0
+                                && tpl.get_is_explicit_specialization())
                         {
                             indent();
                             *(file) << "template <>\n";
+                            member_of_explicit_template_class = true;
                         }
                         tpl = tpl.get_enclosing_parameters();
                     }
@@ -7257,8 +7443,11 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         TL::ObjectList<std::string> parameter_names(num_parameters);
         TL::ObjectList<std::string> parameter_attributes(num_parameters);
         fill_parameter_names_and_parameter_attributes(symbol, parameter_names, parameter_attributes,
-                !symbol.get_type().is_template_specialized_type() || is_primary_template);
-
+                // We want default arguments if this is a primary template
+                is_primary_template
+                // otherwise we want them only for nontemplate functions
+                || (!is_template_function && !member_of_explicit_template_class)
+                );
 
         std::string decl_spec_seq;
 
@@ -7310,6 +7499,8 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         }
 
         std::string gcc_attributes = gcc_attributes_to_str(symbol);
+        if (gcc_attributes != "")
+            gcc_attributes = " " + gcc_attributes;
         std::string asm_specification = gcc_asm_specifier_to_str(symbol);
 
         TL::Type real_type = symbol.get_type();
@@ -7389,9 +7580,27 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         {
             pure_spec += " = delete ";
         }
-        else if (symbol.is_defaulted())
+        else if (symbol.is_defaulted()
+                // Must be a special member
+                && symbol.is_member())
         {
-            pure_spec += " = default ";
+            if (symbol.is_defined_inside_class() // (A)
+                    || (state.classes_being_defined.empty() // (B)
+                        || (state.classes_being_defined.back() != symbol.get_class_type().get_symbol())))
+
+            {
+                // (A) Defaulted inside the class specifier
+                // (B) Defaulted but not inside the class specifier. But we are not inside the 
+                // class specifier either.
+                pure_spec += " = default ";
+            }
+            else
+            {
+                // (C) Not defined inside class but we are inside the class
+                // specifier, let's pretend we did not declare it so a later
+                // CxxDecl will go through (B)
+                set_codegen_status(symbol, CODEGEN_STATUS_NONE);
+            }
         }
 
         std::string exception_spec = exception_specifier_to_str(symbol);
@@ -7416,12 +7625,12 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
             // IBM XL requires asm_specification after the attributes, just the opposite
             // as GCC
             *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
-                << pure_spec << gcc_attributes << asm_specification << trailing_type_specifier << ";\n";
+                << gcc_attributes << asm_specification << pure_spec << trailing_type_specifier << ";\n";
         }
         else
         {
             *(file) << decl_spec_seq << declarator << exception_spec << virt_specifiers
-                << pure_spec << asm_specification << gcc_attributes << trailing_type_specifier << ";\n";
+                    << asm_specification << gcc_attributes << pure_spec << trailing_type_specifier << ";\n";
         }
 
         if (IS_CXX_LANGUAGE
@@ -8635,7 +8844,8 @@ void CxxBase::codegen_template_header(
         return;
 
     indent();
-    if (template_parameters.get_is_explicit_specialization())
+    if (template_parameters.get_num_parameters() > 0 
+            && template_parameters.get_is_explicit_specialization())
     {
         *(file) << "template <>";
         if (endline)
@@ -8911,12 +9121,15 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it != children.end();
             it++, i++)
     {
-        indent();
-        *(file) << start_inline_comment();
-        *(file) << "Children " << i;
-        *(file) << end_inline_comment() << "\n";
+        if (!it->is_null())
+        {
+            indent();
+            *(file) << start_inline_comment();
+            *(file) << "Children " << i;
+            *(file) << end_inline_comment() << "\n";
 
-        walk(*it);
+            walk(*it);
+        }
     }
 
     dec_indent();
@@ -9043,6 +9256,7 @@ const char* CxxBase::print_type_str(type_t* t, decl_context_t decl_context, void
                 /* parameter_names */ NULL,
                 /* parameter_attributes */ NULL,
                 /* is_parameter */ 0,
+                /* unparenthesize_ptr_operator */ 0,
                 print_name_str,
                 data);
     }
@@ -9054,8 +9268,8 @@ std::string CxxBase::get_declaration(TL::Type t, TL::Scope scope, const std::str
     t = fix_references(t);
 
     return get_declaration_string_ex(t.get_internal_type(), scope.get_decl_context(),
-            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, print_name_str,
-            /* we need to store the current codegen */ (void*) this);
+            name.c_str(), "", 0, 0, NULL, NULL, /* is_parameter */ 0, /* unparenthesize_ptr_operator */ 0,
+            print_name_str, /* we need to store the current codegen */ (void*) this);
 }
 
 std::string CxxBase::get_declaration_only_declarator(TL::Type t, TL::Scope scope, const std::string& name)
@@ -9144,8 +9358,9 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
                     && symbol.has_default_argument_num(i))
             {
-                parameter_attributes[i] += " = " + this->codegen_to_str(symbol.get_default_argument_num(i), 
-                        current_param.get_scope());
+                // Note that we add redundant parentheses because of a g++ 4.3 problem
+                parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i), 
+                        current_param.get_scope()) + ")";
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }
@@ -9181,7 +9396,9 @@ std::string CxxBase::get_declaration_with_parameters(TL::Type t,
     const char* result = get_declaration_string_ex(t.get_internal_type(),
             scope.get_decl_context(), symbol_name.c_str(), "", 0,
             num_parameters, parameter_names, param_attributes,
-            /* is_parameter */ 1, print_name_str,
+            /* is_parameter */ 1,
+            /* unparenthesize_ptr_operator */ 0,
+            print_name_str,
             /* we need to store the current codegen */ (void*) this);
 
     for (int i = 0; i < num_parameters; i++)

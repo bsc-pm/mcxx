@@ -103,7 +103,7 @@ TL::Symbol Intel::new_global_ident_symbol(Nodecl::NodeclBase location)
                     const_value_get_zero(/* bytes */ 4, /* sign */1)),
                 /* psource */
                 string_literal_tree),
-            Nodecl::StructuredValueBraced::make(new_ident_sym->locus),
+            Nodecl::StructuredValueBracedImplicit::make(new_ident_sym->locus),
             ident_t_type,
             new_ident_sym->locus);
 
@@ -182,7 +182,7 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location, const std:
                         kmp_int32_type,
                         const_value_get_zero(/* bytes */ 4, /* sign */1))
                     ),
-                Nodecl::StructuredValueBraced::make(new_ident_sym->locus),
+                Nodecl::StructuredValueBracedImplicit::make(new_ident_sym->locus),
                 kmp_critical_name_type,
                 new_ident_sym->locus);
         new_ident_sym->value = value.get_internal_nodecl();
@@ -205,6 +205,39 @@ TL::Symbol Intel::get_global_lock_symbol(Nodecl::NodeclBase location)
 void Intel::cleanup_lock_map()
 {
     lock_map.clear();
+}
+
+static void gather_vla_symbol_type(TL::Type t,
+        TL::ObjectList<TL::Symbol>& extra_symbols)
+{
+    if (!t.is_valid())
+        return;
+
+    if (t.is_array())
+    {
+        gather_vla_symbol_type(t.array_element(), extra_symbols);
+
+        Nodecl::NodeclBase size = t.array_get_size();
+        if (size.is<Nodecl::Symbol>()
+                && size.get_symbol().is_saved_expression())
+        {
+            extra_symbols.insert(size.get_symbol());
+        }
+    }
+    else if (t.is_pointer())
+    {
+        gather_vla_symbol_type(t.points_to(), extra_symbols);
+    }
+    else if (t.is_any_reference())
+    {
+        gather_vla_symbol_type(t.references_to(), extra_symbols);
+    }
+}
+
+void Intel::gather_vla_symbols(TL::Symbol symbol,
+        TL::ObjectList<TL::Symbol>& extra_symbols)
+{
+    gather_vla_symbol_type(symbol.get_type(), extra_symbols);
 }
 
 } // TL

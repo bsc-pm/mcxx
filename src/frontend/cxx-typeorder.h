@@ -46,8 +46,6 @@ LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_t
         template_parameter_list_t* explicit_template_parameters,
         const locus_t* locus, char is_conversion);
 
-LIBMCXX_EXTERN char is_sound_type(struct type_tag* t, decl_context_t decl_context);
-
 MCXX_END_DECLS
 
 #endif // CXX_TYPEORDER_H
