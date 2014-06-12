@@ -139,6 +139,67 @@ AC_SUBST([sqlite3_LIBS])
 
 dnl ----- End Sqlite ---------------------------
 
+dnl --- Suport for Extrae --------------
+extrae_support="no"
+AC_MSG_CHECKING([if Extrae support has been enabled])
+AC_ARG_ENABLE([extrae],
+    AS_HELP_STRING([--enable-extrae], [Enables Extrae instrumentation of Mercurium itself]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         extrae_support="yes"
+         AC_DEFINE([EXTRAE_ENABLED], 1, [Define to enable instrumentation of Mercurium using Extrae])
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+               extrae_support="no"
+               AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+extrae_lib=""
+extrae_include=""
+if test x$extrae_support = xyes;
+then
+   AC_ARG_WITH([extrae],
+           AS_HELP_STRING([--with-extrae=dir], [Directory of Extrae installation]),
+           [
+            extrae_include="${withval}/include"
+            extrae_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([extrae-include],
+           AS_HELP_STRING([--with-extrae-include=dir], [Directory of Extrae headers]),
+           [
+            extrae_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([extrae-lib],
+           AS_HELP_STRING([--with-extrae-lib=dir], [Directory of Extrae libraries]),
+           [
+            extrae_lib="${withval}"
+           ]
+   )
+fi
+
+EXTRAE_LIB=$extrae_lib
+EXTRAE_INCLUDE=$extrae_include
+AC_SUBST([EXTRAE_LIB])
+AC_SUBST([EXTRAE_INCLUDE])
+
+AM_CONDITIONAL([EXTRAE_ENABLED], test x$extrae_support = xyes)
+
+dnl --- End of support for Extrae ------------
+
 dnl -- Fortran tests ---
 fortran_tests_enabled="yes"
 AC_MSG_CHECKING([if Fortran tests have been disabled])
@@ -1998,6 +2059,14 @@ fi
 
 echo ""
 
+if test x$extrae_support = xyes;
+then
+  echo " Instrumentation of Mercurium itself using Extrae enabled"
+  echo "   Extrae includes :" $extrae_include
+  echo "   Extrae libraries:" $extrae_lib
+  echo ""
+fi
+
 if test x$show_mic_tools_warning = xyes;
 then
 	AC_MSG_WARN([Fortran+MIC compiling requires k1om objdump/ar/objcpy binaries to be avaiable, configure folder with '--with-mic-tools=dir'. See --help.])
@@ -2015,3 +2084,4 @@ if test x$gperf_good = xno;
 then
    AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
 fi
+
