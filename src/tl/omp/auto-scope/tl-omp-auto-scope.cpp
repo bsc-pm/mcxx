@@ -60,190 +60,127 @@ namespace OpenMP {
         this->PragmaCustomCompilerPhase::pre_run(dto);
     }
 
+    static TL::Analysis::NodeclList purge_user_scoped_variables(
+            const TL::Analysis::NodeclSet& auto_sc_vars, 
+            const Nodecl::List& user_sc_vars, 
+            Nodecl::List& environ)
+    {
+        TL::Analysis::NodeclList real_autosc_vars;
+        for(TL::Analysis::NodeclSet::iterator it = auto_sc_vars.begin(); it != auto_sc_vars.end(); ++it)
+        {
+            if(!Nodecl::Utils::nodecl_is_in_nodecl_list(*it, user_sc_vars))
+            {
+                real_autosc_vars.insert(it->shallow_copy());
+            }
+        }
+        return real_autosc_vars;
+    }
+    
+    static void fix_environment(Nodecl::List& environ, Nodecl::List& user_sc_vars)
+    {
+        for(Nodecl::List::iterator it = environ.begin(); it != environ.end(); )
+        {
+            if(it->is<Nodecl::OpenMP::Auto>())
+            {
+                it = environ.erase(it);
+            }
+            else
+            {
+                if(it->is<Nodecl::OpenMP::Private>())
+                    user_sc_vars.append(it->as<Nodecl::OpenMP::Private>());
+                else if(it->is<Nodecl::OpenMP::Firstprivate>())
+                    user_sc_vars.append(it->as<Nodecl::OpenMP::Firstprivate>());
+                else if(it->is<Nodecl::OpenMP::Shared>())
+                    user_sc_vars.append(it->as<Nodecl::OpenMP::Shared>());
+                ++it;
+            }
+        }
+    }
+    
     void AutoScopePhase::run(TL::DTO& dto)
     {
         this->PragmaCustomCompilerPhase::run(dto);
 
-        Analysis::NBase translation_unit = dto["nodecl"];
+        Analysis::NBase ast = dto["nodecl"];
 
-        if( _auto_scope_enabled )
+        if(_auto_scope_enabled)
         {
-            DEBUG_CODE( )
+            DEBUG_CODE()
             {
-                std::cerr << "Phase calculating automatic scope for tasks =========" << std::endl;
+                std::cerr << "ANALYSIS  ::  AUTO-SCOPING  ::  Phase calculating automatic scope for tasks" << std::endl;
             }
             IsOmpssEnabled = _ompss_mode_enabled;
-            AutoScopeVisitor sv;
-            sv.walk( translation_unit );
+            
+            // Automatically set the scope of the variables involved in the task, if possible
+            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(IsOmpssEnabled);
+            TL::Analysis::PCFGAnalysis_memento memento;
+            TL::ObjectList<TL::Analysis::ExtensibleGraph*> pcfgs = singleton.auto_scoping(memento, ast);
+            
+            // Print the results if any and modify the environment for later lowering
+            for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            {
+                TL::ObjectList<TL::Analysis::Node*> tasks = (*it)->get_tasks_list();
+                for(TL::ObjectList<TL::Analysis::Node*>::iterator itt = tasks.begin(); itt != tasks.end(); ++itt)
+                {
+                    TL::Analysis::Node* task = *itt;
+                    Nodecl::OpenMP::Task n = task->get_graph_related_ast().as<Nodecl::OpenMP::Task>();
+                    
+                    // 1.- Print results
+                    task->print_auto_scoping();
+                    
+                    // 2.- Propagate the auto-scoping to the environment
+                    TL::Analysis::Utils::AutoScopedVariables autosc_vars = task->get_auto_scoped_variables();
+                    TL::Analysis::NodeclSet private_vars, firstprivate_vars, shared_vars, undef_vars;
+                    Nodecl::List user_sc_vars;
+                    // 2.1.- Get the environment of the current task (deleting the 'default(AUTO)' clause, if exists
+                    Nodecl::List environ = n.get_environment().as<Nodecl::List>();
+                    fix_environment(environ, user_sc_vars);
+                    // 2.2.- Remove user-scoped variables from auto-scoped variables and reset environment
+                    const locus_t *loc = n.get_locus();
+                    TL::Analysis::NodeclList real_autosc_private_vars = 
+                            purge_user_scoped_variables(autosc_vars.get_private_vars(), user_sc_vars, environ);
+                    if(!real_autosc_private_vars.empty())
+                    {
+                        Nodecl::List vars = Nodecl::List::make(real_autosc_private_vars);
+                        Nodecl::OpenMP::Private private_node = Nodecl::OpenMP::Private::make(vars, loc);
+                        environ.append(private_node);
+                    }
+                    TL::Analysis::NodeclList real_autosc_firstprivate_vars = 
+                            purge_user_scoped_variables(autosc_vars.get_firstprivate_vars(), user_sc_vars, environ);
+                    if(!real_autosc_firstprivate_vars.empty())
+                    {
+                        Nodecl::List vars = Nodecl::List::make(real_autosc_firstprivate_vars);
+                        Nodecl::OpenMP::Firstprivate firstprivate_node = Nodecl::OpenMP::Firstprivate::make(vars, loc);
+                        environ.append(firstprivate_node);
+                    }
+                    TL::Analysis::NodeclList real_autosc_shared_vars = 
+                            purge_user_scoped_variables(autosc_vars.get_shared_vars(), user_sc_vars, environ);
+                    if(!real_autosc_shared_vars.empty())
+                    {
+                        Nodecl::List vars = Nodecl::List::make(real_autosc_shared_vars);
+                        Nodecl::OpenMP::Shared shared_node = Nodecl::OpenMP::Shared::make(vars, loc);
+                        environ.append(shared_node);
+                    }
+                    // 2.3.- Set the new environment to the task
+                    n.set_environment(environ);
+                }
+            }
         }
     }
 
-    void AutoScopePhase::set_auto_scope( const std::string auto_scope_enabled_str )
+    void AutoScopePhase::set_auto_scope(const std::string auto_scope_enabled_str)
     {
-        if( auto_scope_enabled_str == "1" )
+        if(auto_scope_enabled_str == "1")
             _auto_scope_enabled = true;
     }
-
+    
     void AutoScopePhase::set_ompss_mode(const std::string& ompss_mode_str)
     {
         if(ompss_mode_str == "1")
             _ompss_mode_enabled = true;
     }
-
+    
     // ************* END phase for Automatic Data-Sharing computation *************** //
-    // ****************************************************************************** //
-
-
-
-    // ****************************************************************************** //
-    // ******************** Function Visitor looking for Tasks ********************** //
-
-    Analysis::AnalysisInterface *AutoScopeVisitor::_analysis_info = 0;
-
-    AutoScopeVisitor::AutoScopeVisitor( )
-    {}
-
-    AutoScopeVisitor::~AutoScopeVisitor( )
-    {
-//         delete _analysis_info;
-    }
-
-    void AutoScopeVisitor::visit( const Nodecl::TopLevel& n )
-    {
-        // Automatically set the scope of the variables involved in the task, if possible
-        AutoScopeVisitor::_analysis_info
-                = new Analysis::AnalysisInterface(n, Analysis::WhichAnalysis::AUTO_SCOPING, IsOmpssEnabled);
-
-        // Print the results for each task with a default(AUTO) clause
-        std::cerr << "***********************************************************" << std::endl;
-        std::cerr << "****************** AUTO-SCOPING RESULTS: ******************" << std::endl;
-        walk( n.get_top_level( ) );
-        std::cerr << "***********************************************************" << std::endl;
-    }
-
-    void AutoScopeVisitor::visit( const Nodecl::OpenMP::Task& n )
-    {
-        // Retrieve the results of the Auto-Scoping process to the user
-        //_analysis_info->print_auto_scoping_results( n );
-
-        // Modify the Nodecl with the new variables' scope
-//         Analysis::Utils::AutoScopedVariables autosc_vars = _analysis_info->get_auto_scoped_variables(n);
-//         Analysis::NodeclSet private_vars, firstprivate_vars, race_vars, shared_vars, undef_vars;
-//         Analysis::NBase user_private_vars, user_firstprivate_vars, user_shared_vars;
-// 
-//         // Get actual environment
-//         Nodecl::List environ = n.get_environment().as<Nodecl::List>();
-//         for( Nodecl::List::iterator it = environ.begin( ); it != environ.end( ); )
-//         {
-//             if( it->is<Nodecl::OpenMP::Auto>( ) )
-//             {
-//                 it = environ.erase( it );
-//             }
-//             else
-//             {
-//                 if( it->is<Nodecl::OpenMP::Private>( ) )
-//                 {
-//                     user_private_vars = it->as<Nodecl::OpenMP::Private>( );
-//                 }
-//                 if( it->is<Nodecl::OpenMP::Firstprivate>( ) )
-//                 {
-//                     user_firstprivate_vars = it->as<Nodecl::OpenMP::Firstprivate>( );
-//                 }
-//                 if( it->is<Nodecl::OpenMP::Shared>( ) )
-//                 {
-//                     user_shared_vars = it->as<Nodecl::OpenMP::Shared>( );
-//                 }
-//                 ++it;
-//             }
-//         }
-// 
-//         // Remove user-scoped variables from auto-scoped variables and reset environment
-//         private_vars = autosc_vars.get_private_vars();
-//         if(!private_vars.empty())
-//         {
-//             Analysis::NodeclList autosc_private_vars;
-//             for(Analysis::NodeclSet::iterator it = private_vars.begin(); it != private_vars.end(); ++it)
-//             {
-//                 autosc_private_vars.insert(*it);
-//             }
-//             Analysis::NodeclList purged_autosc_private_vars;
-//             for(Analysis::NodeclList::iterator it = autosc_private_vars.begin();
-//                 it != autosc_private_vars.end( ); ++it )
-//                 {
-//                     if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
-//                         && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
-//                         && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
-//                     {
-//                         purged_autosc_private_vars.insert( it->shallow_copy() );
-//                     }
-//                 }
-//                 if( !purged_autosc_private_vars.empty( ) )
-//                 {
-//                     Nodecl::OpenMP::Private private_node =
-//                     Nodecl::OpenMP::Private::make( Nodecl::List::make( purged_autosc_private_vars ),
-//                                                         n.get_locus( ) );
-//                     environ.append( private_node );
-//                 }
-//         }
-// 
-//         firstprivate_vars = autosc_vars.get_firstprivate_vars();
-//         if(!firstprivate_vars.empty())
-//         {
-//             Analysis::NodeclList autosc_firstprivate_vars;
-//             for(Analysis::NodeclSet::iterator it = firstprivate_vars.begin(); it != firstprivate_vars.end(); ++it)
-//             {
-//                 autosc_firstprivate_vars.insert(*it);
-//             }
-//             Analysis::NodeclList purged_autosc_firstprivate_vars;
-//             for(Analysis::NodeclList::iterator it = autosc_firstprivate_vars.begin();
-//                  it != autosc_firstprivate_vars.end( ); ++it )
-//             {
-//                 if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
-//                     && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
-//                     && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
-//                 {
-//                     purged_autosc_firstprivate_vars.insert( it->shallow_copy() );
-//                 }
-//             }
-//             if( !purged_autosc_firstprivate_vars.empty( ) )
-//             {
-//                 Nodecl::OpenMP::Firstprivate firstprivate_node =
-//                         Nodecl::OpenMP::Firstprivate::make( Nodecl::List::make( purged_autosc_firstprivate_vars ),
-//                                                             n.get_locus( ) );
-//                 environ.append( firstprivate_node );
-//             }
-//         }
-// 
-//         shared_vars = autosc_vars.get_shared_vars();
-//         if(!shared_vars.empty())
-//         {
-//             Analysis::NodeclList autosc_shared_vars;
-//             for(Analysis::NodeclSet::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it)
-//             {
-//                 autosc_shared_vars.insert(*it);
-//             }
-//             Analysis::NodeclList purged_autosc_shared_vars;
-//             for(Analysis::NodeclList::iterator it = autosc_shared_vars.begin();
-//                 it != autosc_shared_vars.end( ); ++it )
-//                 {
-//                     if( !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_firstprivate_vars.as<Nodecl::List>( ) )
-//                         && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_private_vars.as<Nodecl::List>( ) )
-//                         && !Nodecl::Utils::nodecl_is_in_nodecl_list( *it, user_shared_vars.as<Nodecl::List>( ) ) )
-//                     {
-//                         purged_autosc_shared_vars.insert( it->shallow_copy() );
-//                     }
-//                 }
-//                 if( !purged_autosc_shared_vars.empty( ) )
-//                 {
-//                     Nodecl::OpenMP::Shared shared_node =
-//                     Nodecl::OpenMP::Shared::make( Nodecl::List::make( purged_autosc_shared_vars ),
-//                                                   n.get_locus( ) );
-//                     environ.append( shared_node );
-//                 }
-//         }
-    }
-
-    // ****************** END function Visitor looking for Tasks ******************** //
     // ****************************************************************************** //
 }
 }
