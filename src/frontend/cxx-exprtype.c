@@ -15372,9 +15372,10 @@ void check_nodecl_braced_initializer(
                             && is_char_type(array_type_get_element_type(type_to_be_initialized))
                             && nodecl_get_kind(nodecl_get_child(nodecl_initializer_clause, 0)) == NODECL_STRING_LITERAL))
                 {
+                    char current_is_braced = (nodecl_get_kind(nodecl_initializer_clause) == NODECL_CXX_BRACED_INITIALIZER);
                     DEBUG_CODE()
                     {
-                        if ( nodecl_get_kind(nodecl_initializer_clause) == NODECL_CXX_BRACED_INITIALIZER )
+                        if (current_is_braced)
                         {
                             fprintf(stderr, "EXPRTYPE: Braced initializer %s\n", print_declarator(type_to_be_initialized));
                         }
@@ -15382,6 +15383,16 @@ void check_nodecl_braced_initializer(
                         {
                             fprintf(stderr, "EXPRTYPE: Simple initializer %s\n", print_declarator(type_to_be_initialized));
                         }
+                    }
+
+                    if (current_is_braced
+                            && !is_aggregate_type(type_to_be_initialized)
+                            // A class can be braced initialized in C++
+                            && !(IS_CXX11_LANGUAGE && is_class_type(type_to_be_initialized)))
+                    {
+                        warn_printf("%s: warning: redundant brace initializer for type '%s'\n",
+                                nodecl_locus_to_str(nodecl_initializer_clause),
+                                print_type_str(type_to_be_initialized, decl_context));
                     }
 
                     // In this case, we only handle one element of the list
@@ -15781,31 +15792,11 @@ void check_nodecl_braced_initializer(
 
             scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
 
-            template_parameter_list_t* template_parameters = 
-                template_type_get_template_parameters(std_initializer_list_template->type_information);
-
-            // Get a specialization of std::initializer_list<T> [ T <- initializer_list_type ]
-            template_parameter_value_t* argument = counted_xcalloc(1, sizeof(*argument), &_bytes_used_expr_check);
-            argument->kind = TPK_TYPE;
-            argument->type = initializer_list_type;
-
-            template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
-            updated_template_parameters->arguments[0] = argument;
-
-            type_t* specialized_std_initializer = 
-                template_type_get_specialized_type(std_initializer_list_template->type_information,
-                        updated_template_parameters, decl_context, 
-                        locus);
-
             // Now solve the constructor using this specialization
-            // Should it be a const T&  ?
-            arg_list[0] = specialized_std_initializer;
-            num_args = 1;
-
             scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = solve_constructor(declared_type,
-                    arg_list,
-                    num_args,
+                    /* arg_list */ &initializer_list_type,
+                    /* num_args */ 1,
                     /* is_explicit */ 0,
                     decl_context,
                     locus,
@@ -15852,9 +15843,10 @@ void check_nodecl_braced_initializer(
                 {
                     template_parameter_list_t* template_args = 
                         template_specialized_type_get_template_arguments(
-                                function_type_get_parameter_type_num(
-                                    constructor->type_information,
-                                    0));
+                                named_type_get_symbol(
+                                    function_type_get_parameter_type_num(
+                                        constructor->type_information,
+                                        0))->type_information);
 
                     ERROR_CONDITION(template_args->arguments[0]->kind != TPK_TYPE,
                             "Unexpected template argument kind", 0);
@@ -15896,20 +15888,20 @@ void check_nodecl_braced_initializer(
                             nodecl_current);
                 }
 
-                *nodecl_output = cxx_nodecl_make_function_call(
+                // Note: we cannot call cxx_nodecl_make_function_call because
+                // it would attempt to convert the braced initializer into an
+                // initializer_list<T>
+                *nodecl_output = nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
-                        /* called name */ nodecl_null(),
-                        nodecl_make_list_1(nodecl_make_structured_value(
+                        nodecl_make_list_1(
+                            nodecl_make_structured_value(
                                 nodecl_arguments_output,
-                                /* structured-value-form */ is_explicit_type_cast
-                                ? nodecl_make_structured_value_braced_typecast(locus)
-                                : nodecl_make_structured_value_braced_implicit(locus),
-                                specialized_std_initializer,
+                                nodecl_make_structured_value_braced_implicit(locus),
+                                initializer_list_type,
                                 locus)),
-                        nodecl_make_cxx_function_form_implicit(
-                            locus),
+                        /* called name */ nodecl_null(),
+                        nodecl_make_cxx_function_form_implicit_braced_arguments(locus),
                         declared_type,
-                        decl_context,
                         locus);
 
                 return;
@@ -15941,15 +15933,6 @@ void check_nodecl_braced_initializer(
                 C_LANGUAGE()
                 {
                     warn_printf("%s: warning: brace initializer with more than one element initializing type '%s'\n",
-                            nodecl_locus_to_str(braced_initializer),
-                            print_type_str(declared_type, decl_context));
-                }
-            }
-            else
-            {
-                if (!is_explicit_type_cast)
-                {
-                    warn_printf("%s: warning: redundant brace initializer for type '%s'\n",
                             nodecl_locus_to_str(braced_initializer),
                             print_type_str(declared_type, decl_context));
                 }
