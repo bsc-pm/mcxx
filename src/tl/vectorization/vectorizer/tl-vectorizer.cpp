@@ -36,6 +36,7 @@
 #include "tl-vectorizer-visitor-postprocessor.hpp"
 #include "tl-vectorizer-visitor-loop.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 
@@ -160,9 +161,9 @@ namespace Vectorization
             fprintf(stderr, "VECTORIZER: ----- Vectorizing Parallel -----\n");
         }
 
-        VectorizerVisitorStatement visitor_stmt(environment, 
+        SPMLVectorizerVisitorStatement spml_visitor_stmt(environment, 
                 /* cache enabled */ true);
-        visitor_stmt.walk(statements);
+        spml_visitor_stmt.walk(statements);
 
         VECTORIZATION_DEBUG()
         {

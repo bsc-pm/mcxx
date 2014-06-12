@@ -1540,6 +1540,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
@@ -1586,6 +1587,10 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp \
                            $(END)
 endif
 

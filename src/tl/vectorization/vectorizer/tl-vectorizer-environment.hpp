@@ -99,6 +99,7 @@ namespace Vectorization
             friend class VectorizerVisitorStatement;
             friend class VectorizerVisitorLocalSymbol;
             friend class VectorizerVisitorExpression;
+            friend class SPMLVectorizerVisitorExpression;
             friend class VectorizerVisitorPreprocessor;
             friend class StrideSplitterVisitor;
     };

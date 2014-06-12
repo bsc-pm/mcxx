@@ -601,22 +601,9 @@ namespace Vectorization
                             subscripted.as<Nodecl::Cast>().get_rhs());
                 }
 
-<<<<<<< HEAD
-            // Vector Store
-            // Constant ArraySubscript, nothing to do
-            if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_invariant(_environment._analysis_simd_scope,
-                        lhs, lhs))
-            {
-                std::cerr << "VECTORIZER: Constant store: " << lhs.prettyprint()
-                    << std::endl;
-                running_error("Vectorizer: Extract operation is not "\
-                        "supported yet (%s).", lhs.prettyprint().c_str());
-=======
                 ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
                         "Vectorizer: ArraySubscript form not supported yet: %s",
                         lhs.prettyprint().c_str());
->>>>>>> simd_scalar
 
                 Nodecl::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>();
 

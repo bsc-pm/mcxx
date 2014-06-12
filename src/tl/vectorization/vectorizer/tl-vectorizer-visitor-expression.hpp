@@ -36,7 +36,7 @@ namespace TL
     {
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
-            private:
+            protected:
                 VectorizerEnvironment& _environment;
                 const bool _cache_enabled;
 
