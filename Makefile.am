@@ -77,6 +77,17 @@ no_undefined=
 dll_exports=
 endif
 
+AM_CFLAGS=
+AM_CPPFLAGS=
+AM_CXXFLAGS=
+AM_LDFLAGS=
+
+if EXTRAE_ENABLED
+AM_CPPFLAGS   += -I@EXTRAE_INCLUDE@
+AM_LDFLAGS  += -L@EXTRAE_LIB@ -lseqtrace
+endif
+
+
 ##########################################################################
 # gnulib
 ##########################################################################
