@@ -767,7 +767,37 @@ namespace {
         _current_nodecl = current_nodecl;
         _define = false;
     }
-
+    
+    void UsageVisitor::visit_vector_load(const NBase& rhs, const NBase& mask)
+    {
+        if(rhs.is<Nodecl::Reference>())
+        {
+            _node->add_used_address(rhs);
+            walk(rhs.as<Nodecl::Reference>().get_rhs());
+        }
+        else
+        {
+            WARNING_MESSAGE("Unexpected node type '%s' in the RHS of a vector load. Reference expected." 
+                            "Analysis result may be wrong", ast_print_node_type(rhs.get_kind()));
+        }
+        walk(mask);
+    }
+    
+    void UsageVisitor::visit_vector_store(const NBase& lhs, const NBase& rhs, const NBase& mask)
+    {
+        if(lhs.is<Nodecl::Reference>())
+        {
+            _node->add_used_address(lhs);
+            visit_assignment(lhs.as<Nodecl::Reference>().get_rhs(), rhs);
+        }
+        else
+        {
+            WARNING_MESSAGE("Unexpected node type '%s' in the LHS of a vector store. Reference expected." 
+                            "Analysis result may be wrong", ast_print_node_type(lhs.get_kind()));
+        }
+        walk(mask);
+    }
+    
     void UsageVisitor::visit(const Nodecl::AddAssignment& n)
     {
         visit_binary_assignment(n.get_lhs(), n.get_rhs());
@@ -960,12 +990,22 @@ namespace {
         if(!var_in_use.is<Nodecl::Reference>() && n.get_symbol().get_type().is_pointer())
             _node->add_used_address(n);
     }
-
+    
+    void UsageVisitor::visit(const Nodecl::UnalignedVectorLoad& n)
+    {
+        visit_vector_load(n.get_rhs(), n.get_mask());
+    }
+    
     void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)
     {
-        visit_assignment(n.get_lhs(), n.get_rhs());
+        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
     }
 
+    void UsageVisitor::visit(const Nodecl::UnalignedVectorStreamStore& n)
+    {
+        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
+    }
+    
     void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
         visit_assignment(n.get_lhs(), n.get_rhs());
@@ -1005,7 +1045,12 @@ namespace {
 //                 set_var_usage_to_node(current_access, Utils::UsageKind::USED);
 //         }
     }
-
+    
+    void UsageVisitor::visit(const Nodecl::VectorLoad& n)
+    {
+        visit_vector_load(n.get_rhs(), n.get_mask());
+    }
+    
     void UsageVisitor::visit(const Nodecl::VectorMaskAssignment& n)
     {
         visit_assignment(n.get_lhs(), n.get_rhs());
@@ -1073,12 +1118,12 @@ namespace {
 
     void UsageVisitor::visit(const Nodecl::VectorStore& n)
     {
-        visit_assignment(n.get_lhs(), n.get_rhs());
+        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
     }
 
     void UsageVisitor::visit(const Nodecl::VectorStreamStore& n)
     {
-        visit_assignment(n.get_lhs(), n.get_rhs());
+        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
     }
 
     void UsageVisitor::visit(const Nodecl::VirtualFunctionCall& n)

@@ -146,6 +146,8 @@ namespace Analysis {
         void visit_binary_assignment(const NBase& lhs, const NBase& rhs);
         void visit_function(const NBase& called_sym, const Nodecl::List& arguments);
         void visit_increment(const NBase& n);
+        void visit_vector_load(const NBase& rhs, const NBase& mask);
+        void visit_vector_store(const NBase& lhs, const NBase& rhs, const NBase& mask);
         
         
         // ********************** Private modifiers ********************** //
@@ -243,9 +245,12 @@ namespace Analysis {
         Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::Reference& n);
         Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::UnalignedVectorLoad& n);
         Ret visit(const Nodecl::UnalignedVectorStore& n);
+        Ret visit(const Nodecl::UnalignedVectorStreamStore& n);
         Ret visit(const Nodecl::VectorAssignment& n);
         Ret visit(const Nodecl::VectorGather& n);
+        Ret visit(const Nodecl::VectorLoad& n);
         Ret visit(const Nodecl::VectorMaskAssignment& n);
         Ret visit(const Nodecl::VectorScatter& n);
         Ret visit(const Nodecl::VectorSincos& n);
