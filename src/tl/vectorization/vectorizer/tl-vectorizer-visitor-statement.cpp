@@ -387,7 +387,7 @@ namespace Vectorization
             // ***************
             // VISIT ELSE'S THEN
             // ***************
-            bool return_inside_else;
+            bool return_inside_else = false;
             if (has_else)
             {
                 // Before visiting, compute heuristics

@@ -1350,7 +1350,7 @@ namespace TL { namespace OpenMP {
             stmt.replace(Nodecl::List::make(omp_simd_node));
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp simd\n", stmt.get_locus_str().c_str());
 #endif
     }
 
@@ -1408,7 +1408,7 @@ namespace TL { namespace OpenMP {
             Nodecl::Utils::remove_from_enclosing_list(decl);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd", decl.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp simd\n", decl.get_locus_str().c_str());
 #endif
     }
 
@@ -1470,7 +1470,7 @@ namespace TL { namespace OpenMP {
             stmt.replace(omp_simd_for_node);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp simd for\n", stmt.get_locus_str().c_str());
 #endif
     }
 
@@ -1483,7 +1483,7 @@ namespace TL { namespace OpenMP {
         // FIXME - What is supposed to happen here?
         // It is still not supported
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp parallel simd for\n", stmt.get_locus_str().c_str());
 #endif
     }
 
@@ -1517,7 +1517,7 @@ namespace TL { namespace OpenMP {
             stmt.replace(omp_simd_parallel_node);
         }
 #else
-    warn_printf("%s: warning: ignoring #pragma omp simd parallel", stmt.get_locus_str().c_str());
+    warn_printf("%s: warning: ignoring #pragma omp simd parallel\n", stmt.get_locus_str().c_str());
 #endif
     }
 
