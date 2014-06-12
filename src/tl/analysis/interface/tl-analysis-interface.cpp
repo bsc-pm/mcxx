@@ -63,9 +63,10 @@ namespace Analysis {
 
     AnalysisInterface::AnalysisInterface(
             const Nodecl::NodeclBase& n,
-            WhichAnalysis analysis_mask)
+            WhichAnalysis analysis_mask, 
+            bool ompss_mode_enabled)
     {
-        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis( );
+        TL::Analysis::AnalysisSingleton& analysis = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
 
         TL::Analysis::PCFGAnalysis_memento analysis_state;
 
@@ -97,7 +98,7 @@ namespace Analysis {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
 
-        if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
+//         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
             analysis.print_all_pcfg( analysis_state );
 
         // Fill nodecl to pcfg map
@@ -233,7 +234,7 @@ namespace Analysis {
         return get_iv_increment_internal(scope_node, n);
     }
 
-    ObjectList<Utils::InductionVariableData*> AnalysisInterface::get_induction_variables(
+    Utils::InductionVarList AnalysisInterface::get_induction_variables(
             const Nodecl::NodeclBase& scope)
     {
         // Retrieve pcfg

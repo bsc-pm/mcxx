@@ -58,7 +58,7 @@ namespace TL { namespace HLT {
         Nodecl::NodeclBase function_code = function_symbol.get_function_code();
         ERROR_CONDITION(function_code.is_null(), "Invalid node", 0);
 
-        Analysis::AnalysisInterface analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
+        Analysis::AnalysisInterface analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS, /*ompss_enabled*/ false);
 
         // ObjectList<InductionVariableData*> induction_vars = analysis_static.get_induction_variables();
 

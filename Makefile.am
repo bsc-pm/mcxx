@@ -1130,10 +1130,6 @@ src_tl_analysis_common_libanalysis_utils_la_LIBADD = $(tl_libadd) src/tl/libtl.l
 src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-rename-visitor.hpp \
 				src/tl/analysis/common/tl-rename-visitor.cpp \
-				src/tl/analysis/common/tl-extended-symbol.hpp \
-				src/tl/analysis/common/tl-extended-symbol.cpp \
-				src/tl/analysis/common/tl-extended-symbol-utils.hpp \
-				src/tl/analysis/common/tl-extended-symbol-utils.cpp \
 				src/tl/analysis/common/tl-analysis-utils.hpp \
 				src/tl/analysis/common/tl-analysis-utils.cpp \
 				src/tl/analysis/common/tl-induction-variables-data.hpp \
@@ -2847,6 +2843,7 @@ config_edit = \
      -e 's|@INTEL_OMP_LIB[@]|$(INTEL_OMP_LIB)|g' \
      -e 's|@INTEL_OMP_INCLUDE[@]|$(INTEL_OMP_INCLUDE)|g' \
      -e 's|@MIC_TOOLS[@]|$(MIC_TOOLS)|g' \
+     -e 's|@CORRECTNESS_LOG_DIR[@]|$(CORRECTNESS_LOG_DIR)|g' \
     $(END)
 
 # Cross compiler profile names

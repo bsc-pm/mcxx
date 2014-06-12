@@ -46,10 +46,10 @@ namespace Vectorization {
     {
         private:
             Analysis::Node* _scope;
-            const Analysis::Utils::ext_sym_set _killed;                                       /* All killed variables in the containing loop */
+            const Analysis::NodeclSet _killed;                      /* All killed variables in the containing loop */
             Analysis::ExtensibleGraph* _pcfg;
-            Analysis::Node* _scope_node;                                                      /* Scope from which the node is being analyzed */
-            Analysis::Node* _n_node;                                                          /* Node in the PCFG containing the nodecl being analyzed */
+            Analysis::Node* _scope_node;                            /* Scope from which the node is being analyzed */
+            Analysis::Node* _n_node;                                /* Node in the PCFG containing the nodecl being analyzed */
             bool _is_adjacent_access;
             std::set<Nodecl::NodeclBase> _adjacency_visited_nodes;
 

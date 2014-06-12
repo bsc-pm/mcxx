@@ -29,7 +29,6 @@
 
 #include <map>
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-task-dependency-graph.hpp"
@@ -81,9 +80,9 @@ namespace Analysis {
          * @param n Nodecl to be searched in the flow graph
          * @return The PCFG node containing the Nodecl
          */
-        Node* node_enclosing_nodecl_rec( Node* current, const Nodecl::NodeclBase& n );
+        Node* node_enclosing_nodecl_rec(Node* current, const NBase& n);
 
-        Node* node_enclosing_nodecl( const Nodecl::NodeclBase& n );
+        Node* node_enclosing_nodecl(const NBase& n);
 
     public:
         //! Class constructor
@@ -131,15 +130,15 @@ namespace Analysis {
         void set_tdg_computed( );
 
         //! Returns the list of induction variables found in #n
-        ObjectList<Utils::InductionVariableData*> get_induction_variables( const Nodecl::NodeclBase& n );
+        Utils::InductionVarList get_induction_variables(const NBase& n);
 
         //! Returns the list of reduction symbols found in #n
-        ObjectList<Symbol> get_reductions( const Nodecl::NodeclBase& n );
+        ObjectList<Symbol> get_reductions(const NBase& n);
 
         //! Returns a list of objects that are killed in #n
-        Utils::ext_sym_set get_killed( const Nodecl::NodeclBase& n );
+        NodeclSet get_killed(const NBase& n);
 
-        Node* get_autoscoped_task( const Nodecl::NodeclBase& n );
+        Node* get_autoscoped_task(const NBase& n);
 
     friend class AnalysisSingleton;
     };
@@ -181,7 +180,7 @@ namespace Analysis {
         // ************** Singleton methods *************** //
 
         //!Single instance constructor
-        static AnalysisSingleton& get_analysis( );
+        static AnalysisSingleton& get_analysis(bool is_ompss_enabled);
 
 
         // *************** Analysis methods *************** //
@@ -194,40 +193,40 @@ namespace Analysis {
          * \return A list of pointer to the created PCFGs
          */
         ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                  const Nodecl::NodeclBase& ast );
+                                                                  const NBase& ast);
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
          * that takes conditional branches into account applying Unreachable Code Elimination.
          */
-//         void conditional_constant_propagation( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+//         void conditional_constant_propagation(PCFGAnalysis_memento& memento, const NBase& ast);
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
 //         void conditional_constant_propagation( );
 
-        ObjectList<ExtensibleGraph*> use_def( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> use_def(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> liveness( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> liveness(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> reaching_definitions( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> reaching_definitions(PCFGAnalysis_memento& memento, const NBase& ast);
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        ObjectList<ExtensibleGraph*> induction_variables( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> induction_variables(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> tune_task_synchronizations( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> tune_task_synchronizations(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> range_analysis( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> range_analysis(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> cyclomatic_complexity(PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast);
+        ObjectList<ExtensibleGraph*> cyclomatic_complexity(PCFGAnalysis_memento& memento, const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> auto_scoping( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> auto_scoping(PCFGAnalysis_memento& memento, const NBase& ast);
 
-        ObjectList<TaskDependencyGraph*> task_dependency_graph( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<TaskDependencyGraph*> task_dependency_graph(PCFGAnalysis_memento& memento, const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> all_analyses( PCFGAnalysis_memento& memento, const Nodecl::NodeclBase& ast );
+        ObjectList<ExtensibleGraph*> all_analyses(PCFGAnalysis_memento& memento, const NBase& ast);
         
 
         // ********************* Utils ******************** //

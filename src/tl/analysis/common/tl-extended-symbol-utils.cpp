@@ -34,51 +34,6 @@ namespace TL {
 namespace Analysis {
 namespace Utils {
 
-    // **************************************************************************************** //
-    // **************************** Class for Auto-Scoping purposes *************************** //
-
-    AutoScopedVariables::AutoScopedVariables( )
-            : _private_vars( ), _firstprivate_vars( ),
-              _race_vars( ), _shared_vars( ), _undef_vars( )
-    {}
-
-    AutoScopedVariables::AutoScopedVariables( ext_sym_set private_vars, ext_sym_set firstprivate_vars,
-                                              ext_sym_set race_vars, ext_sym_set shared_vars,
-                                              ext_sym_set undef_vars )
-            : _private_vars( private_vars ), _firstprivate_vars( firstprivate_vars ),
-              _race_vars( race_vars ), _shared_vars( shared_vars ), _undef_vars( undef_vars )
-    {}
-
-    ext_sym_set AutoScopedVariables::get_private_vars( )
-    {
-        return _private_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_firstprivate_vars( )
-    {
-        return _firstprivate_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_race_vars( )
-    {
-        return _race_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_shared_vars( )
-
-    {
-        return _shared_vars;
-    }
-
-    ext_sym_set AutoScopedVariables::get_undef_vars( )
-    {
-        return _undef_vars;
-    }
-
-    // ************************** END class for Auto-Scoping purposes ************************* //
-    // **************************************************************************************** //
-
-
 
     // **************************************************************************************** //
     // *************** Methods for dealing with containers of Extended Symbols **************** //
@@ -244,10 +199,6 @@ namespace Utils {
         {
             return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Conversion>( ).get_nest( ), sym_set );
         }
-        else if( n.is<Nodecl::Reference>( ) )
-        {
-            return ext_sym_set_contains_enclosing_nodecl( n.as<Nodecl::Reference>( ).get_rhs( ), sym_set );
-        }
         else
         {
             if( ext_sym_set_contains_nodecl( n, sym_set ) )
@@ -259,13 +210,24 @@ namespace Utils {
 
     Nodecl::List ext_sym_set_contains_enclosed_nodecl( const Nodecl::NodeclBase& n, const ext_sym_set& sym_set )
     {
-        ext_sym_set fake_set;
-        fake_set.insert( ExtendedSymbol( n ) );
         Nodecl::List result;
+        
+        //Symbols which are pointers are not considered to contain any access to the pointed object
+        if(!n.no_conv().is<Nodecl::Symbol>() || !n.no_conv().get_symbol().get_type().is_pointer())
+        {
+            ext_sym_set fake_set;
+            fake_set.insert( ExtendedSymbol( n ) );
+            
         for( ext_sym_set::iterator it = sym_set.begin( ); it != sym_set.end( ); ++it )
         {
             if( !ext_sym_set_contains_enclosing_nodecl( it->get_nodecl( ), fake_set ).is_null( ) )
                 result.append(it->get_nodecl().shallow_copy());
+        }
+        }
+        else
+        {   // But check whether the pointer is in the set
+            if(ext_sym_set_contains_nodecl(n, sym_set))
+                result.append(n.shallow_copy());
         }
         return result;
     }

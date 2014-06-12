@@ -95,15 +95,15 @@ namespace Analysis {
         // TODO: if it's not loop, return empty list?
         if(scope_node->is_loop_node())
         {
-            ObjectList<Utils::InductionVariableData *> scope_ivs =
+            Utils::InductionVarList scope_ivs =
                 scope_node->get_induction_variables();
 
-            for(ObjectList<Utils::InductionVariableData *>::iterator it = scope_ivs.begin();
+            for(Utils::InductionVarList::iterator it = scope_ivs.begin();
                     it != scope_ivs.end();
                     it++)
             {
                 if(Nodecl::Utils::find_nodecl_by_structure(n,
-                            (*it)->get_variable().get_nodecl()))
+                            (*it)->get_variable()))
                     return false;
             }
         }
@@ -141,8 +141,8 @@ namespace Analysis {
         if( n.is<Nodecl::Symbol>( ) || n.is<Nodecl::ArraySubscript>( )
                 || n.is<Nodecl::ClassMemberAccess>( ) )
         {
-            Utils::ext_sym_map rd_in = n_node->get_reaching_definitions_in();
-            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> n_rds =
+            NodeclMap rd_in = n_node->get_reaching_definitions_in();
+            std::pair<NodeclMap::iterator, NodeclMap::iterator> n_rds =
                 rd_in.equal_range(n);
     
             if(n_rds.first != n_rds.second) // n has RDs
@@ -173,14 +173,13 @@ namespace Analysis {
     { 
         bool result = false;
 
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs =
-            scope_node->get_induction_variables();
+        Utils::InductionVarList ivs = scope_node->get_induction_variables();
 
-        for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
+        for( Utils::InductionVarList::const_iterator it = ivs.begin( );
                 it != ivs.end( ); ++it )
         {
             if ( Nodecl::Utils::structurally_equal_nodecls(
-                        ( *it )->get_variable( ).get_nodecl( ), n,
+                        ( *it )->get_variable( ), n,
                         /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->is_basic( );
@@ -198,18 +197,17 @@ namespace Analysis {
         
         if (scope_node->is_loop_node() || scope_node->is_function_code_node())
         {
-            ObjectList<Analysis::Utils::InductionVariableData*> ivs =
-                scope_node->get_induction_variables();
+            Utils::InductionVarList ivs = scope_node->get_induction_variables();
             ObjectList<TL::Symbol> reductions =
                 scope_node->get_reductions();
 
-            for( ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it = ivs.begin( );
+            for( Utils::InductionVarList::const_iterator it = ivs.begin( );
                     it != ivs.end( ); ++it )
             {
                 if( !reductions.contains( ( *it )->get_variable( ).get_symbol( ) ) )
                 {
                     if ( Nodecl::Utils::structurally_equal_nodecls(
-                                ( *it )->get_variable( ).get_nodecl( ), n,
+                                ( *it )->get_variable( ), n,
                                 /* skip conversion nodes */ true ) )
                     {
                         result = ( *it )->is_basic( );
@@ -227,15 +225,14 @@ namespace Analysis {
     {
         Nodecl::NodeclBase result;
 
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs =
-            scope_node->get_induction_variables();
+        Utils::InductionVarList ivs = scope_node->get_induction_variables();
 
-        ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it;
+        Utils::InductionVarList::const_iterator it;
         for( it = ivs.begin( );
              it != ivs.end( ); ++it )
         {
             if ( Nodecl::Utils::structurally_equal_nodecls(
-                        ( *it )->get_variable( ).get_nodecl( ), n,
+                        ( *it )->get_variable( ), n,
                         /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_lb( );
@@ -257,15 +254,15 @@ namespace Analysis {
     {
         Nodecl::NodeclBase result;
 
-        ObjectList<Analysis::Utils::InductionVariableData*> ivs =
+        Utils::InductionVarList ivs =
             scope_node->get_induction_variables();
 
-        ObjectList<Analysis::Utils::InductionVariableData*>::const_iterator it;
+        Utils::InductionVarList::const_iterator it;
         for( it = ivs.begin( );
              it != ivs.end( ); ++it )
         {
             if ( Nodecl::Utils::structurally_equal_nodecls(
-                        ( *it )->get_variable( ).get_nodecl( ), n,
+                        ( *it )->get_variable( ), n,
                         /* skip conversion nodes */ true ) )
             {
                 result = ( *it )->get_increment( );

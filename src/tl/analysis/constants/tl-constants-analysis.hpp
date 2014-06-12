@@ -30,7 +30,6 @@
 #include <list>
 
 #include "tl-analysis-utils.hpp"
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl.hpp"
 
@@ -103,14 +102,14 @@ namespace Analysis {
     // ******************** Visitor computing the Extensible Symbols modified ******************** //
 
     //!Visitor to get the l-values contained in a given nodecl that are modified
-    class LIBTL_CLASS AssignedExtSymVisitor : public Nodecl::ExhaustiveVisitor<void>
+    class LIBTL_CLASS AssignedNodeclVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
 
         // ******* Class attributes ******* //
 
         //! List of extended symbols found during the traversal
-        ObjectList<Utils::ExtendedSymbol> _assigned_ext_syms;
+        ObjectList<Nodecl::NodeclBase> _assigned_ext_syms;
 
         //! Temporary value used to know whether we are traversing the left-hand side of an assignment
         bool _is_lhs;
@@ -124,10 +123,10 @@ namespace Analysis {
 
     public:
         //! Constructor
-        AssignedExtSymVisitor( );
+        AssignedNodeclVisitor( );
 
         //! Getters and setters
-        ObjectList<Utils::ExtendedSymbol> get_assigned_ext_syms( );
+        ObjectList<Nodecl::NodeclBase> get_assigned_ext_syms( );
 
         //! Visiting methods
         Ret visit( const Nodecl::AddAssignment& n );
@@ -177,7 +176,7 @@ namespace Analysis {
     class LIBTL_CLASS LatticeCellValue {
     private:
         //! Entity of the program
-        Utils::ExtendedSymbol _ext_sym;
+        Nodecl::NodeclBase _ext_sym;
 
         //! temporary value in the LatticeCell of the entity
         LatticeValue _lattice_val;
@@ -192,7 +191,7 @@ namespace Analysis {
         LatticeCellValue( );
 
         //! Getters and setters
-        void set_ext_sym( Utils::ExtendedSymbol es );
+        void set_ext_sym( Nodecl::NodeclBase es );
         void set_lattice_val( LatticeValue lv );
         void set_const_val( Nodecl::NodeclBase cv );
     };

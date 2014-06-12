@@ -82,7 +82,8 @@ namespace Vectorization
             VectorizationAnalysisMaps(),
             Analysis::AnalysisInterface::AnalysisInterface(
                     copy_function_code(n.as<Nodecl::FunctionCode>()),
-                    analysis_mask),
+                    analysis_mask, 
+                    /*ompss_enabled*/false),
             _original_node(n)
     {
         //Fill inverse maps
@@ -351,20 +352,17 @@ namespace Vectorization
     objlist_nodecl_t VectorizationAnalysisInterface::get_ivs_nodecls(
                 const Nodecl::NodeclBase& scope )
     {
-        typedef ObjectList<Analysis::Utils::InductionVariableData*>
-            objlist_iv_data_t;
-
-        objlist_iv_data_t iv_data_list =
+        Analysis::Utils::InductionVarList iv_data_list =
             Analysis::AnalysisInterface::get_induction_variables(
                     translate_input(scope));
 
         objlist_nodecl_t result;
 
-        for(objlist_iv_data_t::const_iterator it = iv_data_list.begin();
+        for(Analysis::Utils::InductionVarList::const_iterator it = iv_data_list.begin();
                 it != iv_data_list.end();
                 it ++)
         {
-            result.append((*it)->get_variable().get_nodecl());
+            result.append((*it)->get_variable());
         }
 
         return translate_output(result);

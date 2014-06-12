@@ -12,6 +12,7 @@ linker_name = @GCC@
 {openmp} compiler_phase = libtlomp-base.so
 {openmp, openmp-lint} compiler_phase = libtlomp-lint.so
 {complexity} compiler_phase = libtlcomplexity.so
+{openmp, openmp-lint} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} pragma_prefix = nanos

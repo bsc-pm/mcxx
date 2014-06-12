@@ -39,7 +39,7 @@ namespace Utils {
     // ******************************************************************************************* //
     // ************************** Common methods with analysis purposes ************************** //
 
-    std::string generate_hashed_name(Nodecl::NodeclBase ast)
+    std::string generate_hashed_name(NBase ast)
     {
         std::string result;
 
@@ -65,7 +65,7 @@ namespace Utils {
         return result;
     }
 
-    Nodecl::NodeclBase find_main_function( Nodecl::NodeclBase ast )
+    NBase find_main_function(NBase ast)
     {
         TopLevelVisitor tlv;
         tlv.walk( ast );
@@ -77,35 +77,371 @@ namespace Utils {
 
 
 
+    // **************************************************************************************** //
+    // ********************* Methods to manage nodecls and their containers ******************* //
+    
+    NBase get_nodecl_base(const NBase& n)
+    {
+        NBase nodecl;
+        if(n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>())
+        {
+            nodecl = n;
+        }
+        else if(Nodecl::Utils::nodecl_is_literal(n))
+        {
+            nodecl = NBase::null();
+        }
+        else if (n.is<Nodecl::ClassMemberAccess>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::ClassMemberAccess>().get_lhs());
+        }
+        else if (n.is<Nodecl::ArraySubscript>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::ArraySubscript>().get_subscripted());
+        }
+        else if (n.is<Nodecl::Reference>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Reference>().get_rhs());
+        }
+        else if (n.is<Nodecl::Dereference>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Dereference>().get_rhs());
+        }
+        else if(n.is<Nodecl::Conversion>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Conversion>().get_nest());
+        }
+        else if(n.is<Nodecl::Cast>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Cast>().get_rhs());
+        }
+        else if(n.is<Nodecl::Postdecrement>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Postdecrement>().get_rhs());
+        }
+        else if(n.is<Nodecl::Postincrement>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Postincrement>().get_rhs());
+        }
+        else if (n.is<Nodecl::Predecrement>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Predecrement>().get_rhs());
+        }
+        else if(n.is<Nodecl::Preincrement>())
+        {
+            nodecl = get_nodecl_base(n.as<Nodecl::Preincrement>().get_rhs());
+        }
+        else
+        {
+            nodecl = NBase::null();
+        }
+
+        return nodecl;
+    }
+    
+    NodeclList get_nodecls_base(const NBase& n)
+    {
+        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>() || n.is<Nodecl::ObjectInit>() || n.is<Nodecl::FunctionCall>())
+        {
+            return NodeclList(1, n);
+        }
+        else if (n.is<Nodecl::IntegerLiteral>() || n.is<Nodecl::FloatingLiteral>() || n.is<Nodecl::ComplexLiteral>()
+                || n.is<Nodecl::StringLiteral>() || n.is<Nodecl::BooleanLiteral>() || n.is<Nodecl::MaskLiteral>())
+        {
+            return NodeclList();
+        }
+        else if (n.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
+            return get_nodecls_base(aux.get_lhs());
+        }
+        else if (n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
+            return get_nodecls_base(aux.get_subscripted());
+        }
+        else if (n.is<Nodecl::Reference>())
+        {
+            Nodecl::Reference aux = n.as<Nodecl::Reference>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::Dereference>())
+        {
+            Nodecl::Dereference aux = n.as<Nodecl::Dereference>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::Conversion>())
+        {
+            Nodecl::Conversion aux = n.as<Nodecl::Conversion>();
+            return get_nodecls_base(aux.get_nest());
+        }
+        else if (n.is<Nodecl::Cast>())
+        {
+            Nodecl::Cast aux = n.as<Nodecl::Cast>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        /*!
+        * We can have (pre- post-) in- de-crements and other arithmetic operations
+        * Example:
+        * T *curr_high = ...;
+        * *curr_high-- = l;
+        * "*curr_high--" is a _KILLED_VAR
+        */
+        else if (n.is<Nodecl::Predecrement>())
+        {
+            Nodecl::Predecrement aux = n.as<Nodecl::Predecrement>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::Postdecrement>())
+        {
+            Nodecl::Postdecrement aux = n.as<Nodecl::Postdecrement>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::Preincrement>())
+        {
+            Nodecl::Preincrement aux = n.as<Nodecl::Preincrement>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::Postincrement>())
+        {
+            Nodecl::Postincrement aux = n.as<Nodecl::Postincrement>();
+            return get_nodecls_base(aux.get_rhs());
+        }
+        else
+        {
+            WARNING_MESSAGE("Unexpected type of nodecl '%s'.", ast_print_node_type(n.get_kind()));
+            return NodeclList();
+        }
+    }
+    
+    bool nodecl_set_contains_nodecl(const NBase& nodecl, const NodeclSet& set)
+    {
+        for(NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
+            if(Nodecl::Utils::structurally_equal_nodecls(nodecl, *it, /*skip_conversions*/true))
+                return true;
+        return false;
+    }
+    
+    bool nodecl_set_contains_nodecl_pointer(const NBase& nodecl, const NodeclSet& set)
+    {
+        for(NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
+            if(nodecl == *it)
+                return true;
+            return false;
+    }
+    
+    NBase nodecl_set_contains_enclosing_nodecl(const NBase& n, const NodeclSet& set)
+    {
+        if(n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>();
+            if(nodecl_set_contains_nodecl(n, set))
+                return n;
+            else
+                return nodecl_set_contains_enclosing_nodecl(arr.get_subscripted(), set);
+        }
+        else if(n.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>();
+            if(nodecl_set_contains_nodecl(n, set))
+                return n;
+            else
+                return nodecl_set_contains_enclosing_nodecl(memb_access.get_lhs(), set);
+        }
+        else if(n.is<Nodecl::Conversion>())
+        {
+            return nodecl_set_contains_enclosing_nodecl(n.as<Nodecl::Conversion>().get_nest(), set);
+        }
+        else
+        {
+            if(nodecl_set_contains_nodecl(n, set))
+                return n;
+            else
+                return NBase::null();
+        }
+    }
+    
+    Nodecl::List nodecl_set_contains_enclosed_nodecl(const NBase& n, const NodeclSet& set)
+    {
+        Nodecl::List result;
+        
+        // Symbols which are pointers are not considered to contain any access to the pointed object
+        if(!n.no_conv().is<Nodecl::Symbol>() || !n.no_conv().get_symbol().get_type().is_pointer())
+        {
+            NodeclSet fake_set;
+            fake_set.insert(n);
+            
+            for(NodeclSet::iterator it = set.begin(); it != set.end(); ++it)
+            {
+                if(!nodecl_set_contains_enclosing_nodecl(*it, fake_set).is_null())
+                    result.append(it->shallow_copy());
+            }
+        }
+        else
+        {   // But check whether the pointer is in the set
+            if(nodecl_set_contains_nodecl(n, set))
+                result.append(n.shallow_copy());
+        }
+        return result;
+    }
+    
+    NodeclSet nodecl_set_union(const NodeclSet& s1, const NodeclSet& s2)
+    {
+        NodeclSet result;
+        std::set_union(s1.begin(), s1.end(), s2.begin(), s2.end(),
+                       std::inserter(result, result.begin()), 
+                       Nodecl::Utils::Nodecl_structural_less());
+        return result;
+    }
+    
+    NodeclMap nodecl_map_union(const NodeclMap& m1, const NodeclMap& m2)
+    {
+        NodeclMap result = m1;
+        
+        for(NodeclMap::const_iterator it = m2.begin(); it != m2.end(); ++it)
+        {
+            bool pair_already_in_map = false;
+            std::pair<NodeclMap::iterator, NodeclMap::iterator> current_key_in_result = result.equal_range(it->first);
+            for(NodeclMap::iterator itt = current_key_in_result.first; itt != current_key_in_result.second; ++itt)
+            {
+                if(itt->second == it->second)
+                {
+                    pair_already_in_map = true;
+                    break;
+                }
+            }
+            if(!pair_already_in_map)
+            {
+                result.insert(std::pair<NBase, NodeclPair>(it->first, it->second));
+            }
+        }
+        
+        return result;
+    }
+    
+    NodeclSet nodecl_set_difference(const NodeclSet& s1, const NodeclSet& s2)
+    {
+        NodeclSet result;
+        std::set_difference(s1.begin(), s1.end(), s2.begin(), s2.end(),
+                            std::inserter(result, result.begin()), 
+                            Nodecl::Utils::Nodecl_structural_less());
+        return result;
+    }
+    
+    NodeclMap nodecl_map_minus_nodecl_set(const NodeclMap& m, const NodeclSet& s)
+    {
+        NodeclMap result;
+        for(NodeclMap::const_iterator it = m.begin(); it != m.end(); ++it)
+            if(s.find(it->first) == s.end())
+                result.insert(std::pair<NBase, NodeclPair>(it->first, it->second));
+        return result;
+    }
+    
+    bool nodecl_set_equivalence(const NodeclSet& s1, const NodeclSet& s2)
+    {
+        if(s1.size() == s2.size())
+        {
+            NodeclSet intersection;
+            std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(),
+                                  std::inserter(intersection, intersection.begin()), 
+                                  Nodecl::Utils::Nodecl_structural_less());
+            if(intersection.size() == s1.size())
+                return true;
+        }
+        return false;
+    }
+    
+    bool nodecl_map_equivalence(const NodeclMap& m1, const NodeclMap& m2)
+    {
+        if(m1.size() != m2.size())
+            return false;
+        
+        NodeclMap::const_iterator it1 = m1.begin();
+        NodeclMap::const_iterator it2 = m2.begin();
+        for( ; it1 != m1.end(); ++it1, ++it2)
+            if((it1->first != it2->first) || (it1->second != it2->second))
+                return false;
+        
+        return true;
+    }
+    
+    // ********************* Methods to manage nodecls and their containers ******************* //
+    // **************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************** //
+    // **************************** Class for Auto-Scoping purposes *************************** //
+
+    AutoScopedVariables::AutoScopedVariables()
+            : _private_vars(), _firstprivate_vars(), _race_vars(), _shared_vars(), _undef_vars()
+    {}
+
+    AutoScopedVariables::AutoScopedVariables(NodeclSet private_vars, NodeclSet firstprivate_vars,
+                                             NodeclSet race_vars, NodeclSet shared_vars, NodeclSet undef_vars)
+            : _private_vars(private_vars), _firstprivate_vars(firstprivate_vars),
+              _race_vars(race_vars), _shared_vars(shared_vars), _undef_vars(undef_vars)
+    {}
+
+    NodeclSet AutoScopedVariables::get_private_vars()
+    {
+        return _private_vars;
+    }
+
+    NodeclSet AutoScopedVariables::get_firstprivate_vars()
+    {
+        return _firstprivate_vars;
+    }
+
+    NodeclSet AutoScopedVariables::get_race_vars()
+    {
+        return _race_vars;
+    }
+
+    NodeclSet AutoScopedVariables::get_shared_vars()
+    {
+        return _shared_vars;
+    }
+
+    NodeclSet AutoScopedVariables::get_undef_vars()
+    {
+        return _undef_vars;
+    }
+
+    // ************************** END class for Auto-Scoping purposes ************************* //
+    // **************************************************************************************** //
+    
+
+
     // ******************************************************************************************* //
     // ****************************** Visitor for Top Level nodes ******************************** //
 
     TopLevelVisitor::TopLevelVisitor( )
-            : _main ( Nodecl::NodeclBase::null( ) ), _functions( ), _analysis_asserted_funcs( ), _filename( "" )
+            : _main (NBase::null()), _functions(), _analysis_asserted_funcs(), _filename("")
     {}
 
-    Nodecl::NodeclBase TopLevelVisitor::get_main( ) const
+    NBase TopLevelVisitor::get_main() const
     {
         return _main;
     }
 
-    ObjectList<Nodecl::NodeclBase> TopLevelVisitor::get_functions( ) const
+    ObjectList<NBase> TopLevelVisitor::get_functions() const
     {
         return _functions;
     }
 
-    std::map<Symbol, Nodecl::NodeclBase> TopLevelVisitor::get_asserted_funcs( ) const
+    std::map<Symbol, NBase> TopLevelVisitor::get_asserted_funcs() const
     {
         return _analysis_asserted_funcs;
     }
 
-    void TopLevelVisitor::walk_functions( const Nodecl::NodeclBase& n )
+    void TopLevelVisitor::walk_functions(const NBase& n)
     {
         _filename = n.get_filename( );
         walk( n );
     }
 
-    void TopLevelVisitor::unhandled_node( const Nodecl::NodeclBase& n )
+    void TopLevelVisitor::unhandled_node(const NBase& n)
     {
         nodecl_t intern_n = n.get_internal_nodecl( );
         WARNING_MESSAGE( "Unhandled node '%s' while PCFG construction of type '%s''",
@@ -166,18 +502,14 @@ namespace Utils {
     void TopLevelVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
         if( _filename == n.get_filename( ) )
-        {
             _functions.append( n );
         }
-    }
 
     void TopLevelVisitor::visit( const Nodecl::OpenMP::TaskCall& n )
     {
         if( _filename == n.get_filename( ) )
-        {
             _functions.append( n );
         }
-    }
 
     void TopLevelVisitor::visit( const Nodecl::PragmaCustomDeclaration& n ) {}
 
@@ -196,58 +528,6 @@ namespace Utils {
     void TopLevelVisitor::visit( const Nodecl::Verbatim& n ) {}
 
     // **************************** END visitor for Top Level nodes ****************************** //
-    // ******************************************************************************************* //
-
-
-
-    // ******************************************************************************************* //
-    // ************************ Class defining the range analysis values ************************* //
-
-    bool map_pair_compare( std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair1,
-                           std::pair<Nodecl::NodeclBase, ObjectList<Utils::RangeValue_tag> > pair2 )
-    {
-        bool result = false;
-
-        // Check the keys
-        if( Nodecl::Utils::structurally_equal_nodecls( pair1.first, pair2.first ) )
-        {
-            // Check the values
-            if( pair1.second.size( ) == pair2.second.size( ) )
-            {
-                result = true;
-                ObjectList<RangeValue_tag>::iterator it1 = pair1.second.begin( );
-                ObjectList<RangeValue_tag>::iterator it2 = pair2.second.begin( );
-                for( ; it1 != pair1.second.end( ); it1++, it2++ )
-                {
-                    if( !it1->n->is_null( ) && !it2->n->is_null( ) )
-                    {
-                        if( !Nodecl::Utils::structurally_equal_nodecls( *it1->n, *it2->n ) )
-                        {
-                            result = false;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        if( !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_variable( ).get_nodecl( ),
-                                                           it2->iv->get_variable( ).get_nodecl( ) ) ||
-                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_lb( ), it2->iv->get_lb( ) ) ||
-                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_ub( ), it2->iv->get_ub( ) ) ||
-                            !Nodecl::Utils::structurally_equal_nodecls( it1->iv->get_increment( ), it2->iv->get_increment( ) ) ||
-                            ( it1->iv->is_basic( ) == it2->iv->is_basic( ) ) )
-                        {
-                            result = false;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
-
-    // ********************** END class defining the range analysis values *********************** //
     // ******************************************************************************************* //
 
 
@@ -325,13 +605,13 @@ namespace Utils {
 
     }
 
-    std::string prettyprint_ext_sym_set( ext_sym_set s, bool print_in_dot )
+    std::string prettyprint_nodecl_set(const NodeclSet& s, bool print_in_dot)
     {
         std::string result = "";
         int line_size = 0;
-        for( ext_sym_set::iterator it = s.begin( ); it != s.end( ); ++it )
+        for(NodeclSet::const_iterator it = s.begin(); it != s.end(); ++it)
         {
-            std::string it_str = it->get_nodecl( ).prettyprint( );
+            std::string it_str = it->prettyprint();
             if( line_size + it_str.size( ) > 100 )
             {
                 result += "$$";
@@ -354,17 +634,15 @@ namespace Utils {
         return result;
     }
 
-    std::string prettyprint_ext_sym_map( ext_sym_map s, bool print_in_dot )
+    std::string prettyprint_nodecl_map(const NodeclMap& m, bool print_in_dot)
     {
         std::string result = "";
         int line_size = 0;
-        for( ext_sym_map::iterator it = s.begin( ); it != s.end( ); ++it )
+        for(NodeclMap::const_iterator it = m.begin(); it != m.end(); ++it)
         {
             if( it->second.first.is_null( ) )
             {
-                WARNING_MESSAGE("No Null Reaching Definition expected for any variable. "
-                                "This should fail because we may be reporting a wrong result", 0);
-                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "= UNDEFINED; ";
+                std::string it_str = it->first.prettyprint() + "= UNKNOWN; ";
                 if( line_size + it_str.size( ) > 100 )
                 {
                     result += "$$";
@@ -378,7 +656,7 @@ namespace Utils {
             }
             else
             {
-                std::string it_str = it->first.get_nodecl( ).prettyprint( ) + "=" + it->second.first.prettyprint( ) + "; ";
+                std::string it_str = it->first.prettyprint() + "=" + it->second.first.prettyprint() + "; ";
                 if( line_size + it_str.size( ) > 100 )
                 {
                     result += "$$";
@@ -390,58 +668,6 @@ namespace Utils {
                 if( line_size > 100 )
                     result += "$$";
             }
-        }
-
-        if( !result.empty( ) )
-        {
-            result = result.substr( 0, result.size( ) - 2 );
-            if( print_in_dot )
-                makeup_dot_block(result);
-        }
-
-        return result;
-    }
-
-    std::string prettyprint_range_values_map( Utils::RangeValuesMap s, bool print_in_dot  )
-    {
-        std::string result = "";
-        int line_size = 0;
-        for( Utils::RangeValuesMap::iterator it = s.begin( ); it != s.end( ); ++it )
-        {
-            std::string it_str = it->first.prettyprint( ) + "= {";
-                ObjectList<Utils::RangeValue_tag> values = it->second;
-                for( ObjectList<Utils::RangeValue_tag>::iterator itv = values.begin( ); itv != values.end( ); )
-                {
-                    if( !itv->n->is_null( ) )
-                        it_str += itv->n->prettyprint( );
-                    else
-                    {
-                        Nodecl::NodeclBase lb = itv->iv->get_lb( );
-                        Nodecl::NodeclBase ub = itv->iv->get_ub( );
-                        Nodecl::NodeclBase incr = itv->iv->get_increment( );
-
-                        it_str += "[ " + ( lb.is_null( )   ? "NULL" : lb.prettyprint( ) )
-                                + ":"  + ( ub.is_null( )   ? "NULL" : ub.prettyprint( ) )
-                                + ":"  + ( incr.is_null( ) ? "NULL" : incr.prettyprint( ) )
-                                + ":"   + itv->iv->get_type_as_string( ) + " ]";
-                    }
-
-                    ++itv;
-                    if( itv != values.end( ) )
-                        it_str += ", ";
-                }
-                it_str += "}; ";
-
-                if( line_size + it_str.size( ) > 100 )
-                {
-                    result += "$$";
-                    line_size = it_str.size( );
-                }
-                else
-                    line_size += it_str.size( );
-                result += it_str;
-                if( line_size > 100 )
-                    result += "$$";
         }
 
         if( !result.empty( ) )

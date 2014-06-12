@@ -27,7 +27,6 @@
 #ifndef TL_REACHING_DEFINITIONS_HPP
 #define TL_REACHING_DEFINITIONS_HPP
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
 
@@ -42,7 +41,7 @@ namespace Analysis {
     {
     private:
         ExtensibleGraph* _graph;
-        Utils::ext_sym_map _unknown_reach_defs;
+        NodeclMap _unknown_reach_defs;
 
         void generate_unknown_reaching_definitions( );
         
@@ -61,7 +60,7 @@ namespace Analysis {
         //! Propagates reaching definitions information from inner to outer nodes
         void set_graph_node_reaching_definitions( Node* current );
 
-        Utils::ext_sym_map combine_generated_statements( Node* current );
+        NodeclMap combine_generated_statements(Node* current);
 
     public:
         //! Constructor
@@ -92,7 +91,7 @@ namespace Analysis {
          *                   v = w;
          *      Gen (X)  :=  v = w;
          */
-        Utils::ext_sym_map _gen;
+        NodeclMap _gen;
 
     public:
 
@@ -100,7 +99,7 @@ namespace Analysis {
         GeneratedStatementsVisitor( );
 
         // **************** Getters and setters *************** //
-        Utils::ext_sym_map get_gen( );
+        NodeclMap get_gen();
 
         // ***************** Visiting methods ***************** //
         void visit_assignment( const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs, 

@@ -84,12 +84,17 @@ namespace Analysis {
                             "If set to '1' enables cyclomatic complexity calculation, otherwise it is disabled",
                             _cyclomatic_complexity_enabled_str,
                             "0").connect(functor(&TestAnalysisPhase::set_cyclomatic_complexity, *this));
+                            
+        register_parameter("ompss_mode",
+                            "Enables OmpSs semantics instead of OpenMP semantics",
+                            _ompss_mode_str,
+                            "0").connect(functor(&TestAnalysisPhase::set_ompss_mode, *this));
         
     }
 
     void TestAnalysisPhase::run( TL::DTO& dto )
     {
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis( );
+        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
         PCFGAnalysis_memento memento;
 
         Nodecl::NodeclBase ast = dto["nodecl"];
@@ -262,6 +267,12 @@ namespace Analysis {
     {
         if( cyclomatic_complexity_enabled_str == "1")
             _cyclomatic_complexity_enabled = true;
+    }
+    
+    void TestAnalysisPhase::set_ompss_mode( const std::string& ompss_mode_str)
+    {
+        if( ompss_mode_str == "1")
+            _ompss_mode_enabled = true;
     }
 }
 }

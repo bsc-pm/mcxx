@@ -88,7 +88,7 @@ namespace Analysis {
 
             AnalysisInterface( );
 
-            AnalysisInterface( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask );
+            AnalysisInterface( const Nodecl::NodeclBase& n, WhichAnalysis analysis_mask, bool ompss_mode_enabled );
 
             ~AnalysisInterface();
 
@@ -111,7 +111,7 @@ namespace Analysis {
             virtual Nodecl::NodeclBase get_induction_variable_increment(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-            ObjectList<Utils::InductionVariableData*> get_induction_variables(
+            Utils::InductionVarList get_induction_variables(
                     const Nodecl::NodeclBase& scope);
 
             // *** Queries about Auto-Scoping *** //

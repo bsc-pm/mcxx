@@ -47,9 +47,9 @@ namespace Analysis {
 namespace{
     
     //! TDG_Edge :: This method returns the clauses associated to a Nodecl::OpenMP::Task node
-    ObjectList<Nodecl::NodeclBase> get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
+    NodeclList get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
     {
-        ObjectList<Nodecl::NodeclBase> result;
+        NodeclList result;
         
         Nodecl::List task_environ = task.get_environment().as<Nodecl::List>();
         for(Nodecl::List::iterator it = task_environ.begin(); it != task_environ.end(); ++it)
@@ -77,7 +77,7 @@ namespace{
         return result;
     }
     
-    TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type(Nodecl::NodeclBase pcfg_edge_type)
+    TDGEdgeType get_tdg_edge_type_from_pcfg_edge_type(NBase pcfg_edge_type)
     {
         TDGEdgeType result;
         ERROR_CONDITION(!pcfg_edge_type.is<Nodecl::StringLiteral>(), 
@@ -133,15 +133,15 @@ namespace{
         return result;
     }
     
-    Nodecl::NodeclBase get_condition_stmts(Node* cond_node)
+    NBase get_condition_stmts(Node* cond_node)
     {
-        Nodecl::NodeclBase cond_stmt;
+        NBase cond_stmt;
         
         if(cond_node->is_graph_node())
             cond_stmt = cond_node->get_graph_related_ast();
         else
         {
-            ObjectList<Nodecl::NodeclBase> stmts = cond_node->get_statements();
+            NodeclList stmts = cond_node->get_statements();
             ERROR_CONDITION(stmts.size()!=1, "%s statements found in node %d condition. Only one statement expected.\n", 
                             stmts.size(), cond_node->get_id());
             cond_stmt = stmts[0];
@@ -152,12 +152,12 @@ namespace{
     
     //! TaskDependencyGraph :: Returns a nodecl containing the condition that must fulfill 
     //! to follow the branch of an ifelse that takes to 'task'
-    Nodecl::NodeclBase get_ifelse_condition_from_path(Node* control_structure, Node* task)
+    NBase get_ifelse_condition_from_path(Node* control_structure, Node* task)
     {
-        Nodecl::NodeclBase condition;
+        NBase condition;
         
         // Get the statements that form the condition
-        Nodecl::NodeclBase cond_stmt = get_condition_stmts(control_structure->get_condition_node());
+        NBase cond_stmt = get_condition_stmts(control_structure->get_condition_node());
         
         // Find which path (TRUE|FALSE) takes to the task and compute the condition accordingly
         ObjectList<Edge*> exit_edges = control_structure->get_condition_node()->get_exit_edges();
@@ -179,7 +179,7 @@ namespace{
         return condition;
     }
     
-    void get_cases_leading_to_task(Node* control_structure, Node* current, ObjectList<Nodecl::NodeclBase>& cases)
+    void get_cases_leading_to_task(Node* control_structure, Node* current, NodeclList& cases)
     {
         if(current->is_visited())
             return;
@@ -202,9 +202,9 @@ namespace{
             get_cases_leading_to_task(control_structure, *it, cases);
     }
     
-    Nodecl::NodeclBase get_switch_condition_from_path(Node* control_structure, Node* task)
+    NBase get_switch_condition_from_path(Node* control_structure, Node* task)
     {
-        Nodecl::NodeclBase condition;
+        NBase condition;
         
         // Get the statements that form the condition
         Node* cond = NULL;
@@ -220,16 +220,16 @@ namespace{
                 cond = switch_node->get_condition_node();
                 break;
             }
-        Nodecl::NodeclBase cond_stmt = get_condition_stmts(cond);
+        NBase cond_stmt = get_condition_stmts(cond);
         
-        ObjectList<Nodecl::NodeclBase> cases;
+        NodeclList cases;
         get_cases_leading_to_task(control_structure, task->get_parents()[0], cases);
         ERROR_CONDITION(cases.empty(), "No case leading to task %d has been found in control structure %d.\n", 
                         task->get_id(), control_structure->get_id());
         
         // Create the nodecl for the first case
         TL::Type cond_type = cond_stmt.get_type();
-        ObjectList<Nodecl::NodeclBase>::iterator it = cases.begin();
+        NodeclList::iterator it = cases.begin();
         condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type);
         // Build the others, if there is some
         ++it;
@@ -247,7 +247,7 @@ namespace{
     // ******************************************************************* //
     // ************ Task Dependency Graph Control Structures ************* //
     
-    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, const Nodecl::NodeclBase condition)
+    ControlStructure::ControlStructure(int cs_id, ControlStructureType type, const NBase condition)
         : _id(cs_id), _type(type), _condition(condition)
     {}
     
@@ -261,7 +261,7 @@ namespace{
         return _type;
     }
     
-    Nodecl::NodeclBase ControlStructure::get_condition()
+    NBase ControlStructure::get_condition()
     {
         return _condition;
     }
@@ -287,7 +287,7 @@ namespace{
         return _control_structures;
     }
     
-    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition)
+    TDG_Edge::TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition)
         : _source(source), _target(target), _type(type), 
           _source_clauses(), _target_clauses(), _condition(condition)
     {
@@ -342,7 +342,7 @@ namespace{
     }
     
     void TaskDependencyGraph::connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                                                Nodecl::NodeclBase type, const Nodecl::NodeclBase& condition)
+                                                NBase type, const NBase& condition)
     {    
         TDG_Edge* edge = new TDG_Edge(parent, child, get_tdg_edge_type_from_pcfg_edge_type(type), condition);
         parent->_exits.insert(edge);
@@ -415,7 +415,7 @@ namespace{
             {
                 // Get control structure type and condition
                 ControlStructureType cs_t;
-                Nodecl::NodeclBase condition;
+                NBase condition;
                 if(control_structure->is_loop_node())
                 {
                     // get the type of the Control Structure
@@ -424,7 +424,7 @@ namespace{
                     // Get the condition of the loop
                     Node* cond = control_structure->get_condition_node();
                     assert(cond != NULL);
-                    ObjectList<Nodecl::NodeclBase> stmts = cond->get_statements();
+                    NodeclList stmts = cond->get_statements();
                     assert(stmts.size() == 1);
                     condition = stmts[0];
                 }
@@ -477,7 +477,7 @@ namespace{
         }
     }
     
-    void TaskDependencyGraph::store_condition_list_of_symbols(const Nodecl::NodeclBase& condition)
+    void TaskDependencyGraph::store_condition_list_of_symbols(const NBase& condition)
     {
         ObjectList<Nodecl::Symbol> cond_syms = Nodecl::Utils::get_all_symbols_first_occurrence(condition);
         for(ObjectList<Nodecl::Symbol>::iterator it = cond_syms.begin(); it != cond_syms.end(); ++it)
@@ -547,7 +547,7 @@ namespace{
 //     {
 //         std::string result;
 //         
-//         for(ObjectList<Nodecl::NodeclBase>::iterator it = clauses.begin(); it != clauses.end();)
+//         for(NodeclList::iterator it = clauses.begin(); it != clauses.end();)
 //         {
 //             // Note: there is no codegen for OpenMP nodecls, 
 //             // that is why we print it manually instead of calling prettyprint
@@ -623,12 +623,12 @@ namespace{
         }
         else if(ntype == Taskwait)
         {
-            Nodecl::NodeclBase tw_stmt = n->get_statements()[0];
+            NBase tw_stmt = n->get_statements()[0];
             task_label = "Taskwait :: " + tw_stmt.get_locus_str();
         }
         else if(ntype == Barrier)
         {
-            Nodecl::NodeclBase barrier_stmt = n->get_graph_related_ast();
+            NBase barrier_stmt = n->get_graph_related_ast();
             task_label = "Barrier :: " + barrier_stmt.get_locus_str();
         }
         
@@ -732,7 +732,7 @@ namespace{
     // Example:
     //     The expression :         'i == j'
     //     Will return the string:  '$1 == $2'
-    static std::string transform_condition_into_json_expr(const Nodecl::NodeclBase& condition)
+    static std::string transform_condition_into_json_expr(const NBase& condition)
     {
         std::string result = condition.prettyprint();
         
@@ -771,7 +771,7 @@ namespace{
         if((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
         {   
             // Get the condition
-            Nodecl::NodeclBase condition;
+            NBase condition;
             if(node_cs != NULL)
                 condition = node_cs->get_condition();
             else

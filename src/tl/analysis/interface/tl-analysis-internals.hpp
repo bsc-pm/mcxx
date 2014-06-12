@@ -133,12 +133,12 @@ namespace Analysis {
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes)
     {
-        Utils::ext_sym_map all_reach_defs;
-        Utils::ext_sym_set killed_vars = stmt_node->get_killed_vars();
+        NodeclMap all_reach_defs;
+        NodeclSet killed_vars = stmt_node->get_killed_vars();
 
         // If n is being defined (killed) in this stmt, we don't look into their RD in
         // We study their RD out (LHS) instead.
-        if (Utils::ext_sym_set_contains_nodecl_pointer(n, killed_vars))
+        if (Utils::nodecl_set_contains_nodecl_pointer(n, killed_vars))
         {
 
 #ifdef DEBUG_PROPERTY
@@ -158,9 +158,9 @@ namespace Analysis {
         // Example: a[i]
         // retrieving all symbols will return: a, i
         // retrieving all memory accesses will return: a, i, a[i]
-        const ObjectList<Nodecl::NodeclBase> n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
+        const NodeclList n_mem_accesses = Nodecl::Utils::get_all_memory_accesses(n);
  
-        for(ObjectList<Nodecl::NodeclBase>::const_iterator n_ma_it =
+        for(NodeclList::const_iterator n_ma_it =
                 n_mem_accesses.begin(); 
                 n_ma_it != n_mem_accesses.end();
                 n_ma_it++)
@@ -183,8 +183,7 @@ namespace Analysis {
                 << " . Original node: " << original_stmt->get_id() 
                 << std::endl;
 #endif
-            Utils::ExtendedSymbol n_ma_es(*n_ma_it);
-            if(all_reach_defs.find(n_ma_es) == all_reach_defs.end())
+            if(all_reach_defs.find(*n_ma_it) == all_reach_defs.end())
             {
                 if(n_ma_it->is<Nodecl::ArraySubscript>() || n_ma_it->is<Nodecl::ClassMemberAccess>())
                 {   // For sub-objects, if no reaching definition arrives, then we assume it is Undefined
@@ -197,11 +196,11 @@ namespace Analysis {
                 }
             }
 
-            std::pair<Utils::ext_sym_map::iterator, Utils::ext_sym_map::iterator> bounds =
+            std::pair<NodeclMap::iterator, NodeclMap::iterator> bounds =
                 all_reach_defs.equal_range(*n_ma_it);
 
             // REACHING DEFINITIONS
-            for(Utils::ext_sym_map::iterator rd_it = bounds.first;
+            for(NodeclMap::iterator rd_it = bounds.first;
                 rd_it != bounds.second;
                 rd_it++)
             {
