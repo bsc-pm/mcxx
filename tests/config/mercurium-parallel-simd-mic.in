@@ -11,44 +11,49 @@ exit
 
 fi
 
-if [ -n "@ICC@" -a -n "@NANOX_INCLUDES@" ];
-then
-cat <<EOF
-
-IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
-compile_versions="\${compile_versions} nanox_imcc"
-test_CC_nanox_imcc="\${IMCC}"
-
-if [ "$1" = "svml" ];
-then
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-else
-test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
-fi
-test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib"
-EOF
-
-
-if [ "@MIC_TESTING@" != "no" ];
-then
-
-cat <<EOF
-runner="runner_ssh"
-ssh_host="@MIC_TESTING_DEVICE@"
-ssh_remote_commands="source \$HOME/.profile"
-
-exec_versions="1thread 122thread 244thread"
-
-test_ENV_1thread="OMP_NUM_THREADS='1'"
-test_ENV_122thread="OMP_NUM_THREADS='122'"
-test_ENV_244thread="OMP_NUM_THREADS='244'"
-EOF
-
-fi
-
-fi
+# if [ -n "@ICC@" -a -n "@NANOX_INCLUDES@" ];
+# then
+# cat <<EOF
+# 
+# IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=imcc --config-dir=@abs_top_builddir@/config --verbose"
+# compile_versions="\${compile_versions} nanox_imcc"
+# test_CC_nanox_imcc="\${IMCC}"
+# 
+# if [ "$1" = "svml" ];
+# then
+# test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+# test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --svml --fast-math --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+# else
+# test_CFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+# test_CXXFLAGS_nanox_imcc="-O0 --simd --debug-flags=vectorization_verbose --openmp --mmic --enable-ms-builtins ${PROGRAMMING_MODEL} ${COMMON_NANOX_CFLAGS}"
+# fi
+# test_LDFLAGS_nanox_imcc="-L@abs_top_builddir@/lib"
+# EOF
+# 
+# 
+# if [ "@MIC_TESTING@" != "no" ];
+# then
+# 
+# cat <<EOF
+# runner="runner_ssh"
+# ssh_host="@MIC_TESTING_DEVICE@"
+# ssh_remote_commands="source \$HOME/.profile"
+# 
+# exec_versions="1thread 122thread 244thread"
+# 
+# test_ENV_1thread="OMP_NUM_THREADS='1'"
+# test_ENV_122thread="OMP_NUM_THREADS='122'"
+# test_ENV_244thread="OMP_NUM_THREADS='244'"
+# EOF
+# else
+# 
+# cat<<EOF
+# test_noexec=yes
+# EOF
+# 
+# fi
+# 
+# fi
 
 
 if [ ! -z "@ICC@" -a ! -z "@INTEL_OMP_LIB@" ];
@@ -85,7 +90,13 @@ test_ENV_1thread="OMP_NUM_THREADS='1'"
 test_ENV_122thread="OMP_NUM_THREADS='122'"
 test_ENV_244thread="OMP_NUM_THREADS='244'"
 EOF
+else
+
+cat<<EOF
+test_noexec=yes
+EOF
 
 fi
 
 fi
+
