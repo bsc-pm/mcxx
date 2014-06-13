@@ -11743,7 +11743,6 @@ static void check_nodecl_function_call_cxx(
         {
             nodecl_t nodecl_arg = list[i];
 
-            type_t* arg_type = nodecl_get_type(nodecl_arg);
             if (i < num_parameters)
             {
                 type_t* param_type = function_type_get_parameter_type_num(function_type_of_called, i);
@@ -11763,6 +11762,7 @@ static void check_nodecl_function_call_cxx(
             {
                 if (is_promoting_ellipsis)
                 {
+                    type_t* arg_type = nodecl_get_type(nodecl_arg);
                     // Ellipsis
                     type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
                             decl_context,
@@ -15677,7 +15677,6 @@ void check_nodecl_braced_initializer(
 
         if (!has_initializer_list_ctor)
         {
-
             // Plain constructor resolution should be enough here
             scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
             scope_entry_list_t* candidates = NULL;
@@ -15710,55 +15709,61 @@ void check_nodecl_braced_initializer(
                             locus);
                     return;
                 }
-                for (i = 0; i < num_args; i++)
-                {
-                    if (conversors[i] != NULL)
-                    {
-                        if (function_has_been_deleted(decl_context, conversors[i], 
-                                    locus))
-                        {
-                            *nodecl_output = nodecl_make_err_expr(
-                                    locus);
-                            return;
-                        }
-                    }
-                }
 
+                char is_promoting_ellipsis = 0;
                 int num_parameters = function_type_get_num_parameters(constructor->type_information);
                 if (function_type_get_has_ellipsis(constructor->type_information))
                 {
+                    is_promoting_ellipsis = is_ellipsis_type(
+                            function_type_get_parameter_type_num(constructor->type_information, num_parameters - 1)
+                            );
                     num_parameters--;
                 }
 
                 nodecl_t nodecl_arguments_output = nodecl_null();
                 for (i = 0; i < num_args; i++)
                 {
-                    nodecl_t nodecl_current = nodecl_list[i];
-
-                    if (conversors[i] != NULL)
-                    {
-                        nodecl_current =
-                            cxx_nodecl_make_function_call(
-                                    nodecl_make_symbol(conversors[i],
-                                        nodecl_get_locus(nodecl_current)),
-                                    /* called name */ nodecl_null(),
-                                    nodecl_make_list_1(nodecl_current),
-                                    nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_current)),
-                                    actual_type_of_conversor(conversors[i]),
-                                    decl_context,
-                                    nodecl_get_locus(nodecl_current));
-                    }
+                    nodecl_t nodecl_arg = nodecl_list[i];
 
                     if (i < num_parameters)
                     {
-                        check_narrowing_conversion(
-                                nodecl_current,
-                                function_type_get_parameter_type_num(constructor->type_information, i),
-                                decl_context);
+                        type_t* param_type = function_type_get_parameter_type_num(constructor->type_information, i);
+
+                        nodecl_t nodecl_old_arg = nodecl_arg;
+                        check_nodecl_function_argument_initialization(nodecl_arg,
+                                decl_context,
+                                param_type,
+                                /* disallow_narrowing */ 1,
+                                &nodecl_arg);
+                        if (nodecl_is_err_expr(nodecl_arg))
+                        {
+                            *nodecl_output = nodecl_arg;
+                            nodecl_free(nodecl_old_arg);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        if (is_promoting_ellipsis)
+                        {
+                            type_t* arg_type = nodecl_get_type(nodecl_arg);
+                            // Ellipsis
+                            type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+                                    decl_context,
+                                    nodecl_get_locus(nodecl_arg),
+                                    /* emit_diagnostic */ 1);
+
+                            if (is_error_type(default_argument_promoted_type))
+                            {
+                                *nodecl_output = nodecl_make_err_expr(locus);
+                                nodecl_free(nodecl_arguments_output);
+                                return;
+                            }
+                        }
                     }
 
                     nodecl_arguments_output = nodecl_append_to_list(nodecl_arguments_output,
-                            nodecl_current);
+                            nodecl_arg);
                 }
 
                 xfree(nodecl_list);
@@ -15769,8 +15774,7 @@ void check_nodecl_braced_initializer(
                         /* called name */ nodecl_null(),
                         nodecl_arguments_output,
                         /* function-form */
-                        nodecl_make_cxx_function_form_implicit_braced_arguments(
-                            nodecl_get_locus(braced_initializer)),
+                        nodecl_null(),
                         declared_type,
                         decl_context,
                         locus);
@@ -15823,85 +15827,28 @@ void check_nodecl_braced_initializer(
                     return;
                 }
 
-                int j;
-                for (j = 0; i < num_args; i++)
+                nodecl_t nodecl_arg = nodecl_null();
+                check_nodecl_function_argument_initialization(
+                        braced_initializer,
+                        decl_context,
+                        function_type_get_parameter_type_num(constructor->type_information, 0),
+                        /* disallow_narrowing */ 1,
+                        &nodecl_arg);
+
+                if (nodecl_is_err_expr(nodecl_arg))
                 {
-                    if (conversors[j] != NULL)
-                    {
-                        if (function_has_been_deleted(decl_context, conversors[j], 
-                                    locus))
-                        {
-                            *nodecl_output = nodecl_make_err_expr(
-                                    locus);
-                            return;
-                        }
-                    }
+                    *nodecl_output = nodecl_make_err_expr(
+                            locus);
+                    return;
                 }
 
-
-                type_t* base_type_of_std_initializer_list = NULL;
-                {
-                    template_parameter_list_t* template_args = 
-                        template_specialized_type_get_template_arguments(
-                                named_type_get_symbol(
-                                    function_type_get_parameter_type_num(
-                                        constructor->type_information,
-                                        0))->type_information);
-
-                    ERROR_CONDITION(template_args->arguments[0]->kind != TPK_TYPE,
-                            "Unexpected template argument kind", 0);
-
-                    base_type_of_std_initializer_list = 
-                        template_args->arguments[0]->type;
-                }
-
-                nodecl_t nodecl_arguments_output = nodecl_null();
-
-                for (j = 0; j < num_args; j++)
-                {
-                    nodecl_t nodecl_current = nodecl_list[j];
-
-                    if (conversors[i] != NULL)
-                    {
-                        nodecl_current = 
-                            cxx_nodecl_make_function_call(
-                                    nodecl_make_symbol(conversors[i], 
-                                        nodecl_get_locus(nodecl_current)),
-                                    /* called name */ nodecl_null(),
-                                    nodecl_make_list_1(nodecl_current),
-                                    nodecl_make_cxx_function_form_implicit(
-                                        nodecl_get_locus(nodecl_current)),
-                                    actual_type_of_conversor(conversors[i]),
-                                    decl_context,
-                                    nodecl_get_locus(nodecl_current));
-                    }
-
-                    CXX11_LANGUAGE()
-                    {
-                        check_narrowing_conversion(
-                                nodecl_current,
-                                base_type_of_std_initializer_list,
-                                decl_context);
-                    }
-
-                    nodecl_arguments_output = nodecl_append_to_list(nodecl_arguments_output,
-                            nodecl_current);
-                }
-
-                // Note: we cannot call cxx_nodecl_make_function_call because
-                // it would attempt to convert the braced initializer into an
-                // initializer_list<T>
-                *nodecl_output = nodecl_make_function_call(
+                *nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, locus),
-                        nodecl_make_list_1(
-                            nodecl_make_structured_value(
-                                nodecl_arguments_output,
-                                nodecl_make_structured_value_braced_implicit(locus),
-                                initializer_list_type,
-                                locus)),
                         /* called name */ nodecl_null(),
-                        nodecl_make_cxx_function_form_implicit_braced_arguments(locus),
+                        nodecl_make_list_1(nodecl_arg),
+                        nodecl_make_cxx_function_form_implicit(locus),
                         declared_type,
+                        decl_context,
                         locus);
 
                 return;

@@ -1801,19 +1801,6 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
 }
 
 template <typename Node>
-bool CxxBase::is_implicit_braced_function_call(const Node& node)
-{
-    return (!node.get_function_form().is_null()
-            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicitBracedArguments>());
-}
-
-template <>
-bool CxxBase::is_implicit_braced_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
-{
-    return 0;
-}
-
-template <typename Node>
 bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
 {
     return (!node.get_function_form().is_null()
@@ -1889,20 +1876,11 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (is_implicit_function_call(node))
     {
         // We don't want to generate the current function call because It has
-        // been added by the compiler. We should ignore it!
+        // been added by the compiler
         if (!node.get_arguments().is_null())
         {
             walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
-        return;
-    }
-    else if (is_implicit_braced_function_call(node))
-    {
-        Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
-        // Only emit { ... }
-        *file << "{ ";
-        walk_expression_list(arguments);
-        *file << " }";
         return;
     }
 
@@ -8323,6 +8301,27 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
         *(file) << end_inline_comment();
 }
 
+bool CxxBase::looks_like_braced_list(Nodecl::NodeclBase n)
+{
+    n = n.no_conv();
+
+    if (n.is<Nodecl::CxxBracedInitializer>())
+        return true;
+
+    if (n.is<Nodecl::StructuredValue>()
+            && n.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>())
+        return true;
+
+    if (n.is<Nodecl::FunctionCall>()
+            && n.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormImplicit>()
+            && !n.as<Nodecl::FunctionCall>().get_arguments().is_null())
+    {
+        return looks_like_braced_list(n.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]);
+    }
+
+    return false;
+}
+
 void CxxBase::walk_initializer_list(const Nodecl::List& list, const std::string& separator)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
@@ -8344,8 +8343,7 @@ void CxxBase::walk_initializer_list(const Nodecl::List& list, const std::string&
         if (it != begin)
             *(file) << separator;
 
-        bool emit_parentheses = (!it->is<Nodecl::StructuredValue>()
-                || !it->as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>());
+        bool emit_parentheses = !looks_like_braced_list(*it);
         if (emit_parentheses)
             *(file) << "(";
 
