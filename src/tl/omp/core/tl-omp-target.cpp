@@ -407,36 +407,30 @@ namespace TL
                 if (in_ompss_mode)
                 {
                     Symbol sym = expr.get_base_symbol();
-                    OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym,
-                            /* check_enclosing */ false);
 
-                    if (expr.is<Nodecl::Symbol>())
+                    // In OmpSs, the storage of a copy is always SHARED. Note that with this
+                    // definition we aren't defining the data-sharings of the variables involved
+                    // in that expression.
+                    //
+                    // About the data-sharings of the variables involved in the dependence:
+                    //
+                    //   copy_inout(x)    x must be shared
+                    //   copy_inout(a)    a must be shared if it's an array
+                    //
+                    // But we allow more general cases. In these cases x, is not going to be shared
+                    // and it will be left to the default data sharing
+                    //
+                    //   copy_inout(*x)             We do not define a specific data sharing for these
+                    //   copy_inout(x[10])
+                    //   copy_inout(x[1:2])
+                    //   copy_inout([10][20] x)
+                    if (expr.is<Nodecl::Symbol>()
+                            || sym.get_type().is_array()
+                            || (sym.get_type().is_any_reference()
+                                && sym.get_type().references_to().is_array()))
                     {
-                        if (data_sharing_attr == DS_UNDEFINED)
-                        {
-                            // Make it shared if we know nothing about this entity
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                    "the variable is mentioned in a copy and it did not have an explicit data-sharing");
-                        }
-                        else
-                        {
-                            if  ((data_sharing_attr & ~DS_IMPLICIT) != DS_SHARED)
-                            {
-                                error_printf("%s: error: invalid data-sharing '%s' for the copied entity '%s', skipping it\n",
-                                        expr.get_locus_str().c_str(),
-                                        string_of_data_sharing(data_sharing_attr).c_str(),
-                                        expr.prettyprint().c_str());
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Overwrite the data sharing if it was not set explicitly
-                        if (data_sharing_attr == DS_UNDEFINED)
-                        {
-                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                    "the variable is involved in a non-trivial copy");
-                        }
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
                     }
                 }
 
