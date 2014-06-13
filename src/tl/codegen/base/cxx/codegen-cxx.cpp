@@ -1113,15 +1113,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     walk(node.get_name());
     TL::TemplateParameters tpl = node.get_template_parameters();
 
-    *(file) << ::template_arguments_to_str(
-            tpl.get_internal_template_parameter_list(),
-            /* first_template_argument_to_be_printed */ 0,
-            /* print_first_level_bracket */ 1,
-            this->get_current_scope().get_decl_context());
-
-    // The function 'template_arguments_to_str' does not print anything when
-    // template arguments are empty. For this reason, we add the empty list '<>'
-    if (tpl.get_num_parameters() == 0)
+    if (tpl.is_valid()
+            && tpl.get_num_parameters() > 0)
+    {
+        *(file) << ::template_arguments_to_str(
+                tpl.get_internal_template_parameter_list(),
+                /* first_template_argument_to_be_printed */ 0,
+                /* print_first_level_bracket */ 1,
+                this->get_current_scope().get_decl_context());
+    }
+    else
     {
         *(file) << "<>";
     }

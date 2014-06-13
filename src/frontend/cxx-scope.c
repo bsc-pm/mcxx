@@ -4844,7 +4844,8 @@ static const char* template_arguments_to_str_ex(
         )
 
 {
-    if (template_parameters->num_parameters == 0
+    if (template_parameters == NULL
+            || template_parameters->num_parameters == 0
             || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
