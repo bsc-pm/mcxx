@@ -6,7 +6,7 @@ test_ignore=yes
 EOF
 exit
 
-if [ "@MIC_COMPILATION@" == "no" ];
+if [ "@MIC_COMPILATION@" = "no" ];
 then
 
 cat <<EOF
