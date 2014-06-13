@@ -3343,7 +3343,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
             // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
             // "function (pointer to function() returning A) returning A"
             // [extra blanks added for clarity in the example above]
-            walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+            walk_initializer_list(constructor_args, ", ");
         }
         else
         {
@@ -6600,7 +6600,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
                         // "function (pointer to function() returning A) returning A"
                         // [extra blanks added for clarity in the example above]
-                        walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+                        walk_initializer_list(constructor_args, ", ");
                     }
                     else if (nodecl_is_parenthesized_explicit_type_conversion(init))
                     {
@@ -8293,7 +8293,7 @@ void CxxBase::set_indent_level(int n)
     state._indent_level = n;
 }
 
-void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, bool parenthesize_elements)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
     bool default_argument = false;
@@ -8314,12 +8314,44 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
         if (it != begin)
             *(file) << separator;
 
-        if (parenthesize_elements)
+        walk(current_node);
+
+        it++;
+    }
+
+    if (default_argument)
+        *(file) << end_inline_comment();
+}
+
+void CxxBase::walk_initializer_list(const Nodecl::List& list, const std::string& separator)
+{
+    Nodecl::List::const_iterator it = list.begin(), begin = it;
+    bool default_argument = false;
+    while (it != list.end())
+    {
+        Nodecl::NodeclBase current_node = *it;
+
+        if (current_node.is<Nodecl::DefaultArgument>())
+        {
+            if (!default_argument)
+            {
+                default_argument = true;
+                *(file) << start_inline_comment();
+            }
+            current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
+        if (it != begin)
+            *(file) << separator;
+
+        bool emit_parentheses = (!it->is<Nodecl::StructuredValue>()
+                || !it->as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>());
+        if (emit_parentheses)
             *(file) << "(";
 
         walk(current_node);
 
-        if (parenthesize_elements)
+        if (emit_parentheses)
             *(file) << ")";
 
         it++;

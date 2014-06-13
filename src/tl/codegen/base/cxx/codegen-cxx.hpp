@@ -587,8 +587,9 @@ namespace Codegen
         protected:
 
             void walk_list(const Nodecl::List&,
-                    const std::string& separator,
-                    bool parenthesize_elements = false);
+                    const std::string& separator);
+            void walk_initializer_list(const Nodecl::List&,
+                    const std::string& separator);
 
             virtual void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
