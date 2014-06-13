@@ -1,6 +1,5 @@
 #!@BASH@
 
-
 # We cannot detect AVX2 at the moment
 cat <<EOF
 test_ignore=yes

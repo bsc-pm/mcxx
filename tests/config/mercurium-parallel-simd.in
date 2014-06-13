@@ -1,5 +1,12 @@
 #!@BASH@
 
+# Unmaintained tests
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
 if [ -z "@NANOX_INCLUDES@" -o "@NANOX_SSE@" == "no" ];
 then
 
