@@ -1135,7 +1135,7 @@ namespace Vectorization
 
         if (intrin_op_name.empty())
         {
-            internal_error("KNC Backend: Masked conversion from '%s%d' to '%s%d' at '%s' is not supported yet: %s\n",
+            internal_error("KNC Backend: Conversion from '%s%d' to '%s%d' at '%s' is not supported yet: %s\n",
                     src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
                     src_num_elements,
                     dst_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
