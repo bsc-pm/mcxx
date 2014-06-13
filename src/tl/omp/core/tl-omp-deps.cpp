@@ -99,6 +99,11 @@ namespace TL { namespace OpenMP {
         {
             _extra_data_sharing.walk(node.get_subscripts());
         }
+
+        void visit_pre(const Nodecl::ClassMemberAccess &node)
+        {
+            _extra_data_sharing.walk(node.get_lhs());
+        }
     };
 
     void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
@@ -145,25 +150,37 @@ namespace TL { namespace OpenMP {
                 // definition we aren't defining the data-sharings of the variables involved
                 // in that expression.
                 //
-                // About the data-sharings of the variables involved in the dependence:
+                // About the data-sharings of the variables involved in the dependence expression:
+                // - Fortran: the base symbol of the dependence expression is always SHARED
+                // - C/C++:
                 //
-                //   inout(x)    x must be shared
-                //   inout(a)    a must be shared if it's an array
+                //      inout(x)    x must be shared
+                //      inout(a)    a must be shared if it's an array
                 //
-                // But we allow more general cases. In these cases x, is not going to be shared
-                // and it will be left to the default data sharing
+                //    But we allow more general cases. In these cases x, is not going to be shared
+                //    and it will be left to the default data sharing
                 //
-                //   inout(*x)             We do not define a specific data sharing for these
-                //   inout(x[10])
-                //   inout(x[1:2])
-                //   inout([10][20] x)
-                if (expr.is<Nodecl::Symbol>()
-                        || sym.get_type().is_array()
+                //      inout(*x)             We do not define a specific data sharing for these
+                //      inout(x[10])
+                //      inout(x[1:2])
+                //      inout([10][20] x)
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (expr.is<Nodecl::Symbol>())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (sym.get_type().is_array()
                         || (sym.get_type().is_any_reference()
                             && sym.get_type().references_to().is_array()))
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                            "the variable is an array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
                 }
             }
 

@@ -407,30 +407,41 @@ namespace TL
                 if (in_ompss_mode)
                 {
                     Symbol sym = expr.get_base_symbol();
-
                     // In OmpSs, the storage of a copy is always SHARED. Note that with this
                     // definition we aren't defining the data-sharings of the variables involved
                     // in that expression.
                     //
-                    // About the data-sharings of the variables involved in the dependence:
+                    // About the data-sharings of the variables involved in the copy expression:
+                    // - Fortran: the base symbol of the copy expression is always SHARED
+                    // - C/C++:
                     //
-                    //   copy_inout(x)    x must be shared
-                    //   copy_inout(a)    a must be shared if it's an array
+                    //      copy_inout(x)    x must be shared
+                    //      copy_inout(a)    a must be shared if it's an array
                     //
-                    // But we allow more general cases. In these cases x, is not going to be shared
-                    // and it will be left to the default data sharing
+                    //    But we allow more general cases. In these cases x, is not going to be shared
+                    //    and it will be left to the default data sharing
                     //
-                    //   copy_inout(*x)             We do not define a specific data sharing for these
-                    //   copy_inout(x[10])
-                    //   copy_inout(x[1:2])
-                    //   copy_inout([10][20] x)
-                    if (expr.is<Nodecl::Symbol>()
-                            || sym.get_type().is_array()
+                    //      copy_inout(*x)             We do not define a specific data sharing for these
+                    //      copy_inout(x[10])
+                    //      copy_inout(x[1:2])
+                    //      copy_inout([10][20] x)
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
+                    }
+                    else if (expr.is<Nodecl::Symbol>())
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
+                    }
+                    else if (sym.get_type().is_array()
                             || (sym.get_type().is_any_reference()
                                 && sym.get_type().references_to().is_array()))
                     {
                         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
-                                "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                                "the variable is an array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
                     }
                 }
 
