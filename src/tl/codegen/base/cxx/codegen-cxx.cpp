@@ -6538,6 +6538,13 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     walk(init);
                     state.inside_structured_value = old;
                 }
+                else if (symbol.get_type().is_array()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // int c[] = {1, 2, 3};
+                    *(file) << " = ";
+                    walk(init);
+                }
                 else if (symbol.is_member()
                         && (symbol.is_static() || symbol.is_defined_inside_class())
                         && state.in_member_declaration)
