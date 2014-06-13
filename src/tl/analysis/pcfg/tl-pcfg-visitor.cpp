@@ -1278,19 +1278,24 @@ namespace Analysis {
         // Fill the empty fields of the Increment node
         if( next != NULL )
         {
-            next->set_outer_node( for_graph_node );
-            _pcfg->connect_nodes(_utils->_last_nodes, next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
+            Node* first_next = next;
+            Node* last_next = next;
+            last_next->set_outer_node(for_graph_node);
+            while(!last_next->get_exit_edges().empty())
+            {
+                last_next = last_next->get_children()[0];
+                last_next->set_outer_node(for_graph_node);
+            }
+            _pcfg->connect_nodes(_utils->_last_nodes, first_next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
             if( cond != NULL )
             {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
-                _pcfg->connect_nodes(next, cond, __Always, NBase::null(), 
+                _pcfg->connect_nodes(last_next, cond, __Always, NBase::null(), 
                                       /*is_task_edge*/false, /*is_back_edge*/true );
             }
             else
             {   // When there is no condition, the is no iteration
-                _pcfg->connect_nodes( next, exit_node );
+                _pcfg->connect_nodes(last_next, exit_node);
             }
-
-            for_graph_node->set_stride_node( next );
         }
         else
         {
@@ -1610,6 +1615,16 @@ namespace Analysis {
         }
         else
         {
+            if(next_node_l.size() > 1)
+            {   // This happens because there is a comma operator -> connect all nodes
+                ObjectList<Node*>::iterator it = next_node_l.begin();
+                ObjectList<Node*>::iterator itt = it; ++itt;
+                for(; itt != next_node_l.end(); ++it, ++itt)
+                {
+                    _pcfg->connect_nodes(*it, *itt);
+                }
+            }
+            // We use the first created node in the 'next' field but ForStatement must know the different possibilities
             current_loop_ctrl->_next = next_node_l[0];
         }
 
