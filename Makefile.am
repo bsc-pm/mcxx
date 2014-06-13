@@ -1574,6 +1574,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp \

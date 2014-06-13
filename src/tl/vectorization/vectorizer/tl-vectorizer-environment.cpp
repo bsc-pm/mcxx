@@ -46,11 +46,9 @@ namespace Vectorization
             const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
-        _vectorization_factor(vector_length/target_type.get_size()),
         _support_masking(support_masking),
         _mask_size(mask_size),
         _fast_math(fast_math),
-        _target_type(target_type),
         _aligned_expr_map(aligned_expr_map),
         _uniform_expr_list(uniform_expr_list),
         _suitable_expr_list(suitable_expr_list),
@@ -59,11 +57,11 @@ namespace Vectorization
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
-        VECTORIZATION_DEBUG()
-        {
-            std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
-                << " . Vectorization factor: " << _vectorization_factor << std::endl;
-        }
+        if (target_type.is_valid())
+            _vectorization_factor =
+                vector_length/target_type.get_size();
+        else
+            _vectorization_factor = 0;
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);
@@ -73,6 +71,15 @@ namespace Vectorization
     {
         _inside_inner_masked_bb.pop_back();
         _mask_check_bb_cost.pop_back();
+    }
+
+    void VectorizerEnvironment::set_target_type(
+            TL::Type target_type)
+    {
+        _target_type = target_type;
+
+        _vectorization_factor =
+            _vector_length/target_type.get_size();
     }
 
     void VectorizerEnvironment::load_environment(
