@@ -42,7 +42,7 @@ namespace Vectorization
         private:
             const std::string& _device;
             const unsigned int _vector_length;
-            const unsigned int _unroll_factor;
+            const unsigned int _vectorization_factor;
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;

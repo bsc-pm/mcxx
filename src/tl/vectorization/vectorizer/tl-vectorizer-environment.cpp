@@ -46,7 +46,7 @@ namespace Vectorization
             const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
-        _unroll_factor(vector_length/target_type.get_size()),
+        _vectorization_factor(vector_length/target_type.get_size()),
         _support_masking(support_masking),
         _mask_size(mask_size),
         _fast_math(fast_math),
@@ -62,7 +62,7 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
-                << " . Unroll factor: " << _unroll_factor << std::endl;
+                << " . Vectorization factor: " << _vectorization_factor << std::endl;
         }
 
         _inside_inner_masked_bb.push_back(false);
@@ -85,8 +85,8 @@ namespace Vectorization
         // Add MaskLiteral to mask_list
         Nodecl::MaskLiteral all_one_mask =
             Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(_unroll_factor),
-                    const_value_get_minus_one(_unroll_factor, 1));
+                    TL::Type::get_mask_type(_vectorization_factor),
+                    const_value_get_minus_one(_vectorization_factor, 1));
         _mask_list.push_back(all_one_mask);
     }
 
