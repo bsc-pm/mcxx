@@ -2584,7 +2584,7 @@ static int get_length_of_pack_expansion_common(int num_packs_to_expand,
         }
         else if (packs_to_expand[i]->kind == SK_VARIABLE_PACK)
         {
-            // Should never be a sequence of types actually
+            // Can be sequence of types
             if (is_sequence_of_types(packs_to_expand[i]->type_information))
             {
                 P_LIST_ADD(expanded_types, num_expanded_types, packs_to_expand[i]->type_information);

@@ -326,9 +326,9 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-expressions
 
 cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
+         # This one materializes a subvalue of a pack. const-value should be an integer
          # Here we materialize the expansion, used for nontype template-arguments packs
          | NODECL_CXX_VALUE_PACK_EXPANDED([values]expression-seq-opt) type
-         # | NODECL_CXX_TYPE_PACK_EXPANSION()
 
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions

@@ -17982,7 +17982,8 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
     }
     else if (entry->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK
-            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
+            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+            || (entry->kind == SK_VARIABLE_PACK && is_pack_type(entry->type_information)))
     {
         *nodecl_output = nodecl_make_cxx_sizeof_pack(
                 nodecl_make_symbol(entry, locus),
@@ -17991,9 +17992,10 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         return;
     }
-    else if (entry->kind == SK_VARIABLE_PACK)
+    else if (entry->kind == SK_VARIABLE_PACK
+            && is_sequence_of_types(entry->type_information))
     {
-        length = nodecl_list_length(entry->value);
+        length = sequence_of_types_get_num_types(entry->type_information);
     }
     else if (entry->kind == SK_TYPEDEF_PACK
             || entry->kind == SK_TEMPLATE_PACK)
@@ -18011,7 +18013,6 @@ static void check_symbol_sizeof_pack(scope_entry_t* entry,
 
     ERROR_CONDITION((length < 0), "Invalid length computed", 0);
 
-    // Should we have a NODECL_SIZEOF_PACK?
     *nodecl_output = const_value_to_nodecl(
             const_value_get_integer(length, type_get_size(get_size_t_type()), 0));
 }
@@ -19839,6 +19840,8 @@ struct map_of_parameters_with_their_arguments_tag
 {
     scope_entry_t* parameter;
     const_value_t* value;
+    const_value_t** value_list;
+    int num_values;
 } map_of_parameters_with_their_arguments_t;
 
 static map_of_parameters_with_their_arguments_t*
@@ -19847,78 +19850,117 @@ constexpr_function_get_constants_of_arguments(
         scope_entry_t* entry,
         int *num_map_items)
 {
-    int i, N = 0;
-    nodecl_t* list = nodecl_unpack_list(converted_arg_list, &N);
-    map_of_parameters_with_their_arguments_t* result = xcalloc(N, sizeof(*result));
-    *num_map_items = 0;
+    int num_arguments = 0;
+    nodecl_t* list_of_arguments = nodecl_unpack_list(converted_arg_list, &num_arguments);
 
-    int num_arguments = N;
-
+    char has_ellipsis = 0;
+    int num_parameters = function_type_get_num_parameters(entry->type_information);
     if (function_type_get_has_ellipsis(entry->type_information))
     {
-        num_arguments = function_type_get_num_parameters(entry->type_information) - 1;
+        has_ellipsis = 1;
+        num_parameters--;
     }
 
-    for (i = 0; i < num_arguments; i++)
-    {
-        const_value_t* argument_value = nodecl_get_constant(list[i]);
+    map_of_parameters_with_their_arguments_t* result = xcalloc(
+            num_arguments,
+            sizeof(*result));
+    *num_map_items = 0;
 
-        if (argument_value == NULL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: When evaluating call of '%s', "
-                        "argument %d '%s' (at %s) is not constant, giving up evaluation\n",
-                        get_qualified_symbol_name(entry, entry->decl_context),
-                        i,
-                        codegen_to_str(list[i], CURRENT_COMPILED_FILE->global_decl_context),
-                        nodecl_locus_to_str(list[i]));
-            }
-            *num_map_items = -1;
-            xfree(list);
-            xfree(result);
-            return NULL;
-        }
+#define CHECK_CONSTANT(value) \
+    if (value == NULL) \
+    { \
+        DEBUG_CODE() \
+        { \
+            fprintf(stderr, "EXPRTYPE: When evaluating call of '%s', " \
+                    "argument %d '%s' (at %s) is not constant, giving up evaluation\n", \
+                    get_qualified_symbol_name(entry, entry->decl_context), \
+                    current_argument, \
+                    codegen_to_str(list_of_arguments[current_argument], CURRENT_COMPILED_FILE->global_decl_context), \
+                    nodecl_locus_to_str(list_of_arguments[current_argument])); \
+        } \
+        *num_map_items = -1; \
+        xfree(list_of_arguments); \
+        xfree(result); \
+        return NULL; \
+    }
+
+    int current_parameter = 0;
+    int current_argument = 0;
+    while (current_argument < num_arguments)
+    {
 
         scope_entry_t* parameter = NULL;
-        if (!entry->entity_specs.is_member
-                || entry->entity_specs.is_static
-                || entry->entity_specs.is_constructor)
+        if (current_argument == 0
+                && entry->entity_specs.is_member
+                && !entry->entity_specs.is_static
+                && !entry->entity_specs.is_constructor)
         {
-            ERROR_CONDITION(i >= entry->entity_specs.num_related_symbols,
-                    "Too many arguments", 0);
-            parameter = entry->entity_specs.related_symbols[i];
+            // 'this'
+            decl_context_t body_context =  nodecl_retrieve_context(
+                    nodecl_get_child(entry->entity_specs.function_code, 0)
+                    );
+            scope_entry_list_t* this_list =
+                query_name_str(body_context, UNIQUESTR_LITERAL("this"), NULL);
+
+            ERROR_CONDITION(this_list == NULL, "There should be a 'this'", 0);
+
+            scope_entry_t* this_in_body = entry_list_head(this_list);
+
+            parameter = this_in_body;
+
+            const_value_t* value = nodecl_get_constant(list_of_arguments[current_argument]);
+            CHECK_CONSTANT(value);
+
+            result[current_parameter].parameter = parameter;
+            result[current_parameter].value = value;
+            result[current_parameter].num_values = -1;
+
+            (*num_map_items)++;
+
+            // Note that we do not advance current_parameter because the
+            // implicit parameter is not represented in the type of the
+            // function
+            current_argument++;
+            continue;
+        }
+
+        if (has_ellipsis
+                && current_parameter >= entry->entity_specs.num_related_symbols)
+            break;
+
+        ERROR_CONDITION(current_parameter >= entry->entity_specs.num_related_symbols,
+                "Too many arguments", 0);
+        parameter = entry->entity_specs.related_symbols[current_parameter];
+
+        if (parameter->kind == SK_VARIABLE)
+        {
+            // Regular parameter/argument
+            parameter = entry->entity_specs.related_symbols[current_parameter];
+
+            const_value_t* value = nodecl_get_constant(list_of_arguments[current_argument]);
+            CHECK_CONSTANT(value);
+
+            result[current_parameter].parameter = parameter;
+            result[current_parameter].value = value;
+            result[current_parameter].num_values = -1;
+            (*num_map_items)++;
+
+            // This parameter has already been processed
+            current_parameter++;
+            // This argument has already been processed
+            current_argument++;
+        }
+        else if (parameter->kind == SK_VARIABLE_PACK)
+        {
+            internal_error("SK_VARIABLE_PACK '%s' should not appear as a parameter of a function\n",
+                    parameter->symbol_name);
         }
         else
         {
-            if (i == 0)
-            {
-                decl_context_t body_context =  nodecl_retrieve_context(
-                        nodecl_get_child(entry->entity_specs.function_code, 0)
-                        );
-                scope_entry_list_t* this_list =
-                    query_name_str(body_context, UNIQUESTR_LITERAL("this"), NULL);
-
-                ERROR_CONDITION(this_list == NULL, "There should be a 'this'", 0);
-
-                scope_entry_t* this_in_body = entry_list_head(this_list);
-
-                parameter = this_in_body;
-            }
-            else
-            {
-                ERROR_CONDITION((i - 1) >= entry->entity_specs.num_related_symbols,
-                        "Too many arguments", 0);
-                parameter = entry->entity_specs.related_symbols[i - 1];
-            }
+            internal_error("Code unreachable", 0);
         }
-
-        result[i].parameter = parameter;
-        result[i].value = argument_value;
-
-        (*num_map_items)++;
     }
-    xfree(list);
+    xfree(list_of_arguments);
 
     DEBUG_CODE()
     {
@@ -19928,7 +19970,8 @@ constexpr_function_get_constants_of_arguments(
     return result;
 }
 
-static const_value_t* lookup_value_in_map(map_of_parameters_with_their_arguments_t* map_of_parameters_and_values,
+static const_value_t* lookup_single_value_in_map(
+        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values,
         int num_map_items,
         scope_entry_t* entry)
 {
@@ -19954,8 +19997,7 @@ static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         constexpr_replace_parameters_with_values_rec(nodecl_get_child(n, i),
-                num_map_items,
-                map_of_parameters_and_values);
+                num_map_items, map_of_parameters_and_values);
     }
 
     if (nodecl_get_kind(n) == NODECL_SYMBOL)
@@ -19963,19 +20005,24 @@ static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
         scope_entry_t* entry = nodecl_get_symbol(n);
 
         if (entry->symbol_name != NULL
+                && entry->kind == SK_VARIABLE
                 && strcmp(entry->symbol_name, "this") == 0)
         {
-            // We cannot directly replace 'this' only its derreferences
+            // We cannot directly replace 'this' only its dereference
         }
-        else
+        else if (entry->kind == SK_VARIABLE)
         {
-            const_value_t* value = lookup_value_in_map(map_of_parameters_and_values, num_map_items, entry);
+            const_value_t* value = lookup_single_value_in_map(map_of_parameters_and_values, num_map_items, entry);
 
             if (value != NULL)
             {
                 nodecl_t nodecl_value = const_value_to_nodecl(value);
                 nodecl_replace(n, nodecl_value);
             }
+        }
+        else if (entry->kind == SK_VARIABLE_PACK)
+        {
+            internal_error("SK_VARIABLE_PACK '%s' should have gone away", entry->symbol_name);
         }
     }
     else if (nodecl_get_kind(n) == NODECL_DEREFERENCE
@@ -19985,7 +20032,7 @@ static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
         if (entry->symbol_name != NULL
                 && strcmp(entry->symbol_name, "this") == 0)
         {
-            const_value_t* value = lookup_value_in_map(map_of_parameters_and_values, num_map_items, entry);
+            const_value_t* value = lookup_single_value_in_map(map_of_parameters_and_values, num_map_items, entry);
 
             if (value != NULL)
             {
@@ -20002,9 +20049,9 @@ static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
 {
     nodecl_t nodecl_result = nodecl_shallow_copy(n);
 
-    constexpr_replace_parameters_with_values_rec(nodecl_result,
-        num_map_items,
-        map_of_parameters_and_values);
+    constexpr_replace_parameters_with_values_rec(
+            nodecl_result,
+            num_map_items, map_of_parameters_and_values);
 
     return nodecl_result;
 }
@@ -20128,6 +20175,16 @@ static const_value_t* evaluate_constexpr_regular_function_call(
     return nodecl_get_constant(nodecl_evaluated_expr);
 }
 
+static void free_map_of_parameters_and_values(map_of_parameters_with_their_arguments_t* map,
+        int num_map_items)
+{
+    int i;
+    for (i = 0; i < num_map_items; i++)
+    {
+        xfree(map[i].value_list);
+    }
+}
+
 static const_value_t* evaluate_constexpr_function_call(
         scope_entry_t* entry,
         nodecl_t converted_arg_list,
@@ -20230,7 +20287,7 @@ static const_value_t* evaluate_constexpr_function_call(
                 map_of_parameters_and_values);
     }
 
-    xfree(map_of_parameters_and_values);
+    free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
 
     return value;
 }
@@ -21328,7 +21385,7 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             {
                 int num_items;
                 nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
-                result = list[v->pack_index];
+                result = nodecl_shallow_copy(list[v->pack_index]);
                 xfree(list);
             }
             else
@@ -21384,39 +21441,19 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
             cxx_compute_name_from_entry_list(nodecl_name, entry_list, v->decl_context, NULL, &result);
             entry_list_free(entry_list);
         }
+        else if (nodecl_is_list(mapped_symbol->value)
+                && v->pack_index < nodecl_list_length(mapped_symbol->value))
+        {
+            int num_items;
+            nodecl_t* list = nodecl_unpack_list(mapped_symbol->value, &num_items);
+            nodecl_t sub_symbol = list[v->pack_index];
+            result = nodecl_shallow_copy(sub_symbol);
+            xfree(list);
+        }
         else
         {
-            type_t* expanded_type = update_type_for_instantiation(sym->type_information,
-                    v->decl_context,
-                    nodecl_get_locus(node),
-                    v->instantiation_symbol_map,
-                    v->pack_index);
-
-            if (is_error_type(expanded_type)
-                    || (is_sequence_of_types(expanded_type)
-                        && (v->pack_index >= sequence_of_types_get_num_types(expanded_type))))
-            {
-                result = nodecl_make_err_expr(nodecl_get_locus(node));
-            }
-            else
-            {
-                // Not sure if expanded_type could ever be a non-sequence type
-                if (is_sequence_of_types(expanded_type))
-                {
-                    expanded_type = sequence_of_types_get_type_num(expanded_type, v->pack_index);
-                }
-
-                expanded_type = lvalue_ref(expanded_type);
-
-                result = nodecl_make_symbol(mapped_symbol, nodecl_get_locus(node));
-                nodecl_set_type(result, expanded_type);
-
-                if (is_dependent_type(expanded_type))
-                {
-                    nodecl_expr_set_is_type_dependent(result, 1);
-                    nodecl_expr_set_is_value_dependent(result, 1);
-                }
-            }
+            result = nodecl_make_err_expr(nodecl_get_locus(node));
+            nodecl_free(node);
         }
     }
     else
@@ -21827,6 +21864,7 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
     {
         v->nodecl_result = nodecl_make_err_expr(nodecl_get_locus(node));
         nodecl_free(nodecl_op);
+        return;
     }
     else if (nodecl_get_kind(nodecl_op) == NODECL_SYMBOL)
     {
@@ -21940,7 +21978,12 @@ static void instantiate_cxx_dep_function_call(nodecl_instantiate_expr_visitor_t*
     for (i = 0; i < num_items; i++)
     {
         nodecl_t current_arg =
-                instantiate_expr_walk(v, list[i]);
+                instantiate_expr_walk(v,
+                        nodecl_shallow_copy(list[i]));
+
+        // This plays the role of the empty list
+        if (nodecl_is_null(current_arg))
+            continue;
 
         if (nodecl_is_err_expr(current_arg))
         {
@@ -22515,7 +22558,8 @@ static void instantiate_cxx_value_pack(nodecl_instantiate_expr_visitor_t* v, nod
     for (i = 0; i < len; i++)
     {
         v->pack_index = i;
-        nodecl_t expr = instantiate_expr_walk(v, expansion);
+        nodecl_t expr = instantiate_expr_walk(v, 
+                nodecl_shallow_copy(expansion));
 
         if (nodecl_is_err_expr(expr))
         {

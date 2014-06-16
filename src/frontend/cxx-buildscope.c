@@ -18632,16 +18632,17 @@ static void instantiate_template_function_code(
     v->instantiation_symbol_map = instantiation_symbol_map_push(v->instantiation_symbol_map);
 
     // Register every parameter in this context
-    int i;
-    for (i = 0; i < v->orig_function_instantiated->entity_specs.num_related_symbols; i++)
+    int num_new_parameter = 0;
+    int num_parameter;
+    for (num_parameter = 0; num_parameter < v->orig_function_instantiated->entity_specs.num_related_symbols; num_parameter++)
     {
         scope_entry_t* orig_parameter =
-                v->orig_function_instantiated->entity_specs.related_symbols[i];
+                v->orig_function_instantiated->entity_specs.related_symbols[num_parameter];
         scope_entry_t* new_parameter = new_symbol(new_decl_context,
                 new_decl_context.current_scope,
                 orig_parameter->symbol_name);
 
-        new_parameter->kind = SK_VARIABLE;
+        new_parameter->kind = orig_parameter->kind;
         new_parameter->type_information = update_type_for_instantiation(
                 orig_parameter->type_information,
                 new_decl_context,
@@ -18649,25 +18650,80 @@ static void instantiate_template_function_code(
                 v->instantiation_symbol_map,
                 /* pack */ -1);
 
-        new_parameter->value = instantiate_expression(orig_parameter->value,
-                new_decl_context,
-                v->instantiation_symbol_map,
-                /* pack_index */ -1);
-
         // WARNING - This is a usual source of issues
         new_parameter->entity_specs = orig_parameter->entity_specs;
         // Clear these
         new_parameter->entity_specs.num_function_parameter_info = 0;
         new_parameter->entity_specs.function_parameter_info = 0;
 
-        P_LIST_ADD(
-                v->new_function_instantiated->entity_specs.related_symbols,
-                v->new_function_instantiated->entity_specs.num_related_symbols,
-                new_parameter);
+        if (orig_parameter->kind == SK_VARIABLE)
+        {
+            new_parameter->value = instantiate_expression(orig_parameter->value,
+                    new_decl_context,
+                    v->instantiation_symbol_map,
+                    /* pack_index */ -1);
 
-        symbol_set_as_parameter_of_function(new_parameter, 
-                v->new_function_instantiated,
-                /* nesting */ 0, /* position */ i);
+            P_LIST_ADD(
+                    v->new_function_instantiated->entity_specs.related_symbols,
+                    v->new_function_instantiated->entity_specs.num_related_symbols,
+                    new_parameter);
+
+            symbol_set_as_parameter_of_function(new_parameter, 
+                    v->new_function_instantiated,
+                    /* nesting */ 0, /* position */ num_new_parameter);
+            num_new_parameter++;
+        }
+        else if (orig_parameter->kind == SK_VARIABLE_PACK)
+        {
+            int num_types = sequence_of_types_get_num_types(new_parameter->type_information);
+
+            nodecl_t nodecl_sym_list = nodecl_null();
+
+            int num_sub_parameter;
+            for (num_sub_parameter = 0; num_sub_parameter < num_types; num_sub_parameter++)
+            {
+                type_t* t = sequence_of_types_get_type_num(new_parameter->type_information,
+                        num_sub_parameter);
+
+                const char* c = NULL;
+                uniquestr_sprintf(
+                        &c, "_%s__%d",
+                        orig_parameter->symbol_name,
+                        num_sub_parameter);
+
+                scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
+                        new_decl_context.current_scope,
+                        c);
+
+                new_sub_parameter->kind = SK_VARIABLE;
+                new_sub_parameter->type_information = t;
+
+                // WARNING - This is a usual source of issues
+                new_sub_parameter->entity_specs = orig_parameter->entity_specs;
+                // Clear these
+                new_sub_parameter->entity_specs.num_function_parameter_info = 0;
+                new_sub_parameter->entity_specs.function_parameter_info = 0;
+
+                P_LIST_ADD(
+                        v->new_function_instantiated->entity_specs.related_symbols,
+                        v->new_function_instantiated->entity_specs.num_related_symbols,
+                        new_sub_parameter);
+
+                symbol_set_as_parameter_of_function(new_sub_parameter, 
+                        v->new_function_instantiated,
+                        /* nesting */ 0, /* position */ num_new_parameter);
+                num_new_parameter++;
+
+                nodecl_t nodecl_sub_symbol = nodecl_make_symbol(
+                        new_sub_parameter,
+                        nodecl_get_locus(node));
+                nodecl_set_type(nodecl_sub_symbol, lvalue_ref(new_sub_parameter->type_information));
+                nodecl_sym_list = nodecl_append_to_list(nodecl_sym_list,
+                        nodecl_sub_symbol);
+            }
+
+            new_parameter->value = nodecl_sym_list;
+        }
 
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_parameter, new_parameter);
     }
