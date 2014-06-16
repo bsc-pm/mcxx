@@ -125,7 +125,7 @@ namespace TL
             }
             else
             {
-                SSEVectorLowering sse_vector_lowering(_intel_compiler_profile);
+                SSEVectorLowering sse_vector_lowering;
                 sse_vector_lowering.walk(translation_unit);
             }
         }
