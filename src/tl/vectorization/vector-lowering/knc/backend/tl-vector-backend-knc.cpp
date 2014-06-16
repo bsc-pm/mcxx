@@ -1035,7 +1035,7 @@ namespace Vectorization
            dst_vector_type.get_simple_declaration(node.retrieve_context(), "").c_str(),
            dst_type.get_simple_declaration(node.retrieve_context(), "").c_str());
          */
-        //const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+        const unsigned int src_num_elements = src_vector_type.vector_num_elements();
         const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
         TL::Source intrin_src, intrin_name, intrin_op_name,
@@ -1135,9 +1135,11 @@ namespace Vectorization
 
         if (intrin_op_name.empty())
         {
-            fprintf(stderr, "KNC Backend: Masked conversion from '%s' to '%s' at '%s' is not supported yet: %s\n",
+            internal_error("KNC Backend: Conversion from '%s%d' to '%s%d' at '%s' is not supported yet: %s\n",
                     src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    src_num_elements,
                     dst_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+                    dst_num_elements,
                     locus_to_str(n.get_locus()),
                     nest.prettyprint().c_str());
         }
