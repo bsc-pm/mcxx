@@ -38,7 +38,6 @@ namespace TL
             private:
                 bool _knc_enabled;
                 bool _avx2_enabled;
-                bool _intel_compiler_profile;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
 

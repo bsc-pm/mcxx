@@ -48,11 +48,6 @@ namespace TL
                     _avx2_enabled_str,
                     "0").connect(functor(&VectorLoweringPhase::set_avx2, *this));
 
-            register_parameter("intel_compiler_profile",
-                    "If set to '1' enables the Intel Compiler profile, otherwise GNU is assumed",
-                    _intel_compiler_profile_str,
-                    "0").connect(functor(&VectorLoweringPhase::set_intel_compiler_profile, *this));
-
             register_parameter("prefer_mask_gather_scatter",
                     "If set to '1' enables gather/scatter generation for unaligned load/stores with masks",
                     _prefer_mask_gather_scatter_str,
@@ -77,15 +72,6 @@ namespace TL
             if (avx2_enabled_str == "1")
             {
                 _avx2_enabled = true;
-            }
-        }
-
-        void VectorLoweringPhase::set_intel_compiler_profile(
-                const std::string intel_compiler_profile_str)
-        {
-            if (intel_compiler_profile_str == "1")
-            {
-                _intel_compiler_profile = true;
             }
         }
 
