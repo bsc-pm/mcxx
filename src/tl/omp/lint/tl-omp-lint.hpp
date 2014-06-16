@@ -83,6 +83,11 @@ namespace OpenMP {
     {
     private:
         std::string _disable_phase;
+        std::string _correctness_log_path;
+        
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
         
     public:
         Lint();

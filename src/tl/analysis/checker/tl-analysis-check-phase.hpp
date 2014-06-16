@@ -50,8 +50,14 @@ namespace Analysis {
         void assert_decl_handler_pre( TL::PragmaCustomDeclaration directive );
         void assert_decl_handler_post( TL::PragmaCustomDeclaration directive );
         
+        //! Private checking methods
         void check_pcfg_consistency( ExtensibleGraph* graph );
         void check_analysis_assertions( ExtensibleGraph* graph );
+        
+        //! Members to check the programming model being used
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
         
         //!Entry point of the phase
         virtual void pre_run( TL::DTO& dto );

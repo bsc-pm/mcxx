@@ -42,7 +42,7 @@ namespace Analysis {
     private:
         // *** Members *** //
         unsigned int _id;
-        Nodecl::NodeclBase _value;
+        NBase _value;
         ObjectList<CGEdge*> _entries;
         ObjectList<CGEdge*> _exits;
         
@@ -51,21 +51,21 @@ namespace Analysis {
         
     public:    
         // *** Constructor *** //
-        CGNode(const Nodecl::NodeclBase& value);
+        CGNode(const NBase& value);
         
         // *** Getters and setters *** //
         unsigned int get_id() const;
-        Nodecl::NodeclBase get_value() const;
+        NBase get_value() const;
         
         ObjectList<CGEdge*> get_entries() const;
         ObjectList<CGNode*> get_parents();
         void add_entry(CGEdge* e);
-        CGEdge* add_parent(CGNode* parent, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        CGEdge* add_parent(CGNode* parent, NBase predicate = NBase::null());
         
         ObjectList<CGEdge*> get_exits() const;
         ObjectList<CGNode*> get_children();
         void add_exit(CGEdge* e);
-        CGEdge* add_child(CGNode* child, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        CGEdge* add_child(CGNode* child, NBase predicate = NBase::null());
         
         int get_scc_index() const;
         void set_scc_index(int scc_index);
@@ -79,19 +79,19 @@ namespace Analysis {
         // *** Members *** //
         CGNode* _source;
         CGNode* _target;
-        Nodecl::NodeclBase _predicate;
+        NBase _predicate;
         
     public:
         // *** Constructor *** //
-        CGEdge(CGNode* source, CGNode* target, const Nodecl::NodeclBase& predicate);
+        CGEdge(CGNode* source, CGNode* target, const NBase& predicate);
         
         // *** Getters and setters *** //
         CGNode* get_source() const;
         CGNode* get_target() const;
-        Nodecl::NodeclBase get_predicate() const;
+        NBase get_predicate() const;
     };
     
-    typedef std::map<Nodecl::NodeclBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGNode_map;
+    typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGNode_map;
     
     class LIBTL_CLASS SCC
     {
@@ -121,13 +121,13 @@ namespace Analysis {
         
         // *** Modifiers *** //
         //! Insert, if it is not yet there, a new node in the CG with the value #value
-        CGNode* insert_node(const Nodecl::NodeclBase& value);
+        CGNode* insert_node(const NBase& value);
         
         //! Returns the node in the CG corresponding to the value #value
-        CGNode* get_node(const Nodecl::NodeclBase& value);
+        CGNode* get_node(const NBase& value);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, Nodecl::NodeclBase predicate = Nodecl::NodeclBase::null());
+        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
         
         // Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC> extract_strongly_connected_components();
@@ -168,7 +168,7 @@ namespace Analysis {
         Utils::ConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::ConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
         
-        Ret visit_assignment(const Nodecl::NodeclBase& lhs, const Nodecl::NodeclBase& rhs);
+        Ret visit_assignment(const NBase& lhs, const NBase& rhs);
         
     public:
         
@@ -177,7 +177,7 @@ namespace Analysis {
                                  Utils::ConstraintMap current_constraints );
         
         // *** Modifiers *** //
-        void compute_constraints(const Nodecl::NodeclBase& n);
+        void compute_constraints(const NBase& n);
         
         // *** Getters and setters *** //
         Utils::ConstraintMap get_output_constraints_map();

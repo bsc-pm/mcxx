@@ -208,6 +208,7 @@ const_value_t* const_value_get_unsigned_##type ( cvalue_uint_t value ) \
     
 
 GET_INTEGER(int)
+GET_INTEGER(short_int)
 GET_INTEGER(long_int)
 GET_INTEGER(long_long_int)
 
@@ -3508,6 +3509,8 @@ const char *const_value_string_unpack_to_string(const_value_t* v, char *is_null_
         str[i] = (char)values[i];
     }
     str[num_elements] = '\0';
+
+    xfree(values);
 
     return uniquestr(str);
 }

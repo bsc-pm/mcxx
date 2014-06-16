@@ -142,6 +142,7 @@ namespace TL
                         CASE(DS_LASTPRIVATE)
                         CASE(DS_FIRSTLASTPRIVATE)
                         CASE(DS_REDUCTION)
+                        CASE(DS_SIMD_REDUCTION)
                         CASE(DS_THREADPRIVATE)
                         CASE(DS_COPYIN)
                         CASE(DS_COPYPRIVATE)
@@ -171,6 +172,12 @@ namespace TL
             _reduction_symbols.append(reduction_symbol);
         }
 
+        void DataSharingEnvironment::set_simd_reduction(const ReductionSymbol &reduction_symbol)
+        {
+            (_map->operator[](reduction_symbol.get_symbol())) = DS_SIMD_REDUCTION;
+            _simd_reduction_symbols.append(reduction_symbol);
+        }
+
 		void DataSharingEnvironment::set_real_time_info(const RealTimeInfo & rt_info)
 		{
 			_real_time_info = rt_info;
@@ -184,6 +191,11 @@ namespace TL
         void DataSharingEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
+        }
+
+        void DataSharingEnvironment::get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        {
+            symbols = _simd_reduction_symbols;
         }
 
         TargetInfo& DataSharingEnvironment::get_target_info()

@@ -37,6 +37,7 @@
 struct debug_flags_list_t;
 %%
 "abort_on_ice", DEBUG_OPTION_REF(abort_on_ice), "When an error condition is detected, compiler will raise SIGABRT signal. This is useful for debugging"
+"backtrace_on_ice", DEBUG_OPTION_REF(backtrace_on_ice), "When an error condition is detected, compiler will print a backtrace to the stderr"
 "print_scope", DEBUG_OPTION_REF(print_scope), "Prints scope of the translation unit"
 "enable_debug_code", DEBUG_OPTION_REF(enable_debug_code), "Enable debug code, in general these are debug messages"
 "debug_lexer", DEBUG_OPTION_REF(debug_lexer), "Enables lexer debug"
@@ -59,6 +60,7 @@ struct debug_flags_list_t;
 "tdg_to_json", DEBUG_OPTION_REF(tdg_to_json), "Prints TDG in a predefined JSON format"
 "do_not_codegen", DEBUG_OPTION_REF(do_not_codegen), "Does not perform codegen step"
 "show_template_packs", DEBUG_OPTION_REF(show_template_packs), "Adds a marker to show the extent of a template pack expansion"
+"vectorization_verbose", DEBUG_OPTION_REF(vectorization_verbose), "Enable vectorization debug messages"
 %%
 
 static int cmpstringp(const void *p1, const void *p2)

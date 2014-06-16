@@ -40,6 +40,9 @@ namespace TL { namespace Intel {
 
     void cleanup_lock_map();
 
+    void gather_vla_symbols(TL::Symbol symbol,
+            TL::ObjectList<TL::Symbol>& extra_symbols);
+
 } }
 
 #endif // TL_LOWERING_UTILS_HPP

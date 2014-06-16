@@ -63,6 +63,10 @@
 #include "cxx-placeholders.h"
 #include "cxx-driver-utils.h"
 
+#ifdef EXTRAE_ENABLED
+#include "extrae_user_events.h"
+#endif
+
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
  * routines will be called prior to filling symbolic inormation. Note that
@@ -447,6 +451,33 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
     c_initialize_builtin_symbols(decl_context);
 }
 
+#ifdef EXTRAE_ENABLED
+enum { EXTRAE_DECLARATION_LOCUS = 6000019 + 100 };
+
+static dhash_ptr_t* extrae_declaration_locus_value_set;
+
+typedef
+struct extrae_value_set_tag
+{
+    unsigned int num_values;
+
+    const char** descriptions;
+    extrae_value_t* values;
+} extrae_value_set_t;
+
+void extrae_declaration_locus_walk(const char* key,
+        void *info UNUSED_PARAMETER,
+        void *walk_info)
+{
+    extrae_value_set_t* extrae_value_set = (extrae_value_set_t*)walk_info;
+
+    int n = extrae_value_set->num_values;
+    P_LIST_ADD(extrae_value_set->descriptions, n, key);
+
+    P_LIST_ADD(extrae_value_set->values, extrae_value_set->num_values, (extrae_value_t)key);
+}
+#endif
+
 static void build_scope_translation_unit_pre(translation_unit_t* translation_unit UNUSED_PARAMETER)
 {
     C_LANGUAGE()
@@ -457,7 +488,11 @@ static void build_scope_translation_unit_pre(translation_unit_t* translation_uni
     {
         instantiation_init();
     }
+#ifdef EXTRAE_ENABLED
+    extrae_declaration_locus_value_set = dhash_ptr_new(5);
+#endif // EXTRAE_ENABLED
 }
+
 
 static void build_scope_translation_unit_post(
         translation_unit_t* translation_unit UNUSED_PARAMETER,
@@ -474,6 +509,29 @@ static void build_scope_translation_unit_post(
     {
         linkage_pop();
     }
+
+#ifdef EXTRAE_ENABLED
+    extrae_value_set_t extrae_value_set;
+    memset(&extrae_value_set, 0, sizeof(extrae_value_set));
+
+    dhash_ptr_walk(extrae_declaration_locus_value_set, extrae_declaration_locus_walk, &extrae_value_set);
+    dhash_ptr_destroy(extrae_declaration_locus_value_set);
+
+    // void Extrae define event type (extrae type t *type, char *description, unsigned
+    // *nvalues, extrae value t *values, char **description values)
+
+    extrae_type_t v = EXTRAE_DECLARATION_LOCUS;
+    const char* description = UNIQUESTR_LITERAL("Source declaration");
+    Extrae_define_event_type(&v,
+            (char*)description,
+            &extrae_value_set.num_values,
+            extrae_value_set.values,
+            (char**)extrae_value_set.descriptions);
+
+    xfree(extrae_value_set.descriptions);
+    xfree(extrae_value_set.values);
+
+#endif // EXTRAE_ENABLED
 }
 
 // Builds scope for the translation unit
@@ -735,6 +793,14 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
         fprintf(stderr, "==== Declaration line [%s] ====\n", ast_location(a));
     }
 
+#ifdef EXTRAE_ENABLED
+    Extrae_user_function(1);
+    Extrae_event (EXTRAE_DECLARATION_LOCUS,
+            (extrae_value_t)ast_location(a));
+
+    dhash_ptr_insert(extrae_declaration_locus_value_set, ast_location(a), (void*)ast_location(a));
+#endif
+
     diagnostic_context_push_buffered();
 
     switch (ASTType(a))
@@ -946,6 +1012,11 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
     }
 
     diagnostic_context_pop_and_commit();
+
+#ifdef EXTRAE_ENABLED
+    Extrae_event (EXTRAE_DECLARATION_LOCUS, 0);
+    Extrae_user_function(0);
+#endif
 }
 
 static void build_scope_asm_definition(AST a, 
@@ -7474,6 +7545,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     && !is_trivially_copiable_type(member_type);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_base_without_move_constructor_that_cannot_be_trivially_copied = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7487,6 +7559,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 class_type_get_move_constructors(base_type) == NULL
                 && !is_trivially_copiable_type(base_type);
         }
+        entry_list_iterator_free(it);
 
         if (has_member_with_nontrivial_move_constructor
                     || has_member_with_unusable_move_constructor
@@ -7674,6 +7747,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     entry_list_free(copy_assignment_ops);
                 }
             }
+            entry_list_iterator_free(it);
         }
 
         char has_nonstatic_data_member_const_of_non_class_type = 0;
@@ -7687,6 +7761,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_reference = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7696,6 +7771,7 @@ static void finish_class_type_cxx(type_t* class_type,
             scope_entry_t* data_member = entry_list_iterator_current(it);
             has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_copiable_data_member = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7716,6 +7792,7 @@ static void finish_class_type_cxx(type_t* class_type,
                         locus);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_copiable_base = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7731,6 +7808,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     decl_context,
                     locus);
         }
+        entry_list_iterator_free(it);
 
         if (union_has_member_with_nontrivial_copy_assignment
                 || has_nonstatic_data_member_const_of_non_class_type
@@ -7805,6 +7883,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     entry_list_free(move_assignment_ops);
                 }
             }
+            entry_list_iterator_free(it);
         }
 
         char has_nonstatic_data_member_const_of_non_class_type = 0;
@@ -7818,6 +7897,7 @@ static void finish_class_type_cxx(type_t* class_type,
                 has_nonstatic_data_member_const_of_non_class_type = is_const_qualified_type(data_member->type_information);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_reference = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7827,6 +7907,7 @@ static void finish_class_type_cxx(type_t* class_type,
             scope_entry_t* data_member = entry_list_iterator_current(it);
             has_nonstatic_data_member_reference = is_any_reference_type(data_member->type_information);
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_moveable_data_member = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
@@ -7847,6 +7928,7 @@ static void finish_class_type_cxx(type_t* class_type,
                         locus);
             }
         }
+        entry_list_iterator_free(it);
 
         char has_non_assignment_operator_moveable_base = 0;
         for (it = entry_list_iterator_begin(all_bases);
@@ -7862,6 +7944,7 @@ static void finish_class_type_cxx(type_t* class_type,
                     decl_context,
                     locus);
         }
+        entry_list_iterator_free(it);
 
         /*
            for the move assignment operator, a non-static data member or direct base class with a type that does
@@ -11574,6 +11657,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                 found_candidate = 1;
             }
         }
+        entry_list_iterator_free(it);
     }
 
     if (!is_template_function)
@@ -11609,6 +11693,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
                     found_candidate = 1;
                 }
             }
+            entry_list_iterator_free(it);
 
             if (!found_candidate)
             {
