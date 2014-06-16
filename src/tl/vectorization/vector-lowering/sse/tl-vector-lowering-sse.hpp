@@ -37,14 +37,12 @@ namespace TL
         class SSEVectorLowering : public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                bool _intel_compiler_profile;
-
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
 
             public:
 
-                SSEVectorLowering(bool intel_compiler_profile);
+                SSEVectorLowering();
 
                 virtual void visit(const Nodecl::ObjectInit& node);
                 
