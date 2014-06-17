@@ -37,21 +37,23 @@ test_generator=config/mercurium-parallel-simd-mic
 
 void __attribute__((noinline)) saxpy(float *x, float *y, float *z, float a, int N)
 {
-    int j;
-#pragma omp parallel
+#pragma omp parallel firstprivate(x, y, z, a, N)
     {
-#pragma omp simd for 
+        int j;
+        x;
+#pragma omp simd for
         for (j=0; j<N; j+=1)
         {
             z[j] = a * x[j] + y[j];
         }
     }
+    printf("\n");
 }
 
 
 int main (int argc, char * argv[])
 {
-    const int N = 16;
+    const int N = 244 * 16 + 15;
     const int iters = 1;
 
     float *x, *y, *z; 

@@ -37,14 +37,14 @@ namespace Analysis {
     
     class LIBTL_CLASS PointersSimplifierVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
-        void unhandled_node(const Nodecl::NodeclBase& n)
+        void unhandled_node(const NBase& n)
         {
             WARNING_MESSAGE("Unhandled node of type '%s' while PointersSimplifierVisitor.\n", ast_print_node_type(n.get_kind()));
         }
         
         void visit(const Nodecl::Dereference& n)
         {
-            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            NBase rhs = n.get_rhs().no_conv();
             if(rhs.is<Nodecl::Reference>())
             {   // *&v  ->  v
                 n.replace(rhs.as<Nodecl::Reference>().get_rhs().no_conv().shallow_copy());
@@ -58,7 +58,7 @@ namespace Analysis {
         
         void visit(const Nodecl::Reference& n)
         {
-            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            NBase rhs = n.get_rhs().no_conv();
             if(rhs.is<Nodecl::Dereference>())
             {   // &*v  ->  v
                 n.replace(rhs.as<Nodecl::Dereference>().get_rhs().no_conv().shallow_copy());
@@ -81,9 +81,9 @@ namespace Analysis {
         }
     };
     
-    Nodecl::NodeclBase simplify_pointer(const Nodecl::NodeclBase& original_variable)
+    NBase simplify_pointer(const NBase& original_variable)
     {
-        Nodecl::NodeclBase simplified_variable = original_variable.no_conv().shallow_copy();
+        NBase simplified_variable = original_variable.no_conv().shallow_copy();
         PointersSimplifierVisitor psv;
         psv.walk(simplified_variable);
         return simplified_variable;
@@ -105,17 +105,17 @@ namespace Analysis {
     
     
     // This method returns the part of 'container' which is not the 'contained'.
-    // If the separation cannot be done, then it returns Nodecl::NodeclBase::null()
-    Nodecl::NodeclBase split_var_depending_on_usage_rec(Nodecl::NodeclBase container, Nodecl::NodeclBase contained)
+    // If the separation cannot be done, then it returns NBase::null()
+    NBase split_var_depending_on_usage_rec(NBase container, NBase contained)
     {
-        Nodecl::NodeclBase result;
+        NBase result;
         if(contained.is<Nodecl::ArraySubscript>())
         {   // Contained[...]
             // Get the 'container' and 'contained' accesses. If not a Range, transform it into a Range
-            Nodecl::NodeclBase ctr_subscript, ctd_subscript;
-            Nodecl::NodeclBase subscripted;
-            Nodecl::NodeclBase ctr_lb;
-            Nodecl::NodeclBase ctr_ub;
+            NBase ctr_subscript, ctd_subscript;
+            NBase subscripted;
+            NBase ctr_lb;
+            NBase ctr_ub;
             TL::Type ctr_t = container.is<Nodecl::Symbol>() ? container.get_symbol().get_type().no_ref() 
                                                             : container.get_type().no_ref();
             ERROR_CONDITION(!ctr_t.is_valid(), 
@@ -124,8 +124,8 @@ namespace Analysis {
             Nodecl::List ctd_subscripts = contained.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
             if(container.is<Nodecl::Analysis::RangeUnion>())
             {
-                Nodecl::NodeclBase lhs = container.as<Nodecl::Analysis::RangeUnion>().get_lhs();
-                Nodecl::NodeclBase rhs = container.as<Nodecl::Analysis::RangeUnion>().get_rhs();
+                NBase lhs = container.as<Nodecl::Analysis::RangeUnion>().get_lhs();
+                NBase rhs = container.as<Nodecl::Analysis::RangeUnion>().get_rhs();
                 result = split_var_depending_on_usage_rec(lhs, contained);  // Try whether the LHS contains 'contained'
                 if(Nodecl::Utils::structurally_equal_nodecls(result, lhs))  // if not, try with the RHS
                     result = split_var_depending_on_usage_rec(result, rhs);
@@ -142,8 +142,11 @@ namespace Analysis {
                     {
                         if(!Nodecl::Utils::structurally_equal_nodecls(ctr_subscripts[i], ctd_subscripts[i]))
                         {
-                            WARNING_MESSAGE("Splitting usage of multidimensional arrays when dimensions other than "
-                                            "the less significant accessed differs is not yet supported\n", 0);
+                            if(VERBOSE)
+                            {
+                                WARNING_MESSAGE("Splitting usage of multidimensional arrays when dimensions other than "
+                                                "the less significant accessed differs is not yet supported\n", 0);
+                            }
                             return result;
                         }
                         i++;
@@ -167,9 +170,12 @@ namespace Analysis {
                 {
                     if(ctd_subscripts.size() > 1)
                     {
-                        WARNING_MESSAGE("Cannot split the multidimensional array access %s "
-                                        "when its container expression other than an array access to the less significant dimension\n",
-                                        contained.prettyprint().c_str(), container.prettyprint().c_str());
+                        if(VERBOSE)
+                        {
+                            WARNING_MESSAGE("Cannot split the multidimensional array access %s "
+                                            "when its container expression is other than an array access to the less significant dimension\n",
+                                            contained.prettyprint().c_str(), container.prettyprint().c_str());
+                        }
                         return result;
                     }
                     
@@ -189,15 +195,19 @@ namespace Analysis {
                         }
                         else
                         {
-                            WARNING_MESSAGE("We cannot split the usage of a pointer type because we do not know the size of the object\n", 0);
+                            if(VERBOSE)
+                            {
+                                WARNING_MESSAGE("We cannot split the usage of pointer '%s' because we do not know the size of the object\n", 
+                                                container.prettyprint().c_str());
+                            }
                             return result;
                         }
                     }
                 }
             
                 // Get the 'contained' access. If not a Range, transform it into a Range
-                Nodecl::NodeclBase ctd_lb;
-                Nodecl::NodeclBase ctd_ub;
+                NBase ctd_lb;
+                NBase ctd_ub;
                 if(ctd_subscript.is<Nodecl::Range>())
                 {   // Contained[ctd_lb:ctd_ub]
                     ctd_lb = ctd_subscript.as<Nodecl::Range>().get_lower();
@@ -211,14 +221,14 @@ namespace Analysis {
                 Type ctd_subscript_t = ctd_subscript.get_type();
             
                 // This case creates two ranges: [ctr_lb:ctd_lb] and [ctd_ub:ctr_ub]
-                Nodecl::NodeclBase lb, ub;
+                NBase lb, ub;
                 const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
-                Nodecl::NodeclBase one_nodecl = Nodecl::NodeclBase(const_value_to_nodecl(one));
+                NBase one_nodecl = NBase(const_value_to_nodecl(one));
                 Nodecl::Range ctr_analysis = Nodecl::Range::make(ctr_lb.shallow_copy(), ctr_ub.shallow_copy(), 
                                                                  one_nodecl.shallow_copy(), ctd_subscript_t);
                 Nodecl::Range ctd_analysis = Nodecl::Range::make(ctd_lb.shallow_copy(), ctd_ub.shallow_copy(), 
                                                                  one_nodecl.shallow_copy(), ctd_subscript_t);
-                Nodecl::NodeclBase range_subtraction = Utils::range_sub(ctr_analysis, ctd_analysis);
+                NBase range_subtraction = Utils::range_sub(ctr_analysis, ctd_analysis);
                 Nodecl::ArraySubscript new_arr_subscript;
                 if(range_subtraction.is<Nodecl::Analysis::EmptyRange>())
                     return result;
@@ -229,8 +239,8 @@ namespace Analysis {
                 }
                 else if(range_subtraction.is<Nodecl::Analysis::RangeUnion>())
                 {
-                    Nodecl::NodeclBase lhs = range_subtraction.as<Nodecl::Analysis::RangeUnion>().get_lhs();
-                    Nodecl::NodeclBase rhs = range_subtraction.as<Nodecl::Analysis::RangeUnion>().get_rhs();
+                    NBase lhs = range_subtraction.as<Nodecl::Analysis::RangeUnion>().get_lhs();
+                    NBase rhs = range_subtraction.as<Nodecl::Analysis::RangeUnion>().get_rhs();
                     result = Nodecl::Analysis::RangeUnion::make(
                         Nodecl::ArraySubscript::make(subscripted.shallow_copy(), Nodecl::List::make(lhs), ctr_t), 
                         Nodecl::ArraySubscript::make(subscripted.shallow_copy(), Nodecl::List::make(rhs), ctr_t),
@@ -267,15 +277,17 @@ namespace Analysis {
         }
         else if(contained.is<Nodecl::ClassMemberAccess>())
         {
-            TL::Type ctr_t = container.get_type();
-            if(ctr_t.is_lvalue_reference())
-                ctr_t = ctr_t.references_to();
+            TL::Type ctr_t = container.get_type().no_ref();
+            // We may have here a class or a pointer to a class
+            if(ctr_t.is_pointer())
+                ctr_t = ctr_t.points_to();
+            
             if(ctr_t.is_class())
             {   // struct t { ... }
                 // Compute the nest of members accessed by 'contained'
                 ObjectList<Symbol> ctd_nested_syms;
                 ctd_nested_syms.append(contained.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
-                Nodecl::NodeclBase tmp = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                NBase tmp = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
                 while(tmp.is<Nodecl::ClassMemberAccess>())
                 {
                     ctd_nested_syms.append(tmp.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
@@ -284,8 +296,8 @@ namespace Analysis {
 
                 // Travers the 'Container' adding all members that are not in the list just computed
                 ObjectList<Symbol> ctr_members = ctr_t.get_all_data_members();
-                Nodecl::NodeclBase current_lhs = container;
-                Nodecl::NodeclBase next_cma_lhs;
+                NBase current_lhs = container;
+                NBase next_cma_lhs;
                 while(!ctr_members.empty())
                 {
                     Symbol current_member_sym;      // We want this variable to be new at each iteration
@@ -293,7 +305,7 @@ namespace Analysis {
                     {
                         Nodecl::Symbol sym_n = Nodecl::Symbol::make(*it);
                         Nodecl::ClassMemberAccess new_cma = Nodecl::ClassMemberAccess::make(current_lhs.shallow_copy(), sym_n,
-                                                                                            /*member-form*/ Nodecl::NodeclBase::null(), it->get_type());
+                                                                                            /*member-form*/ NBase::null(), it->get_type());
                         if(!ctd_nested_syms.contains(*it))
                         {
                             // Include the whole member, since 'Contained' is not a part of it
@@ -323,25 +335,31 @@ namespace Analysis {
             }
             else
             {
-                WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
-                                container.prettyprint().c_str(), contained.prettyprint().c_str(),
-                                print_declarator(ctr_t.get_internal_type()));
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
+                                    container.prettyprint().c_str(), contained.prettyprint().c_str(),
+                                    print_declarator(ctr_t.get_internal_type()));
+                }
                 return result;
             }
         }
         else
         {
-            WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting an object into different subobjects.\n"
-                            "ArraySubscript or ClassMemberAccess expected\n",
-                            ast_print_node_type(contained.get_kind()));
+            if(VERBOSE)
+            {
+                WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting object '%s' into different subobjects.\n"
+                                "ArraySubscript or ClassMemberAccess expected\n",
+                                ast_print_node_type(contained.get_kind()), contained.prettyprint().c_str());
+            }
         }
         return result;
     }
     
     // Overloading method for the case when the 'contained' is a Nodecl::List
-    Nodecl::NodeclBase split_var_depending_on_usage(Nodecl::NodeclBase container, Nodecl::NodeclBase contained)
+    NBase split_var_depending_on_usage(NBase container, NBase contained)
     {
-        Nodecl::NodeclBase result = container.no_conv();
+        NBase result = container.no_conv();
         if(contained.is<Nodecl::List>())
         {
             Nodecl::List contained_list = contained.as<Nodecl::List>();

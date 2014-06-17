@@ -48,11 +48,11 @@ namespace Analysis{
         {
             if(current->has_statements())
             {
-                Nodecl::NodeclBase s;
-                Nodecl::NodeclBase value;
+                NBase s;
+                NBase value;
                 TL::Type t;
-                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements();
-                for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
+                NodeclList stmts = current->get_statements();
+                for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     // If assignment (or object init) check whether its for is a dynamic allocation of resources for a pointer type
                     if(it->is<Nodecl::ObjectInit>() || it->is<Nodecl::Assignment>())
@@ -88,7 +88,7 @@ namespace Analysis{
                                 Type return_t = called_sym.get_type().returns();
                                 Nodecl::List args = value.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>();
                                 std::string sym_name = called_sym.get_name();
-                                Nodecl::NodeclBase size = Nodecl::NodeclBase::null();
+                                NBase size = NBase::null();
                                 if((sym_name == "malloc") && (args.size() == 1))
                                 {   // void* malloc (size_t size);
                                     Type arg0_t = args[0].get_type();
@@ -96,8 +96,8 @@ namespace Analysis{
                                     {   // We recognize the form 'sizeof(base_type) * n_elemes' and 'n_elemes * sizeof(base_type)'
                                         if(args[0].is<Nodecl::Mul>())
                                         {
-                                            Nodecl::NodeclBase lhs = args[0].as<Nodecl::Mul>().get_lhs().no_conv();
-                                            Nodecl::NodeclBase rhs = args[0].as<Nodecl::Mul>().get_rhs().no_conv();
+                                            NBase lhs = args[0].as<Nodecl::Mul>().get_lhs().no_conv();
+                                            NBase rhs = args[0].as<Nodecl::Mul>().get_rhs().no_conv();
                                             if(lhs.is<Nodecl::Sizeof>() && (rhs.is<Nodecl::IntegerLiteral>() || rhs.is<Nodecl::Symbol>()))
                                                 size = rhs;
                                             else if(rhs.is<Nodecl::Sizeof>() && (lhs.is<Nodecl::IntegerLiteral>() || lhs.is<Nodecl::Symbol>()))
@@ -122,8 +122,8 @@ namespace Analysis{
                         }
                         
                         // Clear up the common variables s, value and t
-                        s = Nodecl::NodeclBase::null();
-                        value = Nodecl::NodeclBase::null();
+                        s = NBase::null();
+                        value = NBase::null();
                         t = Type();
                     }
                 }

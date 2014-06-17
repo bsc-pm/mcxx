@@ -43,13 +43,13 @@ namespace Analysis {
     struct ControlStructure {
         int _id;
         ControlStructureType _type;
-        Nodecl::NodeclBase _condition;
+        NBase _condition;
         
-        ControlStructure(int id, ControlStructureType type, const Nodecl::NodeclBase condition);
+        ControlStructure(int id, ControlStructureType type, const NBase condition);
         
         int get_id();
         ControlStructureType get_type();
-        Nodecl::NodeclBase get_condition();
+        NBase get_condition();
     };
     
     // ************ Task Dependency Graph Control Structures ************* //
@@ -95,11 +95,11 @@ namespace Analysis {
         TDG_Node* _source;
         TDG_Node* _target;
         TDGEdgeType _type;
-        ObjectList<Nodecl::NodeclBase> _source_clauses;
-        ObjectList<Nodecl::NodeclBase> _target_clauses;
-        Nodecl::NodeclBase _condition;
+        ObjectList<NBase> _source_clauses;
+        ObjectList<NBase> _target_clauses;
+        NBase _condition;
         
-        TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const Nodecl::NodeclBase& condition);
+        TDG_Edge(TDG_Node* source, TDG_Node* target, TDGEdgeType type, const NBase& condition);
         TDG_Node* get_source();
         TDG_Node* get_target();
         
@@ -130,13 +130,13 @@ namespace Analysis {
         
         // *** Private methods *** //
         void connect_tdg_nodes(TDG_Node* parent, TDG_Node* child, 
-                               Nodecl::NodeclBase type, const Nodecl::NodeclBase& condition);
+                               NBase type, const NBase& condition);
         
         TDG_Node* find_task_from_tdg_nodes_list(Node* task);
         void create_tdg_nodes_from_pcfg(Node* current);
         void set_tdg_nodes_control_structures();
         void connect_tdg_nodes_from_pcfg(Node* current);
-        void store_condition_list_of_symbols(const Nodecl::NodeclBase& condition);
+        void store_condition_list_of_symbols(const NBase& condition);
         
         void taskify_graph(Node* current);
         void create_tdg(Node* current);

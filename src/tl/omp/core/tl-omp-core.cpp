@@ -333,7 +333,14 @@ namespace TL
 
                 void operator()(ReductionSymbol red_sym)
                 {
-                    _data_sharing.set_reduction(red_sym, "mentioned in 'reduction' clause");
+                    if(_data_attrib == DS_SIMD_REDUCTION)
+                    {
+                        _data_sharing.set_simd_reduction(red_sym);
+                    }
+                    else
+                    {
+                        _data_sharing.set_reduction(red_sym, "mentioned in 'reduction' clause");
+                    }
                 }
         };
 
@@ -407,6 +414,12 @@ namespace TL
                     nonlocal_symbols, data_sharing, reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
+
+            ObjectList<OpenMP::ReductionSymbol> simd_reduction_references;
+            get_reduction_symbols(construct, construct.get_clause("simd_reduction"),
+                    nonlocal_symbols, data_sharing, simd_reduction_references);
+            std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(), 
+                    DataSharingEnvironmentSetterReduction(data_sharing, DS_SIMD_REDUCTION));
 
             // Do not confuse OpenMP copyin (related with threadprivate) with
             // OmpSs copy_in (related to copies between targets)
@@ -1137,6 +1150,26 @@ namespace TL
             }
         }
 
+        void Core::common_while_handler(Nodecl::NodeclBase outer_statement,
+                Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
+        {
+            if (!statement.is<Nodecl::WhileStatement>())
+            {
+                /*
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    running_error("%s: error: a DO-construct is required for '!$OMP DO' and '!$OMP PARALLEL DO'",
+                            statement.get_locus_str().c_str());
+                }
+                else
+                */
+                {
+                    running_error("%s: error: a while-statement is required for '#pragma omp simd'",
+                            statement.get_locus_str().c_str());
+                }
+            }
+        }
+
         void Core::common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
         {
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
@@ -1440,16 +1473,7 @@ namespace TL
                 collapse_check_loop(construct);
             }
 
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::Context>().get_in_context();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
+            Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
 
             _openmp_info->push_current_data_sharing(data_sharing);
             common_for_handler(construct, stmt, data_sharing);
@@ -1461,7 +1485,10 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
-        void Core::for_handler_pre(TL::PragmaCustomStatement construct)
+        void Core::loop_handler_pre(TL::PragmaCustomStatement construct,
+                Nodecl::NodeclBase loop,
+                void (Core::*common_loop_handler)(Nodecl::NodeclBase,
+                    Nodecl::NodeclBase, DataSharingEnvironment&))
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
 
@@ -1470,25 +1497,17 @@ namespace TL
                 collapse_check_loop(construct);
             }
 
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            // Do we really need such a deep structure?
-            // NODECL_LIST -> NODECL_CONTEXT -> NODECL_LIST
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::Context>().get_in_context();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
-
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(construct, stmt, data_sharing);
+            (this->*common_loop_handler)(construct, loop, data_sharing);
             common_workshare_handler(construct, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing,
                     /* default_data_sharing */ DS_UNDEFINED);
+        }
+
+        void Core::for_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
+            loop_handler_pre(construct, loop, &Core::common_for_handler);
         }
 
         void Core::for_handler_post(TL::PragmaCustomStatement construct)
@@ -1706,7 +1725,21 @@ namespace TL
         {
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                for_handler_pre(construct);
+                Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
+
+                if (stmt.is<Nodecl::ForStatement>())
+                {
+                    loop_handler_pre(construct, stmt, &Core::common_for_handler);
+                }
+                else if (stmt.is<Nodecl::WhileStatement>())
+                {
+                    loop_handler_pre(construct, stmt, &Core::common_while_handler);
+                }
+                else 
+                {
+                    running_error("%s: error: '#pragma omp simd' must be followed by a for or while statement\n",
+                            construct.get_locus_str().c_str());
+                }
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
@@ -1796,6 +1829,16 @@ namespace TL
             {
                 internal_error("Code unreachable", 0);
             }
+        }
+
+        void Core::simd_parallel_handler_pre(TL::PragmaCustomStatement construct)
+        {
+            parallel_handler_pre(construct);
+        }
+
+        void Core::simd_parallel_handler_post(TL::PragmaCustomStatement construct)
+        {
+            parallel_handler_post(construct);
         }
 
         void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
@@ -2023,6 +2066,7 @@ namespace TL
         INVALID_DECLARATION_HANDLER(parallel_simd_for)
         INVALID_DECLARATION_HANDLER(for)
         INVALID_DECLARATION_HANDLER(simd_for)
+        INVALID_DECLARATION_HANDLER(simd_parallel)
         INVALID_DECLARATION_HANDLER(parallel_do)
         INVALID_DECLARATION_HANDLER(do)
         INVALID_DECLARATION_HANDLER(parallel_sections)
@@ -2049,12 +2093,31 @@ namespace TL
         EMPTY_HANDLERS_CONSTRUCT(ordered)
         EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
+        Nodecl::NodeclBase get_statement_from_pragma(
+                const TL::PragmaCustomStatement& construct)
+        {
+            Nodecl::NodeclBase stmt = construct.get_statements();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::Context>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::Context>().get_in_context();
+
+            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
+            stmt = stmt.as<Nodecl::List>().front();
+
+            return stmt;
+        }
+
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
             RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
         }
+
+
     }
 }
 

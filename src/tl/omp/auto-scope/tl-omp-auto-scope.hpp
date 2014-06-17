@@ -27,24 +27,27 @@
 #ifndef TL_OMP_AUTO_SCOPE_HPP
 #define TL_OMP_AUTO_SCOPE_HPP
 
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 #include "tl-pragmasupport.hpp"
 
 namespace TL {
 namespace OpenMP {
 
-    // ****************************************************************************** //
-    // *************** Phase for Automatic Data-Sharing computation ***************** //
-    // ****************************************************************************** //
-    // ***** This phase computes the data-sharing of all variables involved in ****** //
-    // ****************** OpenMP tasks that are not manually scoped ***************** //
-    // ****************** when it appears the clause default(AUTO) ****************** //
-    // ****************************************************************************** //
+    /*! \brief Phase for Automatic Data-Sharing computation
+     * This phase computes the data-sharing of all variables involved in OpenMP tasks 
+     * that are not manually scoped when it appears the clause default(AUTO)
+     * The results are printed in the standard error
+     */
     class AutoScopePhase : public TL::PragmaCustomCompilerPhase
     {
     private:
         std::string _auto_scope_enabled_str;
         bool _auto_scope_enabled;
+        void set_auto_scope(const std::string auto_scope_enabled_str);
+        
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
 
     public:
         AutoScopePhase( );
@@ -52,34 +55,9 @@ namespace OpenMP {
 
         virtual void pre_run(TL::DTO& dto);
         virtual void run( TL::DTO& dto );
-
-        void set_auto_scope( const std::string auto_scope_enabled_str );
     };
+    
     // ************* END phase for Automatic Data-Sharing computation *************** //
-    // ****************************************************************************** //
-
-
-
-    // ****************************************************************************** //
-    // ******************** Function Visitor looking for Tasks ********************** //
-    // ****************************************************************************** //
-    // ****** The visitor calls the auto-scoping mechanism when it founds a task **** //
-    // ****************************************************************************** //
-    class AutoScopeVisitor : public Nodecl::ExhaustiveVisitor<void>
-    {
-        private:
-            static Analysis::AnalysisStaticInfo *_analysis_info;
-
-        public:
-            // *** Constructor & Destructor *** //
-            AutoScopeVisitor( );
-            ~AutoScopeVisitor( );
-
-            // *** Visiting methods *** //
-            void visit( const Nodecl::OpenMP::Task& n );
-            void visit( const Nodecl::TopLevel& n );
-    };
-    // ****************** END function Visitor looking for Tasks ******************** //
     // ****************************************************************************** //
 }
 }

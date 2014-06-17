@@ -183,7 +183,8 @@ namespace TL { namespace Nanox {
 
             // Now get all the needed internal functions and duplicate them in the outline
             Nodecl::Utils::Fortran::InternalFunctions internal_functions;
-            internal_functions.walk(info._original_statements);
+            internal_functions.walk(task_statements);
+
 
             duplicate_internal_subprograms(internal_functions.function_codes,
                     unpacked_function_scope,

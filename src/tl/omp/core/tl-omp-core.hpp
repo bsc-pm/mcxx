@@ -150,11 +150,18 @@ namespace TL
                         DataSharingAttribute fallback_data_sharing, 
                         bool &there_is_default_clause,
                         bool allow_default_auto=false);
+                
+                void loop_handler_pre(TL::PragmaCustomStatement construct,
+                        Nodecl::NodeclBase loop,
+                        void (Core::*common_loop_handler)(Nodecl::NodeclBase,
+                            Nodecl::NodeclBase, DataSharingEnvironment&));
 
                 void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
                 void common_for_handler(Nodecl::NodeclBase outer_statement,
                         Nodecl::NodeclBase nodecl,
                         DataSharingEnvironment& data_sharing);
+                void common_while_handler(Nodecl::NodeclBase outer_statement,
+                        Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
@@ -214,6 +221,9 @@ namespace TL
                     return _copy_deps_by_default;
                 }
         };
+
+        Nodecl::NodeclBase get_statement_from_pragma(
+                const TL::PragmaCustomStatement& construct);
 
         // OpenMP core is a one shot phase, so even if it is in the compiler
         // pipeline twice, it will only run once by default.
