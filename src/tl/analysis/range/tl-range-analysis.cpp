@@ -43,7 +43,7 @@ namespace Analysis {
     
 namespace {
         
-//     #define RANGES_DEBUG
+    #define RANGES_DEBUG
     
     static unsigned int cgnode_id = 0;
     
@@ -68,6 +68,9 @@ namespace {
         }
         return next_id;
     }
+    
+    const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
+    const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
 }
     
     ConstraintReplacement::ConstraintReplacement(Utils::ConstraintMap constraints_map)
@@ -151,7 +154,7 @@ namespace {
         // Build the value of the constraint
         NBase val;
         if(rhs.is_constant())       // x = c;    -->    X1 = c
-            val = Nodecl::Analysis::Range::make(rhs.shallow_copy(), rhs.shallow_copy(), t);
+            val = Nodecl::Range::make(rhs.shallow_copy(), rhs.shallow_copy(), const_value_to_nodecl(zero), t);
         else 
         {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
             ConstraintReplacement cr(_input_constraints_map);
@@ -211,10 +214,7 @@ namespace {
         Symbol s_x(n.retrieve_context().new_symbol("_x_" + ss.str()));
         s_x.set_type(t);
         // 1.2 Build the value of the constraints
-        const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
-        const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
-        val = Nodecl::Analysis::Range::make(const_value_to_nodecl(zero), 
-                                            const_value_to_nodecl(one), t);
+        val = Nodecl::Range::make(const_value_to_nodecl(zero), const_value_to_nodecl(one), const_value_to_nodecl(one), t);
         // 1.3 Build the actual constraint and insert it in the corresponding map
 #ifdef RANGES_DEBUG
         std::cerr << "LowerThan Constraint " << s_x.get_name() << " = " << val.prettyprint() << std::endl;
@@ -261,7 +261,7 @@ namespace {
         NBase val_true = 
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
-                Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), ub, t),
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(), ub, const_value_to_nodecl(zero), t),
                 t);
         // 3.1.3.- Build the TRUE constraint and store it
 #ifdef RANGES_DEBUG
@@ -279,9 +279,9 @@ namespace {
         NBase val_false = 
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
-                Nodecl::Analysis::Range::make(val.shallow_copy(),
-                                              Nodecl::Analysis::PlusInfinity::make(),
-                                              t), 
+                Nodecl::Range::make(val.shallow_copy(),
+                                    Nodecl::Analysis::PlusInfinity::make(), 
+                                    const_value_to_nodecl(zero), t), 
                 t);
         // 3.2.3.- Build the FALSE constraint and store it
 #ifdef RANGES_DEBUG
@@ -302,13 +302,11 @@ namespace {
         s.set_type(t);
         
         // Build the constraint value
-        const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
-        const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
         NBase rhs = n.get_rhs();
         NBase ub = 
                 (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
                                    : Nodecl::Minus::make(rhs.shallow_copy(), const_value_to_nodecl(one), rhs.get_type()));
-        NBase val = Nodecl::Analysis::Range::make(const_value_to_nodecl(zero), ub, t);
+        NBase val = Nodecl::Range::make(const_value_to_nodecl(zero), ub, const_value_to_nodecl(zero), t);
         
         // Build the constraint
 #ifdef RANGES_DEBUG
@@ -345,8 +343,8 @@ namespace {
         s.set_type(orig_s.get_type());
         
         NBase val = Nodecl::Add::make(Nodecl::Symbol::make(_input_constraints_map[rhs].get_symbol()), 
-                                                   const_value_to_nodecl(const_value_get_one(/*num_bytes*/ 4, /*sign*/1)), 
-                                                   rhs.get_type());
+                                      const_value_to_nodecl(one), 
+                                      rhs.get_type());
 #ifdef RANGES_DEBUG
         std::cerr << "Preincrement Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
@@ -754,7 +752,9 @@ namespace {
             s.set_type(t);
             
             // Get the value for the constraint
-            NBase val = Nodecl::Analysis::Range::make(Nodecl::Analysis::MinusInfinity::make(), Nodecl::Analysis::PlusInfinity::make(), t);
+            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(), 
+                                            Nodecl::Analysis::PlusInfinity::make(), 
+                                            const_value_to_nodecl(zero), t);
             
             // Build the constraint and insert it in the constraints map
             constraints[param_s] = Utils::Constraint(s, val);
@@ -1012,7 +1012,7 @@ namespace {
                     CGNode* target = _cg->insert_node(s);
                     // B. Create a new node if the Constraint Value is a Range
                     CGNode* source;
-                    if(val.is<Nodecl::Analysis::Range>())
+                    if(val.is<Nodecl::Range>())
                         source = _cg->insert_node(val);
                     
                     // Insert in the CG the edges corresponding to the current Constraint
@@ -1038,7 +1038,7 @@ namespace {
                     {   // D.
                         NBase lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
                         const NBase rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs();
-                        ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || !rhs.is<Nodecl::Analysis::Range>(), 
+                        ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || !rhs.is<Nodecl::Range>(), 
                                         "Expected a RangeIntersection with the structure 'c0 ∩ [lb, ub]' but found %s.\n", 
                                         val.prettyprint().c_str());
                         
@@ -1047,7 +1047,7 @@ namespace {
                             source = _cg->insert_node(lhs);
                         _cg->connect_nodes(source, target, rhs.shallow_copy());
                     }
-                    else if(val.is<Nodecl::Analysis::Range>())
+                    else if(val.is<Nodecl::Range>())
                     {   // E.
                         _cg->connect_nodes(source, target);
                     }

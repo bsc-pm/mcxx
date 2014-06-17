@@ -3563,7 +3563,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
     if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    {
         *(file) << "[";
+    }
     
     walk(lb_expr);
     *(file) << ":";
@@ -3571,14 +3573,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
 
     // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
-        *(file) << "]";
-    
-    // Do not emit stride 1 because it looks weird in C
-    if (!step_expr.is_constant()
-            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
     {
-        *(file) << ":";
-        walk(step_expr);
+        *(file) << "]";
+    }
+    else
+    {
+        // Do not emit stride 1 because it looks weird in C
+        if (!step_expr.is_constant()
+            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
+        {
+            *(file) << ":";
+            walk(step_expr);
+        }
     }
 }
 
