@@ -102,15 +102,11 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_shared(Symbol sym)
     {
-        std::cerr << "Adding SHARED " << " " << sym.get_name() << " " << sym.get_internal_symbol() << std::endl;
-
         add_shared_common(sym, sym.get_type().no_ref().get_pointer_to());
     }
 
     void OutlineInfoRegisterEntities::add_shared_opaque(Symbol sym)
     {
-        std::cerr << "Adding SHARED OPAQUE " << " " << sym.get_name() << " " << sym.get_internal_symbol() << std::endl;
-
         add_shared_common(sym, TL::Type::get_void_type().get_pointer_to());
     }
 
@@ -153,7 +149,6 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_shared_opaque_and_captured_array_descriptor(Symbol sym)
     {
-        std::cerr << "Add SHARED OPAQUE AND CAPTURED ARRAY DESCRIPTOR " << sym.get_name() << std::endl;
         ERROR_CONDITION(!IS_FORTRAN_LANGUAGE, "This function is only for Fortran", 0);
 
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
@@ -384,8 +379,6 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_private(Symbol sym)
     {
-        std::cerr << "Adding PRIVATE " << " " << sym.get_name() << " " << sym.get_internal_symbol() << std::endl;
-
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
         ERROR_CONDITION(
@@ -902,8 +895,6 @@ namespace TL { namespace Nanox {
 
     void OutlineInfoRegisterEntities::add_capture_with_value(Symbol sym, Nodecl::NodeclBase value, Nodecl::NodeclBase condition)
     {
-        std::cerr << "Adding CAPTURE " << " " << sym.get_name() << " " << sym.get_internal_symbol() << std::endl;
-
         OutlineDataItem &outline_info = _outline_info.get_entity_for_symbol(sym);
 
         ERROR_CONDITION(
@@ -1284,8 +1275,6 @@ namespace TL { namespace Nanox {
 
             _funct_symbol = funct_symbol;
         }
-
-        std::cerr << std::endl;
 
         OutlineInfoSetupVisitor setup_visitor(*this, sc);
         setup_visitor.walk(environment);
