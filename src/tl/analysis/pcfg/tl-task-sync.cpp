@@ -190,18 +190,18 @@ namespace {
         return ss.str();
     }
 
-    bool is_strict_subobject_access(Nodecl::NodeclBase& data_ref)
+    bool is_strict_subobject_access(NBase& data_ref)
     {
         if (data_ref.is<Nodecl::Symbol>())
             return false;
 
-        Nodecl::NodeclBase current = data_ref;
+        NBase current = data_ref;
 
         while (!current.is<Nodecl::Symbol>())
         {
             if (current.is<Nodecl::ArraySubscript>())
             {
-                Nodecl::NodeclBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
+                NBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
                 if (subscripted.is<Nodecl::Symbol>())
                 {
                     // a[x]
@@ -211,7 +211,7 @@ namespace {
                 else if (subscripted.is<Nodecl::ClassMemberAccess>())
                 {
                     // b.a[x]
-                    Nodecl::NodeclBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
+                    NBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
                     if (!member.get_symbol().get_type().is_array())
@@ -222,7 +222,7 @@ namespace {
             }
             else if (current.is<Nodecl::ClassMemberAccess>())
             {
-                Nodecl::NodeclBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
+                NBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
                 {
                     // a.b
@@ -232,7 +232,7 @@ namespace {
                 else if (lhs.is<Nodecl::ClassMemberAccess>())
                 {
                     // a.b.c
-                    Nodecl::NodeclBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
+                    NBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
                     if (!member.get_symbol().get_type().is_class())
@@ -250,7 +250,7 @@ namespace {
         return true;
     }
 
-    tribool may_have_dependence(Nodecl::NodeclBase source, Nodecl::NodeclBase target)
+    tribool may_have_dependence(NBase source, NBase target)
     {
         TL::DataReference source_data_ref(source);
         TL::DataReference target_data_ref(target);
@@ -312,16 +312,15 @@ namespace {
         return result;
     }
 
-    bool is_only_input_dependence(Nodecl::NodeclBase n)
+    bool is_only_input_dependence(NBase n)
     {
-        return n.is<Nodecl::OpenMP::DepIn>()
-            || n.is<Nodecl::OpenMP::DepInAlloca>();
+        return n.is<Nodecl::OpenMP::DepIn>();
     }
 
     tribool compute_taskwait_sync_relationship(Node* source, Node* target)
     {
         // Source (task)
-        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
+        NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -355,7 +354,6 @@ namespace {
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
-        Nodecl::NodeclBase source_dep_in_alloca;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -366,15 +364,13 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
-            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
-                source_dep_in_alloca = *it;
         }
 
         // Target (taskwait)
         ERROR_CONDITION(target->get_type() != __OmpWaitonDeps, "Invalid node", 0);
-        TL::ObjectList<Nodecl::NodeclBase> task_node_target_stmts = target->get_statements();
+        NodeclList task_node_target_stmts = target->get_statements();
         ERROR_CONDITION(task_node_target_stmts.size() != 1, "Invalid list of statements", 0);
-        Nodecl::NodeclBase taskwait_node_target = task_node_target_stmts[0];
+        NBase taskwait_node_target = task_node_target_stmts[0];
         ERROR_CONDITION(taskwait_node_target.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!taskwait_node_target.is<Nodecl::OpenMP::WaitOnDependences>(),
                 "Expecting an OpenMP::WaitOnDependences target node here got a %s",
@@ -385,9 +381,9 @@ namespace {
             .get_environment()
             .as<Nodecl::List>();
 
-        Nodecl::NodeclBase target_dep_in;
-        Nodecl::NodeclBase target_dep_out;
-        Nodecl::NodeclBase target_dep_inout;
+        NBase target_dep_in;
+        NBase target_dep_out;
+        NBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
                 it != task_target_env.end();
                 it++)
@@ -401,9 +397,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
+        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
+        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -418,7 +414,7 @@ namespace {
                     // At least one of the dependences is not only an input
                     ((!is_only_input_dependence(sources[n_source])
                       || !is_only_input_dependence(targets[n_target]))
-                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
+                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
                      // same physical layout
                      && may_have_dependence_list(
                          sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
@@ -436,9 +432,9 @@ namespace {
         std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
 #endif
 
-        // TL::ObjectList<Nodecl::NodeclBase> source_statements = source->get_statements();
+        // TL::NodeclList source_statements = source->get_statements();
         // ERROR_CONDITION(source_statements.empty(), "Invalid source statement set", 0);
-        Nodecl::NodeclBase task_node_source = source->get_graph_related_ast();
+        NBase task_node_source = source->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid source task tree", 0);
         ERROR_CONDITION(!task_node_source.is<Nodecl::OpenMP::Task>()
                 && !task_node_source.is<Nodecl::OpenMP::TaskExpression>()
@@ -467,7 +463,6 @@ namespace {
         }
 
         Nodecl::NodeclBase source_dep_in;
-        Nodecl::NodeclBase source_dep_in_alloca;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
         for (Nodecl::List::iterator it = task_source_env.begin();
@@ -476,17 +471,15 @@ namespace {
         {
             if (it->is<Nodecl::OpenMP::DepIn>())
                 source_dep_in = *it;
-            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
-                source_dep_in_alloca = *it;
             else if (it->is<Nodecl::OpenMP::DepOut>())
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
         }
 
-        // TL::ObjectList<Nodecl::NodeclBase> target_statements = target->get_statements();
+        // TL::NodeclList target_statements = target->get_statements();
         // ERROR_CONDITION(target_statements.empty(), "Invalid target statement set", 0);
-        Nodecl::NodeclBase task_node_target = target->get_graph_related_ast();
+        NBase task_node_target = target->get_graph_related_ast();
         ERROR_CONDITION(task_node_source.is_null(), "Invalid target task tree", 0);
         ERROR_CONDITION(!task_node_target.is<Nodecl::OpenMP::Task>()
                 && !task_node_target.is<Nodecl::OpenMP::TaskExpression>()
@@ -514,18 +507,16 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
-        Nodecl::NodeclBase target_dep_in;
-        Nodecl::NodeclBase target_dep_in_alloca;
-        Nodecl::NodeclBase target_dep_out;
-        Nodecl::NodeclBase target_dep_inout;
+        NBase target_dep_in;
+        NBase target_dep_in_alloca;
+        NBase target_dep_out;
+        NBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
                 it != task_target_env.end();
                 it++)
         {
             if (it->is<Nodecl::OpenMP::DepIn>())
                 target_dep_in = *it;
-            else if (it->is<Nodecl::OpenMP::DepInAlloca>())
-                target_dep_in_alloca = *it;
             else if (it->is<Nodecl::OpenMP::DepOut>())
                 target_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
@@ -535,9 +526,9 @@ namespace {
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_in_alloca, source_dep_inout, source_dep_out };
+        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_inout, source_dep_out };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, source_dep_in_alloca, target_dep_inout, target_dep_out };
+        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)
@@ -552,7 +543,7 @@ namespace {
                     // At least one of the dependences is not only an input
                     ((!is_only_input_dependence(sources[n_source])
                       || !is_only_input_dependence(targets[n_target]))
-                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut/DepInAlloca all have the
+                     // Note we (ab)use the fact that DepIn/DepOut/DepInOut all have the
                      // same physical layout
                      && may_have_dependence_list(
                          sources[n_source].as<Nodecl::OpenMP::DepOut>().get_out_deps().as<Nodecl::List>(),
@@ -934,14 +925,14 @@ namespace {
                 std::cerr << "CONNECTING " << it->first->get_id() << " -> " << (*jt).first->get_id() << std::endl;
 #endif
                 Edge* edge = _graph->connect_nodes(it->first, (*jt).first, __Always,
-                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                                                   NBase::null(), /*is task edge*/ true);
                 const char* s = sync_kind_to_str((*jt).second);
                 edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type( strlen(s)+1, get_char_type() )),
                                                             const_value_make_string(s, strlen(s))));
             }
         }
 
-        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, Nodecl::NodeclBase::null());
+        Node* post_sync = _graph->create_unconnected_node(__OmpVirtualTaskSync, NBase::null());
 
         Node* exit = root->get_graph_exit_node();
         for (AliveTaskSet::iterator it = exit->get_live_in_tasks().begin();
@@ -954,7 +945,7 @@ namespace {
                 std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
 #endif
                 Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
-                                                   Nodecl::NodeclBase::null(), /*is task edge*/ true);
+                                                   NBase::null(), /*is task edge*/ true);
                 const char* s = sync_kind_to_str(Sync_post);
                 edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
                                                             const_value_make_string(s, strlen(s))));

@@ -70,6 +70,9 @@ LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_int(cvalue_uint_t va
 LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long_int(cvalue_uint_t value);
 LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long_int(cvalue_uint_t value);
 
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_short_int(cvalue_uint_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_short_int(cvalue_uint_t value);
+
 LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_minus_one(int num_bytes, char sign);

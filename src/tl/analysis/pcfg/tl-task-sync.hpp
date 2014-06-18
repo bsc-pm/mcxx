@@ -27,10 +27,8 @@
 #ifndef TL_TASK_SYNC_ANALYSIS_HPP
 #define TL_TASK_SYNC_ANALYSIS_HPP
 
-#include "tl-extended-symbol.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-nodecl-visitor.hpp"
-#include "tl-pcfg-utils.hpp"
 
 namespace TL { 
 namespace Analysis {

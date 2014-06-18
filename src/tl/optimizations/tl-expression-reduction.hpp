@@ -100,6 +100,10 @@ namespace Optimizations {
 
         // *** Visiting methods *** //
         Ret visit_post( const Nodecl::Add& n );
+        Ret visit_post( const Nodecl::BitwiseAnd& n );
+        Ret visit_post( const Nodecl::BitwiseOr& n );
+        Ret visit_post( const Nodecl::BitwiseShl& n );
+        Ret visit_post( const Nodecl::BitwiseShr& n );
         Ret visit_post( const Nodecl::Div& n );
         Ret visit_post( const Nodecl::LowerOrEqualThan& n );
         Ret visit_post( const Nodecl::LowerThan& n );
@@ -108,6 +112,12 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::Mul& n );
         Ret visit_post( const Nodecl::ObjectInit& n );
         Ret visit_post( const Nodecl::VectorAdd& n );
+        Ret visit_post( const Nodecl::VectorBitwiseAnd& n );
+        Ret visit_post( const Nodecl::VectorBitwiseOr& n );
+        Ret visit_post( const Nodecl::VectorBitwiseShl& n );
+        Ret visit_post( const Nodecl::VectorBitwiseShlI& n );
+        Ret visit_post( const Nodecl::VectorBitwiseShr& n );
+        Ret visit_post( const Nodecl::VectorBitwiseShrI& n );
         Ret visit_post( const Nodecl::VectorDiv& n );
         Ret visit_post( const Nodecl::VectorLowerOrEqualThan& n );
         Ret visit_post( const Nodecl::VectorLowerThan& n );

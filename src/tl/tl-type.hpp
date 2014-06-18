@@ -251,7 +251,7 @@ namespace TL
             ObjectList<Symbol> enum_get_enumerators();
 
             //! Returns a pointer to the current type
-            Type get_pointer_to();
+            Type get_pointer_to() const;
 
             //! Returns a vector to the current type
             /*!
@@ -368,6 +368,10 @@ namespace TL
              * 'wchar_t'. In C, it also includes enum types.
              */
             bool is_integral_type() const;
+            //! States whether this type is a signed integral type
+            bool is_signed_integral() const;
+            //! States whether this type is a unsigned integral type
+            bool is_unsigned_integral() const;
             //! States whether this type is 'int' or 'signed int'
             bool is_signed_int() const;
             //! States whether this type is 'unsigned int'
@@ -621,6 +625,8 @@ namespace TL
             bool is_vector() const;
             //! States whether current type is a mask-type
             bool is_mask() const;
+            //! Returns the size of a mask type
+            int get_mask_num_elements() const;
             //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type

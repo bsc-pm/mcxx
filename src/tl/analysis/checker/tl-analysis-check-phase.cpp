@@ -39,7 +39,7 @@ namespace {
 
     const std::string analysis_none_sym_name = "__ANALYSIS_NONE__";
     
-    Nodecl::NodeclBase get_nodecl_from_string( std::string str, ReferenceScope sc )
+    NBase get_nodecl_from_string(std::string str, ReferenceScope sc)
     {
         Source src; src << str;
         return src.parse_expression( sc );
@@ -61,7 +61,7 @@ namespace {
             std::string value = token.substr( colon_pos+1, token.size( )-colon_pos );
 
             // Parse the variable which is a reaching definition
-            Nodecl::NodeclBase reach_def_nodecl = get_nodecl_from_string( reach_def, sc );
+            NBase reach_def_nodecl = get_nodecl_from_string(reach_def, sc);
 
             // Parse the value/s set for this variable
             // Create the ReachDefExpr corresponding to a pair of <reach_def, value>
@@ -70,13 +70,13 @@ namespace {
             while( value.find( ',', pos ) != std::string::npos )
             {
                 current_value = value.substr( pos, value.find( ',', pos ) - pos );
-                Nodecl::NodeclBase value_nodecl = get_nodecl_from_string( current_value, sc );
+                NBase value_nodecl = get_nodecl_from_string(current_value, sc);
                 result.append( Nodecl::Analysis::ReachDefExpr::make( reach_def_nodecl.shallow_copy( ), value_nodecl ) );
 
                 pos = value.find( ',', pos ) + 1;
             }
             current_value = value.substr( pos, value.size( ) - pos );
-            Nodecl::NodeclBase value_nodecl = get_nodecl_from_string( current_value, sc );
+            NBase value_nodecl = get_nodecl_from_string(current_value, sc);
             result.append( Nodecl::Analysis::ReachDefExpr::make( reach_def_nodecl.shallow_copy( ), value_nodecl ) );
         }
 
@@ -104,10 +104,10 @@ namespace {
             colon_pos = token.find( ':', colon_pos ) + 1;
             std::string stride = token.substr( colon_pos, token.find( ':', colon_pos )-colon_pos );
 
-            Nodecl::NodeclBase iv_nodecl = get_nodecl_from_string( iv, sc );
-            Nodecl::NodeclBase lb_nodecl = get_nodecl_from_string( lb, sc );
-            Nodecl::NodeclBase ub_nodecl = get_nodecl_from_string( ub, sc );
-            Nodecl::NodeclBase stride_nodecl = get_nodecl_from_string( stride, sc );
+            NBase iv_nodecl = get_nodecl_from_string(iv, sc);
+            NBase lb_nodecl = get_nodecl_from_string(lb, sc);
+            NBase ub_nodecl = get_nodecl_from_string(ub, sc);
+            NBase stride_nodecl = get_nodecl_from_string(stride, sc);
 
             result.append( Nodecl::Analysis::InductionVarExpr::make( iv_nodecl, lb_nodecl, ub_nodecl, stride_nodecl ) );
         }
@@ -138,24 +138,23 @@ namespace {
         }
     }
 
-    void compare_assert_set_with_analysis_set( 
-            const Utils::ext_sym_set& assert_set, const Utils::ext_sym_set& analysis_set,
-            std::string locus_str, int node_id,
-            std::string clause_name, std::string analysis_name )
+    void compare_assert_set_with_analysis_set(const NodeclSet& assert_set, const NodeclSet& analysis_set,
+                                               std::string locus_str, int node_id,
+                                               std::string clause_name, std::string analysis_name )
     {
         if( !assert_set.empty( ) )
         {
             if((assert_set.size() == 1) && 
-               (assert_set.begin()->get_nodecl().is<Nodecl::Symbol>()) && 
-               (assert_set.begin()->get_nodecl().get_symbol().get_name()==analysis_none_sym_name))
+               (assert_set.begin()->is<Nodecl::Symbol>()) && 
+               (assert_set.begin()->get_symbol().get_name()==analysis_none_sym_name))
             {
                 if(!analysis_set.empty())
                 {
                     internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "There are %s variables associated to node %d\n",
-                                    locus_str.c_str( ),
-                                    clause_name.c_str( ), Utils::prettyprint_ext_sym_set( assert_set, /*dot*/ false ).c_str( ),
-                                    analysis_name.c_str( ), node_id );
+                                   "There should not be %s variables associated to node %d\n",
+                                   locus_str.c_str( ),
+                                   clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                                   analysis_name.c_str( ), node_id );
                 }
             }
             else if( analysis_set.empty( ) )
@@ -163,29 +162,28 @@ namespace {
                 internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
                                 "There are no %s variables associated to node %d\n",
                                 locus_str.c_str( ),
-                                clause_name.c_str( ), Utils::prettyprint_ext_sym_set( assert_set, /*dot*/ false ).c_str( ),
+                                clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
                                 analysis_name.c_str( ), node_id );
             }
             else
             {
-                Utils::ext_sym_set diff = Utils::ext_sym_set_difference( assert_set, analysis_set );
+                NodeclSet diff = Utils::nodecl_set_difference(assert_set, analysis_set);
                 if( !diff.empty( ) )
                 {
                     internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
                                     "Expressions '%s' are no %s variables associated to node %d\n",
                                     locus_str.c_str( ),
-                                    clause_name.c_str( ), Utils::prettyprint_ext_sym_set( assert_set, /*dot*/ false ).c_str( ),
-                                    Utils::prettyprint_ext_sym_set( diff, /*dot*/ false ).c_str( ),
+                                    clause_name.c_str(), Utils::prettyprint_nodecl_set(assert_set, /*dot*/ false).c_str(),
+                                    Utils::prettyprint_nodecl_set(diff, /*dot*/ false).c_str(),
                                     analysis_name.c_str( ), node_id );
                 }
             }
         }
     }
 
-    void compare_assert_map_with_analysis_map( 
-            const Utils::ext_sym_map& assert_map, const Utils::ext_sym_map& analysis_map,
-            std::string locus_str, int node_id,
-            std::string clause_name, std::string analysis_name )
+    void compare_assert_map_with_analysis_map(NodeclMap assert_map, NodeclMap analysis_map,
+                                               std::string locus_str, int node_id,
+                                               std::string clause_name, std::string analysis_name )
     {
         if( !assert_map.empty( ) )
         {
@@ -194,38 +192,37 @@ namespace {
                 internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
                                 "There are no Input Reaching Definitions associated to node %d\n",
                                 locus_str.c_str( ),
-                                Utils::prettyprint_ext_sym_map( assert_map, /*dot*/ false ).c_str( ),
+                                Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
                                 node_id );
             }
             else
             {
                 Nodecl::List rd_visited;
-                for( Utils::ext_sym_map::const_iterator it = assert_map.begin( );
-                    it != assert_map.end( ); ++it )
+                for(NodeclMap::const_iterator it = assert_map.begin(); it != assert_map.end(); ++it)
                 {
-                    Nodecl::NodeclBase expr = it->first.get_nodecl( );
+                    NBase expr = it->first;
                     if( !Nodecl::Utils::nodecl_is_in_nodecl_list( expr, rd_visited ) )
                     {
                         rd_visited.append( expr );
 
                         // Get all values possible for the current expression
-                        std::pair<Utils::ext_sym_map::const_iterator, Utils::ext_sym_map::const_iterator> assert_rd;
+                        std::pair<NodeclMap::iterator, NodeclMap::iterator> assert_rd;
                         assert_rd = assert_map.equal_range( expr );
                         int assert_rd_size = assert_map.count( expr );
 
-                        std::pair<Utils::ext_sym_map::const_iterator, Utils::ext_sym_map::const_iterator> rd;
+                        std::pair<NodeclMap::iterator, NodeclMap::iterator> rd;
                         rd = analysis_map.equal_range( expr );
                         int rd_size = analysis_map.count( expr );
 
                         if( assert_rd_size == rd_size )
                         {   // Check whether the values are the same
-                            for( Utils::ext_sym_map::const_iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r )
+                            for(NodeclMap::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r)
                             {
-                                Nodecl::NodeclBase value = it_r->second;
+                                NBase value = it_r->second.first;
                                 bool found = false;
-                                for( Utils::ext_sym_map::const_iterator it_s = rd.first; it_s != rd.second && !found; ++it_s )
+                                for(NodeclMap::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s)
                                 {
-                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second ) )
+                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second.first ) )
                                         found = true;
                                 }
                                 if( !found )
@@ -233,7 +230,7 @@ namespace {
                                     internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
                                                     "Variable '%s' do not have the value '%s' in the set of reaching definitions "\
                                                     "computed during the analysis for node %d\n",
-                                                    locus_str.c_str( ), Utils::prettyprint_ext_sym_map( assert_map, /*dot*/ false ).c_str( ),
+                                                    locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
                                                     expr.prettyprint( ).c_str( ), value.prettyprint( ).c_str( ), node_id );
                                 }
                             }
@@ -242,16 +239,16 @@ namespace {
                         {
                             int i = 0;
                             std::string rd_str = "";
-                            for( Utils::ext_sym_map::const_iterator it_r = rd.first; it_r != rd.second; ++it_r, ++i )
+                            for(NodeclMap::iterator it_r = rd.first; it_r != rd.second; ++it_r, ++i)
                             {
-                                rd_str += it_r->second.prettyprint( );
+                                rd_str += it_r->second.first.prettyprint( );
                                 if( i < rd_size-1 )
                                     rd_str += ", ";
                             }
 
                             internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
                                             "The values for variable '%s' computed during the analysis for node %d are '%s'\n",
-                                            locus_str.c_str( ), Utils::prettyprint_ext_sym_map( assert_map, /*dot*/ false ).c_str( ),
+                                            locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
                                             expr.prettyprint( ).c_str( ), node_id, rd_str.c_str( ) );
                         }
                     }
@@ -327,7 +324,7 @@ namespace {
                 locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
             {
-                ObjectList<Nodecl::NodeclBase> stmts = current->get_statements( );
+                ObjectList<NBase> stmts = current->get_statements();
                 if( !stmts.empty( ) )
                     locus_str = stmts[0].get_locus_str( );
             }
@@ -335,12 +332,12 @@ namespace {
             // Check UseDef analysis
             if( current->has_usage_assertion( ) )
             {
-                Utils::ext_sym_set assert_ue = current->get_assert_ue_vars( );
-                Utils::ext_sym_set assert_killed = current->get_assert_killed_vars( );
-                Utils::ext_sym_set assert_undef = current->get_assert_undefined_behaviour_vars( );
-                Utils::ext_sym_set ue = current->get_ue_vars( );
-                Utils::ext_sym_set killed = current->get_killed_vars( );
-                Utils::ext_sym_set undef = current->get_undefined_behaviour_vars( );
+                NodeclSet assert_ue = current->get_assert_ue_vars();
+                NodeclSet assert_killed = current->get_assert_killed_vars();
+                NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
+                NodeclSet ue = current->get_ue_vars();
+                NodeclSet killed = current->get_killed_vars();
+                NodeclSet undef = current->get_undefined_behaviour_vars();
 
                 compare_assert_set_with_analysis_set( assert_ue, ue, locus_str, current->get_id( ), "upper_exposed", "Upper Exposed" );
                 compare_assert_set_with_analysis_set( assert_killed, killed, locus_str, current->get_id( ), "defined", "Killed" );
@@ -350,28 +347,26 @@ namespace {
             // Check Liveness analysis
             if( current->has_liveness_assertion( ) )
             {
-                Utils::ext_sym_set assert_live_in = current->get_assert_live_in_vars( );
-                Utils::ext_sym_set assert_live_out = current->get_assert_live_out_vars( );
-                Utils::ext_sym_set assert_dead = current->get_assert_dead_vars( );
-                Utils::ext_sym_set live_in = current->get_live_in_vars( );
-                Utils::ext_sym_set live_out = current->get_live_out_vars( );
+                NodeclSet assert_live_in = current->get_assert_live_in_vars();
+                NodeclSet assert_live_out = current->get_assert_live_out_vars();
+                NodeclSet assert_dead = current->get_assert_dead_vars();
+                NodeclSet live_in = current->get_live_in_vars();
+                NodeclSet live_out = current->get_live_out_vars();
 
                 compare_assert_set_with_analysis_set( assert_live_in, live_in, locus_str, current->get_id( ), "live_in", "Live In" );
                 compare_assert_set_with_analysis_set( assert_live_out, live_out, locus_str, current->get_id( ), "live_out", "Live Out" );
                 // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
                 if( !assert_dead.empty( ) )
                 {
-                    Utils::ext_sym_set diff = Utils::ext_sym_set_difference( assert_dead, live_in );
-                    for( Utils::ext_sym_set::iterator it = assert_dead.begin( ); it != assert_dead.end( ); ++it )
+                    NodeclSet diff = Utils::nodecl_set_difference(assert_dead, live_in);
+                    for(NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
                     {
-                        if( Utils::ext_sym_set_contains_nodecl( it->get_nodecl( ), live_in ) )
+                        if(Utils::nodecl_set_contains_nodecl(*it, live_in))
                         {
                             internal_error( "%s: Assertion 'dead(%s)' does not fulfill.\n"\
                                             "Expression '%s' is not Dead at the Entry point of node %d\n",
-                                            locus_str.c_str( ),
-                                            Utils::prettyprint_ext_sym_set( assert_dead, /*dot*/ false ).c_str( ),
-                                            it->get_nodecl( ).prettyprint( ).c_str( ),
-                                            current->get_id( ) );
+                                            locus_str.c_str(), Utils::prettyprint_nodecl_set(assert_dead, /*dot*/ false).c_str(),
+                                            it->prettyprint().c_str(), current->get_id());
                         }
                     }
                 }
@@ -380,10 +375,10 @@ namespace {
             // Check Reaching Definitions analysis
             if( current->has_reach_defs_assertion( ) )
             {
-                Utils::ext_sym_map assert_reach_defs_in = current->get_assert_reaching_definitions_in( );
-                Utils::ext_sym_map assert_reach_defs_out = current->get_assert_reaching_definitions_out( );
-                Utils::ext_sym_map reach_defs_in = current->get_reaching_definitions_in( );
-                Utils::ext_sym_map reach_defs_out = current->get_reaching_definitions_out( );
+                NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
+                NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
+                NodeclMap reach_defs_in = current->get_reaching_definitions_in();
+                NodeclMap reach_defs_out = current->get_reaching_definitions_out();
 
                 compare_assert_map_with_analysis_map( assert_reach_defs_in, reach_defs_in, locus_str, current->get_id( ),
                                                         "reaching_definition_in", "Input Reaching Definitions" );
@@ -394,53 +389,58 @@ namespace {
             // Induction Variables
             if( current->has_induction_vars_assertion( ) )
             {
-                ObjectList<Utils::InductionVariableData*> assert_induction_vars = current->get_assert_induction_vars( );
-                if( current->is_loop_node( ) )
+                Utils::InductionVarList assert_induction_vars = current->get_assert_induction_vars();
+                // 'current' is the context created by the checking pragma -> get the inner loop node
+                Node* inner_loop = current->get_graph_entry_node()->get_children()[0];
+                if( inner_loop->is_loop_node( ) )
                 {
-                    ObjectList<Utils::InductionVariableData*> induction_vars = current->get_induction_variables( );
-
                     if( !assert_induction_vars.empty( ) )
                     {
-                        for( ObjectList<Utils::InductionVariableData*>::iterator it = assert_induction_vars.begin( );
+                        Utils::InductionVarList induction_vars = inner_loop->get_induction_variables();
+                        for(Utils::InductionVarList::iterator it = assert_induction_vars.begin();
                             it != assert_induction_vars.end( ); ++it )
                         {
-                            Utils::InductionVariableData* iv = *it;
-                            Nodecl::NodeclBase iv_nodecl = iv->get_variable( ).get_nodecl( );
+                            Utils::InductionVar* iv = *it;
+                            NBase iv_nodecl = iv->get_variable();
                             bool found = false;
-                            for( ObjectList<Utils::InductionVariableData*>::iterator it2 = induction_vars.begin( );
+                            for(Utils::InductionVarList::iterator it2 = induction_vars.begin();
                                     it2 != induction_vars.end( ) && !found; ++it2 )
                             {
-                                if( Nodecl::Utils::structurally_equal_nodecls( ( *it2 )->get_variable( ).get_nodecl( ), iv_nodecl ) )
+                                if(Nodecl::Utils::structurally_equal_nodecls((*it2)->get_variable(), iv_nodecl))
                                 {
                                     found = true;
 
                                     if( !Nodecl::Utils::structurally_equal_nodecls( ( *it2 )->get_lb( ), iv->get_lb( ) ) )
                                     {
-                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                        "Lower Bound computed for induction variable '%s' "\
+                                        internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                       "Lower Bound computed for induction variable '%s' "
                                                         "in node %d is '%s', but the lower bound indicated in the assertion is '%s'.\n",
-                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                       locus_str.c_str(), 
+                                                       Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                       iv_nodecl.prettyprint().c_str(), 
+                                                       inner_loop->get_id(),
                                                         ( *it2 )->get_lb( ).prettyprint( ).c_str( ),
                                                         iv->get_lb( ).prettyprint( ).c_str( ) );
                                     }
                                     else if( !Nodecl::Utils::structurally_equal_nodecls( ( *it2 )->get_ub( ), iv->get_ub( ) ) )
                                     {
-                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                        "Upper Bound computed for induction variable '%s' "\
+                                        internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                       "Upper Bound computed for induction variable '%s' "
                                                         "in node %d is '%s', but the upper bound indicated in the assertion is '%s'.\n",
-                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                       locus_str.c_str(), 
+                                                       Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                        iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ),
                                                         ( *it2 )->get_ub( ).prettyprint( ).c_str( ),
                                                         iv->get_ub( ).prettyprint( ).c_str( ) );
                                     }
                                     else if( !Nodecl::Utils::structurally_equal_nodecls( ( *it2 )->get_increment( ), iv->get_increment( ) ) )
                                     {
-                                        internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
-                                                        "Stride computed for induction variable '%s' "\
+                                        internal_error("%s: Assertion 'induction_var(%s)' does not fulfill.\n"
+                                                       "Stride computed for induction variable '%s' "
                                                         "in node %d is '%s', but the stride indicated in the assertion is '%s'.\n",
-                                                        locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                        iv_nodecl.prettyprint( ).c_str( ), current->get_id( ),
+                                                       locus_str.c_str(), 
+                                                       Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                        iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ),
                                                         ( *it2 )->get_increment( ).prettyprint( ).c_str( ),
                                                         iv->get_increment( ).prettyprint( ).c_str( ) );
                                     }
@@ -451,8 +451,8 @@ namespace {
                                 internal_error( "%s: Assertion 'induction_var(%s)' does not fulfill.\n"\
                                                 "Induction variable '%s' not found in the induction variables list "\
                                                 "of node %d\n",
-                                                locus_str.c_str( ), Utils::prettyprint_induction_vars( assert_induction_vars ).c_str( ),
-                                                iv_nodecl.prettyprint( ).c_str( ), current->get_id( ) );
+                                               locus_str.c_str(), Utils::prettyprint_induction_vars(assert_induction_vars, /*to_dot*/ false).c_str(),
+                                                iv_nodecl.prettyprint( ).c_str( ), inner_loop->get_id( ) );
                             }
                         }
                     }
@@ -478,12 +478,12 @@ namespace {
                                  "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
                                  "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
                 Node* task = ( children[0]->is_omp_task_node( ) ? children[0] : children[1] );
-                Utils::ext_sym_set assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars( );
-                Utils::ext_sym_set assert_autosc_private = current->get_assert_auto_sc_private_vars( );
-                Utils::ext_sym_set assert_autosc_shared = current->get_assert_auto_sc_shared_vars( );
-                Utils::ext_sym_set autosc_firstprivate = task->get_sc_firstprivate_vars( );
-                Utils::ext_sym_set autosc_private = task->get_sc_private_vars( );
-                Utils::ext_sym_set autosc_shared = task->get_sc_shared_vars( );
+                NodeclSet assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
+                NodeclSet assert_autosc_private = current->get_assert_auto_sc_private_vars();
+                NodeclSet assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
+                NodeclSet autosc_firstprivate = task->get_sc_firstprivate_vars();
+                NodeclSet autosc_private = task->get_sc_private_vars();
+                NodeclSet autosc_shared = task->get_sc_shared_vars();
 
                 compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate,
                                                       locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
@@ -728,7 +728,7 @@ namespace {
         AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
         PCFGAnalysis_memento memento;
 
-        Nodecl::NodeclBase ast = dto["nodecl"];
+        NBase ast = dto["nodecl"];
 
         ObjectList<ExtensibleGraph*> pcfgs;
 
@@ -775,9 +775,9 @@ namespace {
         ExtensibleGraph::clear_visits( graph_node );
     }
 
-    void AnalysisCheckPhase::set_ompss_mode( const std::string& ompss_mode_str)
+    void AnalysisCheckPhase::set_ompss_mode(const std::string& ompss_mode_str)
     {
-        if( ompss_mode_str == "1")
+        if(ompss_mode_str == "1")
             _ompss_mode_enabled = true;
     }
     

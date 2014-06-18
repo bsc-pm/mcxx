@@ -28,7 +28,7 @@
 
 
 #include "hlt-unroll.hpp"
-#include "tl-analysis-static-info.hpp"
+#include "tl-analysis-interface.hpp"
 #include <sstream>
 #include <limits.h>
 
@@ -58,8 +58,7 @@ namespace TL { namespace HLT {
         Nodecl::NodeclBase function_code = function_symbol.get_function_code();
         ERROR_CONDITION(function_code.is_null(), "Invalid node", 0);
 
-        Analysis::AnalysisStaticInfo analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS,
-                                                     Analysis::WhereAnalysis::NESTED_FOR_STATIC_INFO, INT_MAX, /*ompss_enabled*/ false);
+        Analysis::AnalysisInterface analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS, /*ompss_enabled*/ false);
 
         // ObjectList<InductionVariableData*> induction_vars = analysis_static.get_induction_variables();
 

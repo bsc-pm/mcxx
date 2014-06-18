@@ -31,12 +31,11 @@
 
 #include <map>
 
-#include "tl-analysis-utils.hpp"
 #include "tl-builtin.hpp"
-#include "tl-extended-symbol-utils.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-nodecl-utils.hpp"
 #include "tl-pcfg-utils.hpp"
+#include "tl-range-analysis-utils.hpp"
 
 namespace TL  {
 namespace Analysis {
@@ -68,6 +67,18 @@ namespace Analysis {
             Node( const Node& n );
             Node& operator=( const Node& );
 
+            // *** Private methods for NodeclSet/NodeclMap linked data *** //
+            template <typename T>
+            T get_vars(std::string data_name);
+            
+            template <typename T>
+            void add_var_to_container(const NBase& var, std::string data_name);
+            
+            template <typename T>
+            void add_vars_to_container(const T& vars, std::string data_name);
+            
+            void remove_var_from_set(const NBase& var, std::string data_name);
+            
         public:
             // *** Constructors *** //
             
@@ -98,11 +109,11 @@ namespace Analysis {
              *                   node, then this parameter must be NULL.
              * \param nodecls List of Nodecl containing the Statements to be included in the new node
              */
-            Node( unsigned int& id, Node_type type, Node* outer_node, ObjectList<Nodecl::NodeclBase> nodecls );
+            Node(unsigned int& id, Node_type type, Node* outer_node, NodeclList nodecls);
 
             //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
             //! must be included in the list
-            Node( unsigned int& id, Node_type type, Node* outer_node, Nodecl::NodeclBase nodecl );
+            Node(unsigned int& id, Node_type type, Node* outer_node, NBase nodecl);
 
             bool operator==( const Node& node ) const;
 
@@ -174,7 +185,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_entry_edge_types( );
 
             //! Returns the list of entry edges labels of the node.
-            ObjectList<Nodecl::NodeclBase> get_entry_edge_labels( );
+            NodeclList get_entry_edge_labels();
 
             //! Returns the list parent nodes of the node.
             ObjectList<Node*> get_parents( );
@@ -189,7 +200,7 @@ namespace Analysis {
             ObjectList<Edge_type> get_exit_edge_types( );
 
             //! Returns the list of exit edges labels of the node.
-            ObjectList<Nodecl::NodeclBase> get_exit_edge_labels( );
+            NodeclList get_exit_edge_labels();
 
             //! Returns the edge between the node and a target node, if exists
             Edge* get_exit_edge( Node* target );
@@ -214,6 +225,9 @@ namespace Analysis {
 
             //! Returns true when the node is an EXIT node
             bool is_exit_node( );
+
+            //! Returns true when the node contains a FunctionCode nodecl
+            bool is_function_code_node( );
 
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
@@ -392,10 +406,10 @@ namespace Analysis {
 
             //! Returns the nodecl contained in the graph node (Only valid for graph nodes)
             //! If the graph doesn't have a label, a null Nodecl is returned
-            Nodecl::NodeclBase get_graph_related_ast( );
+            NBase get_graph_related_ast();
 
             //! Set the label of the graph node (Only valid for graph nodes)
-            void set_graph_label( Nodecl::NodeclBase n );
+            void set_graph_label(NBase n);
 
             //! Returns type of the graph (Only valid for graph nodes)
             Graph_type get_graph_type( );
@@ -425,11 +439,11 @@ namespace Analysis {
 
             //! Returns the list of statements contained in the node
             //! If the node does not contain statements, an empty list is returned
-            ObjectList<Nodecl::NodeclBase> get_statements( );
+            NodeclList get_statements();
 
             //! Set the node that contains the actual node. It must be a graph node
             //! It is only valid for Normal nodes, Labeled nodes or Function Call nodes
-            void set_statements( ObjectList<Nodecl::NodeclBase> stmts );
+            void set_statements(NodeclList stmts);
 
             //! Returns the Symbol of the statement label contained in the node
             //! If is only valid for Goto or Labeled nodes
@@ -490,87 +504,90 @@ namespace Analysis {
             //! Returns true when some usage information has been computed for the node
             bool usage_is_computed( );
             
-            bool uses_var( const Nodecl::NodeclBase& n );
+            bool uses_var(const NBase& n);
             
             //! Returns the list of upward exposed variables of the node
-            Utils::ext_sym_set get_ue_vars( );
+            NodeclSet get_ue_vars();
 
             //! Adds a new upward exposed variable to the node
-            void add_ue_var( Utils::ExtendedSymbol new_ue_var );
+            void add_ue_var(const NBase& new_ue_var);
 
             //! Adds a new set of upward exposed variable to the node
-            void add_ue_var( Utils::ext_sym_set new_ue_vars );
+            void add_ue_var(const NodeclSet& new_ue_vars);
 
             //! Sets a new set of upward exposed variables to the node
-            void set_ue_var( Utils::ext_sym_set new_ue_vars );
+            void set_ue_var(const NodeclSet& new_ue_vars);
             
             //! Deletes an old upward exposed variable from the node
-            void remove_ue_var( Utils::ExtendedSymbol old_ue_var );
+            void remove_ue_var(const NBase& old_ue_var);
 
             //! Returns the list of private upward exposed variables of the node
-            Utils::ext_sym_set get_private_ue_vars( );
+            NodeclSet get_private_ue_vars();
             
             //! Adds a new set of private upward exposed variable to the node
-            void add_private_ue_var( Utils::ext_sym_set new_private_ue_vars );
+            void add_private_ue_var(const NodeclSet& new_private_ue_vars);
+            
+            //! Sets a new set of upwards exposed variables
+            void set_private_ue_var(const NodeclSet& new_private_ue_vars);
             
             //! Returns the list of killed variables of the node
-            Utils::ext_sym_set get_killed_vars( );
+            NodeclSet get_killed_vars();
 
             //! Adds a new killed variable to the node
-            void add_killed_var( Utils::ExtendedSymbol new_killed_var );
+            void add_killed_var(const NBase& new_killed_var);
 
             //! Adds a new set of killed variables to the node
-            void add_killed_var( Utils::ext_sym_set new_killed_vars );
+            void add_killed_var(const NodeclSet& new_killed_vars);
 
             //! Sets a new set of killed variables to the node
-            void set_killed_var( Utils::ext_sym_set new_killed_vars );
+            void set_killed_var(const NodeclSet& new_killed_vars);
             
             //! Deletes an old killed variable from the node
-            void remove_killed_var( Utils::ExtendedSymbol old_killed_var );
+            void remove_killed_var(const NBase& old_killed_var);
 
             //! Returns the list of private killed variables of the node
-            Utils::ext_sym_set get_private_killed_vars( );
+            NodeclSet get_private_killed_vars();
             
             //! Adds a new private killed variable to the node
-            void add_private_killed_var( Utils::ext_sym_set new_private_killed_vars );
+            void add_private_killed_var(const NodeclSet& new_private_killed_vars);
+            
+            //! Sets a new set of killed variables
+            void set_private_killed_var(const NodeclSet& new_private_killed_vars);
             
             //! Returns the list of undefined behaviour variables of the node
-            Utils::ext_sym_set get_undefined_behaviour_vars( );
+            NodeclSet get_undefined_behaviour_vars();
 
             //! Adds a new undefined behaviour variable to the node
-            void add_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
-
-            //! Adds a set of undefined behaviour variables to the node
-            void add_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            void add_undefined_behaviour_var(const NBase& new_undef_var);
 
             //! Adds a new undefined behaviour variable and deletes this variable from them
             //! upward exposed and killed sets of the node
             void add_undefined_behaviour_var_and_recompute_use_and_killed_sets(
-                    Utils::ExtendedSymbol new_undef_var );
+                const NBase& new_undef_var);
 
-            //! Sets a new undefined behaviour variable to the node
-            void set_undefined_behaviour_var( Utils::ExtendedSymbol new_undef_var );
-            
-            //! Sets a new set of undefined behaviour variables to the node
-            void set_undefined_behaviour_var( Utils::ext_sym_set new_undef_vars );
+            //! Adds a set of undefined behaviour variables to the node
+            void set_undefined_behaviour_var(const NodeclSet& new_undef_vars);
             
             //! Deletes an old undefined behaviour variable from the node
-            void remove_undefined_behaviour_var( Utils::ExtendedSymbol old_undef_var );
+            void remove_undefined_behaviour_var(const NBase& old_undef_var);
 
             //! Returns the list of private undefined behaviour variables of the node
-            Utils::ext_sym_set get_private_undefined_behaviour_vars( );
+            NodeclSet get_private_undefined_behaviour_vars();
             
             //! Adds a new private undefined behaviour variable to the node
-            void add_private_undefined_behaviour_var( Utils::ext_sym_set new_private_undef_vars );
+            void add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars);
+            
+            //! Sets a new set of killed variables
+            void set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars);
             
             //! Returns the list of used addresses within the node
-            Utils::ext_sym_set get_used_addresses();
+            NodeclSet get_used_addresses();
             
             //! Adds a new address to the list of used addresses of the node
-            void add_used_address(const Utils::ExtendedSymbol& es);
+            void add_used_address(const NBase& es);
             
             //! Sets a new set of used addresses to the node
-            void add_used_addresses(const Utils::ext_sym_set& used_addresses);
+            void set_used_addresses(const NodeclSet& used_addresses);
             
             // ************* END getters and setters for use-definition analysis ************ //
             // ****************************************************************************** //
@@ -581,28 +598,31 @@ namespace Analysis {
             // ****************** Getters and setters for liveness analysis ***************** //
 
             //! Returns the set of variables that are alive at the entry of the node.
-            Utils::ext_sym_set get_live_in_vars( );
+            NodeclSet get_live_in_vars();
 
             //! Adds a new live in variable to the node.
-            void set_live_in(Utils::ExtendedSymbol new_live_in_var);
+            void set_live_in(const NBase& new_live_in_var);
 
             //! Sets the list of live in variables.
             /*!
                 * If there was any other data in the list, it is removed.
                 */
-            void set_live_in(Utils::ext_sym_set new_live_in_set);
+            void set_live_in(const NodeclSet& new_live_in_set);
 
             //! Returns the set of variables that are alive at the exit of the node.
-            Utils::ext_sym_set get_live_out_vars( );
+            NodeclSet get_live_out_vars();
+
+            //! Adds a new live out variable to the node removing any other variable contained in the new one
+            void add_live_out(const NBase& new_live_out_var);
 
             //! Adds a new live out variable to the node.
-            void set_live_out(Utils::ExtendedSymbol new_live_out_var);
+            void set_live_out(const NBase& new_live_out_var);
 
             //! Sets the list of live out variables.
             /*!
-            If there was any other data in the list, it is removed.
+             * If there was any other data in the list, it is removed.
             */
-            void set_live_out(Utils::ext_sym_set new_live_out_set);
+            void set_live_out(const NodeclSet& new_live_out_set);
 
             // **************** END getters and setters for liveness analysis *************** //
             // ****************************************************************************** //
@@ -613,26 +633,26 @@ namespace Analysis {
             // ************ Getters and setters for reaching definitions analysis *********** //
 
             //! Return the map containing all statements containing a generated value
-            Utils::ext_sym_map get_generated_stmts( );
+            NodeclMap get_generated_stmts();
 
             //! Include a new map of generated values
             //! If a definition of the same variable already existed, the is substituted by the new value
-            Utils::ext_sym_map set_generated_stmts( Utils::ext_sym_map gen );
+            NodeclMap set_generated_stmts(const NodeclMap& gen);
 
             //! Return the map containing all symbols reached at the entry of the node and its reached expression
-            Utils::ext_sym_map get_reaching_definitions_in( );
+            NodeclMap get_reaching_definitions_in();
 
             //! Return the map containing all symbols reached at the exit of the node and its reached expression
-            Utils::ext_sym_map get_reaching_definitions_out( );
+            NodeclMap get_reaching_definitions_out();
 
             //! Set a new pair to the input reaching definitions of the node
-            void set_reaching_definition_in( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_in(const NBase& var, const NBase& init, const NBase& stmt);
             //! Set a new list of input reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_in( Utils::ext_sym_map reach_defs_in );
+            void set_reaching_definitions_in(const NodeclMap& reach_defs_in);
             //! Set a new pair to the output reaching definitions of the node
-            void set_reaching_definition_out( Utils::ExtendedSymbol var, Nodecl::NodeclBase init );
+            void set_reaching_definition_out(const NBase& var, const NBase& init, const NBase& stmt);
             //! Set a new list of output reaching definitions to the node deleting the previous list, if it existed
-            void set_reaching_definitions_out( Utils::ext_sym_map reach_defs_out );
+            void set_reaching_definitions_out(const NodeclMap& reach_defs_out);
 
             // ********** END getters and setters for reaching definitions analysis ********* //
             // ****************************************************************************** //
@@ -643,10 +663,10 @@ namespace Analysis {
             // ******************* Getters and setters for loops analysis ******************* //
 
             //! Returns the map of induction variables associated to the node (Only valid for loop graph nodes)
-            ObjectList<Utils::InductionVariableData*> get_induction_variables( );
+            Utils::InductionVarList get_induction_variables();
 
             //! Set a new induction variable in a loop graph node
-            void set_induction_variable( Utils::InductionVariableData* iv );
+            void set_induction_variable(Utils::InductionVar* iv);
 
             Node* get_condition_node( );
             void set_condition_node( Node* cond );
@@ -675,7 +695,7 @@ namespace Analysis {
             Utils::ConstraintMap get_constraints_map( );
             
             //! Returns the constraints associated to a given variable in the node
-            Utils::Constraint get_constraint( const Nodecl::NodeclBase& var );
+            Utils::Constraint get_constraint(const NBase& var);
             
             //! Adds a new set of constraints to the node
             void add_constraints_map( Utils::ConstraintMap new_constraints_map );
@@ -695,7 +715,7 @@ namespace Analysis {
             
             //! Set a pair of variable and range value to the RangeValue map 
             //! related to the entry point of the node
-            void set_range_in( const Nodecl::NodeclBase& var, 
+            void set_range_in(const NBase& var, 
                                const ObjectList<Utils::RangeValue_tag>& values );
             
             //! Returns the map of variables and their range values associated 
@@ -704,7 +724,7 @@ namespace Analysis {
             
             //! Set a pair of variable and range value to the RangeValue map 
             //! related to the exit point of the node
-            void set_range_out( const Nodecl::NodeclBase& var, 
+            void set_range_out(const NBase& var, 
                                 const ObjectList<Utils::RangeValue_tag>& values );            
             
             // ***************** END getters and setters for range analysis ***************** //
@@ -715,9 +735,9 @@ namespace Analysis {
             // ****************************************************************************** //
             // ******************* Getters and setters for OmpSs analysis ******************* //
 
-            Nodecl::NodeclBase get_task_context( );
+            NBase get_task_context();
 
-            void set_task_context( Nodecl::NodeclBase c );
+            void set_task_context(NBase c);
 
             Symbol get_task_function( );
 
@@ -736,34 +756,34 @@ namespace Analysis {
             void set_auto_scoping_enabled( );
 
             // Shared variables
-            Utils::ext_sym_set get_sc_shared_vars( );
-            void set_sc_shared_var( Utils::ExtendedSymbol es );
-            void set_sc_shared_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_shared_vars();
+            void set_sc_shared_var(NBase es);
+            void set_sc_shared_var(NodeclSet es_list);
 
             // Private variables
-            Utils::ext_sym_set get_sc_private_vars( );
-            void set_sc_private_var( Utils::ExtendedSymbol es );
-            void set_sc_private_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_private_vars();
+            void set_sc_private_var(NBase es);
+            void set_sc_private_var(NodeclSet es_list);
 
             // Firstprivate variables
-            Utils::ext_sym_set get_sc_firstprivate_vars( );
-            void set_sc_firstprivate_var( Utils::ExtendedSymbol es );
-            void set_sc_firstprivate_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_firstprivate_vars();
+            void set_sc_firstprivate_var(NBase es);
+            void set_sc_firstprivate_var(NodeclSet es_list);
 
             // Shared or Firstprivate variables
-            Utils::ext_sym_set get_sc_shared_or_firstprivate_vars( );
-            void set_sc_shared_or_firstprivate_var( Utils::ExtendedSymbol es );
-            void set_sc_shared_or_firstprivate_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_shared_or_firstprivate_vars();
+            void set_sc_shared_or_firstprivate_var(NBase es);
+            void set_sc_shared_or_firstprivate_var(NodeclSet es_list);
 
             // Undefined variables
-            Utils::ext_sym_set get_sc_undef_vars( );
-            void set_sc_undef_var( Utils::ExtendedSymbol es );
-            void set_sc_undef_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_undef_vars();
+            void set_sc_undef_var(NBase es);
+            void set_sc_undef_var(NodeclSet es_list);
 
             // Race condition variables
-            Utils::ext_sym_set get_sc_race_vars( );
-            void set_sc_race_var( Utils::ExtendedSymbol es );
-            void set_sc_race_var( Utils::ext_sym_set es_list );
+            NodeclSet get_sc_race_vars();
+            void set_sc_race_var(NBase es);
+            void set_sc_race_var(NodeclSet es_list);
 
             Utils::AutoScopedVariables get_auto_scoped_variables( );
 
@@ -775,38 +795,38 @@ namespace Analysis {
             // ****************************************************************************** //
             // ************** Getters and setters for task dependence analysis ************** //
 
-            Utils::ext_sym_set get_deps_private_vars( );
-            void set_deps_private_vars( Utils::ext_sym_set new_deps_private_var );
+            NodeclSet get_deps_private_vars();
+            void set_deps_private_vars(NodeclSet new_deps_private_var);
 
-            Utils::ext_sym_set get_deps_firstprivate_vars( );
-            void set_deps_firstprivate_vars( Utils::ext_sym_set new_deps_firstprivate_var );
+            NodeclSet get_deps_firstprivate_vars();
+            void set_deps_firstprivate_vars(NodeclSet new_deps_firstprivate_var);
 
-            Utils::ext_sym_set get_deps_shared_vars( );
-            void set_deps_shared_vars( Utils::ext_sym_set new_deps_shared_var );
+            NodeclSet get_deps_shared_vars();
+            void set_deps_shared_vars(NodeclSet new_deps_shared_var);
 
             //! Returns the list of input dependences of a task node
-            Utils::ext_sym_set get_deps_in_exprs( );
+            NodeclSet get_deps_in_exprs();
 
             //! Insert a list of input dependencies to the node
-            void set_deps_in_exprs( Utils::ext_sym_set new_in_deps );
+            void set_deps_in_exprs(NodeclSet new_in_deps);
 
             //! Returns the list of output dependences of a task node
-            Utils::ext_sym_set get_deps_out_exprs( );
+            NodeclSet get_deps_out_exprs();
 
             //! Insert a list of output dependencies to the node
-            void set_deps_out_exprs( Utils::ext_sym_set new_out_deps );
+            void set_deps_out_exprs(NodeclSet new_out_deps);
 
             //! Returns the list of inout dependences of a task node
-            Utils::ext_sym_set get_deps_inout_exprs( );
+            NodeclSet get_deps_inout_exprs();
 
             //! Insert a list of inout dependencies to the node
-            void set_deps_inout_exprs( Utils::ext_sym_set new_inout_deps );
+            void set_deps_inout_exprs(NodeclSet new_inout_deps);
 
             //! Returns the list of undefined dependences of a task node
-            Utils::ext_sym_set get_deps_undef_vars( );
+            NodeclSet get_deps_undef_vars();
 
             //! Insert a list of undefined dependencies to the node
-            void set_deps_undef_vars( Utils::ext_sym_set new_undef_deps );
+            void set_deps_undef_vars(NodeclSet new_undef_deps);
 
             // ************ END getters and setters for task dependence analysis ************ //
             // ****************************************************************************** //
@@ -837,41 +857,41 @@ namespace Analysis {
             // ****************************************************************************** //
             // ****************** Getters and setters for analysis checking ***************** //
             
-            Utils::ext_sym_set get_assert_ue_vars( );
-            void set_assert_ue_var( const Nodecl::List& new_assert_ue_vars );
+            NodeclSet get_assert_ue_vars();
+            void add_assert_ue_var(const Nodecl::List& new_assert_ue_vars);
             
-            Utils::ext_sym_set get_assert_killed_vars( );
-            void set_assert_killed_var( const Nodecl::List& new_assert_killed_vars );
+            NodeclSet get_assert_killed_vars();
+            void add_assert_killed_var(const Nodecl::List& new_assert_killed_vars);
             
-            Utils::ext_sym_set get_assert_undefined_behaviour_vars( );
-            void set_assert_undefined_behaviour_var( const Nodecl::List& new_assert_undefined_vars );
+            NodeclSet get_assert_undefined_behaviour_vars();
+            void add_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars);
             
-            Utils::ext_sym_set get_assert_live_in_vars( );
-            void set_assert_live_in_var( const Nodecl::List& new_assert_live_in_vars );
+            NodeclSet get_assert_live_in_vars();
+            void add_assert_live_in_var(const Nodecl::List& new_assert_live_in_vars);
             
-            Utils::ext_sym_set get_assert_live_out_vars( );
-            void set_assert_live_out_var( const Nodecl::List& new_assert_live_out_vars );
+            NodeclSet get_assert_live_out_vars();
+            void add_assert_live_out_var(const Nodecl::List& new_assert_live_out_vars);
             
-            Utils::ext_sym_set get_assert_dead_vars( );
-            void set_assert_dead_var( const Nodecl::List& new_assert_dead_vars );
+            NodeclSet get_assert_dead_vars();
+            void add_assert_dead_var(const Nodecl::List& new_assert_dead_vars);
             
-            Utils::ext_sym_map get_assert_reaching_definitions_in( );
-            void set_assert_reaching_definitions_in( const Nodecl::List& new_assert_reach_defs_in );
+            NodeclMap get_assert_reaching_definitions_in();
+            void add_assert_reaching_definitions_in(const Nodecl::List& new_assert_reach_defs_in);
             
-            Utils::ext_sym_map get_assert_reaching_definitions_out( );
-            void set_assert_reaching_definitions_out( const Nodecl::List& new_assert_reach_defs_out );
+            NodeclMap get_assert_reaching_definitions_out();
+            void add_assert_reaching_definitions_out(const Nodecl::List& new_assert_reach_defs_out);
             
-            ObjectList<Utils::InductionVariableData*> get_assert_induction_vars( );
-            void set_assert_induction_variables( const Nodecl::List& new_assert_induction_vars );
+            Utils::InductionVarList get_assert_induction_vars();
+            void add_assert_induction_variables(const Nodecl::List& new_assert_induction_vars);
             
-            Utils::ext_sym_set get_assert_auto_sc_firstprivate_vars( );
-            void set_assert_auto_sc_firstprivate_var( const Nodecl::List& new_assert_auto_sc_fp );
+            NodeclSet get_assert_auto_sc_firstprivate_vars();
+            void add_assert_auto_sc_firstprivate_var(const Nodecl::List& new_assert_auto_sc_fp);
             
-            Utils::ext_sym_set get_assert_auto_sc_private_vars( );
-            void set_assert_auto_sc_private_var( const Nodecl::List& new_assert_auto_sc_p );
+            NodeclSet get_assert_auto_sc_private_vars();
+            void add_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p);
             
-            Utils::ext_sym_set get_assert_auto_sc_shared_vars( );
-            void set_assert_auto_sc_shared_var( const Nodecl::List& new_assert_auto_sc_s );
+            NodeclSet get_assert_auto_sc_shared_vars();
+            void add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s);
             
             Nodecl::List get_assert_correctness_dead_vars();
             void set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars);
@@ -892,6 +912,8 @@ namespace Analysis {
             // ********************************* END utils ********************************** //
             // ****************************************************************************** //
     };
+    
+    typedef ObjectList<Node*> NodeList;
 }
 }
 

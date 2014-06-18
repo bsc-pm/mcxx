@@ -68,7 +68,7 @@ void __attribute__((noinline)) h264(
     }
     for (i = 0; i <= 14; i++)
     {
-        //NOT VECTORIZABLE YET!
+#pragma omp simd
         for (j = 0; j <= 14; j++)
         {
             K[i][j] =

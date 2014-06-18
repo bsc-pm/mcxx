@@ -267,6 +267,7 @@ namespace TL
 
                 void set_sharing(Sharing s)
                 {
+                    ERROR_CONDITION(_sharing != SHARING_UNDEFINED, "Overwriting data-sharing", 0);
                     _sharing = s;
                 }
 
@@ -460,7 +461,7 @@ namespace TL
             return OutlineDataItem::AllocationPolicyFlags(unsigned(a) & unsigned(b));
         }
 
-        //Symbold::invalid it's theorically used when the outline has no symbol
+        //Symbol::invalid it's theorically used when the outline has no symbol
         //i think we use enclosing function symbol in this cases anyways.
         class OutlineInfo
         {
@@ -471,14 +472,13 @@ namespace TL
 
             private:
                 ObjectList<OutlineDataItem*> _data_env_items;
-
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::string get_field_name(std::string name);
 
                 // Do not copy
-                OutlineInfo(const OutlineInfo&);
-                OutlineInfo& operator=(const OutlineInfo&);
+                // OutlineInfo(const OutlineInfo&);
+                // OutlineInfo& operator=(const OutlineInfo&);
 
                 implementation_table_t _implementation_table;
 
@@ -500,7 +500,6 @@ namespace TL
                  * an existing symbol, otherwise it creates a new one
                  */
                 OutlineDataItem& get_entity_for_symbol(TL::Symbol sym);
-                OutlineDataItem& get_entity_for_symbol(TL::Symbol sym, bool &new_item);
 
                 ObjectList<OutlineDataItem*> get_data_items();
 
@@ -551,6 +550,8 @@ namespace TL
             private:
                 OutlineInfo& _outline_info;
                 Scope _sc;
+
+                void add_shared_common(Symbol sym, TL::Type field_type);
 
             public:
                 OutlineInfoRegisterEntities(OutlineInfo& outline_info, TL::Scope sc)

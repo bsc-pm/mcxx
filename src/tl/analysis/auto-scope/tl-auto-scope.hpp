@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2012 Barcelona* Supercomputing Center             *
+ (C) Copyright 2006-2012 Barcelona* Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -29,7 +29,6 @@
 
 #include <climits>
 
-#include "tl-extended-symbol-utils.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-task-sync.hpp"
 
@@ -49,26 +48,16 @@ namespace Analysis {
         bool _check_only_local;
 
         // *********************** Private methods *********************** //
-        
-        bool task_and_simultaneous_only_read( Node* task, Utils::ExtendedSymbol ei );
 
-        void task_reads_and_writes_rec( Node* task, Node* current, Utils::ExtendedSymbol ei, bool& read, bool& write );
-        bool task_reads_and_writes( Node* task, Utils::ExtendedSymbol ei );
+        void scope_variable(Node* task, Utils::UsageKind usage, const NBase& n, NodeclSet& scoped_vars);
 
-        ObjectList<Node*> var_uses_in_task( Node* current, Utils::ExtendedSymbol ei );
-        ObjectList<Node*> var_uses_out_task( Node* task, Utils::ExtendedSymbol ei );
-
-        bool scope_ie_in_iterated_task( Node* task, Node* current, Node* ei_node, char usage, Utils::ExtendedSymbol ei );
-        void scope_variable( Node* task, Node* ei_node, Utils::UsageKind usage, 
-                             Utils::ExtendedSymbol ei, Utils::ext_sym_set& scoped_vars );
-
-        void compute_task_auto_scoping_rec( Node* task, Node* current, Utils::ext_sym_set& scoped_vars );
-        void compute_task_auto_scoping( Node* task );
+        void compute_task_auto_scoping_rec(Node* task, Node* current, NodeclSet& scoped_vars);
+        void compute_task_auto_scoping(Node* task);
 
     public:
 
         // *** Constructor *** //
-        AutoScoping( ExtensibleGraph* graph );
+        AutoScoping(ExtensibleGraph* graph);
 
         // *** Modifiers *** //
         /*!
@@ -138,7 +127,7 @@ namespace Analysis {
          * no one of the two accesses is blocked by either and atomic construct, a critical construct or a lock routine
          * (omp_init_lock / omp_destroy_lock, omp_set_lock / omp_unset_lock), can trigger a data race situation.
          */
-        void compute_auto_scoping( );
+        void compute_auto_scoping();
     };
 
 }

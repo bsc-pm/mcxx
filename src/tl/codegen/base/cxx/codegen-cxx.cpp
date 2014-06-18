@@ -3,7 +3,7 @@
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
 
@@ -165,7 +165,29 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION(Offset, ".*") \
     BINARY_EXPRESSION(CxxDotPtrMember, ".*") \
     BINARY_EXPRESSION(CxxArrowPtrMember, "->*") \
-
+    BINARY_EXPRESSION(VectorAdd, " + ") \
+    BINARY_EXPRESSION(VectorMul, " * ") \
+    BINARY_EXPRESSION(VectorDiv, " / ") \
+    BINARY_EXPRESSION(VectorMod, " % ") \
+    BINARY_EXPRESSION(VectorMinus, " - ") \
+    BINARY_EXPRESSION(VectorEqual, " == ") \
+    BINARY_EXPRESSION(VectorDifferent, " != ") \
+    BINARY_EXPRESSION(VectorLowerThan, " < ") \
+    BINARY_EXPRESSION(VectorLowerOrEqualThan, " <= ") \
+    BINARY_EXPRESSION_EX(VectorGreaterThan, " > ") \
+    BINARY_EXPRESSION_EX(VectorGreaterOrEqualThan, " >= ") \
+    BINARY_EXPRESSION(VectorLogicalAnd, " && ") \
+    BINARY_EXPRESSION(VectorLogicalOr, " || ") \
+    BINARY_EXPRESSION(VectorBitwiseAnd, " & ") \
+    BINARY_EXPRESSION(VectorBitwiseOr, " | ") \
+    BINARY_EXPRESSION(VectorBitwiseXor, " ^ ") \
+    BINARY_EXPRESSION(VectorBitwiseShl, " << ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorBitwiseShrI, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
+    BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
+    BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+ 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
     { \
@@ -4199,9 +4221,53 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Typeid& node)
     *(file) << ")";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Unknown& node)
+{
+    *(file) << "UNKNOWN";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
 {
     visit_function_call(node, /* is_virtual_call */ true);
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorConversion& node)
+{
+    // Do nothing
+    walk(node.get_nest());
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLaneId& node)
+{
+    indent();
+    *(file) << "VECTOR_LANE_ID";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
+{
+    indent();
+    *(file) << "{";
+    
+    Nodecl::List scalar_values = node.get_scalar_values().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = scalar_values.begin();
+            it != scalar_values.end();
+            it++)
+    {
+        walk(*it);
+
+        if ((it+1) != scalar_values.end())
+            *(file) << ", ";
+    }
+
+    *(file) << "}";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
+{
+    indent();
+    *(file) << "{";
+    walk(node.get_rhs());
+    *(file) << "}";
 }
 
 // Bug in GCC 4.4
@@ -6949,7 +7015,7 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
-                    << " : " 
+                    << " : "
                     << print_type_str(symbol.get_type().get_enum_underlying_type().get_internal_type(),
                             symbol.get_scope().get_decl_context(),
                             /* we need to store the current codegen */ (void*) this)
@@ -9055,12 +9121,15 @@ CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
             it != children.end();
             it++, i++)
     {
-        indent();
-        *(file) << start_inline_comment();
-        *(file) << "Children " << i;
-        *(file) << end_inline_comment() << "\n";
+        if (!it->is_null())
+        {
+            indent();
+            *(file) << start_inline_comment();
+            *(file) << "Children " << i;
+            *(file) << end_inline_comment() << "\n";
 
-        walk(*it);
+            walk(*it);
+        }
     }
 
     dec_indent();

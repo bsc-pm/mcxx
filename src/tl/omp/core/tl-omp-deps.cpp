@@ -45,8 +45,11 @@ namespace TL { namespace OpenMP {
         struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
         {
             DataSharingEnvironment& _data_sharing;
-            ExtraDataSharing(DataSharingEnvironment& ds)
-                :_data_sharing(ds) { }
+            std::string _clause_name;
+
+            ExtraDataSharing(DataSharingEnvironment& ds, const std::string& clause_name)
+                :_data_sharing(ds), _clause_name(clause_name) { }
+
             void visit(const Nodecl::Symbol& node)
             {
                 TL::Symbol sym = node.get_symbol();
@@ -58,8 +61,13 @@ namespace TL { namespace OpenMP {
                 if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
                         == DS_UNDEFINED)
                 {
+                    std::stringstream reason;
+                    reason << "variable is used in the expression of a '" << _clause_name << "' clause";
+
                     // Mark this as an implicit firstprivate
-                    _data_sharing.set_data_sharing(sym, TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT) );
+                    _data_sharing.set_data_sharing(sym,
+                           TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT),
+                           reason.str());
 
                     // Do not warn saved expressions, it confuses users
                     if (!sym.is_saved_expression())
@@ -79,8 +87,8 @@ namespace TL { namespace OpenMP {
 
         ExtraDataSharing _extra_data_sharing;
 
-        DataRefVisitorDep(DataSharingEnvironment& ds)
-            : _extra_data_sharing(ds) { }
+        DataRefVisitorDep(DataSharingEnvironment& ds, const std::string& clause_name)
+            : _extra_data_sharing(ds, clause_name) { }
 
         void visit_pre(const Nodecl::Shaping &node)
         {
@@ -91,20 +99,29 @@ namespace TL { namespace OpenMP {
         {
             _extra_data_sharing.walk(node.get_subscripts());
         }
+
+        void visit_pre(const Nodecl::ClassMemberAccess &node)
+        {
+            _extra_data_sharing.walk(node.get_lhs());
+        }
     };
 
-    void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds)
+    void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
+            DataSharingEnvironment& ds,
+            const std::string& clause_name)
     {
-        DataRefVisitorDep data_ref_visitor_dep(ds);
+        DataRefVisitorDep data_ref_visitor_dep(ds, clause_name);
         data_ref_visitor_dep.walk(data_ref);
     }
 
-    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
-            DataSharingEnvironment& data_sharing, 
-            DependencyDirection dep_attr, 
-            DataSharingAttribute default_data_attr)
+    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list,
+            DataSharingEnvironment& data_sharing,
+            DependencyDirection dep_attr,
+            DataSharingAttribute default_data_attr,
+            bool in_ompss_mode,
+            const std::string &clause_name)
     {
-        DataRefVisitorDep data_ref_visitor_dep(data_sharing);
+        DataRefVisitorDep data_ref_visitor_dep(data_sharing, clause_name);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
@@ -122,30 +139,49 @@ namespace TL { namespace OpenMP {
 
             Symbol sym = expr.get_base_symbol();
 
-            // Note that in general a dependency should be shared
-            //
-            //   inout(x)    x must be shared
-            //
-            // But we allow more general cases. In these cases x, is not going to be shared
-            // and it will be left to the default data sharing
-            //
-            //   inout(*x)             We do not define a specific data sharing for these
-            //   inout(x[10])
-            //   inout(x[1:2])
-            //   inout([10][20] x)
-            //
-            // Note, though, that if the base symbol 'x' is an array, it will always be shared.
-            //
-            if((default_data_attr & DS_AUTO) == DS_AUTO) 
+            if((default_data_attr & DS_AUTO) == DS_AUTO)
             {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO));
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_AUTO),
+                        "'default(auto)'");
             }
-            else if (expr.is<Nodecl::Symbol>()
-                    || sym.get_type().is_array()
-                    || (sym.get_type().is_any_reference()
-                        && sym.get_type().references_to().is_array()))
+            else if (in_ompss_mode)
             {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                // In OmpSs, the storage of a dependence is always SHARED. Note that with this
+                // definition we aren't defining the data-sharings of the variables involved
+                // in that expression.
+                //
+                // About the data-sharings of the variables involved in the dependence expression:
+                // - Fortran: the base symbol of the dependence expression is always SHARED
+                // - C/C++:
+                //
+                //      inout(x)    x must be shared
+                //      inout(a)    a must be shared if it's an array
+                //
+                //    But we allow more general cases. In these cases x, is not going to be shared
+                //    and it will be left to the default data sharing
+                //
+                //      inout(*x)             We do not define a specific data sharing for these
+                //      inout(x[10])
+                //      inout(x[1:2])
+                //      inout([10][20] x)
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (expr.is<Nodecl::Symbol>())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is mentioned in a dependence and it did not have an explicit data-sharing");
+                }
+                else if (sym.get_type().is_array()
+                        || (sym.get_type().is_any_reference()
+                            && sym.get_type().references_to().is_array()))
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                            "the variable is an array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
             }
 
             data_sharing.add_dependence(dep_item);
@@ -159,26 +195,26 @@ namespace TL { namespace OpenMP {
     {
         PragmaCustomClause input_clause = construct.get_clause("in",
                 /* deprecated */ "input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN, default_data_attr);
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN, default_data_attr, "in");
 
         TL::ObjectList<std::string> input_private_names;
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE, default_data_attr);
+        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE, default_data_attr, "inprivate");
 
         PragmaCustomClause output_clause = construct.get_clause("out",
                 /* deprecated */ "output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT, default_data_attr);
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT, default_data_attr, "out");
         
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT, default_data_attr);
+        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT, default_data_attr, "inout");
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
         get_dependences_info_clause(concurrent_clause, data_sharing,
-                DEP_CONCURRENT, default_data_attr);
+                DEP_CONCURRENT, default_data_attr, "concurrent");
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
         get_dependences_info_clause(commutative_clause, data_sharing,
-                DEP_COMMUTATIVE, default_data_attr);
+                DEP_COMMUTATIVE, default_data_attr, "commutative");
 
         // OpenMP standard proposal
         PragmaCustomClause depends = construct.get_clause("depend");
@@ -224,6 +260,7 @@ namespace TL { namespace OpenMP {
                 it != arguments.end();
                 it++)
         {
+            std::string clause_name;
             int match = regexec(&preg, it->c_str(), num_matches, pmatch, 0);
 
             std::string current_dep_expr = *it;
@@ -241,14 +278,17 @@ namespace TL { namespace OpenMP {
                 if (dependency_type == "in")
                 {
                     dep_attr = DEP_DIR_IN;
+                    clause_name = "depend(in:)";
                 }
                 else if (dependency_type == "out")
                 {
                     dep_attr = DEP_DIR_OUT;
+                    clause_name = "depend(out:)";
                 }
                 else if (dependency_type == "inout")
                 {
                     dep_attr = DEP_DIR_INOUT;
+                    clause_name = "depend(inout:)";
                 }
                 else
                 {
@@ -303,7 +343,8 @@ namespace TL { namespace OpenMP {
             // Singleton
             ObjectList<Nodecl::NodeclBase> expr_list;
             expr_list.append(expr);
-            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
+            add_data_sharings(expr_list, data_sharing,
+                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name);
         }
 
         regfree(&preg);
@@ -312,12 +353,14 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
            DependencyDirection dep_attr, 
-           DataSharingAttribute default_data_attr)
+           DataSharingAttribute default_data_attr,
+           const std::string& clause_name)
     {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
-            add_data_sharings(expr_list, data_sharing, dep_attr, default_data_attr);
+            add_data_sharings(expr_list, data_sharing,
+                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name);
         }
     }
 

@@ -115,8 +115,6 @@ namespace TL { namespace Intel {
                 it != find_rtl_cacheable_calls.functions_found.end();
                 it++)
         {
-            std::cerr << "Intel OMP RTL: Caching calls to '" << it->get_name()
-                << "' in '" << function_code.get_symbol().get_name() << "'" << std::endl;
             CacheRTLCallsHandler handler = cacheable_handler_set[*it];
 
             (this->*handler)(*it,
