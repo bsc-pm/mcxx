@@ -2749,7 +2749,6 @@ type_t* update_type_for_auto(type_t* t, type_t* template_parameter)
     }
 }
 
-
 static type_t* update_pack_type(type_t* pack_type,
         decl_context_t decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
@@ -2762,7 +2761,7 @@ static type_t* update_pack_type(type_t* pack_type,
         type_t* packed_type = pack_type_get_packed_type(pack_type);
         type_t* updated_packed_type = update_type_aux_(packed_type, decl_context, locus,
                 instantiation_symbol_map,
-                /* index_pack */ -1);
+                /* pack_index */ -1);
 
         if (updated_packed_type == NULL)
             return NULL;
@@ -2812,6 +2811,234 @@ static type_t* update_pack_type(type_t* pack_type,
     xfree(types);
 
     return result;
+}
+
+static char add_mapping_for_return_type_symbol(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        int pack_index,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int *num_new_symbols,
+        scope_entry_t*** new_symbols)
+{
+    if (instantiation_symbol_do_map(instantiation_symbol_map, entry) != NULL)
+        return 1;
+
+    type_t* new_type =
+        update_type_aux_(entry->type_information,
+                decl_context,
+                locus,
+                instantiation_symbol_map,
+                pack_index);
+
+    if (new_type == NULL)
+        return 0;
+
+    scope_entry_t* new_entry = xcalloc(1, sizeof(*new_entry));
+    new_entry->symbol_name = entry->symbol_name;
+    new_entry->kind = entry->kind;
+    new_entry->decl_context = decl_context;
+    new_entry->type_information = new_type;
+    new_entry->locus = entry->locus;
+
+    scope_entry_t* proxy = get_function_declaration_proxy();
+    symbol_set_as_parameter_of_function(new_entry,
+            proxy,
+            symbol_get_parameter_nesting_in_function(entry, proxy),
+            symbol_get_parameter_position_in_function(entry, proxy));
+
+    instantiation_symbol_map_add(instantiation_symbol_map,
+            entry,
+            new_entry);
+
+    P_LIST_ADD(*new_symbols, *num_new_symbols, new_entry);
+
+    if (new_entry->kind == SK_VARIABLE_PACK
+            && is_sequence_of_types(new_entry->type_information))
+    {
+        int num_types = sequence_of_types_get_num_types(new_entry->type_information);
+
+        nodecl_t nodecl_sym_list = nodecl_null();
+
+        int num_sub_parameter;
+        for (num_sub_parameter = 0; num_sub_parameter < num_types; num_sub_parameter++)
+        {
+            type_t* t = sequence_of_types_get_type_num(new_entry->type_information,
+                    num_sub_parameter);
+
+            const char* c = NULL;
+            uniquestr_sprintf(
+                    &c, "_%s__%d",
+                    new_entry->symbol_name,
+                    num_sub_parameter);
+
+            scope_entry_t* new_sub_parameter = xcalloc(sizeof(*new_sub_parameter), 1);
+
+            new_sub_parameter->symbol_name = c;
+            new_sub_parameter->kind = SK_VARIABLE;
+            new_sub_parameter->decl_context = decl_context;
+            new_sub_parameter->type_information = t;
+
+            nodecl_t nodecl_sub_symbol = nodecl_make_symbol(
+                    new_sub_parameter,
+                    locus);
+            nodecl_set_type(nodecl_sub_symbol, lvalue_ref(new_sub_parameter->type_information));
+            nodecl_sym_list = nodecl_append_to_list(nodecl_sym_list,
+                    nodecl_sub_symbol);
+
+            P_LIST_ADD(*new_symbols, *num_new_symbols, new_sub_parameter);
+        }
+
+        new_entry->value = nodecl_sym_list;
+    }
+
+    return 1;
+}
+
+static char add_mappings_for_return_type_expr(nodecl_t node,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        int pack_index,
+        instantiation_symbol_map_t* instantiation_symbol_map,
+        int *num_new_symbols,
+        scope_entry_t*** new_symbols)
+{
+    if (nodecl_is_null(node))
+        return 1;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        char ok = add_mappings_for_return_type_expr(
+                nodecl_get_child(node, i),
+                decl_context,
+                locus,
+                pack_index,
+                instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+
+    if (entry != NULL
+            && (entry->kind == SK_VARIABLE
+                || entry->kind == SK_VARIABLE_PACK)
+            && symbol_is_parameter_of_function(entry, get_function_declaration_proxy()))
+    {
+        char ok = add_mapping_for_return_type_symbol(
+                entry,
+                decl_context,
+                locus,
+                pack_index,
+                instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+
+    return 1;
+}
+
+static char add_mappings_for_return_type(type_t* t,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        int pack_index,
+        instantiation_symbol_map_t* return_instantiation_symbol_map,
+        int *num_new_symbols,
+        scope_entry_t*** new_symbols)
+{
+    if (t == NULL)
+        return 1;
+
+    if (is_typeof_expr(t))
+    {
+        char ok = add_mappings_for_return_type_expr(
+                typeof_expr_type_get_expression(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+        if (!ok)
+            return 0;
+    }
+    else if (is_pointer_type(t))
+    {
+        char ok = add_mappings_for_return_type(
+                pointer_type_get_pointee_type(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        char ok = add_mappings_for_return_type(
+                pointer_type_get_pointee_type(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+    else if (is_any_reference_type(t))
+    {
+        char ok = add_mappings_for_return_type(
+                reference_type_get_referenced_type(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+    else if (is_array_type(t))
+    {
+        char ok = add_mappings_for_return_type(
+                array_type_get_element_type(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+
+        ok = add_mappings_for_return_type_expr(
+                array_type_get_array_size_expr(t),
+                decl_context,
+                locus,
+                pack_index,
+                return_instantiation_symbol_map,
+                num_new_symbols,
+                new_symbols);
+
+        if (!ok)
+            return 0;
+    }
+
+    return 1;
 }
 
 static template_parameter_list_t* complete_template_parameters_of_template_class(
@@ -3369,14 +3596,23 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
-        type_t* return_type = function_type_get_return_type(orig_type);
-        if (return_type != NULL)
+        type_t* return_type = NULL;
+
+        // For functions with trailing return we will update their return type
+        // after the parameters (because this matches the lexical order as
+        // required by C++)
+        char has_trailing_return = function_type_get_has_trailing_return(orig_type);
+        if (!has_trailing_return)
         {
-            return_type = update_type_aux_(return_type, decl_context, 
-                    locus, instantiation_symbol_map, pack_index);
-            // Something went wrong here for the return type
-            if (return_type == NULL)
-                return NULL;
+            return_type = function_type_get_return_type(orig_type);
+            if (return_type != NULL)
+            {
+                return_type = update_type_aux_(return_type, decl_context, 
+                        locus, instantiation_symbol_map, pack_index);
+                // Something went wrong here for the return type
+                if (return_type == NULL)
+                    return NULL;
+            }
         }
 
         parameter_info_t *packed_parameter_types = NULL;
@@ -3471,8 +3707,83 @@ static type_t* update_type_aux_(type_t* orig_type,
             P_LIST_ADD(unpacked_parameter_types, num_unpacked_parameter_types, parameter_info);
         }
 
-        type_t* updated_function_type = get_new_function_type(return_type,
-                unpacked_parameter_types, num_unpacked_parameter_types, REF_QUALIFIER_NONE);
+        if (has_trailing_return)
+        {
+            return_type = function_type_get_return_type(orig_type);
+            if (return_type != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Setting environment for a trailing type return update\n");
+                }
+                instantiation_symbol_map_t* return_instantiation_symbol_map =
+                    instantiation_symbol_map_push(instantiation_symbol_map);
+
+                // Consider this case
+                //
+                // template <typename T>
+                // T* g(T t);
+                //
+                // template <typename T>
+                // auto foo(T t) -> decltype(g(t));
+                //
+                // When updating 'foo' we need to create an artificial symbol 't' with the proper
+                // update type so we can fully instantiate the type of 'g(t)'.
+                int num_new_symbols = 0;
+                scope_entry_t** new_symbols = NULL;
+                char ok = add_mappings_for_return_type(return_type,
+                        decl_context,
+                        locus,
+                        pack_index,
+                        return_instantiation_symbol_map,
+                        &num_new_symbols,
+                        &new_symbols);
+
+                if (!ok)
+                {
+                    // Something went wrong when updating the symbols
+                    for (i = 0; i < num_new_symbols; i++)
+                    {
+                        xfree(new_symbols[i]);
+                    }
+                    xfree(new_symbols);
+
+                    return NULL;
+                }
+
+                return_type = update_type_aux_(return_type, decl_context,
+                        locus, return_instantiation_symbol_map, pack_index);
+
+                instantiation_symbol_map_pop(return_instantiation_symbol_map);
+
+                // Something went wrong here for the return type
+                if (return_type == NULL)
+                {
+                    // Free the artificial mappings since they are not going to
+                    // be used at all
+                    for (i = 0; i < num_new_symbols; i++)
+                    {
+                        xfree(new_symbols[i]);
+                    }
+                    xfree(new_symbols);
+
+                    return NULL;
+                }
+
+                // Note that we do not free each new_symbol in case of success
+                // as they may be actually used in the expression
+                xfree(new_symbols);
+            }
+        }
+
+
+        type_t* updated_function_type = NULL;
+        if (!has_trailing_return)
+            updated_function_type = get_new_function_type(return_type,
+                    unpacked_parameter_types, num_unpacked_parameter_types, REF_QUALIFIER_NONE);
+        else
+            updated_function_type = get_new_function_type_trailing_type(return_type,
+                    unpacked_parameter_types, num_unpacked_parameter_types, REF_QUALIFIER_NONE);
 
         xfree(unpacked_parameter_types);
 
