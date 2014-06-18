@@ -42,7 +42,8 @@ namespace Analysis {
     private:
         // *** Members *** //
         unsigned int _id;
-        NBase _value;
+        NBase _constraint;
+        NBase _valuation;
         ObjectList<CGEdge*> _entries;
         ObjectList<CGEdge*> _exits;
         
@@ -51,11 +52,14 @@ namespace Analysis {
         
     public:    
         // *** Constructor *** //
-        CGNode(const NBase& value);
+        CGNode(const NBase& constraint);
         
         // *** Getters and setters *** //
         unsigned int get_id() const;
-        NBase get_value() const;
+        
+        NBase get_constraint() const;
+        NBase get_valuation() const;
+        void set_valuation(const NBase& valuation);
         
         ObjectList<CGEdge*> get_entries() const;
         ObjectList<CGNode*> get_parents();
@@ -80,6 +84,7 @@ namespace Analysis {
         CGNode* _source;
         CGNode* _target;
         NBase _predicate;
+        bool _is_saturated;
         
     public:
         // *** Constructor *** //
@@ -89,6 +94,8 @@ namespace Analysis {
         CGNode* get_source() const;
         CGNode* get_target() const;
         NBase get_predicate() const;
+        bool is_saturated() const;
+        void set_saturated(bool s);
     };
     
     typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGNode_map;
@@ -98,12 +105,23 @@ namespace Analysis {
     private:
         // *** Members *** //
         std::vector<CGNode*> _nodes;
+        CGNode* _root;
+        unsigned int _id;
         
     public:
+        // *** Constructor *** //
+        SCC();
+        
         // *** Getters and setters *** //
         bool empty() const;
         std::vector<CGNode*> get_nodes() const;
         void add_node(CGNode* n);
+        CGNode* get_root() const;
+        void set_root(CGNode* root);
+        unsigned int get_id() const;
+        
+        // *** Consultants *** //
+        bool is_trivial() const;
     };
     
     class LIBTL_CLASS ConstraintGraph
@@ -129,8 +147,11 @@ namespace Analysis {
         //! Connects nodes #source and #target with a directed edge extended with #predicate
         void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
         
-        // Decompose the Constraint Graph in a set of Strongly Connected Components
-        std::vector<SCC> extract_strongly_connected_components();
+        //! Decompose the Constraint Graph in a set of Strongly Connected Components
+        std::vector<SCC*> topologically_compose_strongly_connected_components();
+
+        //! Use the different rules to topologically solve and propagate the constraints over the CG
+        void solve_contraints(const std::vector<SCC*>& roots);
         
         //! Generates a dot file with the structure of the graph
         void print_graph();

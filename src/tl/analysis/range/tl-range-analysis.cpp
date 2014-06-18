@@ -373,8 +373,8 @@ namespace {
     }
 }
     
-    CGNode::CGNode(const NBase& value)
-        : _id(++cgnode_id), _value(value), _entries(), _exits(), 
+    CGNode::CGNode(const NBase& constraint)
+        : _id(++cgnode_id), _constraint(constraint), _valuation(), _entries(), _exits(), 
         _scc_index(-1), _scc_lowlink_index(-1)
     {}
     
@@ -383,11 +383,22 @@ namespace {
         return _id;
     }
     
-    NBase CGNode::get_value() const
+    NBase CGNode::get_constraint() const
     { 
-        return _value; 
+        return _constraint; 
     }
-        
+    
+    NBase CGNode::get_valuation() const
+    { 
+        return _valuation;
+    }
+    
+    void CGNode::set_valuation(const NBase& valuation)
+    {
+        std::cerr << "Node " << _id << " valuation " << valuation.prettyprint() << std::endl;
+        _valuation = valuation;
+    }
+    
     ObjectList<CGEdge*> CGNode::get_entries() const
     {
         return _entries;
@@ -491,7 +502,7 @@ namespace {
     }
     
     CGEdge::CGEdge(CGNode* source, CGNode* target, const NBase& predicate)
-        : _source(source), _target(target), _predicate(predicate)
+        : _source(source), _target(target), _predicate(predicate), _is_saturated(true)
     {}
     
     CGNode* CGEdge::get_source() const
@@ -504,10 +515,26 @@ namespace {
         return _target;
     }
     
+    bool CGEdge::is_saturated() const
+    {
+        return _is_saturated;
+    }
+    
+    void CGEdge::set_saturated(bool s)
+    {
+        _is_saturated = s;
+    }
+    
     NBase CGEdge::get_predicate() const
     {
         return _predicate;        
     }
+    
+    static unsigned int SccId = 0;
+    
+    SCC::SCC()
+        : _nodes(), _root(NULL), _id(++SccId)
+    {}
     
     bool SCC::empty() const
     {
@@ -522,6 +549,26 @@ namespace {
     void SCC::add_node(CGNode* n)
     {
         _nodes.push_back(n);
+    }
+    
+    CGNode* SCC::get_root() const
+    {
+        return _root;
+    }
+    
+    void SCC::set_root(CGNode* root)
+    {
+        _root = root;
+    }
+    
+    unsigned int SCC::get_id() const
+    {
+        return _id;
+    }
+    
+    bool SCC::is_trivial() const
+    {
+        return (_nodes.size() == 1);
     }
     
     ConstraintGraph::ConstraintGraph(std::string name)
@@ -559,7 +606,7 @@ namespace {
     {
         // Print all nodes
         for(CGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
-            dot_file << "\t" << it->second->get_id() << " [label=\"" << it->second->get_value().prettyprint() << "\"];\n";
+            dot_file << "\t" << it->second->get_id() << " [label=\"[" << it->second->get_id() << "] " << it->second->get_constraint().prettyprint() << "\"];\n";
         
         // Print all nodes relations
         for(CGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
@@ -611,7 +658,8 @@ namespace {
             internal_error ("Unable to close the file '%s' where CG has been stored.", dot_file_name.c_str());
     }
     
-    static bool stack_contains_cgnode(const std::stack<CGNode*>& s, CGNode* n)
+namespace {
+    bool stack_contains_cgnode(const std::stack<CGNode*>& s, CGNode* n)
     {
         bool result = false;
         std::stack<CGNode*> tmp = s;
@@ -624,7 +672,7 @@ namespace {
         return result;
     }
     
-    static void strong_connect(CGNode* n, unsigned int& scc_index, std::stack<CGNode*>& s, std::vector<SCC>& scc_list)
+    void strong_connect(CGNode* n, unsigned int& scc_index, std::stack<CGNode*>& s, std::vector<SCC*>& scc_list)
     {
         // Set the depth index for 'n' to the smallest unused index
         n->set_scc_index(scc_index);
@@ -651,36 +699,304 @@ namespace {
         // If 'n' is a root node, pop the set and generate an SCC
         if((n->get_scc_lowlink_index() == n->get_scc_index()) && !s.empty())
         {
-            SCC scc;
+            SCC* scc = new SCC();
+            
             while(!s.empty() && s.top()!=n)
             {
-                scc.add_node(s.top());
+                scc->add_node(s.top());
                 s.pop();
             }
             if(!s.empty() && s.top()==n)
             {
-                scc.add_node(s.top());
+                scc->add_node(s.top());
                 s.pop();
             }
             scc_list.push_back(scc);
         }
     }
     
+    std::map<CGNode*, SCC*> node_to_scc_map;
+}
+    
     // Implementation of the Tarjan's strongly connected components algorithm
-    std::vector<SCC> ConstraintGraph::extract_strongly_connected_components()
+    std::vector<SCC*> ConstraintGraph::topologically_compose_strongly_connected_components()
     {
-        std::vector<SCC> scc_list;
+        std::vector<SCC*> scc_list;
         std::stack<CGNode*> s;
         unsigned int scc_index = 0;
         
-        std::set<CGNode*> nodes = convert_cgnodes_map_in_set(_nodes);
-        for(std::set<CGNode*>::iterator it = nodes.begin(); it != nodes.end(); ++it)
+        // Compute the sets
+        std::set<CGNode*> all_nodes = convert_cgnodes_map_in_set(_nodes);
+        for(std::set<CGNode*>::iterator it = all_nodes.begin(); it != all_nodes.end(); ++it)
         {
             if((*it)->get_scc_index() == -1)
                 strong_connect(*it, scc_index, s, scc_list);
+            
         }
         
-        return scc_list;
+        // Create a map between SCC nodes and their SCC
+        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        {
+            std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
+            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); ++itt)
+            {
+                node_to_scc_map.insert(std::pair<CGNode*, SCC*>(*itt, *it));
+            }
+        }
+        
+        // Compute the root of each SCC
+        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        {
+            SCC* scc = (*it);
+            
+            std::vector<CGNode*> nodes = scc->get_nodes();
+            if(scc->is_trivial())
+            {
+                scc->set_root(nodes[0]);
+            }
+            else
+            {
+                for(std::vector<CGNode*>::iterator itt = nodes.begin(); itt != nodes.end(); ++itt)
+                {
+                    ObjectList<CGNode*> parents = (*itt)->get_parents();
+                    for(ObjectList<CGNode*>::iterator ittt = parents.begin(); ittt != parents.end(); ++ittt)
+                    {
+                        if(node_to_scc_map[*ittt] != scc)
+                        {
+                            scc->set_root(*itt);
+                            goto root_done;
+                        }
+                    }
+                }
+            }
+root_done:  ;
+        }
+        
+
+        #ifdef RANGES_DEBUG
+        std::cerr << "STRONGLY CONNECTED COMPONENTS" << std::endl;
+        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        {
+            std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
+            std::cerr << "SCC " << (*it)->get_id() << " : ";
+            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); )
+            {
+                std::cerr << (*itt)->get_constraint().prettyprint() << ", ";
+                ++itt;
+                if(itt != scc_nodes.end())
+                    std::cerr << ",";
+            }
+            std::cerr << std::endl;
+        }
+        #endif
+        
+        // Collect the roots of each tree
+        std::vector<SCC*> roots;
+        for(std::map<CGNode*, SCC*>::iterator it = node_to_scc_map.begin(); it != node_to_scc_map.end(); ++it)
+        {
+            if(it->first->get_entries().empty())
+                roots.push_back(it->second);
+        }
+        
+        /*
+         *    S C*C : v_3, 
+         *    SCC : v_2, ,v_1, ,v_6, ,v_5, ,v_4, 
+         *    SCC : _x_2, 
+         *    SCC : [0:1],
+         *    SCC : v_0, 
+         *    SCC : [0:0], 
+         *    SCC : _x_1, 
+         *    SCC : [0:1], 
+         *    SCC : p_0, 
+         *    SCC : [-∞:+∞]
+         */
+        #ifdef RANGES_DEBUG
+        std::cerr << "ROOT FOR EACH STRONGLY CONNECTED COMPONENT" << std::endl;
+        for(std::vector<SCC*>::iterator it = roots.begin(); it != roots.end(); ++it)
+        {
+            std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
+            std::cerr << "SCC " << (*it)->get_id() << " root: ";
+            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); )
+            {
+                std::cerr << (*itt)->get_constraint().prettyprint() << ", ";
+                ++itt;
+                if(itt != scc_nodes.end())
+                    std::cerr << ",";
+            }
+            std::cerr << std::endl;
+        }
+        #endif
+        
+        return roots;
+    }
+    
+namespace {
+    
+    NBase evaluate_cgnode(CGNode* node, const NBase& last_valuation)
+    {
+        NBase constraint = node->get_constraint();
+        NBase next_valuation;
+        if(constraint.is<Nodecl::Range>())
+        {
+            next_valuation = constraint;
+        }
+        else
+        {
+            next_valuation = last_valuation;
+        }
+        node->set_valuation(next_valuation);
+        return next_valuation;
+    }
+    
+    NBase evaluate_scc(SCC* scc, const NBase& valuation)
+    {
+        std::cerr << "SCC " << scc->get_id() << "  ->  EVALUATE" << std::endl;
+        CGNode* node = scc->get_nodes()[0];
+        return evaluate_cgnode(node, valuation);
+    }
+    
+    void propagate_valuation(SCC* scc, const NBase& valuation)
+    {
+        std::set<CGNode*> visited_nodes;
+        CGNode* next = scc->get_root();
+        NBase last_valuation = valuation;
+        while(next != NULL)
+        {
+            visited_nodes.insert(next);
+            
+            ObjectList<CGEdge*> exits = next->get_exits();
+            // Get the unique non-back edge
+            CGEdge* e = NULL;
+            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            {
+                CGEdge* tmp = *it;
+                CGNode* target = tmp->get_target();
+                if(node_to_scc_map[target] != scc)
+                    continue;       // This edge is not within the SCC we are valuating
+                if(visited_nodes.find(target) != visited_nodes.end())
+                    continue;       // This node has already been treated (back edge)
+                ERROR_CONDITION(e != NULL, "A non-back-edge has already been found for node %d.\n", next->get_id());
+                
+                e = *it;
+            }
+            
+            // We have found some edge to propagate the valuation
+            if(e != NULL)
+            {
+                // Propagate the valuation to the target of the edge
+                CGNode* target = e->get_target();
+                NBase val = target->get_valuation();
+                if(!val.is_null())
+                {
+                    last_valuation = Nodecl::Analysis::RangeUnion::make(last_valuation, val, val.get_type());
+                }
+                else
+                {
+                    last_valuation = val;
+                }
+                target->set_valuation(last_valuation);
+                
+                // Set the next node to propagate to
+                next = target;
+            }
+            else
+            {
+                next = NULL;
+            }
+        }
+    }
+    
+    void resolve_cycle(SCC* scc, const NBase& old_valuation)
+    {
+        std::cerr << "SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
+        // Evaluate the root of the SCC
+        CGNode* root = scc->get_root();
+        NBase next_valuation = evaluate_cgnode(root, old_valuation);
+        propagate_valuation(scc, next_valuation);
+        
+        // Saturate all non-saturated edges in the SCC
+        CGNode* n = root;
+        while(n != NULL)
+        {
+            // Treat the current node
+            ObjectList<CGEdge*> exits = n->get_exits();
+            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            {
+                CGEdge* e = *it;
+                CGNode* source = e->get_source();
+                CGNode* target = e->get_target();
+                if(e->is_saturated())
+                {
+                    NBase predicate = e->get_predicate();
+                    if(!predicate.is_null())
+                    {
+                        std::cerr << "Predicate: " << predicate.prettyprint() << std::endl;
+                        if(predicate.is<Nodecl::Range>())
+                        {
+                            next_valuation = Nodecl::Analysis::RangeIntersection::make(next_valuation, predicate, next_valuation.get_type());
+                            target->set_valuation(next_valuation);
+                        }
+                    }
+                    else
+                    {
+                        
+                    }
+                }
+            }
+            
+            
+        }
+    }
+    
+    void solve_constraint(SCC* scc)
+    {
+        SCC* next_scc = scc;
+        NBase next_valuation;
+        while(next_scc != NULL)
+        {
+            // Treat the current SCC
+            if(next_scc->is_trivial())
+            {
+                // Evaluate
+                next_valuation = evaluate_scc(next_scc, next_valuation);
+            }
+            else
+            {
+                // Cycle resolution
+                resolve_cycle(next_scc, next_valuation);
+            }
+            
+            // Prepare the next iteration, if exists
+            // FIXME next_sccs should always have a unique element, for no branches should appear in the Constraint Graph
+            // Once all this phase works properly, just stop iterating over the children when a different SCC has been found
+            CGNode* root = next_scc->get_root();
+            std::vector<CGNode*> children = root->get_children();
+            std::set<SCC*> next_sccs;
+            for(std::vector<CGNode*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                if(node_to_scc_map[*it] != next_scc)
+                {
+                    next_sccs.insert(node_to_scc_map[*it]);
+                }
+            }
+            if(next_sccs.empty())
+                next_scc = NULL;
+            else
+            {
+                ERROR_CONDITION(next_sccs.size() > 1, 
+                                "Only one path should appear in the Constraint Graph, but more than one found for node %d.\n", 
+                                root->get_id());
+                next_scc = *next_sccs.begin();
+            }
+        }
+    }
+}
+    void ConstraintGraph::solve_contraints(const std::vector<SCC*>& roots)
+    {
+        for(std::vector<SCC*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
+        {
+            solve_constraint(*it);
+        }
     }
     
     // ***************************** END class implementing constraint graph ****************************** //
@@ -696,7 +1012,8 @@ namespace {
     {}
     
     void RangeAnalysis::compute_range_analysis()
-    {   // Compute the constraints of the current graph
+    {   
+        // 1.- Compute the constraints of the current PCFG
         set_parameters_constraints();
         
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
@@ -705,27 +1022,19 @@ namespace {
         
         propagate_constraints_from_backwards_edges(entry);
         ExtensibleGraph::clear_visits(entry);
-        
+
+        // 2.- Create the Constraint Graph
         create_constraint_graph(entry);
         ExtensibleGraph::clear_visits(entry);
         if(VERBOSE)
             _cg->print_graph();
-        std::vector<SCC> scc_list = _cg->extract_strongly_connected_components();
-#ifdef RANGES_DEBUG
-        for(std::vector<SCC>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
-        {
-            std::vector<CGNode*> scc_nodes = it->get_nodes();
-            std::cerr << "SCC : ";
-            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); )
-            {
-                std::cerr << (*itt)->get_value().prettyprint() << ", ";
-                ++itt;
-                if(itt != scc_nodes.end())
-                    std::cerr << ",";
-            }
-            std::cerr << std::endl;
-        }
-#endif
+        
+        // 3.- Extract the Strongly Connected Components (SCC) of the graph
+        //     And get the root of each topologically ordered subgraph
+        std::vector<SCC*> roots = _cg->topologically_compose_strongly_connected_components();
+        
+        // 4.- Constraints evaluation
+        _cg->solve_contraints(roots);
     }
     
     // Set an constraint to the graph entry node for each parameter of the function
