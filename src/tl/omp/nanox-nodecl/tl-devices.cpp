@@ -897,6 +897,8 @@ namespace TL { namespace Nanox {
                         function_context.current_scope,
                         uniquestr(sym.get_name().c_str()));
 
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = sym.get_type().get_internal_type();
                 private_sym->value = v.get_internal_nodecl();
                 private_sym->entity_specs.is_saved_expression = 1;
 
