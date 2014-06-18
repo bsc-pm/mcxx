@@ -970,7 +970,7 @@ namespace TL { namespace OpenMP {
                 {
                     *_omp_report_file
                         << OpenMP::Report::indent
-                        << "Label of this parallel construct '" << str_list[0] << "'\n";
+                        << "This parallel construct does not have any label\n";
                 }
             }
         }
