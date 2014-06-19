@@ -1809,27 +1809,26 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     xfree(argument_types);
     xfree(parameter_types);
 
-    // Check that the return type makes sense, otherwise the whole deduction is wrong
-    type_t* function_return_type = function_type_get_return_type(specialized_type);
+    // // Check that the return type makes sense, otherwise the whole deduction is wrong
+    // type_t* function_return_type = function_type_get_return_type(specialized_type);
+    // if (function_return_type != NULL)
+    // {
+    //     // Now update it, if it returns NULL, everything was wrong :)
+    //     diagnostic_context_push_buffered();
+    //     function_return_type = update_type(function_return_type,
+    //             updated_context,
+    //             locus);
+    //     diagnostic_context_pop_and_discard();
 
-    if (function_return_type != NULL)
-    {
-        // Now update it, if it returns NULL, everything was wrong :)
-        diagnostic_context_push_buffered();
-        function_return_type = update_type(function_return_type,
-                updated_context,
-                locus);
-        diagnostic_context_pop_and_discard();
-
-        if (function_return_type == NULL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEDEDUC: Deduction led to a wrong return type\n");
-            }
-            return 0;
-        }
-    }
+    //     if (function_return_type == NULL)
+    //     {
+    //         DEBUG_CODE()
+    //         {
+    //             fprintf(stderr, "TYPEDEDUC: Deduction led to a wrong return type\n");
+    //         }
+    //         return 0;
+    //     }
+    // }
 
     return 1;
 }

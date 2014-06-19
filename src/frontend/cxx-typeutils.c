@@ -7073,7 +7073,11 @@ char is_signed_integral_type(type_t* t)
         || is_signed_int_type(t)
         || is_signed_long_int_type(t)
         || is_signed_long_long_int_type(t)
-        || is_signed_int128_type(t);
+        || is_signed_int128_type(t)
+        || (IS_CXX_LANGUAGE
+                && is_wchar_t_type(t)
+                    && is_signed_integral_type(
+                        (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)()));
 }
 
 char is_unsigned_integral_type(type_t* t)
@@ -7085,7 +7089,11 @@ char is_unsigned_integral_type(type_t* t)
         || is_unsigned_long_int_type(t)
         || is_unsigned_long_long_int_type(t)
         || is_unsigned_int128_type(t)
-        || is_mask_type(t);
+        || is_mask_type(t)
+        || (IS_CXX_LANGUAGE
+                && is_wchar_t_type(t)
+                && is_unsigned_integral_type(
+                    (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)()));
 }
 
 char is_signed_int_type(type_t *t)

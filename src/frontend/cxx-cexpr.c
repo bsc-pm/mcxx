@@ -3949,7 +3949,7 @@ const char* const_value_to_str(const_value_t* cval)
                 }
                 else
                 {
-                    uniquestr_sprintf(&result, "(int%d_t)%s",
+                    uniquestr_sprintf(&result, "(uint%d_t)%s",
                         cval->num_bytes * 8, unsigned_int128_to_str(cval->value.i, 0));
                 }
 #else

@@ -53,12 +53,17 @@ namespace TL { namespace OpenMP {
             std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_stmt_to_task_calls_map;
 
             OpenMP::Base *_base;
+            bool _ignore_template_functions;
         public:
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
                     const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
-                    OpenMP::Base* base);
+                    OpenMP::Base* base,
+                    bool ignore_template_functions);
+
+            virtual void visit(const Nodecl::FunctionCode& node);
+            virtual void visit(const Nodecl::TemplateFunctionCode& node);
 
             virtual void visit(const Nodecl::FunctionCall& call);
 
@@ -139,6 +144,7 @@ namespace TL { namespace OpenMP {
         private:
 
             bool _task_expr_optim_disabled;
+            bool _ignore_template_functions;
 
             int _optimized_task_expr_counter;
 
@@ -161,7 +167,12 @@ namespace TL { namespace OpenMP {
 
         public:
 
-            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set, bool task_expr_optim_disabled);
+            TransformNonVoidFunctionCalls(RefPtr<FunctionTaskSet> function_task_set,
+                    bool task_expr_optim_disabled,
+                    bool ignore_template_functions);
+
+            virtual void visit(const Nodecl::FunctionCode& node);
+            virtual void visit(const Nodecl::TemplateFunctionCode& node);
 
             virtual void visit(const Nodecl::ObjectInit& object_init);
             virtual void visit(const Nodecl::ReturnStatement& return_stmt);

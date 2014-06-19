@@ -1741,7 +1741,9 @@ static char better_ics(implicit_conversion_sequence_t ics1,
                 CURRENT_COMPILED_FILE->global_decl_context,
                 make_locus("", 0, 0), /* mandatory */ 0);
 
-        type_t* std_initializer_list_template_type = std_initializer_list_template->type_information;
+        type_t* std_initializer_list_template_type = NULL;
+        if (std_initializer_list_template != NULL)
+            std_initializer_list_template_type = std_initializer_list_template->type_information;
 
         // ics1 converts to std::initializer_list<X> for some X and ics2 does not
         if (std_initializer_list_template_type != NULL

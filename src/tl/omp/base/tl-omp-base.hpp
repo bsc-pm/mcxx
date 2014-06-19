@@ -88,6 +88,10 @@ namespace TL
 
                 std::string _disable_task_expr_optim_str;
 
+                bool _instantiate_omp;
+                std::string _instantiate_omp_str;
+                void set_instantiate_omp(const std::string& instantiate_omp);
+
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
