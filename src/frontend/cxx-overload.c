@@ -2615,6 +2615,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
                 type_t* primary_type = primary_symbol->type_information;
                 type_t* parameter_types[1] = { primary_type };
+                type_t* original_parameter_types[1] = { primary_type };
                 int num_parameter_types = 1;
 
                 template_parameter_list_t* template_parameters 
@@ -2625,10 +2626,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, num_parameter_types,
+                            original_parameter_types,
                             primary_symbol->decl_context,
                             &deduced_template_arguments, locus,
                             explicit_template_parameters,
-                            deduction_flags_empty()))
+                            /* is_function_call */ 0))
                 {
                     DEBUG_CODE()
                     {

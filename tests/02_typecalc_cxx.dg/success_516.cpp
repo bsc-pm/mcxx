@@ -24,40 +24,46 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+struct empty;
+
+template < int N, typename T0 = empty, typename T1 = empty, typename T2 = empty,
+                  typename T3 = empty, typename T4 = empty, typename T5 = empty >
+struct Helper;
 
 
+template < int N >
+struct Helper< N, empty, empty, empty,
+                  empty, empty, empty >
+{
+};
 
-#ifndef CXX_TYPEUNIF_H
-#define CXX_TYPEUNIF_H
+template < int N, typename T0, typename T1, typename T2,
+                  typename T3, typename T4, typename T5 >
+struct Helper : Helper<N+1, T1, T2, T3, T4, T5>
+{
+};
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
 
-#include "cxx-ast-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif-decls.h"
+template < typename T0 = empty, typename T1 = empty, typename T2 = empty,
+           typename T3 = empty, typename T4 = empty, typename T5 = empty >
+struct MyTuple : Helper<0, T0, T1, T2, T3, T4, T5>
+{
+};
 
-MCXX_BEGIN_DECLS
+template < int N,
+           typename T0, typename T1, typename T2,
+           typename T3, typename T4, typename T5 >
+void get(Helper<N, T0, T1, T2, T3, T4, T5> &h);
 
-LIBMCXX_EXTERN void unificate_two_types(
-        type_t* t1,
-        type_t* t2,
-        deduction_set_t* unif_set,
-        decl_context_t decl_context, 
-        const locus_t* locus);
-        
-LIBMCXX_EXTERN void unificate_two_expressions(
-        deduction_set_t* unif_set, 
-        nodecl_t left_tree, 
-        nodecl_t right_tree);
-LIBMCXX_EXTERN char same_functional_expression(
-        nodecl_t left_tree,
-        nodecl_t right_tree);
+void foo()
+{
+    MyTuple<int, float, double> m;
 
-LIBMCXX_EXTERN long long int typeunif_used_memory(void);
-
-MCXX_END_DECLS
-
-#endif
+    get<0>(m);
+    get<1>(m);
+}

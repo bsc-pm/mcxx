@@ -3186,8 +3186,17 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     if (pack_index < 0)
                     {
-                        // If we are not expanding. Return the sequence as a whole
-                        return get_cv_qualified_type(new_sym->type_information, cv_qualif_orig | cv_qualif_new);
+                        if (is_pack_type(new_sym->type_information))
+                            // If we are not expanding and this is a pack return the packed type
+                            // and let the caller build another pack
+                            return get_cv_qualified_type(
+                                    pack_type_get_packed_type(new_sym->type_information),
+                                    cv_qualif_orig | cv_qualif_new);
+                        else
+                            // otherwise return the sequence of types as a whole
+                            return get_cv_qualified_type(
+                                    new_sym->type_information,
+                                    cv_qualif_orig | cv_qualif_new);
                     }
                     else
                     {
