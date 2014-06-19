@@ -245,7 +245,8 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase function_body;
         Source src;
         src << "void " << fun_name << "("
-            << as_type(red->get_type()) << "* omp_priv)"
+            <<      as_type(red->get_type()) << "* omp_priv,"
+            <<      as_type(red->get_type()) << "* omp_orig)"
             << "{"
             <<    statement_placeholder(function_body)
             << "}"
@@ -255,7 +256,10 @@ namespace TL { namespace Nanox {
 
         TL::Scope inside_function = ReferenceScope(function_body).get_scope();
         TL::Symbol param_omp_priv = inside_function.get_symbol_from_name("omp_priv");
-        ERROR_CONDITION(!param_omp_priv.is_valid(), "Symbol omp_in not found", 0);
+        ERROR_CONDITION(!param_omp_priv.is_valid(), "Symbol omp_priv not found", 0);
+
+        TL::Symbol param_omp_orig = inside_function.get_symbol_from_name("omp_orig");
+        ERROR_CONDITION(!param_omp_orig.is_valid(), "Symbol omp_orig not found", 0);
 
         TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
         ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
@@ -272,6 +276,7 @@ namespace TL { namespace Nanox {
 
         std::map<TL::Symbol, TL::Symbol> translation_map;
         translation_map[red->get_omp_priv()] = param_omp_priv;
+        translation_map[red->get_omp_orig()] = param_omp_orig;
 
         ReductionReplaceSymbolVisitor expander_visitor(translation_map);
         expander_visitor.walk(initializer);
@@ -691,7 +696,7 @@ namespace TL { namespace Nanox {
                 <<      "(void *) &" << (*it)->get_field_name() << ","    // target
                 <<      "sizeof(" << as_type(reduction_type) << "),"    // size
                 <<      "__alignof__(" << as_type(reduction_type) << "),"
-                <<      "(void (*)(void *)) & " << initializer_function.get_name() << ","         // initializer
+                <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << ","         // initializer
                 <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << ");" // reducer
                 ;
         }
