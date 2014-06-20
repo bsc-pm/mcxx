@@ -89,7 +89,8 @@ namespace TL { namespace Nanox {
         std::string slicer_name = schedule_name + "_for";
 
         schedule_setup
-            << "nanos_slicer_t nanos_slicer; nanos_slicer = nanos_find_slicer(\"" << slicer_name << "\");"
+            << "nanos_slicer_t nanos_slicer;"
+            << "nanos_slicer = nanos_find_slicer(\"" << slicer_name << "\");"
             << "if (nanos_slicer == 0) nanos_handle_error(NANOS_UNIMPLEMENTED);"
             << "int nanos_chunk = " << (!schedule.get_chunk().is_null() ? as_expression(schedule.get_chunk()) : "1") << ";"
             ;
@@ -132,7 +133,7 @@ namespace TL { namespace Nanox {
         spawn_code
         << "{"
         <<     "nanos_err_t err;"
-        <<     struct_arg_type_name << "* ol_args, imm_args;"
+        <<     struct_arg_type_name << "* ol_args;"
         <<     "ol_args = (" << struct_arg_type_name << "*) 0;"
         <<     "nanos_wd_t nanos_wd_ = (nanos_wd_t)0;"
         <<     dynamic_wd_info
