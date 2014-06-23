@@ -548,6 +548,7 @@ LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 LIBMCXX_EXTERN char enum_type_get_underlying_type_is_fixed(type_t* t);
 
 LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
+LIBMCXX_EXTERN void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 

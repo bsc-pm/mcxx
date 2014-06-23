@@ -3186,8 +3186,17 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     if (pack_index < 0)
                     {
-                        // If we are not expanding. Return the sequence as a whole
-                        return get_cv_qualified_type(new_sym->type_information, cv_qualif_orig | cv_qualif_new);
+                        if (is_pack_type(new_sym->type_information))
+                            // If we are not expanding and this is a pack return the packed type
+                            // and let the caller build another pack
+                            return get_cv_qualified_type(
+                                    pack_type_get_packed_type(new_sym->type_information),
+                                    cv_qualif_orig | cv_qualif_new);
+                        else
+                            // otherwise return the sequence of types as a whole
+                            return get_cv_qualified_type(
+                                    new_sym->type_information,
+                                    cv_qualif_orig | cv_qualif_new);
                     }
                     else
                     {
@@ -5593,33 +5602,44 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     else if (IS_CXX11_LANGUAGE
             && entry->kind == SK_ENUMERATOR)
     {
-        // In C++11 we qualify enumerators that are not members
+        // In C++11 we qualify enumerators
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);
-#if 0
-        // There is a bug with g++, C++11 and anonymous enumerators
-        char hack_for_anonymous_enumerator_gxx =
-            strncmp(enum_symbol->symbol_name,
-                        "mcc_enum_anon_",
-                        strlen("mcc_enum_anon_")) == 0;
-        if (hack_for_anonymous_enumerator_gxx)
+
+        // This is a workaround for a <g++-4.10 bug where fully qualifying
+        // an unscoped enum may fail in some contexts
+#define GCC_UNSCOPED_ENUM_BUG 1
+
+        const char* enum_qualification = NULL;
+        char prev_is_dependent = 0;
+#ifdef GCC_UNSCOPED_ENUM_BUG
+        if (is_scoped_enum_type(entry->type_information))
         {
-            // Get the enclosing symbol (eventually a class or a namespace)
-            enum_symbol = enum_symbol->decl_context.current_scope->related_entry;
-            if (enum_symbol == NULL)
-                return result;
+#endif
+            enum_qualification =
+                get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,
+                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
+            enum_qualification = strappend(enum_qualification, "::");
+            (*is_dependent) |= prev_is_dependent;
+
+            result = strappend(enum_qualification, result);
+#ifdef GCC_UNSCOPED_ENUM_BUG
+        }
+        else if (enum_symbol->entity_specs.is_member)
+        {
+            scope_entry_t* class_symbol = named_type_get_symbol(enum_symbol->entity_specs.class_type);
+            enum_qualification =
+                get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level,
+                        /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
+            enum_qualification = strappend(enum_qualification, "::");
+            (*is_dependent) |= prev_is_dependent;
+
+            result = strappend(enum_qualification, result);
+        }
+        else
+        {
+            result = get_fully_qualified_symbol_name_simple(enum_symbol, decl_context, result);
         }
 #endif
-
-        char prev_is_dependent = 0;
-        const char* enum_qualification =
-            get_fully_qualified_symbol_name_ex(enum_symbol, decl_context, &prev_is_dependent, max_qualif_level,
-                    /* no_templates */ 0, only_classes, do_not_emit_template_keywords, print_type_fun, print_type_data);
-
-        enum_qualification = strappend(enum_qualification, "::");
-
-        (*is_dependent) |= prev_is_dependent;
-
-        result = strappend(enum_qualification, result);
     }
     else if (!entry->entity_specs.is_member
             && !only_classes)

@@ -1529,7 +1529,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     if (used_entities == NULL)
     {
-        error_printf("%s: error: entity '%s' in using-declaration is unknown",
+        error_printf("%s: error: entity '%s' in using-declaration is unknown\n",
                 nodecl_locus_to_str(nodecl_name),
                 codegen_to_str(nodecl_name, decl_context));
         return;
@@ -8705,7 +8705,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
 
-
                 if (is_template_explicit_specialization(decl_context.template_parameters))
                 {
                     // We are declaring a template class nested in at least one class
@@ -9016,6 +9015,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             set_is_transparent_union(class_type, /* is_transparent_union */ 1);
         }
     }
+
+    // This may overwrite the class kind, but this is OK
+    class_type_set_class_kind(class_type, class_kind);
 
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
@@ -9850,7 +9852,7 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
                 {
-                    error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                    error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                             ast_location(parameters),
                             num_parameters);
                 }
@@ -9895,7 +9897,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
             {
-                error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                         ast_location(parameters),
                         num_parameters);
             }
@@ -16100,7 +16102,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             }
                             else
                             {
-                                error_printf("%s: error: no initializer allowed in current member declaration",
+                                error_printf("%s: error: no initializer allowed in current member declaration\n",
                                         ast_location(initializer));
                                 return;
                             }
