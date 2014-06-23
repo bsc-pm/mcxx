@@ -1852,6 +1852,15 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
+void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    t->type->class_info->class_kind = class_kind;
+}
+
 static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)

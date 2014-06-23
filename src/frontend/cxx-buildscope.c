@@ -8705,7 +8705,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
 
-
                 if (is_template_explicit_specialization(decl_context.template_parameters))
                 {
                     // We are declaring a template class nested in at least one class
@@ -9016,6 +9015,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             set_is_transparent_union(class_type, /* is_transparent_union */ 1);
         }
     }
+
+    // This may overwrite the class kind, but this is OK
+    class_type_set_class_kind(class_type, class_kind);
 
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
