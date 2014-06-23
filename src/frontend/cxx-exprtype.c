@@ -14982,7 +14982,7 @@ char is_narrowing_conversion_type(type_t* orig_type,
     }
     else if ((is_integer_type(orig_type)
                 || is_unscoped_enum_type(orig_type))
-            && is_integer_type(dest_type))
+            && (is_integer_type(dest_type) && !is_bool_type(dest_type)))
     {
         if (is_unscoped_enum_type(orig_type))
             orig_type = enum_type_get_underlying_type(orig_type);
@@ -16154,26 +16154,19 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
                 if (i < num_parameters)
                 {
-                    if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_arg)))
-                    {
-                        update_unresolved_overload_argument(
-                                nodecl_get_type(nodecl_arg),
-                                function_type_get_parameter_type_num(chosen_constructor->type_information, i),
-                                decl_context,
-                                nodecl_get_locus(nodecl_arg),
-                                &nodecl_arg);
-                    }
+                    type_t* param_type = function_type_get_parameter_type_num(chosen_constructor->type_information, i);
 
-                    if (conversors[i] != NULL)
+                    nodecl_t nodecl_old_arg = nodecl_arg;
+                    check_nodecl_function_argument_initialization(nodecl_arg,
+                            decl_context,
+                            param_type,
+                            /* disallow_narrowing */ 0,
+                            &nodecl_arg);
+                    if (nodecl_is_err_expr(nodecl_arg))
                     {
-                        nodecl_arg = cxx_nodecl_make_function_call(
-                                nodecl_make_symbol(conversors[i], nodecl_get_locus(nodecl_arg)),
-                                /* called name */ nodecl_null(),
-                                nodecl_make_list_1(nodecl_arg),
-                                nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_arg)),
-                                actual_type_of_conversor(conversors[i]),
-                                decl_context,
-                                nodecl_get_locus(nodecl_arg));
+                        *nodecl_output = nodecl_arg;
+                        nodecl_free(nodecl_old_arg);
+                        return;
                     }
                 }
                 else
