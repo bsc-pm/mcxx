@@ -1529,7 +1529,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     if (used_entities == NULL)
     {
-        error_printf("%s: error: entity '%s' in using-declaration is unknown",
+        error_printf("%s: error: entity '%s' in using-declaration is unknown\n",
                 nodecl_locus_to_str(nodecl_name),
                 codegen_to_str(nodecl_name, decl_context));
         return;
@@ -9852,7 +9852,7 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
                 {
-                    error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                    error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                             ast_location(parameters),
                             num_parameters);
                 }
@@ -9897,7 +9897,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
             {
-                error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                         ast_location(parameters),
                         num_parameters);
             }
@@ -16102,7 +16102,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             }
                             else
                             {
-                                error_printf("%s: error: no initializer allowed in current member declaration",
+                                error_printf("%s: error: no initializer allowed in current member declaration\n",
                                         ast_location(initializer));
                                 return;
                             }
