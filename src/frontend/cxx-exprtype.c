@@ -21025,7 +21025,10 @@ nodecl_t instantiate_expression(
 static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
         nodecl_t nodecl_expr)
 {
-    internal_error("Expression '%s' not yet implemented\n", ast_print_node_type(nodecl_get_kind(nodecl_expr)));
+    internal_error("Instantiation of expression of kind '%s' at '%s' "
+            "no implemented yet\n",
+            ast_print_node_type(nodecl_get_kind(nodecl_expr)),
+            nodecl_locus_to_str(nodecl_expr));
 }
 
 static void instantiate_type(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
