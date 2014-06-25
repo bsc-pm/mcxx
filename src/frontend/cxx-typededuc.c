@@ -1203,6 +1203,7 @@ static char deduction_of_base_type_may_succeed(
 
     if (!ok)
     {
+        free_template_parameter_list(current_deduced_template_arguments);
         return 0;
     }
 
@@ -1216,16 +1217,20 @@ static char deduction_of_base_type_may_succeed(
         {
             fprintf(stderr, "TYPEDEDUC: Deduction fails because it could not deduce any argument type\n");
         }
+        free_template_parameter_list(current_deduced_template_arguments);
         return 0;
     }
 
-    return deduction_of_argument_type_may_succeed(
+    char result = deduction_of_argument_type_may_succeed(
             deduced_argument_type,
             argument_type,
             parameter_type,
             original_parameter_type,
             updated_context,
             locus);
+    free_template_parameter_list(current_deduced_template_arguments);
+
+    return result;
 }
 
 static void deduce_template_arguments_from_types(
