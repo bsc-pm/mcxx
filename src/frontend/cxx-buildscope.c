@@ -14482,6 +14482,10 @@ static char check_constexpr_constructor(scope_entry_t* entry,
     nodecl_t* list = nodecl_unpack_list(nodecl_initializer_list, &num_items_initializer_list);
     for (i = 0; i < num_items_initializer_list; i++)
     {
+        ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_MEMBER_INIT
+                && nodecl_get_kind(list[i]) != NODECL_IMPLICIT_MEMBER_INIT,
+                "Invalid node", 0);
+
         scope_entry_t* sym = nodecl_get_symbol(list[i]);
 
         int j;
@@ -14496,7 +14500,7 @@ static char check_constexpr_constructor(scope_entry_t* entry,
                         || (sym->kind == SK_VARIABLE
                             && is_class_type(sym->type_information)))
                 {
-                    nodecl_t initializer = nodecl_get_child(list[i], 1);
+                    nodecl_t initializer = nodecl_get_child(list[i], 0);
 
                     if (nodecl_get_kind(initializer) == NODECL_FUNCTION_CALL)
                     {
