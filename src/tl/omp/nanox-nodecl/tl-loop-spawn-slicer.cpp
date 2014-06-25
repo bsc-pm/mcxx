@@ -61,13 +61,13 @@ namespace TL { namespace Nanox {
 
         struct_size << "sizeof( " << struct_arg_type_name << " )" << dynamic_size;
 
-        Source immediate_decl;
+        Source immediate_decl_dummy;
         allocate_immediate_structure(
                 outline_info,
                 struct_arg_type_name,
                 struct_size,
                 // out
-                immediate_decl,
+                immediate_decl_dummy,
                 dynamic_size);
 
         Nodecl::NodeclBase fill_outline_arguments_tree, fill_slicer_descriptor_tree;
@@ -140,7 +140,7 @@ namespace TL { namespace Nanox {
         <<     const_wd_info
         <<     schedule_setup
         <<     "err = nanos_create_sliced_wd(&nanos_wd_, nanos_wd_const_data.base.num_devices, nanos_wd_const_data.devices, "
-        <<            "sizeof(" << struct_arg_type_name << "),"
+        <<            "(size_t)" << struct_size << ","
         <<            "nanos_wd_const_data.base.data_alignment,"
         <<            "(void**)&ol_args, nanos_current_wd(), nanos_slicer, &nanos_wd_const_data.base.props, &nanos_dyn_props,"
         <<            "0, 0, 0, 0);"
