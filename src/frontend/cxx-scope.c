@@ -4236,6 +4236,22 @@ static char check_single_template_argument_from_syntax(AST template_parameter,
     }
 }
 
+static int choose_type_template_argument(
+        AST current,
+        AST previous,
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void* info UNUSED_PARAMETER)
+{
+    // Prioritize template-type arguments
+    return either_type(
+            current,
+            previous,
+            AST_TEMPLATE_EXPRESSION_ARGUMENT,
+            AST_TEMPLATE_TYPE_ARGUMENT);
+}
+
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
         decl_context_t template_parameters_context,
         dhash_ptr_t* disambig_hash,
@@ -4259,7 +4275,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 template_parameters_context,
                 &targ_info,
                 check_single_template_argument_from_syntax,
-                NULL,
+                choose_type_template_argument,
                 NULL);
     }
 
