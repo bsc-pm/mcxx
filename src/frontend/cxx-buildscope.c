@@ -5999,6 +5999,18 @@ static void build_scope_ctor_initializer(
         if (entry_list_contains(already_initialized, entry))
             continue;
 
+        if (IS_CXX11_LANGUAGE
+                && !nodecl_is_null(entry->value))
+        {
+            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                    // FIXME: We may have to fix the 'this' symbol used in the value
+                    nodecl_shallow_copy(entry->value),
+                    entry,
+                    locus);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+            continue;
+        }
+
         scope_entry_t* constructor = NULL;
         char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
 
@@ -6441,6 +6453,126 @@ static void default_constructor_determine_if_trivial(
     {
         default_constructor->entity_specs.is_trivial = 1;
     }
+}
+
+static char is_union_type_or_thereof(type_t* t)
+{
+    if (is_array_type(t))
+        t = array_type_get_element_type(t);
+
+    if (!is_class_type(t))
+        return 0;
+
+    if (is_union_type(t))
+        return 1;
+
+    return 0;
+}
+
+static char is_union_type_or_thereof_with_one_initializer(type_t* t)
+{
+    ERROR_CONDITION(!is_union_type_or_thereof(t), "Invalid type", 0);
+
+    if (is_array_type(t))
+        t = array_type_get_element_type(t);
+
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(t);
+
+    int num_initializers = 0;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *data_member = entry_list_iterator_current(it);
+        num_initializers += !nodecl_is_null(data_member->value);
+    }
+    entry_list_iterator_free(it);
+
+    return (num_initializers == 1);
+}
+
+static void default_constructor_determine_if_constexpr(
+        scope_entry_t* default_constructor,
+        scope_entry_list_t* nonstatic_data_members,
+        scope_entry_list_t* direct_base_classes,
+        char has_virtual_bases,
+        char has_virtual_functions,
+        const locus_t* locus)
+{
+    if (has_virtual_bases
+            /* This is unclear to me but seems to follow from the definition of literal type */
+            || has_virtual_functions)
+        return;
+
+    scope_entry_list_iterator_t* it = NULL;
+    char has_nonstatic_data_member_without_initializer = 0;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it)
+            && !has_nonstatic_data_member_without_initializer;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *data_member = entry_list_iterator_current(it);
+
+        if (nodecl_is_null(data_member->value))
+        {
+            if (is_class_type_or_array_thereof(data_member->type_information))
+            {
+                if (is_union_type_or_thereof(data_member->type_information))
+                {
+                    has_nonstatic_data_member_without_initializer =
+                        !is_union_type_or_thereof_with_one_initializer(data_member->type_information);
+                }
+                else
+                {
+                    scope_entry_t* constructor = NULL;
+
+                    diagnostic_context_push_buffered();
+                    char valid = check_default_initialization(data_member, data_member->decl_context, locus, &constructor);
+                    diagnostic_context_pop_and_discard();
+
+                    if (!valid)
+                        has_nonstatic_data_member_without_initializer = 1;
+                    else
+                        has_nonstatic_data_member_without_initializer = !constructor->entity_specs.is_constexpr;
+                }
+            }
+            else
+            {
+                has_nonstatic_data_member_without_initializer = nodecl_is_null(data_member->value);
+            }
+        }
+    }
+    entry_list_iterator_free(it);
+
+    if (has_nonstatic_data_member_without_initializer)
+        return;
+
+    char has_base_without_constexpr_constructor = 0;
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it)
+            && !has_base_without_constexpr_constructor;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *base_class = entry_list_iterator_current(it);
+
+        scope_entry_t* constructor = NULL;
+        diagnostic_context_push_buffered();
+        char valid = check_default_initialization(base_class, base_class->decl_context, locus, &constructor);
+        diagnostic_context_pop_and_discard();
+
+        if (!valid)
+            has_base_without_constexpr_constructor = 1;
+        else
+            has_base_without_constexpr_constructor = !constructor->entity_specs.is_constexpr;
+    }
+    entry_list_iterator_free(it);
+
+    if (has_base_without_constexpr_constructor)
+        return;
+
+    default_constructor->entity_specs.is_constexpr = 1;
 }
 
 static void copy_constructor_determine_if_trivial(
@@ -7254,6 +7386,14 @@ static void finish_class_type_cxx(type_t* class_type,
                     has_virtual_bases,
                     has_virtual_functions);
         }
+
+        default_constructor_determine_if_constexpr(
+            implicit_default_constructor,
+            nonstatic_data_members,
+            direct_base_classes,
+            has_virtual_bases,
+            has_virtual_functions,
+            locus);
     }
     else
     {
@@ -7274,6 +7414,14 @@ static void finish_class_type_cxx(type_t* class_type,
                         direct_base_classes,
                         has_virtual_bases,
                         has_virtual_functions);
+
+                default_constructor_determine_if_constexpr(
+                        current_constructor,
+                        nonstatic_data_members,
+                        direct_base_classes,
+                        has_virtual_bases,
+                        has_virtual_functions,
+                        locus);
             }
         }
         entry_list_iterator_free(it);
@@ -14154,7 +14302,7 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         {
             warn_or_error_printf(
                     emit_error,
-                    "%s: %s: parameter types of a constexpr function or constructor must be a literal type or "
+                    "%s: %s: parameter types of a constexpr function must be a literal type or "
                     "reference to literal type\n",
                     emit_error ? "error" : "warning",
                     locus_to_str(locus));
@@ -14181,6 +14329,232 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
     return 1;
 }
 
+static void check_constexpr_function_statement_list(nodecl_t statement_list,
+        int *num_seen_returns,
+        int *num_seen_other_statements)
+{
+    int num_items = 0;
+    nodecl_t* l = nodecl_unpack_list(statement_list, &num_items);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
+                || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
+                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
+                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
+        {
+            // These are declarations, ignore them
+        }
+        else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
+        {
+            (*num_seen_returns)++;
+        }
+        else
+        {
+            (*num_seen_other_statements)++;
+        }
+    }
+}
+
+static char check_constexpr_constructor(scope_entry_t* entry,
+        const locus_t* locus,
+        nodecl_t nodecl_initializer_list,
+        char diagnose,
+        char emit_error)
+{
+    scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+
+    // We assume it could be constexpr
+    if (is_dependent_type(class_symbol->type_information)
+            || is_dependent_type(entry->type_information))
+        return 1;
+
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_symbol->type_information);
+
+    if (virtual_base_classes != NULL)
+    {
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: a constructor of a class with virtual base classes cannot be constexpr\n",
+                    emit_error ? "error" : "warning",
+                    locus_to_str(locus));
+        }
+        entry_list_free(virtual_base_classes);
+        return 0;
+    }
+
+    int num_types = function_type_get_num_parameters(entry->type_information);
+    if (function_type_get_has_ellipsis(entry->type_information))
+        num_types--;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        type_t* param_type = no_ref(function_type_get_parameter_type_num(entry->type_information, i));
+        if (!is_dependent_type(param_type)
+                && !is_literal_type(param_type))
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: parameter types of a constexpr constructor must be a literal type or "
+                        "reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+    {
+        nodecl_t nodecl_function_code = entry->entity_specs.function_code;
+        nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
+
+        nodecl_t nodecl_list = nodecl_get_child(nodecl_context, 0);
+        ERROR_CONDITION(nodecl_list_length(nodecl_list) != 1, "Invalid function code", 0);
+
+        nodecl_t nodecl_body = nodecl_list_head(nodecl_list);
+
+        if (nodecl_get_kind(nodecl_body) == AST_TRY_BLOCK)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construct cannot be a try block\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+
+        ERROR_CONDITION(nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT, "Invalid node", 0);
+
+        nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
+
+        int num_seen_returns = 0;
+        int num_seen_other_statements = 0;
+
+        check_constexpr_function_statement_list(statement_list,
+                &num_seen_returns,
+                &num_seen_other_statements);
+    
+        if (num_seen_returns != 0
+                || num_seen_other_statements != 0)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construct must be empty\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    scope_entry_t** all_members = NULL;
+    int num_all_members = 0;
+    {
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_symbol->type_information);
+        scope_entry_list_t* base_classes = class_type_get_direct_base_classes_canonical(class_symbol->type_information);
+
+        scope_entry_list_t* all_members_list = entry_list_concat(base_classes, nonstatic_data_members);
+        entry_list_free(nonstatic_data_members);
+        entry_list_free(base_classes);
+
+        entry_list_to_symbol_array(all_members_list, &all_members, &num_all_members);
+        entry_list_free(all_members_list);
+    }
+
+    char initialized[num_all_members + 1];
+    memset(initialized, 0, sizeof(initialized));
+
+    char is_constexpr_initialized[num_all_members + 1];
+    memset(is_constexpr_initialized, 0, sizeof(is_constexpr_initialized));
+
+    int num_items_initializer_list = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_initializer_list, &num_items_initializer_list);
+    for (i = 0; i < num_items_initializer_list; i++)
+    {
+        scope_entry_t* sym = nodecl_get_symbol(list[i]);
+
+        int j;
+        for (j = 0; j < num_all_members; j++)
+        {
+            if (sym == all_members[j])
+            {
+                initialized[i] = 1;
+                is_constexpr_initialized[i] = 1;
+
+                if (sym->kind == SK_CLASS
+                        || (sym->kind == SK_VARIABLE
+                            && is_class_type(sym->type_information)))
+                {
+                    nodecl_t initializer = nodecl_get_child(list[i], 1);
+
+                    if (nodecl_get_kind(initializer) == NODECL_FUNCTION_CALL)
+                    {
+                        nodecl_t called = nodecl_get_child(initializer, 0);
+                        if (nodecl_get_symbol(called) != NULL)
+                        {
+                            scope_entry_t* called_func = nodecl_get_symbol(called);
+                            if (called_func->entity_specs.is_constructor)
+                            {
+                                is_constexpr_initialized[i] = called_func->entity_specs.is_constexpr;
+                            }
+                            else
+                            {
+                                internal_error("Expecting a call to a consructor here", 0);
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+    xfree(list);
+
+    for (i = 0; i < num_all_members; i++)
+    {
+        if (!initialized[i])
+        {
+            if (!diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: constructor cannot be constexpr because entity '%s' is not initialized\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
+            }
+            return 0;
+        }
+        else if (!is_constexpr_initialized[i])
+        {
+            if (!diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: constructor cannot be constexpr because entity '%s' is not "
+                        "initialized using a constexpr constructor\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body,
         char emit_error)
 {
@@ -14193,15 +14567,21 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
         return 0;
     }
 
-    nodecl_t compound_list = nodecl_get_child(nodecl_body, 0);
+    nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
 
-    if (entry->entity_specs.is_constructor)
+    int num_seen_other_statements = 0, num_seen_returns = 0;
+    check_constexpr_function_statement_list(statement_list,
+            &num_seen_returns,
+            &num_seen_other_statements);
+
+    if (!entry->entity_specs.is_constructor)
     {
-        if (nodecl_list_length(compound_list) != 0)
+        if (num_seen_other_statements != 0
+                || num_seen_returns != 1)
         {
             warn_or_error_printf(
                     emit_error,
-                    "%s: %s: the compound-statement of a constexpr constructor must contain no statements\n",
+                    "%s: %s: the body of a constexpr function must contain a single return-statement\n",
                     emit_error ? "error" : "warning",
                     nodecl_locus_to_str(nodecl_body));
             return 0;
@@ -14209,38 +14589,12 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
     }
     else
     {
-        int num_seen_returns = 0;
-        int num_seen_other_statements = 0;
-
-        int num_items = 0;
-        nodecl_t* l = nodecl_unpack_list(compound_list, &num_items);
-
-        int i;
-        for (i = 0; i < num_items; i++)
-        {
-            if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
-            {
-                // These are declarations, ignore them
-            }
-            else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
-            {
-                num_seen_returns++;
-            }
-            else
-            {
-                num_seen_other_statements++;
-            }
-        }
-
         if (num_seen_other_statements != 0
-                || num_seen_returns != 1)
+                || num_seen_returns != 0)
         {
             warn_or_error_printf(
                     emit_error,
-                    "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                    "%s: %s: the body of a constexpr construction must be empty\n",
                     emit_error ? "error" : "warning",
                     nodecl_locus_to_str(nodecl_body));
             return 0;
@@ -14779,7 +15133,16 @@ static void build_scope_function_definition_body(
 
     if (entry->entity_specs.is_constexpr)
     {
-        check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
+        if (entry->entity_specs.is_member
+                && entry->entity_specs.is_constructor)
+        {
+            check_constexpr_constructor(entry, nodecl_get_locus(body_nodecl), nodecl_initializers,
+                    /* diagnose */ 1, /* emit_error */ 1);
+        }
+        else
+        {
+            check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
+        }
         check_constexpr_function_body(entry, body_nodecl, /* emit_error */ 1);
     }
 
@@ -16063,6 +16426,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     //    size_t x = sizeof(A);
                                     // };
                                     build_scope_add_delayed_member_declarator_initializer(entry, initializer);
+                                    // But some parts of the code check this tree, create a fake "parse later"
+                                    entry->value = nodecl_make_cxx_parse_later(ast_get_locus(initializer));
                                 }
                                 entry->entity_specs.is_defined_inside_class_specifier = 1;
                             }

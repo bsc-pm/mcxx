@@ -20055,7 +20055,9 @@ static const_value_t* evaluate_constexpr_constructor(
         int num_map_items,
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
 {
-    nodecl_t nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
+    nodecl_t nodecl_initializers = nodecl_null();
+    if (!nodecl_is_null(nodecl_function_code))
+        nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
 
     type_t* class_type = entry->entity_specs.class_type;
 
@@ -20125,9 +20127,61 @@ static const_value_t* evaluate_constexpr_constructor(
     {
         if (values[i] == NULL)
         {
-            xfree(all_members);
-            xfree(values);
-            return NULL;
+            // Since we do not materialize the constructors initializations
+            // we will attempt here to use the initializer expression (if any)
+            // of this member, or call the default constructor
+            scope_entry_t* current_member = all_members[i];
+
+            if (current_member->kind == SK_CLASS)
+            {
+                scope_entry_t* default_constructor =
+                    class_type_get_default_constructor(
+                            current_member->type_information);
+                ERROR_CONDITION(default_constructor == NULL, "Invalid class", 0);
+
+                if (default_constructor->entity_specs.is_constexpr)
+                {
+                    values[i] = evaluate_constexpr_constructor(
+                            default_constructor,
+                            default_constructor->entity_specs.function_code,
+                            /* No mapping */ 0, NULL);
+                }
+            }
+            else if (current_member->kind == SK_VARIABLE)
+            {
+                if (!nodecl_is_null(current_member->value))
+                {
+                    values[i] = nodecl_get_constant(current_member->value);
+                }
+                else if (is_class_type(current_member->type_information))
+                {
+                    scope_entry_t* default_constructor =
+                        class_type_get_default_constructor(
+                                current_member->type_information);
+                    ERROR_CONDITION(default_constructor == NULL, "Invalid class", 0);
+
+                    if (default_constructor->entity_specs.is_constexpr)
+                    {
+                        values[i] = evaluate_constexpr_constructor(
+                                default_constructor,
+                                default_constructor->entity_specs.function_code,
+                                /* No mapping */ 0, NULL);
+                    }
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            // If still not constant, give up
+            if (values[i] == NULL)
+            {
+
+                xfree(all_members);
+                xfree(values);
+                return NULL;
+            }
         }
     }
 
@@ -20260,8 +20314,6 @@ static const_value_t* evaluate_constexpr_function_call(
 
     nodecl_t nodecl_function_code = entry->entity_specs.function_code;
 
-    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "A defined function must have a body", 0);
-
     const_value_t* value = NULL;
     if (entry->entity_specs.is_constructor)
     {
@@ -20273,6 +20325,8 @@ static const_value_t* evaluate_constexpr_function_call(
     }
     else
     {
+        ERROR_CONDITION(nodecl_is_null(nodecl_function_code),
+                "A defined function must have a body", 0);
         value = evaluate_constexpr_regular_function_call(
                 entry,
                 nodecl_function_code,
