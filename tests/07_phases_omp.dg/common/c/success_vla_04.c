@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -31,49 +31,54 @@
 test_generator=config/mercurium-omp
 </testinfo>
 */
-#include <stdlib.h>
 
-void f(int *x, int n)
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+
+void foo(int n)
 {
+    int v[n][n];
 
-    int i;
-    for (i = 0; i < n; i++)
+    memset(v, 0, sizeof(v));
+
+    #pragma omp  parallel for firstprivate(v)
+    for (int i = 0; i < n; ++i)
     {
-#pragma omp task depend(out : x[i]) firstprivate(i)
+        for (int j = 0; j < n; ++j)
         {
-            x[i] = i;
-        }
-#pragma omp task depend(inout : x[i]) firstprivate(i)
-        {
-            if (x[i] != i)
-            {
-                abort();
-            }
-            x[i]++;
-        }
-#pragma omp task depend(in : x[i]) firstprivate(i)
-        {
-            if (x[i] != (i+1))
-            {
-                abort();
-            }
+//            printf("1. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 0);
+            v[i][j]++;
         }
     }
 
-#pragma omp taskwait
+    #pragma omp parallel for shared(v)
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+//            printf("2. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 0);
+            v[i][j]++;
+        }
+    }
+
+    #pragma omp parallel for firstprivate(v)
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+//            printf("3. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 1);
+            v[i][j]++;
+        }
+    }
 }
 
-int main(int argc, char *argv[])
+
+int main()
 {
-
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            int c[100];
-            f(c, 100);
-        }
-    }
-
+    foo(10);
     return 0;
 }
