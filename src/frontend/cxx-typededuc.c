@@ -103,7 +103,10 @@ static void print_deduction_set(deduction_set_t* deduction_set)
                     break;
                 }
             default:
-                internal_error("Invalid template parameter kind", 0);
+                {
+                    fprintf(stderr, "TYPEDEDUC:    ??? Unknown template parameter kind ???\n");
+                    break;
+                }
         }
 
         int j;
@@ -2321,6 +2324,28 @@ char deduce_arguments_from_call_to_specific_template_function(
             }
         }
 
+        // Simplify the unresolved overload here if possible
+        if (is_unresolved_overloaded_type(current_argument_type))
+        {
+            scope_entry_t *solved_function = unresolved_overloaded_type_simplify(current_argument_type,
+                    decl_context, locus);
+            if (solved_function != NULL)
+            {
+                if (!solved_function->entity_specs.is_member
+                        || solved_function->entity_specs.is_static)
+                {
+                    current_argument_type = lvalue_ref(solved_function->type_information);
+                }
+                else
+                {
+                    current_argument_type = get_pointer_to_member_type(
+                            solved_function->type_information,
+                            solved_function->entity_specs.class_type);
+                }
+                call_argument_types[i_arg] = current_argument_type;
+            }
+        }
+
         // We do not want referenced types here as arguments
         current_argument_type = no_ref(current_argument_type);
 
@@ -2335,66 +2360,9 @@ char deduce_arguments_from_call_to_specific_template_function(
             }
             // otherwise, if A is a function type the pointer type produced by the array to pointer conversion
             // is used in place of A
-            else if (is_function_type(current_argument_type)
-                    || (is_unresolved_overloaded_type(current_argument_type)
-                        && !is_pointer_to_member_type(current_parameter_type)))
+            else if (is_function_type(current_argument_type))
             {
-                // unresolved overloaded type always represents a reference to any of its functions 
-                // but only if the original parameter is not already a pointer to member type 
-                // because it is not possible to have a lvalue of a member function (only
-                // lvalue of _pointer to member function_, while we can have a lvalue of
-                // a nonstatic member or nonmember function)
-                //
-                // template <typename _Ret, typename _Class, typename _P1>
-                // void f(_Ret (_Class::* T)(_P1));
-                //
-                // struct A
-                // {
-                //    float g(int);
-                // };
-                //
-                // void h()
-                // {
-                //    f(&A::g);
-                // }
-                //
-                // Parameter 'T' is not a reference, but a pointer to member
-                // function, and '&A::g' has computed type unresolved, in
-                // this case, do not convert the whole thing into a pointer
-                // while we would do in the following one
-                //
-                // template <typename _Ret, typename _P1>
-                // void f(_Ret (*T)(_P1));
-                //
-                // float g(int);
-                //
-                // void h()
-                // {
-                //    f(g);
-                // }
-                //
-                // Because 'T' is not a reference (nor a pointer to member
-                // function) and 'g' is an unresolved type we will convert it
-                // into a pointer type
-                //
-
-                if (is_function_type(current_argument_type))
-                {
-                    current_argument_type = get_pointer_type(current_argument_type);
-                }
-                else if (is_unresolved_overloaded_type(current_argument_type))
-                {
-                    // Simplify an unresolved overload of singleton, if possible
-                    scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
-                            decl_context, locus);
-
-                    if (solved_function != NULL
-                            && (!solved_function->entity_specs.is_member
-                                || solved_function->entity_specs.is_static))
-                    {
-                        current_argument_type = get_pointer_type(solved_function->type_information);
-                    }
-                }
+                current_argument_type = get_pointer_type(current_argument_type);
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
             else
@@ -2420,7 +2388,7 @@ char deduce_arguments_from_call_to_specific_template_function(
                 && is_lvalue_reference_type(call_argument_types[i_arg]))
         {
             // If P is an rvalue reference to a cv-unqualified template parameter and the
-            // argument is an lvalue, the type “lvalue reference to A” is used in place of
+            // argument is an lvalue, the type "lvalue reference to A" is used in place of
             // A for type deduction.
             current_argument_type = get_lvalue_reference_type(current_argument_type);
         }
@@ -2560,26 +2528,25 @@ char deduce_arguments_from_call_to_specific_template_function(
                  if (solved_function != NULL)
                  {
                      // Some adjustment goes here so the equivalent_types check below works.
-                     // We mimic the adjustments performed before
-                     //
-                     if (!is_any_reference_type(current_original_parameter_type))
+                     if (!solved_function->entity_specs.is_member
+                             || solved_function->entity_specs.is_static)
                      {
-                         // If it is not a reference convert from function to pointer
-                         if (!solved_function->entity_specs.is_member
-                                 || solved_function->entity_specs.is_static)
+                         if (!is_any_reference_type(current_original_parameter_type))
                          {
+                             // If it is not a reference convert from function to pointer
                              argument_type = get_pointer_type(solved_function->type_information);
                          }
                          else
                          {
-                             argument_type = get_pointer_to_member_type(solved_function->type_information,
-                                     solved_function->entity_specs.class_type);
+                             argument_type = lvalue_ref(solved_function->type_information);
                          }
                      }
                      else
                      {
-                         // Otherwise keep exactly the type
-                         argument_type = solved_function->type_information;
+                         // This one is not converted because it is not possible to have lvalues
+                         // of pointer to member of the form &A::x
+                         argument_type = get_pointer_to_member_type(solved_function->type_information,
+                                 solved_function->entity_specs.class_type);
                      }
                  }
              }

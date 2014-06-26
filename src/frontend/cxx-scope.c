@@ -5616,7 +5616,8 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         result = strappend(class_qualification, result);
     }
     else if (IS_CXX11_LANGUAGE
-            && entry->kind == SK_ENUMERATOR)
+            && entry->kind == SK_ENUMERATOR
+            && is_named_type(entry->type_information))
     {
         // In C++11 we qualify enumerators
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);

@@ -13285,7 +13285,20 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
         if (entry_list_size(overload_set) == 1)
         {
-            return print_decl_type_str(entry_list_head(overload_set)->type_information, decl_context, name);
+            type_t* used_type = NULL;
+            scope_entry_t* item = entry_list_head(overload_set);
+
+            if (!item->entity_specs.is_member
+                    || item->entity_specs.is_static)
+            {
+                used_type = lvalue_ref(item->type_information);
+            }
+            else
+            {
+                used_type = get_pointer_to_member_type(item->type_information,
+                        item->entity_specs.class_type);
+            }
+            return print_decl_type_str(used_type, decl_context, name);
         }
         else
         {

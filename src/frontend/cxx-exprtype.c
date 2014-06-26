@@ -2700,9 +2700,8 @@ static void update_unresolved_overload_argument(type_t* arg_type,
     else
     {
         *nodecl_output = nodecl_make_pointer_to_member(solved_function,
-                get_lvalue_reference_type(
-                    get_pointer_to_member_type(solved_function->type_information,
-                        solved_function->entity_specs.class_type)),
+                get_pointer_to_member_type(solved_function->type_information,
+                    solved_function->entity_specs.class_type),
                 locus);
     }
 }
@@ -6158,9 +6157,8 @@ static void compute_operator_reference_type(nodecl_t* op,
         if (entry->kind == SK_VARIABLE)
         {
             *nodecl_output = nodecl_make_pointer_to_member(entry, 
-                    get_lvalue_reference_type(
-                        get_pointer_to_member_type(entry->type_information,
-                            entry->entity_specs.class_type)),
+                    get_pointer_to_member_type(entry->type_information,
+                        entry->entity_specs.class_type),
                     locus);
         }
         else if (entry->kind == SK_FUNCTION)
@@ -21960,9 +21958,8 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             if (sym->kind == SK_VARIABLE)
             {
                 v->nodecl_result = nodecl_make_pointer_to_member(sym, 
-                        get_lvalue_reference_type(
-                            get_pointer_to_member_type(sym->type_information,
-                                sym->entity_specs.class_type)),
+                        get_pointer_to_member_type(sym->type_information,
+                            sym->entity_specs.class_type),
                         nodecl_get_locus(node));
             }
             else // SK_FUNCTION

@@ -575,9 +575,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
             else
             {
-                orig = get_lvalue_reference_type(get_pointer_to_member_type(
+                orig = get_pointer_to_member_type(
                             solved_function->type_information,
-                            solved_function->entity_specs.class_type));
+                            solved_function->entity_specs.class_type);
             }
             // And proceed evaluating this ICS
         }
@@ -2444,8 +2444,22 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     if (entry_list_size(overload_set) == 1)
     {
         scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
+
+        type_t* source_type = NULL;
+        if (!item->entity_specs.is_member
+                || item->entity_specs.is_static)
+        {
+            source_type = lvalue_ref(item->type_information);
+        }
+        else
+        {
+            source_type = get_pointer_to_member_type(
+                    item->type_information,
+                    item->entity_specs.class_type);
+        }
+
         standard_conversion_t sc;
-        if (standard_conversion_between_types_for_overload(&sc, item->type_information, target_type, locus))
+        if (standard_conversion_between_types_for_overload(&sc, source_type, target_type, locus))
         {
             return item;
         }
