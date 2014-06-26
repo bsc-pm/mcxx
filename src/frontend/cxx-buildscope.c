@@ -14278,14 +14278,18 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
 }
 
 char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
+        char diagnose,
         char emit_error)
 {
     if (entry->entity_specs.is_virtual)
     {
-        warn_or_error_printf(emit_error,
-                "%s: %s: a constexpr function cannot be virtual\n",
-                emit_error ? "error" : "warning",
-                locus_to_str(locus));
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: a constexpr function cannot be virtual\n",
+                    emit_error ? "error" : "warning",
+                    locus_to_str(locus));
+        }
         return 0;
     }
 
@@ -14300,12 +14304,15 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         if (!is_dependent_type(param_type)
                 && !is_literal_type(param_type))
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: parameter types of a constexpr function must be a literal type or "
-                    "reference to literal type\n",
-                    emit_error ? "error" : "warning",
-                    locus_to_str(locus));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: parameter types of a constexpr function must be a literal type or "
+                        "reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
             return 0;
         }
     }
@@ -14317,11 +14324,14 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         if (!is_dependent_type(return_type)
                 && !is_literal_type(no_ref(return_type)))
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the return type of a constexpr function must be a literal type or reference to literal type\n",
-                    emit_error ? "error" : "warning",
-                    locus_to_str(locus));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the return type of a constexpr function must be a literal type or reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
             return 0;
         }
     }
@@ -14357,7 +14367,7 @@ static void check_constexpr_function_statement_list(nodecl_t statement_list,
     }
 }
 
-static char check_constexpr_constructor(scope_entry_t* entry,
+char check_constexpr_constructor(scope_entry_t* entry,
         const locus_t* locus,
         nodecl_t nodecl_initializer_list,
         char diagnose,
@@ -14560,14 +14570,17 @@ static char check_constexpr_constructor(scope_entry_t* entry,
 }
 
 static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body,
-        char emit_error)
+        char diagnose, char emit_error)
 {
     if (nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT)
     {
-        warn_or_error_printf(emit_error,
-                "%s: %s: the body of a constexpr function or constructor must be a compound-statement\n",
-                emit_error ? "error" : "warning",
-                nodecl_locus_to_str(nodecl_body));
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: the body of a constexpr function or constructor must be a compound-statement\n",
+                    emit_error ? "error" : "warning",
+                    nodecl_locus_to_str(nodecl_body));
+        }
         return 0;
     }
 
@@ -14583,11 +14596,14 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
         if (num_seen_other_statements != 0
                 || num_seen_returns != 1)
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the body of a constexpr function must contain a single return-statement\n",
-                    emit_error ? "error" : "warning",
-                    nodecl_locus_to_str(nodecl_body));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
             return 0;
         }
     }
@@ -14596,11 +14612,14 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
         if (num_seen_other_statements != 0
                 || num_seen_returns != 0)
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the body of a constexpr construction must be empty\n",
-                    emit_error ? "error" : "warning",
-                    nodecl_locus_to_str(nodecl_body));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construction must be empty\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
             return 0;
         }
     }
@@ -14609,6 +14628,7 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
 }
 
 char check_constexpr_function_code(scope_entry_t* entry, nodecl_t nodecl_function_code,
+        char diagnose,
         char emit_error)
 {
     nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
@@ -14618,7 +14638,7 @@ char check_constexpr_function_code(scope_entry_t* entry, nodecl_t nodecl_functio
 
     nodecl_t nodecl_body = nodecl_list_head(nodecl_list);
 
-    return check_constexpr_function_body(entry, nodecl_body, emit_error);
+    return check_constexpr_function_body(entry, nodecl_body, diagnose, emit_error);
 }
 
 static scope_entry_t* build_scope_function_definition_declarator(
@@ -15145,9 +15165,9 @@ static void build_scope_function_definition_body(
         }
         else
         {
-            check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
+            check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* diagnose */ 1, /* emit_error */ 1);
         }
-        check_constexpr_function_body(entry, body_nodecl, /* emit_error */ 1);
+        check_constexpr_function_body(entry, body_nodecl, /* diagnose */ 1, /* emit_error */ 1);
     }
 
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;

@@ -20274,8 +20274,27 @@ static const_value_t* evaluate_constexpr_function_call(
             if (entry->defined)
             {
                 // Verify the instantiation (though it is not an error if the function fails to be constexpr)
-                is_constexpr = check_constexpr_function(entry, entry->locus, /* emit_error */ 0)
-                    && check_constexpr_function_code(entry, entry->entity_specs.function_code, /* emit_error */ 0);
+                if (entry->entity_specs.is_constructor)
+                {
+                    nodecl_t nodecl_initializer_list = nodecl_null();
+                    if (!nodecl_is_null(entry->entity_specs.function_code))
+                    {
+                        nodecl_initializer_list = nodecl_get_child(entry->entity_specs.function_code, 1);
+                    }
+
+                    is_constexpr = check_constexpr_constructor(entry, entry->locus,
+                            nodecl_initializer_list,
+                            /* diagnose */ 0, /* emit_error */ 0);
+                }
+                else
+                {
+                    is_constexpr = check_constexpr_function(entry, entry->locus,
+                            /* diagnose */ 0, /* emit_error */ 0);
+                }
+
+                is_constexpr = is_constexpr
+                    && check_constexpr_function_code(entry, entry->entity_specs.function_code,
+                            /* diagnose */ 0, /* emit_error */ 0);
             }
 
             entry->entity_specs.is_constexpr = is_constexpr;
