@@ -12636,6 +12636,13 @@ static void check_lambda_expression(AST expression, decl_context_t decl_context,
     type_t* lambda_type = get_user_defined_type(lambda_class);
     set_is_complete_type(lambda_type, 1);
 
+    nodecl_t nodecl_finish_class = nodecl_null();
+    finish_class_type(lambda_class->type_information,
+            lambda_type,
+            lambda_class->decl_context,
+            ast_get_locus(expression),
+            &nodecl_finish_class);
+
     *nodecl_output = nodecl_make_lambda(
             captures,
             lambda_symbol,
