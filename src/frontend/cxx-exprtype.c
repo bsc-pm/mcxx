@@ -2211,7 +2211,7 @@ static char is_promoteable_integral_type(type_t* t)
             || is_signed_short_int_type(t)
             || is_unsigned_short_int_type(t)
             || is_bool_type(t)
-            || is_enum_type(t)
+            || is_unscoped_enum_type(t)
             || is_wchar_t_type(t)
             || is_char16_t_type(t)
             || is_char32_t_type(t));
@@ -2222,7 +2222,7 @@ static type_t* promote_integral_type(type_t* t)
     ERROR_CONDITION(!is_promoteable_integral_type(t), 
             "This type (%s) cannot be promoted!", print_declarator(t));
 
-    if (is_enum_type(t))
+    if (is_unscoped_enum_type(t))
     {
         return enum_type_get_underlying_type(t);
     }
@@ -2240,22 +2240,22 @@ static type_t* promote_integral_type(type_t* t)
     }
 }
 
-static char operand_is_arithmetic_or_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
+static char operand_is_arithmetic_or_unscoped_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_arithmetic_type(no_ref(t))
-            || is_enum_type(no_ref(t)));
+            || is_unscoped_enum_type(no_ref(t)));
 }
 
 static char operand_is_integral_or_enum_type(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(t)
-            || is_enum_type(t));
+            || is_unscoped_enum_type(t));
 }
 
-static char operand_is_integral_or_bool_or_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
+static char operand_is_integral_or_bool_or_unscoped_enum_type_noref(type_t* t, const locus_t* locus UNUSED_PARAMETER)
 {
     return (is_integral_type(t)
-            || is_enum_type(t));
+            || is_unscoped_enum_type(t));
 }
 
 static
@@ -2268,22 +2268,22 @@ char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type, const locus_
 static 
 char both_operands_are_integral_noref(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
-    return (is_integral_type(no_ref(lhs_type)) || is_enum_type(no_ref(lhs_type)))
-        && (is_integral_type(no_ref(rhs_type)) || is_enum_type(no_ref(rhs_type)));
+    return (is_integral_type(no_ref(lhs_type)) || is_unscoped_enum_type(no_ref(lhs_type)))
+        && (is_integral_type(no_ref(rhs_type)) || is_unscoped_enum_type(no_ref(rhs_type)));
 };
 
 static 
 char both_operands_are_arithmetic(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
-    return (is_arithmetic_type(lhs_type) || is_enum_type(lhs_type))
-        && (is_arithmetic_type(rhs_type) || is_enum_type(rhs_type));
+    return (is_arithmetic_type(lhs_type) || is_unscoped_enum_type(lhs_type))
+        && (is_arithmetic_type(rhs_type) || is_unscoped_enum_type(rhs_type));
 }
 
 static 
 char both_operands_are_arithmetic_noref(type_t* lhs_type, type_t* rhs_type, const locus_t* locus UNUSED_PARAMETER)
 {
-    return (is_arithmetic_type(no_ref(lhs_type)) || is_enum_type(no_ref(lhs_type)))
-        && (is_arithmetic_type(no_ref(rhs_type)) || is_enum_type(no_ref(rhs_type)));
+    return (is_arithmetic_type(no_ref(lhs_type)) || is_unscoped_enum_type(no_ref(lhs_type)))
+        && (is_arithmetic_type(no_ref(rhs_type)) || is_unscoped_enum_type(no_ref(rhs_type)));
 }
 
 static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
@@ -2313,7 +2313,7 @@ static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
     }
 
     return (is_pointer_type(lhs_type)
-            && (is_integral_type(rhs_type) || is_enum_type(rhs_type)));
+            && (is_integral_type(rhs_type) || is_unscoped_enum_type(rhs_type)));
 }
 
 static 
@@ -2384,11 +2384,11 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type, 
     ERROR_CONDITION (!both_operands_are_arithmetic_noref(lhs_type, rhs_type, locus),
             "Both should be arithmetic types", 0);
 
-    if (is_enum_type(lhs_type))
+    if (is_unscoped_enum_type(lhs_type))
     {
         lhs_type = enum_type_get_underlying_type(lhs_type);
     }
-    if (is_enum_type(rhs_type))
+    if (is_unscoped_enum_type(rhs_type))
     {
         rhs_type = enum_type_get_underlying_type(rhs_type);
     }
@@ -3806,7 +3806,7 @@ static type_t* compute_type_no_overload_only_integral_lhs_type(nodecl_t *lhs, no
     {
         // Always the left one in this case
         type_t* result = get_unqualified_type(no_ref(lhs_type));
-        if (is_enum_type(result))
+        if (is_unscoped_enum_type(result))
         {
             result = enum_type_get_underlying_type(result);
         }
@@ -3878,7 +3878,7 @@ static nodecl_t nodecl_make_shr_common(nodecl_t lhs, nodecl_t rhs, type_t* t, co
 {
     type_t* lhs_type = no_ref(nodecl_get_type(lhs));
 
-    if (is_enum_type(lhs_type))
+    if (is_unscoped_enum_type(lhs_type))
     {
         lhs_type = enum_type_get_underlying_type(lhs_type);
     }
@@ -4201,6 +4201,7 @@ type_t* compute_type_no_overload_relational_operator_flags(nodecl_t *lhs, nodecl
     standard_conversion_t scs;
 
     if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type, locus)
+            || (is_scoped_enum_type(no_ref_lhs_type) && is_scoped_enum_type(no_ref_rhs_type))
             || ((is_pointer_type(no_ref_lhs_type)
                     || is_array_type(no_ref_lhs_type)
                     || is_function_type(no_ref_lhs_type)
@@ -5656,7 +5657,7 @@ static void compute_operator_plus_type(nodecl_t* op,
             nodecl_make_plus,
             const_value_plus, 
             compute_type_no_overload_plus,
-            operand_is_arithmetic_or_enum_type_noref,
+            operand_is_arithmetic_or_unscoped_enum_type_noref,
             operator_unary_plus_pred,
             operator_unary_plus_result,
             /* save_conversions */ 1,
@@ -5741,7 +5742,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
             nodecl_make_neg,
             const_value_neg, 
             compute_type_no_overload_neg,
-            operand_is_arithmetic_or_enum_type_noref,
+            operand_is_arithmetic_or_unscoped_enum_type_noref,
             operator_unary_minus_pred,
             operator_unary_minus_result,
             /* save_conversions */ 1,
@@ -5796,7 +5797,7 @@ static void compute_operator_complement_type(nodecl_t* op,
             nodecl_make_bitwise_not,
             const_value_bitnot, 
             compute_type_no_overload_complement,
-            operand_is_integral_or_bool_or_enum_type_noref,
+            operand_is_integral_or_bool_or_unscoped_enum_type_noref,
             operator_unary_complement_pred,
             operator_unary_complement_result,
             /* save_conversions */ 1,
@@ -5876,7 +5877,7 @@ static void compute_operator_not_type(nodecl_t* op,
             nodecl_make_logical_not,
             const_value_not,
             compute_type_no_overload_logical_not,
-            operand_is_arithmetic_or_enum_type_noref,
+            operand_is_arithmetic_or_unscoped_enum_type_noref,
             operator_unary_not_pred,
             operator_unary_not_result,
             /* save_conversions */ 1,
@@ -7272,7 +7273,7 @@ static void check_nodecl_array_subscript_expression_c(
             || is_pointer_type(no_ref(subscripted_type)))
     {
         if (!is_integral_type(no_ref(subscript_type)) &&
-                !is_enum_type(no_ref(subscript_type)))
+                !is_unscoped_enum_type(no_ref(subscript_type)))
         {
             error_printf("%s: error: subscript expression '%s' of type '%s' cannot be implicitly converted to '%s'\n",
                     locus_to_str(nodecl_get_locus(nodecl_subscript)),
@@ -7355,23 +7356,23 @@ static void check_nodecl_array_subscript_expression_c(
     }
 }
 
-static char pointer_type_and_integral_or_enum_type(type_t* t1, type_t* t2)
+static char pointer_type_and_integral_or_unscoped_enum_type(type_t* t1, type_t* t2)
 {
     return (is_pointer_type(no_ref(t1)) || is_array_type(no_ref(t1)))
-        && (is_integral_type(no_ref(t2)) || is_enum_type(no_ref(t2)));
+        && (is_integral_type(no_ref(t2)) || is_unscoped_enum_type(no_ref(t2)));
 }
 
 static char array_subcript_types_pred(type_t* lhs, type_t* rhs, const locus_t* locus UNUSED_PARAMETER)
 {
     // T& operator[](T*, ptrdiff_t)
     // T& operator[](ptrdiff_t, T*)
-    return pointer_type_and_integral_or_enum_type(lhs, rhs)
-        || pointer_type_and_integral_or_enum_type(rhs, lhs);
+    return pointer_type_and_integral_or_unscoped_enum_type(lhs, rhs)
+        || pointer_type_and_integral_or_unscoped_enum_type(rhs, lhs);
 }
 
 static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const locus_t* locus UNUSED_PARAMETER)
 {
-    if (pointer_type_and_integral_or_enum_type(*lhs, *rhs))
+    if (pointer_type_and_integral_or_unscoped_enum_type(*lhs, *rhs))
     {
         *lhs = no_ref(*lhs);
         if (is_array_type(*lhs))
@@ -7383,7 +7384,7 @@ static type_t* array_subscript_types_result(type_t** lhs, type_t** rhs, const lo
 
         return lvalue_ref(pointer_type_get_pointee_type(*lhs));
     }
-    else if (pointer_type_and_integral_or_enum_type(*rhs, *lhs))
+    else if (pointer_type_and_integral_or_unscoped_enum_type(*rhs, *lhs))
     {
         *lhs = get_ptrdiff_t_type();
 
@@ -9128,7 +9129,7 @@ static const_value_t* cxx_nodecl_make_value_conversion(
     // Try again with enums
     if (!there_is_a_scs
             && allow_int_to_enum
-            && is_enum_type(no_ref(dest_type)))
+            && is_unscoped_enum_type(no_ref(dest_type)))
     {
         there_is_a_scs = standard_conversion_between_types(
                 &scs,
@@ -17479,7 +17480,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 
     ERROR_CONDITION(is_lvalue_reference_type(t), "Reference types should have been removed here", 0);
 
-    if (is_enum_type(t))
+    if (is_unscoped_enum_type(t))
     {
         P_LIST_ADD(*result, *num_types, enum_type_get_underlying_type(t));
         return;

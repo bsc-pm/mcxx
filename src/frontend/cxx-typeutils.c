@@ -10972,7 +10972,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     type_t* orig_underlying_type = NULL;
-    if (is_enum_type(orig))
+    if (is_unscoped_enum_type(orig))
     {
         orig_underlying_type = enum_type_get_underlying_type_for_conversion(orig);
     }
@@ -10999,7 +10999,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_signed_int_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && (is_char_type(orig_underlying_type)
                     || is_signed_char_type(orig_underlying_type)
                     || is_unsigned_char_type(orig_underlying_type)
@@ -11020,7 +11020,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_integer_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && equivalent_types(orig_underlying_type, dest))
         {
@@ -11062,7 +11062,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_integer_type(dest)
                 && !is_bool_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && !equivalent_types(orig_underlying_type, dest))
         {
@@ -11077,7 +11077,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (is_bool_type(dest)
                 && !is_bool_type(orig)
                 && (is_arithmetic_type(orig)
-                    || is_enum_type(orig)
+                    || is_unscoped_enum_type(orig)
                     || is_pointer_type(orig)
                     || is_pointer_to_member_type(orig)))
         {
@@ -11145,7 +11145,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_floating_type(dest)
-                && is_enum_type(orig))
+                && is_unscoped_enum_type(orig))
         {
             DEBUG_CODE()
             {
