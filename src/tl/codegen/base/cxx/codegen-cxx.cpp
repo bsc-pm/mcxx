@@ -6997,7 +6997,12 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         {
 
             indent();
-            *(file) << "enum " << symbol.get_name();
+            *(file) << "enum ";
+            if (is_scoped_enum_type(symbol.get_type().get_internal_type()))
+            {
+                *(file) << "struct ";
+            }
+            *(file) << symbol.get_name();
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
@@ -7308,7 +7313,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         else if (IS_CXX11_LANGUAGE)
         {
             indent();
-            (*file) << "enum " << symbol.get_name()
+            (*file) << "enum "
+                << (is_scoped_enum_type(symbol.get_type().get_internal_type()) ? "struct " : "")
+                << symbol.get_name()
                 << " : "
                 << this->get_declaration(
                         enum_type_get_underlying_type(
