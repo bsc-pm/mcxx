@@ -465,6 +465,7 @@ namespace TL { namespace Nanox {
                         <<      "(void **) &" << storage_name << ");"
                         ;
 
+                    TL::Source auxiliar_final;
                     reductions_stuff_final
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
                         << "err = nanos_task_reduction_get_thread_storage("
@@ -472,9 +473,34 @@ namespace TL { namespace Nanox {
                         <<      "(void **) &" << storage_name << ");"
                         << "if (" << storage_name << " == 0)"
                         << "{"
-                        <<      storage_name  << " = &" << (*it)->get_field_name() << ";"
+                        <<     auxiliar_final
                         << "}"
                         ;
+
+
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        // We need to convert a void* type into a pointer to the reduction type.
+                        // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
+                        // conversion directly in the FORTRAN source. For this reason we introduce
+                        // a new function that will be defined in a C file.
+                        TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
+                                // Destination
+                                reduction_type.get_pointer_to(),
+                                // Origin
+                                TL::Type::get_void_type().get_pointer_to(),
+                                construct.retrieve_context());
+
+                        auxiliar_final
+                            << storage_name << " = " << func.get_name() <<"(&"<< (*it)->get_field_name() << ");"
+                            ;
+                    }
+                    else
+                    {
+                        auxiliar_final
+                            << storage_name  << " = &" << (*it)->get_field_name() << ";"
+                            ;
+                    }
                 }
                 else
                 {
