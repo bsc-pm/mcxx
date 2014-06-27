@@ -349,6 +349,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> declarator_id
 %type<ast> decl_specifier_alone_seq
 %type<ast> decl_specifier_seq_0
+%type<ast> decl_specifier_seq_1
 %type<ast> decl_specifier_seq_ended_with_named_type_spec
 %type<ast> delete_expression
 %type<ast> designation
@@ -514,6 +515,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> shift_expression
 %type<ast> simple_declaration
 %type<ast> non_empty_simple_declaration
+%type<ast> block_simple_declaration
 %type<ast> explicit_simple_type_specifier
 %type<ast> explicit_type_initializer
 %type<ast> statement
@@ -792,7 +794,7 @@ block_declaration : simple_declaration
 }
 ;
 
-non_empty_block_declaration : non_empty_simple_declaration
+non_empty_block_declaration : block_simple_declaration
 {
     $$ = $1;
 }
@@ -1189,6 +1191,53 @@ non_empty_simple_declaration : decl_specifier_seq_0 init_declarator_list ';'  %m
 | decl_specifier_alone_seq ';' %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ast_get_locus($1), NULL);
+}
+;
+
+block_simple_declaration : decl_specifier_seq_1 init_declarator_list ';'  %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_init_declarator_list ';' %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ast_get_locus($1), NULL);
+}
+| decl_specifier_alone_seq ';' %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ast_get_locus($1), NULL);
+}
+;
+
+// Forces a type
+decl_specifier_seq_1: nontype_specifier_seq type_specifier_not_ended_with_identifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| nontype_specifier_seq_for_named type_specifier_ended_with_identifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| nontype_specifier_seq type_specifier_not_ended_with_identifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| type_specifier_not_ended_with_identifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_ended_with_identifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+| type_specifier_not_ended_with_identifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ast_get_locus($1), NULL);
+}
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1,
+        ASTLeaf(AST_INT_TYPE, ast_get_locus($1), NULL),
+        NULL, ast_get_locus($1), NULL);
 }
 ;
 

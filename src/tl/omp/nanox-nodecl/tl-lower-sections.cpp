@@ -143,11 +143,16 @@ namespace TL { namespace Nanox {
                     /* name */ Nodecl::NodeclBase::null(),
                     sections.get_locus());
 
+            // The OpenMP::For construct expects a context as an argument!
+            // We should create a new context:  NODECL_CONTEXT -> NODECL_LIST -> NODECL_FOR_STATEMENT
+            Nodecl::List stmts = Nodecl::List::make(for_statement);
+            decl_context_t block_context = new_block_context(sc.get_decl_context());
+            Nodecl::NodeclBase context = Nodecl::Context::make(stmts, block_context, sections.get_locus());
 
             Nodecl::OpenMP::For for_construct =
                 Nodecl::OpenMP::For::make(
                         execution_environment,
-                        for_statement,
+                        context,
                         sections.get_locus());
 
             return for_construct;

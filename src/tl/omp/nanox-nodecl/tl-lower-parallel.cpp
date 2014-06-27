@@ -89,8 +89,12 @@ namespace TL { namespace Nanox {
 
             argument_outline_data_item.set_is_cxx_this(true);
 
+            // ERROR_CONDITION(argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED,
+            //         "This does not have any data-sharing\n", 0);
+
             // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 

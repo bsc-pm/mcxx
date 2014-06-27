@@ -2430,6 +2430,8 @@ static nodecl_t update_dependent_typename_dependent_parts(
                 new_current_part);
     }
 
+    xfree(list);
+
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, locus);
 
     return new_dependent_parts;
@@ -3170,9 +3172,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                     expanded_template_parameters,
                     locus);
 
-            xfree(expanded_template_parameters->parameters);
-            xfree(expanded_template_parameters->arguments);
-            xfree(expanded_template_parameters);
+            free_template_parameter_list(expanded_template_parameters);
 
             if (updated_template_arguments == NULL)
             {
@@ -3881,17 +3881,29 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     return result;
 }
 
+typedef
+struct template_argument_info_tag
+{
+    int position;
+    dhash_ptr_t* disambig_hash;
+} template_argument_info_t;
+
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context, int position);
+        decl_context_t template_parameters_context,
+        dhash_ptr_t* disambig_hash,
+        int position);
 
 static char check_single_template_argument_from_syntax(AST template_parameter, 
         decl_context_t template_parameters_context,
         int position UNUSED_PARAMETER,
         void* info)
 {
+    template_argument_info_t *targ_info = (template_argument_info_t*)info;
+
     template_parameter_value_t* res = get_single_template_argument_from_syntax(template_parameter,
             template_parameters_context,
-            *(int*)info);
+            targ_info->disambig_hash,
+            targ_info->position);
 
     if (res != NULL)
     {
@@ -3905,7 +3917,9 @@ static char check_single_template_argument_from_syntax(AST template_parameter,
 }
 
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
-        decl_context_t template_parameters_context, int position)
+        decl_context_t template_parameters_context,
+        dhash_ptr_t* disambig_hash,
+        int position)
 {
     char is_expansion = 0;
     if (ASTType(template_parameter) == AST_TEMPLATE_ARGUMENT_PACK_EXPANSION)
@@ -3916,10 +3930,14 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
     if (ASTType(template_parameter) == AST_AMBIGUITY)
     {
+        template_argument_info_t targ_info = {
+            .position = position,
+            .disambig_hash = disambig_hash,
+        };
         solve_ambiguity_generic(
                 template_parameter,
                 template_parameters_context,
-                &position,
+                &targ_info,
                 check_single_template_argument_from_syntax,
                 NULL,
                 NULL);
@@ -3938,7 +3956,10 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
 
                 if (nodecl_is_err_expr(nodecl_expr))
+                {
+                    xfree(t_argument);
                     return NULL;
+                }
 
                 if (is_expansion)
                 {
@@ -3980,6 +4001,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(type_info))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -3992,6 +4014,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 
                 if (is_error_type(declarator_type))
                 {
+                    xfree(t_argument);
                     error_printf("%s: error: invalid template-argument number %d\n",
                             ast_location(template_parameter),
                             position);
@@ -4005,6 +4028,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 {
                     if (abstract_decl != NULL)
                     {
+                        xfree(t_argument);
                         error_printf("%s: error: invalid template-argument number %d\n",
                                 ast_location(template_parameter),
                                 position);
@@ -4060,15 +4084,43 @@ static void copy_template_parameter_list(template_parameter_list_t* dest, templa
     dest->is_explicit_specialization = src->is_explicit_specialization;
 }
 
+static char template_parameter_list_invalid_marker = 0;
+
 static void get_template_arguments_from_syntax_rec(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context,
+        dhash_ptr_t* disambig_hash,
 
         // Out
         template_parameter_list_t** result,
         int *position)
 {
     ERROR_CONDITION(template_parameters_list_tree == NULL, "Invalid tree", 0);
+
+    void * hashed_data = dhash_ptr_query(disambig_hash, (char*)template_parameters_list_tree);
+
+    if (hashed_data != NULL)
+    {
+        if ((char*)hashed_data == &template_parameter_list_invalid_marker)
+        {
+            // fprintf(stderr, "%p -> hit failure\n", template_parameters_list_tree);
+            free_template_parameter_list(*result);
+            *result = NULL;
+            return;
+        }
+        else
+        {
+            // fprintf(stderr, "%p -> hit valid\n", template_parameters_list_tree);
+            template_parameter_list_t* cached_template_parameter_list = (template_parameter_list_t*)hashed_data;
+            copy_template_parameter_list(*result, cached_template_parameter_list);
+            (*position) += (*result)->num_parameters;
+            return;
+        }
+    }
+    else
+    {
+        // fprintf(stderr, "%p -> miss\n", template_parameters_list_tree);
+    }
 
     if (ASTType(template_parameters_list_tree) == AST_AMBIGUITY)
     {
@@ -4098,6 +4150,7 @@ static void get_template_arguments_from_syntax_rec(
             get_template_arguments_from_syntax_rec(
                     current_interpretation,
                     template_parameters_context,
+                    disambig_hash,
 
                     &potential_results[i],
                     &potential_positions[i]);
@@ -4133,6 +4186,9 @@ static void get_template_arguments_from_syntax_rec(
 
             free_template_parameter_list(*result);
             *result = NULL;
+
+            dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, &template_parameter_list_invalid_marker);
+
             return;
         }
         else
@@ -4155,6 +4211,10 @@ static void get_template_arguments_from_syntax_rec(
             *result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
             copy_template_parameter_list(*result, potential_results[valid]);
             *position = potential_positions[valid];
+
+            template_parameter_list_t* cached = xcalloc(1, sizeof(*cached));
+            copy_template_parameter_list(cached, potential_results[valid]);
+            dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, cached);
         }
     }
     else if (ASTType(template_parameters_list_tree) == AST_NODE_LIST)
@@ -4165,22 +4225,31 @@ static void get_template_arguments_from_syntax_rec(
             get_template_arguments_from_syntax_rec(
                     ASTSon0(template_parameters_list_tree),
                     template_parameters_context,
+                    disambig_hash,
 
                     result,
                     position);
             if (*result == NULL)
+            {
+                dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, &template_parameter_list_invalid_marker);
                 return;
+            }
         }
 
         AST template_parameter = ASTSon1(template_parameters_list_tree);
 
-        template_parameter_value_t* t_argument = get_single_template_argument_from_syntax(template_parameter,
-                template_parameters_context, *position);
+        template_parameter_value_t* t_argument = get_single_template_argument_from_syntax(
+                template_parameter,
+                template_parameters_context,
+                disambig_hash,
+                *position);
 
         if (t_argument == NULL)
         {
             free_template_parameter_list(*result);
             *result = NULL;
+
+            dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, &template_parameter_list_invalid_marker);
             return;
         }
 
@@ -4189,11 +4258,27 @@ static void get_template_arguments_from_syntax_rec(
                 t_argument);
 
         (*position)++;
+
+        template_parameter_list_t* cached = xcalloc(1, sizeof(*cached));
+        copy_template_parameter_list(cached, *result);
+        dhash_ptr_insert(disambig_hash, (char*)template_parameters_list_tree, cached);
     }
     else
     {
         internal_error("Code unreachable", 0);
     }
+}
+
+static void destroy_cached_template_parameter_lists(const char* key UNUSED_PARAMETER,
+        void *info,
+        void *walk_info UNUSED_PARAMETER)
+{
+    if (info == NULL
+            || (char*)info == &template_parameter_list_invalid_marker)
+        return;
+
+    template_parameter_list_t* tpl = (template_parameter_list_t*)info;
+    free_template_parameter_list(tpl);
 }
 
 template_parameter_list_t* get_template_arguments_from_syntax(
@@ -4206,10 +4291,13 @@ template_parameter_list_t* get_template_arguments_from_syntax(
         return result;
     }
 
+    dhash_ptr_t* disambig_hash = dhash_ptr_new(5);
+
     int position = 1;
     get_template_arguments_from_syntax_rec(
             template_parameters_list_tree,
             template_parameters_context,
+            disambig_hash,
 
             &result,
             &position);
@@ -4219,6 +4307,9 @@ template_parameter_list_t* get_template_arguments_from_syntax(
         // Empty parameters, they will be filled elsewhere
         result->parameters = xcalloc(result->num_parameters, sizeof(*(result->parameters)));
     }
+
+    dhash_ptr_walk(disambig_hash, destroy_cached_template_parameter_lists, NULL);
+    dhash_ptr_destroy(disambig_hash);
 
     return result;
 }

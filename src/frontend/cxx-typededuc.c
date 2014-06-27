@@ -1466,6 +1466,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 explicit_template_parameters,
                 deduction_flags_empty()))
     {
+        xfree(argument_types);
+        xfree(parameter_types);
+
         return 0;
     }
 
@@ -1509,7 +1512,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
         // The type failed to be updated
         if (updated_type == NULL)
+        {
+            xfree(argument_types);
+            xfree(parameter_types);
+
             return 0;
+        }
 
         int current_arg = 0;
         for (current_arg = i_arg; current_arg < (i_arg + number_of_args); current_arg++)
@@ -1773,6 +1781,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     {
                         fprintf(stderr, "TYPEDEDUC: Types cannot be adjusted at all\n");
                     }
+
+                    xfree(argument_types);
+                    xfree(parameter_types);
+
                     return 0;
                 }
             }
@@ -1793,6 +1805,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             i_param++;
         }
     }
+
+    xfree(argument_types);
+    xfree(parameter_types);
 
     // Check that the return type makes sense, otherwise the whole deduction is wrong
     type_t* function_return_type = function_type_get_return_type(specialized_type);

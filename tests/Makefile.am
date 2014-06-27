@@ -46,6 +46,8 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-serial-simd-mic
 	chmod +x config/mercurium-parallel-simd-mic
+	chmod +x config/mercurium-serial-simd-avx2
+	chmod +x config/mercurium-parallel-simd-avx2
 	chmod +x config/mercurium-cuda
 	chmod +x config/mercurium-opencl
 	chmod +x config/mercurium-run
@@ -101,9 +103,13 @@ CORE_DIRS=\
 
 OMP_DIRS= \
         $(BETS_DIRS)/07_phases_omp.dg \
-        $(BETS_DIRS)/07_phases_ompss.dg \
+        $(OMPSS_DIRS) \
         $(END)
-        
+
+OMPSS_DIRS=\
+        $(BETS_DIRS)/07_phases_ompss.dg \
+		$(END)
+
 ANALYSIS_DIRS=\
 	$(BETS_DIRS)/07_phases_analysis.dg \
 	$(END)
@@ -127,6 +133,11 @@ omp-check : prepare-check
 	export MALLOC_CHECK_=2; \
 	./config/bets \
 		$(BETS_OPTIONS) $(OMP_DIRS)
+
+ompss-check : prepare-check
+	export MALLOC_CHECK_=2; \
+	./config/bets \
+		$(BETS_OPTIONS) $(OMPSS_DIRS)
 
 analysis-check : prepare-check
 	export MALLOC_CHECK_=2; \

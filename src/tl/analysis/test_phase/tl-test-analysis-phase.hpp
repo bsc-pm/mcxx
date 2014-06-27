@@ -75,6 +75,10 @@ namespace Analysis {
         bool _cyclomatic_complexity_enabled;
         void set_cyclomatic_complexity( const std::string& cyclomatic_complexity_enabled_str);
         
+        std::string _ompss_mode_str;
+        bool _ompss_mode_enabled;
+        void set_ompss_mode( const std::string& ompss_mode_str);
+        
     public:
         //! Constructor of this phase
         TestAnalysisPhase();

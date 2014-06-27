@@ -29,6 +29,7 @@
 
 #include"tl-nodecl-visitor.hpp"
 #include "tl-omp-core.hpp"
+#include "tl-omp-base.hpp"
 
 namespace TL { namespace OpenMP {
 
@@ -50,11 +51,14 @@ namespace TL { namespace OpenMP {
 
 
             std::map<Nodecl::NodeclBase, TL::ObjectList<Nodecl::NodeclBase> > _enclosing_stmt_to_task_calls_map;
+
+            OpenMP::Base *_base;
         public:
             FunctionCallVisitor(RefPtr<FunctionTaskSet> function_task_set,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& funct_call_to_enclosing_stmt_map,
                     const std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>& enclosing_stmt_to_original_stmt_map,
-                    const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map);
+                    const std::map<Nodecl::NodeclBase, std::set<TL::Symbol> >& enclosing_stmt_to_return_vars_map,
+                    OpenMP::Base* base);
 
             virtual void visit(const Nodecl::FunctionCall& call);
 

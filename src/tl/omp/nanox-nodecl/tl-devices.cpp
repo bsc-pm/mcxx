@@ -878,6 +878,111 @@ namespace TL { namespace Nanox {
             }
         }
 
+        struct GatherUnmappedSavedExpressions
+        {
+            decl_context_t &function_context;
+            Nodecl::Utils::SimpleSymbolMap* &symbol_map;
+
+            GatherUnmappedSavedExpressions(decl_context_t &fc,
+                    Nodecl::Utils::SimpleSymbolMap*& sm)
+                : function_context(fc), symbol_map(sm) { }
+
+            void new_private_saved_expression(TL::Symbol sym)
+            {
+                Nodecl::NodeclBase v = sym.get_value();
+                v = Nodecl::Utils::deep_copy(v,
+                        Scope(function_context),
+                        *symbol_map);
+
+                scope_entry_t* private_sym = ::new_symbol(
+                        function_context,
+                        function_context.current_scope,
+                        uniquestr(sym.get_name().c_str()));
+
+                private_sym->value = v.get_internal_nodecl();
+                private_sym->entity_specs.is_saved_expression = 1;
+
+                symbol_map->add_map(sym, private_sym);
+            }
+
+            void new_private_saved_expression_if_needed(TL::Symbol sym)
+            {
+                if (symbol_map->map(sym) == sym)
+                {
+                    new_private_saved_expression(sym);
+                }
+            }
+
+            void gather_unmmaped(TL::Type t)
+            {
+                if (!t.is_valid())
+                    return;
+
+                if (t.is_array())
+                {
+                    gather_unmmaped(t.array_element());
+
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase lower, upper;
+
+                        t.array_get_bounds(lower, upper);
+
+                        if (!lower.is_null()
+                                && lower.is<Nodecl::Symbol>()
+                                && lower.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(lower.get_symbol());
+                        }
+
+                        if (!upper.is_null()
+                                && upper.is<Nodecl::Symbol>()
+                                && upper.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(upper.get_symbol());
+                        }
+                    }
+                    else if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase size;
+                        size = t.array_get_size();
+
+                        if (size.is<Nodecl::Symbol>()
+                                && size.get_symbol().is_saved_expression())
+                        {
+                            new_private_saved_expression_if_needed(size.get_symbol());
+                        }
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+                }
+                else if (t.is_pointer())
+                {
+                    gather_unmmaped(t.points_to());
+                }
+                else if (t.is_any_reference())
+                {
+                    gather_unmmaped(t.references_to());
+                }
+            }
+
+            void gather(TL::ObjectList<TL::Symbol>& symbols)
+            {
+                for (TL::ObjectList<TL::Symbol>::iterator it2 = symbols.begin();
+                        it2 != symbols.end();
+                        it2++)
+                {
+                    gather_unmmaped(it2->get_type());
+                }
+            }
+        };
+
+        GatherUnmappedSavedExpressions gather_unmmaped(function_context, symbol_map);
+        gather_unmmaped.gather(parameter_symbols);
+
         struct UpdateTypesVLA
         {
             decl_context_t &function_context;
@@ -900,7 +1005,7 @@ namespace TL { namespace Nanox {
                 }
             }
         };
-        
+
         // Update types of parameters (this is needed by VLAs)
         UpdateTypesVLA update_vla(function_context, symbol_map);
         update_vla.update(parameter_symbols);

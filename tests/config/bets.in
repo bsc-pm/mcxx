@@ -346,6 +346,29 @@ runner_ssh()
    return $ret
 }
 
+runner_sde ()
+{
+   local tmpdir
+   local exe
+   local args
+   local env
+
+   tmpdir="$1"
+   exe="$2"
+   args="$3"
+   env="$4"
+
+   echo > $tmpfile
+   echo $env sde64 -- $tmpdir/$exec $args >> $tmpfile
+
+   log sh $tmpfile
+   sh $tmpfile >> $logfile
+   local ret=$?
+
+   return $ret
+}
+
+
 execute ()
 {
    local version=$1

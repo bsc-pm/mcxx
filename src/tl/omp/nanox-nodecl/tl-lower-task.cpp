@@ -835,7 +835,8 @@ void LoweringVisitor::visit_task(
         argument_outline_data_item.set_is_cxx_this(true);
 
         // This is a special kind of shared
-        argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+        if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
         argument_outline_data_item.set_base_address_expression(sym_ref);
     }
 
@@ -2280,6 +2281,8 @@ void LoweringVisitor::emit_translation_function_region(
         if (copies.empty())
             continue;
 
+        //ERROR_CONDITION((*it)->get_sharing() != OutlineDataItem::SHARING_SHARED, "Unexpected sharing\n", 0);
+
         translations
             << "{"
             << "void *device_base_address;"
@@ -2311,6 +2314,9 @@ void LoweringVisitor::emit_translation_function_region(
         }
         else
         {
+            // Currently we do not support copies on non-shared stuff, so this should be always a pointer
+            ERROR_CONDITION(!(*it)->get_field_type().is_pointer(), "Invalid type, expecting a pointer", 0);
+
             translations
                 << "arg." << (*it)->get_field_name() << " = (" << as_type((*it)->get_field_type()) << ")device_base_address;"
                 << "}"

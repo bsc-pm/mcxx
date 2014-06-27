@@ -44,9 +44,8 @@ then
 else
     ORIGINAL_MCC_COMPILER="${ORIGINAL_MCC_COMPILER}_imcc"
 fi
-#Extra flags for intel MPI (not so fancy, but is the best way which I works...)
-#This is a hint so the programmer should put it
-if [[ `$ORIGINAL_MPI_COMPILER --help` == *I_MPI* ]] 
+#Extra flags for intel MPI (pretty hackish)
+if [[ `$ORIGINAL_MPI_COMPILER -help` == *I_MPI* ]] 
 then
    MPI_PLUGIN_FLAGS="$MPI_PLUGIN_FLAGS -mt_mpi"
    EXTRA_MCC_FLAGS="$EXTRA_MCC_FLAGS -mt_mpi"

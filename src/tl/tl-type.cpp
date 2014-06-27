@@ -235,7 +235,7 @@ namespace TL
         return type_specifier + " :: " + symbol_name + array_specifier;
     }
 
-    Type Type::get_pointer_to()
+    Type Type::get_pointer_to() const
     {
         type_t* work_type = this->_type_info;
 
@@ -456,6 +456,11 @@ namespace TL
     bool Type::is_mask() const
     {
         return (::is_mask_type(_type_info));
+    }
+
+    int Type::get_mask_num_elements() const
+    {
+        return mask_type_get_num_bits(_type_info);
     }
 
     bool Type::is_generic_vector() const
@@ -830,6 +835,16 @@ namespace TL
     bool Type::is_integral_type() const
     {
         return ::is_integral_type(_type_info);
+    }
+
+    bool Type::is_signed_integral() const
+    {
+        return is_signed_integral_type(_type_info);
+    }
+
+    bool Type::is_unsigned_integral() const
+    {
+        return is_unsigned_integral_type(_type_info);
     }
 
     bool Type::is_signed_int() const

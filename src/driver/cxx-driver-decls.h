@@ -153,6 +153,7 @@ struct debug_flags_list_t
 typedef struct debug_options_tag
 {
     char abort_on_ice;
+    char backtrace_on_ice;
     char print_scope;
     char enable_debug_code;
     char debug_lexer;
@@ -172,6 +173,7 @@ typedef struct debug_options_tag
     char tdg_to_json;
     char do_not_codegen;
     char show_template_packs;
+    char vectorization_verbose;
 } debug_options_t;
 
 typedef struct external_var_tag {

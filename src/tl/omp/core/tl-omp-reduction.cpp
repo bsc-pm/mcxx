@@ -286,7 +286,7 @@ namespace TL { namespace OpenMP {
                 if (_allow_array_reductions
                         && var_tree.is<Nodecl::Shaping>())
                 {
-                    add_extra_data_sharings(var_tree, data_sharing);
+                    add_extra_data_sharings(var_tree, data_sharing, "reduction");
                 }
             }
         }

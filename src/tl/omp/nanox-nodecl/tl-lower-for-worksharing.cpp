@@ -57,10 +57,17 @@ namespace TL { namespace Nanox {
         OutlineInfoRegisterEntities outline_info_register(outline_info, construct.retrieve_context());
         outline_info_register.add_private(ind_var);
 
+        Nodecl::NodeclBase loop = construct.get_loop();
+        ERROR_CONDITION(!loop.is<Nodecl::Context>(), "Invalid node", 0);
+        loop = loop.as<Nodecl::Context>().get_in_context().as<Nodecl::List>()[0];
+        ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(), "Invalid node", 0);
+
         Source loop_name;
-        if (!construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().is_null())
         {
-            loop_name << " [ " << as_symbol(construct.get_loop().as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            if (!loop.as<Nodecl::ForStatement>().get_loop_name().is_null())
+            {
+                loop_name << " [ " << as_symbol(loop.as<Nodecl::ForStatement>().get_loop_name().get_symbol()) << " ]";
+            }
         }
 
         if (range.get_step().is_constant())
@@ -394,7 +401,9 @@ namespace TL { namespace Nanox {
 
     void LoweringVisitor::lower_for_worksharing(const Nodecl::OpenMP::For& construct)
     {
-        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
+        TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
+                get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+
         ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
         Nodecl::RangeLoopControl range =
@@ -461,7 +470,8 @@ namespace TL { namespace Nanox {
             argument_outline_data_item.set_is_cxx_this(true);
 
             // This is a special kind of shared
-            argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
+            if (argument_outline_data_item.get_sharing() == OutlineDataItem::SHARING_UNDEFINED)
+                argument_outline_data_item.set_sharing(OutlineDataItem::SHARING_CAPTURE_ADDRESS);
             argument_outline_data_item.set_base_address_expression(sym_ref);
         }
 
