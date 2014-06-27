@@ -5911,7 +5911,9 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                 }
 
                 if (!member.get_function_code().is_null() &&
-                        member.is_defined_inside_class())
+                        member.is_defined_inside_class()
+                        // Do not emit the empty bodies of defaulted functions
+                        && !member.is_defaulted())
                 {
                     walk(member.get_function_code());
                 }

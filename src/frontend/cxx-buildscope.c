@@ -374,6 +374,8 @@ static void call_destructors_of_classes(decl_context_t block_context,
         const locus_t* locus,
         nodecl_t* nodecl_output);
 
+static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context);
+
 typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_stack_t;
 
 // Current linkage: NULL means the default linkage (if any) of the symbol
@@ -9510,6 +9512,30 @@ static void register_this_symbol(decl_context_t decl_context,
     this_symbol->do_not_print = 1;
 }
 
+static void update_this_symbol(scope_entry_t* entry,
+        decl_context_t block_context)
+{
+    // The class we belong to
+    type_t* pointed_this = entry->entity_specs.class_type;
+    // Qualify likewise the function unless it is a destructor
+    if (!entry->entity_specs.is_destructor)
+    {
+        pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+    }
+
+    type_t* this_type = get_pointer_type(pointed_this);
+    // It is a constant pointer, so qualify like it is
+    this_type = get_cv_qualified_type(this_type, CV_CONST);
+
+    scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
+    // If the function is defined inside the class specifier, build_scope_function_definition_declarator
+    ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
+    scope_entry_t *this_symbol = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    this_symbol->type_information = this_type;
+}
+
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -12778,6 +12804,35 @@ static void set_defaulted_inside_class_specifier(
         entry->defined = 1;
         entry->entity_specs.is_defaulted = 1;
         entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        // Create an empty body for the defaulted function
+        nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+        ptr_nodecl_make_func_code = is_dependent_function(entry)
+            ? &nodecl_make_template_function_code : &nodecl_make_function_code;
+
+        decl_context_t block_context = new_block_context(decl_context);
+
+        register_this_symbol(block_context,
+                named_type_get_symbol(entry->entity_specs.class_type),
+                locus);
+        update_this_symbol(entry, block_context);
+        register_mercurium_pretty_print(entry, block_context);
+
+        nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
+                nodecl_make_context(
+                    nodecl_make_list_1(
+                        //Empty body
+                        nodecl_make_compound_statement(
+                            nodecl_null(),
+                            nodecl_null(),
+                            locus)),
+                    block_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+
+        entry->entity_specs.function_code = nodecl_function_def;
     }
 }
 
@@ -14999,25 +15054,7 @@ static void build_scope_function_definition_body(
         // If is a member function sign up additional information
         if (!entry->entity_specs.is_static)
         {
-            // The class we belong to
-            type_t* pointed_this = entry->entity_specs.class_type;
-            // Qualify likewise the function unless it is a destructor
-            if (!entry->entity_specs.is_destructor)
-            {
-                pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
-            }
-
-            type_t* this_type = get_pointer_type(pointed_this);
-            // It is a constant pointer, so qualify like it is
-            this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-            scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
-            // If the function is defined inside the class specifier, build_scope_function_definition_declarator
-            ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
-            scope_entry_t *this_symbol = entry_list_head(entry_list);
-            entry_list_free(entry_list);
-
-            this_symbol->type_information = this_type;
+            update_this_symbol(entry, block_context);
         }
     }
 
@@ -19233,7 +19270,7 @@ static void instantiate_template_function_code(
         decl_context_t orig_decl_context = nodecl_get_decl_context(nodecl_context);
 
         scope_entry_list_t* entry_list = query_in_scope_str(orig_decl_context, pretty_function_str, NULL);
-        ERROR_CONDITION(entry_list == NULL, "'this' not found", 0);
+        ERROR_CONDITION(entry_list == NULL, "__PRETTY_FUNCTION__ not found", 0);
 
         scope_entry_t* orig_pretty_function = entry_list_head(entry_list);
         entry_list_free(entry_list);
@@ -19264,7 +19301,7 @@ static void instantiate_template_function_code(
 
     nodecl_t instantiated_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
     nodecl_t new_nodecl_initializers = nodecl_null();
-    if (!nodecl_is_null(instantiated_nodecl_initializers))
+    if (v->new_function_instantiated->entity_specs.is_constructor)
     {
         check_nodecl_member_initializer_list(instantiated_nodecl_initializers,
                 v->new_function_instantiated,
