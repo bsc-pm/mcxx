@@ -16138,11 +16138,27 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         {
             if (entry_list_size(candidates) != 0)
             {
+                int j = 0;
+                const char* argument_types = "(";
+                for (i = 0; i < num_arguments; i++)
+                {
+                    if (arguments[i] == NULL)
+                        continue;
+
+                    if (j > 0)
+                        argument_types = strappend(argument_types, ", ");
+
+                    argument_types = strappend(argument_types, print_type_str(arguments[i], decl_context));
+                    j++;
+                }
+                argument_types = strappend(argument_types, ")");
+
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable constructor for class type '%s'\n",
+                        "%s: error: no suitable constructor in initialization '%s%s'\n",
                         locus_to_str(locus),
-                        print_type_str(declared_type, decl_context));
+                        print_type_str(declared_type, decl_context),
+                        argument_types);
                 diagnostic_candidates(candidates, &message, locus);
                 error_printf("%s", message);
             }
