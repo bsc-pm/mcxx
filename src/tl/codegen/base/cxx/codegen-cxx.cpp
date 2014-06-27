@@ -859,11 +859,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
     if (const_value_is_integer(imag_part))
     {
-        emit_integer_constant(imag_part, node.get_type().complex_get_base_type());
+        emit_integer_constant(imag_part, node.get_type().no_ref().complex_get_base_type());
     }
     else if (const_value_is_floating(imag_part))
     {
-        emit_floating_constant(imag_part, node.get_type().complex_get_base_type());
+        emit_floating_constant(imag_part, node.get_type().no_ref().complex_get_base_type());
     }
     else
     {
@@ -1376,7 +1376,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
     const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
 
-    emit_floating_constant(value, nodecl_get_type(node.get_internal_nodecl()));
+    emit_floating_constant(value, node.get_type().no_ref());
 }
 
 void CxxBase::emit_range_loop_header(
