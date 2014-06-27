@@ -1398,12 +1398,12 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             // Fix redundant reference to class pointer
-            if (is_lvalue_reference_type(scs1.orig)
+            if (is_any_reference_type(scs1.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs1.orig)))
             {
                 scs1.orig = reference_type_get_referenced_type(scs1.orig);
             }
-            if (is_lvalue_reference_type(scs2.orig)
+            if (is_any_reference_type(scs2.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs2.orig)))
             {
                 scs2.orig = reference_type_get_referenced_type(scs2.orig);
@@ -1481,11 +1481,11 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(no_ref(scs1.orig)) // C ->
-                    && is_lvalue_reference_to_class_type(scs1.dest) // B&
+                    && is_any_reference_to_class_type(scs1.dest) // B&
                     && class_type_is_derived(no_ref(scs1.orig),
                         reference_type_get_referenced_type(scs1.dest)) // C derives from B&
 
-                    && is_lvalue_reference_to_class_type(scs2.dest) // A&
+                    && is_any_reference_to_class_type(scs2.dest) // A&
                     && class_type_is_derived(reference_type_get_referenced_type(scs1.dest),
                         reference_type_get_referenced_type(scs2.dest)) // B& derives from A&
                )
@@ -1553,12 +1553,12 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(no_ref(scs1.orig)) // B
-                    && is_lvalue_reference_to_class_type(scs1.dest) // A&
+                    && is_any_reference_to_class_type(scs1.dest) // A&
                     && class_type_is_derived(no_ref(scs1.orig), 
                         reference_type_get_referenced_type(scs1.dest)) // B& is derived from A&
 
                     && is_class_type(scs2.orig) // C&
-                    /* && is_reference_to_class_type(scs2.dest) */ // A&
+                    /* && is_any_reference_to_class_type(scs2.dest) */ // A&
                     && class_type_is_derived(scs2.orig, 
                         no_ref(scs1.orig)) // C& is derived from B&
                ) 
@@ -1581,7 +1581,9 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
     if ((scs1.conv[0] == scs2.conv[0])
             && is_pointer_conversion(scs1.conv[1]))
     {
-        // FIXME - What about the deprecated literal string conversion?
+        // S1 and S2 differ only in their qualification conversion and yield similar types T1 and T2
+        // respectively, and the cv-qualification signature of type T1 is a proper subset of the cv-qualification
+        // signature of type T2
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
 
@@ -1618,10 +1620,8 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
 
         // If both are reference bindings, and scs2 leads to the same type more qualified,
         // then scs1 is better than scs1
-        if ((is_lvalue_reference_type(scs1.dest) 
-                    || is_rvalue_reference_type(scs1.dest))
-                && (is_lvalue_reference_type(scs2.dest) 
-                    || is_rvalue_reference_type(scs2.dest)))
+        if (is_any_reference_type(scs1.dest) 
+                && is_any_reference_type(scs2.dest))
         {
             type_t* dest1 = get_unqualified_type(reference_type_get_referenced_type(scs1.dest));
             type_t* dest2 = get_unqualified_type(reference_type_get_referenced_type(scs2.dest));
@@ -1660,6 +1660,31 @@ char standard_conversion_is_better(standard_conversion_t scs1,
         }
         return 1;
     }
+    // S1 and S2 are reference bindings and neither refers to an
+    // implicit object parameter of a non-static member function
+    // declared without a ref-qualifier, and S1 binds an rvalue
+    // reference to an rvalue and S2 binds an lvalue reference.
+    // FIXME - Not checking the implicit case
+    else if (is_rvalue_reference_type(scs1.dest)
+            && !is_lvalue_reference_type(scs1.orig) // a rvalue (either a non-reference or a rvalue reference)
+            && is_lvalue_reference_type(scs2.dest))
+    {
+        return 1;
+    }
+    // S1 and S2 are reference bindings and S1 binds an lvalue
+    // reference to a function lvalue and S2 binds an rvalue reference
+    // to a function lvalue
+    else if (is_lvalue_reference_type(scs1.orig)
+            && is_function_type(no_ref(scs1.orig))
+            && is_lvalue_reference_type(scs1.dest)
+
+            && is_lvalue_reference_type(scs2.orig)
+            && is_function_type(no_ref(scs2.orig))
+            && is_rvalue_reference_type(scs2.dest))
+    {
+        return 1;
+    }
+    // Cases including const int* vs int* and const int& and int&
     else if (standard_conversion_differs_qualification(scs1, scs2))
     {
         DEBUG_CODE()
