@@ -46,6 +46,18 @@ namespace TL { namespace OpenMP {
                 name + ":" + typenames + ":" + combiner + ":" + initializer);
     }
 
+    void Core::parse_builtin_reduction(ReferenceScope ref_sc,
+            const std::string &name,
+            const std::string &typenames,
+            const std::string &initializer,
+            const std::string &combiner)
+    {
+
+        parse_declare_reduction(ref_sc,
+                "#line 0 \"<openmp-builtin-reductions>\"\n" +
+                name + ":" + typenames + ":" + combiner + ":" + initializer);
+    }
+
     void Core::initialize_builtin_reductions(Scope sc)
     {
         if (_reductions_already_registered)
@@ -88,89 +100,89 @@ namespace TL { namespace OpenMP {
                 integer_types += ", bool";
             }
 
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "+",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out += omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "*",
                     arithmetic_types,
                     "omp_priv = 1",
                     "omp_out *= omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "-",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out += omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "&",
                     integer_types,
                     "omp_priv = ~0",
                     "omp_out &= omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "|",
                     integer_types,
                     "omp_priv = 0",
                     "omp_out |= omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "^",
                     integer_types,
                     "omp_priv = 0",
                     "omp_out ^= omp_in");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "&&",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out = omp_in && omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "||",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out = omp_in || omp_out");
             // max
             std::string max_combiner = "omp_out = omp_in > omp_out ? omp_in : omp_out";
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     unsigned_integers,
                     "omp_priv = 0",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "signed char",
                     "omp_priv = mercurium_schar_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "signed short",
                     "omp_priv = mercurium_shrt_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "signed int",
                     "omp_priv = mercurium_int_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "signed long",
                     "omp_priv = mercurium_long_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "signed long long",
                     "omp_priv = mercurium_long_long_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "float",
                     "omp_priv = mercurium_flt_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "double",
                     "omp_priv = mercurium_dbl_min",
                     max_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     "long double",
                     "omp_priv = mercurium_ldbl_min",
@@ -178,69 +190,69 @@ namespace TL { namespace OpenMP {
 
             // min
             std::string min_combiner = "omp_out = omp_in < omp_out ? omp_in : omp_out";
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "unsigned char",
                     "omp_priv = mercurium_uchar_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "unsigned short",
                     "omp_priv = mercurium_ushrt_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "unsigned int",
                     "omp_priv = mercurium_uint_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "unsigned long",
                     "omp_priv = mercurium_ulong_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "unsigned long long",
                     "omp_priv = mercurium_ulong_long_max",
                     min_combiner);
 
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "signed char",
                     "omp_priv = mercurium_schar_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "signed short",
                     "omp_priv = mercurium_shrt_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "signed int",
                     "omp_priv = mercurium_int_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "signed long",
                     "omp_priv = mercurium_long_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "signed long long",
                     "omp_priv = mercurium_long_long_max",
                     min_combiner);
 
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "float",
                     "omp_priv = mercurium_flt_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "double",
                     "omp_priv = mercurium_dbl_max",
                     min_combiner);
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     "long double",
                     "omp_priv = mercurium_ldbl_max",
@@ -264,74 +276,74 @@ namespace TL { namespace OpenMP {
 
             std::string arithmetic_types = integer_types + ", " + floating_types + ", " + complex_types;
 
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "+",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out = omp_in + omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "*",
                     arithmetic_types,
                     "omp_priv = 1",
                     "omp_out = omp_in * omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "-",
                     arithmetic_types,
                     "omp_priv = 0",
                     "omp_out = omp_in - omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     ".and.",
                     logical_types,
                     "omp_priv = .true.",
                     "omp_out = omp_in .and. omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     ".or.",
                     logical_types,
                     "omp_priv = .false.",
                     "omp_out = omp_in .or. omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     ".eqv.",
                     logical_types,
                     "omp_priv = .true.",
                     "omp_out = omp_in .eqv. omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     ".neqv.",
                     logical_types,
                     "omp_priv = .false.",
                     "omp_out = omp_in .neqv. omp_out");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "iand",
                     integer_types,
                     "omp_priv = NOT(0)",
                     "omp_out = iand(omp_in, omp_out)");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "ior",
                     integer_types,
                     "omp_priv = 0",
                     "omp_out = ior(omp_in, omp_out)");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "ieor",
                     integer_types,
                     "omp_priv = 0",
                     "omp_out = ieor(omp_in, omp_out)");
             // max
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     integer_types,
                     "omp_priv = -HUGE(omp_priv)",
                     "omp_out = max(omp_in, omp_out)");
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "max",
                     floating_types,
                     "omp_priv = -HUGE(omp_priv)",
                     "omp_out = max(omp_in, omp_out)");
             // min
-            parse_declare_reduction(sc,
+            parse_builtin_reduction(sc,
                     "min",
                     integer_types,
                     "omp_priv = HUGE(omp_priv)",
                     "omp_out = min(omp_in, omp_out)");
-            // parse_declare_reduction(sc,
+            // parse_builtin_reduction(sc,
             //         "min",
             //         floating_types,
             //         "omp_priv = HUGE(omp_priv)",

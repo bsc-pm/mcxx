@@ -769,12 +769,35 @@ namespace Nodecl {
                     else
                     {
                         // We removed the last, then we should return end
+                        if(nodecl_is_null(it._top))
+                        {
+                            // Make sure the Nodecl::List now represents the "empty" list
+                            this->operator=(Nodecl::List());
+                        }
+                        else
+                        {
+                            // You cannot do this because you should set the parent of this list
+                            // to be NULL and we cowardly refuse to assign this responsability
+                            // to this class
+                            internal_error("You cannot remove the last element "
+                                    "of this list because it is rooted in another node", 0);
+                        }
                         return this->end();
                     }
                 }
                 else
                 {
-                    internal_error("Impossible to remove a list without parent", 0);
+                    nodecl_t prev = nodecl_get_child(it._current, 0);
+                    if (!nodecl_is_null(prev))
+                    {
+                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
+                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
+                    }
+                    else
+                    {
+                        this->operator=(Nodecl::List());
+                    }
+                    return this->end();
                 }
             }
 

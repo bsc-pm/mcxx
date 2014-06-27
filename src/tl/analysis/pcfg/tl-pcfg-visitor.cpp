@@ -2091,13 +2091,6 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInAlloca& n )
-    {
-        PCFGClause current_clause( __in_alloca, n.get_in_deps( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        return ObjectList<Node*>( );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInValue& n )
     {
         PCFGClause current_clause( __in_value, n.get_in_deps( ) );

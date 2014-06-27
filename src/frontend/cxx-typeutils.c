@@ -1852,6 +1852,15 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
+void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    t->type->class_info->class_kind = class_kind;
+}
+
 static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)
@@ -2247,8 +2256,7 @@ static char same_template_argument_list(
             case TPK_NONTYPE:
                 {
                     if (!same_functional_expression(targ_1->value,
-                                targ_2->value,
-                                deduction_flags_empty()))
+                                targ_2->value))
                     {
                         return 0;
                     }
@@ -5914,8 +5922,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             CXX_LANGUAGE()
             {
                 result = same_functional_expression(t1->typeof_expr,
-                        t2->typeof_expr,
-                        deduction_flags_empty());
+                        t2->typeof_expr);
             }
             break;
         case STK_UNDERLYING:
@@ -6039,7 +6046,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, decl_conte
         CXX_LANGUAGE()
         {
             if (!same_functional_expression(t1->whole_size, 
-                        t2->whole_size, deduction_flags_empty()))
+                        t2->whole_size))
                 return 0;
         }
         C_LANGUAGE()
@@ -7073,7 +7080,11 @@ char is_signed_integral_type(type_t* t)
         || is_signed_int_type(t)
         || is_signed_long_int_type(t)
         || is_signed_long_long_int_type(t)
-        || is_signed_int128_type(t);
+        || is_signed_int128_type(t)
+        || (IS_CXX_LANGUAGE
+                && is_wchar_t_type(t)
+                    && is_signed_integral_type(
+                        (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)()));
 }
 
 char is_unsigned_integral_type(type_t* t)
@@ -7085,7 +7096,11 @@ char is_unsigned_integral_type(type_t* t)
         || is_unsigned_long_int_type(t)
         || is_unsigned_long_long_int_type(t)
         || is_unsigned_int128_type(t)
-        || is_mask_type(t);
+        || is_mask_type(t)
+        || (IS_CXX_LANGUAGE
+                && is_wchar_t_type(t)
+                && is_unsigned_integral_type(
+                    (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)()));
 }
 
 char is_signed_int_type(type_t *t)

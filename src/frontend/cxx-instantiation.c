@@ -2311,6 +2311,26 @@ void instantiate_template_function(scope_entry_t* entry, const locus_t* locus)
     instantiate_template_function_internal(entry, locus);
 }
 
+void instantiate_template_function_and_integrate_in_translation_unit(scope_entry_t* entry, const locus_t* locus)
+{
+    char instantiated = instantiate_template_function_internal(entry, locus);
+
+    if (!instantiated)
+        return;
+
+    nodecl_t top_level = CURRENT_COMPILED_FILE->nodecl;
+    nodecl_t list = nodecl_get_child(top_level, 0);
+
+    add_forward_declaration_to_top_level(&list, entry);
+
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+    {
+        list = nodecl_append_to_list(list, entry->entity_specs.function_code);
+    }
+
+    nodecl_set_child(top_level, 0, list);
+}
+
 // Instantiation map
 struct instantiation_symbol_map_tag
 {

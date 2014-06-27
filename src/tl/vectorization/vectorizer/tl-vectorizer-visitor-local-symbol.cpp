@@ -63,7 +63,7 @@ namespace Vectorization
         else if (tl_sym_type.is_scalar_type())
         {
             vector_type = Utils::get_qualified_vector_to(tl_sym_type,
-                    _environment._unroll_factor);
+                    _environment._vectorization_factor);
 
             VECTORIZATION_DEBUG()
             {
@@ -113,7 +113,7 @@ namespace Vectorization
                         nodecl_sym, nodecl_sym))
             {
                 TL::Type vector_type = Utils::get_qualified_vector_to(
-                        tl_sym_type, _environment._unroll_factor);
+                        tl_sym_type, _environment._vectorization_factor);
 
                 tl_sym.set_type(vector_type);
 

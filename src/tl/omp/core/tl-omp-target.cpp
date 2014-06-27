@@ -381,7 +381,8 @@ namespace TL
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<Nodecl::NodeclBase>& list,
                 CopyDirection copy_direction,
-                TargetInfo& target_info)
+                TargetInfo& target_info,
+                bool in_ompss_mode)
         {
             TL::ObjectList<CopyItem> items;
 
@@ -402,52 +403,45 @@ namespace TL
                     continue;
                 }
 
-                Symbol sym = expr.get_base_symbol();
-                OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
-
-                if (expr.is<Nodecl::Symbol>())
+                // In OmpSs copies we may fix the data-sharing to something more natural
+                if (in_ompss_mode)
                 {
-                    if (data_sharing_attr == DS_UNDEFINED)
+                    Symbol sym = expr.get_base_symbol();
+                    // In OmpSs, the storage of a copy is always SHARED. Note that with this
+                    // definition we aren't defining the data-sharings of the variables involved
+                    // in that expression.
+                    //
+                    // About the data-sharings of the variables involved in the copy expression:
+                    // - Fortran: the base symbol of the copy expression is always SHARED
+                    // - C/C++:
+                    //
+                    //      copy_inout(x)    x must be shared
+                    //      copy_inout(a)    a must be shared if it's an array
+                    //
+                    //    But we allow more general cases. In these cases x, is not going to be shared
+                    //    and it will be left to the default data sharing
+                    //
+                    //      copy_inout(*x)             We do not define a specific data sharing for these
+                    //      copy_inout(x[10])
+                    //      copy_inout(x[1:2])
+                    //      copy_inout([10][20] x)
+                    if (IS_FORTRAN_LANGUAGE)
                     {
-                        warn_printf("%s: warning: symbol '%s' does not have any data sharing, assuming SHARED\n",
-                                construct.get_locus_str().c_str(),
-                                sym.get_name().c_str());
-                        // Make it shared if we know nothing about this entity
-                        data_sharing.set_data_sharing(sym, DS_SHARED);
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
-
-                    if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
+                    else if (expr.is<Nodecl::Symbol>())
                     {
-                        if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
-                        {
-                            // This is an explicit data sharing of a private
-                            // entity, which is being copied, this is wrong
-                            running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                    construct.get_locus_str().c_str(),
-                                    sym.get_name().c_str());
-                        }
-                        else
-                        {
-                            // Otherwise just override the sharing attribute with shared
-                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                        }
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is mentioned in a copy and it did not have an explicit data-sharing");
                     }
-                }
-                else
-                {
-                    Type sym_type = sym.get_type();
-                    if (sym_type.is_any_reference())
+                    else if (sym.get_type().is_array()
+                            || (sym.get_type().is_any_reference()
+                                && sym.get_type().references_to().is_array()))
                     {
-                        sym_type = sym_type.references_to();
-                    }
-
-                    if (sym_type.is_array())
-                    {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                    }
-                    else
-                    {
-                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
+                                "the variable is an array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
                     }
                 }
 
@@ -493,17 +487,20 @@ namespace TL
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_in,
                     COPY_DIR_IN,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
                     COPY_DIR_OUT,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_inout,
                     COPY_DIR_INOUT,
-                    target_info);
+                    target_info,
+                    in_ompss_mode());
 
             target_info.set_file(target_ctx.file);
             target_info.set_name(target_ctx.name);
@@ -560,17 +557,20 @@ namespace TL
                 add_copy_items(construct, data_sharing,
                         dep_list_in,
                         COPY_DIR_IN,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
 
                 add_copy_items(construct, data_sharing,
                         dep_list_out,
                         COPY_DIR_OUT,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
 
                 add_copy_items(construct, data_sharing,
                         dep_list_inout,
                         COPY_DIR_INOUT,
-                        target_info);
+                        target_info,
+                        in_ompss_mode());
             }
 
             if (this->in_ompss_mode()

@@ -29,15 +29,10 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_exec_fail_nanox_imcc_1thread=yes
-test_exec_faulty_nanox_imcc_1thread=yes
-test_exec_fail_nanox_imcc_2thread=yes
-test_exec_faulty_nanox_imcc_2thread=yes
-test_exec_fail_nanox_imcc_4thread=yes
-test_exec_faulty_nanox_imcc_4thread=yes
 </testinfo>
 */
+
+#if !defined(__ICC) || (__ICC >= 1400)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,3 +78,14 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+#else
+
+// ICC <14.0 miscompiles VLA address calculations
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+
+#endif

@@ -1,6 +1,6 @@
 #!@BASH@
 
-if [ "@MIC_COMPILATION@" == "no" ];
+if [ "@MIC_COMPILATION@" = "no" ];
 then
 
 cat <<EOF

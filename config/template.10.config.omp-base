@@ -43,7 +43,6 @@ linker_name = @GCC@
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
-{optimize-gather-scatter-strides} options = --variable=optimize_gather_scatter_strides:1
 
 [omp-base : omp-base-common]
 linker_options = -Xlinker --add-needed

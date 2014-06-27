@@ -37,8 +37,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        SSEVectorLowering::SSEVectorLowering(bool intel_compiler_profile)
-           : _intel_compiler_profile(intel_compiler_profile) 
+        SSEVectorLowering::SSEVectorLowering()
         {
         }
 
