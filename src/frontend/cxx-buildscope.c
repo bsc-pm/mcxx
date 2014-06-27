@@ -14635,7 +14635,7 @@ char check_constexpr_constructor(scope_entry_t* entry,
     {
         if (!initialized[i])
         {
-            if (!diagnose)
+            if (diagnose)
             {
                 warn_or_error_printf(
                         emit_error,
@@ -14648,7 +14648,7 @@ char check_constexpr_constructor(scope_entry_t* entry,
         }
         else if (!is_constexpr_initialized[i])
         {
-            if (!diagnose)
+            if (diagnose)
             {
                 warn_or_error_printf(
                         emit_error,
