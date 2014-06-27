@@ -64,12 +64,12 @@ namespace Analysis {
         ObjectList<CGEdge*> get_entries() const;
         ObjectList<CGNode*> get_parents();
         void add_entry(CGEdge* e);
-        CGEdge* add_parent(CGNode* parent, NBase predicate = NBase::null());
+        void remove_parent(CGNode* parent);
         
         ObjectList<CGEdge*> get_exits() const;
         ObjectList<CGNode*> get_children();
-        void add_exit(CGEdge* e);
-        CGEdge* add_child(CGNode* child, NBase predicate = NBase::null());
+        CGEdge* add_child(CGNode* child, bool is_back_edge, NBase predicate = NBase::null());
+        void remove_child(CGNode* child, bool& is_back_edge, NBase& predicate);
         
         int get_scc_index() const;
         void set_scc_index(int scc_index);
@@ -83,16 +83,18 @@ namespace Analysis {
         // *** Members *** //
         CGNode* _source;
         CGNode* _target;
+        bool _is_back_edge;
         NBase _predicate;
         bool _is_saturated;
         
     public:
         // *** Constructor *** //
-        CGEdge(CGNode* source, CGNode* target, const NBase& predicate);
+        CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate);
         
         // *** Getters and setters *** //
         CGNode* get_source() const;
         CGNode* get_target() const;
+        bool is_back_edge() const;
         NBase get_predicate() const;
         bool is_saturated() const;
         void set_saturated(bool s);
@@ -122,6 +124,7 @@ namespace Analysis {
         
         // *** Consultants *** //
         bool is_trivial() const;
+        bool is_positive() const;
     };
     
     class LIBTL_CLASS ConstraintGraph
@@ -139,13 +142,22 @@ namespace Analysis {
         
         // *** Modifiers *** //
         //! Insert, if it is not yet there, a new node in the CG with the value #value
-        CGNode* insert_node(const NBase& value);
+        CGNode* insert_node(const NBase& value, bool& fresh);
         
         //! Returns the node in the CG corresponding to the value #value
         CGNode* get_node(const NBase& value);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
+        void connect_nodes(CGNode* source, CGNode* target, bool is_back_edge, NBase predicate = NBase::null());
+        
+        //! Disconnects nodes #source and #target if they were connected
+        void disconnect_nodes(CGNode* source, CGNode* target, bool& is_back_edge, NBase& predicate);
+        
+        //! Reduce two consecutive Phi nodes into one (exclusive parent-child)
+        void collapse_consecutive_phi_nodes();
+        
+        
+        void connect_constraint_graph();
         
         //! Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC*> topologically_compose_strongly_connected_components();
@@ -235,7 +247,7 @@ namespace Analysis {
         void set_parameters_constraints();
         void compute_initial_constraints(Node* entry);
         void propagate_constraints_from_backwards_edges(Node* n);
-        void create_constraint_graph(Node* n);
+        void create_constraints(Node* n);
         
     public:
         //! Constructor

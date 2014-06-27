@@ -3673,6 +3673,34 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::PlusInfinity& node)
     *(file) << "+∞";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Maximum& node)
+{
+    *(file) << "max(";
+    Nodecl::List expressions = node.get_expressions().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = expressions.begin(); it != expressions.end(); )
+    {
+        walk(*it);
+        ++it;
+        if(it != expressions.end())
+            *(file) << ", ";
+    }
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Minimum& node)
+{
+    *(file) << "min(";
+    Nodecl::List expressions = node.get_expressions().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = expressions.begin(); it != expressions.end(); )
+    {
+        walk(*it);
+        ++it;
+        if(it != expressions.end())
+            *(file) << ", ";
+    }
+    *(file) << ")";    
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
 {
     *(file) << "Φ(";

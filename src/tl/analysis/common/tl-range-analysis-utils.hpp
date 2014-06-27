@@ -40,9 +40,10 @@ namespace Utils {
     // ********************************** Intervals arithmetic *********************************** //
     
     NBase range_sub(const NBase& r1, const NBase& r2);
-    NBase range_intersection(const NBase& r, const NBase& r2);
+    NBase range_intersection(const NBase& r, const NBase& r2, bool positive);
     NBase range_union(const NBase& r1, const NBase& r2);
-
+    Nodecl::Range range_value_add(const Nodecl::Range& r, const Nodecl::IntegerLiteral& v);
+    
     // ******************************** END Intervals arithmetic ********************************* //
     // ******************************************************************************************* //
     

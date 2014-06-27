@@ -30,6 +30,8 @@ Cambridge, MA 02139, USA.
 
 #include <algorithm>
 #include <fstream>
+#include <list>
+#include <queue>
 #include <set>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -165,7 +167,7 @@ namespace {
         // Build the constraint and insert it in the corresponding maps
         Utils::Constraint c(s, val);
 #ifdef RANGES_DEBUG
-        std::cerr << "Assignment Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
+        std::cerr << "    Assignment Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
         _input_constraints_map[lhs] = c;
         _output_constraints_map[lhs] = c;
@@ -178,8 +180,8 @@ namespace {
         NBase lhs = n.get_lhs();
         NBase rhs = n.get_rhs();
         NBase new_rhs = Nodecl::Assignment::make(lhs.shallow_copy(), 
-                                                              Nodecl::Add::make(lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type()), 
-                                                              lhs.get_type());
+                                                 Nodecl::Add::make(lhs.shallow_copy(), rhs.shallow_copy(), rhs.get_type()), 
+                                                 lhs.get_type());
         n.replace(new_rhs);
         return visit_assignment(n.get_lhs(), n.get_rhs());
     }
@@ -217,7 +219,7 @@ namespace {
         val = Nodecl::Range::make(const_value_to_nodecl(zero), const_value_to_nodecl(one), const_value_to_nodecl(one), t);
         // 1.3 Build the actual constraint and insert it in the corresponding map
 #ifdef RANGES_DEBUG
-        std::cerr << "LowerThan Constraint " << s_x.get_name() << " = " << val.prettyprint() << std::endl;
+        std::cerr << "    LowerThan Constraint " << s_x.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
         c = Utils::Constraint(s_x, val);
         Symbol var_s(n.retrieve_context().new_symbol("_x"));
@@ -236,7 +238,7 @@ namespace {
         val = Nodecl::Symbol::make(_input_constraints_map[lhs].get_symbol());
         // 2.3 Build the actual constraint and insert it in the corresponding map
 #ifdef RANGES_DEBUG
-        std::cerr << "LowerThan Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
+        std::cerr << "    LowerThan Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
         c = Utils::Constraint(s, val);
         _input_constraints_map[lhs] = c;
@@ -261,11 +263,11 @@ namespace {
         NBase val_true = 
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(), ub, const_value_to_nodecl(zero), t),
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub, const_value_to_nodecl(zero), t),
                 t);
         // 3.1.3.- Build the TRUE constraint and store it
 #ifdef RANGES_DEBUG
-        std::cerr << "LowerThan TRUE Constraint " << s_true.get_name() << " = " << val_true.prettyprint() << std::endl;
+        std::cerr << "    LowerThan TRUE Constraint " << s_true.get_name() << " = " << val_true.prettyprint() << std::endl;
 #endif
         _output_true_constraints_map[lhs] = Utils::Constraint(s_true, val_true);
         
@@ -280,12 +282,12 @@ namespace {
             Nodecl::Analysis::RangeIntersection::make(
                 Nodecl::Symbol::make(s), 
                 Nodecl::Range::make(val.shallow_copy(),
-                                    Nodecl::Analysis::PlusInfinity::make(), 
+                                    Nodecl::Analysis::PlusInfinity::make(t), 
                                     const_value_to_nodecl(zero), t), 
                 t);
         // 3.2.3.- Build the FALSE constraint and store it
 #ifdef RANGES_DEBUG
-        std::cerr << "LowerThan FALSE Constraint " << s_false.get_name() << " = " << val_false.prettyprint() << std::endl;
+        std::cerr << "    LowerThan FALSE Constraint " << s_false.get_name() << " = " << val_false.prettyprint() << std::endl;
 #endif
         _output_false_constraints_map[lhs] = Utils::Constraint(s_false, val_false);
         
@@ -310,7 +312,7 @@ namespace {
         
         // Build the constraint
 #ifdef RANGES_DEBUG
-        std::cerr << "Mod Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
+        std::cerr << "    Mod Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
         Utils::Constraint c(s, val);
         Nodecl::Symbol var = Nodecl::Symbol::make(TL::Symbol(n.retrieve_context().new_symbol("_x")));
@@ -346,7 +348,7 @@ namespace {
                                       const_value_to_nodecl(one), 
                                       rhs.get_type());
 #ifdef RANGES_DEBUG
-        std::cerr << "Preincrement Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
+        std::cerr << "    Preincrement Constraint " << s.get_name() << " = " << val.prettyprint() << std::endl;
 #endif
         Utils::Constraint c(s, val);
         _input_constraints_map[rhs] = c;
@@ -370,6 +372,19 @@ namespace {
         for(CGNode_map::iterator it = nodes_map.begin(); it != nodes_map.end(); ++it)
             result.insert(it->second);
         return result;
+    }
+    
+    static std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> CONSTRAINTS;
+    static ObjectList<NBase> ORDERED_CONSTRAINTS;
+    
+    void print_constraints()
+    {
+        std::cerr << "CONSTRAINT MAP: " << std::endl;
+        for(std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = CONSTRAINTS.begin(); 
+            it != CONSTRAINTS.end(); ++it)
+        {
+            std::cerr << "    " << it->first.prettyprint() << "  ->  " << it->second.prettyprint() << std::endl;
+        }
     }
 }
     
@@ -395,7 +410,6 @@ namespace {
     
     void CGNode::set_valuation(const NBase& valuation)
     {
-        std::cerr << "Node " << _id << " valuation " << valuation.prettyprint() << std::endl;
         _valuation = valuation;
     }
     
@@ -417,27 +431,14 @@ namespace {
         _entries.insert(e);
     }
     
-    CGEdge* CGNode::add_parent(CGNode* parent, NBase predicate)
+    void CGNode::remove_parent(CGNode* parent)
     {
-        CGEdge* e;
-        ObjectList<CGNode*> parents = get_parents();
-        if(!parents.contains(parent))
-        {
-            e = new CGEdge(parent, this, predicate);
-            _entries.insert(e); 
-        }
-        else
-        {
-            for(ObjectList<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
+        for(ObjectList<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
+            if((*it)->get_source() == parent)
             {
-                if((*it)->get_source() == parent)
-                {
-                    e = *it;
-                    break;
-                }
+                _entries.erase(it);
+                return;
             }
-        }
-        return e;
     }
     
     ObjectList<CGEdge*> CGNode::get_exits() const
@@ -453,18 +454,13 @@ namespace {
         return children;
     }
     
-    void CGNode::add_exit(CGEdge* e)
-    {
-        _exits.insert(e);
-    }
-    
-    CGEdge* CGNode::add_child(CGNode* child, NBase predicate)
+    CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, NBase predicate)
     {
         CGEdge* e;
         ObjectList<CGNode*> children = get_children();
         if(!children.contains(child))
         {
-            e = new CGEdge(this, child, predicate);
+            e = new CGEdge(this, child, is_back_edge, predicate);
             _exits.insert(e); 
         }
         else
@@ -479,6 +475,18 @@ namespace {
             }
         }
         return e;
+    }
+    
+    void CGNode::remove_child(CGNode* child, bool& is_back_edge, NBase& predicate)
+    {
+        for(ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
+            if((*it)->get_target() == child)
+            {
+                is_back_edge = (*it)->is_back_edge();
+                predicate = (*it)->get_predicate();
+                _exits.erase(it);
+                return;
+            }
     }
     
     int CGNode::get_scc_index() const
@@ -501,9 +509,12 @@ namespace {
         _scc_lowlink_index = scc_lowlink_index;
     }
     
-    CGEdge::CGEdge(CGNode* source, CGNode* target, const NBase& predicate)
-        : _source(source), _target(target), _predicate(predicate), _is_saturated(true)
-    {}
+    CGEdge::CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate)
+        : _source(source), _target(target), _is_back_edge(is_back), _predicate(predicate), _is_saturated(false)
+    {
+        if(!predicate.is_null() && predicate.is<Nodecl::Range>())
+            _is_saturated = true;
+    }
     
     CGNode* CGEdge::get_source() const
     {
@@ -513,6 +524,16 @@ namespace {
     CGNode* CGEdge::get_target() const
     {
         return _target;
+    }
+    
+    bool CGEdge::is_back_edge() const
+    {
+        return _is_back_edge;
+    }
+    
+    NBase CGEdge::get_predicate() const
+    {
+        return _predicate;        
     }
     
     bool CGEdge::is_saturated() const
@@ -525,10 +546,6 @@ namespace {
         _is_saturated = s;
     }
     
-    NBase CGEdge::get_predicate() const
-    {
-        return _predicate;        
-    }
     
     static unsigned int SccId = 0;
     
@@ -571,17 +588,28 @@ namespace {
         return (_nodes.size() == 1);
     }
     
+    // FIXME A SCC is positive if it contains a cycle that increments the involved variable
+    bool SCC::is_positive() const
+    {
+        return (!is_trivial() && true);
+    }
+    
     ConstraintGraph::ConstraintGraph(std::string name)
         : _name(name), _nodes()
     {}
     
-    CGNode* ConstraintGraph::insert_node(const NBase& value)
+    CGNode* ConstraintGraph::insert_node(const NBase& value, bool& fresh)
     {
         CGNode* node = get_node(value);
         if(node==NULL)
         {
             node = new CGNode(value);
             _nodes[value] = node;
+            fresh = true;
+        }
+        else
+        {
+            fresh = false;
         }
         return node;
     }
@@ -592,33 +620,215 @@ namespace {
                                                    : _nodes[value]);
     }
     
-    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, NBase predicate)
+    void ConstraintGraph::connect_nodes(CGNode* source, CGNode* target, bool is_back_edge, NBase predicate)
     {
         ObjectList<CGNode*> children = source->get_children();
         if(!children.contains(target))
         {
-            CGEdge* e = source->add_child(target, predicate);
+            CGEdge* e = source->add_child(target, is_back_edge, predicate);
             target->add_entry(e);
+        }
+    }
+    
+    void ConstraintGraph::disconnect_nodes(CGNode* source, CGNode* target, bool& is_back_edge, NBase& predicate)
+    {
+        source->remove_child(target, is_back_edge, predicate);
+        target->remove_parent(source);
+    }
+    
+    void ConstraintGraph::collapse_consecutive_phi_nodes()
+    {
+        for(ObjectList<NBase>::iterator oit = ORDERED_CONSTRAINTS.begin(); oit != ORDERED_CONSTRAINTS.end(); ++oit)
+        {
+            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = CONSTRAINTS.find(*oit);
+            ERROR_CONDITION(it == CONSTRAINTS.end(), 
+                            "Constraint %s not found in the constraints map.\n", 
+                            oit->prettyprint().c_str());
+            if(it->second.is<Nodecl::Analysis::Phi>())
+            {
+                // Collect all the expressions from nested Phi nodes
+                Nodecl::Analysis::Phi phi = it->second.shallow_copy().as<Nodecl::Analysis::Phi>();
+                Nodecl::List phi_exprs = phi.get_expressions().shallow_copy().as<Nodecl::List>();
+                Nodecl::List new_phi_exprs;
+                Nodecl::List phi_to_remove;
+                bool has_phi = false;
+                while(!phi_exprs.empty())
+                {
+                    NBase tmp = phi_exprs.back();
+                    phi_exprs.pop_back();
+                    
+                    std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator tmp_it = CONSTRAINTS.find(tmp);
+                    ERROR_CONDITION(tmp_it == CONSTRAINTS.end(), 
+                                    "Constraint %s not found in the global constraints map.\n", 
+                                    tmp.prettyprint().c_str());
+                    
+                    if(tmp_it->second.is<Nodecl::Analysis::Phi>())
+                    {
+                        phi_to_remove.append(tmp_it->first);
+                        phi_exprs.append(tmp_it->second.as<Nodecl::Analysis::Phi>().get_expressions());
+                        has_phi = true;
+                    }
+                    else
+                    {
+                        new_phi_exprs.append(tmp_it->first);
+                    }
+                }
+                
+                if(has_phi)
+                {
+                    // Create the new constraint
+                    NBase new_phi = Nodecl::Analysis::Phi::make(new_phi_exprs, phi.get_type());
+                    CONSTRAINTS[it->first] = new_phi;
+                    
+                    // Delete the nested constraints
+                    for(Nodecl::List::iterator itt = phi_to_remove.begin(); itt != phi_to_remove.end(); ++itt)
+                    {
+                        CONSTRAINTS.erase(*itt);
+                        for(ObjectList<NBase>::iterator ittt = ORDERED_CONSTRAINTS.begin(); ittt != ORDERED_CONSTRAINTS.end(); ++ittt)
+                            if(Nodecl::Utils::structurally_equal_nodecls(*itt, *ittt, /*skip_conversion_nodes*/true))
+                            {
+                                ORDERED_CONSTRAINTS.erase(ittt);
+                                break;
+                            }
+                    }
+                }
+            }
+        }
+    }
+    
+    void ConstraintGraph::connect_constraint_graph()
+    {
+        bool fresh_node;
+        std::multimap<NBase, CGNode*> phi_nodes_to_connect;
+        for(ObjectList<NBase>::iterator oit = ORDERED_CONSTRAINTS.begin(); oit != ORDERED_CONSTRAINTS.end(); ++oit)
+        {
+            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = CONSTRAINTS.find(*oit);
+            ERROR_CONDITION(it == CONSTRAINTS.end(), 
+                            "Constraint %s not found in the constraints map.\n", 
+                            oit->prettyprint().c_str());
+            NBase s = it->first;
+            NBase val = it->second;
+            // Insert in the CG the nodes corresponding to the current Constraint
+            // A. Create a new node if the Constraint Value is a Range
+            CGNode* source = NULL;
+            if(val.is<Nodecl::Range>())
+                source = insert_node(val, fresh_node);
+            // B. Create a new node in the Contraint Graph for the current Constraint (if does not exist yet)
+            CGNode* target = insert_node(s, fresh_node);
+            bool is_back_edge = !fresh_node;
+            
+            // Insert in the CG the edges corresponding to the current Constraint
+            if(val.is<Nodecl::Symbol>())
+            {
+                source = get_node(val);
+                if(source==NULL)
+                    source = insert_node(val, fresh_node);
+                connect_nodes(source, target, is_back_edge, Nodecl::Text::make("="));
+            }
+            else if(val.is<Nodecl::Analysis::Phi>())
+            {   // C.
+                Nodecl::List expressions = val.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
+                for(Nodecl::List::iterator ite = expressions.begin(); ite != expressions.end(); ++ite)
+                {
+                    // The nodes that have not been yet created, will be created when we visit their constraint
+                    // This way we preserve the order of creation of the constraints, necessary for recognizing back edges
+                    source = get_node(*ite);
+                    if(source==NULL)
+                        phi_nodes_to_connect.insert(std::pair<NBase, CGNode*>(*ite, target));
+                    else
+                        connect_nodes(source, target, is_back_edge);
+                }
+            }
+            else if(val.is<Nodecl::Analysis::RangeIntersection>())
+            {   // D.
+                NBase lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
+                const NBase rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs();
+                ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || !rhs.is<Nodecl::Range>(), 
+                                "Expected a RangeIntersection with the structure 'c0 ∩ [lb, ub]' but found %s.\n", 
+                                val.prettyprint().c_str());
+                
+                source = get_node(lhs);
+                if(source==NULL)
+                    source = insert_node(lhs, fresh_node);
+                connect_nodes(source, target, is_back_edge, rhs.shallow_copy());
+            }
+            else if(val.is<Nodecl::Range>())
+            {   // E.
+                connect_nodes(source, target, is_back_edge);
+            }
+            else if(val.is<Nodecl::Add>())
+            {
+                NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
+                const NBase rhs = val.as<Nodecl::Add>().get_rhs();
+                ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
+                                "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
+                                val.prettyprint().c_str());
+                source = get_node(lhs);
+                if(source==NULL)
+                    source = insert_node(lhs, fresh_node);
+                connect_nodes(source, target, is_back_edge, rhs.shallow_copy());
+            }
+            else if(val.is<Nodecl::Minus>())
+            {
+                NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
+                const NBase rhs = val.as<Nodecl::Add>().get_rhs();
+                ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
+                                "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
+                                val.prettyprint().c_str());
+                source = get_node(lhs);
+                if(source==NULL)
+                    source = insert_node(lhs, fresh_node);
+                NBase neg_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
+                connect_nodes(source, target, is_back_edge, neg_rhs);
+            }
+            else
+            {
+                internal_error("Unexpected type of Constraint value '%s' for constraint '%s'.\n", 
+                               ast_print_node_type(val.get_kind()), val.prettyprint().c_str());
+            }
+        }
+        
+        for(std::multimap<NBase, CGNode*>::iterator it = phi_nodes_to_connect.begin(); 
+            it != phi_nodes_to_connect.end(); ++it)
+        {
+            CGNode* source = get_node(it->first);
+            ERROR_CONDITION(source == NULL, "Node for constraint %s not created yet.\n", it->first.prettyprint().c_str());
+            connect_nodes(source, it->second, true);
         }
     }
     
     void ConstraintGraph::print_graph_rec(std::ofstream& dot_file)
     {
-        // Print all nodes
-        for(CGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
-            dot_file << "\t" << it->second->get_id() << " [label=\"[" << it->second->get_id() << "] " << it->second->get_constraint().prettyprint() << "\"];\n";
-        
-        // Print all nodes relations
         for(CGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
-            unsigned int source = it->second->get_id();
-            ObjectList<CGEdge*> exits = it->second->get_exits();
+            CGNode* n = it->second;
+            unsigned int source = n->get_id();
+            
+            // Print the Constraint Node
+            NBase constraint = n->get_constraint();
+            dot_file << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\"];\n";
+            NBase val = n->get_valuation();
+            if(!constraint.is<Nodecl::Range>() && !val.is_null())
+            {
+                // Print a node containing the valuation
+                dot_file << "\t0" << source << " [label=\"" << val.prettyprint() << "\", "
+                         << "style=\"dashed\", color=\"gray55\", fontcolor=\"gray27\", shape=\"polygon\"];\n";
+                // Connect it to its constraint node
+                dot_file << "\t" << source << "->" << "0" << source << " [label=\"\", style=\"dashed\", color=\"gray55\"];\n";
+                // set the same rank to the constraint node an its valuation node
+                dot_file << "\t{rank=same; " << source << "; 0" << source << ";}";
+            }
+            
+            // Print the node relations
+            ObjectList<CGEdge*> exits = n->get_exits();
             for(ObjectList<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
             {
                 unsigned int target = (*ite)->get_target()->get_id();
                 const NBase predicate = (*ite)->get_predicate();
-                std::string label = (predicate.is_null() ? "" : " [label=\"" + predicate.prettyprint() + "\"]");
-                dot_file << "\t" << source << "->" << target << label << ";\n";
+                bool back_edge = (*ite)->is_back_edge();
+                std::string attrs = " [label=\"" + (predicate.is_null() ? "" : predicate.prettyprint()) + "\","
+                                  + " style=\"" + (back_edge ? "dotted" : "solid") + "\"]";
+                dot_file << "\t" << source << "->" << target << attrs << ";\n";
             }
         }
     }
@@ -700,7 +910,6 @@ namespace {
         if((n->get_scc_lowlink_index() == n->get_scc_index()) && !s.empty())
         {
             SCC* scc = new SCC();
-            
             while(!s.empty() && s.top()!=n)
             {
                 scc->add_node(s.top());
@@ -778,19 +987,19 @@ root_done:  ;
         for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
-            std::cerr << "SCC " << (*it)->get_id() << " : ";
+            std::cerr << "    SCC " << (*it)->get_id() << ": ";
             for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); )
             {
-                std::cerr << (*itt)->get_constraint().prettyprint() << ", ";
+                std::cerr << (*itt)->get_constraint().prettyprint();
                 ++itt;
                 if(itt != scc_nodes.end())
-                    std::cerr << ",";
+                    std::cerr << ", ";
             }
             std::cerr << std::endl;
         }
         #endif
         
-        // Collect the roots of each tree
+        // Collect the roots of each SCC tree
         std::vector<SCC*> roots;
         for(std::map<CGNode*, SCC*>::iterator it = node_to_scc_map.begin(); it != node_to_scc_map.end(); ++it)
         {
@@ -798,172 +1007,278 @@ root_done:  ;
                 roots.push_back(it->second);
         }
         
-        /*
-         *    S C*C : v_3, 
-         *    SCC : v_2, ,v_1, ,v_6, ,v_5, ,v_4, 
-         *    SCC : _x_2, 
-         *    SCC : [0:1],
-         *    SCC : v_0, 
-         *    SCC : [0:0], 
-         *    SCC : _x_1, 
-         *    SCC : [0:1], 
-         *    SCC : p_0, 
-         *    SCC : [-∞:+∞]
-         */
-        #ifdef RANGES_DEBUG
-        std::cerr << "ROOT FOR EACH STRONGLY CONNECTED COMPONENT" << std::endl;
-        for(std::vector<SCC*>::iterator it = roots.begin(); it != roots.end(); ++it)
-        {
-            std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
-            std::cerr << "SCC " << (*it)->get_id() << " root: ";
-            for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); )
-            {
-                std::cerr << (*itt)->get_constraint().prettyprint() << ", ";
-                ++itt;
-                if(itt != scc_nodes.end())
-                    std::cerr << ",";
-            }
-            std::cerr << std::endl;
-        }
-        #endif
-        
         return roots;
     }
     
 namespace {
     
-    NBase evaluate_cgnode(CGNode* node, const NBase& last_valuation)
+    void evaluate_cgnode(CGNode* node)
     {
-        NBase constraint = node->get_constraint();
         NBase next_valuation;
+        NBase constraint = node->get_constraint();
         if(constraint.is<Nodecl::Range>())
         {
             next_valuation = constraint;
         }
         else
         {
-            next_valuation = last_valuation;
-        }
-        node->set_valuation(next_valuation);
-        return next_valuation;
-    }
-    
-    NBase evaluate_scc(SCC* scc, const NBase& valuation)
-    {
-        std::cerr << "SCC " << scc->get_id() << "  ->  EVALUATE" << std::endl;
-        CGNode* node = scc->get_nodes()[0];
-        return evaluate_cgnode(node, valuation);
-    }
-    
-    void propagate_valuation(SCC* scc, const NBase& valuation)
-    {
-        std::set<CGNode*> visited_nodes;
-        CGNode* next = scc->get_root();
-        NBase last_valuation = valuation;
-        while(next != NULL)
-        {
-            visited_nodes.insert(next);
-            
-            ObjectList<CGEdge*> exits = next->get_exits();
-            // Get the unique non-back edge
-            CGEdge* e = NULL;
-            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            ObjectList<NBase> previous_valuations;
+            ObjectList<CGEdge*> entries = node->get_entries();
+            ERROR_CONDITION(entries.empty(), 
+                            "CG node %d representing a symbol has no entries. Expected at least one entry.\n", 
+                            node->get_id());
+            for(ObjectList<CGEdge*>::iterator it = entries.begin(); it != entries.end(); ++it)
             {
-                CGEdge* tmp = *it;
-                CGNode* target = tmp->get_target();
-                if(node_to_scc_map[target] != scc)
-                    continue;       // This edge is not within the SCC we are valuating
-                if(visited_nodes.find(target) != visited_nodes.end())
-                    continue;       // This node has already been treated (back edge)
-                ERROR_CONDITION(e != NULL, "A non-back-edge has already been found for node %d.\n", next->get_id());
-                
-                e = *it;
-            }
-            
-            // We have found some edge to propagate the valuation
-            if(e != NULL)
-            {
-                // Propagate the valuation to the target of the edge
-                CGNode* target = e->get_target();
-                NBase val = target->get_valuation();
-                if(!val.is_null())
-                {
-                    last_valuation = Nodecl::Analysis::RangeUnion::make(last_valuation, val, val.get_type());
-                }
+                if((*it)->is_back_edge())
+                    continue;
+                Nodecl::Range last_valuation = (*it)->get_source()->get_valuation().as<Nodecl::Range>();
+                NBase predicate = (*it)->get_predicate();
+                if(predicate.is_null())
+                    next_valuation = last_valuation;
+                else if(predicate.is<Nodecl::IntegerLiteral>())
+                    next_valuation = Utils::range_value_add(last_valuation, predicate.as<Nodecl::IntegerLiteral>());
+                else if(predicate.is<Nodecl::Range>())
+                    next_valuation = Utils::range_intersection(last_valuation, predicate, /*is_positive*/false);
                 else
+                    internal_error("Unexpected type of CG predicate %s. Expected IntegerLiteral or Range.\n", 
+                                   ast_print_node_type(predicate.get_kind()));
+                previous_valuations.append(next_valuation);
+            }
+            ObjectList<NBase>::iterator it = previous_valuations.begin();
+            next_valuation = *it;
+            if(previous_valuations.size() > 1)
+            {
+                ++it;
+                while(it != previous_valuations.end())
                 {
-                    last_valuation = val;
+                    next_valuation = Utils::range_union(next_valuation, *it);
+                    ++it;
                 }
-                target->set_valuation(last_valuation);
-                
-                // Set the next node to propagate to
-                next = target;
+            }
+        }
+#ifdef RANGES_DEBUG
+        std::cerr << "    EVALUATE " << node->get_id() << "  ::  " << next_valuation.prettyprint() << std::endl;
+#endif
+        node->set_valuation(next_valuation);
+    }
+    
+    // Depth first search on the SCC
+    // Propagate the valuation on topological order
+    // If a node has more than one entry, the compute the union of all entry valuations
+    void propagate_valuation(SCC* scc, CGNode* n)
+    {
+        ObjectList<CGNode*> children = n->get_children();
+        std::list<CGNode*> ready(children.begin(), children.end());
+        std::set<CGNode*> propagated_nodes;
+        propagated_nodes.insert(n);
+        ObjectList<CGEdge*> back_edges;
+        while(!ready.empty())
+        {
+            CGNode* tmp = ready.front();
+            ready.pop_front();
+            
+            ObjectList<CGEdge*> tmp_entries = tmp->get_entries();
+            // Check whether all entries are non-saturated
+            // If there is one saturated entry, then it must be the only entry
+            // If we find a saturated connection, stop propagating (FIXME: Do we really have to do that?)
+            if(tmp_entries.size() > 1)
+            {
+                for(ObjectList<CGEdge*>::iterator it = tmp_entries.begin(); it != tmp_entries.end(); ++it)
+                {
+                    ERROR_CONDITION((*it)->is_saturated(), 
+                                    "Node %d has more than one entry and some of them is saturated. This is not implemented yet.\n", 
+                                    tmp->get_id());
+                }
             }
             else
             {
-                next = NULL;
+                if((*tmp_entries.begin())->is_saturated())
+                {   // No more propagation required since a saturation is needed first
+                    break;
+                }
+            }
+            
+            // Check whether all parents of the current node has already a propagated value
+            bool all_entries_ready = true;
+            for(ObjectList<CGEdge*>::iterator it = tmp_entries.begin(); it != tmp_entries.end(); ++it)
+            {
+                CGNode* source = (*it)->get_source();
+                if(propagated_nodes.find(source) == propagated_nodes.end())
+                {
+                    all_entries_ready = false;
+                    break;
+                }
+            }
+            
+            // This node is not ready to be propagated, push it again to the queue and continue with other nodes
+            if(!all_entries_ready)
+            {
+                ready.push_back(tmp);
+                continue;
+            }
+            
+            // Everything is ready: propagate the parents valuation to the current node
+            NBase new_valuation;
+            ObjectList<NBase> all_valuations;
+            for(ObjectList<CGEdge*>::iterator it = tmp_entries.begin(); it != tmp_entries.end(); ++it)
+            {
+                NBase predicate = (*it)->get_predicate();
+                if(predicate.is_null())
+                    continue;
+                if(predicate.is<Nodecl::IntegerLiteral>())
+                {
+                    all_valuations.append(Utils::range_value_add((*it)->get_source()->get_valuation().as<Nodecl::Range>(), 
+                                                                 predicate.as<Nodecl::IntegerLiteral>()));
+                }
+                else
+                    internal_error("Unexpected predicate '%s' when propagating valuations.IntegerLiteral expected.\n", 
+                                   predicate.prettyprint().c_str());
+            }
+            if(all_valuations.size() > 1)
+            {
+                for(ObjectList<NBase>::iterator it = all_valuations.begin(); it != all_valuations.end(); ++it)
+                    new_valuation = Utils::range_union(new_valuation, *it);
+            }
+            else
+                new_valuation = *all_valuations.begin();
+#ifdef RANGES_DEBUG
+            std::cerr << "        PROPAGATE to " << tmp->get_id() << "  ::  " << new_valuation.prettyprint() << std::endl;
+#endif
+            tmp->set_valuation(new_valuation);
+            propagated_nodes.insert(tmp);
+            
+            // Add the children of the current node to the list to be treated
+            ObjectList<CGEdge*> exits = tmp->get_exits();
+            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            {
+                if(!(*it)->is_back_edge())
+                    ready.push_back((*it)->get_target());
+                else
+                    back_edges.append(*it);
+            }
+        }
+        
+        // Propagate all back edges in the SCC
+        NBase new_valuation;
+        for(ObjectList<CGEdge*>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
+        {
+            NBase predicate = (*it)->get_predicate();
+            ERROR_CONDITION(!predicate.is_null(), "Propagation in back edges with a predicate is not yet implemented.\n", 0);
+            NBase source_valuation = (*it)->get_source()->get_valuation();
+            if(!source_valuation.is_null())
+            {
+                CGNode* target = (*it)->get_target();
+                NBase target_valuation = target->get_valuation();
+                if(target_valuation.is_null())
+                    new_valuation = source_valuation;
+                else
+                    new_valuation = Utils::range_union(source_valuation, target_valuation);
+                target->set_valuation(new_valuation);
+#ifdef RANGES_DEBUG
+                std::cerr << "        PROPAGATE back edge to " << target->get_id() << "  ::  " << new_valuation.prettyprint() << std::endl;
+#endif
             }
         }
     }
     
-    void resolve_cycle(SCC* scc, const NBase& old_valuation)
+    void saturate_edge(SCC* scc, CGEdge* e)
     {
+        Nodecl::Range next_valuation;
+        
+        // Check whether this is a correctly saturated edge
+        NBase predicate = e->get_predicate();
+        ERROR_CONDITION(predicate.is_null() || !predicate.is<Nodecl::Range>(), 
+                        "Edge between %d and %d is not saturated because its predicate is %s.\n", 
+                        e->get_source()->get_id(), e->get_target()->get_id(), 
+                        (predicate.is_null() ? "" : predicate.prettyprint().c_str()));
+        
+        // Saturate the edge computing the intersection between valuation and the edge's predicate
+        NBase valuation = e->get_source()->get_valuation();
+        Type t(valuation.get_type());
+        if(predicate.is<Nodecl::Range>())
+        {
+            if(scc->is_positive())
+            {
+                next_valuation = Utils::range_intersection(valuation, predicate, /*positive*/true).as<Nodecl::Range>();
+            }
+            else
+            {
+                next_valuation = Utils::range_intersection(valuation, predicate, /*positive*/false).as<Nodecl::Range>();
+            }
+        }
+        
+        // Set the saturated value as the valuation of the edge's target
+        CGNode* target = e->get_target();
+#ifdef RANGES_DEBUG
+        std::cerr << "    SATURATE to " << target->get_id() << "  ::  " << next_valuation.prettyprint() << std::endl;
+#endif
+        target->set_valuation(next_valuation);
+        
+        // Set the edge as non-saturated
+        e->set_saturated(false);
+    }
+    
+    void resolve_cycle(SCC* scc)
+    {
+#ifdef RANGES_DEBUG
         std::cerr << "SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
+#endif
         // Evaluate the root of the SCC
         CGNode* root = scc->get_root();
-        NBase next_valuation = evaluate_cgnode(root, old_valuation);
-        propagate_valuation(scc, next_valuation);
+        evaluate_cgnode(root);
         
         // Saturate all non-saturated edges in the SCC
-        CGNode* n = root;
-        while(n != NULL)
+        std::queue<CGEdge*> ready_queue;
+        ObjectList<CGEdge*> root_exits = root->get_exits();
+        for(ObjectList<CGEdge*>::iterator it = root_exits.begin(); it != root_exits.end(); ++it)
+            ready_queue.push(*it);
+        std::set<CGEdge*> visited_edges;
+        while(!ready_queue.empty())
         {
-            // Treat the current node
-            ObjectList<CGEdge*> exits = n->get_exits();
-            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+            CGEdge* e = ready_queue.front();
+            ready_queue.pop();
+            
+            // Only treat the edge if it was not treated yet
+            if(visited_edges.find(e)!=visited_edges.end())
+                continue;
+            visited_edges.insert(e);
+                
+            // The target is not in the same SCC => no propagation here
+            CGNode* target = e->get_target();
+            if(node_to_scc_map[target] != scc)
+                continue;
+                
+            if(e->is_saturated())
             {
-                CGEdge* e = *it;
-                CGNode* source = e->get_source();
-                CGNode* target = e->get_target();
-                if(e->is_saturated())
-                {
-                    NBase predicate = e->get_predicate();
-                    if(!predicate.is_null())
-                    {
-                        std::cerr << "Predicate: " << predicate.prettyprint() << std::endl;
-                        if(predicate.is<Nodecl::Range>())
-                        {
-                            next_valuation = Nodecl::Analysis::RangeIntersection::make(next_valuation, predicate, next_valuation.get_type());
-                            target->set_valuation(next_valuation);
-                        }
-                    }
-                    else
-                    {
-                        
-                    }
-                }
+                // Apply ranges arithmetic to the current node (target)
+                saturate_edge(scc, e);
+                
+                // Propagate the valuation to the child
+                propagate_valuation(scc, target);
             }
             
-            
+            // Add the target node to the ready queue
+            ObjectList<CGEdge*> exits = target->get_exits();
+            for(ObjectList<CGEdge*>::iterator it = exits.begin(); it != exits.end(); ++it)
+                ready_queue.push(*it);
         }
     }
     
     void solve_constraint(SCC* scc)
     {
         SCC* next_scc = scc;
-        NBase next_valuation;
         while(next_scc != NULL)
         {
             // Treat the current SCC
             if(next_scc->is_trivial())
             {
-                // Evaluate
-                next_valuation = evaluate_scc(next_scc, next_valuation);
+                // Evaluate the only node within the SCC
+                evaluate_cgnode(next_scc->get_nodes()[0]);
             }
             else
             {
                 // Cycle resolution
-                resolve_cycle(next_scc, next_valuation);
+                resolve_cycle(next_scc);
             }
             
             // Prepare the next iteration, if exists
@@ -993,6 +1308,9 @@ namespace {
 }
     void ConstraintGraph::solve_contraints(const std::vector<SCC*>& roots)
     {
+#ifdef RANGES_DEBUG
+        std::cerr << "SOLVE CONSTRAINTS" << std::endl;
+#endif
         for(std::vector<SCC*>::const_iterator it = roots.begin(); it != roots.end(); ++it)
         {
             solve_constraint(*it);
@@ -1022,12 +1340,16 @@ namespace {
         
         propagate_constraints_from_backwards_edges(entry);
         ExtensibleGraph::clear_visits(entry);
-
+        
         // 2.- Create the Constraint Graph
-        create_constraint_graph(entry);
+        create_constraints(entry);
         ExtensibleGraph::clear_visits(entry);
+        _cg->collapse_consecutive_phi_nodes();
         if(VERBOSE)
-            _cg->print_graph();
+            print_constraints();
+        _cg->connect_constraint_graph();
+//         if(VERBOSE)
+//             _cg->print_graph();
         
         // 3.- Extract the Strongly Connected Components (SCC) of the graph
         //     And get the root of each topologically ordered subgraph
@@ -1035,6 +1357,8 @@ namespace {
         
         // 4.- Constraints evaluation
         _cg->solve_contraints(roots);
+        if(VERBOSE)
+            _cg->print_graph();
     }
     
     // Set an constraint to the graph entry node for each parameter of the function
@@ -1061,8 +1385,8 @@ namespace {
             s.set_type(t);
             
             // Get the value for the constraint
-            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(), 
-                                            Nodecl::Analysis::PlusInfinity::make(), 
+            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                            Nodecl::Analysis::PlusInfinity::make(t), 
                                             const_value_to_nodecl(zero), t);
             
             // Build the constraint and insert it in the constraints map
@@ -1134,7 +1458,7 @@ namespace {
                                 TL::Symbol current_symbol = ittt->second.get_symbol();
                                 // If the new constraint is different from the old one, compute the combination of both
                                 if(!Nodecl::Utils::structurally_equal_nodecls(old_constraint.get_constraint(), current_constraint, 
-                                                                            /*skip_conversion_nodes*/true))
+                                                                              /*skip_conversion_nodes*/true))
                                 {
                                     // Get a new symbol for the new constraint
                                     NBase lhs = ittt->first;
@@ -1185,7 +1509,7 @@ namespace {
                         // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
                         Utils::ConstraintMap current_constraints_map = c->get_constraints_map();
 #ifdef RANGES_DEBUG
-                        std::cerr << "NODE " << c->get_id() << std::endl;
+                        std::cerr << "PCFG NODE " << c->get_id() << std::endl;
 #endif
                         ConstraintBuilderVisitor cbv(input_constraints_map, current_constraints_map);
                         NodeclList stmts = c->get_statements();
@@ -1292,8 +1616,8 @@ namespace {
     /*! Generate a constraint graph from the PCFG and the precomputed Constraints for each node
      *  A Constraint Graph is created as follows:
      *  - The nodes of the graphs are:
-     *    - A. A node for each SSA variable from Constraints: c0 = ...             Node    c0
-     *    - B. A node for each Constraint Value which is a Range: c1 = [lb, ub]    Node [lb, ub]
+     *    - A. A node for each Constraint Value which is a Range: c1 = [lb, ub]    Node [lb, ub]
+     *    - B. A node for each SSA variable from Constraints: c0 = ...             Node    c0
      *  - The edges are built following the rules below:
      *    - C. Si Constraint Phi: c0 = Phi(c1, c2)                                 Edge    c0 ---------------> c2
      *                                                                             Edge    c1 ---------------> c2
@@ -1301,7 +1625,7 @@ namespace {
      *    - E. Si Constraint Range: c0 = [lb, ub]                                  Edge [lb, ub]-------------> c1
      *    - F. Si Constraint Arithmetic op: c1 = c0 + 1                            Edge    c1 ------ 1 ------> c0
      */
-    void RangeAnalysis::create_constraint_graph(Node* n)
+    void RangeAnalysis::create_constraints(Node* n)
     {
         if(!n->is_visited())
         {
@@ -1315,92 +1639,19 @@ namespace {
                     Utils::Constraint c = it->second;
                     Nodecl::Symbol s = Nodecl::Symbol::make(c.get_symbol());
                     NBase val = c.get_constraint().no_conv();
-                    
-                    // Insert in the CG the nodes corresponding to the current Constraint
-                    // A. Create a new node in the Contraint Graph for the current Constraint (if does not exist yet)
-                    CGNode* target = _cg->insert_node(s);
-                    // B. Create a new node if the Constraint Value is a Range
-                    CGNode* source;
-                    if(val.is<Nodecl::Range>())
-                        source = _cg->insert_node(val);
-                    
-                    // Insert in the CG the edges corresponding to the current Constraint
-                    if(val.is<Nodecl::Symbol>())
-                    {
-                        source = _cg->get_node(val);
-                        if(source==NULL)
-                            source = _cg->insert_node(val);
-                        _cg->connect_nodes(source, target, Nodecl::Text::make("="));
-                    }
-                    else if(val.is<Nodecl::Analysis::Phi>())
-                    {   // C.
-                        Nodecl::List expressions = val.as<Nodecl::Analysis::Phi>().get_expressions().as<Nodecl::List>();
-                        for(Nodecl::List::iterator ite = expressions.begin(); ite != expressions.end(); ++ite)
-                        {
-                            source = _cg->get_node(*ite);
-                            if(source==NULL)
-                                source = _cg->insert_node(*ite);
-                            _cg->connect_nodes(source, target);
-                        }
-                    }
-                    else if(val.is<Nodecl::Analysis::RangeIntersection>())
-                    {   // D.
-                        NBase lhs = val.as<Nodecl::Analysis::RangeIntersection>().get_lhs().no_conv();
-                        const NBase rhs = val.as<Nodecl::Analysis::RangeIntersection>().get_rhs();
-                        ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || !rhs.is<Nodecl::Range>(), 
-                                        "Expected a RangeIntersection with the structure 'c0 ∩ [lb, ub]' but found %s.\n", 
-                                        val.prettyprint().c_str());
-                        
-                        source = _cg->get_node(lhs);
-                        if(source==NULL)
-                            source = _cg->insert_node(lhs);
-                        _cg->connect_nodes(source, target, rhs.shallow_copy());
-                    }
-                    else if(val.is<Nodecl::Range>())
-                    {   // E.
-                        _cg->connect_nodes(source, target);
-                    }
-                    else if(val.is<Nodecl::Add>())
-                    {
-                        NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
-                        const NBase rhs = val.as<Nodecl::Add>().get_rhs();
-                        ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
-                                        "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
-                                        val.prettyprint().c_str());
-                        source = _cg->get_node(lhs);
-                        if(source==NULL)
-                            source = _cg->insert_node(lhs);
-                        _cg->connect_nodes(source, target, rhs.shallow_copy());
-                    }
-                    else if(val.is<Nodecl::Minus>())
-                    {
-                        NBase lhs = val.as<Nodecl::Add>().get_lhs().no_conv();
-                        const NBase rhs = val.as<Nodecl::Add>().get_rhs();
-                        ERROR_CONDITION(!lhs.is<Nodecl::Symbol>() || (!rhs.is_constant() && !rhs.is<Nodecl::Symbol>()), 
-                                        "Expected a Nodecl::Add with the structure 'c1 + v' but found %s.\n", 
-                                        val.prettyprint().c_str());
-                        source = _cg->get_node(lhs);
-                        if(source==NULL)
-                            source = _cg->insert_node(lhs);
-                        NBase neg_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
-                        _cg->connect_nodes(source, target, neg_rhs);
-                    }
-                    else
-                    {
-                        internal_error("Unexpected type of Constraint value '%s' for constraint '%s'.\n", 
-                                       ast_print_node_type(val.get_kind()), val.prettyprint().c_str());
-                    }
+                    CONSTRAINTS[s] = val;
+                    ORDERED_CONSTRAINTS.push_back(s);
                 }
             }
             
             // Iterate over nested nodes if necessary
             if(n->is_graph_node())
-                create_constraint_graph(n->get_graph_entry_node());
+                create_constraints(n->get_graph_entry_node());
             
             // Keep traversing the PCFG through the node's children
             ObjectList<Node*> children = n->get_children();
             for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                create_constraint_graph(*it);
+                create_constraints(*it);
         }
     }
     
