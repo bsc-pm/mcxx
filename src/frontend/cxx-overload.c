@@ -1602,22 +1602,6 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
     else if ((scs1.conv[0] == scs2.conv[0])
             && (scs1.conv[1] == scs2.conv[1]))
     {
-        // If both are reference bindings, and scs2 binds a lvalue to a rvalue-reference
-        // while scs1 binds a lvalue to a lvalue-reference, scs1 is better
-        //
-        // scs1: int& -> int&
-        // scs2: int& -> int&&
-        //
-        // scs1 is better
-        if (is_lvalue_reference_type(scs1.orig)        // binds a lvalue
-                && is_lvalue_reference_type(scs1.dest) // to a lvalue-reference
-
-                && is_lvalue_reference_type(scs2.orig) // binds a lvalue
-                && is_rvalue_reference_type(scs2.dest)) // to a rvalue-reference
-        {
-            return 1;
-        }
-
         // If both are reference bindings, and scs2 leads to the same type more qualified,
         // then scs1 is better than scs1
         if (is_any_reference_type(scs1.dest) 
@@ -1684,7 +1668,7 @@ char standard_conversion_is_better(standard_conversion_t scs1,
     {
         return 1;
     }
-    // Cases including const int* vs int* and const int& and int&
+    // Cases including "const int*/int*", "const int&/int&" and "const int&&/int&&"
     else if (standard_conversion_differs_qualification(scs1, scs2))
     {
         DEBUG_CODE()
