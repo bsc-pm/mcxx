@@ -20051,7 +20051,11 @@ static void constexpr_replace_parameters_with_values_rec(nodecl_t n,
 
             if (value != NULL)
             {
+                type_t* t = nodecl_get_type(n);
                 nodecl_t nodecl_value = const_value_to_nodecl(value);
+                // Preserve the original type
+                nodecl_set_type(nodecl_value, t);
+
                 nodecl_replace(n, nodecl_value);
             }
         }
