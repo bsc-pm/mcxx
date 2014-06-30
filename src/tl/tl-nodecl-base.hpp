@@ -744,6 +744,9 @@ namespace Nodecl {
             {
                 nodecl_t parent = nodecl_get_parent(it._current);
 
+                nodecl_t prev = nodecl_get_child(it._current, 0);
+                bool is_first = nodecl_is_null(prev);
+
                 if (!nodecl_is_null(parent))
                 {
                     bool is_last = (it == this->last());
@@ -768,34 +771,27 @@ namespace Nodecl {
                     }
                     else
                     {
-                        // We removed the last, then we should return end
-                        if(nodecl_is_null(it._top))
+                        // Make sure the Nodecl::List now represents the "empty" list
+                        if (is_first)
                         {
-                            // Make sure the Nodecl::List now represents the "empty" list
+                            // The list became empty
                             this->operator=(Nodecl::List());
                         }
-                        else
-                        {
-                            // You cannot do this because you should set the parent of this list
-                            // to be NULL and we cowardly refuse to assign this responsability
-                            // to this class
-                            internal_error("You cannot remove the last element "
-                                    "of this list because it is rooted in another node", 0);
-                        }
+                        // We removed the last, return end
                         return this->end();
                     }
                 }
                 else
                 {
-                    nodecl_t prev = nodecl_get_child(it._current, 0);
-                    if (!nodecl_is_null(prev))
+                    if (is_first)
                     {
-                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
-                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
+                        // The list became empty
+                        this->operator=(Nodecl::List());
                     }
                     else
                     {
-                        this->operator=(Nodecl::List());
+                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
+                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
                     }
                     return this->end();
                 }
