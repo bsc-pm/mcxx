@@ -17870,6 +17870,7 @@ void build_ternary_builtin_operators(type_t* t1,
                         (*result).entry[(*result).num_builtins].symbol_name = operator_name;
                         (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                         (*result).entry[(*result).num_builtins].type_information = function_type;
+                        (*result).entry[(*result).num_builtins].decl_context = decl_context;
 
                         DEBUG_CODE()
                         {
