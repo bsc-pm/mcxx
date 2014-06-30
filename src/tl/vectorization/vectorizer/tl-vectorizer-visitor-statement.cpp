@@ -138,7 +138,7 @@ namespace Vectorization
             // EPILOG condition: while((mask = cmp) != 0) do
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                        _environment._unroll_factor,
+                        _environment._vectorization_factor,
                         true /*ref_type*/);
 
             Nodecl::NodeclBase epilog_condition = epilog_loop_control.get_cond();
@@ -247,7 +247,7 @@ namespace Vectorization
             // Condition mask
             Nodecl::NodeclBase mask_condition_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._unroll_factor,
+                        _environment._vectorization_factor,
                         true /*ref_type*/);
 
             Nodecl::ExpressionStatement mask_condition_exp =
@@ -262,7 +262,7 @@ namespace Vectorization
             // If mask symbol
             Nodecl::NodeclBase if_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                        _environment._unroll_factor,
+                        _environment._vectorization_factor,
                         true /*ref_type*/);
 
             // Mask value
@@ -307,7 +307,7 @@ namespace Vectorization
             // New symbol mask
             Nodecl::NodeclBase else_mask_nodecl = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
-                        _environment._unroll_factor,
+                        _environment._vectorization_factor,
                         true);
 
             // Mask value
@@ -387,7 +387,7 @@ namespace Vectorization
             // ***************
             // VISIT ELSE'S THEN
             // ***************
-            bool return_inside_else;
+            bool return_inside_else = false;
             if (has_else)
             {
                 // Before visiting, compute heuristics
@@ -445,7 +445,7 @@ namespace Vectorization
                 Nodecl::NodeclBase new_exit_mask = Utils::get_disjunction_mask(
                         bb_predecessor_masks, list, 
                         _environment._analysis_simd_scope,
-                        _environment._unroll_factor);
+                        _environment._vectorization_factor);
 
                 _environment._mask_list.push_back(new_exit_mask);
             }
@@ -479,12 +479,12 @@ namespace Vectorization
         // Boolean type is treated as mask type
         if (scalar_type.is_bool())
         {
-            vector_type = TL::Type::get_mask_type(_environment._unroll_factor);
+            vector_type = TL::Type::get_mask_type(_environment._vectorization_factor);
         }
         else
         {
             vector_type = Utils::get_qualified_vector_to(scalar_type,
-                    _environment._unroll_factor);
+                    _environment._vectorization_factor);
         }
 
         if (scalar_type.is_vector())

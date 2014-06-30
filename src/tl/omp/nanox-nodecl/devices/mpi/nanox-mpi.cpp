@@ -935,7 +935,8 @@ void DeviceMPI::create_outline(CreateOutlineInfo &info,
        _sectionCodeDevice.append_with_separator("(void(*)())" + device_function.get_qualified_name() + append,",");
        _currTaskId++; 
     } else {
-        if( is_template_specialized_type(current_function.get_type().get_internal_type()) ){
+        if( current_function.get_type().is_template_specialized_type()
+         && !current_function.get_scope().get_template_parameters()->is_explicit_specialization ){
             type_t* type=template_specialized_type_get_related_template_type(current_function.get_type().get_internal_type());
             int n = template_type_get_num_specializations(type);
             
@@ -1021,8 +1022,11 @@ void DeviceMPI::get_device_descriptor(DeviceDescriptorInfo& info,
             Nodecl::Context context = (code.is<Nodecl::TemplateFunctionCode>())
                 ? code.as<Nodecl::TemplateFunctionCode>().get_statements().as<Nodecl::Context>()
                 : code.as<Nodecl::FunctionCode>().get_statements().as<Nodecl::Context>();    
+            bool without_template_args =
+                !current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization;
             TL::Scope function_scope = context.retrieve_context();
-            std::string qualified_name = current_function.get_qualified_name(function_scope);            
+            std::string qualified_name = current_function.get_qualified_name(function_scope,without_template_args);            
             // Restore the original name of the current function
             current_function.set_name(original_name);
             

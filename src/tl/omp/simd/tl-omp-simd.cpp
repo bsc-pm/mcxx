@@ -26,11 +26,10 @@
 
 #include "tl-omp-simd.hpp"
 
-#include "cxx-cexpr.h"
-#include "tl-nodecl-utils.hpp"
 #include "tl-omp.hpp"
-#include "tl-nodecl-utils.hpp"
 #include "tl-optimizations.hpp"
+#include "tl-nodecl-utils.hpp"
+#include "cxx-cexpr.h"
 
 using namespace TL::Vectorization;
 
@@ -233,7 +232,8 @@ namespace TL {
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(simd_environment, vectorlengthfor_type);
+            process_vectorlengthfor_clause(simd_environment,
+                    vectorlengthfor_type);
 
             // Cache clause
             objlist_nodecl_t cached_expressions;
@@ -1151,10 +1151,6 @@ namespace TL {
             if(!omp_vector_length_for.is_null())
             {
                 vectorlengthfor_type = omp_vector_length_for.get_type();
-            }
-            else //Float type by default //TODO
-            {
-                vectorlengthfor_type = TL::Type::get_float_type();
             }
         }
 

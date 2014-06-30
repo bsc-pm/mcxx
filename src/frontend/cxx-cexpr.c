@@ -3250,7 +3250,11 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     { \
         return const_value_get_long_double(_unop v1->value.ld); \
     } \
-    UNOP_FUN_FLOAT128(_unop); \
+    UNOP_FUN_FLOAT128(_unop) \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
+    } \
     return NULL; \
 }
 
@@ -3293,7 +3297,11 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     { \
         return const_value_get_signed_int(_unop v1->value.ld); \
     } \
-    UNOP_FUN_I_OR_F_FLOAT128(_unop); \
+    UNOP_FUN_I_OR_F_FLOAT128(_unop) \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
+    } \
     return NULL; \
 }
 
@@ -3313,6 +3321,10 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
             value = _unop v1->value.i; \
         } \
         return const_value_get_integer(value, v1->num_bytes, v1->sign); \
+    } \
+    else if (IS_MULTIVALUE(v1->kind)) \
+    { \
+        return map_unary_to_structured_value(const_value_##_opname, v1); \
     } \
     return NULL; \
 }
@@ -3949,7 +3961,7 @@ const char* const_value_to_str(const_value_t* cval)
                 }
                 else
                 {
-                    uniquestr_sprintf(&result, "(int%d_t)%s",
+                    uniquestr_sprintf(&result, "(uint%d_t)%s",
                         cval->num_bytes * 8, unsigned_int128_to_str(cval->value.i, 0));
                 }
 #else

@@ -66,7 +66,6 @@ namespace TL
 
                 void register_omp_constructs();
 
-
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
@@ -117,25 +116,29 @@ namespace TL
                         DataSharingEnvironment& data_sharing);
                 void get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                         DataSharingAttribute default_data_attr, 
-                        DataSharingEnvironment& data_sharing);
+                        DataSharingEnvironment& data_sharing,
+                        bool there_is_default_clause);
                 void get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
-                        DataSharingAttribute default_data_attr);
+                        DataSharingAttribute default_data_attr,
+                        bool there_is_default_clause);
 
                 void get_data_implicit_attributes_of_indirectly_accessible_symbols(
                         TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
-                        ObjectList<Nodecl::Symbol>& nonlocal_symbols);
+                        ObjectList<TL::Symbol>& nonlocal_symbols);
 
                 void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info(PragmaCustomLine construct, 
                         DataSharingEnvironment& data_sharing, 
-                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
-                void get_dependences_info_clause(PragmaCustomClause clause,
+                        DataSharingAttribute default_data_attr);
+                void get_dependences_info_clause(
+                        PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr,
-                        DataSharingAttribute default_data_attr=DS_UNDEFINED);
+                        DataSharingAttribute default_data_attr,
+                        const std::string& clause_name);
 
                 void get_dependences_info_std_clause(
                         TL::PragmaCustomLine construct,
@@ -145,6 +148,7 @@ namespace TL
 
                 DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing, 
+                        bool &there_is_default_clause,
                         bool allow_default_auto=false);
                 
                 void loop_handler_pre(TL::PragmaCustomStatement construct,
@@ -173,6 +177,11 @@ namespace TL
                         const std::string &typenames,
                         const std::string &combiner,
                         const std::string &initializer);
+                void parse_builtin_reduction(ReferenceScope ref_sc,
+                        const std::string &name,
+                        const std::string &typenames,
+                        const std::string &combiner,
+                        const std::string &initializer);
 
                 void initialize_builtin_reductions(Scope sc);
 
@@ -183,6 +192,7 @@ namespace TL
                 bool _allow_array_reductions;
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
+                bool _instantiate_omp;
             public:
                 Core();
 
@@ -216,6 +226,9 @@ namespace TL
                 {
                     return _copy_deps_by_default;
                 }
+
+                void set_instantiate_omp(bool b) { _instantiate_omp = b; }
+                bool instantiate_omp() const { return _instantiate_omp; }
         };
 
         Nodecl::NodeclBase get_statement_from_pragma(

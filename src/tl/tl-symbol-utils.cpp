@@ -74,6 +74,12 @@ namespace SymbolUtils
 
         decl_context_t decl_context = current_function.get_scope().get_decl_context();
 
+        if (decl_context.template_parameters != NULL
+                && decl_context.template_parameters->is_explicit_specialization)
+        {
+            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+        }
+
         ERROR_CONDITION(parameter_names.size() != parameter_types.size(), "Mismatch between names and types", 0);
 
         decl_context_t function_context;
@@ -128,7 +134,8 @@ namespace SymbolUtils
 
         // Now, we can create the new function symbol
         scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
+        if (!current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
             new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
             new_function_sym->entity_specs.is_user_declared = 1;
@@ -241,6 +248,12 @@ namespace SymbolUtils
             TL::ObjectList<TL::Type> parameter_types)
     {
         decl_context_t decl_context = sc.get_decl_context();
+
+        if (decl_context.template_parameters != NULL
+                && decl_context.template_parameters->is_explicit_specialization)
+        {
+            decl_context.template_parameters = decl_context.template_parameters->enclosing;
+        }
 
         scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(name.c_str()));
         entry->entity_specs.is_user_declared = 1;

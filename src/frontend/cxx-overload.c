@@ -1741,7 +1741,9 @@ static char better_ics(implicit_conversion_sequence_t ics1,
                 CURRENT_COMPILED_FILE->global_decl_context,
                 make_locus("", 0, 0), /* mandatory */ 0);
 
-        type_t* std_initializer_list_template_type = std_initializer_list_template->type_information;
+        type_t* std_initializer_list_template_type = NULL;
+        if (std_initializer_list_template != NULL)
+            std_initializer_list_template_type = std_initializer_list_template->type_information;
 
         // ics1 converts to std::initializer_list<X> for some X and ics2 does not
         if (std_initializer_list_template_type != NULL
@@ -2613,6 +2615,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
                 type_t* primary_type = primary_symbol->type_information;
                 type_t* parameter_types[1] = { primary_type };
+                type_t* original_parameter_types[1] = { primary_type };
                 int num_parameter_types = 1;
 
                 template_parameter_list_t* template_parameters 
@@ -2623,10 +2626,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, num_parameter_types,
+                            original_parameter_types,
                             primary_symbol->decl_context,
                             &deduced_template_arguments, locus,
                             explicit_template_parameters,
-                            deduction_flags_empty()))
+                            /* is_function_call */ 0))
                 {
                     DEBUG_CODE()
                     {

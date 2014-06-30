@@ -63,6 +63,10 @@
 #include "cxx-placeholders.h"
 #include "cxx-driver-utils.h"
 
+#ifdef EXTRAE_ENABLED
+#include "extrae_user_events.h"
+#endif
+
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
  * routines will be called prior to filling symbolic inormation. Note that
@@ -447,6 +451,33 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
     c_initialize_builtin_symbols(decl_context);
 }
 
+#ifdef EXTRAE_ENABLED
+enum { EXTRAE_DECLARATION_LOCUS = 6000019 + 100 };
+
+static dhash_ptr_t* extrae_declaration_locus_value_set;
+
+typedef
+struct extrae_value_set_tag
+{
+    unsigned int num_values;
+
+    const char** descriptions;
+    extrae_value_t* values;
+} extrae_value_set_t;
+
+void extrae_declaration_locus_walk(const char* key,
+        void *info UNUSED_PARAMETER,
+        void *walk_info)
+{
+    extrae_value_set_t* extrae_value_set = (extrae_value_set_t*)walk_info;
+
+    int n = extrae_value_set->num_values;
+    P_LIST_ADD(extrae_value_set->descriptions, n, key);
+
+    P_LIST_ADD(extrae_value_set->values, extrae_value_set->num_values, (extrae_value_t)key);
+}
+#endif
+
 static void build_scope_translation_unit_pre(translation_unit_t* translation_unit UNUSED_PARAMETER)
 {
     C_LANGUAGE()
@@ -457,7 +488,11 @@ static void build_scope_translation_unit_pre(translation_unit_t* translation_uni
     {
         instantiation_init();
     }
+#ifdef EXTRAE_ENABLED
+    extrae_declaration_locus_value_set = dhash_ptr_new(5);
+#endif // EXTRAE_ENABLED
 }
+
 
 static void build_scope_translation_unit_post(
         translation_unit_t* translation_unit UNUSED_PARAMETER,
@@ -474,6 +509,29 @@ static void build_scope_translation_unit_post(
     {
         linkage_pop();
     }
+
+#ifdef EXTRAE_ENABLED
+    extrae_value_set_t extrae_value_set;
+    memset(&extrae_value_set, 0, sizeof(extrae_value_set));
+
+    dhash_ptr_walk(extrae_declaration_locus_value_set, extrae_declaration_locus_walk, &extrae_value_set);
+    dhash_ptr_destroy(extrae_declaration_locus_value_set);
+
+    // void Extrae define event type (extrae type t *type, char *description, unsigned
+    // *nvalues, extrae value t *values, char **description values)
+
+    extrae_type_t v = EXTRAE_DECLARATION_LOCUS;
+    const char* description = UNIQUESTR_LITERAL("Source declaration");
+    Extrae_define_event_type(&v,
+            (char*)description,
+            &extrae_value_set.num_values,
+            extrae_value_set.values,
+            (char**)extrae_value_set.descriptions);
+
+    xfree(extrae_value_set.descriptions);
+    xfree(extrae_value_set.values);
+
+#endif // EXTRAE_ENABLED
 }
 
 // Builds scope for the translation unit
@@ -735,6 +793,14 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
         fprintf(stderr, "==== Declaration line [%s] ====\n", ast_location(a));
     }
 
+#ifdef EXTRAE_ENABLED
+    Extrae_user_function(1);
+    Extrae_event (EXTRAE_DECLARATION_LOCUS,
+            (extrae_value_t)ast_location(a));
+
+    dhash_ptr_insert(extrae_declaration_locus_value_set, ast_location(a), (void*)ast_location(a));
+#endif
+
     diagnostic_context_push_buffered();
 
     switch (ASTType(a))
@@ -946,6 +1012,11 @@ void build_scope_declaration(AST a, decl_context_t decl_context,
     }
 
     diagnostic_context_pop_and_commit();
+
+#ifdef EXTRAE_ENABLED
+    Extrae_event (EXTRAE_DECLARATION_LOCUS, 0);
+    Extrae_user_function(0);
+#endif
 }
 
 static void build_scope_asm_definition(AST a, 
@@ -1458,7 +1529,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     if (used_entities == NULL)
     {
-        error_printf("%s: error: entity '%s' in using-declaration is unknown",
+        error_printf("%s: error: entity '%s' in using-declaration is unknown\n",
                 nodecl_locus_to_str(nodecl_name),
                 codegen_to_str(nodecl_name, decl_context));
         return;
@@ -8634,7 +8705,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
 
-
                 if (is_template_explicit_specialization(decl_context.template_parameters))
                 {
                     // We are declaring a template class nested in at least one class
@@ -8945,6 +9015,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             set_is_transparent_union(class_type, /* is_transparent_union */ 1);
         }
     }
+
+    // This may overwrite the class kind, but this is OK
+    class_type_set_class_kind(class_type, class_kind);
 
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
@@ -9779,7 +9852,7 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
                 {
-                    error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                    error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                             ast_location(parameters),
                             num_parameters);
                 }
@@ -9824,7 +9897,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
             {
-                error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                         ast_location(parameters),
                         num_parameters);
             }
@@ -14423,6 +14496,73 @@ static scope_entry_t* build_scope_function_definition_declarator(
     return entry;
 }
 
+static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context)
+{
+    const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+    const char* mercurium_pretty_function_str = UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__");
+
+    const char* nice_name =
+        print_decl_type_str(entry->type_information,
+                entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
+    const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
+    nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
+
+    // Adjust type to include room for the final \0
+    nodecl_set_type(nice_name_tree,
+            get_array_type(
+                get_char_type(),
+                nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_signed_int(strlen(nice_name) + 1),
+                    make_locus("", 0, 0)),
+                block_context));
+
+    // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
+    // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
+    // to it
+    //
+    // Sign in __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = new_symbol(block_context,
+            block_context.current_scope,
+            mercurium_pretty_function_str);
+    mercurium_pretty_function->kind = SK_VARIABLE;
+    mercurium_pretty_function->type_information =
+        get_const_qualified_type(no_ref(nodecl_get_type(nice_name_tree)));
+    mercurium_pretty_function->value = nice_name_tree;
+    mercurium_pretty_function->entity_specs.is_user_declared = 1;
+    mercurium_pretty_function->entity_specs.is_static = 1;
+    mercurium_pretty_function->locus = entry->locus;
+
+    // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
+    insert_alias(block_context.current_scope, mercurium_pretty_function, pretty_function_str);
+
+    return mercurium_pretty_function;
+}
+
+static void emit_mercurium_pretty_function(nodecl_t* body_nodecl, scope_entry_t* mercurium_pretty_function)
+{
+    // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
+    if (mercurium_pretty_function != NULL
+            && mercurium_pretty_function_has_been_used(mercurium_pretty_function, *body_nodecl))
+    {
+        nodecl_t emit_mercurium_pretty_function_tree = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                    emit_mercurium_pretty_function_tree,
+                    nodecl_make_cxx_def(
+                        nodecl_null(),
+                        mercurium_pretty_function,
+                        mercurium_pretty_function->locus));
+        }
+        emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                emit_mercurium_pretty_function_tree,
+                nodecl_make_object_init(mercurium_pretty_function,
+                    mercurium_pretty_function->locus));
+
+        *body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function_tree, *body_nodecl);
+    }
+}
+
 static void build_scope_function_definition_body(
         AST function_definition,
         scope_entry_t* entry,
@@ -14522,10 +14662,12 @@ static void build_scope_function_definition_body(
                         make_locus("", 0, 0)),
                     block_context));
 
+        const char *special__func__ = UNIQUESTR_LITERAL("__func__");
+        const char *special__FUNCTION__ = UNIQUESTR_LITERAL("__FUNCTION__");
         const char* func_names[] =
         {
-            "__func__",
-            "__FUNCTION__",
+            special__func__,
+            special__FUNCTION__,
         };
 
         unsigned int j;
@@ -14538,49 +14680,21 @@ static void build_scope_function_definition_body(
             func_var->entity_specs.is_builtin = 1;
         }
 
-        // if (is_dependent_function(entry))
-        // {
-        //     // Insert a dependent __PRETTY_FUNCTION__
-        //     scope_entry_t* pretty_function = new_symbol(block_context,
-        //             block_context.current_scope,
-        //             "__PRETTY_FUNCTION__");
-        //     pretty_function->kind = SK_VARIABLE;
-        //     pretty_function->type_information = get_unknown_dependent_type();
-        //     pretty_function->entity_specs.is_builtin = 1;
-        // }
-        // else
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+
+        if (is_dependent_function(entry))
         {
-            const char* nice_name =
-                print_decl_type_str(entry->type_information,
-                        entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
-            const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
-            nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
-
-            // Adjust type to include room for the final \0
-            nodecl_set_type(nice_name_tree,
-                    get_array_type(
-                        get_const_qualified_type(get_char_type()),
-                        nodecl_make_integer_literal(get_signed_int_type(),
-                            const_value_get_signed_int(strlen(nice_name) + 1),
-                            make_locus("", 0, 0)),
-                        block_context));
-
-            // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
-            // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
-            // to it
-            //
-            // Sign in __MERCURIUM_PRETTY_FUNCTION__
-            mercurium_pretty_function = new_symbol(block_context,
+            // Insert a dependent __PRETTY_FUNCTION__
+            scope_entry_t* pretty_function = new_symbol(block_context,
                     block_context.current_scope,
-                    "__MERCURIUM_PRETTY_FUNCTION__");
-            mercurium_pretty_function->kind = SK_VARIABLE;
-            mercurium_pretty_function->type_information = no_ref(nodecl_get_type(nice_name_tree));
-            mercurium_pretty_function->value = nice_name_tree;
-            mercurium_pretty_function->entity_specs.is_user_declared = 1;
-            mercurium_pretty_function->entity_specs.is_static = 1;
-
-            // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
-            insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
+                    pretty_function_str);
+            pretty_function->kind = SK_VARIABLE;
+            pretty_function->type_information = get_unknown_dependent_type();
+            pretty_function->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            mercurium_pretty_function = register_mercurium_pretty_print(entry, block_context);
         }
     }
 
@@ -14612,27 +14726,7 @@ static void build_scope_function_definition_body(
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
 
-        // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
-        if (mercurium_pretty_function != NULL
-                && mercurium_pretty_function_has_been_used(mercurium_pretty_function, body_nodecl))
-        {
-            nodecl_t emit_mercurium_pretty_function = nodecl_null();
-            CXX_LANGUAGE()
-            {
-                emit_mercurium_pretty_function = nodecl_append_to_list(
-                        emit_mercurium_pretty_function,
-                        nodecl_make_cxx_def(
-                            nodecl_null(),
-                            mercurium_pretty_function,
-                            ast_get_locus(statement)));
-            }
-            emit_mercurium_pretty_function = nodecl_append_to_list(
-                    emit_mercurium_pretty_function,
-                    nodecl_make_object_init(mercurium_pretty_function,
-                        ast_get_locus(statement)));
-
-            body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function, body_nodecl);
-        }
+        emit_mercurium_pretty_function(&body_nodecl, mercurium_pretty_function);
 
         // C99 VLA object-inits
         C_LANGUAGE()
@@ -16008,7 +16102,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             }
                             else
                             {
-                                error_printf("%s: error: no initializer allowed in current member declaration",
+                                error_printf("%s: error: no initializer allowed in current member declaration\n",
                                         ast_location(initializer));
                                 return;
                             }
@@ -18540,16 +18634,17 @@ static void instantiate_template_function_code(
     v->instantiation_symbol_map = instantiation_symbol_map_push(v->instantiation_symbol_map);
 
     // Register every parameter in this context
-    int i;
-    for (i = 0; i < v->orig_function_instantiated->entity_specs.num_related_symbols; i++)
+    int num_new_parameter = 0;
+    int num_parameter;
+    for (num_parameter = 0; num_parameter < v->orig_function_instantiated->entity_specs.num_related_symbols; num_parameter++)
     {
         scope_entry_t* orig_parameter =
-                v->orig_function_instantiated->entity_specs.related_symbols[i];
+                v->orig_function_instantiated->entity_specs.related_symbols[num_parameter];
         scope_entry_t* new_parameter = new_symbol(new_decl_context,
                 new_decl_context.current_scope,
                 orig_parameter->symbol_name);
 
-        new_parameter->kind = SK_VARIABLE;
+        new_parameter->kind = orig_parameter->kind;
         new_parameter->type_information = update_type_for_instantiation(
                 orig_parameter->type_information,
                 new_decl_context,
@@ -18557,25 +18652,80 @@ static void instantiate_template_function_code(
                 v->instantiation_symbol_map,
                 /* pack */ -1);
 
-        new_parameter->value = instantiate_expression(orig_parameter->value,
-                new_decl_context,
-                v->instantiation_symbol_map,
-                /* pack_index */ -1);
-
         // WARNING - This is a usual source of issues
         new_parameter->entity_specs = orig_parameter->entity_specs;
         // Clear these
         new_parameter->entity_specs.num_function_parameter_info = 0;
         new_parameter->entity_specs.function_parameter_info = 0;
 
-        P_LIST_ADD(
-                v->new_function_instantiated->entity_specs.related_symbols,
-                v->new_function_instantiated->entity_specs.num_related_symbols,
-                new_parameter);
+        if (orig_parameter->kind == SK_VARIABLE)
+        {
+            new_parameter->value = instantiate_expression(orig_parameter->value,
+                    new_decl_context,
+                    v->instantiation_symbol_map,
+                    /* pack_index */ -1);
 
-        symbol_set_as_parameter_of_function(new_parameter, 
-                v->new_function_instantiated,
-                /* nesting */ 0, /* position */ i);
+            P_LIST_ADD(
+                    v->new_function_instantiated->entity_specs.related_symbols,
+                    v->new_function_instantiated->entity_specs.num_related_symbols,
+                    new_parameter);
+
+            symbol_set_as_parameter_of_function(new_parameter, 
+                    v->new_function_instantiated,
+                    /* nesting */ 0, /* position */ num_new_parameter);
+            num_new_parameter++;
+        }
+        else if (orig_parameter->kind == SK_VARIABLE_PACK)
+        {
+            int num_types = sequence_of_types_get_num_types(new_parameter->type_information);
+
+            nodecl_t nodecl_sym_list = nodecl_null();
+
+            int num_sub_parameter;
+            for (num_sub_parameter = 0; num_sub_parameter < num_types; num_sub_parameter++)
+            {
+                type_t* t = sequence_of_types_get_type_num(new_parameter->type_information,
+                        num_sub_parameter);
+
+                const char* c = NULL;
+                uniquestr_sprintf(
+                        &c, "_%s__%d",
+                        orig_parameter->symbol_name,
+                        num_sub_parameter);
+
+                scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
+                        new_decl_context.current_scope,
+                        c);
+
+                new_sub_parameter->kind = SK_VARIABLE;
+                new_sub_parameter->type_information = t;
+
+                // WARNING - This is a usual source of issues
+                new_sub_parameter->entity_specs = orig_parameter->entity_specs;
+                // Clear these
+                new_sub_parameter->entity_specs.num_function_parameter_info = 0;
+                new_sub_parameter->entity_specs.function_parameter_info = 0;
+
+                P_LIST_ADD(
+                        v->new_function_instantiated->entity_specs.related_symbols,
+                        v->new_function_instantiated->entity_specs.num_related_symbols,
+                        new_sub_parameter);
+
+                symbol_set_as_parameter_of_function(new_sub_parameter, 
+                        v->new_function_instantiated,
+                        /* nesting */ 0, /* position */ num_new_parameter);
+                num_new_parameter++;
+
+                nodecl_t nodecl_sub_symbol = nodecl_make_symbol(
+                        new_sub_parameter,
+                        nodecl_get_locus(node));
+                nodecl_set_type(nodecl_sub_symbol, lvalue_ref(new_sub_parameter->type_information));
+                nodecl_sym_list = nodecl_append_to_list(nodecl_sym_list,
+                        nodecl_sub_symbol);
+            }
+
+            new_parameter->value = nodecl_sym_list;
+        }
 
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_parameter, new_parameter);
     }
@@ -18643,6 +18793,24 @@ static void instantiate_template_function_code(
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_this_symbol, this_symbol);
     }
 
+    // Register __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = NULL;
+    {
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+        mercurium_pretty_function = register_mercurium_pretty_print(v->new_function_instantiated, new_decl_context);
+
+        // Now map the orig __PRETTY_FUNCTION__ to __MERCURIUM_PRETTY_FUNCTION__
+        decl_context_t orig_decl_context = nodecl_get_decl_context(nodecl_context);
+
+        scope_entry_list_t* entry_list = query_in_scope_str(orig_decl_context, pretty_function_str, NULL);
+        ERROR_CONDITION(entry_list == NULL, "'this' not found", 0);
+
+        scope_entry_t* orig_pretty_function = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        instantiation_symbol_map_add(v->instantiation_symbol_map, orig_pretty_function, mercurium_pretty_function);
+    }
+
 
     decl_context_t previous_orig_decl_context = v->orig_decl_context;
     decl_context_t previous_new_decl_context = v->new_decl_context;
@@ -18655,6 +18823,15 @@ static void instantiate_template_function_code(
     nodecl_t nodecl_stmt_list = nodecl_get_child(nodecl_context, 0);
 
     nodecl_t new_nodecl_stmt_list = instantiate_stmt_walk(v, nodecl_stmt_list);
+
+    {
+        // Emit __MERCURIUM_PRETTY_FUNCTION__
+        nodecl_t new_compound_stmt = nodecl_list_head(new_nodecl_stmt_list);
+        nodecl_t new_list_of_stmts = nodecl_get_child(new_compound_stmt, 0);
+        emit_mercurium_pretty_function(&new_list_of_stmts, mercurium_pretty_function);
+        nodecl_set_child(new_compound_stmt, 0, new_list_of_stmts);
+    }
+
     nodecl_t new_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
 
     v->nodecl_result =
@@ -18757,6 +18934,7 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack_index */ -1);
 
                     nodecl_t nodecl_init = nodecl_null();
+
                     if (!nodecl_is_null(value))
                     {
                         if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
@@ -19042,7 +19220,7 @@ static nodecl_t instantiate_loop_control(nodecl_instantiate_stmt_visitor_t* v, n
                 v->instantiation_symbol_map,
                 /* pack_index */ -1);
         
-        next = instantiate_expression(cond,
+        next = instantiate_expression(next,
                 v->new_decl_context,
                 v->instantiation_symbol_map,
                 /* pack_index */ -1);
@@ -19221,7 +19399,31 @@ static void instantiate_goto_statement(nodecl_instantiate_stmt_visitor_t* v, nod
 
 static void instantiate_pragma_custom_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    instantiate_stmt_not_implemented_yet(v, node);
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
+    nodecl_t statements = nodecl_get_child(node, 1);
+
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
+    statements = instantiate_stmt_walk(v, statements);
+
+    v->nodecl_result = nodecl_make_pragma_custom_statement(
+            nodecl_pragma_line,
+            statements,
+            nodecl_get_text(node),
+            nodecl_get_locus(node));
+}
+
+static void instantiate_pragma_custom_directive(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
+
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
+    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(v->new_decl_context, nodecl_get_locus(node));
+
+    v->nodecl_result = nodecl_make_pragma_custom_directive(
+            nodecl_pragma_line,
+            nodecl_pragma_context,
+            nodecl_get_text(node),
+            nodecl_get_locus(node));
 }
 
 static void instantiate_pragma_custom_declaration(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19283,6 +19485,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context);
 
     NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
+    NODECL_VISITOR(v)->visit_pragma_custom_directive = instantiate_stmt_visitor_fun(instantiate_pragma_custom_directive);
     NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);
 }
 

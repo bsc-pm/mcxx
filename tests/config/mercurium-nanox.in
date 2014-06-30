@@ -143,6 +143,7 @@ test_FC_nanox_instrument="\${MFC}"
 
 test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_mercurium} --instrument"
 test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_mercurium} --instrument"
+test_FFLAGS_nanox_instrument="\${test_FFLAGS_nanox_mercurium} --instrument"
 
 test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@/lib -lperish"
 EOF

@@ -42,11 +42,9 @@ namespace Vectorization
         private:
             const std::string& _device;
             const unsigned int _vector_length;
-            const unsigned int _unroll_factor;
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;
-            const TL::Type& _target_type;
             const aligned_expr_map_t& _aligned_expr_map;
             const objlist_nodecl_t& _uniform_expr_list;
             const objlist_nodecl_t& _suitable_expr_list;
@@ -55,6 +53,9 @@ namespace Vectorization
 
             const objlist_tlsymbol_t* _reduction_list;
             std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
+
+            TL::Type _target_type;
+            unsigned int _vectorization_factor;
 
             stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
             Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
@@ -81,6 +82,8 @@ namespace Vectorization
                     std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 
             ~VectorizerEnvironment();
+
+            void set_target_type(TL::Type target_type);
 
             void load_environment(const Nodecl::NodeclBase& for_statement);
             void unload_environment();

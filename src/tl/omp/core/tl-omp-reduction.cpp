@@ -253,16 +253,27 @@ namespace TL { namespace OpenMP {
 
                 if (reduction != NULL)
                 {
+                    const char* type_name = NULL;
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        type_name = fortran_print_type_str(var_sym.get_type().no_ref().get_internal_type());
+                    }
+                    else
+                    {
+                        type_name = uniquestr(var_type.get_declaration(var_sym.get_scope(), "").c_str());
+                    }
+
                     ReductionSymbol red_sym(var_sym, var_type, reduction);
                     sym_list.append(red_sym);
-                    if (!Reduction::is_builtin(reduction->get_name()))
-                    {
-                        info_printf("%s: note: reduction of variable '%s' solved to '%s' (reduction declared in '%s')\n",
-                                construct.get_locus_str().c_str(),
-                                var_sym.get_name().c_str(),
-                                reductor_name.c_str(),
-                                reduction->get_locus_str().c_str());
-                    }
+
+                    info_printf("%s: note: reduction of variable '%s' of type '%s' solved to '%s'\n",
+                            construct.get_locus_str().c_str(),
+                            var_sym.get_name().c_str(),
+                            type_name,
+                            reductor_name.c_str());
+                    info_printf("%s: info: reduction declared in '%s'\n",
+                            construct.get_locus_str().c_str(),
+                            reduction->get_locus_str().c_str());
                 }
                 else
                 {
@@ -286,7 +297,7 @@ namespace TL { namespace OpenMP {
                 if (_allow_array_reductions
                         && var_tree.is<Nodecl::Shaping>())
                 {
-                    add_extra_data_sharings(var_tree, data_sharing);
+                    add_extra_data_sharings(var_tree, data_sharing, "reduction");
                 }
             }
         }

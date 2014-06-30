@@ -63,7 +63,7 @@ namespace TL
                     it_param_sym++, it_type++)
             {
                 TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
-                        _environment._unroll_factor);
+                        _environment._vectorization_factor);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
@@ -79,7 +79,7 @@ namespace TL
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
                         vect_func_sym.get_internal_symbol(),
@@ -114,7 +114,7 @@ namespace TL
             }
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._unroll_factor).get_function_returning(parameters_vector_type));
+                        _environment._vectorization_factor).get_function_returning(parameters_vector_type));
 
             // Vectorize Local Symbols
             VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);

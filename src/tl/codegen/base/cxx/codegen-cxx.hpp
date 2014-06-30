@@ -473,9 +473,6 @@ namespace Codegen
             template <typename Node>
                 static bool is_implicit_function_call(const Node& node);
 
-            template <typename Node>
-                static bool is_implicit_braced_function_call(const Node& node);
-
             static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
             template <typename Node>
@@ -586,11 +583,14 @@ namespace Codegen
 
             void emit_line_marker(Nodecl::NodeclBase n);
             void emit_line_marker(const locus_t* locus);
+
+            bool looks_like_braced_list(Nodecl::NodeclBase n);
         protected:
 
             void walk_list(const Nodecl::List&,
-                    const std::string& separator,
-                    bool parenthesize_elements = false);
+                    const std::string& separator);
+            void walk_initializer_list(const Nodecl::List&,
+                    const std::string& separator);
 
             virtual void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

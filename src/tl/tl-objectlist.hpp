@@ -149,6 +149,20 @@ class ObjectList : public std::vector<T>, public TL::Object
             return result;
         }
 
+        //! Applies a given functor to a list
+        /*!
+         * \param f A Functor of elements of type T returning void
+         */
+        void map(const Functor<void, T>& f) const
+        {
+            for (typename ObjectList<T>::const_iterator it = this->begin();
+                    it != this->end();
+                    it++)
+            {
+                f(*it);
+            }
+        }
+
         //! Combines filter and map
         /*!
          * \param p A Predicate over elements of type T

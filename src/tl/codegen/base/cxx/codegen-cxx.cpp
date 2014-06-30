@@ -1113,15 +1113,16 @@ CxxBase::Ret CxxBase::visit(const Nodecl::CxxDepTemplateId& node)
     walk(node.get_name());
     TL::TemplateParameters tpl = node.get_template_parameters();
 
-    *(file) << ::template_arguments_to_str(
-            tpl.get_internal_template_parameter_list(),
-            /* first_template_argument_to_be_printed */ 0,
-            /* print_first_level_bracket */ 1,
-            this->get_current_scope().get_decl_context());
-
-    // The function 'template_arguments_to_str' does not print anything when
-    // template arguments are empty. For this reason, we add the empty list '<>'
-    if (tpl.get_num_parameters() == 0)
+    if (tpl.is_valid()
+            && tpl.get_num_parameters() > 0)
+    {
+        *(file) << ::template_arguments_to_str(
+                tpl.get_internal_template_parameter_list(),
+                /* first_template_argument_to_be_printed */ 0,
+                /* print_first_level_bracket */ 1,
+                this->get_current_scope().get_decl_context());
+    }
+    else
     {
         *(file) << "<>";
     }
@@ -1801,19 +1802,6 @@ bool CxxBase::is_implicit_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl
 }
 
 template <typename Node>
-bool CxxBase::is_implicit_braced_function_call(const Node& node)
-{
-    return (!node.get_function_form().is_null()
-            && node.get_function_form().template is<Nodecl::CxxFunctionFormImplicitBracedArguments>());
-}
-
-template <>
-bool CxxBase::is_implicit_braced_function_call<Nodecl::CxxDepFunctionCall>(const Nodecl::CxxDepFunctionCall& node)
-{
-    return 0;
-}
-
-template <typename Node>
 bool CxxBase::is_binary_infix_operator_function_call(const Node& node)
 {
     return (!node.get_function_form().is_null()
@@ -1889,20 +1877,11 @@ CxxBase::Ret CxxBase::visit_function_call(const Node& node, bool is_virtual_call
     if (is_implicit_function_call(node))
     {
         // We don't want to generate the current function call because It has
-        // been added by the compiler. We should ignore it!
+        // been added by the compiler
         if (!node.get_arguments().is_null())
         {
             walk(node.get_arguments().template as<Nodecl::List>()[0]);
         }
-        return;
-    }
-    else if (is_implicit_braced_function_call(node))
-    {
-        Nodecl::List arguments = node.get_arguments().template as<Nodecl::List>();
-        // Only emit { ... }
-        *file << "{ ";
-        walk_expression_list(arguments);
-        *file << " }";
         return;
     }
 
@@ -3343,7 +3322,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::New& node)
             // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
             // "function (pointer to function() returning A) returning A"
             // [extra blanks added for clarity in the example above]
-            walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+            walk_initializer_list(constructor_args, ", ");
         }
         else
         {
@@ -6594,6 +6573,13 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     walk(init);
                     state.inside_structured_value = old;
                 }
+                else if (symbol.get_type().is_array()
+                        && init.is<Nodecl::StructuredValue>())
+                {
+                    // int c[] = {1, 2, 3};
+                    *(file) << " = ";
+                    walk(init);
+                }
                 else if (symbol.is_member()
                         && (symbol.is_static() || symbol.is_defined_inside_class())
                         && state.in_member_declaration)
@@ -6634,7 +6620,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                         // A x( (A()) ); cannot become A x( A() ); because it would declare 'x' as a
                         // "function (pointer to function() returning A) returning A"
                         // [extra blanks added for clarity in the example above]
-                        walk_list(constructor_args, ", ", /* parenthesize_elements */ true);
+                        walk_initializer_list(constructor_args, ", ");
                     }
                     else if (nodecl_is_parenthesized_explicit_type_conversion(init))
                     {
@@ -8327,7 +8313,7 @@ void CxxBase::set_indent_level(int n)
     state._indent_level = n;
 }
 
-void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, bool parenthesize_elements)
+void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator)
 {
     Nodecl::List::const_iterator it = list.begin(), begin = it;
     bool default_argument = false;
@@ -8348,12 +8334,64 @@ void CxxBase::walk_list(const Nodecl::List& list, const std::string& separator, 
         if (it != begin)
             *(file) << separator;
 
-        if (parenthesize_elements)
+        walk(current_node);
+
+        it++;
+    }
+
+    if (default_argument)
+        *(file) << end_inline_comment();
+}
+
+bool CxxBase::looks_like_braced_list(Nodecl::NodeclBase n)
+{
+    n = n.no_conv();
+
+    if (n.is<Nodecl::CxxBracedInitializer>())
+        return true;
+
+    if (n.is<Nodecl::StructuredValue>()
+            && n.as<Nodecl::StructuredValue>().get_form().is<Nodecl::StructuredValueBracedImplicit>())
+        return true;
+
+    if (n.is<Nodecl::FunctionCall>()
+            && n.as<Nodecl::FunctionCall>().get_function_form().is<Nodecl::CxxFunctionFormImplicit>()
+            && !n.as<Nodecl::FunctionCall>().get_arguments().is_null())
+    {
+        return looks_like_braced_list(n.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()[0]);
+    }
+
+    return false;
+}
+
+void CxxBase::walk_initializer_list(const Nodecl::List& list, const std::string& separator)
+{
+    Nodecl::List::const_iterator it = list.begin(), begin = it;
+    bool default_argument = false;
+    while (it != list.end())
+    {
+        Nodecl::NodeclBase current_node = *it;
+
+        if (current_node.is<Nodecl::DefaultArgument>())
+        {
+            if (!default_argument)
+            {
+                default_argument = true;
+                *(file) << start_inline_comment();
+            }
+            current_node = current_node.as<Nodecl::DefaultArgument>().get_argument();
+        }
+
+        if (it != begin)
+            *(file) << separator;
+
+        bool emit_parentheses = !looks_like_braced_list(*it);
+        if (emit_parentheses)
             *(file) << "(";
 
         walk(current_node);
 
-        if (parenthesize_elements)
+        if (emit_parentheses)
             *(file) << ")";
 
         it++;

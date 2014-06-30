@@ -157,7 +157,8 @@ namespace TL { namespace Nanox {
         new_class_symbol.get_internal_symbol()->kind = SK_CLASS;
         type_t* new_class_type = get_new_class_type(sc.get_decl_context(), TT_STRUCT);
 
-        if (related_symbol.get_type().is_template_specialized_type())
+        if (related_symbol.get_type().is_template_specialized_type()
+                && !related_symbol.get_scope().get_template_parameters()->is_explicit_specialization)
         {
             TL::Symbol new_template_symbol = sc.new_symbol(structure_name);
             new_template_symbol.get_internal_symbol()->kind = SK_TEMPLATE;
