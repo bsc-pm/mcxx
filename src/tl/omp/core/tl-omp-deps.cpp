@@ -153,17 +153,20 @@ namespace TL { namespace OpenMP {
                 // About the data-sharings of the variables involved in the dependence expression:
                 // - Fortran: the base symbol of the dependence expression is always SHARED
                 // - C/C++:
-                //
-                //      inout(x)    x must be shared
-                //      inout(a)    a must be shared if it's an array
-                //
-                //    But we allow more general cases. In these cases x, is not going to be shared
-                //    and it will be left to the default data sharing
-                //
-                //      inout(*x)             We do not define a specific data sharing for these
-                //      inout(x[10])
-                //      inout(x[1:2])
-                //      inout([10][20] x)
+                //  * Trivial dependences must always be SHARED:
+                //          int x, a[10];
+                //          inout(x) -> shared(x)
+                //          inout(a) -> shared(a)
+                //  * Arrays and references to arrays must be SHARED too:
+                //          int a[10];
+                //          inout(a[4])   -> shared(a)
+                //          inout(a[1:2]) -> shared(a)
+                //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
+                //          int* p;
+                //          inout(*p)     -> firstprivate(p)
+                //          inout(p[10])  -> firstprivate(p)
+                //          inout(p[1:2]) -> firstprivate(p)
+                //          inout([10][20] p) -> firstprivate(p)
                 if (IS_FORTRAN_LANGUAGE)
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
@@ -180,6 +183,12 @@ namespace TL { namespace OpenMP {
                 {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                             "the variable is an array mentioned in a non-trivial dependence "
+                            "and it did not have an explicit data-sharing");
+                }
+                else
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                            "the variable is a non-array mentioned in a non-trivial dependence "
                             "and it did not have an explicit data-sharing");
                 }
             }
