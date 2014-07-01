@@ -647,7 +647,18 @@ namespace Vectorization
 
     void VectorizerVisitorStatement::visit(const Nodecl::BreakStatement& n)
     {
-        running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        if (VectorizationAnalysisInterface::_vectorizer_analysis->is_uniform(
+                    _environment._analysis_simd_scope, n, n))
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: break statement is uniform\n");
+            }
+        }
+        else
+        {
+            running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        }
     }
 
     /*
