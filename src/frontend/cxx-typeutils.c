@@ -14528,6 +14528,8 @@ char class_type_is_virtual_base_or_base_of_virtual_base(
 
 char type_is_reference_related_to(type_t* t1, type_t* t2)
 {
+    ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
+            "Do not pass reference types to this function", 0);
     return (equivalent_types(t1, t2)
             || (is_class_type(t1)
                 && is_class_type(t2)
@@ -14536,7 +14538,9 @@ char type_is_reference_related_to(type_t* t1, type_t* t2)
 
 char type_is_reference_compatible_to(type_t* t1, type_t* t2)
 {
-    return type_is_reference_related_to(t1, t2)
+    ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
+            "Do not pass reference types to this function", 0);
+    return type_is_reference_related_to(get_unqualified_type(t1), get_unqualified_type(t2))
         && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
 }
 
