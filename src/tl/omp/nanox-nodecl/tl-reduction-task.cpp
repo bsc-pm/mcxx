@@ -78,6 +78,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_reduction_function_c(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             LoweringVisitor::reduction_map_t & reduction_map)
     {
@@ -98,8 +99,8 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase function_body;
         Source src;
         src << "void " << fun_name << "("
-            << as_type(red->get_type()) << "* omp_out, "
-            << as_type(red->get_type()) << "* omp_in)"
+            << as_type(reduction_type) << "* omp_out, "
+            << as_type(reduction_type) << "* omp_in)"
             << "{"
             <<    statement_placeholder(function_body)
             << "}"
@@ -139,6 +140,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_reduction_function_fortran(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             LoweringVisitor::reduction_map_t & reduction_map)
     {
@@ -160,8 +162,8 @@ namespace TL { namespace Nanox {
 
         src << "SUBROUTINE " << fun_name << "(omp_out, omp_in)\n"
             <<    "IMPLICIT NONE\n"
-            <<    as_type(red->get_type()) << " :: omp_out\n"
-            <<    as_type(red->get_type()) << " :: omp_in\n"
+            <<    as_type(reduction_type) << " :: omp_out\n"
+            <<    as_type(reduction_type) << " :: omp_in\n"
             <<    statement_placeholder(function_body) << "\n"
             << "END SUBROUTINE " << fun_name << "\n";
         ;
@@ -212,11 +214,11 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            reduction_function = create_reduction_function_c(red, construct, reduction_map);
+            reduction_function = create_reduction_function_c(red, reduction_type, construct, reduction_map);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            reduction_function = create_reduction_function_fortran(red, construct, reduction_map);
+            reduction_function = create_reduction_function_fortran(red, reduction_type, construct, reduction_map);
         }
         else
         {
@@ -226,6 +228,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_initializer_function_c(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             LoweringVisitor::reduction_map_t& initializer_map)
     {
@@ -245,8 +248,8 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase function_body;
         Source src;
         src << "void " << fun_name << "("
-            <<      as_type(red->get_type()) << "* omp_priv,"
-            <<      as_type(red->get_type()) << "* omp_orig)"
+            <<      as_type(reduction_type) << "* omp_priv,"
+            <<      as_type(reduction_type) << "* omp_orig)"
             << "{"
             <<    statement_placeholder(function_body)
             << "}"
@@ -319,6 +322,7 @@ namespace TL { namespace Nanox {
 
     static TL::Symbol create_initializer_function_fortran(
             OpenMP::Reduction* red,
+            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
             LoweringVisitor::reduction_map_t & initializer_map)
     {
@@ -340,7 +344,7 @@ namespace TL { namespace Nanox {
 
         src << "SUBROUTINE " << fun_name << "(omp_out)\n"
             <<    "IMPLICIT NONE\n"
-            <<    as_type(red->get_type()) << " :: omp_out\n"
+            <<    as_type(reduction_type) << " :: omp_out\n"
             <<    "omp_out = " << as_expression(initializer) << "\n"
             << "END SUBROUTINE " << fun_name << "\n";
         ;
@@ -369,11 +373,11 @@ namespace TL { namespace Nanox {
     {
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
-            initializer_function = create_initializer_function_c(red, construct, initializer_map);
+            initializer_function = create_initializer_function_c(red, reduction_type, construct, initializer_map);
         }
         else if (IS_FORTRAN_LANGUAGE)
         {
-            initializer_function = create_initializer_function_fortran(red, construct, initializer_map);
+            initializer_function = create_initializer_function_fortran(red, reduction_type, construct, initializer_map);
         }
         else
         {
@@ -440,7 +444,8 @@ namespace TL { namespace Nanox {
 
                 std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
                 TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
-                TL::Type reduction_type = red_info_pair.second;
+
+                TL::Type reduction_type = sym.get_type();
 
                 TL::Symbol reduction_function;
                 TL::Nanox::create_reduction_function(reduction_info,
@@ -699,7 +704,7 @@ namespace TL { namespace Nanox {
 
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
             TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
-            TL::Type reduction_type = red_info_pair.second;
+            TL::Type reduction_type = (*it)->get_symbol().get_type();
 
             TL::Symbol sym = (*it)->get_symbol();
 
