@@ -1377,10 +1377,10 @@ namespace Vectorization
             << ")"
             ;
 
-        walk(lhs);
-
         bool lhs_has_been_defined = VectorizationAnalysisInterface::
             _vectorizer_analysis->has_been_defined(lhs);
+
+        walk(lhs);
 
         if (lhs_has_been_defined)
         {

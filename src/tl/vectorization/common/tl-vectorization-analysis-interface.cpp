@@ -154,6 +154,15 @@ namespace Vectorization
         Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
             _orig_to_copy_nodes.find(n);
 
+        /*
+        for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it3 = _orig_to_copy_nodes.begin();
+                it3 != _orig_to_copy_nodes.end();
+                it3++)
+        {
+            std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
+        }
+        */
+
         if (it == _orig_to_copy_nodes.end())
         {
             //std::cerr << "From O to C: " <<  n.prettyprint() << ": " << &(it->first) << std::endl;
@@ -180,7 +189,6 @@ namespace Vectorization
                 std::cerr << "Origin node " << &(it3->first.get_internal_nodecl()) << ": " << it3->first.prettyprint() << std::endl;
             }
             */
-
 
             internal_error("VectorizerAnalysis: Error translating Nodecl from origin to copy, %p %s",
                     &(n.get_internal_nodecl()), n.prettyprint().c_str());
@@ -485,6 +493,17 @@ namespace Vectorization
                 shallow_copy_rec(*children_it, *children_copy_it);
             }
         }
+
+        // ObjectInit initialization. Special case.
+        if (n.is<Nodecl::ObjectInit>())
+        {
+            TL::Symbol sym = n.get_symbol();
+            Nodecl::NodeclBase init = sym.get_value();
+
+            // Register initialization
+            if(!init.is_null())
+                shallow_copy_rec(init, n_copy.get_symbol().get_value());
+        }
     }
 
     Nodecl::NodeclBase VectorizationAnalysisInterface::shallow_copy(
@@ -534,7 +553,6 @@ namespace Vectorization
                 internal_error("VectorizerAnalysis: Original node doesn't exist in the copy (Deep Copy)", 0);
             }
         }
-
 
         return n_copy;
     }
