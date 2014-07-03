@@ -8628,11 +8628,6 @@ static void check_nodecl_equal_initializer(nodecl_t equal_initializer,
         decl_context_t decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output);
-void check_nodecl_expr_initializer(nodecl_t expr, 
-        decl_context_t decl_context, 
-        type_t* declared_type, 
-        char disallow_narrowing,
-        nodecl_t* nodecl_output);
 void check_nodecl_expr_initializer_in_argument(nodecl_t expr, 
         decl_context_t decl_context, 
         type_t* declared_type, 
@@ -15207,6 +15202,7 @@ void check_nodecl_braced_initializer(
                             decl_context,
                             declared_type,
                             /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
                             nodecl_output);
 
                     if (!nodecl_is_err_expr(*nodecl_output))
@@ -15591,19 +15587,21 @@ void check_nodecl_braced_initializer(
         scope_entry_t* conversors[num_args + 1];
         memset(conversors, 0, sizeof(conversors));
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* constructor = solve_constructor(declared_type,
+        scope_entry_t* constructor = NULL;
+        char ok = solve_initialization_of_class_type(declared_type,
                 arg_list,
                 num_args,
-                /* is_explicit */ 0,
+                IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
                 decl_context,
                 locus,
+                &constructor,
                 conversors,
                 &candidates);
         entry_list_free(candidates);
 
         // FIXME - Narrowing is not correctly verified here...
 
-        if (constructor != NULL)
+        if (ok)
         {
             nodecl_t nodecl_arguments_output = nodecl_make_list_2(
                     // Codegen should do the right thing: this call is implicit
@@ -15703,17 +15701,20 @@ void check_nodecl_braced_initializer(
             // Plain constructor resolution should be enough here
             scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
             scope_entry_list_t* candidates = NULL;
-            scope_entry_t* constructor = solve_constructor(declared_type,
+            scope_entry_t* constructor = NULL;
+            char ok = solve_initialization_of_class_type(
+                    declared_type,
                     arg_list,
                     num_args,
-                    /* is_explicit */ 0,
+                    IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
                     decl_context,
                     locus,
+                    &constructor,
                     conversors,
                     &candidates);
             entry_list_free(candidates);
 
-            if (constructor == NULL)
+            if (!ok)
             {
                 error_printf("%s: error: invalid initializer for type '%s'\n",
                         nodecl_locus_to_str(braced_initializer),
@@ -15821,17 +15822,20 @@ void check_nodecl_braced_initializer(
 
             // Now solve the constructor using this specialization
             scope_entry_list_t* candidates = NULL;
-            scope_entry_t* constructor = solve_constructor(declared_type,
+            scope_entry_t* constructor = NULL;
+            char ok = solve_initialization_of_class_type(
+                    declared_type,
                     /* arg_list */ &initializer_list_type,
                     /* num_args */ 1,
-                    /* is_explicit */ 0,
+                    IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
                     decl_context,
                     locus,
+                    &constructor,
                     conversors,
                     &candidates);
             entry_list_free(candidates);
 
-            if (constructor == NULL)
+            if (!ok)
             {
                 error_printf("%s: error: invalid initializer for type '%s'\n", 
                         nodecl_locus_to_str(braced_initializer),
@@ -16125,16 +16129,40 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             conversors[i] = NULL;
         }
 
+        enum initialization_kind initialization_kind = IK_INVALID;
+        if (num_items == 1)
+        {
+            if (is_class_type(no_ref(arguments[0]))
+                    && class_type_is_derived_instantiating(
+                        get_unqualified_type(no_ref(arguments[0])),
+                        declared_type,
+                        locus))
+            {
+                initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR;
+            }
+            else
+            {
+                initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_USER_DEFINED_CONVERSION;
+            }
+        }
+        else
+        {
+            initialization_kind = IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR;
+        }
+
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor = solve_constructor(declared_type,
+        scope_entry_t* chosen_constructor = NULL;
+        char ok = solve_initialization_of_class_type(
+                declared_type,
                 arguments, num_arguments,
-                /* is_explicit */ 1,
+                initialization_kind,
                 decl_context,
                 locus,
+                &chosen_constructor,
                 conversors,
                 &candidates);
 
-        if (chosen_constructor == NULL)
+        if (!ok)
         {
             if (entry_list_size(candidates) != 0)
             {
@@ -16255,6 +16283,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             nodecl_t nodecl_expr_out = nodecl_null();
             check_nodecl_expr_initializer(expr, decl_context, declared_type,
                     /* disallow_narrowing */ 0,
+                    IK_DIRECT_INITIALIZATION,
                     &nodecl_expr_out);
 
             if (nodecl_is_err_expr(nodecl_expr_out))
@@ -16950,6 +16979,7 @@ void check_nodecl_function_argument_initialization(
                 decl_context,
                 declared_type,
                 disallow_narrowing,
+                IK_COPY_INITIALIZATION,
                 nodecl_output);
     }
 }
@@ -16958,6 +16988,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
+        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER,
@@ -17026,12 +17057,12 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         return;
     }
 
-    char ambiguous_conversion = 0;
     scope_entry_t* conversor = NULL;
 
     if (!is_class_type(declared_type_no_cv))
     {
-        char can_be_initialized = 
+        scope_entry_list_t* candidates = NULL;
+        char can_be_initialized =
             (is_string_literal_type(initializer_expr_type)
              && is_array_type(declared_type_no_cv)
              && ((is_character_type(array_type_get_element_type(declared_type_no_cv))
@@ -17042,13 +17073,14 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                      && is_char16_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))
                  || (is_char32_t_type(array_type_get_element_type(declared_type_no_cv))
                      && is_char32_t_type(array_type_get_element_type(no_ref(initializer_expr_type))))))
-            || (type_can_be_implicitly_converted_to(
-                        initializer_expr_type, 
+            || solve_initialization_of_nonclass_type(
+                        initializer_expr_type,
                         declared_type_no_cv,
                         decl_context,
-                        &ambiguous_conversion, &conversor,
-                        nodecl_get_locus(nodecl_expr))
-                    && !ambiguous_conversion);
+                        initialization_kind | IK_BY_USER_DEFINED_CONVERSION,
+                        &conversor,
+                        &candidates,
+                        nodecl_get_locus(nodecl_expr));
 
         if (!can_be_initialized)
         {
@@ -17057,6 +17089,21 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                     codegen_to_str(nodecl_expr, nodecl_retrieve_context(nodecl_expr)),
                     print_decl_type_str(initializer_expr_type, decl_context, ""),
                     print_decl_type_str(declared_type, decl_context, ""));
+
+            if (entry_list_size(candidates) != 0)
+            {
+                const char* message = NULL;
+                uniquestr_sprintf(&message,
+                        "%s: error: no suitable conversion for initialization of type '%s' "
+                        "using an expression of type '%s'\n",
+                        locus_to_str(nodecl_get_locus(nodecl_expr)),
+                        print_type_str(declared_type_no_cv, decl_context),
+                        print_type_str(initializer_expr_type, decl_context));
+                diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
+                error_printf("%s", message);
+            }
+            entry_list_free(candidates);
+
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
@@ -17111,8 +17158,9 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             unary_record_conversion_to_result_for_initializer(declared_type_no_cv, nodecl_output);
         }
     }
-    else
+    else // is_class_type(declared_type_no_cv)
     {
+        // Use a constructor
         int num_arguments = 1;
         type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
         scope_entry_t* conversors[1];
@@ -17120,16 +17168,32 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         arguments[0] = initializer_expr_type;
         conversors[0] = NULL;
 
+        if (is_class_type(no_ref(initializer_expr_type))
+                && class_type_is_derived_instantiating(
+                    get_unqualified_type(no_ref(initializer_expr_type)),
+                    declared_type,
+                    locus))
+        {
+            initialization_kind |= IK_BY_CONSTRUCTOR;
+        }
+        else
+        {
+            initialization_kind |= IK_BY_USER_DEFINED_CONVERSION;
+        }
+
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor = solve_constructor(declared_type_no_cv,
+        scope_entry_t* chosen_constructor;
+        char ok = solve_initialization_of_class_type(
+                declared_type_no_cv,
                 arguments, num_arguments,
-                /* is_explicit */ 0,
+                initialization_kind,
                 decl_context,
                 nodecl_get_locus(nodecl_expr),
+                &chosen_constructor,
                 conversors,
                 &candidates);
 
-        if (chosen_constructor == NULL)
+        if (!ok)
         {
             if (entry_list_size(candidates) != 0)
             {
@@ -17138,8 +17202,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                         "%s: error: no suitable constructor for direct initialization of type '%s' "
                         "using an expression of type '%s'\n",
                         locus_to_str(nodecl_get_locus(nodecl_expr)),
-                        print_type_str(initializer_expr_type, decl_context),
-                        print_type_str(declared_type_no_cv, decl_context));
+                        print_type_str(declared_type_no_cv, decl_context),
+                        print_type_str(initializer_expr_type, decl_context));
                 diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
                 error_printf("%s", message);
             }
@@ -17187,13 +17251,13 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
 
         // Remember a call to the constructor here
         *nodecl_output = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(chosen_constructor, nodecl_get_locus(nodecl_expr)),
-                    /* called name */ nodecl_null(),
-                    nodecl_make_list_1(nodecl_expr),
-                    nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_expr)),
-                    declared_type_no_cv,
-                    decl_context,
-                    nodecl_get_locus(nodecl_expr));
+                nodecl_make_symbol(chosen_constructor, nodecl_get_locus(nodecl_expr)),
+                /* called name */ nodecl_null(),
+                nodecl_make_list_1(nodecl_expr),
+                nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_expr)),
+                declared_type_no_cv,
+                decl_context,
+                nodecl_get_locus(nodecl_expr));
     }
 }
 
@@ -17380,6 +17444,7 @@ static void check_nodecl_initializer_clause(
                         nodecl_get_child(initializer_clause, 0), 
                         decl_context, declared_type,
                         disallow_narrowing,
+                        IK_COPY_INITIALIZATION,
                         nodecl_output);
                 break;
             }
@@ -19259,15 +19324,17 @@ char check_default_initialization_of_type(
         type_t** arguments = NULL;
 
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor = solve_constructor(t,
+        scope_entry_t* chosen_constructor = NULL;
+        char ok = solve_initialization_of_class_type(t,
                 arguments, num_arguments,
-                /* is_explicit */ 1,
+                IK_DIRECT_INITIALIZATION,
                 decl_context,
                 locus,
+                &chosen_constructor,
                 /* conversors */ NULL,
                 &candidates);
 
-        if (chosen_constructor == NULL)
+        if (!ok)
         {
             if (entry_list_size(candidates) != 0)
             {
@@ -19362,15 +19429,17 @@ char check_copy_constructor(scope_entry_t* entry,
         scope_entry_t* conversors[1] = { NULL };
 
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor = solve_constructor(t,
+        scope_entry_t* chosen_constructor = NULL;
+        char ok = solve_initialization_of_class_type(t,
                 arguments, num_arguments,
-                /* is_explicit */ 1,
+                IK_DIRECT_INITIALIZATION,
                 decl_context,
                 locus,
+                &chosen_constructor,
                 conversors,
                 &candidates);
 
-        if (chosen_constructor == NULL)
+        if (ok)
         {
             if (entry_list_size(candidates) != 0)
             {
@@ -20693,6 +20762,7 @@ nodecl_t cxx_nodecl_make_function_call(
                             called_symbol->decl_context,
                             default_param_type,
                             /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
                             &new_default_argument);
 
                     if (nodecl_is_err_expr(new_default_argument))

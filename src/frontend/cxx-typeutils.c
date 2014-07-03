@@ -10491,6 +10491,11 @@ standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest)
     return result;
 }
 
+standard_conversion_t get_invalid_scs(void)
+{
+    return no_scs_conversion;
+}
+
 const char* sci_conversion_to_str(standard_conversion_item_t e)
 {
     switch (e)

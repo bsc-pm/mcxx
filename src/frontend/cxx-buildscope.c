@@ -17124,8 +17124,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         {
             if (!nodecl_expr_is_type_dependent(nodecl_expr))
             {
-                char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
+                char ambiguous_conversion = 0;
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
                             &ambiguous_conversion, &conversor, ast_get_locus(initializer))
                         || ambiguous_conversion)
@@ -18000,6 +18000,7 @@ static void build_scope_return_statement(AST a,
                             decl_context,
                             return_type,
                             /* disallow_narrowing */ 0,
+                            IK_DIRECT_INITIALIZATION,
                             &nodecl_return);
                 }
 
@@ -19431,6 +19432,7 @@ static scope_entry_t* instantiate_declaration_common(
                                     v->new_decl_context,
                                     get_unqualified_type(new_entry->type_information),
                                     /* disallow_narrowing */ 0,
+                                    IK_DIRECT_INITIALIZATION,
                                     &nodecl_init);
                         }
                     }
