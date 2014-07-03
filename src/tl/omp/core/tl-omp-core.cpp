@@ -850,19 +850,9 @@ namespace TL
 
         void Core::common_parallel_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
         {
-            TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
-
+            ERROR_CONDITION(_ompss_mode, "Visiting a OpenMP::Parallel in OmpSs", 0);
             data_sharing.set_is_parallel(true);
-
-            get_target_info(pragma_line, data_sharing);
-
-            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
-
-            bool there_is_default_clause = false;
-            DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED,
-                    there_is_default_clause);
-
-            get_data_implicit_attributes(construct, default_data_attr, data_sharing, there_is_default_clause);
+            common_construct_handler(construct, data_sharing);
         }
 
         void Core::fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name)
@@ -1177,6 +1167,11 @@ namespace TL
 
         void Core::common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
         {
+            common_construct_handler(construct, data_sharing);
+        }
+
+        void Core::common_construct_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        {
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
             get_target_info(pragma_line, data_sharing);
@@ -1487,30 +1482,40 @@ namespace TL
         // Handlers
         void Core::parallel_handler_pre(TL::PragmaCustomStatement construct)
         {
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
-            _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
+            if (!_ompss_mode)
+            {
+                DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+                _openmp_info->push_current_data_sharing(data_sharing);
+                common_parallel_handler(construct, data_sharing);
+            }
         }
 
         void Core::parallel_handler_post(TL::PragmaCustomStatement construct)
         {
-            _openmp_info->pop_current_data_sharing();
+            if (!_ompss_mode)
+                _openmp_info->pop_current_data_sharing();
         }
 
         void Core::parallel_for_handler_pre(TL::PragmaCustomStatement construct)
         {
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
-
-            if (construct.get_pragma_line().get_clause("collapse").is_defined())
-            {
-                collapse_check_loop(construct);
-            }
-
             Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
+            if (_ompss_mode)
+            {
+                loop_handler_pre(construct, stmt, &Core::common_for_handler);
+            }
+            else
+            {
+                DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
 
-            _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(construct, stmt, data_sharing);
-            common_parallel_handler(construct, data_sharing);
+                if (construct.get_pragma_line().get_clause("collapse").is_defined())
+                {
+                    collapse_check_loop(construct);
+                }
+
+                _openmp_info->push_current_data_sharing(data_sharing);
+                common_for_handler(construct, stmt, data_sharing);
+                common_parallel_handler(construct, data_sharing);
+            }
         }
 
         void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
@@ -1576,23 +1581,31 @@ namespace TL
 
         void Core::parallel_do_handler_pre(TL::PragmaCustomStatement construct)
         {
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
-
-            if (construct.get_pragma_line().get_clause("collapse").is_defined())
-            {
-                collapse_check_loop(construct);
-            }
-
             Nodecl::NodeclBase stmt = construct.get_statements();
 
             ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
             stmt = stmt.as<Nodecl::List>().front();
 
-            _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(construct, stmt, data_sharing);
-            common_parallel_handler(construct, data_sharing);
-            get_dependences_info(construct.get_pragma_line(), data_sharing,
-                    /* default_data_sharing */ DS_UNDEFINED);
+            if (_ompss_mode)
+            {
+                loop_handler_pre(construct, stmt, &Core::common_for_handler);
+            }
+            else
+            {
+                DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
+                _openmp_info->push_current_data_sharing(data_sharing);
+                common_for_handler(construct, stmt, data_sharing);
+
+
+                if (construct.get_pragma_line().get_clause("collapse").is_defined())
+                {
+                    collapse_check_loop(construct);
+                }
+
+                common_parallel_handler(construct, data_sharing);
+                get_dependences_info(construct.get_pragma_line(), data_sharing,
+                        /* default_data_sharing */ DS_UNDEFINED);
+            }
         }
 
         void Core::parallel_do_handler_post(TL::PragmaCustomStatement construct)
@@ -1616,8 +1629,14 @@ namespace TL
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_parallel_handler(construct, data_sharing);
-
+            if (_ompss_mode)
+            {
+                common_workshare_handler(construct, data_sharing);
+            }
+            else
+            {
+                common_parallel_handler(construct, data_sharing);
+            }
             fix_sections_layout(construct, "parallel sections");
         }
 
