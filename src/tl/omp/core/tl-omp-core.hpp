@@ -162,6 +162,7 @@ namespace TL
                         DataSharingEnvironment& data_sharing);
                 void common_while_handler(Nodecl::NodeclBase outer_statement,
                         Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing);
+                void common_construct_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);

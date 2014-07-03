@@ -859,11 +859,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::ComplexLiteral& node)
 
     if (const_value_is_integer(imag_part))
     {
-        emit_integer_constant(imag_part, node.get_type().complex_get_base_type());
+        emit_integer_constant(imag_part, node.get_type().no_ref().complex_get_base_type());
     }
     else if (const_value_is_floating(imag_part))
     {
-        emit_floating_constant(imag_part, node.get_type().complex_get_base_type());
+        emit_floating_constant(imag_part, node.get_type().no_ref().complex_get_base_type());
     }
     else
     {
@@ -1376,7 +1376,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FloatingLiteral& node)
     const_value_t* value = nodecl_get_constant(node.get_internal_nodecl());
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
 
-    emit_floating_constant(value, nodecl_get_type(node.get_internal_nodecl()));
+    emit_floating_constant(value, node.get_type().no_ref());
 }
 
 void CxxBase::emit_range_loop_header(
@@ -5911,7 +5911,9 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                 }
 
                 if (!member.get_function_code().is_null() &&
-                        member.is_defined_inside_class())
+                        member.is_defined_inside_class()
+                        // Do not emit the empty bodies of defaulted functions
+                        && !member.is_defaulted())
                 {
                     walk(member.get_function_code());
                 }
@@ -6997,7 +6999,12 @@ void CxxBase::do_define_symbol(TL::Symbol symbol,
         {
 
             indent();
-            *(file) << "enum " << symbol.get_name();
+            *(file) << "enum ";
+            if (is_scoped_enum_type(symbol.get_type().get_internal_type()))
+            {
+                *(file) << "struct ";
+            }
+            *(file) << symbol.get_name();
             if (enum_type_get_underlying_type_is_fixed(symbol.get_type().get_internal_type()))
             {
                 *(file)
@@ -7308,7 +7315,9 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
         else if (IS_CXX11_LANGUAGE)
         {
             indent();
-            (*file) << "enum " << symbol.get_name()
+            (*file) << "enum "
+                << (is_scoped_enum_type(symbol.get_type().get_internal_type()) ? "struct " : "")
+                << symbol.get_name()
                 << " : "
                 << this->get_declaration(
                         enum_type_get_underlying_type(
