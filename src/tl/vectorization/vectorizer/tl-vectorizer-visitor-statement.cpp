@@ -474,20 +474,8 @@ namespace Vectorization
         TL::Symbol sym = n.get_symbol();
 
         TL::Type scalar_type = sym.get_type();
-        TL::Type vector_type;
 
-        // Boolean type is treated as mask type
-        if (scalar_type.is_bool())
-        {
-            vector_type = TL::Type::get_mask_type(_environment._vectorization_factor);
-        }
-        else
-        {
-            vector_type = Utils::get_qualified_vector_to(scalar_type,
-                    _environment._vectorization_factor);
-        }
-
-        if (scalar_type.is_vector())
+        if (scalar_type.is_vector() || scalar_type.is_mask())
         {
             Nodecl::NodeclBase init = sym.get_value();
 
