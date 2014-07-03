@@ -1474,7 +1474,7 @@ namespace TL
             {
                 TL::Symbol &sym(*it);
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /*enclosing */ false);
                 if (data_attr == DS_UNDEFINED)
                 {
                     data_attr = (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT);
