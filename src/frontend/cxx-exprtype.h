@@ -39,6 +39,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-overload-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -146,6 +147,7 @@ LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         char disallow_narrowing,
+        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 LIBMCXX_EXTERN void check_nodecl_function_argument_initialization(
         nodecl_t nodecl_expr,
@@ -183,6 +185,10 @@ void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand);
+
+// Used in overload
+char builtin_needs_contextual_conversion(scope_entry_t* candidate,
+        int num_arg, type_t* parameter_type);
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,

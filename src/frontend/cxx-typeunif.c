@@ -1004,11 +1004,31 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             current_deduced_parameter.type = left_symbol->type_information;
 
             // Fold if possible (except for enums)
-            if (nodecl_is_constant(right_tree)
-                    && !is_enum_type(left_symbol->type_information))
+            if (nodecl_is_constant(right_tree))
             {
                 current_deduced_parameter.value =
                     const_value_to_nodecl(nodecl_get_constant(right_tree));
+                if (is_enum_type(left_symbol->type_information))
+                {
+                    // For enum types, instead of the literal value, create a cast
+                    // with a constant value
+                    //
+                    // enum E { V = 3 };
+                    //
+                    // template <E N> struct B;
+                    // B<V> will become B<(E)3>
+                    //
+                    // this is because B<3> may not be valid everywhere
+                    current_deduced_parameter.value =
+                        nodecl_make_cast(
+                                current_deduced_parameter.value,
+                                left_symbol->type_information,
+                                "C", // C-cast style
+                                /* locus */ NULL);
+                    nodecl_set_constant(
+                            current_deduced_parameter.value,
+                            nodecl_get_constant(right_tree));
+                }
             }
 
             char added = deduction_set_add_nontype_parameter_deduction(deduction, &current_deduced_parameter);
