@@ -425,6 +425,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        char needs_contextual_conversion,
         ref_qualifier_t ref_qualifier,
         const locus_t* locus);
 
@@ -471,6 +472,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &current,
                     no_user_defined_conversions,
                     is_implicit_argument,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -511,6 +513,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &current,
                     no_user_defined_conversions,
                     is_implicit_argument,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -604,6 +607,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -638,6 +642,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &init_ics,
                     /* no_user_defined_conversions */ 0,
                     /* is_implicit_argument */ 0,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -674,6 +679,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     result,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 0,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
             if (result->kind != ICSK_INVALID)
@@ -803,6 +809,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        char needs_contextual_conversion,
         ref_qualifier_t ref_qualifier,
         const locus_t* locus)
 {
@@ -961,11 +968,22 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_t* conversor = NULL;
         scope_entry_list_t* candidates = NULL;
         implicit_conversion_sequence_t current_ics;
+
+        enum initialization_kind initialization_kind = IK_INVALID;
+        if (!needs_contextual_conversion)
+        {
+            initialization_kind = IK_COPY_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS;
+        }
+        else
+        {
+            initialization_kind = IK_DIRECT_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS;
+        }
+
         char ok = solve_initialization_of_nonclass_type_ics(
                 orig,
                 dest,
                 decl_context,
-                IK_COPY_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS,
+                initialization_kind,
                 &conversor,
                 &candidates,
                 locus,
@@ -1646,8 +1664,14 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 }
 #endif
 
-char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor,
+
+static char type_can_be_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char needs_contextual_conversion,
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
         const locus_t* locus)
 {
     CXX_LANGUAGE()
@@ -1656,12 +1680,13 @@ char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_contex
         compute_ics_flags(orig, dest, decl_context, &result, 
                 /* no_user_defined_conversions */ 0,
                 /* is_implicit_argument */ 0,
+                needs_contextual_conversion,
                 REF_QUALIFIER_NONE,
                 locus);
 
         *ambiguous_conversion = ics_is_ambiguous(result);
 
-        if (conversor != NULL 
+        if (conversor != NULL
                 && result.kind == ICSK_USER_DEFINED)
         {
             *conversor = result.conversor;
@@ -1674,6 +1699,52 @@ char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_contex
         internal_error("This function cannot be used in C", 0);
     }
     return 0;
+}
+
+char type_can_be_implicitly_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus)
+{
+    return type_can_be_converted_to(
+            orig, dest, decl_context,
+            /* needs_contextual_conversion */ 0,
+            ambiguous_conversion,
+            conversor,
+            locus);
+}
+
+char type_can_be_contextually_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus)
+{
+    return type_can_be_converted_to(
+            orig, dest, decl_context,
+            /* needs_contextual_conversion */ 1,
+            ambiguous_conversion,
+            conversor,
+            locus);
+}
+
+char type_can_be_contextually_converted_to_bool(type_t* orig,
+        decl_context_t decl_context,
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus)
+{
+    return type_can_be_contextually_converted_to(orig,
+            get_bool_type(),
+            decl_context,
+            ambiguous_conversion,
+            conversor,
+            locus);
 }
 
 static scope_entry_t* solve_overload_(candidate_t* candidate_set,
@@ -3118,6 +3189,7 @@ static overload_entry_list_t* compute_viable_functions(
                                 &ics_to_candidate,
                                 no_user_defined_conversions,
                                 /* is_implicit_argument */ 1,
+                                /* needs_contextual_conversion */ 0,
                                 ref_qualifier,
                                 locus);
                     }
@@ -3147,12 +3219,18 @@ static overload_entry_list_t* compute_viable_functions(
                                 argument_number);
                     }
 
+                    char needs_contextual_conversion =
+                        builtin_needs_contextual_conversion(candidate,
+                                argument_number,
+                                parameter_type);
+
                     compute_ics_flags(argument_types[i],
                             parameter_type,
                             decl_context,
                             &ics_to_candidate,
                             no_user_defined_conversions,
                             /* is_implicit_argument */ 0,
+                            needs_contextual_conversion,
                             REF_QUALIFIER_NONE,
                             locus);
                 }

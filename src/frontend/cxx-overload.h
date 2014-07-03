@@ -48,8 +48,27 @@ LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         const locus_t* locus,
         scope_entry_t** conversor_per_argument);
 
-LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor, const locus_t* locus);
+LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
+
+LIBMCXX_EXTERN char type_can_be_contextually_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
+
+LIBMCXX_EXTERN char type_can_be_contextually_converted_to_bool(type_t* orig,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
 
 LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(type_t* orig,
         type_t* dest,

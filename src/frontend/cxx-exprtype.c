@@ -106,6 +106,37 @@ static check_expr_flags_t check_expr_flags =
     .do_not_fold_into_dependent_typename = 0
 };
 
+char builtin_needs_contextual_conversion(scope_entry_t* candidate,
+        int num_arg, type_t* parameter_type)
+{
+    if (!candidate->entity_specs.is_builtin)
+        return 0;
+
+    const char *operator_or = UNIQUESTR_LITERAL(STR_OPERATOR_LOGIC_OR);
+    const char *operator_and = UNIQUESTR_LITERAL(STR_OPERATOR_LOGIC_AND);
+    const char *operator_not = UNIQUESTR_LITERAL(STR_OPERATOR_LOGIC_NOT);
+    const char *operator_ternary = UNIQUESTR_LITERAL("operator ?");
+
+    if (candidate->symbol_name == operator_or
+            || candidate->symbol_name == operator_and)
+    {
+        if (num_arg != 0 && num_arg != 1)
+            return 0;
+    }
+    else if (candidate->symbol_name == operator_not
+            || candidate->symbol_name == operator_ternary)
+    {
+        if (num_arg != 0)
+            return 0;
+    }
+
+    // Sanity check
+    if (!is_bool_type(parameter_type))
+        return 0;
+
+    return 1;
+}
+
 static
 void build_unary_builtin_operators(type_t* t1,
         builtin_operators_set_t *result,
@@ -128,7 +159,8 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* t2, 
         type_t* t3, 
         builtin_operators_set_t *result,
-        decl_context_t decl_context, char* operator_name, 
+        decl_context_t decl_context,
+        const char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
         const locus_t* locus);
@@ -2713,6 +2745,14 @@ static void update_unresolved_overload_argument(type_t* arg_type,
     }
 }
 
+static void check_nodecl_function_argument_initialization_(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        type_t* declared_type,
+        enum initialization_kind initialization_kind,
+        char disallow_narrowing,
+        nodecl_t* nodecl_output);
+
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         nodecl_t *lhs, nodecl_t *rhs, 
         scope_entry_list_t* builtins,
@@ -2802,7 +2842,15 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             type_t* param_type_0 = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
             nodecl_t old_lhs = *lhs;
-            check_nodecl_function_argument_initialization(*lhs, decl_context, param_type_0,
+
+            check_nodecl_function_argument_initialization_(*lhs,
+                    decl_context,
+                    param_type_0,
+                    builtin_needs_contextual_conversion(
+                        overloaded_call,
+                        0,
+                        param_type_0)
+                    ? IK_DIRECT_INITIALIZATION : IK_COPY_INITIALIZATION,
                     /* disallow_narrowing */ 0,
                     lhs);
             if (nodecl_is_err_expr(*lhs))
@@ -2824,7 +2872,14 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         }
 
         nodecl_t old_rhs = *rhs;
-        check_nodecl_function_argument_initialization(*rhs, decl_context, param_type_1,
+        check_nodecl_function_argument_initialization_(*rhs,
+                decl_context,
+                param_type_1,
+                builtin_needs_contextual_conversion(
+                    overloaded_call,
+                    1,
+                    param_type_1)
+                ? IK_DIRECT_INITIALIZATION : IK_COPY_INITIALIZATION,
                 /* disallow_narrowing */ 0,
                 rhs);
         if (nodecl_is_err_expr(*rhs))
@@ -2948,7 +3003,15 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
 
             nodecl_t old_op = *op;
-            check_nodecl_function_argument_initialization(*op, decl_context, param_type,
+            check_nodecl_function_argument_initialization_ (
+                    *op,
+                    decl_context,
+                    param_type,
+                    builtin_needs_contextual_conversion(
+                        overloaded_call,
+                        0,
+                        param_type)
+                    ? IK_DIRECT_INITIALIZATION : IK_COPY_INITIALIZATION,
                     /* disallow_narrowing */ 0,
                     op);
             if (nodecl_is_err_expr(*op))
@@ -8330,12 +8393,14 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         {
             builtin_operators_set_t builtin_set;
 
+            const char* operator_ternary = UNIQUESTR_LITERAL("operator ?");
+
             build_ternary_builtin_operators(get_bool_type(),
                     second_type,
                     third_type,
                     &builtin_set,
                     decl_context,
-                    "operator ?",
+                    operator_ternary,
                     ternary_operator_property,
                     ternary_operator_result,
                     locus
@@ -8374,7 +8439,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             if (overloaded_call == NULL)
             {
                 error_message_overload_failed(candidate_set,
-                        "operator ?",
+                        operator_ternary,
                         decl_context,
                         num_arguments,
                         argument_types,
@@ -16961,10 +17026,11 @@ static void unary_record_conversion_to_result_for_initializer(type_t* result, no
     }
 }
 
-void check_nodecl_function_argument_initialization(
+static void check_nodecl_function_argument_initialization_(
         nodecl_t nodecl_expr,
-        decl_context_t decl_context, 
-        type_t* declared_type, 
+        decl_context_t decl_context,
+        type_t* declared_type,
+        enum initialization_kind initialization_kind,
         char disallow_narrowing,
         nodecl_t* nodecl_output)
 {
@@ -16980,9 +17046,25 @@ void check_nodecl_function_argument_initialization(
                 decl_context,
                 declared_type,
                 disallow_narrowing,
-                IK_COPY_INITIALIZATION,
+                initialization_kind,
                 nodecl_output);
     }
+}
+
+void check_nodecl_function_argument_initialization(
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        type_t* declared_type,
+        char disallow_narrowing,
+        nodecl_t* nodecl_output)
+{
+    return check_nodecl_function_argument_initialization_(
+            nodecl_expr,
+            decl_context,
+            declared_type,
+            IK_COPY_INITIALIZATION,
+            disallow_narrowing,
+            nodecl_output);
 }
 
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
@@ -17827,7 +17909,8 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* t3, 
         builtin_operators_set_t *result,
         // Note that since no ternary operator actually exists we use a faked name
-        decl_context_t decl_context, char* operator_name, 
+        decl_context_t decl_context,
+        const char* operator_name, 
         char (*property)(type_t*, type_t*, type_t*, const locus_t*),
         type_t* (*result_type)(type_t**, type_t**, type_t**, const locus_t*),
         const locus_t* locus)

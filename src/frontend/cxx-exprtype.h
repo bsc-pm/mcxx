@@ -186,6 +186,10 @@ void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand);
 
+// Used in overload
+char builtin_needs_contextual_conversion(scope_entry_t* candidate,
+        int num_arg, type_t* parameter_type);
+
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,

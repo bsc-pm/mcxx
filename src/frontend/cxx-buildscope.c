@@ -16757,8 +16757,9 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
             {
                 scope_entry_t* conversor = NULL;
                 char ambiguous_conversion = 0;
-                if (!type_can_be_implicitly_converted_to(nodecl_get_type(*nodecl_output),
-                            get_bool_type(), decl_context, 
+                if (!type_can_be_contextually_converted_to_bool(
+                            nodecl_get_type(*nodecl_output),
+                            decl_context, 
                             &ambiguous_conversion,
                             &conversor,
                             nodecl_get_locus(*nodecl_output))
@@ -17126,7 +17127,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             {
                 scope_entry_t* conversor = NULL;
                 char ambiguous_conversion = 0;
-                if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
+                if (!type_can_be_contextually_converted_to_bool(
+                            entry->type_information,
+                            decl_context, 
                             &ambiguous_conversion, &conversor, ast_get_locus(initializer))
                         || ambiguous_conversion)
                 {
