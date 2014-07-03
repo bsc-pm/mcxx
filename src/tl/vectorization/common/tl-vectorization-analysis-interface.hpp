@@ -59,6 +59,14 @@ namespace Vectorization
         private:
             Nodecl::NodeclBase _original_node;
 
+            typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
+            typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
+            map_node_bool_t uniform_nodes;
+            map_node_bool_t iv_nodes;
+            map_node_bool_t non_red_iv_nodes;
+            map_node_bool_t adjacent_nodes;
+            map_node_bool_t simd_aligned_nodes;
+
             Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
 
             Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n);
@@ -74,6 +82,7 @@ namespace Vectorization
 
             void shallow_copy_rec(const Nodecl::NodeclBase& n,
                     const Nodecl::NodeclBase& n_copy);
+            
 
         public:
             static VectorizationAnalysisInterface *_vectorizer_analysis;
