@@ -9179,6 +9179,7 @@ static const_value_t* cxx_nodecl_make_value_conversion(
             break;
         case SCI_ZERO_TO_POINTER_CONVERSION:
         case SCI_NULLPTR_TO_POINTER_CONVERSION:
+        case SCI_ZERO_TO_NULLPTR:
             val = const_value_get_zero(
                     type_get_size(get_unqualified_type(no_ref(dest_type))),
                     /* sign */ 0);

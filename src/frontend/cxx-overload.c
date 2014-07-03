@@ -2491,6 +2491,7 @@ static char is_pointer_conversion(standard_conversion_item_t sci)
 {
     return sci == SCI_POINTER_TO_VOID_CONVERSION
         || sci == SCI_ZERO_TO_POINTER_CONVERSION
+        || sci == SCI_ZERO_TO_NULLPTR
         || sci == SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION
         || sci == SCI_NULLPTR_TO_POINTER_CONVERSION;
 }

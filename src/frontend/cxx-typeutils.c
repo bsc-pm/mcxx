@@ -11187,6 +11187,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
+        else if (IS_CXX_LANGUAGE
+                && is_zero_type(orig)
+                && is_nullptr_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion from 0 to std::nullptr_t\n");
+            }
+
+            (*result).conv[1] = SCI_ZERO_TO_NULLPTR;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
         else if (is_pointer_type(orig)
                 && is_pointer_to_void_type(dest))
         {
