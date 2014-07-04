@@ -37,6 +37,7 @@
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
 #include "cxx-exprtype.h"
+#include "cxx-gccbuiltins.h"
 
 #include <string.h>
 
@@ -2656,6 +2657,30 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             return 1;
         }
 
+        // Intel vector extension: we favour extensions to the same types
+        {
+            int vector_size = 0; // unused
+            // vector type -> vector type
+            if (is_vector_type(no_ref(scs1.orig))
+                    && is_vector_type(no_ref(scs1.dest))
+                    // vector type -> intel vector struct
+                    && is_vector_type(no_ref(scs2.orig))
+                    && is_intel_vector_struct_type(no_ref(scs2.orig), &vector_size))
+            {
+                return 1;
+            }
+
+            // intel vector struct -> intel vector struct
+            if (is_intel_vector_struct_type(no_ref(scs1.orig), &vector_size)
+                    && is_intel_vector_struct_type(no_ref(scs1.dest), &vector_size)
+                    // intel vector -> vector type
+                    && is_intel_vector_struct_type(no_ref(scs2.orig), &vector_size)
+                    && is_vector_type(no_ref(scs2.dest)))
+            {
+                return 1;
+            }
+        }
+
         /*
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
@@ -2862,6 +2887,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
         }
+
         // rank1 == rank2
         return 0;
     }
