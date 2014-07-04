@@ -126,7 +126,7 @@ namespace TL
                 void get_data_implicit_attributes_of_indirectly_accessible_symbols(
                         TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
-                        ObjectList<Nodecl::Symbol>& nonlocal_symbols);
+                        ObjectList<TL::Symbol>& nonlocal_symbols);
 
                 void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
@@ -162,6 +162,7 @@ namespace TL
                         DataSharingEnvironment& data_sharing);
                 void common_while_handler(Nodecl::NodeclBase outer_statement,
                         Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing);
+                void common_construct_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);

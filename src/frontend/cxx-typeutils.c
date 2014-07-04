@@ -1852,6 +1852,15 @@ enum type_tag_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
+void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    t->type->class_info->class_kind = class_kind;
+}
+
 static type_t* rewrite_redundant_typedefs(type_t* orig);
 
 static type_t* simplify_types_template_arguments(type_t* t)
@@ -2247,8 +2256,7 @@ static char same_template_argument_list(
             case TPK_NONTYPE:
                 {
                     if (!same_functional_expression(targ_1->value,
-                                targ_2->value,
-                                deduction_flags_empty()))
+                                targ_2->value))
                     {
                         return 0;
                     }
@@ -5914,8 +5922,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             CXX_LANGUAGE()
             {
                 result = same_functional_expression(t1->typeof_expr,
-                        t2->typeof_expr,
-                        deduction_flags_empty());
+                        t2->typeof_expr);
             }
             break;
         case STK_UNDERLYING:
@@ -6039,7 +6046,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, decl_conte
         CXX_LANGUAGE()
         {
             if (!same_functional_expression(t1->whole_size, 
-                        t2->whole_size, deduction_flags_empty()))
+                        t2->whole_size))
                 return 0;
         }
         C_LANGUAGE()
@@ -10484,6 +10491,11 @@ standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest)
     return result;
 }
 
+standard_conversion_t get_invalid_scs(void)
+{
+    return no_scs_conversion;
+}
+
 const char* sci_conversion_to_str(standard_conversion_item_t e)
 {
     switch (e)
@@ -10965,7 +10977,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     }
 
     type_t* orig_underlying_type = NULL;
-    if (is_enum_type(orig))
+    if (is_unscoped_enum_type(orig))
     {
         orig_underlying_type = enum_type_get_underlying_type_for_conversion(orig);
     }
@@ -10992,7 +11004,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_signed_int_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && (is_char_type(orig_underlying_type)
                     || is_signed_char_type(orig_underlying_type)
                     || is_unsigned_char_type(orig_underlying_type)
@@ -11013,7 +11025,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_integer_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && equivalent_types(orig_underlying_type, dest))
         {
@@ -11055,7 +11067,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_integer_type(dest)
                 && !is_bool_type(dest)
-                && is_enum_type(orig)
+                && is_unscoped_enum_type(orig)
                 && is_integer_type(orig_underlying_type)
                 && !equivalent_types(orig_underlying_type, dest))
         {
@@ -11070,7 +11082,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (is_bool_type(dest)
                 && !is_bool_type(orig)
                 && (is_arithmetic_type(orig)
-                    || is_enum_type(orig)
+                    || is_unscoped_enum_type(orig)
                     || is_pointer_type(orig)
                     || is_pointer_to_member_type(orig)))
         {
@@ -11138,7 +11150,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (is_floating_type(dest)
-                && is_enum_type(orig))
+                && is_unscoped_enum_type(orig))
         {
             DEBUG_CODE()
             {
@@ -11172,6 +11184,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
 
             (*result).conv[1] = SCI_NULLPTR_TO_POINTER_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_zero_type(orig)
+                && is_nullptr_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion from 0 to std::nullptr_t\n");
+            }
+
+            (*result).conv[1] = SCI_ZERO_TO_NULLPTR;
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
@@ -13278,7 +13303,20 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
         if (entry_list_size(overload_set) == 1)
         {
-            return print_decl_type_str(entry_list_head(overload_set)->type_information, decl_context, name);
+            type_t* used_type = NULL;
+            scope_entry_t* item = entry_list_head(overload_set);
+
+            if (!item->entity_specs.is_member
+                    || item->entity_specs.is_static)
+            {
+                used_type = lvalue_ref(item->type_information);
+            }
+            else
+            {
+                used_type = get_pointer_to_member_type(item->type_information,
+                        item->entity_specs.class_type);
+            }
+            return print_decl_type_str(used_type, decl_context, name);
         }
         else
         {
@@ -14508,6 +14546,8 @@ char class_type_is_virtual_base_or_base_of_virtual_base(
 
 char type_is_reference_related_to(type_t* t1, type_t* t2)
 {
+    ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
+            "Do not pass reference types to this function", 0);
     return (equivalent_types(t1, t2)
             || (is_class_type(t1)
                 && is_class_type(t2)
@@ -14516,7 +14556,9 @@ char type_is_reference_related_to(type_t* t1, type_t* t2)
 
 char type_is_reference_compatible_to(type_t* t1, type_t* t2)
 {
-    return type_is_reference_related_to(t1, t2)
+    ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
+            "Do not pass reference types to this function", 0);
+    return type_is_reference_related_to(get_unqualified_type(t1), get_unqualified_type(t2))
         && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
 }
 

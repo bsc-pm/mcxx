@@ -2717,7 +2717,7 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
             {
                 expr = expr.as<Nodecl::ArraySubscript>().get_subscripts();
 
-                expr = expr.as<Nodecl::List>()[fortran_dimension - 1];
+                expr = expr.as<Nodecl::List>()[0];
 
                 if (expr.is<Nodecl::Range>())
                 {

@@ -411,20 +411,23 @@ namespace TL
                     // definition we aren't defining the data-sharings of the variables involved
                     // in that expression.
                     //
-                    // About the data-sharings of the variables involved in the copy expression:
-                    // - Fortran: the base symbol of the copy expression is always SHARED
+                    // About the data-sharings of the variables involved in the dependence expression:
+                    // - Fortran: the base symbol of the dependence expression is always SHARED
                     // - C/C++:
-                    //
-                    //      copy_inout(x)    x must be shared
-                    //      copy_inout(a)    a must be shared if it's an array
-                    //
-                    //    But we allow more general cases. In these cases x, is not going to be shared
-                    //    and it will be left to the default data sharing
-                    //
-                    //      copy_inout(*x)             We do not define a specific data sharing for these
-                    //      copy_inout(x[10])
-                    //      copy_inout(x[1:2])
-                    //      copy_inout([10][20] x)
+                    //  * Trivial dependences must always be SHARED:
+                    //          int x, a[10];
+                    //          copy_inout(x) -> shared(x)
+                    //          copy_inout(a) -> shared(a)
+                    //  * Arrays and references to arrays must be SHARED too:
+                    //          copy_int a[10];
+                    //          copy_inout(a[4])   -> shared(a)
+                    //          copy_inout(a[1:2]) -> shared(a)
+                    //  * Otherwise, the data-sharing of the base symbol is FIRSTPRIVATE:
+                    //          int* p;
+                    //          copy_inout(*p)     -> firstprivate(p)
+                    //          copy_inout(p[10])  -> firstprivate(p)
+                    //          copy_inout(p[1:2]) -> firstprivate(p)
+                    //          copy_inout([10][20] p) -> firstprivate(p)
                     if (IS_FORTRAN_LANGUAGE)
                     {
                         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
@@ -441,6 +444,12 @@ namespace TL
                     {
                         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT),
                                 "the variable is an array mentioned in a non-trivial copy "
+                                "and it did not have an explicit data-sharing");
+                    }
+                    else
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT),
+                                "the variable is a non-array mentioned in a non-trivial copy "
                                 "and it did not have an explicit data-sharing");
                     }
                 }

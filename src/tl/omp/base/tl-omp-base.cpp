@@ -2042,34 +2042,34 @@ namespace TL { namespace OpenMP {
 
             // Skipping NODECL_CONTEXT
             Nodecl::NodeclBase context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(),
-                    "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
+            //ERROR_CONDITION(!context.is<Nodecl::Context>(),
+            //        "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
 
             // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(),
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
-            Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1,
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
+            //Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
+            // ERROR_CONDITION(!in_context.is<Nodecl::List>(),
+            //         "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
+            // Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
+            // ERROR_CONDITION(ast_list_node2.size() != 1,
+            //         "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase for_statement = ast_list_node2.front();
-            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
-                    ast_print_node_type(for_statement.get_kind()));
+            // Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            // ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
+            //         "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
+            //         ast_print_node_type(for_statement.get_kind()));
 
             // for_handler_post
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
             Nodecl::OpenMP::For omp_for = loop_handler_post(
-                    stmt, for_statement, barrier_at_end, false).as<Nodecl::List>().front()
+                    stmt, context, barrier_at_end, false).as<Nodecl::List>().front()
                 .as<Nodecl::OpenMP::For>();
 
             Nodecl::OpenMP::SimdFor omp_simd_for_node =
                Nodecl::OpenMP::SimdFor::make(
                        omp_for,
                        environment,
-                       for_statement.get_locus());
+                       context.get_locus());
 
             // Removing #pragma
             pragma_line.diagnostic_unused_clauses();

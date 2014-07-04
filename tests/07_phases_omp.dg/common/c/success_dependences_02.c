@@ -29,7 +29,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
 </testinfo>
 */
 #include <stdlib.h>
@@ -66,8 +65,15 @@ void f(int *x, int n)
 
 int main(int argc, char *argv[])
 {
-    int c[100];
-    f(c, 100);
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            int c[100];
+            f(c, 100);
+        }
+    }
 
     return 0;
 }

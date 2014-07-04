@@ -46,4 +46,24 @@ struct candidate_tag
     struct candidate_tag *next;
 } candidate_t;
 
+enum initialization_kind {
+    IK_INVALID = 0,
+    IK_COPY_INITIALIZATION   =   1 << 1,
+    IK_DIRECT_INITIALIZATION =   1 << 2,
+    IK_LIST_INITIALIZATION   =   1 << 3,   // This case does not allow modifiers
+    // Modifiers for copy and direct initialization
+    IK_BY_CONSTRUCTOR                   =   1 << 10,
+    IK_BY_USER_DEFINED_CONVERSION       =   1 << 11,
+    IK_BY_DIRECT_REFERENCE_BINDING      =   1 << 12,
+
+    // Flag to avoid more than one user-defined conversion
+    IK_NO_MORE_USER_DEFINED_CONVERSIONS      =   1 << 13,
+
+    // These are mainly for debugging, although it is fine to use them
+    IK_DIRECT_INITIALIZATION_BY_CONSTRUCTOR = IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
+    IK_DIRECT_INITIALIZATION_BY_USER_DEFINED_CONVERSION = IK_DIRECT_INITIALIZATION | IK_BY_USER_DEFINED_CONVERSION,
+    IK_COPY_INITIALIZATION_BY_CONSTRUCTOR = IK_COPY_INITIALIZATION | IK_BY_CONSTRUCTOR,
+    IK_COPY_INITIALIZATION_BY_USER_DEFINED_CONVERSION = IK_COPY_INITIALIZATION | IK_BY_USER_DEFINED_CONVERSION,
+};
+
 #endif // CXX_OVERLOAD_DECLS_H

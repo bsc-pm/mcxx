@@ -59,452 +59,21 @@ enum tribool_tag
     NOT_SURE = 2
 } tribool_t;
 
-static deduction_t* get_unification_item(
-        deduction_set_t** deduction_set,
-        int position, int nesting,
-        enum template_parameter_kind kind,
-        const char* name)
-{
-    int i;
-    for (i = 0; i < (*deduction_set)->num_deductions; i++)
-    {
-        if ((*deduction_set)->deduction_list[i]->parameter_position == position
-                && (*deduction_set)->deduction_list[i]->parameter_nesting == nesting)
-        {
-            return (*deduction_set)->deduction_list[i];
-        }
-    }
-
-    deduction_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_typeunif);
-    result->kind = kind;
-    result->parameter_position = position;
-    result->parameter_nesting = nesting;
-    result->parameter_name = name;
-
-    P_LIST_ADD((*deduction_set)->deduction_list, (*deduction_set)->num_deductions, result);
-
-    return result;
-}
-
-static deduction_t* get_unification_item_from_item(
-        deduction_set_t** deduction_set,
-        deduction_t* deduction)
-{
-    return get_unification_item(deduction_set,
-            deduction->parameter_position,
-            deduction->parameter_nesting,
-            deduction->kind,
-            deduction->parameter_name);
-}
-
-deduction_t* get_unification_item_for_template_parameter(deduction_set_t** deduction_set, scope_entry_t* s1)
-{
-    ERROR_CONDITION(!s1->entity_specs.is_template_parameter,
-            "This must be a template-parameter", 0);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "TYPEUNIF: Getting unification item for template parameter '%s'\n",
-                s1->symbol_name);
-    }
-
-    int position = s1->entity_specs.template_parameter_position;
-    int nesting = s1->entity_specs.template_parameter_nesting;
-
-    enum template_parameter_kind kind = TPK_UNKNOWN;
-    switch (s1->kind)
-    {
-        case SK_TEMPLATE_NONTYPE_PARAMETER:
-            {
-                kind = TPK_NONTYPE;
-                break;
-            }
-        case SK_TEMPLATE_TYPE_PARAMETER :
-            {
-                kind = TPK_TYPE;
-                break;
-            }
-        case SK_TEMPLATE_TEMPLATE_PARAMETER:
-            {
-                kind = TPK_TEMPLATE;
-                break;
-            }
-        case SK_TEMPLATE_NONTYPE_PARAMETER_PACK:
-            {
-                kind = TPK_NONTYPE_PACK;
-                break;
-            }
-        case SK_TEMPLATE_TYPE_PARAMETER_PACK :
-            {
-                kind = TPK_TYPE_PACK;
-                break;
-            }
-        case SK_TEMPLATE_TEMPLATE_PARAMETER_PACK:
-            {
-                kind = TPK_TEMPLATE_PACK;
-                break;
-            }
-        default:
-            internal_error("Invalid symbol kind %s", symbol_kind_to_str(s1->kind));
-    }
-
-
-    return get_unification_item(deduction_set, position, nesting, kind, s1->symbol_name);
-}
-
-
-static char deduction_add_type_parameter_deduction(deduction_t* deduction,
-        deduced_parameter_t* current_deduced_parameter)
-{
-    char found = 0;
-    int i;
-    for (i = 0; i < deduction->num_deduced_parameters; i++)
-    {
-        deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
-
-        type_t* previous_deduced_type = previous_deduced_parameter->type;
-
-        if (equivalent_types(previous_deduced_type, 
-                    current_deduced_parameter->type))
-        {
-            found = 1;
-            break;
-        }
-    }
-
-    if (!found)
-    {
-
-        deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
-        *new_deduced_parameter = *current_deduced_parameter;
-
-        P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
-    }
-
-    return !found;
-}
-
-static char deduction_add_nontype_parameter_deduction(deduction_t* deduction,
-        deduced_parameter_t* current_deduced_parameter,
-        deduction_flags_t flags)
-{
-    nodecl_t current_deduced_value = current_deduced_parameter->value;
-    scope_entry_t* current_deduced_symbol = nodecl_get_symbol(current_deduced_value);
-
-    char found = 0;
-    int i;
-    for (i = 0; i < deduction->num_deduced_parameters; i++)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUNIF: Checking previous deductions\n");
-        }
-        deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
-
-        nodecl_t previous_deduced_value = previous_deduced_parameter->value;
-
-        scope_entry_t* previous_unified_symbol = nodecl_get_symbol(previous_deduced_value);
-
-        if (previous_unified_symbol != NULL
-                && current_deduced_symbol != NULL
-                && ((previous_unified_symbol->kind == SK_TEMPLATE_NONTYPE_PARAMETER
-                        && current_deduced_symbol->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
-                    || (previous_unified_symbol->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK
-                        && current_deduced_symbol->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Both previous deduction tree '%s' and new deduction tree '%s'"
-                        " are nontype template parameters. Checking if they are the same\n", 
-                        codegen_to_str(previous_deduced_value, nodecl_retrieve_context(previous_deduced_value)),
-                        codegen_to_str(current_deduced_value, nodecl_retrieve_context(current_deduced_value)));
-            }
-
-            int previous_unified_expr_parameter_position = 
-                previous_unified_symbol->entity_specs.template_parameter_position;
-            int previous_unified_expr_parameter_nesting = 
-                previous_unified_symbol->entity_specs.template_parameter_nesting;
-
-            int currently_unified_template_param_position = 
-                current_deduced_symbol->entity_specs.template_parameter_position;
-            int currently_unified_template_param_nesting = 
-                current_deduced_symbol->entity_specs.template_parameter_nesting;
-
-            if ((currently_unified_template_param_position == previous_unified_expr_parameter_position)
-                    && (currently_unified_template_param_nesting == previous_unified_expr_parameter_nesting))
-            {
-                found = 1;
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: They are the same\n");
-                }
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: They are different\n");
-                }
-            }
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Checking if previous deduced tree '%s' and current deduced tree '%s'"
-                        " are the same\n", 
-                        codegen_to_str(previous_deduced_value, nodecl_retrieve_context(previous_deduced_value)),
-                        codegen_to_str(current_deduced_value, nodecl_retrieve_context(current_deduced_value)));
-            }
-
-            if (same_functional_expression(previous_deduced_value, current_deduced_value, flags))
-            {
-                found = 1;
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: They are the same\n");
-                }
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: They are different\n");
-                }
-            }
-        }
-    }
-
-    if (!found)
-    {
-        deduced_parameter_t* new_deduced_parameter = counted_xcalloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
-        *new_deduced_parameter = *current_deduced_parameter;
-
-        P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
-    }
-
-    return !found;
-}
 
 static char equivalent_dependent_expressions(nodecl_t left_tree, 
         nodecl_t right_tree, 
-        deduction_set_t** unif_set,
-        deduction_flags_t flags);
+        deduction_set_t* unif_set);
 
 static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree);
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
-        deduction_set_t** deduction_set, decl_context_t decl_context, 
-        const locus_t* locus, deduction_flags_t flags);
-
-deduction_t* get_unification_item_for_template_parameter(deduction_set_t** deduction_set, scope_entry_t* s1);
-
-static deduced_parameter_t* copy_deduced_parameter(deduced_parameter_t* deduced_parameter)
-{
-    deduced_parameter_t* result = xcalloc(1, sizeof(*result));
-    *result = *deduced_parameter;
-    result->value = nodecl_shallow_copy(deduced_parameter->value);
-
-    return result;
-}
-
-static void free_deduced_parameter(deduced_parameter_t* deduced_parameter UNUSED_PARAMETER)
-{
-}
-
-// Merges the second deduction set inside the first
-static void merge_deduction_set(deduction_set_t** dest, deduction_set_t* source, deduction_flags_t flags)
-{
-    // Now we have to merge these single values into the final
-    // deduction.  So, for template-packs we have to add value in their
-    // existing deduction, for template that are not packs, just add
-    // another deduction
-    int j;
-    for (j = 0; j < source->num_deductions; j++)
-    {
-        // The current deduction, will contain only single values
-        deduction_t* current_deduction = source->deduction_list[j];
-
-        // The merged deduction, if this deduction is for a template-pack will contain
-        // several values (otherwise just single values)
-        deduction_t* merged_deduction = get_unification_item_from_item(dest, current_deduction);
-
-        switch (current_deduction->kind)
-        {
-            case TPK_TYPE_PACK:
-            case TPK_TEMPLATE_PACK:
-                {
-                    // Since this is a deduction for a template-pack,
-                    // existing deductions may contain several values
-                    // already and we have to append the values deduced
-                    // above to each of them, but as usual avoiding
-                    // repeated deductions
-                    int k1;
-                    // Note that if current_deduction->num_deduced_parameters > 1
-                    // merged_deduction->num_deduced_parameters will grow, so we
-                    // keep it here
-                    int num_merged_deductions = merged_deduction->num_deduced_parameters;
-                    for (k1 = 0; k1 < num_merged_deductions; k1++)
-                    {
-                        deduced_parameter_t* current_merged_deduced_parameter = merged_deduction->deduced_parameters[k1];
-
-                        // If only one has been deduced it is just a matter of extending
-                        // the existing deduction
-                        if (current_deduction->num_deduced_parameters > 0)
-                        {
-                            // We copy the current_merged_deduced_parameter except for the first
-                            // that will update it in place (but we extend it the last) to avoid
-                            // breaking the copy of the current_merged_deduced_parameter
-                            int k2;
-                            // Note that we start from 1
-                            for (k2 = 1; k2 < current_deduction->num_deduced_parameters; k2++)
-                            {
-                                // Extend the current deduction with the new value
-                                deduced_parameter_t* extended_deduced_parameter = copy_deduced_parameter(
-                                        current_merged_deduced_parameter);
-
-                                extended_deduced_parameter->type = get_sequence_of_types_append_type(
-                                        extended_deduced_parameter->type,
-                                        current_deduction->deduced_parameters[k2]->type);
-
-                                char added = deduction_add_type_parameter_deduction(merged_deduction,
-                                        extended_deduced_parameter);
-
-                                if (!added)
-                                {
-                                    free_deduced_parameter(extended_deduced_parameter);
-                                }
-                            }
-                            // First iteration (updates in-place instead of copy)
-                            k2 = 0;
-                            current_merged_deduced_parameter->type =
-                                get_sequence_of_types_append_type(
-                                        current_merged_deduced_parameter->type,
-                                        current_deduction->deduced_parameters[k2]->type);
-                        }
-                    }
-                    // There were no deductions, simply add ours
-                    if (merged_deduction->num_deduced_parameters == 0)
-                    {
-                        int k2;
-                        for (k2 = 0; k2 < current_deduction->num_deduced_parameters; k2++)
-                        {
-                            type_t* deduced_type = current_deduction->deduced_parameters[k2]->type;
-                            current_deduction->deduced_parameters[k2]->type = get_sequence_of_types(1, &deduced_type);
-                            deduction_add_type_parameter_deduction(merged_deduction,
-                                    current_deduction->deduced_parameters[k2]);
-                        }
-                    }
-                    break;
-                }
-            case TPK_NONTYPE_PACK:
-                {
-                    // Since this is a deduction for a template-pack,
-                    // existing deductions may contain several values
-                    // already and we have to append the values deduced
-                    // above to each of them, but as usual avoiding
-                    // repeated deductions
-                    int k1;
-                    // Note that if current_deduction->num_deduced_parameters > 1
-                    // merged_deduction->num_deduced_parameters will grow, so we
-                    // keep it here
-                    int num_merged_deductions = merged_deduction->num_deduced_parameters;
-                    for (k1 = 0; k1 < num_merged_deductions; k1++)
-                    {
-                        deduced_parameter_t* current_merged_deduced_parameter = merged_deduction->deduced_parameters[k1];
-
-                        // If only one has been deduced it is just a matter of extending
-                        // the existing deduction
-                        if (current_deduction->num_deduced_parameters > 0)
-                        {
-                            // We copy the current_merged_deduced_parameter except for the first
-                            // that will update it in place (but we extend it the last) to avoid
-                            // breaking the copy of the current_merged_deduced_parameter
-                            int k2;
-                            // Note that we start from 1
-                            for (k2 = 1; k2 < current_deduction->num_deduced_parameters; k2++)
-                            {
-                                // Extend the current deduction with the new value
-                                deduced_parameter_t* extended_deduced_parameter = copy_deduced_parameter(
-                                        current_merged_deduced_parameter);
-
-                                extended_deduced_parameter->value = nodecl_append_to_list(
-                                        extended_deduced_parameter->value,
-                                        current_deduction->deduced_parameters[k2]->value);
-                                extended_deduced_parameter->type = get_sequence_of_types_append_type(
-                                        extended_deduced_parameter->type,
-                                        current_deduction->deduced_parameters[k2]->type);
-
-                                char added = deduction_add_nontype_parameter_deduction(merged_deduction,
-                                        extended_deduced_parameter, flags);
-
-                                if (!added)
-                                {
-                                    free_deduced_parameter(extended_deduced_parameter);
-                                }
-                            }
-                            // First iteration (updates in-place instead of copy)
-                            k2 = 0;
-                            current_merged_deduced_parameter->value = nodecl_append_to_list(
-                                    current_merged_deduced_parameter->value,
-                                    current_deduction->deduced_parameters[k2]->value);
-                            current_merged_deduced_parameter->type =
-                                get_sequence_of_types_append_type(
-                                        current_merged_deduced_parameter->type,
-                                        current_deduction->deduced_parameters[k2]->type);
-                        }
-                    }
-                    // There were no deductions, simply add ours
-                    if (merged_deduction->num_deduced_parameters == 0)
-                    {
-                        int k2;
-                        for (k2 = 0; k2 < current_deduction->num_deduced_parameters; k2++)
-                        {
-                            type_t* deduced_type = current_deduction->deduced_parameters[k2]->type;
-                            nodecl_t deduced_value = nodecl_shallow_copy(current_deduction->deduced_parameters[k2]->value);
-                            current_deduction->deduced_parameters[k2]->type = get_sequence_of_types(1, &deduced_type);
-                            current_deduction->deduced_parameters[k2]->value = nodecl_make_list_1(deduced_value);
-                            deduction_add_nontype_parameter_deduction(merged_deduction,
-                                    current_deduction->deduced_parameters[k2],
-                                    flags);
-                        }
-                    }
-                    break;
-                }
-            case TPK_TYPE:
-            case TPK_TEMPLATE:
-                {
-                    int k;
-                    for (k = 0; k < current_deduction->num_deduced_parameters; k++)
-                    {
-                        deduction_add_type_parameter_deduction(merged_deduction,
-                                current_deduction->deduced_parameters[k]);
-                    }
-                    break;
-                }
-            case TPK_NONTYPE:
-                {
-                    int k;
-                    for (k = 0; k < current_deduction->num_deduced_parameters; k++)
-                    {
-                        deduction_add_nontype_parameter_deduction(merged_deduction,
-                                current_deduction->deduced_parameters[k], flags);
-                    }
-                    break;
-                }
-            default:
-                {
-                    internal_error("Code unreachable", 0);
-                }
-        }
-    }
-}
+        deduction_set_t* deduction_set, decl_context_t decl_context, 
+        const locus_t* locus);
 
 void unificate_two_types(type_t* t1,
         type_t* t2,
-        deduction_set_t** deduction_set, 
-        decl_context_t decl_context, const locus_t* locus,
-        deduction_flags_t flags)
+        deduction_set_t* deduction_set, 
+        decl_context_t decl_context, const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -531,7 +100,7 @@ void unificate_two_types(type_t* t1,
     {
         // Special case for unresolved overloaded function types:
         //  - try all cases in the hope that any will match
-        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, locus, flags);
+        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, locus);
         // Nothing else must be done with this t2
         UNIFICATION_ENDED;
         return;
@@ -594,7 +163,7 @@ void unificate_two_types(type_t* t1,
                     braced_list_type_get_type_num(t2, i),
                     deduction_set,
                     decl_context,
-                    locus, flags);
+                    locus);
         }
 
         UNIFICATION_ENDED;
@@ -632,7 +201,7 @@ void unificate_two_types(type_t* t1,
             return;
         }
 
-        deduction_t* deduction = get_unification_item_for_template_parameter(
+        deduction_t* deduction = deduction_set_get_unification_item_for_template_parameter(
                 deduction_set, s1);
 
         deduced_parameter_t current_deduced_parameter;
@@ -640,7 +209,7 @@ void unificate_two_types(type_t* t1,
 
         current_deduced_parameter.type = get_cv_qualified_type(t2, cv_qualif_2 & (~cv_qualif_1));
 
-        char added = deduction_add_type_parameter_deduction(deduction, &current_deduced_parameter);
+        char added = deduction_set_add_type_parameter_deduction(deduction, &current_deduced_parameter);
         DEBUG_CODE()
         {
             if (added)
@@ -671,7 +240,7 @@ void unificate_two_types(type_t* t1,
 
         scope_entry_t* s1 = named_type_get_symbol(t1);
 
-        deduction_t* deduction = get_unification_item_for_template_parameter(
+        deduction_t* deduction = deduction_set_get_unification_item_for_template_parameter(
                 deduction_set, s1);
 
         deduced_parameter_t current_deduced_parameter;
@@ -679,7 +248,7 @@ void unificate_two_types(type_t* t1,
 
         current_deduced_parameter.type = t2;
 
-        char added = deduction_add_type_parameter_deduction(deduction, &current_deduced_parameter);
+        char added = deduction_set_add_type_parameter_deduction(deduction, &current_deduced_parameter);
 
         DEBUG_CODE()
         {
@@ -745,7 +314,7 @@ void unificate_two_types(type_t* t1,
                 }
 
                 // Now we request an unification item for this template-parameter
-                deduction_t* deduction = get_unification_item_for_template_parameter(
+                deduction_t* deduction = deduction_set_get_unification_item_for_template_parameter(
                         deduction_set, t1_related_symbol);
 
                 deduced_parameter_t current_deduced_parameter;
@@ -758,7 +327,7 @@ void unificate_two_types(type_t* t1,
 
                 current_deduced_parameter.type = get_user_defined_type(t2_related_symbol);
 
-                char added = deduction_add_type_parameter_deduction(deduction, &current_deduced_parameter);
+                char added = deduction_set_add_type_parameter_deduction(deduction, &current_deduced_parameter);
                 DEBUG_CODE()
                 {
                     if (added)
@@ -849,7 +418,7 @@ void unificate_two_types(type_t* t1,
                                     {
                                         unificate_two_types(current_arg_1->type,
                                                 type_sequence,
-                                                deduction_set, decl_context, locus, flags);
+                                                deduction_set, decl_context, locus);
 
                                         type_sequence = NULL;
                                     }
@@ -863,7 +432,7 @@ void unificate_two_types(type_t* t1,
                                     }
                                     unificate_two_types(current_arg_1->type,
                                             current_arg_2->type,
-                                            deduction_set, decl_context, locus, flags);
+                                            deduction_set, decl_context, locus);
 
                                     i1++;
                                     i2++;
@@ -894,7 +463,7 @@ void unificate_two_types(type_t* t1,
                                     {
                                         unificate_two_types(current_arg_1->type,
                                                 sequence_of_types_get_type_num(current_arg_2->type, index_in_sequence),
-                                                deduction_set, decl_context, locus, flags);
+                                                deduction_set, decl_context, locus);
                                         index_in_sequence++;
                                         i1++;
                                     }
@@ -927,7 +496,7 @@ void unificate_two_types(type_t* t1,
                                     {
                                         unificate_two_types(current_arg_1->type,
                                                 type_sequence,
-                                                deduction_set, decl_context, locus, flags);
+                                                deduction_set, decl_context, locus);
 
                                         type_sequence = NULL;
                                     }
@@ -949,7 +518,7 @@ void unificate_two_types(type_t* t1,
                                     // Common case (and the only one in C++2003)
                                     unificate_two_types(current_arg_1->type,
                                             current_arg_2->type,
-                                            deduction_set, decl_context, locus, flags);
+                                            deduction_set, decl_context, locus);
 
                                     i1++;
                                     i2++;
@@ -982,8 +551,7 @@ void unificate_two_types(type_t* t1,
                                         unificate_two_expressions(
                                                 deduction_set,
                                                 current_arg_1->value,
-                                                value_sequence,
-                                                flags);
+                                                value_sequence);
 
                                         value_sequence = nodecl_null();
                                     }
@@ -998,8 +566,7 @@ void unificate_two_types(type_t* t1,
                                     unificate_two_expressions(
                                             deduction_set,
                                             current_arg_1->value,
-                                            current_arg_2->value,
-                                            flags);
+                                            current_arg_2->value);
 
                                     i1++;
                                     i2++;
@@ -1028,8 +595,7 @@ void unificate_two_types(type_t* t1,
                                         unificate_two_expressions(
                                                 deduction_set,
                                                 current_arg_1->value,
-                                                list2[index_in_sequence],
-                                                flags);
+                                                list2[index_in_sequence]);
                                         index_in_sequence++;
                                         i1++;
                                     }
@@ -1066,8 +632,7 @@ void unificate_two_types(type_t* t1,
                                         unificate_two_expressions(
                                                 deduction_set,
                                                 current_arg_1->value,
-                                                value_sequence,
-                                                flags);
+                                                value_sequence);
 
                                         value_sequence = nodecl_null();
                                     }
@@ -1089,8 +654,7 @@ void unificate_two_types(type_t* t1,
                                     // Common case (and the only one in C++2003)
                                     unificate_two_expressions(deduction_set,
                                             current_arg_1->value,
-                                            current_arg_2->value,
-                                            flags);
+                                            current_arg_2->value);
                                     i1++;
                                     i2++;
                                 }
@@ -1111,96 +675,6 @@ void unificate_two_types(type_t* t1,
             // Nothing else to do
             UNIFICATION_ENDED;
             return;
-        }
-
-        // Special case where we unificate with all the bases of a given class
-        if (!flags.do_not_allow_conversions
-                && is_named_class_type(t1)
-                // t1 is a template-id
-                && is_template_specialized_type(get_actual_class_type(t1))
-                && is_named_class_type(t2)
-                && !is_dependent_type(t2))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Unificating against bases\n");
-            }
-
-            /*
-             * Here we have to instantiate t2 but only if it is an incomplete independent class.
-             *
-             * Note that this code is invalid (obviously)
-             *
-             *    template <typename _T>
-             *    struct A 
-             *    { 
-             *    };
-             *    
-             *    template <typename _T>
-             *    struct B;
-             *    
-             *    template <typename _T>
-             *    void f(A<_T>*);
-             *    
-             *    void g(void)
-             *    {
-             *        B<float> *b;
-             *    
-             *        f(b);
-             *    }
-             *
-             * while the following is valid
-             *
-             *    template <typename _T>
-             *    struct A 
-             *    { 
-             *    };
-             *    
-             *    template <typename _T>
-             *    struct B : A<_T> { };
-             *    
-             *    template <typename _T>
-             *    void f(A<_T>*);
-             *    
-             *    void g(void)
-             *    {
-             *        B<float> *b;
-             *    
-             *        f(b);  // will call f(A<int>*)
-             *    }
-             */
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Instantiating class '%s' since we will try to unificate against bases\n",
-                        print_declarator(t2));
-            }
-
-            instantiate_template_class_if_possible(named_type_get_symbol(t2), decl_context, locus);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Class '%s' instantiated, now we can proceed to check bases\n",
-                        print_declarator(t2));
-            }
-
-            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2), /* include_dependent */ 0);
-
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(all_bases);
-                    !entry_list_iterator_end(it);
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* entry = entry_list_iterator_current(it);
-                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, locus, flags);
-            }
-            entry_list_iterator_free(it);
-            entry_list_free(all_bases);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Bases unificated\n");
-            }
         }
     }
     else if (is_sequence_of_types(t1)
@@ -1229,7 +703,7 @@ void unificate_two_types(type_t* t1,
                             remaining_sequence,
                             deduction_set,
                             decl_context,
-                            locus, flags);
+                            locus);
                 }
                 else
                 {
@@ -1243,7 +717,7 @@ void unificate_two_types(type_t* t1,
                         sequence_of_types_get_type_num(t2, i),
                         deduction_set,
                         decl_context,
-                        locus, flags);
+                        locus);
             }
         }
     }
@@ -1262,16 +736,16 @@ void unificate_two_types(type_t* t1,
                 unificate_two_types(
                         packed_type,
                         sequence_of_types_get_type_num(t2, i),
-                        &current_deduction_set, decl_context, locus, flags);
+                        current_deduction_set, decl_context, locus);
 
-                merge_deduction_set(deduction_set, current_deduction_set, flags);
+                deduction_set_merge(deduction_set, current_deduction_set, /* combine_sequence */ 1);
             }
         }
         else if (is_pack_type(t2))
         {
             unificate_two_types(packed_type,
                     pack_type_get_packed_type(t2),
-                    deduction_set, decl_context, locus, flags);
+                    deduction_set, decl_context, locus);
         }
         else
         {
@@ -1283,28 +757,27 @@ void unificate_two_types(type_t* t1,
             && is_lvalue_reference_type(t2))
     {
         unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
-                decl_context, locus, flags);
+                decl_context, locus);
     }
     else if (is_rvalue_reference_type(t1)
             && is_rvalue_reference_type(t2))
     {
         unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
-                decl_context, locus, flags);
+                decl_context, locus);
     }
     else if (is_pointer_type(t1)
             && is_pointer_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, locus, flags);
+                decl_context, locus);
     }
     else if (is_pointer_to_member_type(t1)
             && is_pointer_to_member_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, locus, flags);
+                decl_context, locus);
         unificate_two_types(pointer_to_member_type_get_class_type(t1),
-                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, locus,
-                flags);
+                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, locus);
     }
     else if (is_array_type(t1)
             && is_array_type(t2))
@@ -1315,15 +788,14 @@ void unificate_two_types(type_t* t1,
         {
             unificate_two_expressions(deduction_set, 
                     array_type_get_array_size_expr(t1),
-                    array_type_get_array_size_expr(t2),
-                    flags);
+                    array_type_get_array_size_expr(t2));
         }
 
         unificate_two_types(array_type_get_element_type(t1),
                 array_type_get_element_type(t2),
                 deduction_set,
                 decl_context,
-                locus, flags);
+                locus);
     }
     else if (is_function_type(t1)
             && is_function_type(t2))
@@ -1332,7 +804,7 @@ void unificate_two_types(type_t* t1,
                 function_type_get_return_type(t2), 
                 deduction_set, 
                 decl_context,
-                locus, flags);
+                locus);
 
         int num_parameters = function_type_get_num_parameters(t1);
         if (function_type_get_has_ellipsis(t1))
@@ -1360,7 +832,7 @@ void unificate_two_types(type_t* t1,
 
                 type_t* seq_type = get_sequence_of_types(remaining_args, arg_types);
 
-                unificate_two_types(par, seq_type, deduction_set, decl_context, locus, flags);
+                unificate_two_types(par, seq_type, deduction_set, decl_context, locus);
                 // All arguments have been unified now
                 i_arg = num_arguments;
             }
@@ -1368,7 +840,7 @@ void unificate_two_types(type_t* t1,
             {
                 type_t* arg = function_type_get_parameter_type_num(t2, i_arg);
                 unificate_two_types(par, arg, deduction_set,
-                        decl_context, locus, flags);
+                        decl_context, locus);
                 i_param++;
                 i_arg++;
             }
@@ -1377,10 +849,9 @@ void unificate_two_types(type_t* t1,
     UNIFICATION_ENDED;
 }
 
-void unificate_two_expressions(deduction_set_t **deduction_set, 
-        nodecl_t left_tree, 
-        nodecl_t right_tree, 
-        deduction_flags_t flags)
+void unificate_two_expressions(deduction_set_t *deduction_set,
+        nodecl_t left_tree,
+        nodecl_t right_tree)
 {
     if (nodecl_is_null(left_tree)
             || nodecl_is_null(right_tree))
@@ -1401,7 +872,7 @@ void unificate_two_expressions(deduction_set_t **deduction_set,
     }
 
     equivalent_dependent_expressions(left_tree, right_tree,
-            deduction_set, flags);
+            deduction_set);
 
     DEBUG_CODE()
     {
@@ -1414,13 +885,11 @@ void unificate_two_expressions(deduction_set_t **deduction_set,
 
 static char equivalent_nodecl_expressions(nodecl_t left_tree,
         nodecl_t right_tree,
-        deduction_set_t** unif_set,
-        deduction_flags_t flags);
+        deduction_set_t* unif_set);
 
 static char equivalent_dependent_expressions(nodecl_t left_tree,
         nodecl_t right_tree,
-        deduction_set_t** unif_set,
-        deduction_flags_t flags)
+        deduction_set_t* unif_set)
 {
     if (nodecl_is_null(left_tree)
             || nodecl_is_null(right_tree))
@@ -1504,7 +973,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         if (right_symbol->kind != SK_ENUMERATOR
                 && !symbol_is_parameter_of_function(right_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(right_symbol->value))
-            return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
+            return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set);
     }
 
     if (left_symbol != NULL)
@@ -1514,7 +983,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 && left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK
                 && !symbol_is_parameter_of_function(left_symbol, get_function_declaration_proxy())
                 && !nodecl_is_null(left_symbol->value))
-            return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set, flags);
+            return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set);
 
         // Try to unify using this template parameter
         if ((left_symbol->kind == SK_TEMPLATE_NONTYPE_PARAMETER)
@@ -1525,7 +994,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 fprintf(stderr, "TYPEUNIF: Left part '%s' found to be a nontype template parameter\n", 
                         codegen_to_str(left_tree, nodecl_retrieve_context(left_tree)));
             }
-            deduction_t* deduction = get_unification_item_for_template_parameter(unif_set,
+            deduction_t* deduction = deduction_set_get_unification_item_for_template_parameter(unif_set,
                     left_symbol);
 
             deduced_parameter_t current_deduced_parameter;
@@ -1535,14 +1004,34 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             current_deduced_parameter.type = left_symbol->type_information;
 
             // Fold if possible (except for enums)
-            if (nodecl_is_constant(right_tree)
-                    && !is_enum_type(left_symbol->type_information))
+            if (nodecl_is_constant(right_tree))
             {
                 current_deduced_parameter.value =
                     const_value_to_nodecl(nodecl_get_constant(right_tree));
+                if (is_enum_type(left_symbol->type_information))
+                {
+                    // For enum types, instead of the literal value, create a cast
+                    // with a constant value
+                    //
+                    // enum E { V = 3 };
+                    //
+                    // template <E N> struct B;
+                    // B<V> will become B<(E)3>
+                    //
+                    // this is because B<3> may not be valid everywhere
+                    current_deduced_parameter.value =
+                        nodecl_make_cast(
+                                current_deduced_parameter.value,
+                                left_symbol->type_information,
+                                "C", // C-cast style
+                                /* locus */ NULL);
+                    nodecl_set_constant(
+                            current_deduced_parameter.value,
+                            nodecl_get_constant(right_tree));
+                }
             }
 
-            char added = deduction_add_nontype_parameter_deduction(deduction, &current_deduced_parameter, flags);
+            char added = deduction_set_add_nontype_parameter_deduction(deduction, &current_deduced_parameter);
 
             DEBUG_CODE()
             {
@@ -1625,12 +1114,11 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     }
 
     // Best effort
-    return equivalent_nodecl_expressions(left_tree, right_tree, unif_set, flags);
+    return equivalent_nodecl_expressions(left_tree, right_tree, unif_set);
 }
 
 static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tree, 
-        deduction_set_t** unif_set,
-        deduction_flags_t flags)
+        deduction_set_t* unif_set)
 {
     DEBUG_CODE()
     {
@@ -1668,10 +1156,10 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
         {
             deduction_set_t *current_unif_set = counted_xcalloc(1, sizeof(*current_unif_set), &_bytes_typeunif);
 
-            if (!equivalent_dependent_expressions(pack_expr, list[i], &current_unif_set, flags))
+            if (!equivalent_dependent_expressions(pack_expr, list[i], current_unif_set))
                 result = 0;
 
-            merge_deduction_set(unif_set, current_unif_set, flags);
+            deduction_set_merge(unif_set, current_unif_set, /* combine_sequence */ 1);
         }
 
         return result;
@@ -1712,7 +1200,7 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
 
         if (!nodecl_is_null(left_child))
         {
-            ok = ok && equivalent_dependent_expressions(left_child, right_child, unif_set, flags);
+            ok = ok && equivalent_dependent_expressions(left_child, right_child, unif_set);
         }
     }
 
@@ -1742,8 +1230,7 @@ static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_
 // Defined in cxx-typededuc.c
 void deduction_set_free(deduction_set_t* deduction_set);
 
-char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree, 
-        deduction_flags_t flags)
+char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree)
 {
     DEBUG_CODE()
     {
@@ -1754,13 +1241,13 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
     deduction_set_t* deduction_set = counted_xcalloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
     char c = 0;
-   
+
     // We do not compare trees if any of them is null
     if (!nodecl_is_null(left_tree)
             && !nodecl_is_null(right_tree))
     {
-        c = equivalent_dependent_expressions(left_tree, right_tree,  
-                &deduction_set, flags);
+        c = equivalent_dependent_expressions(left_tree, right_tree,
+                deduction_set);
     }
 
     // Free it, it is unused after this
@@ -1778,9 +1265,8 @@ char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree,
 }
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
-        deduction_set_t** deduction_set, decl_context_t decl_context,
-        const locus_t* locus,
-        deduction_flags_t flags)
+        deduction_set_t* deduction_set, decl_context_t decl_context,
+        const locus_t* locus)
 {
     DEBUG_CODE()
     {
@@ -1862,7 +1348,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         }
 
         // Now perform deduction
-        unificate_two_types(t1, function_type, deduction_set, decl_context, locus, flags);
+        unificate_two_types(t1, function_type, deduction_set, decl_context, locus);
     }
     entry_list_iterator_free(it);
     entry_list_free(overloaded_set);
@@ -1871,12 +1357,4 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     {
         fprintf(stderr, "TYPEUNIF: Unification of unresolved overloaded types ended\n");
     }
-}
-
-deduction_flags_t deduction_flags_empty()
-{
-    deduction_flags_t flags;
-    memset(&flags, 0, sizeof(flags));
-
-    return flags;
 }

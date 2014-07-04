@@ -45,6 +45,7 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest);
+LIBMCXX_EXTERN standard_conversion_t get_invalid_scs(void);
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
 LIBMCXX_EXTERN type_t* standard_conversion_get_orig_type(standard_conversion_t scs);
@@ -548,6 +549,7 @@ LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 LIBMCXX_EXTERN char enum_type_get_underlying_type_is_fixed(type_t* t);
 
 LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
+LIBMCXX_EXTERN void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 

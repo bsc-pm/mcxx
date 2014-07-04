@@ -390,7 +390,8 @@ namespace TL { namespace Nanox {
                                     }
                                     CXX_LANGUAGE()
                                     {
-                                        // No VLAs in C++ means that we have to pass a void*. It will have to be reshaped again in the outline
+                                        // No VLAs in C++ means that we have to pass a void*
+                                        // It will have to be reshaped again in the outline
                                         argument << "args." << (*it)->get_field_name();
                                     }
                                 }
@@ -406,12 +407,23 @@ namespace TL { namespace Nanox {
                                 {
                                     C_LANGUAGE()
                                     {
-                                        TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
-                                        argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                        if (((*it)->get_allocation_policy() & OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)                                                     == OutlineDataItem::ALLOCATION_POLICY_OVERALLOCATED)
+                                        {
+                                            TL::Type ptr_type = (*it)->get_in_outline_type().references_to().get_pointer_to();
+                                            TL::Type cast_type = rewrite_type_of_vla_in_outline(ptr_type, data_items, structure_symbol);
+                                            argument << "*((" << as_type(cast_type) << ")args." << (*it)->get_field_name() << ")";
+                                        }
+                                        else
+                                        {
+                                            TL::Type cast_type = rewrite_type_of_vla_in_outline(param_type, data_items, structure_symbol);
+                                            argument << "(" << as_type(cast_type) << ")args." << (*it)->get_field_name();
+                                        }
                                     }
+
                                     CXX_LANGUAGE()
                                     {
-                                        // No VLAs in C++ means that we have to pass a void*. It will have to be reshaped again in the outline
+                                        // No VLAs in C++ means that we have to pass a void*
+                                        // It will have to be reshaped again in the outline
                                         argument << "args." << (*it)->get_field_name();
                                     }
                                 }
