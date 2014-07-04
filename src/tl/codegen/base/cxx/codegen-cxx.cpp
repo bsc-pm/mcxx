@@ -3696,9 +3696,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeIntersection& node)
 {
-    walk(node.get_lhs());
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    bool lhs_need_parenthesis = lhs.is<Nodecl::Analysis::RangeUnion>();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+    bool rhs_need_parenthesis = rhs.is<Nodecl::Analysis::RangeUnion>();
+    
+    if(lhs_need_parenthesis)
+        *(file) << "(";
+    walk(lhs);
+    if(lhs_need_parenthesis)
+        *(file) << ")";
     *(file) << " ∩ ";
-    walk(node.get_rhs());
+    if(rhs_need_parenthesis)
+        *(file) << "(";
+    walk(rhs);
+    if(rhs_need_parenthesis)
+        *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeSub& node)
@@ -3710,9 +3723,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeSub& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeUnion& node)
 {
-    walk(node.get_lhs());
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    bool lhs_need_parenthesis = lhs.is<Nodecl::Analysis::RangeIntersection>();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+    bool rhs_need_parenthesis = rhs.is<Nodecl::Analysis::RangeIntersection>();
+    
+    if(lhs_need_parenthesis)
+        *(file) << "(";
+    walk(lhs);
+    if(lhs_need_parenthesis)
+        *(file) << ")";
     *(file) << " ∪ ";
-    walk(node.get_rhs());
+    if(rhs_need_parenthesis)
+        *(file) << "(";
+    walk(rhs);
+    if(rhs_need_parenthesis)
+        *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)

@@ -39,6 +39,7 @@ namespace Utils {
     // ******************************************************************************************* //
     // ********************************** Intervals arithmetic *********************************** //
     
+    NBase range_add(const NBase& r1, const NBase& r2);
     NBase range_sub(const NBase& r1, const NBase& r2);
     NBase range_intersection(const NBase& r, const NBase& r2, bool positive);
     NBase range_union(const NBase& r1, const NBase& r2);
@@ -51,6 +52,7 @@ namespace Utils {
     
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
+   
     
     /*! The possible constraints are:
      *  - Y = [lb, ub]

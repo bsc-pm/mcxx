@@ -27,15 +27,13 @@
 #include <limits>
 
 #include "cxx-cexpr.h"
-
-#include "tl-nodecl-calc.hpp"
 #include "tl-range-analysis-utils.hpp"
+
+#include <climits>
 
 namespace TL {
 namespace Analysis {
 namespace Utils {
-
-    Optimizations::Calculator calc;
     
 namespace {
     const_value_t* one = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
@@ -112,6 +110,16 @@ namespace {
         return result;
     }
 }
+    
+    
+    NBase range_add(const NBase& r1, const NBase& r2)
+    {
+        NBase result;
+        
+        // TODO
+        
+        return result;
+    }
     
     // A[al, au] − B[bl, bu] =  ∅, A and B completely overlap or B contains A
     //                          A, A and B do not overlap
@@ -209,6 +217,9 @@ namespace {
             result = Nodecl::Analysis::RangeSub::make(r1, r2, t);
         }
         
+//         std::cerr << "        range_sub " << r1.prettyprint() << " - " << r2.prettyprint() 
+//                   << " = " << result.prettyprint() << std::endl;
+        
         return result;
     }
     
@@ -216,12 +227,12 @@ namespace {
     //                                                : ∅
     NBase range_intersection(const NBase& base, const NBase& predicate, bool positive)
     {
-        ERROR_CONDITION((!base.is<Nodecl::Range>() || !predicate.is<Nodecl::Range>()), 
-                        "range_intersection operation can only be applied to ranges, but parameters are '%s' and '%s'.\n", 
-                        ast_print_node_type(base.get_kind()), ast_print_node_type(predicate.get_kind()));
-        
-        NBase result;
+        // FIXME We can enhance this implementation trying harder for operands such as Nodecl::Analysis::RangeUnion, etc.
+        if(!base.is<Nodecl::Range>() || !predicate.is<Nodecl::Range>())
+            return Nodecl::Analysis::RangeIntersection::make(base, predicate, base.get_type());
 
+        NBase result;
+        
         NBase lb_b = base.as<Nodecl::Range>().get_lower();
         NBase ub_b = base.as<Nodecl::Range>().get_upper();
         NBase lb_p = predicate.as<Nodecl::Range>().get_lower();
@@ -239,12 +250,15 @@ namespace {
             result = Nodecl::Range::make(lb_p, min_ub, one_nodecl, t);
         }
         
+//         std::cerr << "        range_intersection " << base.prettyprint() << " ∩ " << predicate.prettyprint() 
+//                   << " = " << result.prettyprint() << std::endl;
+        
         return result;
     }
     
     // A[al, au] ∪ B[bl, bu] = (al<bl<au || al<bu<au) ? [min(al, bl), max(au, bu)]      -> overlap
     //                                                : [al, au] ∪ [bl, bu]             -> cannot synthesize the result as a unique range
-    NBase range_union( const NBase& r1, const NBase& r2 )
+    NBase range_union(const NBase& r1, const NBase& r2)
     {
         if(r1.is<Nodecl::Analysis::EmptyRange>() && r2.is<Nodecl::Analysis::EmptyRange>())
             return r1.shallow_copy();
@@ -268,58 +282,83 @@ namespace {
         NBase r2_ub = r2.as<Nodecl::Range>().get_upper();
         TL::Type t = r1_lb.get_type();
         
-        if( ( r1_lb == r2_lb ) && ( r1_ub == r2_ub ) )
+        if((r1_lb == r2_lb) && (r1_ub == r2_ub))
         {   // The two ranges are exactly the same
-            result = r1.shallow_copy( );
+            result = r1.shallow_copy();
         }
-        else if( r1_lb.is_constant() && r1_ub.is_constant() && r2_lb.is_constant() && r2_ub.is_constant() )
+        else
         {
-            const_value_t* r1_lb_c = const_value_cast_to_signed_int_value(r1_lb.get_constant());
-            const_value_t* r1_ub_c = const_value_cast_to_signed_int_value(r1_ub.get_constant());
-            const_value_t* r2_lb_c = const_value_cast_to_signed_int_value(r2_lb.get_constant());
-            const_value_t* r2_ub_c = const_value_cast_to_signed_int_value(r2_ub.get_constant());
-            NBase one_nodecl(const_value_to_nodecl(one));
-            if( const_value_is_positive( const_value_sub( r1_lb_c, r2_ub_c ) ) || 
-                const_value_is_positive( const_value_sub( r2_lb_c, r1_ub_c ) ) )
-            {   // r1 and r2 do not overlap
-                if(t.is_integral_type())
-                {   // If the boundaries are contiguous, we can still merge the ranges
-                    if(const_value_is_one(const_value_sub(r1_lb_c, r2_ub_c)))
-                    {
-                        result = Nodecl::Range::make(r2_lb.shallow_copy(), r1_ub.shallow_copy(), one_nodecl, t);
-                    }
-                    else if(const_value_is_one(const_value_sub(r2_lb_c, r1_ub_c)))
-                    {
-                        result = Nodecl::Range::make(r1_lb.shallow_copy(), r2_ub.shallow_copy(), one_nodecl, t);
+            // FIXME We are not taking into account the type of the variables. Assuming integers
+            // Try to operate with constant values
+            const_value_t *r1_lb_c=NULL, *r1_ub_c=NULL, *r2_lb_c=NULL, *r2_ub_c=NULL;
+            if(r1_lb.is<Nodecl::Analysis::MinusInfinity>())
+                r1_lb_c = const_value_get_integer(INT_MIN, /*num_bytes*/4, /*sign*/1);
+            else if(r1_lb.is_constant())
+                r1_lb_c = r1_lb.get_constant();
+
+            if(r2_lb.is<Nodecl::Analysis::MinusInfinity>())
+                r2_lb_c = const_value_get_integer(INT_MIN, /*num_bytes*/4, /*sign*/1);
+            else if(r2_lb.is_constant())
+                r2_lb_c = r2_lb.get_constant();
+
+            if(r1_ub.is<Nodecl::Analysis::PlusInfinity>())
+                r1_ub_c = const_value_get_integer(INT_MAX, /*num_bytes*/4, /*sign*/1);
+            else if(r1_ub.is_constant())
+                r1_ub_c = r1_ub.get_constant();
+            
+            if(r2_ub.is<Nodecl::Analysis::PlusInfinity>())
+                r2_ub_c = const_value_get_integer(INT_MAX, /*num_bytes*/4, /*sign*/1);
+            else if(r2_ub.is_constant())
+                r2_ub_c = r2_ub.get_constant();            
+            
+            if((r1_lb_c!=NULL) && (r1_ub_c!=NULL) && (r2_lb_c!=NULL) && (r2_ub_c!=NULL))
+            {
+                NBase one_nodecl(const_value_to_nodecl(one));
+                if( const_value_is_positive( const_value_sub( r1_lb_c, r2_ub_c ) ) || 
+                    const_value_is_positive( const_value_sub( r2_lb_c, r1_ub_c ) ) )
+                {   // r1 and r2 do not overlap
+                    if(t.is_integral_type())
+                    {   // If the boundaries are contiguous, we can still merge the ranges
+                        if(const_value_is_one(const_value_sub(r1_lb_c, r2_ub_c)))
+                        {
+                            result = Nodecl::Range::make(r2_lb.shallow_copy(), r1_ub.shallow_copy(), one_nodecl, t);
+                        }
+                        else if(const_value_is_one(const_value_sub(r2_lb_c, r1_ub_c)))
+                        {
+                            result = Nodecl::Range::make(r1_lb.shallow_copy(), r2_ub.shallow_copy(), one_nodecl, t);
+                        }
+                        else
+                        {
+                            result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
+                        }
                     }
                     else
                     {
                         result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
                     }
                 }
+                else if( const_value_is_zero( const_value_sub( r1_lb_c, r2_lb_c ) ) && 
+                        const_value_is_zero( const_value_sub( r1_ub_c, r2_ub_c ) ) )
+                {   // r1 and r2 are the same range
+                    result = r1.shallow_copy();
+                }
                 else
-                {
-                    result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
+                {   // r1 and r2 overlap in some way
+                    NBase lb = const_value_is_positive( const_value_sub( r1_lb_c, r2_lb_c ) ) ? r2_lb.shallow_copy() 
+                                                                                            : r1_lb.shallow_copy();
+                    NBase ub = const_value_is_positive( const_value_sub( r1_ub_c, r2_ub_c ) ) ? r1_ub.shallow_copy() 
+                                                                                            : r2_ub.shallow_copy();
+                    result = Nodecl::Range::make( lb, ub, one_nodecl, t );
                 }
             }
-            else if( const_value_is_zero( const_value_sub( r1_lb_c, r2_lb_c ) ) && 
-                     const_value_is_zero( const_value_sub( r1_ub_c, r2_ub_c ) ) )
-            {   // r1 and r2 are the same range
-                result = r1.shallow_copy();
-            }
             else
-            {   // r1 and r2 overlap in some way
-                NBase lb = const_value_is_positive( const_value_sub( r1_lb_c, r2_lb_c ) ) ? r2_lb.shallow_copy() 
-                                                                                          : r1_lb.shallow_copy();
-                NBase ub = const_value_is_positive( const_value_sub( r1_ub_c, r2_ub_c ) ) ? r1_ub.shallow_copy() 
-                                                                                          : r2_ub.shallow_copy();
-                result = Nodecl::Range::make( lb, ub, one_nodecl, t );
+            {
+                result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
             }
         }
-        else
-        {
-            result = Nodecl::Analysis::RangeUnion::make( r1.shallow_copy(), r2.shallow_copy(), t );
-        }
+        
+//         std::cerr << "        range_union " << r1.prettyprint() << " ∪ " << r2.prettyprint() 
+//                   << " = " << result.prettyprint() << std::endl;
         
         return result;
     }
@@ -385,7 +424,7 @@ namespace {
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
     
-std::string prettyprint_range_values_map(Utils::RangeValuesMap s, bool print_in_dot )
+    std::string prettyprint_range_values_map(Utils::RangeValuesMap s, bool print_in_dot)
     {
         std::string result = "";
         int line_size = 0;

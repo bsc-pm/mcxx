@@ -37,11 +37,26 @@ namespace Analysis {
     // ****************************** Classes implementing constraint graph ******************************* //
     
     class CGEdge;
+    
+    #define CGNODE_TYPE_LIST \
+    CGNODE_TYPE(CG_Sym) \
+    CGNODE_TYPE(CG_Phi) \
+    CGNODE_TYPE(CG_Add) \
+    CGNODE_TYPE(CG_Sub)
+    
+    enum CGNode_type {
+        #undef CGNODE_TYPE
+        #define CGNODE_TYPE(X) __##X,
+        CGNODE_TYPE_LIST
+        #undef CGNODE_TYPE
+    };
+    
     class LIBTL_CLASS CGNode
     {
     private:
         // *** Members *** //
         unsigned int _id;
+        CGNode_type _type;
         NBase _constraint;
         NBase _valuation;
         ObjectList<CGEdge*> _entries;
@@ -52,10 +67,12 @@ namespace Analysis {
         
     public:    
         // *** Constructor *** //
-        CGNode(const NBase& constraint);
+        CGNode(CGNode_type type, const NBase& constraint=NBase::null());
         
         // *** Getters and setters *** //
         unsigned int get_id() const;
+        CGNode_type get_type() const;
+        std::string get_type_as_str() const;
         
         NBase get_constraint() const;
         NBase get_valuation() const;
@@ -64,12 +81,10 @@ namespace Analysis {
         ObjectList<CGEdge*> get_entries() const;
         ObjectList<CGNode*> get_parents();
         void add_entry(CGEdge* e);
-        void remove_parent(CGNode* parent);
         
         ObjectList<CGEdge*> get_exits() const;
         ObjectList<CGNode*> get_children();
         CGEdge* add_child(CGNode* child, bool is_back_edge, NBase predicate = NBase::null());
-        void remove_child(CGNode* child, bool& is_back_edge, NBase& predicate);
         
         int get_scc_index() const;
         void set_scc_index(int scc_index);
@@ -125,6 +140,7 @@ namespace Analysis {
         // *** Consultants *** //
         bool is_trivial() const;
         bool is_positive() const;
+        ObjectList<SCC*> get_scc_exits();
     };
     
     class LIBTL_CLASS ConstraintGraph
@@ -134,7 +150,7 @@ namespace Analysis {
         std::string _name;
         CGNode_map _nodes;
         
-        void print_graph_rec(std::ofstream& dot_file);
+        void print_graph_(std::ofstream& dot_file);
         
     public:
         // *** Constructor *** //
@@ -142,28 +158,23 @@ namespace Analysis {
         
         // *** Modifiers *** //
         //! Insert, if it is not yet there, a new node in the CG with the value #value
-        CGNode* insert_node(const NBase& value, bool& fresh);
-        
-        //! Returns the node in the CG corresponding to the value #value
-        CGNode* get_node(const NBase& value);
+        CGNode* insert_node(const NBase& value);
+        CGNode* insert_node(CGNode_type type);
         
         //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, bool is_back_edge, NBase predicate = NBase::null());
-        
-        //! Disconnects nodes #source and #target if they were connected
-        void disconnect_nodes(CGNode* source, CGNode* target, bool& is_back_edge, NBase& predicate);
+        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
         
         //! Reduce two consecutive Phi nodes into one (exclusive parent-child)
         void collapse_consecutive_phi_nodes();
         
         
-        void connect_constraint_graph();
+        void create_constraint_graph();
         
         //! Decompose the Constraint Graph in a set of Strongly Connected Components
         std::vector<SCC*> topologically_compose_strongly_connected_components();
 
         //! Use the different rules to topologically solve and propagate the constraints over the CG
-        void solve_contraints(const std::vector<SCC*>& roots);
+        void solve_constraints(const std::vector<SCC*>& roots);
         
         //! Generates a dot file with the structure of the graph
         void print_graph();
@@ -192,7 +203,7 @@ namespace Analysis {
         Ret visit(const Nodecl::Symbol& n);
     };
     
-    class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<Utils::Constraint>
+    class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<void>
     {
     private:
         // map containing the constraints arriving at the nodecl being visited
@@ -201,7 +212,10 @@ namespace Analysis {
         Utils::ConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::ConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
         
+        Symbol get_condition_node_constraints(const NBase& lhs, const Type& t, 
+                                              std::string s_str, std::string nodecl_str);
         Ret visit_assignment(const NBase& lhs, const NBase& rhs);
+        Ret visit_increment(const NBase& rhs, bool positive);
         
     public:
         
@@ -224,9 +238,15 @@ namespace Analysis {
         Ret join_list(TL::ObjectList<Utils::Constraint>& list);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::Equal& n);
+        Ret visit(const Nodecl::GreaterOrEqualThan& n);
+        Ret visit(const Nodecl::LogicalAnd& n);
         Ret visit(const Nodecl::LowerThan& n);
         Ret visit(const Nodecl::Mod& n);
         Ret visit(const Nodecl::ObjectInit& n);
+        Ret visit(const Nodecl::Postdecrement& n);
+        Ret visit(const Nodecl::Postincrement& n);
+        Ret visit(const Nodecl::Predecrement& n);
         Ret visit(const Nodecl::Preincrement& n);
     };
     
