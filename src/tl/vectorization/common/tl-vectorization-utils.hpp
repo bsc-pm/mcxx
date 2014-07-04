@@ -37,14 +37,6 @@ namespace TL
     {
         namespace Utils
         {
-            class LookForReturnVisitor : public Nodecl::ExhaustiveVisitor<bool>
-            {
-                public:
-                    LookForReturnVisitor();
-                    virtual Ret join_list(ObjectList<bool>& list);
-                    virtual Ret visit(const Nodecl::ReturnStatement& n);
-            };
-
             class MaskCheckCostEstimation : public Nodecl::ExhaustiveVisitor<void>
             {
                 private:

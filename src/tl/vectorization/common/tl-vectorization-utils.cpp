@@ -36,28 +36,6 @@ namespace Utils
 {
     static unsigned int _var_counter = 0;
 
-    LookForReturnVisitor::LookForReturnVisitor()
-    {
-    }
-
-    bool LookForReturnVisitor::join_list(ObjectList<bool>& list)
-    {
-        for(ObjectList<bool>::const_iterator it = list.begin();
-                it != list.end();
-                it++)
-        {
-            if ((*it) == true)
-                return true;
-        }
-
-        return false;
-    }
-
-    bool LookForReturnVisitor::visit(const Nodecl::ReturnStatement& n)
-    {
-        return true;
-    }
-
     MaskCheckCostEstimation::MaskCheckCostEstimation()
         :
             _add_cost(1),

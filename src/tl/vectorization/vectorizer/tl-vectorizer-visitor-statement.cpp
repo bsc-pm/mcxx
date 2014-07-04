@@ -227,7 +227,6 @@ namespace Vectorization
         // Non-constant comparison. Vectorize them with masks
         if(!n.is_constant())
         {
-            Utils::LookForReturnVisitor look_for_return_visitor;
             Utils::MaskCheckCostEstimation mask_check_cost_visitor;
 
             Nodecl::List list;
@@ -344,7 +343,8 @@ namespace Vectorization
             // ***************
             // Before visiting, compute heuristics
             bool return_inside_if =
-                look_for_return_visitor.walk(n.get_then());
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::ReturnStatement>(n.get_then());
             unsigned int mask_check_cost_if =
                 mask_check_cost_visitor.get_mask_check_cost(n.get_then(),
                         prev_mask_cost, MASK_CHECK_THRESHOLD);
@@ -391,7 +391,8 @@ namespace Vectorization
             if (has_else)
             {
                 // Before visiting, compute heuristics
-                return_inside_else = look_for_return_visitor.walk(n.get_else());
+                return_inside_else = Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                    <Nodecl::ReturnStatement>(n.get_else());
                 unsigned int mask_check_cost_else =
                     mask_check_cost_visitor.get_mask_check_cost(n.get_else(),
                             prev_mask_cost, MASK_CHECK_THRESHOLD);
