@@ -20318,6 +20318,33 @@ static const_value_t* evaluate_constexpr_constructor(
         nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
 
     type_t* class_type = entry->entity_specs.class_type;
+    scope_entry_t* class_sym = named_type_get_symbol(class_type);
+
+    // Special case for delegating constructors
+    if (nodecl_list_length(nodecl_initializers) == 1)
+    {
+        nodecl_t first = nodecl_list_head(nodecl_initializers);
+        scope_entry_t* current_member = nodecl_get_symbol(first);
+        nodecl_t nodecl_expr = nodecl_get_child(first, 0);
+
+        if (current_member == class_sym)
+        {
+            // This is a delegating constructor
+            nodecl_t nodecl_replaced_expr = constexpr_replace_parameters_with_values(
+                    nodecl_expr,
+                    num_map_items,
+                    map_of_parameters_and_values);
+
+            // Evaluate it recursively
+            nodecl_t nodecl_evaluated_expr = instantiate_expression(
+                    nodecl_replaced_expr,
+                    nodecl_retrieve_context(nodecl_function_code),
+                    entry->entity_specs.instantiation_symbol_map,
+                    /* pack_index */ -1);
+
+            return nodecl_get_constant(nodecl_evaluated_expr);
+        }
+    }
 
     int num_all_members = 0;
     scope_entry_t** all_members = NULL;

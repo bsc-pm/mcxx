@@ -5761,6 +5761,8 @@ static void check_nodecl_member_initializer_list(
     decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
     class_context.template_parameters = decl_context.template_parameters;
 
+    char is_delegating_constructor = 0;
+
     int i;
     for (i = 0; i < num_initializers; i++)
     {
@@ -5793,7 +5795,7 @@ static void check_nodecl_member_initializer_list(
         }
 
         // Chances are that through class-scope lookup we have found the injected name
-        if (entry->kind == SK_CLASS 
+        if (entry->kind == SK_CLASS
                 && entry->entity_specs.is_injected_class_name)
         {
             // The injected class name is a member
@@ -5808,7 +5810,60 @@ static void check_nodecl_member_initializer_list(
             continue;
         }
 
-        if (entry->kind == SK_VARIABLE)
+        if (entry->kind == SK_CLASS
+                && entry == class_sym)
+        {
+            CXX03_LANGUAGE()
+            {
+                warn_printf("%s: warning: delegating constructors are only valid in C++11\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+            }
+
+            if (i != 0)
+            {
+                error_printf("%s: error: a delegating constructor must be the only initializer\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+                // Give up
+                continue;
+            }
+            is_delegating_constructor = 1;
+
+            check_nodecl_initialization(nodecl_init,
+                    decl_context,
+                    entry,
+                    get_unqualified_type(get_user_defined_type(entry)),
+                    &nodecl_init,
+                    /* is_auto_type */ 0);
+
+            if (nodecl_is_err_expr(nodecl_init))
+            {
+                continue;
+            }
+
+            // Now get the called symbol
+            ERROR_CONDITION(nodecl_get_kind(nodecl_init) != NODECL_FUNCTION_CALL, "Invalid node", 0);
+            nodecl_t nodecl_called = nodecl_get_child(nodecl_init, 0);
+            scope_entry_t* target_constructor = nodecl_get_symbol(nodecl_called);
+            ERROR_CONDITION(target_constructor == NULL
+                    || !target_constructor->entity_specs.is_constructor,
+                    "Invalid function called", 0);
+
+            if (function_entry == target_constructor)
+            {
+                error_printf("%s: error: the target constructor of a delegating constructor cannot be itself\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+            }
+        }
+        // Stray initializer once we know this is a delegating constructor
+        else if (is_delegating_constructor)
+        {
+            error_printf("%s: invalid initializer in delegating constructor\n",
+                    nodecl_locus_to_str(current_mem_initializer));
+            // Give up
+            continue;
+        }
+        // Non-static member
+        else if (entry->kind == SK_VARIABLE)
         {
             if (!entry_list_contains(nonstatic_data_members, entry))
             {
@@ -5839,6 +5894,7 @@ static void check_nodecl_member_initializer_list(
                     &nodecl_init,
                     /* is_auto_type */ 0);
         }
+        // Base class
         else if (entry->kind == SK_CLASS)
         {
             if (!entry_list_contains(direct_base_classes, class_symbol_get_canonical_symbol(entry))
@@ -14561,6 +14617,41 @@ char check_constexpr_constructor(scope_entry_t* entry,
                         locus_to_str(locus));
             }
             return 0;
+        }
+    }
+
+    // Maybe this is a delegating constructor
+    if (nodecl_list_length(nodecl_initializer_list) == 1)
+    {
+        nodecl_t first = nodecl_list_head(nodecl_initializer_list);
+
+        ERROR_CONDITION(nodecl_get_kind(first) != NODECL_MEMBER_INIT
+                && nodecl_get_kind(first) != NODECL_IMPLICIT_MEMBER_INIT,
+                "Invalid node", 0);
+        scope_entry_t* sym = nodecl_get_symbol(first);
+
+        if (sym == class_symbol)
+        {
+            // This is a forwarding constructor, check that the target constructor
+            // is a constexpr constructor
+            nodecl_t initializer = nodecl_get_child(first, 0);
+            ERROR_CONDITION(nodecl_get_kind(initializer) != NODECL_FUNCTION_CALL,
+                    "Invalid node", 0);
+
+            nodecl_t called_function = nodecl_get_child(initializer, 0);
+            scope_entry_t* target_constructor = nodecl_get_symbol(called_function);
+
+            if (!target_constructor->entity_specs.is_constexpr)
+            {
+                error_printf("%s: error: a constexpr delegating constructor must target a constexpr constructor\n",
+                        nodecl_locus_to_str(initializer));
+                return 0;
+            }
+            else
+            {
+                // This is enough
+                return 1;
+            }
         }
     }
 
