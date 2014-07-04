@@ -1476,7 +1476,7 @@ namespace TL
         return ::get_ptrdiff_t_type();
     }
 
-    std::string Type::print_declarator()
+    std::string Type::print_declarator() const
     {
         return ::print_declarator(_type_info);
     }

@@ -928,7 +928,7 @@ namespace TL
              */
             static Type get_ptrdiff_t_type();
 
-            std::string print_declarator();
+            std::string print_declarator() const;
     };
 
     //! @}
