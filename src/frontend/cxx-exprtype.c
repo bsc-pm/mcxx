@@ -4935,42 +4935,13 @@ static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t**
 }
 
 static
-void build_binary_nonop_assign_builtin(type_t* lhs_type, 
+void generate_nonop_assign_builtin(
         builtin_operators_set_t *result,
-        AST operator, decl_context_t decl_context)
+        AST operator,
+        type_t* lhs_type,
+        type_t* rhs_type,
+        decl_context_t decl_context)
 {
-    memset(result, 0, sizeof(*result));
-
-    if (!is_lvalue_reference_type(lhs_type)
-            || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
-        return;
-
-    type_t* rhs_type = NULL;
-
-    if (is_promoteable_integral_type(no_ref(lhs_type)))
-    {
-        rhs_type = promote_integral_type(no_ref(lhs_type));
-    }
-    else if (is_integral_type(no_ref(lhs_type))
-            || is_floating_type(no_ref(lhs_type)))
-    {
-        rhs_type = get_unqualified_type(no_ref(lhs_type));
-    }
-    else if (is_enum_type(no_ref(lhs_type))
-            || is_pointer_to_member_type(no_ref(lhs_type)))
-    {
-        rhs_type = get_unqualified_type(no_ref(lhs_type));
-    }
-    else if (is_pointer_type(no_ref(lhs_type)))
-    {
-        rhs_type = get_unqualified_type(no_ref(lhs_type));
-    }
-    else
-    {
-        // No builtin is possible for any other type
-        return;
-    }
-
     parameter_info_t parameters[2] =
     {
         {
@@ -5004,6 +4975,73 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
     // Add to the results and properly chain things
     (*result).entry_list = entry_list_add((*result).entry_list, &((*result).entry[(*result).num_builtins]));
     (*result).num_builtins++;
+}
+
+
+static
+void build_binary_nonop_assign_builtin(type_t* lhs_type, 
+        builtin_operators_set_t *result,
+        AST operator, decl_context_t decl_context)
+{
+    memset(result, 0, sizeof(*result));
+
+    int vector_size = 0; // Used below in is_intel_vector_struct_type
+
+    if (!is_lvalue_reference_type(lhs_type)
+            || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
+        return;
+
+    if (is_promoteable_integral_type(no_ref(lhs_type)))
+    {
+        generate_nonop_assign_builtin(result, operator, lhs_type, promote_integral_type(no_ref(lhs_type)), decl_context);
+    }
+    else if (is_integral_type(no_ref(lhs_type))
+            || is_floating_type(no_ref(lhs_type)))
+    {
+        generate_nonop_assign_builtin(result, operator, lhs_type, get_unqualified_type(no_ref(lhs_type)), decl_context);
+    }
+    else if (is_enum_type(no_ref(lhs_type))
+            || is_pointer_to_member_type(no_ref(lhs_type)))
+    {
+        generate_nonop_assign_builtin(result, operator, lhs_type, get_unqualified_type(no_ref(lhs_type)), decl_context);
+    }
+    else if (is_pointer_type(no_ref(lhs_type)))
+    {
+        generate_nonop_assign_builtin(result, operator, lhs_type, get_unqualified_type(no_ref(lhs_type)), decl_context);
+    }
+    else if (is_vector_type(no_ref(lhs_type)))
+    {
+        generate_nonop_assign_builtin(result, operator, lhs_type, get_unqualified_type(no_ref(lhs_type)), decl_context);
+
+        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        {
+            // Allow this case as a 'builtin'
+            // __attribute__((vector_size(16))) float v1;
+            // __m128 v2;
+            // v1 = v2;
+            type_t* intel_struct_vector = vector_type_get_intel_vector_struct_type(no_ref(lhs_type));
+            if (intel_struct_vector != NULL)
+            {
+                generate_nonop_assign_builtin(result, operator, lhs_type, intel_struct_vector, decl_context);
+            }
+        }
+    }
+    else if (is_intel_vector_struct_type(no_ref(lhs_type), &vector_size))
+    {
+        // // Let overload choose the member copy operator assignment of the class
+        // // __m128 v1, v2;
+        // // v1 = v2;
+        // type_t* vector_type = intel_vector_struct_type_get_vector_type(no_ref(lhs_type));
+        // if (vector_type != NULL)
+        // {
+        //     // Allow this case as a 'builtin'
+        //     // __m128 v1;
+        //     // __attribute__((vector_size(16))) float v2;
+        //     // v1 = v2;
+        //     generate_nonop_assign_builtin(result, operator, lhs_type, vector_type, decl_context);
+        // }
+    }
+    // No other builtin is possible
 }
 
 static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, nodecl_t *rhs, 
@@ -10136,7 +10174,11 @@ static void check_nodecl_cast_expr(
 
     if (IS_CXX_LANGUAGE)
     {
-        if (is_class_type(declarator_type))
+        int vector_size = 0;
+        if (is_class_type(declarator_type)
+                // Intel vector extension
+                && !is_intel_vector_struct_type(declarator_type, &vector_size)
+                )
         {
             scope_entry_t* called_symbol = NULL;
             ERROR_CONDITION((nodecl_get_kind(nodecl_casted_expr) != NODECL_FUNCTION_CALL)
