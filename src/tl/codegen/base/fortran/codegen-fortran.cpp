@@ -1570,6 +1570,16 @@ OPERATOR_TABLE
             subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
         }
 
+        TL::Symbol array_symbol;
+        if (subscripted.is<Nodecl::Symbol>())
+        {
+            array_symbol = subscripted.get_symbol();
+        }
+        else if (subscripted.is<Nodecl::Dereference>())
+        {
+            array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
+        }
+
         walk(subscripted);
         *(file) << "(";
         codegen_array_subscripts(subscripted.get_symbol(), subscripts);
@@ -5020,7 +5030,9 @@ OPERATOR_TABLE
                 // Check it matches the symbol
                 // (Note that if the user added a call here this args[0] would
                 // be a FortranActualArgument and not directly the symbol)
-                && args[0].get_symbol() == array_symbol
+                && ((args[0].is<Nodecl::Symbol>() && args[0].get_symbol() == array_symbol)
+                    || (args[0].is<Nodecl::Dereference>()
+                        && args[0].as<Nodecl::Dereference>().get_rhs().get_symbol() == array_symbol))
                 // Check it matches the dimension
                 && args[1].is_constant()
                 && const_value_is_nonzero(
@@ -5060,8 +5072,8 @@ OPERATOR_TABLE
             TL::Symbol array_symbol,
             int dim)
     {
-        if (node.is<Nodecl::Range>()
-                && _emit_full_array_subscripts
+        if (!_emit_full_array_subscripts
+                && node.is<Nodecl::Range>()
                 && subscript_expresses_whole_dimension(node, array_symbol, dim))
         {
             *file << ":";
@@ -6326,7 +6338,7 @@ OPERATOR_TABLE
                 _deduce_use_statements_str,
                 "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
 
-        _emit_full_array_subscripts = true;
+        _emit_full_array_subscripts = false;
         register_parameter("emit_full_array_subscripts",
                 "Emits synthetic array subscripts ranges introduced by the FE",
                 _emit_full_array_subscripts_str,
