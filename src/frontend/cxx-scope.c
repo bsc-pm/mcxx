@@ -4236,6 +4236,22 @@ static char check_single_template_argument_from_syntax(AST template_parameter,
     }
 }
 
+static int choose_type_template_argument(
+        AST current,
+        AST previous,
+        int current_idx UNUSED_PARAMETER,
+        int previous_idx UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        void* info UNUSED_PARAMETER)
+{
+    // Prioritize template-type arguments
+    return either_type(
+            current,
+            previous,
+            AST_TEMPLATE_EXPRESSION_ARGUMENT,
+            AST_TEMPLATE_TYPE_ARGUMENT);
+}
+
 static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
         decl_context_t template_parameters_context,
         dhash_ptr_t* disambig_hash,
@@ -4259,7 +4275,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 template_parameters_context,
                 &targ_info,
                 check_single_template_argument_from_syntax,
-                NULL,
+                choose_type_template_argument,
                 NULL);
     }
 
@@ -5600,7 +5616,8 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         result = strappend(class_qualification, result);
     }
     else if (IS_CXX11_LANGUAGE
-            && entry->kind == SK_ENUMERATOR)
+            && entry->kind == SK_ENUMERATOR
+            && is_named_type(entry->type_information))
     {
         // In C++11 we qualify enumerators
         scope_entry_t* enum_symbol = named_type_get_symbol(entry->type_information);

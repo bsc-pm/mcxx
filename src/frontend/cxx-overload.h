@@ -48,32 +48,50 @@ LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         const locus_t* locus,
         scope_entry_t** conversor_per_argument);
 
-LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor, const locus_t* locus);
+LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
 
-LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
+LIBMCXX_EXTERN char type_can_be_contextually_converted_to(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
+
+LIBMCXX_EXTERN char type_can_be_contextually_converted_to_bool(type_t* orig,
+        decl_context_t decl_context, 
+        char *ambiguous_conversion,
+        scope_entry_t** conversor,
+        const locus_t* locus);
+
+LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus);
+
+LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_parameters,
         struct type_tag* target_type,
         decl_context_t decl_context,
         const locus_t* locus);
 
-LIBMCXX_EXTERN scope_entry_t* solve_constructor(
+LIBMCXX_EXTERN char solve_initialization_of_class_type(
         type_t* class_type, 
         type_t** argument_types, 
         int num_arguments,
-        char is_explicit, 
+        enum initialization_kind initialization_kind,
         decl_context_t decl_context,
         const locus_t* locus,
-        scope_entry_t** conversors,
-        scope_entry_list_t** candidates);
-
-LIBMCXX_EXTERN scope_entry_t* solve_init_list_constructor(
-        type_t* class_type, 
-        type_t** argument_types, 
-        int num_arguments,
-        char is_explicit, 
-        decl_context_t decl_context,
-        const locus_t* locus,
+        scope_entry_t** constructor,
         scope_entry_t** conversors,
         scope_entry_list_t** candidates);
 

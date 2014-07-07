@@ -677,11 +677,11 @@ namespace Codegen
 #define OPERATOR_TABLE \
     PREFIX_UNARY_EXPRESSION(Plus, " +") \
     PREFIX_UNARY_EXPRESSION(LogicalNot, " .NOT.") \
-    BINARY_EXPRESSION_ARITH(Mul, " * ") \
-    BINARY_EXPRESSION_ARITH(Div, " / ") \
-    BINARY_EXPRESSION_ARITH(Add, " + ") \
-    BINARY_EXPRESSION_ARITH(Minus, " - ") \
-    BINARY_EXPRESSION_ARITH(Power, " ** ") \
+    BINARY_EXPRESSION(Mul, " * ") \
+    BINARY_EXPRESSION(Div, " / ") \
+    BINARY_EXPRESSION(Add, " + ") \
+    BINARY_EXPRESSION(Minus, " - ") \
+    BINARY_EXPRESSION(Power, " ** ") \
     BINARY_EXPRESSION(LowerThan, " < ") \
     BINARY_EXPRESSION(LowerOrEqualThan, " <= ") \
     BINARY_EXPRESSION(GreaterThan, " > ") \
@@ -710,22 +710,6 @@ namespace Codegen
         *(file) << _operand; \
         walk(rhs); \
     }
-#define BINARY_EXPRESSION_ARITH(_name, _operand) \
-    void FortranBase::visit(const Nodecl::_name &node) \
-    { \
-        Nodecl::NodeclBase lhs = node.get_lhs(); \
-        Nodecl::NodeclBase rhs = node.get_rhs(); \
-        walk(lhs); \
-        *(file) << _operand; \
-        const_value_t* cval = NULL; \
-        bool needs_parentheses = (rhs.is_constant() \
-                && (const_value_is_integer((cval = rhs.get_constant())) \
-                    || const_value_is_floating(cval)) \
-               && const_value_is_negative(cval)); \
-        if (needs_parentheses) (*file) << "("; \
-        walk(rhs); \
-        if (needs_parentheses) (*file) << ")"; \
-    }
 #define BINARY_EXPRESSION_ASSIG(_name, _operand) \
     void FortranBase::visit(const Nodecl::_name &node) \
     { \
@@ -740,9 +724,9 @@ namespace Codegen
         *(file) << ")"; \
     }
 OPERATOR_TABLE
-#undef PREFIX_UNARY_EXPRESSION
+#undef BINARY_EXPRESSION_ASSIG
 #undef BINARY_EXPRESSION
-
+#undef PREFIX_UNARY_EXPRESSION
 
     void FortranBase::visit(const Nodecl::Neg& node)
     {
@@ -755,9 +739,17 @@ OPERATOR_TABLE
                     rhs.get_type(),
                     const_value_neg(rhs.get_constant()),
                     rhs.get_locus());
-
             walk(negated_node);
-
+            nodecl_free(negated_node.get_internal_nodecl());
+        }
+        else if (rhs.is<Nodecl::FloatingLiteral>())
+        {
+            // Special case for negative literal values
+            Nodecl::FloatingLiteral negated_node = Nodecl::FloatingLiteral::make(
+                    rhs.get_type(),
+                    const_value_neg(rhs.get_constant()),
+                    rhs.get_locus());
+            walk(negated_node);
             nodecl_free(negated_node.get_internal_nodecl());
         }
         else

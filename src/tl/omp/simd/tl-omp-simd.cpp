@@ -465,7 +465,10 @@ namespace TL {
                 as<Nodecl::List>();
 
             // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase loop = omp_for.get_loop();
+            Nodecl::NodeclBase loop_context = omp_for.get_loop();
+            Nodecl::NodeclBase loop = loop_context.as<Nodecl::Context>().
+                get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>();
+
             ERROR_CONDITION(!loop.is<Nodecl::ForStatement>(),
                     "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd for'",
                     ast_print_node_type(loop.get_kind()));
@@ -624,8 +627,8 @@ namespace TL {
             if (epilog_iterations != 0)
             {
                 epilog_for_statement = simd_node_epilog.get_openmp_for().as<Nodecl::OpenMP::For>().
-                        get_loop().as<Nodecl::ForStatement>();
-
+                        get_loop().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().
+                        front().as<Nodecl::ForStatement>();
                 // Add scopes, default masks, etc.
                 for_environment.load_environment(epilog_for_statement);
 
@@ -673,7 +676,7 @@ namespace TL {
                 {
                     for_epilog =
                         Nodecl::OpenMP::ForAppendix::make(omp_for_environment.shallow_copy(),
-                                loop.shallow_copy(),
+                                loop_context.shallow_copy(),
                                 appendix_list,
                                 omp_for.get_locus());
                 }
@@ -681,7 +684,7 @@ namespace TL {
                 {
                     for_epilog =
                         Nodecl::OpenMP::For::make(omp_for_environment.shallow_copy(),
-                                loop.shallow_copy(),
+                                loop_context.shallow_copy(),
                                 omp_for.get_locus());
                 }
             }

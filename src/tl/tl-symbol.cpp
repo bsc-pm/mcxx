@@ -898,6 +898,10 @@ namespace TL
 
             sym.set_type(t);
         }
+        else
+        {
+            sym.set_type(this->get_type());
+        }
         return sym;
     }
 
