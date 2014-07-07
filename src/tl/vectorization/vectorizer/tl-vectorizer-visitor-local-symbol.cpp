@@ -107,13 +107,23 @@ namespace Vectorization
             TL::Symbol tl_sym = nodecl_sym.get_symbol();
             TL::Type tl_sym_type = tl_sym.get_type();
 
-            if (!tl_sym.get_type().is_vector() &&
+            if (!tl_sym_type.is_vector() && !tl_sym_type.is_mask() &&
                     !VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_uniform(_environment._analysis_simd_scope,
                         nodecl_sym, nodecl_sym))
             {
-                TL::Type vector_type = Utils::get_qualified_vector_to(
+                TL::Type vector_type;
+
+                if (tl_sym_type.is_bool())
+                {
+                    vector_type = TL::Type::get_mask_type(
+                            _environment._vectorization_factor);
+                }
+                else
+                {
+                    vector_type = Utils::get_qualified_vector_to(
                         tl_sym_type, _environment._vectorization_factor);
+                }
 
                 tl_sym.set_type(vector_type);
 

@@ -844,7 +844,7 @@ namespace TL {
             function_environment.load_environment(vector_func_code);
 
             // Get code ready for vectorisation
-            _vectorizer.preprocess_code(function_code, function_environment);
+            _vectorizer.preprocess_code(vector_func_code, function_environment);
 
             // Initialize analysis info
             _vectorizer.initialize_analysis(vector_func_code);
