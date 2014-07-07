@@ -231,6 +231,9 @@ namespace Analysis {
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
 
+            //! Returns true when the node contains a CONDITIONAL EXPRESSION
+            bool is_conditional_expression();
+            
             //! Returns true when the node is a CONTINUE node
             bool is_continue_node( );
             

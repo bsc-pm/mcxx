@@ -325,6 +325,11 @@ namespace Analysis {
         return (get_type() == __Break);
     }
 
+    bool Node::is_conditional_expression()
+    {
+        return ((get_type() == __Graph) && (get_graph_type() == __CondExpr));
+    }
+    
     bool Node::is_continue_node()
     {
         return (get_type() == __Continue);
