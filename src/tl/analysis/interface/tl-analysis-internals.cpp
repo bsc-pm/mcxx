@@ -132,6 +132,31 @@ namespace Analysis {
         return result.is_true();
     }
 
+    bool is_linear_internal(
+            Node* const scope_node, 
+            const Nodecl::NodeclBase& n)
+    {
+        Symbol s(n.get_symbol());
+        if(!s.is_valid())
+        {
+            WARNING_MESSAGE("Object %s is not linear because it is not a valid symbol.\n", 
+                            n.prettyprint().c_str());
+            return false;
+        }
+        
+        ObjectList<Symbol> linear_exprs = scope_node->get_linear_expressions();
+        for (ObjectList<Symbol>::iterator it = linear_exprs.begin(); 
+                it != linear_exprs.end(); 
+                ++it)
+        {
+            if (*it == s)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
             const GlobalVarsSet& global_variables)

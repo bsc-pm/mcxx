@@ -52,6 +52,10 @@ namespace Analysis {
             const Nodecl::NodeclBase& n, ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
 
+    bool is_linear_internal(
+            Node* const scope_node, 
+            const Nodecl::NodeclBase& n);
+    
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
             const GlobalVarsSet& global_variables);

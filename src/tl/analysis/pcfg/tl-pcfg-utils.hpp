@@ -713,6 +713,7 @@ namespace Analysis {
     CLAUSE(inout) \
     CLAUSE(lastprivate) \
     CLAUSE(length_for) \
+    CLAUSE(linear) \
     CLAUSE(mask) \
     CLAUSE(name) \
     CLAUSE(no_mask) \

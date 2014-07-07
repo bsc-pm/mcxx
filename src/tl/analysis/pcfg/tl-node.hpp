@@ -831,6 +831,8 @@ namespace Analysis {
             
             ObjectList<Symbol> get_reductions( );
             
+            ObjectList<Symbol> get_linear_expressions();
+            
             // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //
 
