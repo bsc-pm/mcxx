@@ -5910,8 +5910,8 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                     (*file) << ";\n";
                 }
 
-                if (!member.get_function_code().is_null() &&
-                        member.is_defined_inside_class()
+                if (!member.get_function_code().is_null()
+                        && member.is_defined_inside_class()
                         // Do not emit the empty bodies of defaulted functions
                         && !member.is_defaulted())
                 {
@@ -6001,6 +6001,22 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
         {
             declare_friend_symbol(*it, symbol);
         }
+        dec_indent();
+    }
+
+    // 4. Declare inherited constructors C++11
+    TL::ObjectList<TL::Symbol> inherited_constructors =
+        symbol_type.class_get_inherited_constructors();
+    for (TL::ObjectList<TL::Symbol>::iterator it = inherited_constructors.begin();
+            it != inherited_constructors.end();
+            it++)
+    {
+        // This is not a constructor but a class symbol
+        TL::Symbol &inherited_constructor(*it);
+        inc_indent();
+        indent();
+        (*file) << "using " << this->get_qualified_name(inherited_constructor)
+            << "::" << inherited_constructor.get_name() << ";\n";
         dec_indent();
     }
 

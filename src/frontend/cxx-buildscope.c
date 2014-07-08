@@ -1370,24 +1370,59 @@ void introduce_using_entities_in_class(
         scope_entry_t* entry = entry_list_iterator_current(it);
 
         entry = entry_advance_aliases(entry);
+        if (entry->entity_specs.is_injected_class_name)
+        {
+            entry = named_type_get_symbol(entry->entity_specs.class_type);
+        }
 
         symbol_name = entry->symbol_name;
 
         char is_hidden = 0;
 
-        if (entry->kind != SK_DEPENDENT_ENTITY)
+        if (entry->kind == SK_CLASS
+                && class_type_is_base_instantiating(
+                    get_user_defined_type(entry),
+                    get_user_defined_type(current_class),
+                    locus))
         {
-            if (!entry->entity_specs.is_member
-                    || !class_type_is_base_instantiating(entry->entity_specs.class_type,
-                        get_user_defined_type(current_class), locus))
+            // Inheriting constructors
+            CXX03_LANGUAGE()
             {
-                error_printf("%s: error: '%s' is not a member of a base class\n",
-                        locus_to_str(locus),
-                        get_qualified_symbol_name(entry, 
-                            decl_context));
-                return;
+                warn_printf("%s: warning: inheriting constructors is valid only in C++11\n",
+                        locus_to_str(locus));
+            }
+            class_type_add_inherited_constructor(current_class->type_information, entry);
+
+            // We are done since finish_class_type_cxx will do the rest
+            entry_list_iterator_free(it);
+            entry_list_free(already_using);
+            return;
+        }
+        else if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            // Dependent entity like _Base::f where _Base is a template parameter
+            if (nodecl_is_null(nodecl_name))
+            {
+                internal_error("Invalid dependent name found", 0);
             }
 
+            // The name of the symbol will be _Base but we do not want that one, we want f
+            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
+            symbol_name = nodecl_get_text(nodecl_last_part);
+        }
+        else if (!entry->entity_specs.is_member
+                || !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                    get_user_defined_type(current_class), locus))
+        {
+            error_printf("%s: error: '%s' is not a member of a base class\n",
+                    locus_to_str(locus),
+                    get_qualified_symbol_name(entry, 
+                        decl_context));
+            return;
+        }
+        else
+        {
+            // Usual case
             // If this entity is being hidden by another member of this class, do not add it
             scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
             scope_entry_list_iterator_t* it2 = NULL;
@@ -1409,18 +1444,6 @@ void introduce_using_entities_in_class(
             entry_list_iterator_free(it2);
             entry_list_free(member_functions);
         }
-        else
-        {
-            // Dependent entity like _Base::f where _Base is a template parameter
-            if (nodecl_is_null(nodecl_name))
-            {
-                internal_error("Invalid dependent name found", 0);
-            }
-
-            // The name of the symbol will be _Base but we do not want that one, we want f
-            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
-            symbol_name = nodecl_get_text(nodecl_last_part);
-        }
 
         if (is_hidden)
             continue;
@@ -1441,7 +1464,6 @@ void introduce_using_entities_in_class(
         insert_entry(decl_context.current_scope, used_name);
     }
     entry_list_iterator_free(it);
-
     entry_list_free(already_using);
 
     scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
@@ -6976,6 +6998,337 @@ static void set_defaulted_outside_class_specifier(
         const locus_t* locus);
 static void build_noexcept_spec_delayed(scope_entry_t* entry);
 
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        decl_context_t decl_context);
+
+static char constructors_have_same_characteristics_for_inheritance(
+        scope_entry_t* constructor1,
+        scope_entry_t* constructor2,
+        type_t* constructor2_type,
+        decl_context_t decl_context)
+{
+    if (is_template_specialized_type(constructor1->type_information)
+            != is_template_specialized_type(constructor2_type))
+        return 0;
+    else if (is_template_specialized_type(constructor1->type_information))
+    {
+        if (!same_template_parameter_list(
+                    template_specialized_type_get_template_parameters(constructor1->type_information),
+                    template_specialized_type_get_template_parameters(constructor2_type),
+                    decl_context))
+            return 0;
+    }
+
+    if (!equivalent_types(constructor1->type_information,
+                constructor2_type))
+        return 0;
+
+    if (constructor1->entity_specs.is_explicit !=
+            constructor2->entity_specs.is_explicit)
+        return 0;
+
+    if (constructor1->entity_specs.is_constexpr !=
+            constructor2->entity_specs.is_constexpr)
+        return 0;
+
+    return 1;
+}
+
+static char exists_constructor_with_same_characteristics(
+        scope_entry_list_t* constructor_set,
+        scope_entry_t* base_constructor,
+        type_t* base_constructor_type,
+        decl_context_t decl_context)
+{
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(constructor_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_constructor = entry_list_iterator_current(it);
+        if (constructors_have_same_characteristics_for_inheritance(
+                    current_constructor,
+                    base_constructor,
+                    base_constructor_type,
+                    decl_context))
+        {
+            entry_list_iterator_free(it);
+            return 1;
+        }
+    }
+
+    entry_list_iterator_free(it);
+    return 0;
+}
+
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
+
+static void declare_constructors_for_candidate_constructor(
+        type_t* candidate_constructor_type,
+        scope_entry_t* inherited_constructor,
+        /* out */ scope_entry_list_t** inherited_constructors,
+        scope_entry_list_t* current_class_constructors,
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // For each non-template constructor in the candidate set of inherited
+    // constructors other than a constructor having no parameters or a
+    // copy/move constructor having a single parameter, a constructor is
+    // implicitly declared with the same constructor characteristics unless
+    // there is a user-declared constructor with the same signature in the
+    // complete class where the using-declaration appears or the constructor
+    // would be a default, copy, or move constructor for that class.
+    int num_parameters = function_type_get_num_parameters(candidate_constructor_type);
+    if (function_type_get_has_ellipsis(candidate_constructor_type))
+        num_parameters--;
+
+    if (!is_template_specialized_type(inherited_constructor->type_information))
+    {
+        if (function_type_get_num_parameters(candidate_constructor_type) == 0)
+            return;
+
+        if (num_parameters == 1
+                && (function_is_move_constructor_types(candidate_constructor_type,
+                        inherited_constructor->entity_specs.class_type,
+                        inherited_constructor->decl_context)
+                    || function_is_copy_constructor_types(candidate_constructor_type,
+                        inherited_constructor->entity_specs.class_type,
+                        inherited_constructor->decl_context)))
+            return;
+        if (num_parameters == 1
+                && (function_is_move_constructor_types(candidate_constructor_type,
+                        class_type, inherited_constructor->decl_context)
+                    || function_is_copy_constructor_types(candidate_constructor_type,
+                        class_type, inherited_constructor->decl_context)))
+            return;
+    }
+    // Similarly, for each constructor template in the candidate set of
+    // inherited constructors, a constructor template is implicitly declared
+    // with the same constructor characteristics unless there is an equivalent
+    // user-declared constructor template (14.5.6.1) in the complete class
+    // where the using-declaration appears.
+    //
+    // (Checks both non-template and templates)
+    if (exists_constructor_with_same_characteristics(
+                current_class_constructors,
+                inherited_constructor,
+                candidate_constructor_type,
+                decl_context))
+        return;
+    // [ Note: Default arguments are not
+    // inherited. An exception-specification is implied as specified in 15.4. —
+    // end note ] A constructor so declared has the same access as the
+    // corresponding constructor in X. It is deleted if the corresponding
+    // constructor in X is deleted (8.4).
+    const char* constructor_name = NULL;
+    if (is_named_class_type(type_info))
+    {
+        uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+    }
+    else
+    {
+        uniquestr_sprintf(&constructor_name, "%s", "constructor ");
+    }
+
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    scope_t* class_scope = class_context.current_scope;
+
+    scope_entry_t* new_inherited_constructor = NULL;
+    new_inherited_constructor = new_symbol(class_context, class_scope,
+            constructor_name);
+    if (is_template_specialized_type(inherited_constructor->type_information))
+    {
+        decl_context_t templated_class_context = class_context;
+        class_context.template_parameters =
+                template_specialized_type_get_template_parameters(inherited_constructor->type_information);
+        type_t* template_type = get_new_template_type(
+                template_specialized_type_get_template_parameters(inherited_constructor->type_information),
+                candidate_constructor_type,
+                constructor_name,
+                templated_class_context,
+                inherited_constructor->locus);
+
+        new_inherited_constructor->kind = SK_TEMPLATE;
+        new_inherited_constructor->type_information = template_type;
+        new_inherited_constructor->entity_specs.is_member = 1;
+        new_inherited_constructor->entity_specs.class_type = type_info;
+        new_inherited_constructor->entity_specs.is_user_declared = 0;
+
+        template_type_set_related_symbol(template_type, new_inherited_constructor);
+
+        // Now work only with the specialization
+        new_inherited_constructor = named_type_get_symbol(template_type_get_primary_type(template_type));
+    }
+    else
+    {
+        new_inherited_constructor->type_information = candidate_constructor_type;
+    }
+
+    new_inherited_constructor->kind = SK_FUNCTION;
+    new_inherited_constructor->locus = locus;
+    new_inherited_constructor->defined = 0;
+
+    new_inherited_constructor->entity_specs.is_member = 1;
+    new_inherited_constructor->entity_specs.num_parameters = num_parameters;
+
+    new_inherited_constructor->entity_specs.is_user_declared = 0;
+    new_inherited_constructor->entity_specs.is_explicit = inherited_constructor->entity_specs.is_explicit;
+    new_inherited_constructor->entity_specs.is_constructor = inherited_constructor->entity_specs.is_constructor;
+    new_inherited_constructor->entity_specs.is_constexpr = inherited_constructor->entity_specs.is_constexpr;
+    new_inherited_constructor->entity_specs.access = inherited_constructor->entity_specs.access;
+    new_inherited_constructor->entity_specs.class_type = type_info;
+    new_inherited_constructor->entity_specs.is_deleted = inherited_constructor->entity_specs.is_deleted;
+    new_inherited_constructor->entity_specs.any_exception = inherited_constructor->entity_specs.any_exception;
+    new_inherited_constructor->entity_specs.noexception = inherited_constructor->entity_specs.noexception;
+    new_inherited_constructor->entity_specs.exceptions = inherited_constructor->entity_specs.exceptions;
+    // Let's remember where we inherit from
+    new_inherited_constructor->entity_specs.alias_to = inherited_constructor;
+
+    new_inherited_constructor->entity_specs.num_related_symbols = 0;
+    new_inherited_constructor->entity_specs.related_symbols = NULL;
+
+    new_inherited_constructor->entity_specs.default_argument_info = xcalloc(
+            new_inherited_constructor->entity_specs.num_parameters,
+            sizeof(*(new_inherited_constructor->entity_specs.default_argument_info)));
+
+    class_type_add_member(class_type, new_inherited_constructor, /* is_definition */ 1);
+
+    if (exists_constructor_with_same_characteristics(
+                *inherited_constructors,
+                new_inherited_constructor,
+                new_inherited_constructor->type_information,
+                decl_context))
+    {
+        error_printf("%s: error: redeclaration of constructor '%s' due to inherited constructor '%s'\n",
+                locus_to_str(locus),
+                print_decl_type_str(new_inherited_constructor->type_information,
+                    new_inherited_constructor->decl_context,
+                    get_qualified_symbol_name(new_inherited_constructor,
+                        new_inherited_constructor->decl_context)),
+                print_decl_type_str(candidate_constructor_type,
+                    inherited_constructor->decl_context,
+                    get_qualified_symbol_name(inherited_constructor,
+                        inherited_constructor->decl_context)));
+    }
+
+    *inherited_constructors = entry_list_add(*inherited_constructors, new_inherited_constructor);
+}
+
+static void declare_constructors_for_inherited_constructor(
+        scope_entry_t* inherited_ctor,
+        /* out */ scope_entry_list_t** inherited_constructors,
+        scope_entry_list_t* current_class_constructors,
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // The constructor itself is always a candidate
+    declare_constructors_for_candidate_constructor(
+            inherited_ctor->type_information,
+            inherited_ctor,
+            inherited_constructors,
+            current_class_constructors,
+            class_type,
+            type_info,
+            decl_context,
+            locus);
+
+    if (inherited_ctor->entity_specs.default_argument_info != NULL)
+    {
+        int num_parameters = function_type_get_num_parameters(inherited_ctor->type_information);
+        // Number of real parameters, ellipsis are counted as parameters
+        // but only in the type system
+        if (function_type_get_has_ellipsis(inherited_ctor->type_information))
+            num_parameters--;
+
+        int i;
+        for (i = num_parameters - 1; i >= 0; i--)
+        {
+            if (inherited_ctor->entity_specs.default_argument_info[i] != NULL)
+            {
+                // Found a default argument
+                // Change the type
+                int num_new_param_types = i;
+                parameter_info_t param_info[num_new_param_types + 1];
+                memset(param_info, 0, sizeof(param_info));
+                int j;
+                for (j = 0; j < i; j++)
+                {
+                    param_info[j].type_info = function_type_get_parameter_type_num(
+                            inherited_ctor->type_information,
+                            j);
+                }
+
+                type_t* candidate_constructor_type =
+                    get_new_function_type(
+                            /* return-type */ NULL,
+                            param_info,
+                            num_new_param_types,
+                            REF_QUALIFIER_NONE);
+
+                declare_constructors_for_candidate_constructor(
+                        candidate_constructor_type,
+                        inherited_ctor,
+                        inherited_constructors,
+                        current_class_constructors,
+                        class_type,
+                        type_info,
+                        decl_context,
+                        locus);
+            }
+        }
+    }
+}
+
+static void declare_inherited_constructors(
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    scope_entry_list_t* current_class_constructors = class_type_get_constructors(class_type);
+    scope_entry_list_t* inheriting_bases = class_type_get_inherited_constructors(class_type);
+
+    scope_entry_list_t* inherited_constructors = NULL;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(inheriting_bases);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_base = entry_list_iterator_current(it);
+        scope_entry_list_t* base_constructors =
+            class_type_get_constructors(current_base->type_information);
+
+        scope_entry_list_iterator_t* it2 = NULL;
+        for (it2 = entry_list_iterator_begin(base_constructors);
+                !entry_list_iterator_end(it2);
+                entry_list_iterator_next(it2))
+        {
+            scope_entry_t* base_constructor = entry_list_iterator_current(it2);
+            declare_constructors_for_inherited_constructor(
+                    base_constructor,
+                    &inherited_constructors,
+                    current_class_constructors,
+                    class_type,
+                    type_info,
+                    decl_context,
+                    locus);
+        }
+        entry_list_iterator_free(it2);
+        entry_list_free(base_constructors);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(inheriting_bases);
+    entry_list_free(current_class_constructors);
+}
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
@@ -8373,6 +8726,8 @@ static void finish_class_type_cxx(type_t* class_type,
     entry_list_free(user_declared_copy_constructors);
     entry_list_free(user_declared_move_assignment_operators);
     entry_list_free(user_declared_copy_assignment_operators);
+
+    declare_inherited_constructors(class_type, type_info, decl_context, locus);
 
     DEBUG_CODE()
     {
@@ -12877,7 +13232,7 @@ static void set_defaulted_inside_class_specifier(
         nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
                 nodecl_make_context(
                     nodecl_make_list_1(
-                        //Empty body
+                        // Empty body
                         nodecl_make_compound_statement(
                             nodecl_null(),
                             nodecl_null(),
@@ -15702,16 +16057,21 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
     return 0;
 }
 
-char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
 {
-    if (entry->entity_specs.is_constructor
-            && can_be_called_with_number_of_arguments(entry, 1)
-            // It might be callable with one parameter because of A(...) 
-            // [but note that A(const A&, ...) is a valid copy constructor]
-            && !(function_type_get_has_ellipsis(entry->type_information)
-                && function_type_get_num_parameters(entry->type_information) == 1))
+    // The caller should have checked that this function can be called with one parameter
+    // If the function is not to have default arguments, it should have checked the number
+    // of parameters
+
+    // It might be callable with one parameter because of A(...) 
+    // [but note that A(const A&, ...) is a valid copy constructor]
+    int num_types = function_type_get_num_parameters(function_type);
+    if (function_type_get_has_ellipsis(function_type))
+        num_types--;
+
+    if (num_types > 0)
     {
-        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
+        type_t* first_parameter = function_type_get_parameter_type_num(function_type, 0);
         // Check that its form is either
         //
         // A(const A&, X = x);
@@ -15720,7 +16080,7 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
         if (is_lvalue_reference_type(first_parameter)
                 && equivalent_types_in_context(class_type,
                     get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                    decl_context))
         {
             return 1;
         }
@@ -15728,16 +16088,28 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
     return 0;
 }
 
-static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
+char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
-    if (entry->entity_specs.is_constructor
+    return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            // It might be callable with one parameter because of A(...) 
-            // [but note that A(const A&, ...) is a valid copy constructor]
-            && !(function_type_get_has_ellipsis(entry->type_information)
-                && function_type_get_num_parameters(entry->type_information) == 1))
+            && function_is_copy_constructor_types(entry->type_information, class_type, entry->decl_context));
+}
+
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+{
+    // The caller should have checked that this function can be called with one parameter
+    // If the function is not to have default arguments, it should have checked the number
+    // of parameters
+
+    // It might be callable with one parameter because of A(...) 
+    // [but note that A(const A&, ...) is a valid copy constructor]
+    int num_types = function_type_get_num_parameters(function_type);
+    if (function_type_get_has_ellipsis(function_type))
+        num_types--;
+
+    if (num_types > 0)
     {
-        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
+        type_t* first_parameter = function_type_get_parameter_type_num(function_type, 0);
         // Check that its form is either
         //
         // A(const A&&, X = x);
@@ -15746,12 +16118,19 @@ static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
         if (is_rvalue_reference_type(first_parameter)
                 && equivalent_types_in_context(class_type,
                     get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                    decl_context))
         {
             return 1;
         }
     }
     return 0;
+}
+
+static char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
+{
+    return (entry->entity_specs.is_constructor
+            && can_be_called_with_number_of_arguments(entry, 1)
+            && function_is_move_constructor_types(entry->type_information, class_type, entry->decl_context));
 }
 
 static char is_virtual_destructor(type_t* class_type)
@@ -15827,7 +16206,7 @@ static void update_member_function_info(AST declarator_name,
                     CXX11_LANGUAGE()
                     {
                         entry->entity_specs.is_move_constructor =
-                            is_move_constructor(entry, class_type);
+                            function_is_move_constructor(entry, class_type);
                     }
                 }
                 break;

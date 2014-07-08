@@ -20643,6 +20643,117 @@ static const_value_t* evaluate_constexpr_function_call(
     return value;
 }
 
+static void define_inherited_constructor(
+        scope_entry_t* new_inherited_constructor,
+        scope_entry_t* inherited_constructor,
+        const locus_t* locus)
+{
+    int num_parameters = function_type_get_num_parameters(new_inherited_constructor->type_information);
+    if (function_type_get_has_ellipsis(new_inherited_constructor->type_information))
+        num_parameters--;
+
+    decl_context_t block_context = new_block_context(new_inherited_constructor->decl_context);
+
+    nodecl_t nodecl_arg_list = nodecl_null();
+
+    new_inherited_constructor->entity_specs.num_related_symbols = 0;
+    new_inherited_constructor->entity_specs.related_symbols = NULL;
+
+    char ok = 1;
+
+    int i;
+    for (i = 0; i < num_parameters && ok; i++)
+    {
+        const char *parameter_name = NULL;
+        uniquestr_sprintf(&parameter_name, "parameter#%d", i);
+
+        scope_entry_t* new_param_symbol = new_symbol(block_context,
+                block_context.current_scope,
+                parameter_name);
+        new_param_symbol->kind = SK_VARIABLE;
+        new_param_symbol->type_information =
+            function_type_get_parameter_type_num(new_inherited_constructor->type_information, i);
+
+        symbol_set_as_parameter_of_function(
+                new_param_symbol,
+                new_inherited_constructor,
+                /* nesting */ 0, i);
+
+        nodecl_t nodecl_symbol_ref = nodecl_make_symbol(new_param_symbol, locus);
+        nodecl_set_type(nodecl_symbol_ref, lvalue_ref(new_param_symbol->type_information));
+
+        P_LIST_ADD(new_inherited_constructor->entity_specs.related_symbols,
+                new_inherited_constructor->entity_specs.num_related_symbols,
+                new_param_symbol);
+
+        type_t* cast_type = new_param_symbol->type_information;
+        if (!is_any_reference_type(cast_type))
+            cast_type = get_rvalue_reference_type(new_param_symbol->type_information);
+
+        nodecl_t nodecl_arg = nodecl_null();
+        check_nodecl_cast_expr(
+                nodecl_symbol_ref,
+                block_context,
+                cast_type,
+                "static_cast",
+                locus,
+                &nodecl_arg);
+
+        if (!nodecl_is_err_expr(nodecl_arg))
+        {
+            nodecl_arg_list = nodecl_append_to_list(nodecl_arg_list, nodecl_arg);
+        }
+        else
+        {
+            ok = 0;
+        }
+    }
+
+    if (ok)
+    {
+        nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_arg_list,
+                locus);
+
+        check_nodecl_initialization(
+                nodecl_init,
+                block_context,
+                named_type_get_symbol(inherited_constructor->entity_specs.class_type),
+                get_unqualified_type(inherited_constructor->entity_specs.class_type),
+                &nodecl_init,
+                /* is_auto_type */ 0);
+
+        if (!nodecl_is_err_expr(nodecl_init))
+        {
+            nodecl_t nodecl_member_init_list =
+                nodecl_make_list_1(
+                        nodecl_make_member_init(
+                            nodecl_init,
+                            named_type_get_symbol(inherited_constructor->entity_specs.class_type),
+                            locus));
+
+            new_inherited_constructor->entity_specs.function_code =
+                nodecl_make_function_code(
+                        nodecl_make_context(
+                            nodecl_make_list_1(
+                                // Empty body
+                                nodecl_make_compound_statement(
+                                    nodecl_null(),
+                                    nodecl_null(),
+                                    locus)),
+                            block_context,
+                            locus),
+                        nodecl_member_init_list,
+                        new_inherited_constructor,
+                        locus);
+        }
+    }
+
+    new_inherited_constructor->defined = 1;
+    new_inherited_constructor->entity_specs.alias_to = NULL;
+}
+
+
 nodecl_t cxx_nodecl_make_function_call(
         nodecl_t orig_called,
         nodecl_t called_name,
@@ -20693,6 +20804,18 @@ nodecl_t cxx_nodecl_make_function_call(
     }
     ERROR_CONDITION(!is_function_type(function_type), "%s is not a function type!", 
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
+
+    // If this is an inheriting constructor being odr-used, define it now
+    // FIXME: odr-used
+    if (called_symbol != NULL
+            && called_symbol->entity_specs.is_constructor
+            && called_symbol->entity_specs.alias_to != NULL)
+    {
+        define_inherited_constructor(
+                called_symbol,
+                called_symbol->entity_specs.alias_to,
+                locus);
+    }
 
     char is_promoting_ellipsis = 0;
     int num_parameters = function_type_get_num_parameters(function_type);

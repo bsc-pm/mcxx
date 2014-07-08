@@ -226,6 +226,9 @@ struct class_info_tag {
     // Friends
     scope_entry_list_t* friends;
 
+    // Inherited constructors
+    scope_entry_list_t* inherited_constructors;
+
     // Info for laying out 
     _size_t non_virtual_size;
     _size_t non_virtual_align;
@@ -4811,6 +4814,23 @@ scope_entry_list_t* class_type_get_friends(type_t* t)
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
     t = get_actual_class_type(t);
     scope_entry_list_t* friends = _class_type_get_friends(t);
+
+    return entry_list_copy(friends);
+}
+
+static scope_entry_list_t* _class_type_get_inherited_constructors(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return t->type->class_info->inherited_constructors;
+}
+
+scope_entry_list_t* class_type_get_inherited_constructors(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+    scope_entry_list_t* friends = _class_type_get_inherited_constructors(t);
 
     return entry_list_copy(friends);
 }
@@ -13251,6 +13271,16 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
     type_t* class_type = get_actual_class_type(t);
 
     class_type->type->class_info->friends = entry_list_add(class_type->type->class_info->friends, entry);
+}
+
+void class_type_add_inherited_constructor(type_t* t, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    class_type->type->class_info->inherited_constructors =
+        entry_list_add(class_type->type->class_info->inherited_constructors, entry);
 }
 
 // This is like type_is_runtime_sized but allows pointers too while the former only allows arrays or classes
