@@ -1252,6 +1252,19 @@ namespace TL
                 inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
+            {
+                // OpenMP standard clauses
+                TL::ObjectList<Nodecl::NodeclBase> std_in, std_out, std_inout;
+                parse_dependences_info_std_clause(
+                        parsing_scope,
+                        pragma_line.get_clause("depend"),
+                        std_in, std_out, std_inout,
+                        pragma_line.get_locus());
+                input_arguments.append(std_in);
+                output_arguments.append(std_out);
+                inout_arguments.append(std_inout);
+            }
+
             PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
             ObjectList<Nodecl::NodeclBase> concurrent_arguments;
             if (concurrent_clause.is_defined())

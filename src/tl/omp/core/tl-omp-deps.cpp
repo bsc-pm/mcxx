@@ -235,11 +235,14 @@ namespace TL { namespace OpenMP {
         return d;
     }
 
-    void Core::get_dependences_info_std_clause(
-            TL::PragmaCustomLine construct,
+    void Core::parse_dependences_info_std_clause(
+            TL::ReferenceScope parsing_scope,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing, 
-            DataSharingAttribute default_data_attr)
+            TL::ObjectList<Nodecl::NodeclBase> &in,
+            TL::ObjectList<Nodecl::NodeclBase> &out,
+            TL::ObjectList<Nodecl::NodeclBase> &inout,
+            const locus_t* locus
+            )
     {
         if (!clause.is_defined())
             return;
@@ -264,7 +267,7 @@ namespace TL { namespace OpenMP {
         const int num_matches = 6;
         regmatch_t pmatch[num_matches] = { };
 
-        DependencyDirection dep_attr = DEP_DIR_UNDEFINED;
+        TL::ObjectList<Nodecl::NodeclBase> *dep_set = NULL;
         for (ObjectList<std::string>::iterator it = arguments.begin();
                 it != arguments.end();
                 it++)
@@ -286,18 +289,15 @@ namespace TL { namespace OpenMP {
 
                 if (dependency_type == "in")
                 {
-                    dep_attr = DEP_DIR_IN;
-                    clause_name = "depend(in:)";
+                    dep_set = &in;
                 }
                 else if (dependency_type == "out")
                 {
-                    dep_attr = DEP_DIR_OUT;
-                    clause_name = "depend(out:)";
+                    dep_set = &out;
                 }
                 else if (dependency_type == "inout")
                 {
-                    dep_attr = DEP_DIR_INOUT;
-                    clause_name = "depend(inout:)";
+                    dep_set = &inout;
                 }
                 else
                 {
@@ -313,20 +313,20 @@ namespace TL { namespace OpenMP {
                 }
             }
             else if (match == REG_NOMATCH)
-                ; // Do nothing
+            {
+                if (dep_set == NULL)
+                {
+                    error_printf("%s: error: skipping item '%s' in 'depend' clause because it lacks dependence-type\n",
+                            locus_to_str(locus),
+                            current_dep_expr.c_str());
+                    continue;
+                }
+            }
             else
             {
                 internal_error("Unexpected result %d from regexec\n", match);
             }
 
-            // FIXME: Only accepting "in:" not "in :"
-            if (dep_attr == DEP_DIR_UNDEFINED)
-            {
-                error_printf("%s: error: skipping item '%s' in 'depend' clause since it does not have any associated dependence-type\n",
-                        clause.get_locus_str().c_str(),
-                        it->c_str());
-                continue;
-            }
             Source src;
             src << current_dep_expr;
 
@@ -334,7 +334,7 @@ namespace TL { namespace OpenMP {
             Nodecl::NodeclBase expr;
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                expr = src.parse_generic(construct,
+                expr = src.parse_generic(parsing_scope,
                         /* ParseFlags */ Source::DEFAULT,
                         "@OMP-DEPEND-ITEM@",
                         Source::c_cxx_check_expression_adapter,
@@ -342,7 +342,7 @@ namespace TL { namespace OpenMP {
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
-                expr = src.parse_generic(construct,
+                expr = src.parse_generic(parsing_scope,
                         /* ParseFlags */ Source::DEFAULT,
                         "@OMP-DEPEND-ITEM@",
                         Source::fortran_check_expression_adapter,
@@ -350,13 +350,33 @@ namespace TL { namespace OpenMP {
             }
 
             // Singleton
-            ObjectList<Nodecl::NodeclBase> expr_list;
-            expr_list.append(expr);
-            add_data_sharings(expr_list, data_sharing,
-                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name);
+            dep_set->append(expr);
         }
 
         regfree(&preg);
+    }
+
+    void Core::get_dependences_info_std_clause(
+            TL::PragmaCustomLine construct,
+            TL::PragmaCustomClause clause,
+            DataSharingEnvironment& data_sharing, 
+            DataSharingAttribute default_data_attr)
+    {
+            TL::ObjectList<Nodecl::NodeclBase> in, out, inout;
+            parse_dependences_info_std_clause(
+                    construct,
+                    clause,
+                    in,
+                    out,
+                    inout,
+                    construct.get_locus());
+
+            add_data_sharings(in, data_sharing,
+                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)");
+            add_data_sharings(out, data_sharing,
+                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)");
+            add_data_sharings(inout, data_sharing,
+                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)");
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
