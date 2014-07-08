@@ -69,14 +69,24 @@ namespace Vectorization
         Nodecl::LoopControl main_loop_control = n.get_loop_header().
             as<Nodecl::LoopControl>();
 
-        VectorizerVisitorExpression visitor_expression(_environment,
-                _cache_enabled);
+        VectorizerVisitorExpression visitor_expression(
+                _environment, _cache_enabled);
 
         // PROCESING LOOP CONTROL
+        bool jump_stmts_inside_loop =
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::BreakStatement>(n) || 
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::ContinueStatement>(n) || 
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::ReturnStatement>(n);
+
         bool init_next_need_vectorization =
             !loop_info.ivs_values_are_uniform_in_simd_scope();
         bool condition_needs_vectorization =
+            jump_stmts_inside_loop || 
             !loop_info.condition_is_uniform_in_simd_scope();
+
 
         // Init
 
@@ -97,6 +107,10 @@ namespace Vectorization
             }
         }
 
+        Nodecl::NodeclBase mask_condition_symbol = 
+            Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
+                    _environment._vectorization_factor,
+                    true /*ref_type*/);
 
         if (init_next_need_vectorization || condition_needs_vectorization)
         {
@@ -104,11 +118,13 @@ namespace Vectorization
                 VectorizationAnalysisInterface::_vectorizer_analysis->
                 deep_copy(n, n).as<Nodecl::ForStatement>();
 
+            bool only_epilog = !Utils::is_all_one_mask(
+                    _environment._mask_list.back());
+
             n.append_sibling(epilog);
 
-            Nodecl::LoopControl epilog_loop_control = epilog.get_loop_header().
-                as<Nodecl::LoopControl>();
-
+            Nodecl::LoopControl epilog_loop_control =
+                epilog.get_loop_header().as<Nodecl::LoopControl>();
 
             // If Init or Step depends on SIMD IV both need to be vectorized
             if (init_next_need_vectorization)
@@ -120,6 +136,11 @@ namespace Vectorization
 
                 visitor_expression.walk(main_loop_control.get_init());
 
+                if (jump_stmts_inside_loop || only_epilog)
+                {
+                    _environment._mask_list.push_back(mask_condition_symbol);
+                }
+
                 VECTORIZATION_DEBUG()
                 {
                     fprintf(stderr, "VECTORIZER: Vectorizing next\n");
@@ -127,6 +148,11 @@ namespace Vectorization
 
                 visitor_expression.walk(epilog_loop_control.get_next());
                 visitor_expression.walk(main_loop_control.get_next());
+
+                if (jump_stmts_inside_loop || only_epilog)
+                {
+                    _environment._mask_list.pop_back();
+                }
             }
 
             // Condition
@@ -135,43 +161,66 @@ namespace Vectorization
                 fprintf(stderr, "VECTORIZER: Vectorizing loop condition\n");
             }
 
-            // EPILOG condition: while((mask = cmp) != 0) do
-            Nodecl::NodeclBase mask_condition_symbol = 
-                Utils::get_new_mask_symbol(_environment._analysis_simd_scope, 
-                        _environment._vectorization_factor,
-                        true /*ref_type*/);
+            //
+            // EPILOG condition: while((mask != 0) do
+            //
+            Nodecl::NodeclBase epilog_loop_postcondition =
+                VectorizationAnalysisInterface::_vectorizer_analysis->
+                deep_copy(epilog_loop_control.get_cond(),
+                        epilog_loop_control.get_cond());
 
-            Nodecl::NodeclBase epilog_condition = epilog_loop_control.get_cond();
+            Nodecl::NodeclBase epilog_condition =
+                epilog_loop_control.get_cond();
 
-            visitor_expression.walk(epilog_condition);
 
             Nodecl::Different epilog_new_condition =
                 Nodecl::Different::make(
-                        Nodecl::Assignment::make(
-                            mask_condition_symbol.shallow_copy(),
-                            epilog_condition.shallow_copy(),
-                            mask_condition_symbol.get_type()),
+                        mask_condition_symbol.shallow_copy(),
                         const_value_to_nodecl(const_value_get_zero(4, 1)),
                         Type::get_bool_type());
 
             epilog_condition.replace(epilog_new_condition);
 
+            //
             // Main loop condition: while((mask == 0xFFFF) != 0) do
-            Nodecl::NodeclBase main_loop_condition = main_loop_control.get_cond();
+            //
+            Nodecl::NodeclBase main_loop_precondition = 
+                VectorizationAnalysisInterface::_vectorizer_analysis->
+                deep_copy(main_loop_control.get_cond(),
+                        main_loop_control.get_cond());
+            Nodecl::NodeclBase main_loop_postcondition =
+                VectorizationAnalysisInterface::_vectorizer_analysis->
+                deep_copy(main_loop_control.get_cond(),
+                        main_loop_control.get_cond());
 
-            visitor_expression.walk(main_loop_condition);
+            // Vectorize loop precondition
+            visitor_expression.walk(main_loop_precondition);
 
+            // Loop precondition statement
+            Nodecl::ExpressionStatement main_loop_precond_stmt =
+                Nodecl::ExpressionStatement::make(
+                        Nodecl::VectorMaskAssignment::make(
+                            mask_condition_symbol.shallow_copy(),
+                            main_loop_precondition,
+                            mask_condition_symbol.get_type()));
+
+            // New loop condition expression
             Nodecl::Equal new_main_loop_condition =
                 Nodecl::Equal::make(
-                        Nodecl::Assignment::make(
-                            mask_condition_symbol.shallow_copy(),
-                            main_loop_condition.shallow_copy(),
-                            mask_condition_symbol.get_type()),
+                        mask_condition_symbol.shallow_copy(),
                         const_value_to_nodecl(const_value_get_unsigned_int(0xFFFF)),
                         Type::get_bool_type());
 
-            main_loop_condition.replace(new_main_loop_condition);
+            main_loop_control.get_cond().replace(new_main_loop_condition);
 
+            // Insert precondition
+            n.prepend_sibling(Nodecl::ExpressionStatement::make(
+                        main_loop_control.get_init().as<Nodecl::List>().
+                        front().shallow_copy()));
+            main_loop_control.set_init(Nodecl::NodeclBase::null());
+            n.prepend_sibling(main_loop_precond_stmt);
+
+           
             _environment._analysis_scopes.pop_back();
 
             VECTORIZATION_DEBUG()
@@ -179,7 +228,9 @@ namespace Vectorization
                 fprintf(stderr, "VECTORIZER: -- Loop body vectorization --\n");
             }
 
+            //
             // EPILOG BODY
+            //
             _environment._analysis_scopes.push_back(epilog);
             // Add loop condition as mask for epilog vectorization
             _environment._mask_list.push_back(mask_condition_symbol);
@@ -190,15 +241,72 @@ namespace Vectorization
             epilog_loop_control.set_init(
                     Nodecl::NodeclBase::null());
 
+            // Vectorize loop precondition
+            visitor_expression.walk(epilog_loop_postcondition);
+
+            // Loop postcondition statement
+            Nodecl::VectorMaskAssignment epilog_loop_postcond_assig =
+                Nodecl::VectorMaskAssignment::make(
+                        mask_condition_symbol.shallow_copy(),
+                        epilog_loop_postcondition,
+                        mask_condition_symbol.get_type());
+
+            Nodecl::NodeclBase epilog_old_next_copy =
+                epilog_loop_control.get_next().shallow_copy();
+            
+            epilog_loop_control.set_next(
+                    Nodecl::Comma::make(
+                        epilog_old_next_copy,
+                        epilog_loop_postcond_assig,
+                        epilog_loop_postcond_assig.get_type()));
+
+            // If jump statements, a extra mask will have been added
+            if (jump_stmts_inside_loop)
+            {
+                _environment._mask_list.pop_back();
+            }
+ 
             _environment._analysis_scopes.pop_back();
             _environment._mask_list.pop_back();
 
 
+            //
             // MAIN LOOP BODY
+            //
             _environment._analysis_scopes.push_back(n);
             walk(n.get_statement());
 
+            // Vectorize loop precondition
+            visitor_expression.walk(main_loop_postcondition);
+
+            // Loop postcondition statement
+            Nodecl::VectorMaskAssignment main_loop_postcond_assig =
+                Nodecl::VectorMaskAssignment::make(
+                        mask_condition_symbol.shallow_copy(),
+                        main_loop_postcondition,
+                        mask_condition_symbol.get_type());
+
+            Nodecl::NodeclBase main_old_next_copy =
+                main_loop_control.get_next().shallow_copy();
+            
+            main_loop_control.set_next(
+                    Nodecl::Comma::make(
+                        main_old_next_copy,
+                        main_loop_postcond_assig,
+                        main_loop_postcond_assig.get_type()));
+
             _environment._analysis_scopes.pop_back();
+
+            // If jump statements, a extra mask will have been added
+            if (jump_stmts_inside_loop)
+            {
+                _environment._mask_list.pop_back();
+            }
+
+            if (only_epilog)
+            {
+                Nodecl::Utils::remove_from_enclosing_list(n);
+            }
         }
         else
         {
@@ -304,7 +412,7 @@ namespace Vectorization
             // "Else" Mask: It will always exists! With or without real 'else statement'
             // ***********
             // New symbol mask
-            Nodecl::NodeclBase else_mask_nodecl = 
+            Nodecl::NodeclBase else_mask_symbol = 
                 Utils::get_new_mask_symbol(_environment._analysis_simd_scope,
                         _environment._vectorization_factor,
                         true);
@@ -330,7 +438,7 @@ namespace Vectorization
             // Expression that sets the mask
             Nodecl::ExpressionStatement else_mask_exp =
                 Nodecl::ExpressionStatement::make(
-                        Nodecl::VectorMaskAssignment::make(else_mask_nodecl.shallow_copy(),
+                        Nodecl::VectorMaskAssignment::make(else_mask_symbol.shallow_copy(),
                             else_mask_value.shallow_copy(),
                             else_mask_value.get_type(),
                             n.get_locus()));
@@ -342,9 +450,14 @@ namespace Vectorization
             // VISIT IF'S THEN
             // ***************
             // Before visiting, compute heuristics
-            bool return_inside_if =
+            bool jump_stmts_inside_if =
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::BreakStatement>(n.get_then()) || 
+                Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                <Nodecl::ContinueStatement>(n.get_then()) || 
                 Nodecl::Utils::nodecl_contains_nodecl_of_kind
                 <Nodecl::ReturnStatement>(n.get_then());
+
             unsigned int mask_check_cost_if =
                 mask_check_cost_visitor.get_mask_check_cost(n.get_then(),
                         prev_mask_cost, MASK_CHECK_THRESHOLD);
@@ -387,17 +500,22 @@ namespace Vectorization
             // ***************
             // VISIT ELSE'S THEN
             // ***************
-            bool return_inside_else = false;
+            bool jump_stmts_inside_else = false;
             if (has_else)
             {
                 // Before visiting, compute heuristics
-                return_inside_else = Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                jump_stmts_inside_else = Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                    <Nodecl::BreakStatement>(n.get_else()) || 
+                    Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                    <Nodecl::ContinueStatement>(n.get_else()) || 
+                    Nodecl::Utils::nodecl_contains_nodecl_of_kind
                     <Nodecl::ReturnStatement>(n.get_else());
+
                 unsigned int mask_check_cost_else =
                     mask_check_cost_visitor.get_mask_check_cost(n.get_else(),
                             prev_mask_cost, MASK_CHECK_THRESHOLD);
 
-                _environment._mask_list.push_back(else_mask_nodecl);
+                _environment._mask_list.push_back(else_mask_symbol);
                 _environment._mask_check_bb_cost.push_back(mask_check_cost_else);
 
                 walk(n.get_else());
@@ -414,7 +532,7 @@ namespace Vectorization
                     // Create IF to check if else_mask is all zero
                     Nodecl::NodeclBase else_check =
                         Vectorization::Utils::get_if_mask_is_not_zero_nodecl(
-                                else_mask_nodecl, n.get_else().shallow_copy());
+                                else_mask_symbol, n.get_else().shallow_copy());
 
                     list.append(else_check);
                 }
@@ -426,7 +544,7 @@ namespace Vectorization
 
                 _environment._mask_check_bb_cost.pop_back();
                 // Update else_mask after visiting. It could have changed.
-                else_mask_nodecl = _environment._mask_list.back();
+                else_mask_symbol = _environment._mask_list.back();
                 _environment._mask_list.pop_back();
 
 
@@ -434,20 +552,28 @@ namespace Vectorization
             // *************
             // BB Exit Masks
             // *************
-            if (return_inside_if || (has_else && return_inside_else))
+            if (jump_stmts_inside_if || (has_else && jump_stmts_inside_else))
             {
                 // Remove previous mask. It will never be used again.
-                _environment._mask_list.pop_back();
+                //_environment._mask_list.pop_back();
 
-                objlist_nodecl_t bb_predecessor_masks;
-                bb_predecessor_masks.push_back(if_mask_symbol);
-                bb_predecessor_masks.push_back(else_mask_nodecl);
+                Nodecl::NodeclBase new_exit_mask = Utils::get_new_mask_symbol(
+                    _environment._analysis_simd_scope, _environment._mask_size,
+                    /* ref_type */ true);
 
-                Nodecl::NodeclBase new_exit_mask = Utils::get_disjunction_mask(
-                        bb_predecessor_masks, list, 
-                        _environment._analysis_simd_scope,
-                        _environment._vectorization_factor);
+                Nodecl::ExpressionStatement new_mask_exp = 
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(
+                                new_exit_mask.shallow_copy(),
+                                Nodecl::VectorMaskOr::make(
+                                    if_mask_symbol.shallow_copy(),
+                                    else_mask_symbol.shallow_copy(),
+                                    if_mask_symbol.get_type(),
+                                    make_locus("", 0, 0)),
+                                if_mask_symbol.get_type(),
+                                make_locus("", 0, 0)));
 
+                list.append(new_mask_exp);
                 _environment._mask_list.push_back(new_exit_mask);
             }
 
@@ -636,6 +762,8 @@ namespace Vectorization
 
     void VectorizerVisitorStatement::visit(const Nodecl::BreakStatement& n)
     {
+        Nodecl::NodeclBase mask = _environment._mask_list.back();
+
         if (VectorizationAnalysisInterface::_vectorizer_analysis->is_uniform(
                     _environment._analysis_simd_scope, n, n))
         {
@@ -643,11 +771,32 @@ namespace Vectorization
             {
                 fprintf(stderr,"VECTORIZER: break statement is uniform\n");
             }
+
+            if (_environment._inside_inner_masked_bb.back())
+            {
+                // Update current mask
+                Nodecl::ExpressionStatement mask_exp =
+                    Nodecl::ExpressionStatement::make(
+                            Nodecl::VectorMaskAssignment::make(
+                                mask.shallow_copy(),
+                                Nodecl::IntegerLiteral::make(TL::Type::get_int_type(),
+                                    const_value_get_zero(2, 0),
+                                    n.get_locus()),
+                                mask.get_type(),
+                                make_locus("", 0, 0)));
+
+                n.replace(mask_exp);
+            }
         }
         else
         {
             running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
         }
+    }
+
+    void VectorizerVisitorStatement::visit(const Nodecl::ContinueStatement& n)
+    {
+        running_error("Vectorizer: Target loop contains a 'continue' statement. Unsupported.");
     }
 
     /*

@@ -171,58 +171,6 @@ namespace Utils
         return new_mask_sym.make_nodecl(ref_type, make_locus("", 0, 0));
     }
 
-    Nodecl::NodeclBase get_disjunction_mask(
-            const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
-            Nodecl::List& output_stmt_list,
-            const Nodecl::NodeclBase& scope,
-            const int mask_size)
-    {
-        ObjectList<Nodecl::NodeclBase>::const_iterator it = bb_exit_mask_list.begin();
-
-        Nodecl::NodeclBase lhs = *it;
-        it++;
-
-        while(it != bb_exit_mask_list.end())
-        {
-            Nodecl::NodeclBase new_mask_sym_nodecl = get_new_mask_symbol(
-                    scope, mask_size, /* ref_type */ true);
-
-            Nodecl::ExpressionStatement new_mask_exp =
-                Nodecl::ExpressionStatement::make(
-                        Nodecl::VectorMaskAssignment::make(
-                            new_mask_sym_nodecl.shallow_copy(),
-                            Nodecl::VectorMaskOr::make(
-                                lhs.shallow_copy(),
-                                it->shallow_copy(),
-                                lhs.get_type(),
-                                make_locus("", 0, 0)),
-                            lhs.get_type(),
-                            make_locus("", 0, 0)));
-
-            output_stmt_list.append(new_mask_exp);
-
-            lhs = new_mask_sym_nodecl;
-            it++;
-        }
-
-        return lhs;
-    }
-/*
-    bool is_declared_in_scope(const scope_t *const  target_scope,
-            const scope_t *const symbol_scope)
-    {
-        if (symbol_scope == NULL)
-            return false;
-        else if (target_scope == NULL)
-            return false;
-        else if (target_scope == symbol_scope)
-            return true;
-        else
-        {
-            return false;
-        }
-    }
-*/
     bool is_declared_in_inner_scope(const Nodecl::NodeclBase& enclosing_node,
             const TL::Symbol& tl_symbol) 
     {

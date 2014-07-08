@@ -80,11 +80,6 @@ namespace TL
             Nodecl::NodeclBase get_new_mask_symbol(const Nodecl::NodeclBase& n,
                     const int masks_size,
                     const bool ref_type);
-            Nodecl::NodeclBase get_disjunction_mask(
-                    const ObjectList<Nodecl::NodeclBase>& bb_exit_mask_list,
-                    Nodecl::List& output_stmt_list,
-                    const Nodecl::NodeclBase& scope,
-                    const int masks_size);
 
 //            bool is_declared_in_scope(const scope_t *const  target_scope,
 //                    const scope_t *const symbol_scope);
