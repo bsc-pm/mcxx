@@ -891,9 +891,9 @@ namespace Analysis {
     {
         ObjectList<Node*> comma_nodes;
         bool is_vector = _utils->_is_vector;
-        comma_nodes.append( walk( n.get_rhs( ) ) );
-        _utils->_is_vector = is_vector;
         comma_nodes.append( walk( n.get_lhs( ) ) );
+        _utils->_is_vector = is_vector;
+        comma_nodes.append( walk( n.get_rhs( ) ) );
         _utils->_is_vector = is_vector;
         return comma_nodes;
     }

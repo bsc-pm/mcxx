@@ -813,8 +813,8 @@ void CxxBase::visit(const Nodecl::Comma & node)
     emit_line_marker(node);
     *(file) << "(";
 
-    Nodecl::NodeclBase lhs = node.children()[0];
-    Nodecl::NodeclBase rhs = node.children()[1];
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
     if (state.in_condition && state.condition_top == node)
     {
         *(file) << "(";
