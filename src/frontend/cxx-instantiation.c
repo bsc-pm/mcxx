@@ -1701,6 +1701,8 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_conte
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus)
 {
+    diagnostic_context_push_buffered();
+
     if (entry->kind != SK_CLASS
             && entry->kind != SK_TYPEDEF)
     {
@@ -1732,11 +1734,12 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_conte
     type_t* template_type =
         template_specialized_type_get_related_template_type(template_specialized_type);
 
-
     type_t* selected_template = solve_class_template(
             template_type,
             get_user_defined_type(entry),
             deduced_template_arguments, locus);
+
+    diagnostic_context_pop_and_discard();
 
     return selected_template;
 }
