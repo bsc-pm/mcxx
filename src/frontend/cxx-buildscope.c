@@ -18497,6 +18497,7 @@ static void build_scope_return_statement(AST a,
     else
     {
         if (return_type != NULL
+                && !is_dependent_type(return_type)
                 && !is_error_type(return_type)
                 && !is_void_type(return_type))
         {
