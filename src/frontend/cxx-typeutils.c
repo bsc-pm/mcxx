@@ -1682,7 +1682,8 @@ char is_valid_symbol_for_dependent_typename(scope_entry_t* entry)
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
 {
-    ERROR_CONDITION(!nodecl_is_null(dependent_parts) && nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
+    ERROR_CONDITION(!nodecl_is_null(dependent_parts) &&
+            nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
 
     char new_dependent_parts = 0;
 
@@ -1766,6 +1767,7 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
 
         result->type->dependent_entry = dependent_entry;
         result->type->dependent_parts = dependent_parts;
+        result->type->dependent_entry_kind = TT_TYPENAME;
 
         rb_tree_insert(dependent_entry_hash, nodecl_get_ast(dependent_parts), result);
     }
@@ -1788,14 +1790,28 @@ enum type_tag_t get_dependent_entry_kind(type_t* t)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t),
             "This is not a dependent typename type", 0);
+
     return t->type->dependent_entry_kind;
 }
 
-void set_dependent_entry_kind(type_t* t, enum type_tag_t kind)
+type_t* set_dependent_entry_kind(type_t* t, enum type_tag_t kind)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t),
             "This is not a dependent typename type", 0);
     t->type->dependent_entry_kind = kind;
+
+    // This function is seldomly used so it does not seem
+    // necessary to keep the results in a hash
+    type_t* result = get_simple_type();
+
+    result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+    result->info->is_dependent = 1;
+
+    result->type->dependent_entry = t->type->dependent_entry;
+    result->type->dependent_parts = t->type->dependent_parts;
+    result->type->dependent_entry_kind = kind;
+
+    return result;
 }
 
 void dependent_typename_get_components(type_t* t, 
@@ -13309,6 +13325,13 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
     ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
 
     type_t* class_type = get_actual_class_type(t);
+
+    ERROR_CONDITION(
+            entry->kind != SK_FRIEND_CLASS
+            && entry->kind != SK_FRIEND_FUNCTION
+            && entry->kind != SK_DEPENDENT_FRIEND_CLASS
+            && entry->kind != SK_DEPENDENT_FRIEND_FUNCTION,
+            "Invalid symbol to be registered as a friend", 0);
 
     class_type->type->class_info->friends = entry_list_add(class_type->type->class_info->friends, entry);
 }
