@@ -3599,7 +3599,13 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 
     const_value_t* (*const_value_div_safe)(const_value_t*, const_value_t*) = const_value_div;
 
-    if (nodecl_is_constant(*rhs)
+    // We warn here because const_value_div_safe will not have enough
+    // information
+    if (both_operands_are_arithmetic_noref(
+                nodecl_get_type(*lhs),
+                nodecl_get_type(*rhs),
+                locus)
+            && nodecl_is_constant(*rhs)
             && value_not_valid_for_divisor(nodecl_get_constant(*rhs)))
     {
         warn_printf("%s: warning: division by zero\n",
