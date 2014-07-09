@@ -4215,7 +4215,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
         {
-            error_printf("%s: specialization of '%s' in different namespace from definition\n",
+            error_printf("%s: error: specialization of '%s' in different namespace from definition\n",
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression));
             *type_info = get_error_type();
@@ -9402,13 +9402,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 // Check the enclosing namespace scope
                 // This is only valid if the scope of the entry is an inlined namespace of the current one
                 if ((class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                        // The primary type can be defined anywhere since it is not a specialization per se
+                        && (named_type_get_symbol(
+                                template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(
+                                    class_entry->type_information))) != class_entry)
                         && !is_inline_namespace_of(class_entry->decl_context, decl_context))
                 {
-                    error_printf("%s: specialization of '%s' in different namespace from definition\n",
+                    error_printf("%s: error: specialization of '%s' in different namespace from definition\n",
                             ast_location(class_id_expression),
                             prettyprint_in_buffer(class_id_expression));
-                    *type_info = get_error_type();
-                    return;
                 }
 
                 if (!gather_info->is_explicit_specialization)
