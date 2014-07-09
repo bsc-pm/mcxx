@@ -5878,6 +5878,35 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
     }
 }
 
+static char same_template_type(type_t* t1, type_t* t2)
+{
+    ERROR_CONDITION(!is_template_type(t1) || !is_template_type(t2), "Invalid type", 0);
+
+    if (t1 == t2)
+        return 1;
+
+    scope_entry_t* s1 = template_type_get_related_symbol(t1);
+    scope_entry_t* s2 = template_type_get_related_symbol(t2);
+
+    ERROR_CONDITION(s1 == NULL || s2 == NULL,
+            "Template type lacks a related symbol", 0);
+
+    if ((s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                && s2->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            || (s1->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+                && s2->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+    {
+        ERROR_CONDITION(!s1->entity_specs.is_template_parameter
+                || !s2->entity_specs.is_template_parameter,
+                "Symbol is not set as a template parameter", 0);
+
+        return (s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
+            && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position);
+    }
+
+    return 0;
+}
+
 char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_context)
 {
     simple_type_t* t1 = p_t1->type;
@@ -5898,7 +5927,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             {
                 if (p_t1->info->is_template_specialized_type
                         && p_t2->info->is_template_specialized_type
-                        && p_t1->related_template_type == p_t2->related_template_type)
+                        && same_template_type(p_t1->related_template_type, p_t2->related_template_type))
                 {
                     if (template_type_get_template_parameters(p_t1->related_template_type)->num_parameters == 0
                             && template_type_get_template_parameters(p_t2->related_template_type)->num_parameters == 0)
