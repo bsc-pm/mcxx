@@ -6343,9 +6343,8 @@ static type_t* rebuild_advanced_dependent_type(
     return get_dependent_typename_type_from_parts(advanced_member, nodecl_parts);
 }
 
-
-// FIXME - This function looks rather similar to update_dependent_typename, can
-// we abstract them away?
+// This function advances just one dependent component
+// [Class symbol]::Foo::Bar becomes [Foo symbol]::Bar
 static type_t* advance_dependent_typename_aux(
         type_t* original_type,
         type_t* dependent_entry_type,
@@ -6387,10 +6386,168 @@ static type_t* advance_dependent_typename_aux(
     int num_items = 0;
     nodecl_t* dep_parts = nodecl_unpack_list(nodecl_nested_parts, &num_items);
 
-    int i;
-    for (i = 0; i < num_items - 1; i++)
+    if (num_items == 1)
     {
-        nodecl_t current_item = dep_parts[i];
+        nodecl_t nodecl_unqualified_name = nodecl_shallow_copy(dep_parts[0]);
+        // Last part
+        ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE
+                && nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_TEMPLATE_ID,
+                "Invalid unqualified name", 0);
+
+        nodecl_t nodecl_simple_name = nodecl_unqualified_name;
+        template_parameter_list_t* template_parameters = NULL;
+        if (nodecl_get_kind(nodecl_unqualified_name) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            nodecl_simple_name = nodecl_get_child(nodecl_unqualified_name, 0);
+            template_parameters = nodecl_get_template_parameters(nodecl_unqualified_name);
+        }
+        ERROR_CONDITION(nodecl_get_kind(nodecl_simple_name) != NODECL_CXX_DEP_NAME_SIMPLE,
+                "Invalid nested part", 0);
+        const char* name = nodecl_get_text(nodecl_simple_name);
+
+        class_context = class_type_get_inner_context(current_member->type_information);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", name);
+        }
+
+        scope_entry_list_t* member_list = query_nodecl_name_in_class(
+                class_context,  // unused
+                current_member,
+                nodecl_simple_name,
+                NULL);
+
+        if (member_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
+            }
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_locus(nodecl_unqualified_name)));
+        }
+
+        if (entry_list_size(member_list) > 1)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
+            }
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_locus(nodecl_unqualified_name)));
+        }
+
+        scope_entry_t* member = entry_list_head(member_list);
+
+        if (member->kind == SK_CLASS
+                || member->kind == SK_ENUM
+                || member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", name);
+            }
+            if (template_parameters != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
+                }
+                return get_dependent_typename_type_from_parts(current_member, 
+                        nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                            nodecl_get_locus(nodecl_unqualified_name)));
+            }
+
+            if (member->kind == SK_TYPEDEF)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
+                }
+                type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+                if (is_named_class_type(advanced_type))
+                {
+                    member = named_type_get_symbol(advanced_type);
+                }
+            }
+
+            current_member = member;
+        }
+        else if (member->kind == SK_TEMPLATE)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
+                        name);
+            }
+
+            if (template_parameters == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
+                }
+                return get_dependent_typename_type_from_parts(current_member, 
+                        nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                            nodecl_get_locus(nodecl_unqualified_name)));
+            }
+
+            // TEMPLATE RESOLUTION
+            type_t* template_type = member->type_information;
+
+            // Only template classes
+            if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
+                }
+                return get_dependent_typename_type_from_parts(current_member, 
+                        nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                            nodecl_get_locus(nodecl_unqualified_name)));
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: requesting specialization '%s'\n", 
+                        name);
+            }
+
+            type_t* specialized_type = template_type_get_specialized_type(
+                    template_type,
+                    template_parameters, // Should this be properly nested?
+                    class_context, 
+                    // They should not be needed
+                    make_locus("", 0, 0));
+
+            current_member = named_type_get_symbol(specialized_type);
+
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+            }
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_locus(nodecl_unqualified_name)));
+        }
+
+        // This looks a bit twisted
+        type_t* result_type = 
+            advance_over_typedefs(get_user_defined_type(current_member));
+
+        return result_type;
+    }
+    else if (num_items > 1)
+    {
+        // Advance just one and return another dependent typename
+        nodecl_t current_item = dep_parts[0];
 
         ERROR_CONDITION(nodecl_get_kind(current_item) != NODECL_CXX_DEP_NAME_SIMPLE
                 && nodecl_get_kind(current_item) != NODECL_CXX_DEP_TEMPLATE_ID,
@@ -6429,7 +6586,7 @@ static type_t* advance_dependent_typename_aux(
 
             type_t* result = rebuild_advanced_dependent_type(original_type, 
                     current_member, 
-                    i, num_items,
+                    0, num_items,
                     dep_parts);
             xfree(dep_parts);
             return result;
@@ -6444,7 +6601,7 @@ static type_t* advance_dependent_typename_aux(
 
             type_t* result = rebuild_advanced_dependent_type(original_type, 
                     current_member, 
-                    i, num_items,
+                    0, num_items,
                     dep_parts);
             xfree(dep_parts);
             return result;
@@ -6480,7 +6637,7 @@ static type_t* advance_dependent_typename_aux(
                 }
                 type_t* result = rebuild_advanced_dependent_type(original_type, 
                         current_member, 
-                        i, num_items,
+                        0, num_items,
                         dep_parts);
                 xfree(dep_parts);
                 return result;
@@ -6505,7 +6662,7 @@ static type_t* advance_dependent_typename_aux(
 
                 type_t* result = rebuild_advanced_dependent_type(original_type, 
                         current_member, 
-                        i, num_items,
+                        0, num_items,
                         dep_parts);
                 xfree(dep_parts);
                 return result;
@@ -6524,7 +6681,7 @@ static type_t* advance_dependent_typename_aux(
 
                 type_t* result = rebuild_advanced_dependent_type(original_type, 
                         current_member, 
-                        i, num_items,
+                        0, num_items,
                         dep_parts);
                 xfree(dep_parts);
                 return result;
@@ -6543,9 +6700,7 @@ static type_t* advance_dependent_typename_aux(
                     // They should not be needed
                     make_locus("", 0, 0));
 
-            current_member = named_type_get_symbol(specialized_type);
-
-            if (current_member == NULL)
+            if (specialized_type == NULL)
             {
                 DEBUG_CODE()
                 {
@@ -6554,11 +6709,13 @@ static type_t* advance_dependent_typename_aux(
 
                 type_t* result = rebuild_advanced_dependent_type(original_type, 
                         current_member, 
-                        i, num_items,
+                        0, num_items,
                         dep_parts);
                 xfree(dep_parts);
                 return result;
             }
+
+            current_member = named_type_get_symbol(specialized_type);
         }
         else 
         {
@@ -6569,170 +6726,24 @@ static type_t* advance_dependent_typename_aux(
 
             type_t* result = rebuild_advanced_dependent_type(original_type, 
                     current_member, 
-                    i, num_items,
+                    0, num_items,
                     dep_parts);
             xfree(dep_parts);
             return result;
         }
-    }
 
-    nodecl_t nodecl_unqualified_name = nodecl_shallow_copy(dep_parts[num_items - 1]);
-    xfree(dep_parts);
-
-    // Last part
-    ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE
-            && nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_TEMPLATE_ID,
-            "Invalid unqualified name", 0);
-
-    nodecl_t nodecl_simple_name = nodecl_unqualified_name;
-    template_parameter_list_t* template_parameters = NULL;
-    if (nodecl_get_kind(nodecl_unqualified_name) == NODECL_CXX_DEP_TEMPLATE_ID)
-    {
-        nodecl_simple_name = nodecl_get_child(nodecl_unqualified_name, 0);
-        template_parameters = nodecl_get_template_parameters(nodecl_unqualified_name);
-    }
-    ERROR_CONDITION(nodecl_get_kind(nodecl_simple_name) != NODECL_CXX_DEP_NAME_SIMPLE,
-            "Invalid nested part", 0);
-    const char* name = nodecl_get_text(nodecl_simple_name);
-
-    class_context = class_type_get_inner_context(current_member->type_information);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", name);
-    }
-
-    scope_entry_list_t* member_list = query_nodecl_name_in_class(
-            class_context,  // unused
-            current_member,
-            nodecl_simple_name,
-            NULL);
-
-    if (member_list == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
-        }
-        return get_dependent_typename_type_from_parts(current_member, 
-                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_locus(nodecl_unqualified_name)));
-    }
-
-    if (entry_list_size(member_list) > 1)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
-        }
-        return get_dependent_typename_type_from_parts(current_member, 
-                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_locus(nodecl_unqualified_name)));
-    }
-
-    scope_entry_t* member = entry_list_head(member_list);
-
-    if (member->kind == SK_CLASS
-            || member->kind == SK_ENUM
-            || member->kind == SK_TYPEDEF)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", name);
-        }
-        if (template_parameters != NULL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
-            }
-            return get_dependent_typename_type_from_parts(current_member, 
-                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_locus(nodecl_unqualified_name)));
-        }
-        
-        if (member->kind == SK_TYPEDEF)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
-            }
-            type_t* advanced_type = advance_over_typedefs(member->type_information);
-
-            if (is_named_class_type(advanced_type))
-            {
-                member = named_type_get_symbol(advanced_type);
-            }
-        }
-
-        current_member = member;
-    }
-    else if (member->kind == SK_TEMPLATE)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
-                    name);
-        }
-
-        if (template_parameters == NULL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
-            }
-            return get_dependent_typename_type_from_parts(current_member, 
-                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_locus(nodecl_unqualified_name)));
-        }
-
-        // TEMPLATE RESOLUTION
-        type_t* template_type = member->type_information;
-
-        // Only template classes
-        if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
-            }
-            return get_dependent_typename_type_from_parts(current_member, 
-                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                        nodecl_get_locus(nodecl_unqualified_name)));
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: requesting specialization '%s'\n", 
-                    name);
-        }
-
-        type_t* specialized_type = template_type_get_specialized_type(
-                template_type,
-                template_parameters, // Should this be properly nested?
-                class_context, 
-                // They should not be needed
-                make_locus("", 0, 0));
-
-        current_member = named_type_get_symbol(specialized_type);
-
+        type_t* result = rebuild_advanced_dependent_type(
+                original_type, 
+                current_member, 
+                1, num_items,
+                dep_parts);
+        xfree(dep_parts);
+        return result;
     }
     else
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
-        }
-        return get_dependent_typename_type_from_parts(current_member, 
-                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
-                    nodecl_get_locus(nodecl_unqualified_name)));
+        internal_error("Code unreachable", 0);
     }
-
-    // This looks a bit twisted
-    type_t* result_type = 
-        advance_over_typedefs(get_user_defined_type(current_member));
-
-    return result_type;
 }
 
 static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_t decl_context)
