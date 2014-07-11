@@ -3242,23 +3242,25 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd1Not& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd2Not& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAssignment& n )
-    {   // We don need a node for the mask
-        return visit_vector_unary_node( n, n.get_rhs( ) );
+    {   // We don't need a node for the mask
+
+        std::cout << n.prettyprint() << std::endl;
+        return visit_vector_binary_node( n, n.get_lhs(), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskConversion& n )

@@ -1390,6 +1390,14 @@ namespace Vectorization
                         lhs.prettyprint().c_str());
             }
         }
+        else
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: '%s' has NOT been defined\n",
+                        lhs.prettyprint().c_str());
+            }
+        }
 
         if (mask.is_null() || !lhs_has_been_defined)
         {

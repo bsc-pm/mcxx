@@ -127,7 +127,7 @@ namespace Vectorization
                 epilog.get_loop_header().as<Nodecl::LoopControl>();
 
             // If Init or Step depends on SIMD IV both need to be vectorized
-            if (init_next_need_vectorization)
+//            if (init_next_need_vectorization)
             {
                 VECTORIZATION_DEBUG()
                 {
@@ -136,23 +136,6 @@ namespace Vectorization
 
                 visitor_expression.walk(main_loop_control.get_init());
 
-                if (jump_stmts_inside_loop || only_epilog)
-                {
-                    _environment._mask_list.push_back(mask_condition_symbol);
-                }
-
-                VECTORIZATION_DEBUG()
-                {
-                    fprintf(stderr, "VECTORIZER: Vectorizing next\n");
-                }
-
-                visitor_expression.walk(epilog_loop_control.get_next());
-                visitor_expression.walk(main_loop_control.get_next());
-
-                if (jump_stmts_inside_loop || only_epilog)
-                {
-                    _environment._mask_list.pop_back();
-                }
             }
 
             // Condition
@@ -240,9 +223,13 @@ namespace Vectorization
             // Remove Init
             epilog_loop_control.set_init(
                     Nodecl::NodeclBase::null());
-
+             
+            // Vectorize loop next
+            visitor_expression.walk(epilog_loop_control.get_next());
+           
             // Vectorize loop precondition
             visitor_expression.walk(epilog_loop_postcondition);
+
 
             // Loop postcondition statement
             Nodecl::VectorMaskAssignment epilog_loop_postcond_assig =
@@ -275,6 +262,9 @@ namespace Vectorization
             //
             _environment._analysis_scopes.push_back(n);
             walk(n.get_statement());
+
+            // Vectorize loop next
+            visitor_expression.walk(main_loop_control.get_next());
 
             // Vectorize loop precondition
             visitor_expression.walk(main_loop_postcondition);
