@@ -187,6 +187,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+    BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
