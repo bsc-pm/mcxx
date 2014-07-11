@@ -3258,8 +3258,6 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAssignment& n )
     {   // We don't need a node for the mask
-
-        std::cout << n.prettyprint() << std::endl;
         return visit_vector_binary_node( n, n.get_lhs(), n.get_rhs( ) );
     }
 
@@ -3269,17 +3267,17 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskNot& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskOr& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskXor& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
