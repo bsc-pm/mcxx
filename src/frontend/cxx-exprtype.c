@@ -935,6 +935,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_GCC_ALIGNOF_TYPE :
+        case /* C++11 */ AST_ALIGNOF_TYPE :
             {
                 check_gcc_alignof_typeid(expression, decl_context, nodecl_output);
                 break;
