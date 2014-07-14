@@ -886,10 +886,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
 static void instantiate_dependent_friend_class(
         type_t* being_instantiated UNUSED_PARAMETER,
-        scope_entry_t* friend,
-        decl_context_t context_of_being_instantiated,
-        instantiation_symbol_map_t* instantiation_symbol_map,
-        const locus_t* locus)
+        scope_entry_t* friend UNUSED_PARAMETER,
+        decl_context_t context_of_being_instantiated UNUSED_PARAMETER,
+        instantiation_symbol_map_t* instantiation_symbol_map UNUSED_PARAMETER,
+        const locus_t* locus UNUSED_PARAMETER)
 {
     // FIXME - Not yet implemented. It requires the type be readjusted to the proper template nesting
     // See below
