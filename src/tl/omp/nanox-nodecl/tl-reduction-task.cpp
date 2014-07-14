@@ -58,7 +58,7 @@ namespace TL { namespace Nanox {
             TL::Type new_type = new_sym.get_type().no_ref();
             if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
             {
-                new_type = new_type.points_to().get_lvalue_reference_to();
+                new_type = new_type.points_to().no_ref().get_lvalue_reference_to();
                 node.replace(
                         Nodecl::Dereference::make(
                             new_sym_ref,
