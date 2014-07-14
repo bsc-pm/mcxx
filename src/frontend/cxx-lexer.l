@@ -205,15 +205,41 @@ hexquad         {hexdigit}{hexdigit}{hexdigit}{hexdigit}
  /* A.2.2 */
 uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
  /* A.2.12 */
-nondigit        ([_a-zA-Z]|uchar)
+nondigit        [_a-zA-Z]
  /* A.2.13 */
-digit       [0-9]
+digit_0     [0-9]
+ /*!if CPLUSPLUS*/
+digit       (({digit_0})|({digit_0}[']{digit_0}))
+ /*!endif*/
+ /*!if C99*/
+digit       {digit_0}
+ /*!endif*/
  /* A.2.20 */
 nonzero         [1-9]
  /* A.2.21 */
-octaldigit      [0-7]
+octaldigit_0      [0-7]
+ /*!if CPLUSPLUS*/
+octaldigit     ({octaldigit_0})|({octaldigit_0}[']{octaldigit_0})
+ /*!endif*/
+ /*!if C99*/
+octaldigit     ({octaldigit_0})
+ /*!endif*/
  /* A.2.22 */
-hexdigit        [a-fA-F0-9]
+hexdigit_0        [a-fA-F0-9]
+ /*!if CPLUSPLUS*/
+hexdigit     ({hexdigit_0})|({hexdigit_0}[']{hexdigit_0})
+ /*!endif*/
+ /*!if C99*/
+hexdigit     ({hexdigit_0})
+ /*!endif*/
+bindigit_0   [01]
+ /*!if C99*/
+bindigit     {bindigit_0}
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+bindigit     ({bindigit_0})|({bindigit_0}[']{bindigit_0})
+ /*!endif*/
+
  /* A.2.23 includes GNU extension of long long */
 int_suffix_size ({longsuffix}|{longlongsuffix})
 int_suffix_sign ({unsignedsuffix})
@@ -265,6 +291,7 @@ schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
+binprefix   0[bB]
 
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
@@ -1342,12 +1369,20 @@ type {
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.18 */
-0*{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+0{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+0[']{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.19 */
 {hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); return HEXADECIMAL_LITERAL; }
+
+{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); return BINARY_LITERAL; }
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/

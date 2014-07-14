@@ -605,6 +605,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // Primaries
         case AST_DECIMAL_LITERAL :
         case AST_OCTAL_LITERAL :
+        case AST_BINARY_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
             {
 
@@ -1101,6 +1102,66 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
     // }
 }
 
+// This function removes the base prefix (if any) and the quotes, if any
+static const char* process_integer_literal(const char* literal,
+        int *base,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(literal == NULL
+            || literal[0] == '\0', "Invalid literal\n", literal);
+
+    if (literal[0] == '0')
+    {
+        *base = 8;
+
+        if (literal[1] == 'x'
+                || literal[1] == 'X')
+        {
+            *base = 16;
+            literal += 2; // Skip 0x
+        }
+        else if (literal[1] == 'b'
+                || literal[1] == 'B')
+        {
+            *base = 2;
+            literal += 2; // Skip 0b
+
+            CXX03_LANGUAGE()
+            {
+                fprintf(stderr, "%s: warning: binary-integer-literals are a C++11 feature\n",
+                        locus_to_str(locus));
+            }
+        }
+    }
+    else
+    {
+        *base = 10;
+    }
+
+    int length = strlen(literal);
+    char tmp[length + 1];
+
+    int i, j;
+    for (i = 0, j = 0; i < length; i++)
+    {
+        if (literal[i] != '\'')
+        {
+            tmp[j] = literal[i];
+            j++;
+        }
+        else
+        {
+            CXX03_LANGUAGE()
+            {
+                fprintf(stderr, "%s: warning: quotes interspersed in integer-literal digits are a C++14 feature\n",
+                        locus_to_str(locus));
+            }
+        }
+    }
+    tmp[j] = '\0';
+
+    return uniquestr(tmp);
+}
 
 // Given a decimal literal computes the type due to its lexic form
 static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
@@ -1206,7 +1267,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         num_eligible_types = STATIC_ARRAY_LENGTH(decimal_L_suffix);
     }
 
-    // oct/hex L suffix -> long, unsigned long, long long, unsigned long long
+    // bin/oct/hex L suffix -> long, unsigned long, long long, unsigned long long
     type_t* nondecimal_L_suffix[] = {
         get_signed_long_int_type(),
         get_unsigned_long_int_type(),
@@ -1275,7 +1336,11 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 
     ERROR_CONDITION(eligible_types == NULL, "No set of eligible types has been computed", 0);
 
-    uint64_t parsed_value = (uint64_t)strtoull(literal, NULL, 0);
+    int base = 0;
+    const char* processed_literal = process_integer_literal(literal, &base, ast_get_locus(expr));
+    ERROR_CONDITION(base == 0, "Invalid base", 0);
+
+    uint64_t parsed_value = (uint64_t)strtoull(processed_literal, NULL, base);
 
     type_t* result =
         const_value_get_minimal_integer_type_from_list_of_types(
@@ -1291,7 +1356,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_unsigned_long_long_int_type();
     }
 
-    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
+    val = const_value_get_integer(parsed_value, type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (const_value_is_zero(val))

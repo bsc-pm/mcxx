@@ -119,6 +119,7 @@ static AST duplicate_nested_name_specifier_list(AST);
 %token<token_atrib> FOR "for"
 %token<token_atrib> FRIEND "friend"
 %token<token_atrib> GOTO "goto"
+%token<token_atrib> BINARY_LITERAL "binary-integer-literal"
 %token<token_atrib> HEXADECIMAL_LITERAL "hexadecimal-integer-literal"
 %token<token_atrib> IDENTIFIER "identifier"
 %token<token_atrib> TOK_FINAL "final"
@@ -5376,6 +5377,10 @@ literal : DECIMAL_LITERAL
 | HEXADECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| BINARY_LITERAL
+{
+	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | HEXADECIMAL_FLOAT
 {
