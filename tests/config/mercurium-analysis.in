@@ -1,6 +1,6 @@
 #!@BASH@
 
-if [ "@ANALYSIS_DISABLED@" = "yes" ];
+if [ "@ANALYSIS_DISABLED@" = "yes" -o -z "@NANOX_INCLUDES@" ];
 then
 
 cat <<EOF

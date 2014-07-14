@@ -1008,8 +1008,6 @@ static nodecl_t simplify_achar(scope_entry_t* entry UNUSED_PARAMETER, int num_ar
     return simplify_char(entry, num_arguments, arguments);
 }
 
-
-
 static void compute_factors_of_array_indexing(
         int N,
         int* shape, 
@@ -2392,12 +2390,12 @@ static nodecl_t simplify_trim(scope_entry_t* entry UNUSED_PARAMETER, int num_arg
     char is_null_ended = 0;
     const char* str = const_value_string_unpack_to_string(cval, &is_null_ended);
 
-    // Should not happen
-    if (str == NULL)
+    int length = strlen(str) + !!is_null_ended;
+    if (length == 0)
         return nodecl_null();
 
     char* new_str = xstrdup(str);
-    char* right = &(new_str[strlen(new_str) - 1]);
+    char* right = &(new_str[length - 1]);
 
     while (*right == ' ')
         right--;
@@ -2473,6 +2471,8 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     char is_null_ended = 0;
     const_value_string_unpack_to_int(str, &values, &num_elements, &is_null_ended);
 
+    num_elements += !!is_null_ended;
+
     if (num_elements == 0)
         return nodecl_null();
 
@@ -2482,7 +2482,6 @@ static nodecl_t simplify_iachar(scope_entry_t* entry UNUSED_PARAMETER, int num_a
     int kind = fortran_get_default_integer_type_kind();
     if (!nodecl_is_null(kind_arg))
         kind = const_value_cast_to_signed_int(nodecl_get_constant(kind_arg));
-
 
     return const_value_to_nodecl_with_basic_type(
             const_value_get_integer(val, /* bytes */ 1, /* sign */ 1),

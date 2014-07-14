@@ -960,7 +960,7 @@ static void build_scope_function_program_unit(AST program_unit,
     if (inside_interface(program_unit))
     {
         // By default there is no host association with the enclosing program unit
-        program_unit_context.current_scope->contained_in = NULL;
+        program_unit_context.current_scope->contained_in = program_unit_context.global_scope;
     }
 
     *program_unit_symbol = new_entry;
@@ -1068,7 +1068,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     if (inside_interface(program_unit))
     {
         // By default there is no host association with the enclosing program unit
-        program_unit_context.current_scope->contained_in = NULL;
+        program_unit_context.current_scope->contained_in = program_unit_context.global_scope;
     }
 
     *program_unit_symbol = new_entry;

@@ -367,6 +367,14 @@ namespace Codegen
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
                     TL::Scope* scope = NULL);
 
+            void declare_nondependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+            void declare_dependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+
+            void declare_nondependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
+            void declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
+
             void declare_friend_symbol(TL::Symbol friend_symbol,
                     TL::Symbol class_symbol);
 

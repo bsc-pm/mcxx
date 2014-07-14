@@ -374,6 +374,9 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> exception_specification
 %type<ast> dynamic_exception_specification
 %type<ast> noexcept_specification
+%type<ast> friend_specifier
+%type<ast> friend_type_specifier_alone
+%type<ast> nonfunction_friend_declaration
 %type<ast> exclusive_or_expression
 %type<ast> explicit_instantiation
 %type<ast> explicit_specialization
@@ -467,13 +470,17 @@ static AST duplicate_nested_name_specifier_list(AST);
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_but_SUSL
+%type<ast> nontype_specifier_but_friend
 %type<ast> nontype_specifier_for_named
 %type<ast> nontype_specifier_for_named_without_attribute
 %type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier_seq_but_friend
+%type<ast> nontype_specifier_seq_with_friend
 %type<ast> nontype_specifier_seq_but_SUSL
 %type<ast> nontype_specifier_seq_with_SUSL
 %type<ast> nontype_specifier_seq_for_named
 %type<ast> nontype_specifier_without_attribute
+%type<ast> nontype_specifier_without_attribute_but_friend
 %type<ast> type_specifier_SUSL
 %type<ast> operator
 %type<ast> operator_function_id
@@ -1284,15 +1291,15 @@ decl_specifier_seq_ended_with_named_type_spec : nontype_specifier_seq_for_named 
 ;
 
 // This does not declare an object, maybe just types, so restrict it a bit
-decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_seq
+decl_specifier_alone_seq : nontype_specifier_seq_but_friend type_specifier_alone nontype_specifier_seq_but_friend
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ast_get_locus($1), NULL);
 }
-| nontype_specifier_seq type_specifier_alone
+| nontype_specifier_seq_but_friend type_specifier_alone
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ast_get_locus($1), NULL);
 }
-| type_specifier_alone nontype_specifier_seq
+| type_specifier_alone nontype_specifier_seq_but_friend
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ast_get_locus($1), NULL);
 }
@@ -1302,11 +1309,67 @@ decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_sp
 }
 ;
 
+nonfunction_friend_declaration : nontype_specifier_seq_with_friend friend_type_specifier_alone nontype_specifier_seq_but_friend
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| nontype_specifier_seq_but_friend friend_type_specifier_alone nontype_specifier_seq_with_friend
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ast_get_locus($1), NULL);
+}
+| nontype_specifier_seq_with_friend friend_type_specifier_alone
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ast_get_locus($1), NULL);
+}
+| friend_type_specifier_alone nontype_specifier_seq_with_friend
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ast_get_locus($1), NULL);
+}
+;
+
+nontype_specifier_seq_with_friend : nontype_specifier_seq_but_friend friend_specifier nontype_specifier_seq_but_friend
+{
+    $$ = ast_list_concat(ASTList($1, $2), $3);
+}
+| nontype_specifier_seq_but_friend friend_specifier
+{
+    $$ = ASTList($1, $2);
+}
+| friend_specifier nontype_specifier_seq_but_friend
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
+}
+| friend_specifier
+{
+    $$ = ASTListLeaf($1);
+}
+;
+
+friend_type_specifier_alone : type_specifier_ended_with_identifier
+{
+    $$ = $1;
+}
+| type_specifier_not_ended_with_identifier
+{
+    $$ = $1;
+}
+;
+
 nontype_specifier_seq : nontype_specifier
 {
 	$$ = ASTListLeaf($1);
 }
 | nontype_specifier_seq nontype_specifier
+{
+	$$ = ASTList($1, $2);
+}
+;
+
+nontype_specifier_seq_but_friend : nontype_specifier_but_friend
+{
+	$$ = ASTListLeaf($1);
+}
+| nontype_specifier_seq_but_friend nontype_specifier_but_friend
 {
 	$$ = ASTList($1, $2);
 }
@@ -1343,6 +1406,22 @@ nontype_specifier : nontype_specifier_without_attribute
 }
 ;
 
+nontype_specifier_but_friend : nontype_specifier_without_attribute_but_friend
+{
+    $$ = $1;
+}
+| gcc_attribute
+{
+    $$ = $1;
+}
+;
+
+friend_specifier : FRIEND
+{
+	$$ = ASTLeaf(AST_FRIEND_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+;
+
 nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
@@ -1351,9 +1430,9 @@ nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
 }
-| FRIEND
+| friend_specifier
 {
-	$$ = ASTLeaf(AST_FRIEND_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+	$$ = $1;
 }
 | TYPEDEF
 {
@@ -1413,17 +1492,23 @@ nontype_specifier_for_named : nontype_specifier_for_named_without_attribute
 }
 ;
 
-nontype_specifier_without_attribute : storage_class_specifier
+nontype_specifier_without_attribute : nontype_specifier_without_attribute_but_friend
+{
+    $$ = $1;
+}
+| friend_specifier
+{
+    $$ = $1;
+}
+;
+
+nontype_specifier_without_attribute_but_friend : storage_class_specifier
 {
 	$$ = $1;
 }
 | function_specifier
 {
 	$$ = $1;
-}
-| FRIEND
-{
-	$$ = ASTLeaf(AST_FRIEND_SPEC, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | TYPEDEF
 {
@@ -3277,6 +3362,10 @@ member_declaration : decl_specifier_seq_0 member_declarator_list ';' %merge<ambi
 | decl_specifier_alone_seq ';' %merge<ambiguityHandler>  
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ast_get_locus($1), NULL);
+}
+| nonfunction_friend_declaration ';'
+{
+    $$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ast_get_locus($1), NULL);
 }
 | member_declarator_list ';' %merge<ambiguityHandler>
 {
