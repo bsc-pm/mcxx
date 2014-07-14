@@ -325,6 +325,11 @@ namespace Analysis {
         return (get_type() == __Break);
     }
 
+    bool Node::is_conditional_expression()
+    {
+        return ((get_type() == __Graph) && (get_graph_type() == __CondExpr));
+    }
+    
     bool Node::is_continue_node()
     {
         return (get_type() == __Continue);
@@ -396,11 +401,6 @@ namespace Analysis {
     bool Node::is_do_loop()
     {
         return ((get_type() == __Graph) && (get_graph_type() == __LoopDoWhile));
-    }
-
-    bool Node::is_loop_stride(Node* loop)
-    {
-        return (loop->get_stride_node() == this);
     }
 
     bool Node::is_normal_node()
@@ -1393,8 +1393,8 @@ namespace Analysis {
             if(VERBOSE)
             {
                 WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                             _id, get_type_as_string().c_str());
-        }
+                                _id, get_type_as_string().c_str());
+            }
         }
         return ivs;
     }
@@ -1450,74 +1450,6 @@ namespace Analysis {
             internal_error("Unexpected node type '%s' while setting condition node to loop graph node '%d'. GRAPH NODE expected.",
                             get_type_as_string().c_str(), _id);
         }
-    }
-    
-    // FIXME Other loop nodes can have a stride
-    Node* Node::get_stride_node()
-    {
-        if(is_graph_node())
-        {
-            if(is_for_loop())
-            {
-                return get_data<Node*>(_STRIDE_NODE);
-            }
-            else
-            {
-                internal_error("Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected",
-                                get_graph_type_as_string().c_str(), _id);
-            }
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string().c_str(), _id);
-        }
-    }
-    
-    // FIXME Other loop nodes can have a stride
-    void Node::set_stride_node(Node* stride)
-    {
-        if(is_graph_node())
-        {
-            if(is_for_loop())
-            {
-                set_data(_STRIDE_NODE, stride);
-            }
-            else
-            {
-                internal_error("Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected",
-                                get_graph_type_as_string().c_str(), _id);
-            }
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string().c_str(), _id);
-        }
-    }
-
-    // FIXME Other loop nodes can have a stride
-    bool Node::is_stride_node()
-    {
-        bool res = false;
-        Node* outer_node = get_outer_node();
-        while(outer_node != NULL && outer_node->get_graph_type() != __LoopFor)
-        {
-            outer_node = outer_node->get_outer_node();
-        }
-
-        if(outer_node != NULL)
-        {
-            Node* stride = outer_node->get_stride_node();
-            res = (stride->_id == _id);
-        }
-        return res;
-    }
-
-    bool Node::is_stride_node(Node* loop)
-    {
-        Node* stride = loop->get_stride_node();
-        return (stride->_id == _id);
     }
 
     // ***************** END getters and setters for loops analysis ***************** //
@@ -1976,6 +1908,31 @@ namespace Analysis {
                     ERROR_CONDITION(!reduc.is_valid(), "Invalid symbol stored for Reduction argument '%s'", 
                                      itr->prettyprint().c_str());
                     result.insert(reduc);
+                }
+                break;
+            }
+        }
+        return result;
+    }
+    
+    ObjectList<Symbol> Node::get_linear_expressions()
+    {
+        ObjectList<Symbol> result;
+        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
+        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        {
+            if(it->get_clause() == __linear)
+            {
+                Nodecl::List linear_exprs = it->get_args();
+                for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                {
+                    if(!itl->is<Nodecl::IntegerLiteral>())
+                    {   // This is not the step of the linear clause
+                        Symbol lin(itl->get_symbol());
+                        ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
+                                        itl->prettyprint().c_str());
+                        result.insert(lin);
+                    }
                 }
                 break;
             }

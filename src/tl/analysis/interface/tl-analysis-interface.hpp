@@ -97,6 +97,10 @@ namespace Analysis {
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
 
+            virtual bool is_linear(
+                    const Nodecl::NodeclBase& scope, 
+                    const Nodecl::NodeclBase& n);
+            
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
 
             virtual bool is_induction_variable(

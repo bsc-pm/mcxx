@@ -1278,19 +1278,24 @@ namespace Analysis {
         // Fill the empty fields of the Increment node
         if( next != NULL )
         {
-            next->set_outer_node( for_graph_node );
-            _pcfg->connect_nodes(_utils->_last_nodes, next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
+            Node* first_next = next;
+            Node* last_next = next;
+            last_next->set_outer_node(for_graph_node);
+            while(!last_next->get_exit_edges().empty())
+            {
+                last_next = last_next->get_children()[0];
+                last_next->set_outer_node(for_graph_node);
+            }
+            _pcfg->connect_nodes(_utils->_last_nodes, first_next, ObjectList<Edge_type>(_utils->_last_nodes.size(), aux_etype));
             if( cond != NULL )
             {   // Normal case: there is a condition in the loop. So after the increment we check the condition    
-                _pcfg->connect_nodes(next, cond, __Always, NBase::null(), 
+                _pcfg->connect_nodes(last_next, cond, __Always, NBase::null(), 
                                       /*is_task_edge*/false, /*is_back_edge*/true );
             }
             else
             {   // When there is no condition, the is no iteration
-                _pcfg->connect_nodes( next, exit_node );
+                _pcfg->connect_nodes(last_next, exit_node);
             }
-
-            for_graph_node->set_stride_node( next );
         }
         else
         {
@@ -1610,6 +1615,16 @@ namespace Analysis {
         }
         else
         {
+            if(next_node_l.size() > 1)
+            {   // This happens because there is a comma operator -> connect all nodes
+                ObjectList<Node*>::iterator it = next_node_l.begin();
+                ObjectList<Node*>::iterator itt = it; ++itt;
+                for(; itt != next_node_l.end(); ++it, ++itt)
+                {
+                    _pcfg->connect_nodes(*it, *itt);
+                }
+            }
+            // We use the first created node in the 'next' field but ForStatement must know the different possibilities
             current_loop_ctrl->_next = next_node_l[0];
         }
 
@@ -2244,6 +2259,15 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Linear& n )
+    {
+        Nodecl::List args = Nodecl::List::make(n.get_linear_expressions().shallow_copy(), 
+                                               n.get_step().shallow_copy());
+        PCFGClause current_clause(__linear, args);
+        _utils->_pragma_nodes.top()._clauses.append(current_clause);
+        return ObjectList<Node*>();
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
     {
         PCFGClause current_clause( __mask );
@@ -2513,7 +2537,32 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
-        return walk( n.get_statement( ) );
+        // Create the new graph node containing the parallel
+        Node* simd_function_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpSimdFunction );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_function_node );
+        
+        Node* simd_function_entry = simd_function_node->get_graph_entry_node( );
+        Node* simd_function_exit = simd_function_node->get_graph_exit_node( );
+        
+        // Traverse the associated function code
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_entry );
+        walk( n.get_statement( ) );
+        
+        simd_function_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_function_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_function_entry, simd_function_exit ) );
+        walk( n.get_environment( ) );
+        simd_function_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_node );
+        return ObjectList<Node*>( 1, simd_function_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdParallel& n )

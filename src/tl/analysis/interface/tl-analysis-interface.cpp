@@ -186,6 +186,18 @@ namespace Analysis {
                 pcfg, visited_nodes);
     }
 
+    bool AnalysisInterface::is_linear(
+            const Nodecl::NodeclBase& scope, 
+            const Nodecl::NodeclBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+        
+        return is_linear_internal(scope_node, n);
+    }
+    
     bool AnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {

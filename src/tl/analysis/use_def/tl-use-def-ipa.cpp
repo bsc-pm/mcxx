@@ -822,7 +822,7 @@ namespace Analysis {
             if(_ipa_modif_vars->find(n_base) != _ipa_modif_vars->end())
             {
                 // Case 1: The object being used is the value pointed by an IPA variable
-                if(n.no_conv().is<Nodecl::Dereference>())
+                if(n.is<Nodecl::Dereference>())
                 {
                     if(_define)
                         set_ipa_variable_as_defined(n);
@@ -832,52 +832,70 @@ namespace Analysis {
                 // Case 2: A sub-object is being used: split the usage or set to UNDEFINED the whole object
                 else
                 {
-                    NBase non_used_vars = split_var_depending_on_usage(n_base, n);
-                    if(non_used_vars.is_null())
-                    {   // The separation has not been possible => set to UNDEF the whole object
-                        // If the object is a pointer, then set to UNDEF the object and values pointed by the object
-                        // Otherwise, set to undef the object itself
-                        Type t = n_base.get_symbol().get_type();
-                        if(!t.is_const())
-                        {   // The object can be modified
-                            (*_ipa_modif_vars)[n_base] = Utils::UsageKind::UNDEFINED;
-                        }
-                        if(t.is_pointer())
+                    for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
+                    {
+                        if(Nodecl::Utils::nodecl_contains_nodecl(it->first, n))
                         {
-                            if(!t.points_to().is_const())
-                            {
-                                if(n.no_conv().is<Nodecl::Reference>())
-                                {   // No need to dereference a reference!
-                                    (*_ipa_modif_vars)[n.as<Nodecl::Reference>().get_rhs()] = Utils::UsageKind::UNDEFINED;
-                                }
-                                else
-                                {
-                                    NBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
-                                                                                                 t.get_pointer_to());
-                                    (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
-                                }
-                            }
-                        }
-                        else if(t.is_array())
-                        {
-                            if(!t.array_element().is_const())
-                            {
-                                NBase lb, ub/*, reg_lb, reg_ub*/;
-                                t.array_get_bounds(lb, ub);
-                                // t.array_get_region_bounds(reg_lb, reg_ub);
-                                NBase one = NBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
-                                Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
-                                NBase pointed_value = 
-                                Nodecl::ArraySubscript::make(n_base.shallow_copy(), range, t.get_pointer_to());
-                                (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
-                            }
+                            // If any other combination, there is nothing to add to the usage information
+                            if(_define && ((*_ipa_modif_vars)[n_base]._usage_type & Utils::UsageKind::USED))
+                                set_ipa_variable_as_defined(n);
+                            goto exit;  // If we have already found a containing nodecl in the set, there cannot be any other
                         }
                     }
+                    
+                    // This object has not been defined yet
+                    if(_define)
+                        set_ipa_variable_as_defined(n);
                     else
-                    {   // The separation has been possible: leave one part as it was and the other as DEFINED
-                        (*_ipa_modif_vars)[non_used_vars] = Utils::UsageKind::UNDEFINED;
-                        (*_ipa_modif_vars)[n] = Utils::UsageKind::DEFINED;
-                    }
+                        set_ipa_variable_as_upwards_exposed(n);
+
+//                     NBase non_used_vars = split_var_depending_on_usage(n_base, n);
+//                     if(non_used_vars.is_null())
+//                     {   // The separation has not been possible => set to UNDEF the whole object
+//                         // If the object is a pointer, then set to UNDEF the object and values pointed by the object
+//                         // Otherwise, set to undef the object itself
+//                         Type t = n_base.get_symbol().get_type();
+//                         if(!t.is_const())
+//                         {   // The object can be modified
+//                             (*_ipa_modif_vars)[n_base] = Utils::UsageKind::UNDEFINED;
+//                         }
+//                         if(t.is_pointer())
+//                         {
+//                             if(!t.points_to().is_const())
+//                             {
+//                                 if(n.no_conv().is<Nodecl::Reference>())
+//                                 {   // No need to dereference a reference!
+//                                     (*_ipa_modif_vars)[n.as<Nodecl::Reference>().get_rhs()] = Utils::UsageKind::UNDEFINED;
+//                                 }
+//                                 else
+//                                 {
+//                                     NBase pointed_value = Nodecl::Dereference::make(n_base.shallow_copy(), 
+//                                                                                                 t.get_pointer_to());
+//                                     (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
+//                                 }
+//                             }
+//                         }
+//                         else if(t.is_array())
+//                         {
+//                             if(!t.array_element().is_const())
+//                             {
+//                                 NBase lb, ub/*, reg_lb, reg_ub*/;
+//                                 t.array_get_bounds(lb, ub);
+//                                 // t.array_get_region_bounds(reg_lb, reg_ub);
+//                                 NBase one = NBase(const_value_to_nodecl(const_value_get_one(/*bytes*/ 4, /*signed*/ 1)));
+//                                 Nodecl::Range range = Nodecl::Range::make(lb.shallow_copy(), ub.shallow_copy(), one, t.array_element());
+//                                 NBase pointed_value = 
+//                                 Nodecl::ArraySubscript::make(n_base.shallow_copy(), Nodecl::List::make(range), t.get_pointer_to());
+//                                 (*_ipa_modif_vars)[pointed_value] = Utils::UsageKind::UNDEFINED;
+//                             }
+//                         }
+//                     }
+//                     else
+//                     {   // The separation has been possible: leave one part as it was and the other as DEFINED
+//                         (*_ipa_modif_vars)[non_used_vars] = Utils::UsageKind::UNDEFINED;
+//                         (*_ipa_modif_vars)[n] = Utils::UsageKind::DEFINED;
+//                     }
+    exit:           ;
                 }
             }
         }

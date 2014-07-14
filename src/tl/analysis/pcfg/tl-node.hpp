@@ -231,6 +231,9 @@ namespace Analysis {
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
 
+            //! Returns true when the node contains a CONDITIONAL EXPRESSION
+            bool is_conditional_expression();
+            
             //! Returns true when the node is a CONTINUE node
             bool is_continue_node( );
             
@@ -272,9 +275,6 @@ namespace Analysis {
 
             //! Returns true when the node is a composite node of FOR_DOWHILE type
             bool is_do_loop( );
-
-            //! Returns true when the node contains the stride of a FOR_LOOP node
-            bool is_loop_stride( Node* loop );
 
             //! Returns true when the node is a NORMAL node
             bool is_normal_node( );
@@ -670,11 +670,8 @@ namespace Analysis {
             Node* get_condition_node( );
             void set_condition_node( Node* cond );
             
-            Node* get_stride_node( );
-            void set_stride_node( Node* stride );
-
-            bool is_stride_node( );
-            bool is_stride_node( Node* loop );
+            // Note: we do not have "stride_node" because there may be more than one and 
+            // sometimes we do not know how to compute it
 
             // ***************** END getters and setters for loops analysis ***************** //
             // ****************************************************************************** //
@@ -836,6 +833,8 @@ namespace Analysis {
             // **************** Getters and setters for vectorization analysis ************** //
             
             ObjectList<Symbol> get_reductions( );
+            
+            ObjectList<Symbol> get_linear_expressions();
             
             // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //

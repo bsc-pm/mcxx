@@ -320,6 +320,29 @@ namespace Vectorization
         return result;
     }
 
+    bool VectorizationAnalysisInterface::is_linear(
+        const Nodecl::NodeclBase& scope,
+        const Nodecl::NodeclBase& n)
+    {
+        bool result;
+        Nodecl::NodeclBase translated_n = translate_input(n);
+        map_node_bool_t::iterator it = linear_nodes.find(translated_n);
+        
+        if (it == linear_nodes.end())
+        {
+            result = Analysis::AnalysisInterface::is_linear(
+                translate_input(scope), translated_n);
+            
+            linear_nodes.insert(pair_node_bool_t(translated_n, result));
+        }
+        else
+        {
+            result = it->second;
+        }
+        
+        return result;
+    }
+    
     bool VectorizationAnalysisInterface::has_been_defined(
             const Nodecl::NodeclBase& n) 
     {

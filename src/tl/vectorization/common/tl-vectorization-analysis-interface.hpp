@@ -62,6 +62,7 @@ namespace Vectorization
             typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
             typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
             map_node_bool_t uniform_nodes;
+            map_node_bool_t linear_nodes;
             map_node_bool_t iv_nodes;
             map_node_bool_t non_red_iv_nodes;
             map_node_bool_t adjacent_nodes;
@@ -101,6 +102,10 @@ namespace Vectorization
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
 
+            virtual bool is_linear(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& n);
+            
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
