@@ -17510,7 +17510,8 @@ void check_nodecl_initialization(
 {
     if (is_auto
             && initialized_entry != NULL
-            && !nodecl_expr_is_type_dependent(nodecl_initializer))
+            && !nodecl_expr_is_type_dependent(nodecl_initializer)
+            && !nodecl_is_err_expr(nodecl_initializer))
     {
         if (!nodecl_is_null(nodecl_initializer))
         {
