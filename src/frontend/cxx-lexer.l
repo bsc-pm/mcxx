@@ -196,6 +196,28 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
 
  /*!if CPLUSPLUS*/
 static int std_attribute_parenthesis_nesting = 0;
+
+static int raw_string_buffer_capacity = 0;
+static int raw_string_buffer_position = 0;
+static char* raw_string_buffer = NULL;
+static const char* raw_string_delimiter = NULL;
+static int raw_string_delimiter_length = NULL;
+static int raw_string_delimiter_index = 0;
+
+#define RAW_STRING_APPEND_CHAR(_x) \
+{ \
+    if (raw_string_buffer_position == raw_string_buffer_capacity) \
+    { \
+        if (raw_string_buffer_capacity == 0) \
+          raw_string_buffer_capacity = 4; \
+        else \
+          raw_string_buffer_capacity *= 2; \
+        raw_string_buffer = xrealloc(raw_string_buffer, sizeof(char)*raw_string_buffer_capacity); \
+    } \
+    raw_string_buffer[raw_string_buffer_position] = (_x); \
+    raw_string_buffer_position++; \
+}
+
  /*!endif*/
 
 %}
@@ -292,6 +314,9 @@ floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{compl
  /* A.2.40 */
 schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
+dchar [^ ()\n\v\t\r]
+rchar [^)]
+
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
 binprefix   0[bB]
@@ -322,6 +347,9 @@ identifier {idnondigit}({idnondigit}|{digit})*
 
 %x std_attribute
 %x std_attribute_clause
+
+%x raw_string_body
+%x raw_string_potential_suffix
 
 %%
  /* preprocess */
@@ -1422,6 +1450,114 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
  /*!endif*/
  /*!if CPLUSPLUS*/
 ((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+((u8)|[uUL])?R["]{dchar}*[(]      {
+    raw_string_buffer_capacity = 0;
+    raw_string_buffer_position = 0;
+    raw_string_buffer = NULL;
+
+    int i;
+    for (i = 0; yytext[i] != '"'; i++)
+    {
+        RAW_STRING_APPEND_CHAR(yytext[i]);
+    }
+    // Initial quote
+    ERROR_CONDITION(yytext[i] != '"', "Invalid token", 0);
+    RAW_STRING_APPEND_CHAR('"'); i++;
+
+    int length = strlen(yytext);
+    char c[length + 1];
+    int j;
+    for (j = 0; yytext[i] != '('; i++, j++)
+    {
+       c[j] = yytext[i];
+    }
+    // Make the delimiter be DELIM" because this eases matching it later
+    c[j] = '"'; j++;
+    c[j] = '\0';
+    raw_string_delimiter = uniquestr(c);
+    raw_string_delimiter_length = strlen(raw_string_delimiter);
+
+    BEGIN(raw_string_body);
+}
+
+<raw_string_body>{
+
+{rchar} {
+   // Note, this does not include the right parenthesis
+   RAW_STRING_APPEND_CHAR(yytext[0]);
+ }
+
+ ")" {
+    BEGIN(raw_string_potential_suffix);
+    raw_string_delimiter_index = 0;
+}
+
+}
+
+<raw_string_potential_suffix>{
+
+{dchar} {
+         if (yytext[0] == raw_string_delimiter[raw_string_delimiter_index])
+         {
+             raw_string_delimiter_index++;
+
+             if (raw_string_delimiter_index == raw_string_delimiter_length)
+             {
+                 // We have matched a full delimiter (including the final quote)
+                 // Add the final quote
+                 RAW_STRING_APPEND_CHAR('"');
+                 RAW_STRING_APPEND_CHAR('\0');
+                 parse_token_text_str(raw_string_buffer);
+
+                 xfree(raw_string_buffer);
+                 raw_string_buffer = NULL;
+
+                 BEGIN(0);
+
+                 return STRING_LITERAL;
+             }
+         }
+         else
+         {
+             // This is not a delimiter, add all the characters seen so far
+             RAW_STRING_APPEND_CHAR(')');
+             int i;
+             for (i = 0; i < raw_string_delimiter_index; i++)
+             {
+                 RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+             }
+             // And the mismatch one
+             RAW_STRING_APPEND_CHAR(yytext[0]);
+             BEGIN(raw_string_body);
+         }
+}
+
+(.)|([\n\r\v\t]) {
+    // This is not a delimiter, add all the characters seen so far
+    RAW_STRING_APPEND_CHAR(')');
+    int i;
+    for (i = 0; i < raw_string_delimiter_index; i++)
+    {
+        RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+    }
+
+    if (yytext[0] != ')')
+    {
+        // And the mismatch one
+        RAW_STRING_APPEND_CHAR(yytext[0]);
+        BEGIN(raw_string_body);
+    }
+    else
+    {
+        raw_string_delimiter_index = 0;
+        // Start again, this is potentially another suffix
+    }
+}
+
+}
+
  /*!endif*/
 
  /*!if CPLUSPLUS*/

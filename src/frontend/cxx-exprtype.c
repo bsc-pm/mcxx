@@ -1839,6 +1839,23 @@ static void compute_length_of_literal_string(AST expr,
             }
         }
 
+        char is_raw_string;
+        if ((*literal) == 'R')
+        {
+            // This is a raw_string, do not interpret escape sequences
+            CXX03_LANGUAGE()
+            {
+                warn_printf("%s: warning: raw-string-literals are a C++11 feature\n", 
+                        ast_location(expr));
+            }
+            is_raw_string = 1;
+            literal++;
+        }
+        else
+        {
+            is_raw_string = 0;
+        }
+
         ERROR_CONDITION(*literal != '"',
                 "Lexical problem in the literal '%s'\n", ASTText(expr));
 
@@ -1848,177 +1865,173 @@ static void compute_length_of_literal_string(AST expr,
         // Advance till we find a '"'
         while (*literal != '"')
         {
-            switch (*literal)
+            if (!is_raw_string
+                    && *literal == '\\')
             {
-                case '\\' :
-                    {
-                        // This is used for diagnostics
-                        const char *beginning_of_escape = literal;
+                // This is used for diagnostics
+                const char *beginning_of_escape = literal;
 
-                        // A scape sequence
-                        literal++;
-                        switch (*literal)
-                        {
-                            case '\'' : { ADD_CODEPOINT('\''); break; }
-                            case '"' : { ADD_CODEPOINT('"'); break; }
-                            case '?' : { ADD_CODEPOINT('\?'); break; }
-                            case '\\' : { ADD_CODEPOINT('\\'); break; }
-                            case 'a' : { ADD_CODEPOINT('\a'); break; }
-                            case 'b' : { ADD_CODEPOINT('\b'); break; }
-                            case 'f' : { ADD_CODEPOINT('\f'); break; }
-                            case 'n' : { ADD_CODEPOINT('\n'); break; }
-                            case 'r' : { ADD_CODEPOINT('\r'); break; }
-                            case 't' : { ADD_CODEPOINT('\t'); break; }
-                            case 'v' : { ADD_CODEPOINT('\v'); break; }
-                            case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
-                            case '0' :
-                            case '1' :
-                            case '2' :
-                            case '3' :
-                            case '4' :
-                            case '5' :
-                            case '6' :
-                            case '7' :
-                                // This is an octal
-                                // Advance up to three octals
-                                {
-                                    // Advance this octal, so the remaining figures are 2
-                                    unsigned int current_value = (*literal) - '0';
+                // A scape sequence
+                literal++;
+                switch (*literal)
+                {
+                    case '\'' : { ADD_CODEPOINT('\''); break; }
+                    case '"' : { ADD_CODEPOINT('"'); break; }
+                    case '?' : { ADD_CODEPOINT('\?'); break; }
+                    case '\\' : { ADD_CODEPOINT('\\'); break; }
+                    case 'a' : { ADD_CODEPOINT('\a'); break; }
+                    case 'b' : { ADD_CODEPOINT('\b'); break; }
+                    case 'f' : { ADD_CODEPOINT('\f'); break; }
+                    case 'n' : { ADD_CODEPOINT('\n'); break; }
+                    case 'r' : { ADD_CODEPOINT('\r'); break; }
+                    case 't' : { ADD_CODEPOINT('\t'); break; }
+                    case 'v' : { ADD_CODEPOINT('\v'); break; }
+                    case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
+                    case '0' :
+                    case '1' :
+                    case '2' :
+                    case '3' :
+                    case '4' :
+                    case '5' :
+                    case '6' :
+                    case '7' :
+                               // This is an octal
+                               // Advance up to three octals
+                               {
+                                   // Advance this octal, so the remaining figures are 2
+                                   unsigned int current_value = (*literal) - '0';
 
-                                    literal++;
-                                    int remaining_figures = 2;
+                                   literal++;
+                                   int remaining_figures = 2;
 
-                                    while (IS_OCTA_CHAR(*literal)
-                                            && (remaining_figures > 0))
-                                    {
-                                        current_value *= 8;
-                                        current_value += ((*literal) - '0');
-                                        remaining_figures--;
-                                        literal++;
-                                    }
-                                    // Go backwards because we have already
-                                    // advanced the last element of this
-                                    // escaped entity
-                                    literal--;
+                                   while (IS_OCTA_CHAR(*literal)
+                                           && (remaining_figures > 0))
+                                   {
+                                       current_value *= 8;
+                                       current_value += ((*literal) - '0');
+                                       remaining_figures--;
+                                       literal++;
+                                   }
+                                   // Go backwards because we have already
+                                   // advanced the last element of this
+                                   // escaped entity
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            case 'x' :
-                                // This is an hexadecimal
-                                {
-                                    // Jump 'x' itself
-                                    literal++;
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    case 'x' :
+                               // This is an hexadecimal
+                               {
+                                   // Jump 'x' itself
+                                   literal++;
 
-                                    unsigned int current_value = 0;
+                                   unsigned int current_value = 0;
 
-                                    while (IS_HEXA_CHAR(*literal))
-                                    {
-                                        current_value *= 16;
-                                        char current_literal = tolower(*literal);
-                                        if (('0' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= '9'))
-                                        {
-                                            current_value += current_literal - '0';
-                                        }
-                                        else if (('a' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 'f'))
-                                        {
-                                            current_value += 10 + (tolower(current_literal) - 'a');
-                                        }
-                                        else
-                                        {
-                                            internal_error("Code unreachable", 0);
-                                        }
-                                        literal++;
-                                    }
+                                   while (IS_HEXA_CHAR(*literal))
+                                   {
+                                       current_value *= 16;
+                                       char current_literal = tolower(*literal);
+                                       if (('0' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= '9'))
+                                       {
+                                           current_value += current_literal - '0';
+                                       }
+                                       else if (('a' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= 'f'))
+                                       {
+                                           current_value += 10 + (tolower(current_literal) - 'a');
+                                       }
+                                       else
+                                       {
+                                           internal_error("Code unreachable", 0);
+                                       }
+                                       literal++;
+                                   }
 
-                                    // Go backwards because we have already
-                                    // advanced the last element of this
-                                    // escaped entity
-                                    literal--;
+                                   // Go backwards because we have already
+                                   // advanced the last element of this
+                                   // escaped entity
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            case 'u' :
-                            case 'U' :
-                                {
-                                    // Universal names are followed by 4 hexa digits
-                                    // or 8 depending on 'u' or 'U' respectively
-                                    char remaining_hexa_digits = 8;
-                                    if (*literal == 'u')
-                                    {
-                                        remaining_hexa_digits = 4;
-                                    }
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    case 'u' :
+                    case 'U' :
+                               {
+                                   // Universal names are followed by 4 hexa digits
+                                   // or 8 depending on 'u' or 'U' respectively
+                                   char remaining_hexa_digits = 8;
+                                   if (*literal == 'u')
+                                   {
+                                       remaining_hexa_digits = 4;
+                                   }
 
-                                    // Advance 'u'/'U'
-                                    literal++;
+                                   // Advance 'u'/'U'
+                                   literal++;
 
-                                    unsigned int current_value = 0;
+                                   unsigned int current_value = 0;
 
-                                    while (remaining_hexa_digits > 0)
-                                    {
-                                        if (!IS_HEXA_CHAR(*literal))
-                                        {
-                                            char ill_literal[11];
-                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                            error_printf("%s: error: invalid universal literal name '%s'\n", 
-                                                    ast_location(expr),
-                                                    ill_literal);
-                                            *num_codepoints = -1;
-                                            xfree(*codepoints);
-                                            return;
-                                        }
+                                   while (remaining_hexa_digits > 0)
+                                   {
+                                       if (!IS_HEXA_CHAR(*literal))
+                                       {
+                                           char ill_literal[11];
+                                           strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                           error_printf("%s: error: invalid universal literal name '%s'\n", 
+                                                   ast_location(expr),
+                                                   ill_literal);
+                                           *num_codepoints = -1;
+                                           xfree(*codepoints);
+                                           return;
+                                       }
 
-                                        current_value *= 16;
-                                        char current_literal = tolower(*literal);
-                                        if (('0' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= '9'))
-                                        {
-                                            current_value += current_literal - '0';
-                                        }
-                                        else if (('a' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 'f'))
-                                        {
-                                            current_value += 10 + (tolower(current_literal) - 'a');
-                                        }
-                                        else
-                                        {
-                                            internal_error("Code unreachable", 0);
-                                        }
+                                       current_value *= 16;
+                                       char current_literal = tolower(*literal);
+                                       if (('0' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= '9'))
+                                       {
+                                           current_value += current_literal - '0';
+                                       }
+                                       else if (('a' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= 'f'))
+                                       {
+                                           current_value += 10 + (tolower(current_literal) - 'a');
+                                       }
+                                       else
+                                       {
+                                           internal_error("Code unreachable", 0);
+                                       }
 
-                                        literal++;
-                                        remaining_hexa_digits--;
-                                    }
+                                       literal++;
+                                       remaining_hexa_digits--;
+                                   }
 
-                                    // Go backwards one
-                                    literal--;
+                                   // Go backwards one
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            default:
-                                {
-                                    char c[3];
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    default:
+                               {
+                                   char c[3];
 
-                                    strncpy(c, beginning_of_escape, 3);
-                                    error_printf("%s: error: invalid escape sequence '%s'\n",
-                                            ast_location(expr),
-                                            c);
-                                    *num_codepoints = -1;
-                                    xfree(*codepoints);
-                                    return;
-                                }
-                        }
-                        break;
-                    }
-                default:
-                    {
-                        // A plain codepoint
-                        ADD_CODEPOINT(*literal);
-                        break;
-                    }
+                                   strncpy(c, beginning_of_escape, 3);
+                                   error_printf("%s: error: invalid escape sequence '%s'\n",
+                                           ast_location(expr),
+                                           c);
+                                   *num_codepoints = -1;
+                                   xfree(*codepoints);
+                                   return;
+                               }
+                }
+            }
+            else
+            {
+                // A plain codepoint
+                ADD_CODEPOINT(*literal);
             }
 
             // Make 'literal' always point to the last thing that represents one codepoint
@@ -2047,7 +2060,10 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
     type_t* base_type = NULL;
 
-    compute_length_of_literal_string(expr, &num_codepoints, &codepoints, &base_type);
+    compute_length_of_literal_string(expr,
+            &num_codepoints,
+            &codepoints,
+            &base_type);
     if (num_codepoints < 0)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
