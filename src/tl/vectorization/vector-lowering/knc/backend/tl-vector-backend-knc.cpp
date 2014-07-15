@@ -1377,10 +1377,10 @@ namespace Vectorization
             << ")"
             ;
 
-        walk(lhs);
-
         bool lhs_has_been_defined = VectorizationAnalysisInterface::
             _vectorizer_analysis->has_been_defined(lhs);
+
+        walk(lhs);
 
         if (lhs_has_been_defined)
         {
@@ -1944,12 +1944,12 @@ namespace Vectorization
         if (type.is_float())
         {
             intrin_type_suffix << "ps";
-            extra_args << "_MM_DOWNCONV_PS_NONE";
+            extra_args << "_MM_UPCONV_PS_NONE";
         }
         else if (type.is_signed_int() || type.is_unsigned_int())
         {
             intrin_type_suffix << "epi32";
-            extra_args << "_MM_DOWNCONV_EPI32_NONE";
+            extra_args << "_MM_UPCONV_EPI32_NONE";
         }
         else
         {

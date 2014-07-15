@@ -474,20 +474,8 @@ namespace Vectorization
         TL::Symbol sym = n.get_symbol();
 
         TL::Type scalar_type = sym.get_type();
-        TL::Type vector_type;
 
-        // Boolean type is treated as mask type
-        if (scalar_type.is_bool())
-        {
-            vector_type = TL::Type::get_mask_type(_environment._vectorization_factor);
-        }
-        else
-        {
-            vector_type = Utils::get_qualified_vector_to(scalar_type,
-                    _environment._vectorization_factor);
-        }
-
-        if (scalar_type.is_vector())
+        if (scalar_type.is_vector() || scalar_type.is_mask())
         {
             Nodecl::NodeclBase init = sym.get_value();
 
@@ -647,7 +635,18 @@ namespace Vectorization
 
     void VectorizerVisitorStatement::visit(const Nodecl::BreakStatement& n)
     {
-        running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        if (VectorizationAnalysisInterface::_vectorizer_analysis->is_uniform(
+                    _environment._analysis_simd_scope, n, n))
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr,"VECTORIZER: break statement is uniform\n");
+            }
+        }
+        else
+        {
+            running_error("Vectorizer: The code is not vectorizable. Break statement detected.");
+        }
     }
 
     /*

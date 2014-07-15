@@ -948,12 +948,22 @@ namespace Vectorization
                 // Remove rvalue conversions. In a vector code they are
                 // explicit loads ops.
                 //                    if (src_type != dst_type)
+
+                TL::Type dst_vec_type;
+
+                if (dst_type.is_bool())
+                    dst_vec_type = TL::Type::get_mask_type(
+                            _environment._vectorization_factor);
+                else
+                    dst_vec_type = Utils::get_qualified_vector_to(dst_type,
+                            _environment._vectorization_factor);
+
+
                 Nodecl::VectorConversion vector_conv =
                     Nodecl::VectorConversion::make(
                             n.get_nest().shallow_copy(),
                             mask,
-                            Utils::get_qualified_vector_to(dst_type,
-                                _environment._vectorization_factor),
+                            dst_vec_type,
                             n.get_locus());
 
                 vector_conv.set_constant(const_value_convert_to_type(
@@ -1432,7 +1442,7 @@ namespace Vectorization
                 n.replace(new_red_symbol);
             }
             // Nodecl::Symbol with scalar type whose TL::Symbol has vector_type
-            else if(tl_sym_type.is_vector())
+            else if(tl_sym_type.is_vector() || tl_sym_type.is_mask())
             {
                 symbol_type_promotion(n);
             }

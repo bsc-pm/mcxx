@@ -2259,6 +2259,15 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Linear& n )
+    {
+        Nodecl::List args = Nodecl::List::make(n.get_linear_expressions().shallow_copy(), 
+                                               n.get_step().shallow_copy());
+        PCFGClause current_clause(__linear, args);
+        _utils->_pragma_nodes.top()._clauses.append(current_clause);
+        return ObjectList<Node*>();
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
     {
         PCFGClause current_clause( __mask );
@@ -2528,7 +2537,32 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdFunction& n )
     {
-        return walk( n.get_statement( ) );
+        // Create the new graph node containing the parallel
+        Node* simd_function_node = _pcfg->create_graph_node( _utils->_outer_nodes.top( ), n, __OmpSimdFunction );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_function_node );
+        
+        Node* simd_function_entry = simd_function_node->get_graph_entry_node( );
+        Node* simd_function_exit = simd_function_node->get_graph_exit_node( );
+        
+        // Traverse the associated function code
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_entry );
+        walk( n.get_statement( ) );
+        
+        simd_function_exit->set_id( ++( _utils->_nid ) );
+        _pcfg->connect_nodes( _utils->_last_nodes, simd_function_exit );
+        
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push( current_pragma );
+        _utils->_environ_entry_exit.push( std::pair<Node*, Node*>( simd_function_entry, simd_function_exit ) );
+        walk( n.get_environment( ) );
+        simd_function_node->set_pragma_node_info( _utils->_pragma_nodes.top( ) );
+        _utils->_pragma_nodes.pop( );
+        _utils->_environ_entry_exit.pop( );
+        
+        _utils->_outer_nodes.pop( );
+        _utils->_last_nodes = ObjectList<Node*>( 1, simd_function_node );
+        return ObjectList<Node*>( 1, simd_function_node );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdParallel& n )

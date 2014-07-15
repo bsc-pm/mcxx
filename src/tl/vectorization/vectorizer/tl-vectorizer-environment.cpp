@@ -99,6 +99,7 @@ namespace Vectorization
 
     void VectorizerEnvironment::unload_environment()
     {
+        _function_return = TL::Symbol();
         _analysis_simd_scope = Nodecl::NodeclBase::null();
 
         _mask_list.clear();

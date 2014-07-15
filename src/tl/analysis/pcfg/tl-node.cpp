@@ -325,6 +325,11 @@ namespace Analysis {
         return (get_type() == __Break);
     }
 
+    bool Node::is_conditional_expression()
+    {
+        return ((get_type() == __Graph) && (get_graph_type() == __CondExpr));
+    }
+    
     bool Node::is_continue_node()
     {
         return (get_type() == __Continue);
@@ -1388,8 +1393,8 @@ namespace Analysis {
             if(VERBOSE)
             {
                 WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                             _id, get_type_as_string().c_str());
-        }
+                                _id, get_type_as_string().c_str());
+            }
         }
         return ivs;
     }
@@ -1903,6 +1908,31 @@ namespace Analysis {
                     ERROR_CONDITION(!reduc.is_valid(), "Invalid symbol stored for Reduction argument '%s'", 
                                      itr->prettyprint().c_str());
                     result.insert(reduc);
+                }
+                break;
+            }
+        }
+        return result;
+    }
+    
+    ObjectList<Symbol> Node::get_linear_expressions()
+    {
+        ObjectList<Symbol> result;
+        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
+        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        {
+            if(it->get_clause() == __linear)
+            {
+                Nodecl::List linear_exprs = it->get_args();
+                for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                {
+                    if(!itl->is<Nodecl::IntegerLiteral>())
+                    {   // This is not the step of the linear clause
+                        Symbol lin(itl->get_symbol());
+                        ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
+                                        itl->prettyprint().c_str());
+                        result.insert(lin);
+                    }
                 }
                 break;
             }
