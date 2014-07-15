@@ -2883,6 +2883,19 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // __declspec(X(Y0, Y1, ...))
             gather_ms_declspec(a, gather_info, decl_context);
             break;
+        case AST_ATTRIBUTE_SPECIFIER:
+            {
+                warn_printf("%s: warning: ignoring attribute-specifier\n",
+                        ast_location(a));
+                break;
+            }
+        case AST_ALIGNAS_TYPE:
+        case AST_ALIGNAS:
+            {
+                warn_printf("%s: warning: ignoring alignment-specifier\n",
+                        ast_location(a));
+                break;
+            }
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
             break;

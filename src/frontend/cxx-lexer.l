@@ -194,6 +194,9 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         pragma_directive_kind_t* kind,
         char* original_directive);
 
+ /*!if CPLUSPLUS*/
+static int std_attribute_parenthesis_nesting = 0;
+ /*!endif*/
 
 %}
 
@@ -316,6 +319,9 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x verbatim_text
 %x verbatim_clauses
 %x verbatim_clauses_args
+
+%x std_attribute
+%x std_attribute_clause
 
 %%
  /* preprocess */
@@ -1178,6 +1184,9 @@ type {
  /*!if CPLUSPLUS*/
 "alignof" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
  /*!endif*/
+ /*!if CPLUSPLUS*/
+"alignas" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNAS; else return IDENTIFIER; }
+ /*!endif*/
 "__real" { parse_token_text(); return REAL; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
@@ -1415,6 +1424,101 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 ((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
  /*!endif*/
 
+ /*!if CPLUSPLUS*/
+
+"["[ \t]*"[" {
+     if (IS_CXX11_LANGUAGE)
+     {
+         parse_token_text();
+         BEGIN(std_attribute);
+         return STD_ATTRIBUTE_START;
+     }
+     else
+     {
+         // In the unlikely case we find this sequence of tokens, reject it
+         REJECT;
+     }
+}
+
+<std_attribute>{
+
+{identifier} { 
+      parse_token_text();
+      BEGIN(std_attribute_clause);
+      std_attribute_parenthesis_nesting = 0;
+      return IDENTIFIER; 
+}
+
+{identifier}[ \t]*::[ \t]*{identifier} {
+
+    // Remove blanks
+    int len = strlen(yytext);
+    char tok[len + 1];
+    int i, j;
+    for (i = 0, j = 0; i < len; i++)
+    {
+        if (yytext[i] == ' ' || yytext[i] == '\t')
+            continue;
+        tok[j] = yytext[i];
+        j++;
+    }
+    tok[j] = '\0';
+
+    parse_token_text_str(tok);
+    BEGIN(std_attribute_clause);
+    std_attribute_parenthesis_nesting = 0;
+    return IDENTIFIER;
+}
+
+"]"[ \t]*"]" {
+    parse_token_text();
+    BEGIN(0);
+    return STD_ATTRIBUTE_END; 
+}
+
+"," { parse_token_text(); return ','; }
+
+[ \t] { /* skip blanks */ }
+
+}
+
+<std_attribute_clause>{
+
+"]"[ \t]*"]" {
+    if (std_attribute_parenthesis_nesting != 0)
+    {
+      REJECT;
+    }
+    else
+    {
+         parse_token_text();
+         BEGIN(0);
+         return STD_ATTRIBUTE_END; 
+    }
+}
+
+"," { parse_token_text(); return ','; }
+"[" { parse_token_text(); return '['; }
+"]" { parse_token_text(); return ']'; }
+"{" { parse_token_text(); return '{'; }
+"}" { parse_token_text(); return '}'; }
+"(" { parse_token_text();
+      std_attribute_parenthesis_nesting++;
+      return '(';
+    }
+")" { parse_token_text();
+      std_attribute_parenthesis_nesting--;
+      if (std_attribute_parenthesis_nesting == 0)
+      {
+          BEGIN(std_attribute);
+      }
+      return ')'; 
+    }
+
+[^\[\]{}()\n]* { parse_token_text(); return STD_ATTRIBUTE_TEXT; }
+
+}
+ /*!endif*/
 
 "["         { parse_token_text(); return '['; }
 "]"         { parse_token_text(); return ']'; }
