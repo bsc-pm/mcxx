@@ -194,6 +194,31 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         pragma_directive_kind_t* kind,
         char* original_directive);
 
+ /*!if CPLUSPLUS*/
+static int std_attribute_parenthesis_nesting = 0;
+
+static int raw_string_buffer_capacity = 0;
+static int raw_string_buffer_position = 0;
+static char* raw_string_buffer = NULL;
+static const char* raw_string_delimiter = NULL;
+static int raw_string_delimiter_length = NULL;
+static int raw_string_delimiter_index = 0;
+
+#define RAW_STRING_APPEND_CHAR(_x) \
+{ \
+    if (raw_string_buffer_position == raw_string_buffer_capacity) \
+    { \
+        if (raw_string_buffer_capacity == 0) \
+          raw_string_buffer_capacity = 4; \
+        else \
+          raw_string_buffer_capacity *= 2; \
+        raw_string_buffer = xrealloc(raw_string_buffer, sizeof(char)*raw_string_buffer_capacity); \
+    } \
+    raw_string_buffer[raw_string_buffer_position] = (_x); \
+    raw_string_buffer_position++; \
+}
+
+ /*!endif*/
 
 %}
 
@@ -205,15 +230,41 @@ hexquad         {hexdigit}{hexdigit}{hexdigit}{hexdigit}
  /* A.2.2 */
 uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
  /* A.2.12 */
-nondigit        ([_a-zA-Z]|uchar)
+nondigit        [_a-zA-Z]
  /* A.2.13 */
-digit       [0-9]
+digit_0     [0-9]
+ /*!if CPLUSPLUS*/
+digit       (({digit_0})|({digit_0}[']{digit_0}))
+ /*!endif*/
+ /*!if C99*/
+digit       {digit_0}
+ /*!endif*/
  /* A.2.20 */
 nonzero         [1-9]
  /* A.2.21 */
-octaldigit      [0-7]
+octaldigit_0      [0-7]
+ /*!if CPLUSPLUS*/
+octaldigit     ({octaldigit_0})|({octaldigit_0}[']{octaldigit_0})
+ /*!endif*/
+ /*!if C99*/
+octaldigit     ({octaldigit_0})
+ /*!endif*/
  /* A.2.22 */
-hexdigit        [a-fA-F0-9]
+hexdigit_0        [a-fA-F0-9]
+ /*!if CPLUSPLUS*/
+hexdigit     ({hexdigit_0})|({hexdigit_0}[']{hexdigit_0})
+ /*!endif*/
+ /*!if C99*/
+hexdigit     ({hexdigit_0})
+ /*!endif*/
+bindigit_0   [01]
+ /*!if C99*/
+bindigit     {bindigit_0}
+ /*!endif*/
+ /*!if CPLUSPLUS*/
+bindigit     ({bindigit_0})|({bindigit_0}[']{bindigit_0})
+ /*!endif*/
+
  /* A.2.23 includes GNU extension of long long */
 int_suffix_size ({longsuffix}|{longlongsuffix})
 int_suffix_sign ({unsignedsuffix})
@@ -263,8 +314,12 @@ floatingsuffix  ({floatingsuffix_all}|{floatingsuffix_all}{complexsuffix}|{compl
  /* A.2.40 */
 schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
+dchar [^ ()\n\v\t\r]
+rchar [^)]
+
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
+binprefix   0[bB]
 
  /* C99 additional */
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
@@ -289,6 +344,12 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x verbatim_text
 %x verbatim_clauses
 %x verbatim_clauses_args
+
+%x std_attribute
+%x std_attribute_clause
+
+%x raw_string_body
+%x raw_string_potential_suffix
 
 %%
  /* preprocess */
@@ -1151,6 +1212,9 @@ type {
  /*!if CPLUSPLUS*/
 "alignof" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNOF; else return IDENTIFIER; }
  /*!endif*/
+ /*!if CPLUSPLUS*/
+"alignas" { parse_token_text(); if (IS_CXX11_LANGUAGE) return TOKEN_ALIGNAS; else return IDENTIFIER; }
+ /*!endif*/
 "__real" { parse_token_text(); return REAL; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
@@ -1342,12 +1406,20 @@ type {
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+{nonzero}[']({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.18 */
-0*{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+0{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!if CPLUSPLUS*/
+0[']{octaldigit}*{integersuffix}?         { parse_token_text(); return OCTAL_LITERAL; }
+ /*!endif*/
 
  /* A.2.19 */
 {hexprefix}{hexdigit}+{integersuffix}?  { parse_token_text(); return HEXADECIMAL_LITERAL; }
+
+{binprefix}{bindigit}+{integersuffix}? { parse_token_text(); return BINARY_LITERAL; }
 
  /* A.2.26 */
  /*!if CPLUSPLUS*/
@@ -1379,7 +1451,210 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
  /*!if CPLUSPLUS*/
 ((u8)|[uUL])?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
  /*!endif*/
+ /*!if CPLUSPLUS*/
+((u8)|[uUL])?R["]{dchar}*[(]      {
+    raw_string_buffer_capacity = 0;
+    raw_string_buffer_position = 0;
+    raw_string_buffer = NULL;
 
+    int i;
+    for (i = 0; yytext[i] != '"'; i++)
+    {
+        RAW_STRING_APPEND_CHAR(yytext[i]);
+    }
+    // Initial quote
+    ERROR_CONDITION(yytext[i] != '"', "Invalid token", 0);
+    RAW_STRING_APPEND_CHAR('"'); i++;
+
+    int length = strlen(yytext);
+    char c[length + 1];
+    int j;
+    for (j = 0; yytext[i] != '('; i++, j++)
+    {
+       c[j] = yytext[i];
+    }
+    // Make the delimiter be DELIM" because this eases matching it later
+    c[j] = '"'; j++;
+    c[j] = '\0';
+    raw_string_delimiter = uniquestr(c);
+    raw_string_delimiter_length = strlen(raw_string_delimiter);
+
+    BEGIN(raw_string_body);
+}
+
+<raw_string_body>{
+
+{rchar} {
+   // Note, this does not include the right parenthesis
+   RAW_STRING_APPEND_CHAR(yytext[0]);
+ }
+
+ ")" {
+    BEGIN(raw_string_potential_suffix);
+    raw_string_delimiter_index = 0;
+}
+
+}
+
+<raw_string_potential_suffix>{
+
+{dchar} {
+         if (yytext[0] == raw_string_delimiter[raw_string_delimiter_index])
+         {
+             raw_string_delimiter_index++;
+
+             if (raw_string_delimiter_index == raw_string_delimiter_length)
+             {
+                 // We have matched a full delimiter (including the final quote)
+                 // Add the final quote
+                 RAW_STRING_APPEND_CHAR('"');
+                 RAW_STRING_APPEND_CHAR('\0');
+                 parse_token_text_str(raw_string_buffer);
+
+                 xfree(raw_string_buffer);
+                 raw_string_buffer = NULL;
+
+                 BEGIN(0);
+
+                 return STRING_LITERAL;
+             }
+         }
+         else
+         {
+             // This is not a delimiter, add all the characters seen so far
+             RAW_STRING_APPEND_CHAR(')');
+             int i;
+             for (i = 0; i < raw_string_delimiter_index; i++)
+             {
+                 RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+             }
+             // And the mismatch one
+             RAW_STRING_APPEND_CHAR(yytext[0]);
+             BEGIN(raw_string_body);
+         }
+}
+
+(.)|([\n\r\v\t]) {
+    // This is not a delimiter, add all the characters seen so far
+    RAW_STRING_APPEND_CHAR(')');
+    int i;
+    for (i = 0; i < raw_string_delimiter_index; i++)
+    {
+        RAW_STRING_APPEND_CHAR(raw_string_delimiter[i]);
+    }
+
+    if (yytext[0] != ')')
+    {
+        // And the mismatch one
+        RAW_STRING_APPEND_CHAR(yytext[0]);
+        BEGIN(raw_string_body);
+    }
+    else
+    {
+        raw_string_delimiter_index = 0;
+        // Start again, this is potentially another suffix
+    }
+}
+
+}
+
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
+
+"["[ \t]*"[" {
+     if (IS_CXX11_LANGUAGE)
+     {
+         parse_token_text();
+         BEGIN(std_attribute);
+         return STD_ATTRIBUTE_START;
+     }
+     else
+     {
+         // In the unlikely case we find this sequence of tokens, reject it
+         REJECT;
+     }
+}
+
+<std_attribute>{
+
+{identifier} { 
+      parse_token_text();
+      BEGIN(std_attribute_clause);
+      std_attribute_parenthesis_nesting = 0;
+      return IDENTIFIER; 
+}
+
+{identifier}[ \t]*::[ \t]*{identifier} {
+
+    // Remove blanks
+    int len = strlen(yytext);
+    char tok[len + 1];
+    int i, j;
+    for (i = 0, j = 0; i < len; i++)
+    {
+        if (yytext[i] == ' ' || yytext[i] == '\t')
+            continue;
+        tok[j] = yytext[i];
+        j++;
+    }
+    tok[j] = '\0';
+
+    parse_token_text_str(tok);
+    BEGIN(std_attribute_clause);
+    std_attribute_parenthesis_nesting = 0;
+    return IDENTIFIER;
+}
+
+"]"[ \t]*"]" {
+    parse_token_text();
+    BEGIN(0);
+    return STD_ATTRIBUTE_END; 
+}
+
+"," { parse_token_text(); return ','; }
+
+[ \t] { /* skip blanks */ }
+
+}
+
+<std_attribute_clause>{
+
+"]"[ \t]*"]" {
+    if (std_attribute_parenthesis_nesting != 0)
+    {
+      REJECT;
+    }
+    else
+    {
+         parse_token_text();
+         BEGIN(0);
+         return STD_ATTRIBUTE_END; 
+    }
+}
+
+"," { parse_token_text(); return ','; }
+"[" { parse_token_text(); return '['; }
+"]" { parse_token_text(); return ']'; }
+"{" { parse_token_text(); return '{'; }
+"}" { parse_token_text(); return '}'; }
+"(" { parse_token_text();
+      std_attribute_parenthesis_nesting++;
+      return '(';
+    }
+")" { parse_token_text();
+      std_attribute_parenthesis_nesting--;
+      if (std_attribute_parenthesis_nesting == 0)
+      {
+          BEGIN(std_attribute);
+      }
+      return ')'; 
+    }
+
+[^\[\]{}()\n]* { parse_token_text(); return STD_ATTRIBUTE_TEXT; }
+
+}
+ /*!endif*/
 
 "["         { parse_token_text(); return '['; }
 "]"         { parse_token_text(); return ']'; }

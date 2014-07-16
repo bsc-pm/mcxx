@@ -605,6 +605,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             // Primaries
         case AST_DECIMAL_LITERAL :
         case AST_OCTAL_LITERAL :
+        case AST_BINARY_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
             {
 
@@ -934,6 +935,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 break;
             }
         case AST_GCC_ALIGNOF_TYPE :
+        case /* C++11 */ AST_ALIGNOF_TYPE :
             {
                 check_gcc_alignof_typeid(expression, decl_context, nodecl_output);
                 break;
@@ -1101,6 +1103,66 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
     // }
 }
 
+// This function removes the base prefix (if any) and the quotes, if any
+static const char* process_integer_literal(const char* literal,
+        int *base,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(literal == NULL
+            || literal[0] == '\0', "Invalid literal\n", literal);
+
+    if (literal[0] == '0')
+    {
+        *base = 8;
+
+        if (literal[1] == 'x'
+                || literal[1] == 'X')
+        {
+            *base = 16;
+            literal += 2; // Skip 0x
+        }
+        else if (literal[1] == 'b'
+                || literal[1] == 'B')
+        {
+            *base = 2;
+            literal += 2; // Skip 0b
+
+            CXX03_LANGUAGE()
+            {
+                fprintf(stderr, "%s: warning: binary-integer-literals are a C++11 feature\n",
+                        locus_to_str(locus));
+            }
+        }
+    }
+    else
+    {
+        *base = 10;
+    }
+
+    int length = strlen(literal);
+    char tmp[length + 1];
+
+    int i, j;
+    for (i = 0, j = 0; i < length; i++)
+    {
+        if (literal[i] != '\'')
+        {
+            tmp[j] = literal[i];
+            j++;
+        }
+        else
+        {
+            CXX03_LANGUAGE()
+            {
+                fprintf(stderr, "%s: warning: quotes interspersed in integer-literal digits are a C++14 feature\n",
+                        locus_to_str(locus));
+            }
+        }
+    }
+    tmp[j] = '\0';
+
+    return uniquestr(tmp);
+}
 
 // Given a decimal literal computes the type due to its lexic form
 static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
@@ -1206,7 +1268,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         num_eligible_types = STATIC_ARRAY_LENGTH(decimal_L_suffix);
     }
 
-    // oct/hex L suffix -> long, unsigned long, long long, unsigned long long
+    // bin/oct/hex L suffix -> long, unsigned long, long long, unsigned long long
     type_t* nondecimal_L_suffix[] = {
         get_signed_long_int_type(),
         get_unsigned_long_int_type(),
@@ -1275,7 +1337,11 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
 
     ERROR_CONDITION(eligible_types == NULL, "No set of eligible types has been computed", 0);
 
-    uint64_t parsed_value = (uint64_t)strtoull(literal, NULL, 0);
+    int base = 0;
+    const char* processed_literal = process_integer_literal(literal, &base, ast_get_locus(expr));
+    ERROR_CONDITION(base == 0, "Invalid base", 0);
+
+    uint64_t parsed_value = (uint64_t)strtoull(processed_literal, NULL, base);
 
     type_t* result =
         const_value_get_minimal_integer_type_from_list_of_types(
@@ -1291,7 +1357,7 @@ static void decimal_literal_type(AST expr, nodecl_t* nodecl_output)
         result = get_unsigned_long_long_int_type();
     }
 
-    val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), is_signed_integral_type(result));
+    val = const_value_get_integer(parsed_value, type_get_size(result), is_signed_integral_type(result));
 
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (const_value_is_zero(val))
@@ -1773,6 +1839,23 @@ static void compute_length_of_literal_string(AST expr,
             }
         }
 
+        char is_raw_string;
+        if ((*literal) == 'R')
+        {
+            // This is a raw_string, do not interpret escape sequences
+            CXX03_LANGUAGE()
+            {
+                warn_printf("%s: warning: raw-string-literals are a C++11 feature\n", 
+                        ast_location(expr));
+            }
+            is_raw_string = 1;
+            literal++;
+        }
+        else
+        {
+            is_raw_string = 0;
+        }
+
         ERROR_CONDITION(*literal != '"',
                 "Lexical problem in the literal '%s'\n", ASTText(expr));
 
@@ -1782,177 +1865,173 @@ static void compute_length_of_literal_string(AST expr,
         // Advance till we find a '"'
         while (*literal != '"')
         {
-            switch (*literal)
+            if (!is_raw_string
+                    && *literal == '\\')
             {
-                case '\\' :
-                    {
-                        // This is used for diagnostics
-                        const char *beginning_of_escape = literal;
+                // This is used for diagnostics
+                const char *beginning_of_escape = literal;
 
-                        // A scape sequence
-                        literal++;
-                        switch (*literal)
-                        {
-                            case '\'' : { ADD_CODEPOINT('\''); break; }
-                            case '"' : { ADD_CODEPOINT('"'); break; }
-                            case '?' : { ADD_CODEPOINT('\?'); break; }
-                            case '\\' : { ADD_CODEPOINT('\\'); break; }
-                            case 'a' : { ADD_CODEPOINT('\a'); break; }
-                            case 'b' : { ADD_CODEPOINT('\b'); break; }
-                            case 'f' : { ADD_CODEPOINT('\f'); break; }
-                            case 'n' : { ADD_CODEPOINT('\n'); break; }
-                            case 'r' : { ADD_CODEPOINT('\r'); break; }
-                            case 't' : { ADD_CODEPOINT('\t'); break; }
-                            case 'v' : { ADD_CODEPOINT('\v'); break; }
-                            case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
-                            case '0' :
-                            case '1' :
-                            case '2' :
-                            case '3' :
-                            case '4' :
-                            case '5' :
-                            case '6' :
-                            case '7' :
-                                // This is an octal
-                                // Advance up to three octals
-                                {
-                                    // Advance this octal, so the remaining figures are 2
-                                    unsigned int current_value = (*literal) - '0';
+                // A scape sequence
+                literal++;
+                switch (*literal)
+                {
+                    case '\'' : { ADD_CODEPOINT('\''); break; }
+                    case '"' : { ADD_CODEPOINT('"'); break; }
+                    case '?' : { ADD_CODEPOINT('\?'); break; }
+                    case '\\' : { ADD_CODEPOINT('\\'); break; }
+                    case 'a' : { ADD_CODEPOINT('\a'); break; }
+                    case 'b' : { ADD_CODEPOINT('\b'); break; }
+                    case 'f' : { ADD_CODEPOINT('\f'); break; }
+                    case 'n' : { ADD_CODEPOINT('\n'); break; }
+                    case 'r' : { ADD_CODEPOINT('\r'); break; }
+                    case 't' : { ADD_CODEPOINT('\t'); break; }
+                    case 'v' : { ADD_CODEPOINT('\v'); break; }
+                    case 'e' : { ADD_CODEPOINT('\033'); break; } // GNU Extension: A synonim for \033
+                    case '0' :
+                    case '1' :
+                    case '2' :
+                    case '3' :
+                    case '4' :
+                    case '5' :
+                    case '6' :
+                    case '7' :
+                               // This is an octal
+                               // Advance up to three octals
+                               {
+                                   // Advance this octal, so the remaining figures are 2
+                                   unsigned int current_value = (*literal) - '0';
 
-                                    literal++;
-                                    int remaining_figures = 2;
+                                   literal++;
+                                   int remaining_figures = 2;
 
-                                    while (IS_OCTA_CHAR(*literal)
-                                            && (remaining_figures > 0))
-                                    {
-                                        current_value *= 8;
-                                        current_value += ((*literal) - '0');
-                                        remaining_figures--;
-                                        literal++;
-                                    }
-                                    // Go backwards because we have already
-                                    // advanced the last element of this
-                                    // escaped entity
-                                    literal--;
+                                   while (IS_OCTA_CHAR(*literal)
+                                           && (remaining_figures > 0))
+                                   {
+                                       current_value *= 8;
+                                       current_value += ((*literal) - '0');
+                                       remaining_figures--;
+                                       literal++;
+                                   }
+                                   // Go backwards because we have already
+                                   // advanced the last element of this
+                                   // escaped entity
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            case 'x' :
-                                // This is an hexadecimal
-                                {
-                                    // Jump 'x' itself
-                                    literal++;
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    case 'x' :
+                               // This is an hexadecimal
+                               {
+                                   // Jump 'x' itself
+                                   literal++;
 
-                                    unsigned int current_value = 0;
+                                   unsigned int current_value = 0;
 
-                                    while (IS_HEXA_CHAR(*literal))
-                                    {
-                                        current_value *= 16;
-                                        char current_literal = tolower(*literal);
-                                        if (('0' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= '9'))
-                                        {
-                                            current_value += current_literal - '0';
-                                        }
-                                        else if (('a' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 'f'))
-                                        {
-                                            current_value += 10 + (tolower(current_literal) - 'a');
-                                        }
-                                        else
-                                        {
-                                            internal_error("Code unreachable", 0);
-                                        }
-                                        literal++;
-                                    }
+                                   while (IS_HEXA_CHAR(*literal))
+                                   {
+                                       current_value *= 16;
+                                       char current_literal = tolower(*literal);
+                                       if (('0' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= '9'))
+                                       {
+                                           current_value += current_literal - '0';
+                                       }
+                                       else if (('a' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= 'f'))
+                                       {
+                                           current_value += 10 + (tolower(current_literal) - 'a');
+                                       }
+                                       else
+                                       {
+                                           internal_error("Code unreachable", 0);
+                                       }
+                                       literal++;
+                                   }
 
-                                    // Go backwards because we have already
-                                    // advanced the last element of this
-                                    // escaped entity
-                                    literal--;
+                                   // Go backwards because we have already
+                                   // advanced the last element of this
+                                   // escaped entity
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            case 'u' :
-                            case 'U' :
-                                {
-                                    // Universal names are followed by 4 hexa digits
-                                    // or 8 depending on 'u' or 'U' respectively
-                                    char remaining_hexa_digits = 8;
-                                    if (*literal == 'u')
-                                    {
-                                        remaining_hexa_digits = 4;
-                                    }
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    case 'u' :
+                    case 'U' :
+                               {
+                                   // Universal names are followed by 4 hexa digits
+                                   // or 8 depending on 'u' or 'U' respectively
+                                   char remaining_hexa_digits = 8;
+                                   if (*literal == 'u')
+                                   {
+                                       remaining_hexa_digits = 4;
+                                   }
 
-                                    // Advance 'u'/'U'
-                                    literal++;
+                                   // Advance 'u'/'U'
+                                   literal++;
 
-                                    unsigned int current_value = 0;
+                                   unsigned int current_value = 0;
 
-                                    while (remaining_hexa_digits > 0)
-                                    {
-                                        if (!IS_HEXA_CHAR(*literal))
-                                        {
-                                            char ill_literal[11];
-                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                            error_printf("%s: error: invalid universal literal name '%s'\n", 
-                                                    ast_location(expr),
-                                                    ill_literal);
-                                            *num_codepoints = -1;
-                                            xfree(*codepoints);
-                                            return;
-                                        }
+                                   while (remaining_hexa_digits > 0)
+                                   {
+                                       if (!IS_HEXA_CHAR(*literal))
+                                       {
+                                           char ill_literal[11];
+                                           strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                           error_printf("%s: error: invalid universal literal name '%s'\n", 
+                                                   ast_location(expr),
+                                                   ill_literal);
+                                           *num_codepoints = -1;
+                                           xfree(*codepoints);
+                                           return;
+                                       }
 
-                                        current_value *= 16;
-                                        char current_literal = tolower(*literal);
-                                        if (('0' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= '9'))
-                                        {
-                                            current_value += current_literal - '0';
-                                        }
-                                        else if (('a' <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 'f'))
-                                        {
-                                            current_value += 10 + (tolower(current_literal) - 'a');
-                                        }
-                                        else
-                                        {
-                                            internal_error("Code unreachable", 0);
-                                        }
+                                       current_value *= 16;
+                                       char current_literal = tolower(*literal);
+                                       if (('0' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= '9'))
+                                       {
+                                           current_value += current_literal - '0';
+                                       }
+                                       else if (('a' <= tolower(current_literal))
+                                               && (tolower(current_literal) <= 'f'))
+                                       {
+                                           current_value += 10 + (tolower(current_literal) - 'a');
+                                       }
+                                       else
+                                       {
+                                           internal_error("Code unreachable", 0);
+                                       }
 
-                                        literal++;
-                                        remaining_hexa_digits--;
-                                    }
+                                       literal++;
+                                       remaining_hexa_digits--;
+                                   }
 
-                                    // Go backwards one
-                                    literal--;
+                                   // Go backwards one
+                                   literal--;
 
-                                    ADD_CODEPOINT(current_value);
-                                    break;
-                                }
-                            default:
-                                {
-                                    char c[3];
+                                   ADD_CODEPOINT(current_value);
+                                   break;
+                               }
+                    default:
+                               {
+                                   char c[3];
 
-                                    strncpy(c, beginning_of_escape, 3);
-                                    error_printf("%s: error: invalid escape sequence '%s'\n",
-                                            ast_location(expr),
-                                            c);
-                                    *num_codepoints = -1;
-                                    xfree(*codepoints);
-                                    return;
-                                }
-                        }
-                        break;
-                    }
-                default:
-                    {
-                        // A plain codepoint
-                        ADD_CODEPOINT(*literal);
-                        break;
-                    }
+                                   strncpy(c, beginning_of_escape, 3);
+                                   error_printf("%s: error: invalid escape sequence '%s'\n",
+                                           ast_location(expr),
+                                           c);
+                                   *num_codepoints = -1;
+                                   xfree(*codepoints);
+                                   return;
+                               }
+                }
+            }
+            else
+            {
+                // A plain codepoint
+                ADD_CODEPOINT(*literal);
             }
 
             // Make 'literal' always point to the last thing that represents one codepoint
@@ -1981,7 +2060,10 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
 
     type_t* base_type = NULL;
 
-    compute_length_of_literal_string(expr, &num_codepoints, &codepoints, &base_type);
+    compute_length_of_literal_string(expr,
+            &num_codepoints,
+            &codepoints,
+            &base_type);
     if (num_codepoints < 0)
     {
         *nodecl_output = nodecl_make_err_expr(ast_get_locus(expr));
@@ -3599,7 +3681,13 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 
     const_value_t* (*const_value_div_safe)(const_value_t*, const_value_t*) = const_value_div;
 
-    if (nodecl_is_constant(*rhs)
+    // We warn here because const_value_div_safe will not have enough
+    // information
+    if (both_operands_are_arithmetic_noref(
+                nodecl_get_type(*lhs),
+                nodecl_get_type(*rhs),
+                locus)
+            && nodecl_is_constant(*rhs)
             && value_not_valid_for_divisor(nodecl_get_constant(*rhs)))
     {
         warn_printf("%s: warning: division by zero\n",
@@ -17438,7 +17526,8 @@ void check_nodecl_initialization(
 {
     if (is_auto
             && initialized_entry != NULL
-            && !nodecl_expr_is_type_dependent(nodecl_initializer))
+            && !nodecl_expr_is_type_dependent(nodecl_initializer)
+            && !nodecl_is_err_expr(nodecl_initializer))
     {
         if (!nodecl_is_null(nodecl_initializer))
         {
@@ -20318,6 +20407,33 @@ static const_value_t* evaluate_constexpr_constructor(
         nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
 
     type_t* class_type = entry->entity_specs.class_type;
+    scope_entry_t* class_sym = named_type_get_symbol(class_type);
+
+    // Special case for delegating constructors
+    if (nodecl_list_length(nodecl_initializers) == 1)
+    {
+        nodecl_t first = nodecl_list_head(nodecl_initializers);
+        scope_entry_t* current_member = nodecl_get_symbol(first);
+        nodecl_t nodecl_expr = nodecl_get_child(first, 0);
+
+        if (current_member == class_sym)
+        {
+            // This is a delegating constructor
+            nodecl_t nodecl_replaced_expr = constexpr_replace_parameters_with_values(
+                    nodecl_expr,
+                    num_map_items,
+                    map_of_parameters_and_values);
+
+            // Evaluate it recursively
+            nodecl_t nodecl_evaluated_expr = instantiate_expression(
+                    nodecl_replaced_expr,
+                    nodecl_retrieve_context(nodecl_function_code),
+                    entry->entity_specs.instantiation_symbol_map,
+                    /* pack_index */ -1);
+
+            return nodecl_get_constant(nodecl_evaluated_expr);
+        }
+    }
 
     int num_all_members = 0;
     scope_entry_t** all_members = NULL;
@@ -20616,6 +20732,117 @@ static const_value_t* evaluate_constexpr_function_call(
     return value;
 }
 
+static void define_inherited_constructor(
+        scope_entry_t* new_inherited_constructor,
+        scope_entry_t* inherited_constructor,
+        const locus_t* locus)
+{
+    int num_parameters = function_type_get_num_parameters(new_inherited_constructor->type_information);
+    if (function_type_get_has_ellipsis(new_inherited_constructor->type_information))
+        num_parameters--;
+
+    decl_context_t block_context = new_block_context(new_inherited_constructor->decl_context);
+
+    nodecl_t nodecl_arg_list = nodecl_null();
+
+    new_inherited_constructor->entity_specs.num_related_symbols = 0;
+    new_inherited_constructor->entity_specs.related_symbols = NULL;
+
+    char ok = 1;
+
+    int i;
+    for (i = 0; i < num_parameters && ok; i++)
+    {
+        const char *parameter_name = NULL;
+        uniquestr_sprintf(&parameter_name, "parameter#%d", i);
+
+        scope_entry_t* new_param_symbol = new_symbol(block_context,
+                block_context.current_scope,
+                parameter_name);
+        new_param_symbol->kind = SK_VARIABLE;
+        new_param_symbol->type_information =
+            function_type_get_parameter_type_num(new_inherited_constructor->type_information, i);
+
+        symbol_set_as_parameter_of_function(
+                new_param_symbol,
+                new_inherited_constructor,
+                /* nesting */ 0, i);
+
+        nodecl_t nodecl_symbol_ref = nodecl_make_symbol(new_param_symbol, locus);
+        nodecl_set_type(nodecl_symbol_ref, lvalue_ref(new_param_symbol->type_information));
+
+        P_LIST_ADD(new_inherited_constructor->entity_specs.related_symbols,
+                new_inherited_constructor->entity_specs.num_related_symbols,
+                new_param_symbol);
+
+        type_t* cast_type = new_param_symbol->type_information;
+        if (!is_any_reference_type(cast_type))
+            cast_type = get_rvalue_reference_type(new_param_symbol->type_information);
+
+        nodecl_t nodecl_arg = nodecl_null();
+        check_nodecl_cast_expr(
+                nodecl_symbol_ref,
+                block_context,
+                cast_type,
+                "static_cast",
+                locus,
+                &nodecl_arg);
+
+        if (!nodecl_is_err_expr(nodecl_arg))
+        {
+            nodecl_arg_list = nodecl_append_to_list(nodecl_arg_list, nodecl_arg);
+        }
+        else
+        {
+            ok = 0;
+        }
+    }
+
+    if (ok)
+    {
+        nodecl_t nodecl_init = nodecl_make_cxx_parenthesized_initializer(
+                nodecl_arg_list,
+                locus);
+
+        check_nodecl_initialization(
+                nodecl_init,
+                block_context,
+                named_type_get_symbol(inherited_constructor->entity_specs.class_type),
+                get_unqualified_type(inherited_constructor->entity_specs.class_type),
+                &nodecl_init,
+                /* is_auto_type */ 0);
+
+        if (!nodecl_is_err_expr(nodecl_init))
+        {
+            nodecl_t nodecl_member_init_list =
+                nodecl_make_list_1(
+                        nodecl_make_member_init(
+                            nodecl_init,
+                            named_type_get_symbol(inherited_constructor->entity_specs.class_type),
+                            locus));
+
+            new_inherited_constructor->entity_specs.function_code =
+                nodecl_make_function_code(
+                        nodecl_make_context(
+                            nodecl_make_list_1(
+                                // Empty body
+                                nodecl_make_compound_statement(
+                                    nodecl_null(),
+                                    nodecl_null(),
+                                    locus)),
+                            block_context,
+                            locus),
+                        nodecl_member_init_list,
+                        new_inherited_constructor,
+                        locus);
+        }
+    }
+
+    new_inherited_constructor->defined = 1;
+    new_inherited_constructor->entity_specs.alias_to = NULL;
+}
+
+
 nodecl_t cxx_nodecl_make_function_call(
         nodecl_t orig_called,
         nodecl_t called_name,
@@ -20666,6 +20893,18 @@ nodecl_t cxx_nodecl_make_function_call(
     }
     ERROR_CONDITION(!is_function_type(function_type), "%s is not a function type!", 
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
+
+    // If this is an inheriting constructor being odr-used, define it now
+    // FIXME: odr-used
+    if (called_symbol != NULL
+            && called_symbol->entity_specs.is_constructor
+            && called_symbol->entity_specs.alias_to != NULL)
+    {
+        define_inherited_constructor(
+                called_symbol,
+                called_symbol->entity_specs.alias_to,
+                locus);
+    }
 
     char is_promoting_ellipsis = 0;
     int num_parameters = function_type_get_num_parameters(function_type);

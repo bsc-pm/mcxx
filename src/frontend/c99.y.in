@@ -107,6 +107,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> FOR "for"
 %token<token_atrib> GOTO "goto"
 %token<token_atrib> GREATER_OR_EQUAL ">="
+%token<token_atrib> BINARY_LITERAL "binary-integer-literal"
 %token<token_atrib> HEXADECIMAL_LITERAL "hexadecimal-integer-literal"
 %token<token_atrib> IDENTIFIER "identifier"
 %token<token_atrib> IF "if"
@@ -2437,6 +2438,10 @@ literal : DECIMAL_LITERAL
 | OCTAL_LITERAL
 {
 	$$ = ASTLeaf(AST_OCTAL_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| BINARY_LITERAL
+{
+	$$ = ASTLeaf(AST_BINARY_LITERAL, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | HEXADECIMAL_LITERAL
 {
