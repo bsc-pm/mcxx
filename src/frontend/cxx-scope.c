@@ -7189,6 +7189,12 @@ static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_contex
     }
 }
 
+struct class_lookup_info_tag
+{
+    scope_entry_t* class_symbol;
+    char is_destructor_id;
+};
+
 static scope_entry_list_t* query_nodecl_name_first_in_class(
         decl_context_t current_context,
         nodecl_t current_name,
@@ -7197,7 +7203,8 @@ static scope_entry_list_t* query_nodecl_name_first_in_class(
         char is_global,
         void *extra_info)
 {
-    scope_entry_t* class_symbol = (scope_entry_t*)extra_info;
+    scope_entry_t* class_symbol = ((struct class_lookup_info_tag*)extra_info)->class_symbol;
+    char is_destructor_id = ((struct class_lookup_info_tag*)extra_info)->is_destructor_id;
 
     scope_entry_list_t* entry_list_postfix =
         query_nodecl_name_flags(current_context, current_name, NULL, decl_flags);
@@ -7264,7 +7271,39 @@ static scope_entry_list_t* query_nodecl_name_first_in_class(
                 fprintf(stderr, "SCOPE: When looking up the first part of the id-expression "
                         "of a class-member-access the two lookups do not match\n");
             }
-            return NULL;
+            if (is_destructor_id
+                    && entry1->kind == SK_TEMPLATE
+                    && entry2->kind == SK_CLASS
+                    && is_template_specialized_type(entry2->type_information)
+                    && !is_dependent_type(entry2->type_information)
+                    && template_type_get_related_symbol(
+                        template_specialized_type_get_related_template_type(
+                            entry2->type_information)) == entry1)
+            {
+                /* This is for this case
+                 *
+                 * template <typename T>
+                 * struct A { };
+                 *
+                 * void f(A<int>& a)
+                 * {
+                 *    a.A::~A();
+                 *    // Note that 'A' here is a template-name at the postfix
+                 *    // lookup but the injected class-name inside the class.
+                 *    // So we act as if the user had written a.A<int>::~A();
+                 * }
+                 */
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But we are looking up a destructor-id and we are naming the template-name of "
+                            "the injected class-name, so the lookup will use the in-class lookup result\n");
+                }
+                return entry_list_in_class;
+            }
+            else
+            {
+                return NULL;
+            }
         }
 
         entry_list_free(entry_list_in_class);
@@ -7465,7 +7504,7 @@ static char check_symbol_is_base_or_member(
         field_path_t* field_path,
         void* data)
 {
-    scope_entry_t* class_symbol = (scope_entry_t*)data;
+    scope_entry_t* class_symbol = ((struct class_lookup_info_tag*)data)->class_symbol;
 
     if (class_symbol->entity_specs.is_injected_class_name)
     {
@@ -7549,6 +7588,19 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
         field_path_t* field_path,
         decl_flags_t decl_flags)
 {
+    nodecl_t nodecl_last = nodecl_name_get_last_part(nodecl_name);
+    char is_destructor_id = (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_NAME_SIMPLE
+            && (nodecl_get_text(nodecl_last)[0] == '~'))
+        || (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID
+                && ((nodecl_get_text(nodecl_get_child(nodecl_last, 0))[0]) == '~'));
+
+
+    struct class_lookup_info_tag class_lookup_info =
+    {
+        .class_symbol = class_symbol,
+        .is_destructor_id = is_destructor_id,
+    };
+
     return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
             field_path,
@@ -7556,7 +7608,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
             /* allow_namespaces */ 1,
             query_nodecl_name_first_in_class,
             check_symbol_is_base_or_member,
-            class_symbol);
+            &class_lookup_info);
 }
 
 static scope_entry_list_t* query_nodecl_name_in_class_aux(
