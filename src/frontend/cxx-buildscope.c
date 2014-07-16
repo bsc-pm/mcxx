@@ -3507,6 +3507,7 @@ static void gather_type_spec_from_friend_elaborated_class_specifier_common(
     }
 }
 
+#if 0
 static void gather_type_spec_from_friend_simple_type_specifier_common(
         AST a,
         type_t** type_info,
@@ -3531,6 +3532,7 @@ static void gather_type_spec_from_friend_simple_type_specifier_common(
     }
 
 }
+#endif
 
 static decl_context_t get_innermost_enclosing_nonclass_context(decl_context_t decl_context)
 {
@@ -16839,7 +16841,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     if (member_init_declarator_list != NULL)
     {
-
         AST list = member_init_declarator_list;
         AST iter;
 
@@ -16943,9 +16944,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         break;
                     }
-                    // init declarator may appear here because of templates
-                case AST_INIT_DECLARATOR :
                 case AST_MEMBER_DECLARATOR :
+                case AST_INIT_DECLARATOR : // may appear here because of templates
                     {
                         AST attribute_list = ASTSon2(declarator);
                         gather_extra_attributes(attribute_list, &current_gather_info, decl_context);
@@ -17225,6 +17225,26 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             new_member->entity_specs.class_type = class_info;
 
             class_type_add_member(class_type, new_member, /* is_definition */ 1);
+        }
+        else if (gather_info.is_friend
+                && (ASTType(type_specifier) != AST_ELABORATED_TYPE_CLASS_SPEC))
+        {
+            if (!is_dependent_class_scope(decl_context))
+            {
+                build_scope_friend_class_declaration(
+                        original_member_type,
+                        /* declared_name */ NULL,
+                        decl_context,
+                        ast_get_locus(a));
+            }
+            else
+            {
+                register_dependent_friend_class(
+                        named_type_get_symbol(class_info),
+                        original_member_type,
+                        /* declared_name */ NULL,
+                        decl_context);
+            }
         }
     }
 }
