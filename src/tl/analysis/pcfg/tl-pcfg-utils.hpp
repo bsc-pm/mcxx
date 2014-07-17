@@ -89,6 +89,7 @@ namespace Analysis {
     GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
+    GRAPH_TYPE(FunctionCode) \
     GRAPH_TYPE(IfElse) \
     GRAPH_TYPE(LoopDoWhile) \
     GRAPH_TYPE(LoopFor) \
