@@ -499,6 +499,10 @@ static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_
 
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void check_mcc_debug_array_subscript(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 // Returns if the function is ok
 //
 // Do not return within this function, set result to 0 or 1 and let it
@@ -1047,6 +1051,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_SYMBOL_LITERAL_REF:
             {
                 solve_literal_symbol(expression, decl_context, nodecl_output);
+                break;
+            }
+            // This node is for debugging purposes of the compiler itself
+        case AST_MCC_ARRAY_SUBSCRIPT_CHECK:
+            {
+                check_mcc_debug_array_subscript(expression, decl_context, nodecl_output);
                 break;
             }
         default :
@@ -7426,6 +7436,55 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     else
     {
         internal_error("Code unreachable", 0);
+    }
+}
+
+static void check_mcc_debug_array_subscript(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    AST expr = ast_get_child(a, 0);
+    check_expression_impl_(expr, decl_context, nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+        return;
+
+    AST length_expr = ast_get_child(a, 1);
+    nodecl_t nodecl_length_expr = nodecl_null();
+    check_expression_impl_(length_expr, decl_context, &nodecl_length_expr);
+
+    if (nodecl_is_err_expr(nodecl_length_expr))
+    {
+        *nodecl_output = nodecl_length_expr;
+        return;
+    }
+
+
+    if (nodecl_get_kind(*nodecl_output) != NODECL_ARRAY_SUBSCRIPT)
+    {
+        error_printf("%s: error: @array-subscript-check@ requires an array subscript as the first operand\n",
+                ast_location(a));
+        return;
+    }
+    nodecl_t nodecl_subscript_list = nodecl_get_child(*nodecl_output, 1);
+
+    if (!nodecl_is_constant(nodecl_length_expr)
+            && !const_value_is_integer(nodecl_get_constant(nodecl_length_expr)))
+    {
+        error_printf("%s: error: @array-subscript-check@ requires a constant expression of integer kind as the second argument\n",
+                ast_location(a));
+        return;
+    }
+    int expected_length = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_length_expr));
+    int real_length = nodecl_list_length(nodecl_subscript_list);
+
+    if (expected_length != real_length)
+    {
+        error_printf("%s: error: array-subscript-check failure, "
+                "expected length is '%d' but the subscript list is of length '%d'\n",
+                ast_location(a),
+                expected_length,
+                real_length);
     }
 }
 
