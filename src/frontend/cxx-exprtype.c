@@ -499,6 +499,10 @@ static void compute_nodecl_gcc_initializer(AST braced_initializer, decl_context_
 
 static void solve_literal_symbol(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
+static void check_mcc_debug_array_subscript(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 // Returns if the function is ok
 //
 // Do not return within this function, set result to 0 or 1 and let it
@@ -1047,6 +1051,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_SYMBOL_LITERAL_REF:
             {
                 solve_literal_symbol(expression, decl_context, nodecl_output);
+                break;
+            }
+            // This node is for debugging purposes of the compiler itself
+        case AST_MCC_ARRAY_SUBSCRIPT_CHECK:
+            {
+                check_mcc_debug_array_subscript(expression, decl_context, nodecl_output);
                 break;
             }
         default :
@@ -7429,6 +7439,55 @@ static void solve_literal_symbol(AST expression, decl_context_t decl_context,
     }
 }
 
+static void check_mcc_debug_array_subscript(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    AST expr = ast_get_child(a, 0);
+    check_expression_impl_(expr, decl_context, nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+        return;
+
+    AST length_expr = ast_get_child(a, 1);
+    nodecl_t nodecl_length_expr = nodecl_null();
+    check_expression_impl_(length_expr, decl_context, &nodecl_length_expr);
+
+    if (nodecl_is_err_expr(nodecl_length_expr))
+    {
+        *nodecl_output = nodecl_length_expr;
+        return;
+    }
+
+
+    if (nodecl_get_kind(*nodecl_output) != NODECL_ARRAY_SUBSCRIPT)
+    {
+        error_printf("%s: error: @array-subscript-check@ requires an array subscript as the first operand\n",
+                ast_location(a));
+        return;
+    }
+    nodecl_t nodecl_subscript_list = nodecl_get_child(*nodecl_output, 1);
+
+    if (!nodecl_is_constant(nodecl_length_expr)
+            && !const_value_is_integer(nodecl_get_constant(nodecl_length_expr)))
+    {
+        error_printf("%s: error: @array-subscript-check@ requires a constant expression of integer kind as the second argument\n",
+                ast_location(a));
+        return;
+    }
+    int expected_length = const_value_cast_to_signed_int(nodecl_get_constant(nodecl_length_expr));
+    int real_length = nodecl_list_length(nodecl_subscript_list);
+
+    if (expected_length != real_length)
+    {
+        error_printf("%s: error: array-subscript-check failure, "
+                "expected length is '%d' but the subscript list is of length '%d'\n",
+                ast_location(a),
+                expected_length,
+                real_length);
+    }
+}
+
 static void check_nodecl_array_subscript_expression_c(
         nodecl_t nodecl_subscripted,
         nodecl_t nodecl_subscript,
@@ -7490,37 +7549,37 @@ static void check_nodecl_array_subscript_expression_c(
         }
     }
 
-
-    if (is_array_type(no_ref(subscripted_type)))
+    if (is_array_type(no_ref(subscripted_type))
+            && (nodecl_get_kind(nodecl_subscripted) == NODECL_ARRAY_SUBSCRIPT)
+            && !(array_type_has_region(no_ref(subscripted_type))
+                && is_pointer_type(array_type_get_element_type(no_ref(subscripted_type)))))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
 
-        if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
-        {
-            // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
-            unary_record_conversion_to_result(
-                    get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
-                    &nodecl_subscripted);
+        // We combine the array subscript list
+        nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
+        nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
 
-            *nodecl_output = nodecl_make_array_subscript(
-                    nodecl_subscripted,
-                    nodecl_make_list_1(nodecl_subscript),
-                    lvalue_ref(t), locus);
-        }
-        else
-        {
-            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
-            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+        nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
+                nodecl_subscript);
 
-            nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
-                    nodecl_subscript);
+        *nodecl_output = nodecl_make_array_subscript(
+                nodecl_indexed,
+                nodecl_subscript_list,
+                lvalue_ref(t), locus);
+    }
+    else if (is_array_type(no_ref(subscripted_type)))
+    {
+        type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
+        // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
+        unary_record_conversion_to_result(
+                get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
+                &nodecl_subscripted);
 
-            *nodecl_output = nodecl_make_array_subscript(
-                    nodecl_indexed,
-                    nodecl_subscript_list,
-                    lvalue_ref(t), locus);
-        }
-        return;
+        *nodecl_output = nodecl_make_array_subscript(
+                nodecl_subscripted,
+                nodecl_make_list_1(nodecl_subscript),
+                lvalue_ref(t), locus);
     }
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
@@ -7533,7 +7592,6 @@ static void check_nodecl_array_subscript_expression_c(
                 nodecl_subscripted,
                 nodecl_make_list_1(nodecl_subscript),
                 lvalue_ref(t), locus);
-        return;
     }
     else
     {
@@ -7548,7 +7606,6 @@ static void check_nodecl_array_subscript_expression_c(
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_subscripted);
         nodecl_free(nodecl_subscript);
-        return;
     }
 }
 
@@ -7734,38 +7791,88 @@ static void check_nodecl_array_subscript_expression_cxx(
 
     scope_entry_t* selected_operator = NULL;
 
-    nodecl_t lhs = nodecl_subscripted;
-    nodecl_t rhs = nodecl_subscript;
+    // This is a bit convoluted. First we duplicate lhs and rhs
+    nodecl_t lhs = nodecl_shallow_copy(nodecl_subscripted);
+    nodecl_t rhs = nodecl_shallow_copy(nodecl_subscript);
 
+    // Now we compute a user defined operator[] (using only the builtins)
+    // This call may modify lhs and rhs
     type_t* result = compute_user_defined_bin_operator_type(operator_subscript_tree, 
             &lhs, &rhs, builtins, decl_context, locus, &selected_operator);
+    entry_list_free(builtins);
 
     if (selected_operator != NULL)
     {
         ERROR_CONDITION(!selected_operator->entity_specs.is_builtin, "operator[] is not a builtin\n", 0);
 
-        unary_record_conversion_to_result(
-                function_type_get_parameter_type_num(selected_operator->type_information, 0), &lhs);
-        unary_record_conversion_to_result(
-                function_type_get_parameter_type_num(selected_operator->type_information, 1), &rhs);
+        type_t* param0 = function_type_get_parameter_type_num(selected_operator->type_information, 0);
+        type_t* param1 = function_type_get_parameter_type_num(selected_operator->type_information, 1);
 
-        *nodecl_output = nodecl_make_array_subscript(
-                lhs,
-                nodecl_make_list_1(rhs),
-                result,
-                locus);
+        // E1[E2] is E1 + E2 so E2[E1] is valid as well, make E1 always the
+        // array or pointer and E2 the index
+        if (is_pointer_type(param0))
+        {
+            // Do nothing
+        }
+        else if (is_pointer_type(param1))
+        {
+            nodecl_t tmp = nodecl_subscripted;
+            nodecl_subscripted = nodecl_subscript;
+            nodecl_subscript = tmp;
+
+            tmp = lhs;
+            lhs = rhs;
+            rhs = tmp;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+        subscripted_type = nodecl_get_type(nodecl_subscripted);
+        subscript_type = nodecl_get_type(nodecl_subscript);
+
+        // Now make sure multidimensional arrays are properly materialized
+        if (is_array_type(no_ref(subscripted_type))
+                && (nodecl_get_kind(nodecl_subscripted) == NODECL_ARRAY_SUBSCRIPT)
+                && !(array_type_has_region(no_ref(subscripted_type))
+                    && is_pointer_type(array_type_get_element_type(no_ref(subscripted_type)))))
+        {
+            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
+            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+
+            nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list,
+                    rhs);
+
+            *nodecl_output = nodecl_make_array_subscript(
+                    nodecl_shallow_copy(nodecl_indexed),
+                    nodecl_subscript_list,
+                    result, locus);
+
+            nodecl_free(lhs);
+
+            return;
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_array_subscript(
+                    lhs,
+                    nodecl_make_list_1(rhs),
+                    result, locus);
+
+            nodecl_free(nodecl_subscripted);
+            nodecl_free(nodecl_subscript);
+            return;
+        }
     }
-    else
-    {
-        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-                nodecl_locus_to_str(nodecl_subscripted),
-                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                print_type_str(subscripted_type, decl_context));
-        *nodecl_output = nodecl_make_err_expr(locus);
-        nodecl_free(nodecl_subscripted);
-        nodecl_free(nodecl_subscript);
-    }
+
+    error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+            nodecl_locus_to_str(nodecl_subscripted),
+            codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+            codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+            print_type_str(subscripted_type, decl_context));
+    *nodecl_output = nodecl_make_err_expr(locus);
+    nodecl_free(nodecl_subscripted);
+    nodecl_free(nodecl_subscript);
 }
 
 static void check_nodecl_array_subscript_expression(
@@ -19154,7 +19261,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     }
 
     if (nodecl_get_kind(nodecl_postfix) == NODECL_ARRAY_SUBSCRIPT
-            && is_array_type(nodecl_get_type(nodecl_postfix)))
+            && is_array_type(no_ref(nodecl_get_type(nodecl_postfix))))
     {
         nodecl_t nodecl_indexed = nodecl_get_child(nodecl_postfix, 0);
         nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_postfix, 1);
