@@ -7490,37 +7490,37 @@ static void check_nodecl_array_subscript_expression_c(
         }
     }
 
-
-    if (is_array_type(no_ref(subscripted_type)))
+    if (is_array_type(no_ref(subscripted_type))
+            && (nodecl_get_kind(nodecl_subscripted) == NODECL_ARRAY_SUBSCRIPT)
+            && !(array_type_has_region(no_ref(subscripted_type))
+                && is_pointer_type(array_type_get_element_type(no_ref(subscripted_type)))))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
 
-        if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
-        {
-            // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
-            unary_record_conversion_to_result(
-                    get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
-                    &nodecl_subscripted);
+        // We combine the array subscript list
+        nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
+        nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
 
-            *nodecl_output = nodecl_make_array_subscript(
-                    nodecl_subscripted,
-                    nodecl_make_list_1(nodecl_subscript),
-                    lvalue_ref(t), locus);
-        }
-        else
-        {
-            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
-            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+        nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
+                nodecl_subscript);
 
-            nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
-                    nodecl_subscript);
+        *nodecl_output = nodecl_make_array_subscript(
+                nodecl_indexed,
+                nodecl_subscript_list,
+                lvalue_ref(t), locus);
+    }
+    else if (is_array_type(no_ref(subscripted_type)))
+    {
+        type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
+        // The subscripted type may be T[n] or T(&)[n] and we want it to become T*
+        unary_record_conversion_to_result(
+                get_pointer_type(array_type_get_element_type(no_ref(subscripted_type))),
+                &nodecl_subscripted);
 
-            *nodecl_output = nodecl_make_array_subscript(
-                    nodecl_indexed,
-                    nodecl_subscript_list,
-                    lvalue_ref(t), locus);
-        }
-        return;
+        *nodecl_output = nodecl_make_array_subscript(
+                nodecl_subscripted,
+                nodecl_make_list_1(nodecl_subscript),
+                lvalue_ref(t), locus);
     }
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
@@ -7533,7 +7533,6 @@ static void check_nodecl_array_subscript_expression_c(
                 nodecl_subscripted,
                 nodecl_make_list_1(nodecl_subscript),
                 lvalue_ref(t), locus);
-        return;
     }
     else
     {
@@ -7548,7 +7547,6 @@ static void check_nodecl_array_subscript_expression_c(
         *nodecl_output = nodecl_make_err_expr(locus);
         nodecl_free(nodecl_subscripted);
         nodecl_free(nodecl_subscript);
-        return;
     }
 }
 
@@ -7734,38 +7732,88 @@ static void check_nodecl_array_subscript_expression_cxx(
 
     scope_entry_t* selected_operator = NULL;
 
-    nodecl_t lhs = nodecl_subscripted;
-    nodecl_t rhs = nodecl_subscript;
+    // This is a bit convoluted. First we duplicate lhs and rhs
+    nodecl_t lhs = nodecl_shallow_copy(nodecl_subscripted);
+    nodecl_t rhs = nodecl_shallow_copy(nodecl_subscript);
 
+    // Now we compute a user defined operator[] (using only the builtins)
+    // This call may modify lhs and rhs
     type_t* result = compute_user_defined_bin_operator_type(operator_subscript_tree, 
             &lhs, &rhs, builtins, decl_context, locus, &selected_operator);
+    entry_list_free(builtins);
 
     if (selected_operator != NULL)
     {
         ERROR_CONDITION(!selected_operator->entity_specs.is_builtin, "operator[] is not a builtin\n", 0);
 
-        unary_record_conversion_to_result(
-                function_type_get_parameter_type_num(selected_operator->type_information, 0), &lhs);
-        unary_record_conversion_to_result(
-                function_type_get_parameter_type_num(selected_operator->type_information, 1), &rhs);
+        type_t* param0 = function_type_get_parameter_type_num(selected_operator->type_information, 0);
+        type_t* param1 = function_type_get_parameter_type_num(selected_operator->type_information, 1);
 
-        *nodecl_output = nodecl_make_array_subscript(
-                lhs,
-                nodecl_make_list_1(rhs),
-                result,
-                locus);
+        // E1[E2] is E1 + E2 so E2[E1] is valid as well, make E1 always the
+        // array or pointer and E2 the index
+        if (is_pointer_type(param0))
+        {
+            // Do nothing
+        }
+        else if (is_pointer_type(param1))
+        {
+            nodecl_t tmp = nodecl_subscripted;
+            nodecl_subscripted = nodecl_subscript;
+            nodecl_subscript = tmp;
+
+            tmp = lhs;
+            lhs = rhs;
+            rhs = tmp;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+        subscripted_type = nodecl_get_type(nodecl_subscripted);
+        subscript_type = nodecl_get_type(nodecl_subscript);
+
+        // Now make sure multidimensional arrays are properly materialized
+        if (is_array_type(no_ref(subscripted_type))
+                && (nodecl_get_kind(nodecl_subscripted) == NODECL_ARRAY_SUBSCRIPT)
+                && !(array_type_has_region(no_ref(subscripted_type))
+                    && is_pointer_type(array_type_get_element_type(no_ref(subscripted_type)))))
+        {
+            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
+            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+
+            nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list,
+                    rhs);
+
+            *nodecl_output = nodecl_make_array_subscript(
+                    nodecl_shallow_copy(nodecl_indexed),
+                    nodecl_subscript_list,
+                    result, locus);
+
+            nodecl_free(lhs);
+
+            return;
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_array_subscript(
+                    lhs,
+                    nodecl_make_list_1(rhs),
+                    result, locus);
+
+            nodecl_free(nodecl_subscripted);
+            nodecl_free(nodecl_subscript);
+            return;
+        }
     }
-    else
-    {
-        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
-                nodecl_locus_to_str(nodecl_subscripted),
-                codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
-                codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
-                print_type_str(subscripted_type, decl_context));
-        *nodecl_output = nodecl_make_err_expr(locus);
-        nodecl_free(nodecl_subscripted);
-        nodecl_free(nodecl_subscript);
-    }
+
+    error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+            nodecl_locus_to_str(nodecl_subscripted),
+            codegen_to_str(nodecl_subscripted, nodecl_retrieve_context(nodecl_subscripted)),
+            codegen_to_str(nodecl_subscript, nodecl_retrieve_context(nodecl_subscript)),
+            print_type_str(subscripted_type, decl_context));
+    *nodecl_output = nodecl_make_err_expr(locus);
+    nodecl_free(nodecl_subscripted);
+    nodecl_free(nodecl_subscript);
 }
 
 static void check_nodecl_array_subscript_expression(
