@@ -19154,7 +19154,7 @@ static void check_nodecl_array_section_expression(nodecl_t nodecl_postfix,
     }
 
     if (nodecl_get_kind(nodecl_postfix) == NODECL_ARRAY_SUBSCRIPT
-            && is_array_type(nodecl_get_type(nodecl_postfix)))
+            && is_array_type(no_ref(nodecl_get_type(nodecl_postfix))))
     {
         nodecl_t nodecl_indexed = nodecl_get_child(nodecl_postfix, 0);
         nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_postfix, 1);
