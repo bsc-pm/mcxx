@@ -59,6 +59,7 @@
 #include "cxx-limits.h"
 #include "cxx-diagnostic.h"
 #include "cxx-pragma.h"
+#include "cxx-koenig.h"
 #include "cxx-codegen.h"
 #include "cxx-placeholders.h"
 #include "cxx-driver-utils.h"
@@ -18081,6 +18082,39 @@ static void build_scope_for_statement_nonrange(AST a,
                     ));
 }
 
+char class_lookup_begin_or_end(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus)
+{
+    nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
+            UNIQUESTR_LITERAL("begin"),
+            locus);
+    nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
+            UNIQUESTR_LITERAL("end"),
+            locus);
+
+    scope_entry_list_t* begin_query = query_nodecl_name_in_class(
+            decl_context,
+            class_symbol,
+            begin_name,
+            NULL);
+    scope_entry_list_t* end_query = query_nodecl_name_in_class(
+            decl_context,
+            class_symbol,
+            end_name,
+            NULL);
+
+    char result = (begin_query != NULL) || (end_query != NULL);
+
+    entry_list_free(begin_query);
+    entry_list_free(end_query);
+
+    nodecl_free(begin_name);
+    nodecl_free(end_name);
+
+    return result;
+}
+
 static void build_scope_for_statement_range(AST a,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
@@ -18210,52 +18244,143 @@ static void build_scope_for_statement_range(AST a,
         }
         else
         {
-            // For the purpose of this lookup, std is an associated namespace
-            decl_context_t global_context = decl_context;
-            global_context.current_scope = global_context.global_scope;
-            scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
-
-
-            scope_entry_t* std_namespace = NULL;
-            if (entry_list != NULL)
+            if (is_class_type(no_ref(range_symbol->type_information))
+                    && class_lookup_begin_or_end(
+                        decl_context,
+                        named_type_get_symbol(
+                            advance_over_typedefs(
+                                no_ref(range_symbol->type_information))),
+                        ast_get_locus(a)))
             {
-                std_namespace = entry_list_head(entry_list);
-                entry_list_free(entry_list);
-            }
+                AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
+                        ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                            ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
+                            ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
+                            ast_get_locus(a),
+                            NULL),
+                        NULL,
+                        ast_get_locus(a),
+                        NULL);
 
-            char must_remove_std = (std_namespace != NULL);
-            if (must_remove_std)
-            {
-                int i;
-                for (i = 0;
-                        i < block_context.current_scope->num_used_namespaces;
-                        i++)
+                AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
+                        ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                            ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
+                            ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
+                            ast_get_locus(a),
+                            NULL),
+                        NULL,
+                        ast_get_locus(a),
+                        NULL);
+
+                check_expression(begin_init_tree, block_context, &nodecl_begin_init);
+                if (nodecl_is_err_expr(nodecl_begin_init))
                 {
-                    if (block_context.current_scope->use_namespace[i] == std_namespace)
-                    {
-                        must_remove_std = 0;
-                        break;
-                    }
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
                 }
 
+                check_expression(end_init_tree, block_context, &nodecl_end_init);
+                if (nodecl_is_err_expr(nodecl_end_init))
+                {
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
+                }
             }
-
-            AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
-                    ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
-                        ),
-                    ast_get_locus(a),
-                    NULL);
-
-            check_expression(begin_init_tree, block_context, &nodecl_begin_init);
-
-            if (nodecl_is_err_expr(nodecl_begin_init))
+            else
             {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
+                scope_entry_list_t* begin_lookup = NULL;
+                scope_entry_list_t* end_lookup = NULL;
+                if (is_class_type(no_ref(range_symbol->type_information)))
+                {
+                    nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
+                            UNIQUESTR_LITERAL("begin"),
+                            ast_get_locus(a));
+                    nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
+                            UNIQUESTR_LITERAL("end"),
+                            ast_get_locus(a));
+
+                    type_t* t  = no_ref(range_symbol->type_information);
+                    begin_lookup = koenig_lookup(1, &t,
+                            block_context,
+                            begin_name,
+                            ast_get_locus(a));
+                    end_lookup = koenig_lookup(1, &t,
+                            block_context,
+                            end_name,
+                            ast_get_locus(a));
+
+
+                    nodecl_free(begin_name);
+                    nodecl_free(end_name);
+                }
+
+                if (begin_lookup == NULL)
+                {
+                    error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'begin' found\n",
+                            ast_location(a),
+                            print_declarator(range_symbol->type_information));
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
+                }
+
+                if (end_lookup == NULL)
+                {
+                    error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'end' found\n",
+                            ast_location(a),
+                            print_declarator(range_symbol->type_information));
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
+                }
+
+                nodecl_t begin_set = nodecl_make_symbol(entry_list_head(begin_lookup), ast_get_locus(a));
+                nodecl_set_type(begin_set, get_unresolved_overloaded_type(begin_lookup, NULL));
+
+                nodecl_t nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
+                nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
+
+                check_nodecl_function_call(begin_set, 
+                        nodecl_make_list_1(nodecl_range_sym),
+                        decl_context,
+                        &nodecl_begin_init);
+
+                entry_list_free(begin_lookup);
+
+                if (nodecl_is_err_expr(nodecl_begin_init))
+                {
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
+                }
+
+                nodecl_t end_set = nodecl_make_symbol(entry_list_head(end_lookup), ast_get_locus(a));
+                nodecl_set_type(end_set, get_unresolved_overloaded_type(end_lookup, NULL));
+
+                nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
+                nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
+
+                check_nodecl_function_call(end_set, 
+                        nodecl_make_list_1(nodecl_range_sym),
+                        decl_context,
+                        &nodecl_end_init);
+
+                entry_list_free(end_lookup);
+
+                if (nodecl_is_err_expr(nodecl_end_init))
+                {
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(ast_get_locus(a))
+                            );
+                    return;
+                }
             }
 
             nodecl_begin_init = nodecl_make_cxx_equal_initializer(
@@ -18266,24 +18391,6 @@ static void build_scope_for_statement_range(AST a,
                     nodecl_get_type(nodecl_begin_init),
                     ast_get_locus(a));
 
-            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
-                    ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
-                        ),
-                    ast_get_locus(a),
-                    NULL);
-
-            check_expression(end_init_tree, block_context, &nodecl_end_init);
-
-            if (nodecl_is_err_expr(nodecl_end_init))
-            {
-                *nodecl_output = nodecl_make_list_1(
-                        nodecl_make_err_statement(ast_get_locus(a))
-                        );
-                return;
-            }
-
             nodecl_end_init = nodecl_make_cxx_equal_initializer(
                     nodecl_make_cxx_initializer(
                         nodecl_end_init,
@@ -18291,13 +18398,6 @@ static void build_scope_for_statement_range(AST a,
                         ast_get_locus(a)),
                     nodecl_get_type(nodecl_end_init),
                     ast_get_locus(a));
-
-            if (must_remove_std)
-            {
-                P_LIST_REMOVE(block_context.current_scope->use_namespace,
-                        block_context.current_scope->num_used_namespaces,
-                        std_namespace);
-            }
         }
 
         // Create __begin and __end
