@@ -1262,7 +1262,7 @@ namespace Analysis {
         return (enclosing_task == NULL ? false : true);
     }
 
-    bool ExtensibleGraph::node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
+    static bool node_contains_tasks_rec(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
     {
         bool result = false;
         if(!current->is_visited_extgraph())
@@ -1278,22 +1278,27 @@ namespace Analysis {
                 }
 
                 if(current->is_graph_node())
-                    result = node_contains_tasks(graph_node, current->get_graph_entry_node(), tasks) || result;
+                    result = node_contains_tasks_rec(graph_node, current->get_graph_entry_node(), tasks) || result;
 
                 if(current != graph_node)
                 {
                     ObjectList<Node*> children = current->get_children();
                     for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                         if(!(*it)->is_omp_task_node())
-                            result = node_contains_tasks(graph_node, *it, tasks) || result;
+                            result = node_contains_tasks_rec(graph_node, *it, tasks) || result;
                 }
             }
-            else
-                ExtensibleGraph::clear_visits_extgraph(graph_node);
         }
         return result;
     }
 
+    bool ExtensibleGraph::node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
+    {
+        bool res = node_contains_tasks_rec(graph_node, current, tasks);
+        ExtensibleGraph::clear_visits_extgraph(current);
+        return res;
+    }
+    
     Node* get_enclosing_control_structure_rec(Node* outer_node)
     {
         Node* result = NULL;
