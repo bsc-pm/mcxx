@@ -8934,6 +8934,7 @@ void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         decl_context_t decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
+        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
         decl_context_t decl_context, 
@@ -10505,6 +10506,7 @@ static void check_nodecl_explicit_type_conversion(
                 decl_context,
                 type_info,
                 /* is_explicit_type_cast */ 1,
+                IK_DIRECT_INITIALIZATION,
                 &nodecl_initializer);
     }
     else
@@ -15410,6 +15412,7 @@ void check_nodecl_braced_initializer(
         decl_context_t decl_context,
         type_t* declared_type,
         char is_explicit_type_cast,
+        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_get_kind(braced_initializer) != NODECL_CXX_BRACED_INITIALIZER, "Invalid nodecl", 0);
@@ -15450,7 +15453,36 @@ void check_nodecl_braced_initializer(
                 decl_context,
                 no_ref(declared_type),
                 is_explicit_type_cast,
+                initialization_kind,
                 nodecl_output);
+        return;
+    }
+    else if (IS_CXX11_LANGUAGE
+            && is_class_type(declared_type)
+            && nodecl_list_length(initializer_clause_list) == 0
+            && class_type_get_default_constructor(declared_type) != NULL)
+    {
+        scope_entry_t* constructor = class_type_get_default_constructor(declared_type);
+
+        if (function_has_been_deleted(decl_context, constructor, 
+                    locus))
+        {
+            *nodecl_output = nodecl_make_err_expr(
+                    locus);
+            return;
+        }
+
+        *nodecl_output = cxx_nodecl_make_function_call(
+                nodecl_make_symbol(constructor,
+                    locus),
+                /* called name */ nodecl_null(),
+                nodecl_null(),
+                /* function-form */
+                nodecl_null(),
+                declared_type,
+                decl_context,
+                locus);
+
         return;
     }
     else if ((is_class_type(declared_type)
@@ -15944,52 +15976,6 @@ void check_nodecl_braced_initializer(
         int i, num_args = 0;
         nodecl_t* nodecl_list = nodecl_unpack_list(initializer_clause_list, &num_args);
 
-        ERROR_CONDITION(num_args >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many elements in braced initializer", 0);
-
-        // Now construct the candidates for overloading among the constructors
-        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(declared_type));
-
-        char has_initializer_list_ctor = 0;
-
-        // If std::initializer_list is not available there is no need to check
-        // this because it would have failed before
-        if (std_initializer_list_template != NULL)
-        {
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(constructors);
-                    !entry_list_iterator_end(it)
-                    && !has_initializer_list_ctor;
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* entry = entry_list_iterator_current(it);
-
-                int num_parameters = function_type_get_num_parameters(entry->type_information);
-                // Number of real parameters, ellipsis are counted as parameters
-                // but only in the type system
-                if (function_type_get_has_ellipsis(entry->type_information))
-                    num_parameters--;
-
-                if (num_parameters > 0
-                        && can_be_called_with_number_of_arguments(entry, 1))
-                {
-                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
-
-                    if (is_class_type(first_param))
-                        first_param = get_actual_class_type(first_param);
-
-                    if (is_template_specialized_type(first_param)
-                            && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
-                                std_initializer_list_template->type_information))
-                    {
-                        has_initializer_list_ctor = 1;
-                    }
-                }
-            }
-            entry_list_iterator_free(it);
-        }
-
-        entry_list_free(constructors);
-
         type_t* arg_list[num_args + 1];
         memset(arg_list, 0, sizeof(arg_list));
 
@@ -15999,46 +15985,53 @@ void check_nodecl_braced_initializer(
             arg_list[i] = nodecl_get_type(nodecl_initializer_clause);
         }
 
-        if (!has_initializer_list_ctor)
+        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* constructor = NULL;
+
+        char ok = solve_list_initialization_of_class_type(
+                declared_type,
+                arg_list,
+                num_args,
+                initialization_kind | IK_BY_CONSTRUCTOR,
+                decl_context,
+                locus,
+                &constructor,
+                conversors,
+                &candidates);
+
+        if (!ok)
         {
-            // Plain constructor resolution should be enough here
-            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-            scope_entry_list_t* candidates = NULL;
-            scope_entry_t* constructor = NULL;
-            char ok = solve_initialization_of_class_type(
-                    declared_type,
-                    arg_list,
-                    num_args,
-                    IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
-                    decl_context,
-                    locus,
-                    &constructor,
-                    conversors,
-                    &candidates);
-            entry_list_free(candidates);
+            error_printf("%s: error: invalid initializer for type '%s'\n",
+                    nodecl_locus_to_str(braced_initializer),
+                    print_type_str(declared_type, decl_context));
 
-            if (!ok)
+            if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: invalid initializer for type '%s'\n",
-                        nodecl_locus_to_str(braced_initializer),
-                        print_type_str(declared_type, decl_context));
-                xfree(nodecl_list);
-                *nodecl_output = nodecl_make_err_expr(
-                        locus);
-                return;
+                const char* message = NULL;
+                uniquestr_sprintf(&message,
+                        "%s: error: no suitable conversion for list-initialization of type '%s' "
+                        "using an expression of type '%s'\n",
+                        locus_to_str(nodecl_get_locus(braced_initializer)),
+                        print_type_str(declared_type, decl_context),
+                        print_type_str(nodecl_get_type(braced_initializer), decl_context));
+                diagnostic_candidates(candidates, &message, nodecl_get_locus(braced_initializer));
+                error_printf("%s", message);
             }
-            else
+            entry_list_free(candidates);
+            xfree(nodecl_list);
+            *nodecl_output = nodecl_make_err_expr(
+                    locus);
+        }
+        else
+        {
+            char is_initializer_constructor = 0;
+            int num_parameters = -1;
+            char is_promoting_ellipsis = 0;
+            if (std_initializer_list_template != NULL)
             {
-                if (function_has_been_deleted(decl_context, constructor, 
-                        locus))
-                {
-                    *nodecl_output = nodecl_make_err_expr(
-                            locus);
-                    return;
-                }
-
-                char is_promoting_ellipsis = 0;
-                int num_parameters = function_type_get_num_parameters(constructor->type_information);
+                // Check if the constructor is an initializer-list one
+                num_parameters = function_type_get_num_parameters(constructor->type_information);
                 if (function_type_get_has_ellipsis(constructor->type_information))
                 {
                     is_promoting_ellipsis = is_ellipsis_type(
@@ -16047,6 +16040,54 @@ void check_nodecl_braced_initializer(
                     num_parameters--;
                 }
 
+                if (num_parameters > 0
+                        && can_be_called_with_number_of_arguments(constructor, 1))
+                {
+                    type_t* first_param = function_type_get_parameter_type_num(constructor->type_information, 0);
+
+                    if (is_class_type(first_param))
+                        first_param = get_actual_class_type(first_param);
+
+                    if (is_template_specialized_type(first_param)
+                            && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+                                std_initializer_list_template->type_information))
+                    {
+                        is_initializer_constructor = 1;
+                    }
+                }
+            }
+
+            if (is_initializer_constructor)
+            {
+                xfree(nodecl_list);
+
+                nodecl_t nodecl_arg = nodecl_null();
+                check_nodecl_function_argument_initialization(
+                        braced_initializer,
+                        decl_context,
+                        function_type_get_parameter_type_num(constructor->type_information, 0),
+                        /* disallow_narrowing */ 1,
+                        &nodecl_arg);
+
+                if (nodecl_is_err_expr(nodecl_arg))
+                {
+                    xfree(nodecl_list);
+                    *nodecl_output = nodecl_make_err_expr(
+                            locus);
+                    return;
+                }
+
+                *nodecl_output = cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, locus),
+                        /* called name */ nodecl_null(),
+                        nodecl_make_list_1(nodecl_arg),
+                        nodecl_make_cxx_function_form_implicit(locus),
+                        declared_type,
+                        decl_context,
+                        locus);
+            }
+            else
+            {
                 nodecl_t nodecl_arguments_output = nodecl_null();
                 for (i = 0; i < num_args; i++)
                 {
@@ -16064,6 +16105,7 @@ void check_nodecl_braced_initializer(
                                 &nodecl_arg);
                         if (nodecl_is_err_expr(nodecl_arg))
                         {
+                            xfree(nodecl_list);
                             *nodecl_output = nodecl_arg;
                             nodecl_free(nodecl_old_arg);
                             return;
@@ -16082,6 +16124,7 @@ void check_nodecl_braced_initializer(
 
                             if (is_error_type(default_argument_promoted_type))
                             {
+                                xfree(nodecl_list);
                                 *nodecl_output = nodecl_make_err_expr(locus);
                                 nodecl_free(nodecl_arguments_output);
                                 return;
@@ -16105,86 +16148,258 @@ void check_nodecl_braced_initializer(
                         declared_type,
                         decl_context,
                         locus);
-                return;
             }
         }
-        else
-        {
-            type_t* initializer_list_type = NULL;
-
-            initializer_list_type = get_braced_list_type(num_args, arg_list);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: For initializer list, common type is '%s'\n", 
-                       //  prettyprint_in_buffer(initializer), 
-                        print_type_str(initializer_list_type, decl_context));
-            }
-
-            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-
-            // Now solve the constructor using this specialization
-            scope_entry_list_t* candidates = NULL;
-            scope_entry_t* constructor = NULL;
-            char ok = solve_initialization_of_class_type(
-                    declared_type,
-                    /* arg_list */ &initializer_list_type,
-                    /* num_args */ 1,
-                    IK_DIRECT_INITIALIZATION | IK_BY_CONSTRUCTOR,
-                    decl_context,
-                    locus,
-                    &constructor,
-                    conversors,
-                    &candidates);
-            entry_list_free(candidates);
-
-            if (!ok)
-            {
-                error_printf("%s: error: invalid initializer for type '%s'\n", 
-                        nodecl_locus_to_str(braced_initializer),
-                        print_type_str(declared_type, decl_context));
-                *nodecl_output = nodecl_make_err_expr(
-                        locus);
-                return;
-            }
-            else
-            {
-                if (function_has_been_deleted(decl_context, constructor, 
-                            locus))
-                {
-                    *nodecl_output = nodecl_make_err_expr(
-                            locus);
-                    return;
-                }
-
-                nodecl_t nodecl_arg = nodecl_null();
-                check_nodecl_function_argument_initialization(
-                        braced_initializer,
-                        decl_context,
-                        function_type_get_parameter_type_num(constructor->type_information, 0),
-                        /* disallow_narrowing */ 1,
-                        &nodecl_arg);
-
-                if (nodecl_is_err_expr(nodecl_arg))
-                {
-                    *nodecl_output = nodecl_make_err_expr(
-                            locus);
-                    return;
-                }
-
-                *nodecl_output = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(constructor, locus),
-                        /* called name */ nodecl_null(),
-                        nodecl_make_list_1(nodecl_arg),
-                        nodecl_make_cxx_function_form_implicit(locus),
-                        declared_type,
-                        decl_context,
-                        locus);
-
-                return;
-            }
-        }
+        return;
     }
+//    else if (is_class_type(declared_type)
+//            && !is_aggregate_type(declared_type)
+//            && !braced_initializer_is_dependent)
+//    {
+//        int i, num_args = 0;
+//        nodecl_t* nodecl_list = nodecl_unpack_list(initializer_clause_list, &num_args);
+//
+//        ERROR_CONDITION(num_args >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many elements in braced initializer", 0);
+//
+//        // Now construct the candidates for overloading among the constructors
+//        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(declared_type));
+//
+//        char has_initializer_list_ctor = 0;
+//
+//        // If std::initializer_list is not available there is no need to check
+//        // this because it would have failed before
+//        if (std_initializer_list_template != NULL)
+//        {
+//            scope_entry_list_iterator_t* it = NULL;
+//            for (it = entry_list_iterator_begin(constructors);
+//                    !entry_list_iterator_end(it)
+//                    && !has_initializer_list_ctor;
+//                    entry_list_iterator_next(it))
+//            {
+//                scope_entry_t* entry = entry_list_iterator_current(it);
+//
+//                int num_parameters = function_type_get_num_parameters(entry->type_information);
+//                // Number of real parameters, ellipsis are counted as parameters
+//                // but only in the type system
+//                if (function_type_get_has_ellipsis(entry->type_information))
+//                    num_parameters--;
+//
+//                if (num_parameters > 0
+//                        && can_be_called_with_number_of_arguments(entry, 1))
+//                {
+//                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
+//
+//                    if (is_class_type(first_param))
+//                        first_param = get_actual_class_type(first_param);
+//
+//                    if (is_template_specialized_type(first_param)
+//                            && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+//                                std_initializer_list_template->type_information))
+//                    {
+//                        has_initializer_list_ctor = 1;
+//                    }
+//                }
+//            }
+//            entry_list_iterator_free(it);
+//        }
+//
+//        entry_list_free(constructors);
+//
+//        type_t* arg_list[num_args + 1];
+//        memset(arg_list, 0, sizeof(arg_list));
+//
+//        for (i = 0; i < num_args; i++)
+//        {
+//            nodecl_t nodecl_initializer_clause = nodecl_list[i];
+//            arg_list[i] = nodecl_get_type(nodecl_initializer_clause);
+//        }
+//
+//        if (!has_initializer_list_ctor)
+//        {
+//            // Plain constructor resolution should be enough here
+//            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+//            scope_entry_list_t* candidates = NULL;
+//            scope_entry_t* constructor = NULL;
+//            char ok = solve_initialization_of_class_type(
+//                    declared_type,
+//                    arg_list,
+//                    num_args,
+//                    initialization_kind | IK_BY_CONSTRUCTOR,
+//                    decl_context,
+//                    locus,
+//                    &constructor,
+//                    conversors,
+//                    &candidates);
+//            entry_list_free(candidates);
+//
+//            if (!ok)
+//            {
+//                error_printf("%s: error: invalid initializer for type '%s'\n",
+//                        nodecl_locus_to_str(braced_initializer),
+//                        print_type_str(declared_type, decl_context));
+//                xfree(nodecl_list);
+//                *nodecl_output = nodecl_make_err_expr(
+//                        locus);
+//                return;
+//            }
+//            else
+//            {
+//                if (function_has_been_deleted(decl_context, constructor, 
+//                        locus))
+//                {
+//                    *nodecl_output = nodecl_make_err_expr(
+//                            locus);
+//                    return;
+//                }
+//
+//                char is_promoting_ellipsis = 0;
+//                int num_parameters = function_type_get_num_parameters(constructor->type_information);
+//                if (function_type_get_has_ellipsis(constructor->type_information))
+//                {
+//                    is_promoting_ellipsis = is_ellipsis_type(
+//                            function_type_get_parameter_type_num(constructor->type_information, num_parameters - 1)
+//                            );
+//                    num_parameters--;
+//                }
+//
+//                nodecl_t nodecl_arguments_output = nodecl_null();
+//                for (i = 0; i < num_args; i++)
+//                {
+//                    nodecl_t nodecl_arg = nodecl_list[i];
+//
+//                    if (i < num_parameters)
+//                    {
+//                        type_t* param_type = function_type_get_parameter_type_num(constructor->type_information, i);
+//
+//                        nodecl_t nodecl_old_arg = nodecl_arg;
+//                        check_nodecl_function_argument_initialization(nodecl_arg,
+//                                decl_context,
+//                                param_type,
+//                                /* disallow_narrowing */ 1,
+//                                &nodecl_arg);
+//                        if (nodecl_is_err_expr(nodecl_arg))
+//                        {
+//                            *nodecl_output = nodecl_arg;
+//                            nodecl_free(nodecl_old_arg);
+//                            return;
+//                        }
+//                    }
+//                    else
+//                    {
+//                        if (is_promoting_ellipsis)
+//                        {
+//                            type_t* arg_type = nodecl_get_type(nodecl_arg);
+//                            // Ellipsis
+//                            type_t* default_argument_promoted_type = compute_default_argument_conversion(arg_type,
+//                                    decl_context,
+//                                    nodecl_get_locus(nodecl_arg),
+//                                    /* emit_diagnostic */ 1);
+//
+//                            if (is_error_type(default_argument_promoted_type))
+//                            {
+//                                *nodecl_output = nodecl_make_err_expr(locus);
+//                                nodecl_free(nodecl_arguments_output);
+//                                return;
+//                            }
+//                        }
+//                    }
+//
+//                    nodecl_arguments_output = nodecl_append_to_list(nodecl_arguments_output,
+//                            nodecl_arg);
+//                }
+//
+//                xfree(nodecl_list);
+//
+//                *nodecl_output = cxx_nodecl_make_function_call(
+//                        nodecl_make_symbol(constructor,
+//                            locus),
+//                        /* called name */ nodecl_null(),
+//                        nodecl_arguments_output,
+//                        /* function-form */
+//                        nodecl_null(),
+//                        declared_type,
+//                        decl_context,
+//                        locus);
+//                return;
+//            }
+//        }
+//        else
+//        {
+//            type_t* initializer_list_type = NULL;
+//
+//            initializer_list_type = get_braced_list_type(num_args, arg_list);
+//
+//            DEBUG_CODE()
+//            {
+//                fprintf(stderr, "EXPRTYPE: For initializer list, common type is '%s'\n", 
+//                       //  prettyprint_in_buffer(initializer), 
+//                        print_type_str(initializer_list_type, decl_context));
+//            }
+//
+//            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+//
+//            // Now solve the constructor using this specialization
+//            scope_entry_list_t* candidates = NULL;
+//            scope_entry_t* constructor = NULL;
+//            char ok = solve_initialization_of_class_type(
+//                    declared_type,
+//                    /* arg_list */ &initializer_list_type,
+//                    /* num_args */ 1,
+//                    initialization_kind | IK_BY_CONSTRUCTOR,
+//                    decl_context,
+//                    locus,
+//                    &constructor,
+//                    conversors,
+//                    &candidates);
+//            entry_list_free(candidates);
+//
+//            if (!ok)
+//            {
+//                error_printf("%s: error: invalid initializer for type '%s'\n", 
+//                        nodecl_locus_to_str(braced_initializer),
+//                        print_type_str(declared_type, decl_context));
+//                *nodecl_output = nodecl_make_err_expr(
+//                        locus);
+//                return;
+//            }
+//            else
+//            {
+//                if (function_has_been_deleted(decl_context, constructor, 
+//                            locus))
+//                {
+//                    *nodecl_output = nodecl_make_err_expr(
+//                            locus);
+//                    return;
+//                }
+//
+//                nodecl_t nodecl_arg = nodecl_null();
+//                check_nodecl_function_argument_initialization(
+//                        braced_initializer,
+//                        decl_context,
+//                        function_type_get_parameter_type_num(constructor->type_information, 0),
+//                        /* disallow_narrowing */ 1,
+//                        &nodecl_arg);
+//
+//                if (nodecl_is_err_expr(nodecl_arg))
+//                {
+//                    *nodecl_output = nodecl_make_err_expr(
+//                            locus);
+//                    return;
+//                }
+//
+//                *nodecl_output = cxx_nodecl_make_function_call(
+//                        nodecl_make_symbol(constructor, locus),
+//                        /* called name */ nodecl_null(),
+//                        nodecl_make_list_1(nodecl_arg),
+//                        nodecl_make_cxx_function_form_implicit(locus),
+//                        declared_type,
+//                        decl_context,
+//                        locus);
+//
+//                return;
+//            }
+//        }
+//    }
     else if (braced_initializer_is_dependent)
     {
         *nodecl_output = braced_initializer;
@@ -17275,7 +17490,9 @@ static void check_nodecl_function_argument_initialization_(
     if (nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER)
     {
         check_nodecl_braced_initializer(nodecl_expr, decl_context, declared_type,
-                /* is_explicit_type_cast */ 0, nodecl_output);
+                /* is_explicit_type_cast */ 0,
+                initialization_kind,
+                nodecl_output);
     }
     else
     {
@@ -17519,7 +17736,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             {
                 const char* message = NULL;
                 uniquestr_sprintf(&message,
-                        "%s: error: no suitable constructor for direct initialization of type '%s' "
+                        "%s: error: no suitable constructor for initialization of type '%s' "
                         "using an expression of type '%s'\n",
                         locus_to_str(nodecl_get_locus(nodecl_expr)),
                         print_type_str(declared_type_no_cv, decl_context),
@@ -17726,7 +17943,7 @@ void check_nodecl_initialization(
         case NODECL_CXX_BRACED_INITIALIZER:
             {
                 check_nodecl_braced_initializer(nodecl_initializer, decl_context, declared_type,
-                        /* is_explicit_type_cast */ 0, nodecl_output);
+                        /* is_explicit_type_cast */ 0, IK_DIRECT_INITIALIZATION, nodecl_output);
                 break;
             }
         case NODECL_CXX_PARENTHESIZED_INITIALIZER:
@@ -17773,6 +17990,7 @@ static void check_nodecl_initializer_clause(
             {
                 check_nodecl_braced_initializer(initializer_clause, decl_context, declared_type,
                         /* is_explicit_type_cast */ 0,
+                        IK_COPY_INITIALIZATION,
                         nodecl_output);
                 break;
             }
@@ -18956,7 +19174,8 @@ static void check_gcc_postfix_expression(AST expression,
     }
 
     check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t,
-            /* is_explicit_type_cast */ 0, nodecl_output);
+            /* is_explicit_type_cast */ 0, IK_DIRECT_INITIALIZATION,
+            nodecl_output);
 
     // This is an lvalue
     if (nodecl_is_err_expr(*nodecl_output))
