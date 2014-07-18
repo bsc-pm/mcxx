@@ -145,6 +145,8 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_cuda_kernel_args, &num_items);
 
+    nodecl_t nodecl_actual_cuda_kernel_args = nodecl_null();
+
     int i = 0;
 
     for (i = 0; i < num_items; i++)
@@ -169,19 +171,21 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
                     (standard_conversion_between_types(&result, orig_type, get_signed_int_type(), locus)
                      && equivalent_types(no_ref(get_unqualified_type(dest_type)), dim3_type));
             }
+
+            nodecl_arg = nodecl_shallow_copy(nodecl_arg);
         }
 
         CXX_LANGUAGE()
         {
-            char ambiguous_conversion = 0;
-            scope_entry_t* conversor = NULL;
-            is_convertible = (type_can_be_implicitly_converted_to(
-                        orig_type,
-                        get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
-                        decl_context, 
-                        &ambiguous_conversion, &conversor,
-                        locus)
-                    && !ambiguous_conversion);
+            nodecl_t nodecl_converted_arg = nodecl_null();
+            check_nodecl_function_argument_initialization(
+                    nodecl_arg,
+                    decl_context,
+                    dest_type,
+                    /* disallow_narrowing */ 0,
+                    &nodecl_arg);
+
+            is_convertible = !(nodecl_is_err_expr(nodecl_converted_arg));
         }
 
         if (!is_convertible)
@@ -194,12 +198,15 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
             *nodecl_output = nodecl_make_err_expr(locus);
             return;
         }
+
+        nodecl_actual_cuda_kernel_args = nodecl_append_to_list(nodecl_actual_cuda_kernel_args,
+                nodecl_arg);
     }
 
     nodecl_t nodecl_plain_call = nodecl_null();
     check_nodecl_function_call(nodecl_postfix, nodecl_call_args, decl_context, &nodecl_plain_call);
 
-    *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_cuda_kernel_args,
+    *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_actual_cuda_kernel_args,
             nodecl_plain_call,
             get_void_type(),
             locus);

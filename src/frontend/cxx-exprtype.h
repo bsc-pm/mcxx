@@ -191,6 +191,11 @@ void get_packs_in_expression(nodecl_t nodecl,
 char builtin_needs_contextual_conversion(scope_entry_t* candidate,
         int num_arg, type_t* parameter_type);
 
+void check_contextual_conversion(nodecl_t expression,
+        type_t* dest_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map,
