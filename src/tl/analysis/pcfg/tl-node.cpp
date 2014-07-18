@@ -436,9 +436,9 @@ namespace Analysis {
     bool Node::is_omp_node()
     {
         return (is_omp_atomic_node() || is_omp_barrier_node() || is_omp_barrier_graph_node() || is_omp_critical_node() || 
-                 is_omp_flush_node() || is_omp_loop_node() || is_omp_master_node() || is_omp_parallel_node() || 
-                 is_omp_section_node() || is_omp_sections_node() || is_omp_simd_node() || is_omp_single_node() || 
-                 is_omp_task_creation_node() || is_omp_task_node() || is_omp_taskwait_node() || is_omp_taskyield_node());
+                is_omp_flush_node() || is_omp_loop_node() || is_omp_master_node() || is_omp_parallel_node() || 
+                is_omp_section_node() || is_omp_sections_node() || is_omp_simd_node() || is_omp_single_node() || 
+                is_omp_task_creation_node() || is_omp_task_node() || is_omp_taskwait_node() || is_omp_taskyield_node());
     }
     
     bool Node::is_omp_atomic_node()
@@ -497,6 +497,11 @@ namespace Analysis {
         return (is_graph_node() 
                  && ((gt == __OmpSimd) || (gt == __OmpSimdFor) 
                  || (gt == __OmpSimdFunction) || (gt == __OmpSimdParallelFor) || (gt == __OmpSimdParallel)));
+    }
+    
+    bool Node::is_omp_simd_function_node()
+    {
+        return (is_graph_node() && (get_graph_type() == __OmpSimdFunction));
     }
     
     bool Node::is_omp_single_node()
@@ -1915,28 +1920,115 @@ namespace Analysis {
         return result;
     }
     
-    ObjectList<Symbol> Node::get_linear_expressions()
+    static void check_for_simd_node(Node*& n)
+    {
+        if(n->is_loop_node())
+        {
+            n = n->get_outer_node();
+            if(!n->is_omp_loop_node())
+            {
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Asking for linear symbols in loop node %d, "\
+                                    "which is not contained in an OpenMP loop. Returning empty list.\n", n->get_id());
+                }
+                n = NULL;
+            }
+        }
+        else if(n->is_function_code_node())
+        {
+            n = n->get_outer_node();
+            if(!n->is_omp_simd_function_node())
+            {
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Asking for linear symbols in function code node %d, "\
+                                    "which is not contained in an simd function code. Returning empty list.\n", n->get_id());
+                }
+                n = NULL;
+            }
+        }
+        else if(!n->is_omp_loop_node() && !n->is_omp_simd_function_node())
+        {
+            if(VERBOSE)
+            {
+                WARNING_MESSAGE("Asking for linear symbols in node %d, which is not an OpenMP loop, "\
+                                "neither a simd function code. Returning empty list.\n", n->get_id());
+            }
+            n = NULL;
+        }
+    }
+    
+    ObjectList<Utils::LinearVars> Node::get_linear_symbols()
+    {
+        ObjectList<Utils::LinearVars> result;
+        Node* n = this;
+        check_for_simd_node(n);
+        if(n == NULL)
+            goto fin_linear;
+        
+        {
+            const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            {
+                if(it->get_clause() == __linear)
+                {
+                    Nodecl::List linear_exprs = it->get_args();
+                    ObjectList<Symbol> syms;
+                    NBase step;
+                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    {
+                        if(!itl->is<Nodecl::IntegerLiteral>())
+                        {   // This is not the step of the linear clause
+                            Symbol lin(itl->get_symbol());
+                            ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
+                                            itl->prettyprint().c_str());
+                            syms.insert(lin);
+                        }
+                        else
+                        {
+                            step = *itl;
+                        }
+                    }
+                    // If no step is contained in the clause, the default value is one
+                    if(step.is_null())
+                        step = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_one(/*num_bytes*/4, /*sign*/1));
+                    
+                    result.append(Utils::LinearVars(syms, step));
+                }
+            }
+        }
+fin_linear:        
+        return result;
+    }
+    
+    ObjectList<Symbol> Node::get_uniform_symbols()
     {
         ObjectList<Symbol> result;
-        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
-        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        Node* n = this;
+        check_for_simd_node(n);
+        if(n == NULL)
+            goto fin_uniform;
+        
         {
-            if(it->get_clause() == __linear)
+            const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                Nodecl::List linear_exprs = it->get_args();
-                for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                if(it->get_clause() == __uniform)
                 {
-                    if(!itl->is<Nodecl::IntegerLiteral>())
-                    {   // This is not the step of the linear clause
+                    Nodecl::List linear_exprs = it->get_args();
+                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    {
                         Symbol lin(itl->get_symbol());
                         ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
                                         itl->prettyprint().c_str());
                         result.insert(lin);
                     }
+                    break;
                 }
-                break;
             }
         }
+fin_uniform:        
         return result;
     }
     

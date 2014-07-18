@@ -55,6 +55,14 @@ namespace Analysis {
     bool is_linear_internal(
             Node* const scope_node, 
             const Nodecl::NodeclBase& n);
+    Utils::InductionVarList get_linear_variables_internal(
+            Node* const scope_node);
+    NBase get_linear_variable_lower_bound_internal(
+            Node* const scope_node,
+            const Nodecl::NodeclBase& n);
+    NBase get_linear_variable_increment_internal(
+            Node* const scope_node,
+            const Nodecl::NodeclBase& n);
     
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,

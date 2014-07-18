@@ -2659,6 +2659,13 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Uniform& n )
+    {
+        PCFGClause current_clause(__linear, n.get_uniform_expressions());
+        _utils->_pragma_nodes.top()._clauses.append(current_clause);
+        return ObjectList<Node*>();
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Unroll& n )
     {
         PCFGClause current_clause( __unroll, n.get_unroll_factor( ) );

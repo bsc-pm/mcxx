@@ -731,6 +731,7 @@ namespace Analysis {
     CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(uniform) \
     CLAUSE(unroll) \
     CLAUSE(untied) \
     CLAUSE(wait_on)
