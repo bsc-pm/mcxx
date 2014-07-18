@@ -68,12 +68,16 @@ namespace Vectorization
             map_node_bool_t adjacent_nodes;
             map_node_bool_t simd_aligned_nodes;
 
-            Nodecl::FunctionCode copy_function_code(const Nodecl::FunctionCode& n);
+            Nodecl::FunctionCode copy_function_code(const Nodecl::NodeclBase& n);
 
-            Nodecl::NodeclBase translate_input(const Nodecl::NodeclBase& n);
+            Nodecl::NodeclBase translate_input(
+                    const Nodecl::NodeclBase& n);
             objlist_nodecl_t translate_input(
                     const objlist_nodecl_t& list);
-            TL::Symbol translate_input(const TL::Symbol& n) const;
+            TL::Symbol translate_input(
+                    const TL::Symbol& n) const;
+            objlist_tlsymbol_t translate_input(
+                    const objlist_tlsymbol_t& n) const;
             std::map<TL::Symbol, int> translate_input(
                     const std::map<TL::Symbol, int>& map);
 
@@ -89,11 +93,12 @@ namespace Vectorization
             static VectorizationAnalysisInterface *_vectorizer_analysis;
 
             static void initialize_analysis(
-                    const Nodecl::FunctionCode& enclosing_function);
+                    const Nodecl::NodeclBase& enclosing_function);
+
             static void finalize_analysis();
 
             VectorizationAnalysisInterface(const Nodecl::NodeclBase& n,
-                    Analysis::WhichAnalysis analysis_mask);
+                    const Analysis::WhichAnalysis analysis_mask);
 
             virtual ~VectorizationAnalysisInterface();
 
@@ -106,21 +111,25 @@ namespace Vectorization
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
             
+            Nodecl::NodeclBase get_linear_step(
+                    const Nodecl::NodeclBase& scope,
+                    const Nodecl::NodeclBase& n);
+ 
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
             virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
-            virtual bool is_non_reduction_basic_induction_variable(
+            DEPRECATED bool is_non_reduction_basic_induction_variable(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
             virtual Nodecl::NodeclBase get_induction_variable_lower_bound(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
-            virtual Nodecl::NodeclBase get_induction_variable_increment(
+            DEPRECATED Nodecl::NodeclBase get_induction_variable_increment(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
-            virtual objlist_nodecl_t get_ivs_nodecls(
+            DEPRECATED objlist_nodecl_t get_ivs_nodecls(
                     const Nodecl::NodeclBase& n );
 
             //
@@ -128,11 +137,12 @@ namespace Vectorization
             //
             virtual bool is_adjacent_access(const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-            virtual bool is_simd_aligned_access( const Nodecl::NodeclBase& scope,
+            virtual bool is_simd_aligned_access(
+                    const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
-                    const std::map<TL::Symbol, int>& aligned_expressions,
+                    const tl_sym_int_map_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
-                    int unroll_factor, int alignment );
+                    int unroll_factor, int alignment);
             virtual bool is_suitable_expression(
                     const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                     const objlist_nodecl_t& suitable_expressions,

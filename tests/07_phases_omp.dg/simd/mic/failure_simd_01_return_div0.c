@@ -32,7 +32,7 @@ test_exec_fail=yes
 */
 
 
-#pragma omp simd
+#pragma omp simd linear(i)
 int foo(int n)
 {
     if (n > 2)

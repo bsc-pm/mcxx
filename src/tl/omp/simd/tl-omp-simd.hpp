@@ -84,9 +84,11 @@ namespace TL
                 bool _fast_math_enabled;
 
                 void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::aligned_expr_map_t& aligned_expressions_map);
+                        TL::Vectorization::tl_sym_int_map_t& aligned_expressions_map);
+                void process_linear_clause(const Nodecl::List& environment,
+                        TL::Vectorization::tl_sym_int_map_t& linear_symbols_map);
                 void process_uniform_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objlist_nodecl_t& uniform_expressions);
+                        TL::Vectorization::objlist_tlsymbol_t& uniform_symbols);
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::Vectorization::objlist_nodecl_t& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,
@@ -103,9 +105,8 @@ namespace TL
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
                         TL::Scope enclosing_scope);
 
-                void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
-                        const Nodecl::FunctionCode& function_code,
-                        Vectorization::VectorizerEnvironment& function_environment,
+                void common_simd_function(
+                        const Nodecl::OpenMP::SimdFunction& simd_node,
                         const bool masked_version);
 
             public:

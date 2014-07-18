@@ -26,6 +26,7 @@
 
 #include "tl-omp-simd.hpp"
 
+#include "tl-vectorization-common.hpp"
 #include "tl-omp.hpp"
 #include "tl-optimizations.hpp"
 #include "tl-nodecl-utils.hpp"
@@ -215,12 +216,16 @@ namespace TL {
                 as<Nodecl::List>();
 
             // Aligned clause
-            aligned_expr_map_t aligned_expressions;
+            tl_sym_int_map_t aligned_expressions;
             process_aligned_clause(simd_environment, aligned_expressions);
 
+            // Aligned clause
+            tl_sym_int_map_t linear_symbols;
+            process_linear_clause(simd_environment, linear_symbols);
+
             // Uniform clause
-            objlist_nodecl_t uniform_expressions;
-            process_uniform_clause(simd_environment, uniform_expressions);
+            objlist_tlsymbol_t uniform_symbols;
+            process_uniform_clause(simd_environment, uniform_symbols);
 
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
@@ -260,7 +265,8 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
-                    uniform_expressions,
+                    linear_symbols,
+                    uniform_symbols,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -476,12 +482,16 @@ namespace TL {
             Nodecl::ForStatement for_statement = loop.as<Nodecl::ForStatement>();
 
             // Aligned clause
-            aligned_expr_map_t aligned_expressions;
+            tl_sym_int_map_t aligned_expressions;
             process_aligned_clause(omp_simd_for_environment, aligned_expressions);
 
+            // Linear clause
+            tl_sym_int_map_t linear_symbols;
+            process_linear_clause(omp_simd_for_environment, linear_symbols);
+
             // Uniform clause
-            objlist_nodecl_t uniform_expressions;
-            process_uniform_clause(omp_simd_for_environment, uniform_expressions);
+            objlist_tlsymbol_t uniform_symbols;
+            process_uniform_clause(omp_simd_for_environment, uniform_symbols);
 
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
@@ -519,7 +529,8 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
-                    uniform_expressions,
+                    linear_symbols,
+                    uniform_symbols,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -717,35 +728,6 @@ namespace TL {
 
             Nodecl::List omp_environment = simd_node.get_environment().as<Nodecl::List>();
 
-            // Remove SimdFunction node
-            simd_node.replace(function_code);
-
-            // Aligned clause
-            aligned_expr_map_t aligned_expressions;
-            process_aligned_clause(omp_environment, aligned_expressions);
-
-            // Uniform clause
-            objlist_nodecl_t uniform_expressions;
-            process_uniform_clause(omp_environment, uniform_expressions);
-
-            // Suitable clause
-            objlist_nodecl_t suitable_expressions;
-            process_suitable_clause(omp_environment, suitable_expressions);
-
-            // Nontemporal clause
-            nontmp_expr_map_t nontemporal_expressions;
-            process_nontemporal_clause(omp_environment, nontemporal_expressions);
-
-            // Cache clause
-            objlist_nodecl_t cached_expressions;
-            process_cache_clause(omp_environment, cached_expressions);
-            VectorizerCache vectorizer_cache(cached_expressions);
-
-            // Vectorlengthfor clause
-            TL::Type vectorlengthfor_type;
-            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
-
-
             Nodecl::OpenMP::Mask omp_mask = omp_environment.find_first<Nodecl::OpenMP::Mask>();
             Nodecl::OpenMP::NoMask omp_nomask = omp_environment.find_first<Nodecl::OpenMP::NoMask>();
 
@@ -759,45 +741,29 @@ namespace TL {
                 running_error("SIMD: 'mask' clause detected. Masking is not supported by the underlying architecture\n");
             }
 
-            // Vectorizer Environment
-            VectorizerEnvironment function_environment(
-                    _device_name,
-                    _vector_length,
-                    _support_masking,
-                    _mask_size,
-                    _fast_math_enabled,
-                    vectorlengthfor_type,
-                    aligned_expressions,
-                    uniform_expressions,
-                    suitable_expressions,
-                    nontemporal_expressions,
-                    vectorizer_cache,
-                    NULL,
-                    NULL);
-
            // Mask Version
             if (_support_masking && omp_nomask.is_null())
             {
-                common_simd_function(simd_node,
-                        function_code,
-                        function_environment,
-                        true);
+                common_simd_function(simd_node, true);
             }
             // Nomask Version
             if (omp_mask.is_null())
             {
-                common_simd_function(simd_node,
-                        function_code,
-                        function_environment,
-                        false);
+                common_simd_function(simd_node, false);
             }
+
+            // Remove SimdFunction node
+            simd_node.replace(function_code);
         }
 
-        void SimdVisitor::common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
-                const Nodecl::FunctionCode& function_code,
-                Vectorization::VectorizerEnvironment& function_environment,
+        void SimdVisitor::common_simd_function(
+                const Nodecl::OpenMP::SimdFunction& simd_node,
                 const bool masked_version)
         {
+            Nodecl::FunctionCode function_code = simd_node.get_statement()
+                .as<Nodecl::FunctionCode>();
+
+            // Clone SimdFunction
             TL::Symbol func_sym = function_code.get_symbol();
             std::string orig_func_name = func_sym.get_name();
 
@@ -824,18 +790,67 @@ namespace TL {
             Nodecl::Utils::SimpleSymbolMap func_sym_map;
             func_sym_map.add_map(func_sym, new_func_sym);
 
+            Nodecl::OpenMP::SimdFunction simd_node_copy =
+                Nodecl::Utils::deep_copy(simd_node,
+                        simd_node,
+                        func_sym_map).as<Nodecl::OpenMP::SimdFunction>();
+
             Nodecl::FunctionCode vector_func_code =
-                Nodecl::Utils::deep_copy(function_code,
-                        function_code,
-                        func_sym_map).as<Nodecl::FunctionCode>();
+                simd_node_copy.get_statement().as<Nodecl::FunctionCode>();
 
             FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, new_func_sym);
             fix_deep_copy_visitor.walk(vector_func_code.get_statements());
 
-            // Add SIMD version to vector function versioning
-            _vectorizer.add_vector_function_version(orig_func_name, vector_func_code,
-                    _device_name, _vector_length, func_sym.get_type().returns(), masked_version,
-                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+            // Process clauses FROM THE COPY (Very Important)
+            Nodecl::List omp_environment = simd_node_copy.
+                get_environment().as<Nodecl::List>();
+
+            // Aligned clause
+            tl_sym_int_map_t aligned_expressions;
+            process_aligned_clause(omp_environment, aligned_expressions);
+
+            // Linear clause
+            tl_sym_int_map_t linear_symbols;
+            process_linear_clause(omp_environment, linear_symbols);
+
+            // Uniform clause
+            objlist_tlsymbol_t uniform_symbols;
+            process_uniform_clause(omp_environment, uniform_symbols);
+
+            // Suitable clause
+            objlist_nodecl_t suitable_expressions;
+            process_suitable_clause(omp_environment, suitable_expressions);
+
+            // Nontemporal clause
+            nontmp_expr_map_t nontemporal_expressions;
+            process_nontemporal_clause(omp_environment, nontemporal_expressions);
+
+            // Cache clause
+            objlist_nodecl_t cached_expressions;
+            process_cache_clause(omp_environment, cached_expressions);
+            VectorizerCache vectorizer_cache(cached_expressions);
+
+            // Vectorlengthfor clause
+            TL::Type vectorlengthfor_type;
+            process_vectorlengthfor_clause(omp_environment, vectorlengthfor_type);
+
+            // Vectorizer Environment
+            VectorizerEnvironment function_environment(
+                    _device_name,
+                    _vector_length,
+                    _support_masking,
+                    _mask_size,
+                    _fast_math_enabled,
+                    vectorlengthfor_type,
+                    aligned_expressions,
+                    linear_symbols,
+                    uniform_symbols,
+                    suitable_expressions,
+                    nontemporal_expressions,
+                    vectorizer_cache,
+                    NULL,
+                    NULL);
+
 
             // Append vectorized function code to scalar function
             simd_node.append_sibling(vector_func_code);
@@ -846,8 +861,17 @@ namespace TL {
             // Get code ready for vectorisation
             _vectorizer.preprocess_code(vector_func_code, function_environment);
 
+            // Add SIMD version to vector function versioning
+            TL::Type function_return_type = func_sym.get_type().returns();
+            _vectorizer.add_vector_function_version(orig_func_name,
+                    vector_func_code, _device_name, 
+                    function_return_type.get_size() * 
+                    function_environment._vectorization_factor, 
+                    function_return_type, masked_version,
+                    TL::Vectorization::SIMD_FUNC_PRIORITY, false);
+
             // Initialize analysis info
-            _vectorizer.initialize_analysis(vector_func_code);
+            _vectorizer.initialize_analysis(simd_node_copy);
 
             _vectorizer.vectorize_function(vector_func_code,
                     function_environment, masked_version);
@@ -875,12 +899,16 @@ namespace TL {
                 as<Nodecl::List>().front();
 
             // Aligned clause
-            aligned_expr_map_t aligned_expressions;
+            tl_sym_int_map_t aligned_expressions;
             process_aligned_clause(omp_simd_parallel_environment, aligned_expressions);
 
+            // Aligned clause
+            tl_sym_int_map_t linear_symbols;
+            process_aligned_clause(omp_simd_parallel_environment, linear_symbols);
+
             // Uniform clause
-            objlist_nodecl_t uniform_expressions;
-            process_uniform_clause(omp_simd_parallel_environment, uniform_expressions);
+            objlist_tlsymbol_t uniform_symbols;
+            process_uniform_clause(omp_simd_parallel_environment, uniform_symbols);
 
             // Suitable clause
             objlist_nodecl_t suitable_expressions;
@@ -918,7 +946,8 @@ namespace TL {
                     _fast_math_enabled,
                     vectorlengthfor_type,
                     aligned_expressions,
-                    uniform_expressions,
+                    linear_symbols,
+                    uniform_symbols,
                     suitable_expressions,
                     nontemporal_expressions,
                     vectorizer_cache,
@@ -1020,7 +1049,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_aligned_clause(const Nodecl::List& environment,
-                aligned_expr_map_t& aligned_expressions_map)
+                tl_sym_int_map_t& aligned_expressions_map)
         {
             TL::ObjectList<Nodecl::OpenMP::Aligned> omp_aligned_list =
                 environment.find_all<Nodecl::OpenMP::Aligned>();
@@ -1031,13 +1060,13 @@ namespace TL {
             {
                 Nodecl::OpenMP::Aligned& omp_aligned = *it;
 
-                TL::ObjectList<Nodecl::NodeclBase> aligned_expressions_list =
+                objlist_nodecl_t aligned_expressions_list =
                     omp_aligned.get_aligned_expressions().as<Nodecl::List>().to_object_list();
 
                 int alignment = const_value_cast_to_signed_int(
                         omp_aligned.get_alignment().as<Nodecl::IntegerLiteral>().get_constant());
 
-                for(TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = aligned_expressions_list.begin();
+                for(objlist_nodecl_t::iterator it2 = aligned_expressions_list.begin();
                         it2 != aligned_expressions_list.end();
                         it2++)
                 {
@@ -1045,22 +1074,62 @@ namespace TL {
                     if(!aligned_expressions_map.insert(std::pair<TL::Symbol, int>(
                                     it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detectedn\n");
+                        running_error("SIMD: multiple instances of the same variable in the 'aligned' clause detected\n");
+                    }
+                }
+            }
+        }
+
+        void SimdVisitor::process_linear_clause(const Nodecl::List& environment,
+                tl_sym_int_map_t& linear_symbols_map)
+        {
+            TL::ObjectList<Nodecl::OpenMP::Linear> omp_linear_list =
+                environment.find_all<Nodecl::OpenMP::Linear>();
+
+            for(TL::ObjectList<Nodecl::OpenMP::Linear>::iterator it = omp_linear_list.begin();
+                    it != omp_linear_list.end();
+                    it++)
+            {
+                Nodecl::OpenMP::Linear& omp_linear = *it;
+
+                objlist_nodecl_t linear_symbols_list =
+                    omp_linear.get_linear_expressions().as<Nodecl::List>().to_object_list();
+
+                int alignment = const_value_cast_to_signed_int(
+                        omp_linear.get_step().as<Nodecl::IntegerLiteral>().get_constant());
+
+                for(objlist_nodecl_t::iterator it2 = linear_symbols_list.begin();
+                        it2 != linear_symbols_list.end();
+                        it2++)
+                {
+
+                    if(!linear_symbols_map.insert(std::pair<TL::Symbol, int>(
+                                    it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                    {
+                        running_error("SIMD: multiple instances of the same variable in the 'linear' clause detected\n");
                     }
                 }
             }
         }
 
         void SimdVisitor::process_uniform_clause(const Nodecl::List& environment,
-                objlist_nodecl_t& uniform_expressions)
+                objlist_tlsymbol_t& uniform_symbols)
         {
             Nodecl::OpenMP::Uniform omp_uniform =
                 environment.find_first<Nodecl::OpenMP::Uniform>();
 
             if(!omp_uniform.is_null())
             {
-                uniform_expressions = omp_uniform.get_uniform_expressions().
-                    as<Nodecl::List>().to_object_list();
+                objlist_nodecl_t uniform_symbols_list =
+                    omp_uniform.get_uniform_expressions().as<Nodecl::List>().to_object_list();
+
+                for(objlist_nodecl_t::iterator it2 = uniform_symbols_list.begin();
+                        it2 != uniform_symbols_list.end();
+                        it2++)
+                {
+                    uniform_symbols.insert(
+                                it2->as<Nodecl::Symbol>().get_symbol());
+                }
             }
         }
 
@@ -1089,13 +1158,13 @@ namespace TL {
             {
                 Nodecl::OpenMP::Nontemporal& omp_nontemporal = *it;
 
-                TL::ObjectList<Nodecl::NodeclBase> nontemporal_expressions_list =
+                objlist_nodecl_t nontemporal_expressions_list =
                     omp_nontemporal.get_nontemporal_expressions().as<Nodecl::List>().to_object_list();
 
-                TL::ObjectList<Nodecl::NodeclBase> nontemporal_flags = omp_nontemporal.get_flags().
+                objlist_nodecl_t nontemporal_flags = omp_nontemporal.get_flags().
                     as<Nodecl::List>().to_object_list();
 
-                for(TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = nontemporal_expressions_list.begin();
+                for(objlist_nodecl_t::iterator it2 = nontemporal_expressions_list.begin();
                         it2 != nontemporal_expressions_list.end();
                         it2++)
                 {
@@ -1158,7 +1227,7 @@ namespace TL {
         }
 
         void SimdVisitor::process_cache_clause(const Nodecl::List& environment,
-                TL::ObjectList<Nodecl::NodeclBase>& cached_expressions)
+                objlist_nodecl_t& cached_expressions)
         {
             Nodecl::OpenMP::Cache omp_cache =
                 environment.find_first<Nodecl::OpenMP::Cache>();

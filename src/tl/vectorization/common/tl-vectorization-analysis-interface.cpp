@@ -30,6 +30,7 @@
 #include "tl-suitable-alignment-visitor.hpp"
 #include "tl-extensible-graph.hpp"
 
+#include "cxx-cexpr.h"
 
 namespace TL
 {
@@ -38,7 +39,7 @@ namespace Vectorization
     VectorizationAnalysisInterface* VectorizationAnalysisInterface::_vectorizer_analysis = 0;
 
     void VectorizationAnalysisInterface::initialize_analysis(
-            const Nodecl::FunctionCode& enclosing_function)
+            const Nodecl::NodeclBase& enclosing_function)
     {
         if(_vectorizer_analysis != 0)
         {
@@ -77,14 +78,14 @@ namespace Vectorization
     }
 
     VectorizationAnalysisInterface::VectorizationAnalysisInterface(
-            const Nodecl::NodeclBase& n, Analysis::WhichAnalysis analysis_mask)
-        :
-            VectorizationAnalysisMaps(),
-            Analysis::AnalysisInterface::AnalysisInterface(
-                    copy_function_code(n.as<Nodecl::FunctionCode>()),
-                    analysis_mask, 
-                    /*ompss_enabled*/false),
-            _original_node(n)
+            const Nodecl::NodeclBase& n, 
+            const Analysis::WhichAnalysis analysis_mask)
+        : VectorizationAnalysisMaps(),
+        Analysis::AnalysisInterface::AnalysisInterface(
+                copy_function_code(n),
+                analysis_mask, 
+                /*ompss_enabled*/false),
+        _original_node(n)
     {
         //Fill inverse maps
         for(Nodecl::Utils::NodeclDeepCopyMap::const_iterator it =
@@ -115,6 +116,10 @@ namespace Vectorization
                 it != _orig_to_copy_symbols.end();
                 it ++)
         {
+            /*
+            std::cerr << "Inserting symbol " << it->first.get_name() << ": "
+               << it->first.get_internal_symbol() << std::endl;
+            */
             std::pair<Nodecl::Utils::SymbolDeepCopyMap::const_iterator, bool>
                 ret_insert = _copy_to_orig_symbols.insert(
                         std::pair<TL::Symbol, TL::Symbol>(it->second, it->first));
@@ -132,9 +137,17 @@ namespace Vectorization
     {}
 
     Nodecl::FunctionCode VectorizationAnalysisInterface::copy_function_code(
-            const Nodecl::FunctionCode& n)
+            const Nodecl::NodeclBase& n)
     {
-        TL::Symbol func_sym = n.get_symbol();
+        Nodecl::FunctionCode func_code;
+
+        if (n.is<Nodecl::OpenMP::SimdFunction>())
+            func_code = n.as<Nodecl::OpenMP::SimdFunction>().
+                get_statement().as<Nodecl::FunctionCode>();
+        else
+            func_code = n.as<Nodecl::FunctionCode>();
+
+        TL::Symbol func_sym = func_code.get_symbol();
         std::string orig_func_name = func_sym.get_name();
 
         TL::Symbol new_func_sym = func_sym.get_scope().
@@ -222,10 +235,30 @@ namespace Vectorization
         if (it == _orig_to_copy_symbols.end())
         {
             internal_error("VectorizerAnalysis: Error translating "\
-                    "Symbol from origin to copy", 0);
+                    "Symbol '%s' from origin to copy",
+                    n.get_name().c_str());
         }
 
         return it->second;
+    }
+
+    objlist_tlsymbol_t VectorizationAnalysisInterface::translate_input(
+            const objlist_tlsymbol_t& list) const
+    {
+        objlist_tlsymbol_t result_list;
+
+        for(objlist_tlsymbol_t::const_iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            /*
+            std::cerr << "Translating symbol " << it->get_name() << ": "
+               << it->get_internal_symbol() << std::endl;
+            */
+            result_list.append(translate_input(*it));
+        }
+
+        return result_list;
     }
 
     std::map<TL::Symbol, int> VectorizationAnalysisInterface::translate_input(
@@ -301,14 +334,15 @@ namespace Vectorization
             const Nodecl::NodeclBase& n)
     {
         bool result;
+
         Nodecl::NodeclBase translated_n = translate_input(n);
         map_node_bool_t::iterator it = uniform_nodes.find(translated_n);
-       
+
         if (it == uniform_nodes.end())
         {
             result = Analysis::AnalysisInterface::is_uniform(
-                translate_input(scope), translate_input(stmt),
-                translated_n);
+                    translate_input(scope), translate_input(stmt),
+                    translated_n);
 
             uniform_nodes.insert(pair_node_bool_t(translated_n, result));
         }
@@ -325,22 +359,33 @@ namespace Vectorization
         const Nodecl::NodeclBase& n)
     {
         bool result;
+
         Nodecl::NodeclBase translated_n = translate_input(n);
         map_node_bool_t::iterator it = linear_nodes.find(translated_n);
-        
+
         if (it == linear_nodes.end())
         {
-            result = Analysis::AnalysisInterface::is_linear(
-                translate_input(scope), translated_n);
-            
+            result = Analysis::AnalysisInterface::
+                is_non_reduction_basic_induction_variable(
+                        translate_input(scope), translated_n);
+
             linear_nodes.insert(pair_node_bool_t(translated_n, result));
         }
         else
         {
             result = it->second;
         }
-        
+
         return result;
+    }
+
+    Nodecl::NodeclBase VectorizationAnalysisInterface::get_linear_step(
+            const Nodecl::NodeclBase& scope,
+            const Nodecl::NodeclBase& n)
+    {
+        return translate_output(Analysis::AnalysisInterface::
+                get_induction_variable_increment(
+                    translate_input(scope), translate_input(n)));
     }
     
     bool VectorizationAnalysisInterface::has_been_defined(
@@ -443,7 +488,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const std::map<TL::Symbol, int>& aligned_expressions,
+            const tl_sym_int_map_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment)
     {
@@ -458,7 +503,7 @@ namespace Vectorization
                 translate_input(aligned_expressions);
             const objlist_nodecl_t& translated_suitable_expressions =
                 translate_input(suitable_expressions);
-
+ 
             if( !translated_n.is<Nodecl::ArraySubscript>( ) )
             {
                 std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
@@ -472,7 +517,8 @@ namespace Vectorization
             int type_size = subscripted.get_type().basic_type().get_size();
 
             SuitableAlignmentVisitor sa_v( translated_scope,
-                    translated_suitable_expressions, unroll_factor,
+                    translated_suitable_expressions, 
+                    unroll_factor,
                     type_size, alignment );
 
             result = sa_v.is_aligned_access( array_subscript, translated_aligned_expressions );
@@ -497,8 +543,8 @@ namespace Vectorization
 //            translate_input(suitable_expressions);
 
         return is_suitable_expression_internal(translated_scope, n,
-                suitable_expressions, unroll_factor, alignment,
-                vector_size_module);
+                suitable_expressions, unroll_factor,
+                alignment, vector_size_module);
     }
 
     bool VectorizationAnalysisInterface::is_adjacent_access(

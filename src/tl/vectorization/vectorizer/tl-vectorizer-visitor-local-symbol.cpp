@@ -110,7 +110,10 @@ namespace Vectorization
             if (!tl_sym_type.is_vector() && !tl_sym_type.is_mask() &&
                     !VectorizationAnalysisInterface::_vectorizer_analysis->
                     is_uniform(_environment._analysis_simd_scope,
-                        nodecl_sym, nodecl_sym))
+                        nodecl_sym, nodecl_sym) &&
+                    !VectorizationAnalysisInterface::_vectorizer_analysis->
+                    is_linear(_environment._analysis_simd_scope,
+                        nodecl_sym))
             {
                 TL::Type vector_type;
 

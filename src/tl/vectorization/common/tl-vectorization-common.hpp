@@ -38,7 +38,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        typedef std::map<TL::Symbol, int> aligned_expr_map_t;
+        typedef std::map<TL::Symbol, int> tl_sym_int_map_t;
         typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontmp_expr_map_t;
         typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
         typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;

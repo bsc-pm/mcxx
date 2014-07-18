@@ -135,6 +135,7 @@ namespace TL
                 void process_symbol_list_clause(
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
+                        const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
                 void process_common_simd_clauses(
