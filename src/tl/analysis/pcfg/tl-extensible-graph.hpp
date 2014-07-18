@@ -112,6 +112,8 @@ namespace Analysis {
         //! It also joins those nodes that are always consecutively executed and non of them
         //! are the target of a jump.
         void clear_unnecessary_nodes();
+        
+        void remove_unnecessary_connections_rec(Node* n);
 
         //! This method concatenates all those nodes that form a Basic Block in one only node.
         //! It creates a new node containing all the statements and deleted the previous nodes.
@@ -290,6 +292,10 @@ namespace Analysis {
         //! during the construction of the graph but do not represent any statement of the code, and also
         //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
         void dress_up_graph();
+        
+        //! Return nodes may cause unconnected parts of the code to be connected
+        //! This method removes this dead connections
+        void remove_unnecessary_connections();
 
         //! This method concatenates a list of nodes into only one
         /*!

@@ -330,6 +330,9 @@ namespace Analysis {
             //! Returns true when the node is any kind of OpenMP SIMD node
             bool is_omp_simd_node( );
             
+            //! Returns true when the node is a SIMD FUNCTION CODE node
+            bool is_omp_simd_function_node();
+            
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
 
@@ -832,9 +835,11 @@ namespace Analysis {
             // ****************************************************************************** //
             // **************** Getters and setters for vectorization analysis ************** //
             
-            ObjectList<Symbol> get_reductions( );
+            ObjectList<Symbol> get_reductions();
             
-            ObjectList<Symbol> get_linear_expressions();
+            ObjectList<Utils::LinearVars> get_linear_symbols();
+            
+            ObjectList<Symbol> get_uniform_symbols();
             
             // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //
