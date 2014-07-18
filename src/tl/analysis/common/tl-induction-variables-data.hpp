@@ -94,6 +94,19 @@ namespace Utils {
 
     typedef ObjectList<InductionVar*> InductionVarList;
     
+    struct LinearVars {
+        ObjectList<Symbol> _syms;
+        NBase _step;
+        
+        LinearVars(ObjectList<Symbol> syms, NBase step)
+            : _syms(syms), _step(step)
+        {}
+        
+        ObjectList<Symbol> get_symbols() const { return _syms; }
+        
+        NBase get_step() const { return _step; }
+    };
+    
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 

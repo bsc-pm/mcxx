@@ -114,7 +114,6 @@ namespace Analysis {
     /*
      *  QUERIES
      */
-
     bool is_uniform_internal(
             Node* const scope_node,
             Node* const stmt_node,
@@ -144,16 +143,46 @@ namespace Analysis {
             return false;
         }
         
-        ObjectList<Symbol> linear_exprs = scope_node->get_linear_expressions();
-        for (ObjectList<Symbol>::iterator it = linear_exprs.begin(); 
-                it != linear_exprs.end(); 
-                ++it)
+        Node* new_scope = scope_node;
+        if(scope_node->is_loop_node())
         {
-            if (*it == s)
+            new_scope = scope_node->get_outer_node();
+            if(!new_scope->is_omp_loop_node())
+                goto iv_as_linear;
+        }
+        else if(scope_node->is_function_code_node())
+        {
+            new_scope = scope_node->get_outer_node();
+            // If the scope is a function and it is not enclosed in a simd pragma
+            // then no IVs will be attached to this node
+            if(!new_scope->is_omp_simd_function_node())
+                goto final_linear;
+        }
+        // If, after checking the possibility of being enclosed within a simd node
+        // then, only induction variables calculated during analysis may be reported
+        if(!new_scope->is_omp_loop_node() && !new_scope->is_omp_simd_function_node())
+            goto iv_as_linear;
+        
+        // First try to get the information form the user clauses
+        {
+            ObjectList<Utils::LinearVars> linear_syms = scope_node->get_linear_symbols();
+            for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
             {
-                return true;
+                ObjectList<Symbol> syms = it->get_symbols();
+                for(ObjectList<Symbol>::iterator itt = syms.begin(); itt != syms.end(); ++itt)
+                {
+                    if (*itt == s)
+                        return true;
+                }
             }
         }
+        
+        // Second get the information form the analysis: IV
+iv_as_linear:
+        if(scope_node->is_loop_node())
+            return is_iv_internal(scope_node, n);
+        
+final_linear:
         return false;
     }
     
@@ -302,6 +331,97 @@ namespace Analysis {
         }
 
         return result;
+    }
+    
+    Utils::InductionVarList get_linear_variables_internal(Node* const scope_node)
+    {
+        ObjectList<Utils::LinearVars> linear_syms;
+        Utils::InductionVarList result;
+        
+        Node* new_scope = scope_node;
+        if(scope_node->is_loop_node())
+        {
+            new_scope = scope_node->get_outer_node();
+            if(!new_scope->is_omp_loop_node())
+                goto get_ivs;
+        }
+        else if(scope_node->is_function_code_node())
+        {
+            new_scope = scope_node->get_outer_node();
+            // If the scope is a function and it is not enclosed in a simd pragma
+            // then no linear variables can be related to this node
+            if(!new_scope->is_omp_simd_function_node())
+                goto final_get_linear;
+        }
+        // If, after checking the possibility of being enclosed within a simd node
+        // then, only induction variables calculated during analysis may be reported
+        if(!new_scope->is_omp_loop_node() && !new_scope->is_omp_simd_function_node())
+            goto get_ivs;
+        
+        linear_syms = new_scope->get_linear_symbols();
+        
+get_ivs:
+        // Get the induction variables if the scope is a loop
+        if(scope_node->is_loop_node())
+        {
+            result = scope_node->get_induction_variables();
+        }
+        // Enrich the induction variables list with the linear symbols of the clause, if there are
+        for(ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
+        {
+            bool found = false;
+            NBase step;
+            Symbol s;
+            for(Utils::InductionVarList::iterator itt = result.begin(); itt != result.end(); ++itt)
+            {
+                s = (*itt)->get_variable().get_symbol();
+                ObjectList<Symbol> syms = it->get_symbols();
+                for(ObjectList<Symbol>::iterator ittt = syms.begin(); ittt != syms.end(); ++ittt)
+                {
+                    if(s.is_valid() && (s == *ittt))
+                    {
+                        found = true;
+                        step = it->get_step();
+                    }
+                }
+            }
+            if(!found)
+            {   // The variable in the linear clause has not been recognized during analysis as an IV
+                // We add it here to the list
+                Utils::InductionVar* iv = new Utils::InductionVar(s.make_nodecl(/*set_ref_type*/ false));
+                iv->set_increment(step);
+                result.append(iv);
+            }
+        }
+        
+final_get_linear:
+        return result;
+    }
+    
+    NBase get_linear_variable_lower_bound_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
+    {
+        Utils::InductionVarList scope_ivs = get_linear_variables_internal(scope_node);
+        for(Utils::InductionVarList::iterator it = scope_ivs.begin(); it != scope_ivs.end(); it++)
+        {
+            NBase v = (*it)->get_variable();
+            if(Nodecl::Utils::structurally_equal_nodecls(n, v, /*skip_conversions*/true))
+                return (*it)->get_lb();
+        }
+        
+        return NBase::null();
+    }
+    
+    NBase get_linear_variable_increment_internal(Node* const scope_node, const Nodecl::NodeclBase& n)
+    {
+        Utils::InductionVarList scope_ivs = get_linear_variables_internal(scope_node);
+        for(Utils::InductionVarList::iterator it = scope_ivs.begin(); it != scope_ivs.end(); it++)
+        {
+            NBase v = (*it)->get_variable();
+            if(Nodecl::Utils::structurally_equal_nodecls(n, v, /*skip_conversions*/true))
+                return (*it)->get_increment();
+        }
+        
+        return NBase::null();
     }
 }
 }
