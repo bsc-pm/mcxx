@@ -149,7 +149,8 @@ scope_entry_list_t* koenig_lookup(
                         !entry_list_iterator_end(it2) && !found_in_an_associated_class;
                         entry_list_iterator_next(it2))
                 {
-                    scope_entry_t* current_friend = entry_list_iterator_current(it2);
+                    scope_entry_t* friend_decl = entry_list_iterator_current(it2);
+                    scope_entry_t* current_friend = friend_decl->entity_specs.alias_to;
 
                     found_in_an_associated_class = (current_friend == current_entry);
                 }

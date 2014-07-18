@@ -88,6 +88,7 @@ namespace Codegen
 
     namespace
     {
+#if 0
         std::string to_binary(unsigned int t)
         {
             std::string result;
@@ -106,6 +107,7 @@ namespace Codegen
 
             return result;
         }
+#endif
 
         // Do not call directly to this function! Use 'first_scope_is_contained_in_second' instead
         bool first_scope_is_contained_in_second_(scope_t* first, scope_t* second)
@@ -1568,9 +1570,19 @@ OPERATOR_TABLE
             subscripted = subscripted.as<Nodecl::Conversion>().get_nest();
         }
 
+        TL::Symbol array_symbol;
+        if (subscripted.is<Nodecl::Symbol>())
+        {
+            array_symbol = subscripted.get_symbol();
+        }
+        else if (subscripted.is<Nodecl::Dereference>())
+        {
+            array_symbol = subscripted.as<Nodecl::Dereference>().get_rhs().get_symbol();
+        }
+
         walk(subscripted);
         *(file) << "(";
-        codegen_reverse_comma_separated_list(subscripts);
+        codegen_array_subscripts(subscripted.get_symbol(), subscripts);
         *(file) << ")";
     }
 
@@ -5003,7 +5015,77 @@ OPERATOR_TABLE
         *(file) << node.get_text();
     }
 
-    void FortranBase::codegen_reverse_comma_separated_list(Nodecl::NodeclBase node)
+    bool FortranBase::calls_to_xbound_for_array_symbol_dim(
+            Nodecl::NodeclBase range_item,
+            TL::Symbol array_symbol,
+            const std::string &function_name,
+            int dim)
+    {
+        TL::Symbol called_sym;
+        Nodecl::List args;
+        return (range_item.is<Nodecl::FunctionCall>()
+                && (called_sym = range_item.as<Nodecl::FunctionCall>().get_called().get_symbol()).is_valid()
+                && called_sym.get_name() == function_name
+                && (args = range_item.as<Nodecl::FunctionCall>().get_arguments().as<Nodecl::List>()).size() == 2
+                // Check it matches the symbol
+                // (Note that if the user added a call here this args[0] would
+                // be a FortranActualArgument and not directly the symbol)
+                && ((args[0].is<Nodecl::Symbol>() && args[0].get_symbol() == array_symbol)
+                    || (args[0].is<Nodecl::Dereference>()
+                        && args[0].as<Nodecl::Dereference>().get_rhs().get_symbol() == array_symbol))
+                // Check it matches the dimension
+                && args[1].is_constant()
+                && const_value_is_nonzero(
+                    const_value_eq(args[1].get_constant(), const_value_get_signed_int(dim))));
+    }
+
+    bool FortranBase::subscript_expresses_whole_dimension(Nodecl::NodeclBase node,
+            TL::Symbol array_symbol,
+            int dim)
+    {
+        if (!array_symbol.is_valid())
+            return false;
+
+        ERROR_CONDITION(!node.is<Nodecl::Range>(), "Invalid node", 0);
+        Nodecl::NodeclBase lower = node.as<Nodecl::Range>().get_lower();
+        Nodecl::NodeclBase upper = node.as<Nodecl::Range>().get_upper();
+        Nodecl::NodeclBase stride = node.as<Nodecl::Range>().get_stride();
+
+        // Ensure that stride is 1
+        if (!(stride.is_constant()
+                    && const_value_is_integer(nodecl_get_constant(stride.get_internal_nodecl()))
+                    && const_value_is_nonzero(
+                        const_value_eq(nodecl_get_constant(stride.get_internal_nodecl()),
+                            const_value_get_one(/* num_bytes */ fortran_get_default_integer_type_kind(), /* signed */ 1)))))
+            return false;
+
+        // Degenerate case trivally true
+        if (lower.is_null() && upper.is_null())
+            return true;
+
+        return (calls_to_xbound_for_array_symbol_dim(lower, array_symbol, "lbound", dim)
+                && calls_to_xbound_for_array_symbol_dim(upper, array_symbol, "ubound", dim));
+    }
+
+    void FortranBase::codegen_single_array_subscript(
+            Nodecl::NodeclBase node,
+            TL::Symbol array_symbol,
+            int dim)
+    {
+        if (!_emit_full_array_subscripts
+                && node.is<Nodecl::Range>()
+                && subscript_expresses_whole_dimension(node, array_symbol, dim))
+        {
+            *file << ":";
+        }
+        else
+        {
+            walk(node);
+        }
+    }
+
+    void FortranBase::codegen_array_subscripts(TL::Symbol array_symbol,
+            Nodecl::NodeclBase node)
     {
         if (node.is_null())
             return;
@@ -5015,6 +5097,8 @@ OPERATOR_TABLE
         if (list.empty())
             return;
 
+        int dim = 1;
+
         // Nodecl::List is still lacking reverse iterators, this will do
         for (Nodecl::List::iterator it = list.last();
                 it != list.begin();
@@ -5023,13 +5107,14 @@ OPERATOR_TABLE
             if (it != list.last())
                 *(file) << ", ";
 
-            walk(*it);
+            codegen_single_array_subscript(*it, array_symbol, dim);
+            dim++;
         }
 
         // Do not forget the first one
         if (list.begin() != list.last())
             *(file) << ", ";
-        walk(*(list.begin()));
+        codegen_single_array_subscript(*(list.begin()), array_symbol, dim);
     }
 
     void FortranBase::emit_use_statement_if_symbol_comes_from_module(TL::Symbol entry, const TL::Scope &sc, UseStmtInfo& use_stmt_info)
@@ -6252,6 +6337,12 @@ OPERATOR_TABLE
                 "Tries to deduce use statements regardless of the information in the scope",
                 _deduce_use_statements_str,
                 "0").connect(functor(&FortranBase::set_deduce_use_statements, *this));
+
+        _emit_full_array_subscripts = false;
+        register_parameter("emit_full_array_subscripts",
+                "Emits synthetic array subscripts ranges introduced by the FE",
+                _emit_full_array_subscripts_str,
+                "0").connect(functor(&FortranBase::set_emit_full_array_subscripts, *this));
     }
 
     void FortranBase::set_emit_fun_loc(const std::string& str)
@@ -6262,6 +6353,14 @@ OPERATOR_TABLE
     void FortranBase::set_deduce_use_statements(const std::string& str)
     {
         TL::parse_boolean_option("deduce_use_statements", str, _deduce_use_statements, "Assuming false.");
+    }
+
+    void FortranBase::set_emit_full_array_subscripts(const std::string& str)
+    {
+        TL::parse_boolean_option("do_not_emit_full_array_subscripts",
+                str,
+                _emit_full_array_subscripts,
+                "Assuming false.");
     }
 }
 

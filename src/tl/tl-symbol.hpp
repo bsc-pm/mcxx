@@ -180,6 +180,7 @@ namespace TL
             //! States whether this symbol is a namespace
             bool is_namespace() const;
             //! States whether this symbol is a dependent friend class
+            bool is_friend_class() const;
             bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name
             bool is_enum() const;
@@ -192,6 +193,7 @@ namespace TL
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a dependent friend function
+            bool is_friend_function() const;
             bool is_dependent_friend_function() const;
             //! States whether this symbol is a lambda
             bool is_lambda() const;

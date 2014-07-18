@@ -131,7 +131,7 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dep
         nodecl_t dependent_parts);
 LIBMCXX_EXTERN char is_valid_symbol_for_dependent_typename(scope_entry_t* entry);
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
-LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
+LIBMCXX_EXTERN type_t* set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
 LIBMCXX_EXTERN char is_transparent_union(type_t* t);
 LIBMCXX_EXTERN void set_is_transparent_union(type_t* t, char is_transparent_union);
@@ -287,6 +287,7 @@ LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t*
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
 LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
+LIBMCXX_EXTERN void class_type_add_inherited_constructor(type_t* t, scope_entry_t* entry);
 
 LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member, char is_definition);
 LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
@@ -594,6 +595,8 @@ LIBMCXX_EXTERN decl_context_t class_or_enum_type_get_inner_context(type_t* class
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_friends(type_t* class_type);
+
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_inherited_constructors(type_t* t);
 
 LIBMCXX_EXTERN decl_context_t enum_type_get_context(type_t* t);
 
