@@ -95,7 +95,6 @@ namespace Vectorization
 
     int VectorizerLoopInfo::get_epilog_info(bool& only_epilog)
     {
-
         int remain_its = -1;
         only_epilog = false;
 
