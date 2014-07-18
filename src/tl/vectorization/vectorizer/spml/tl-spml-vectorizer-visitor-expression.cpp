@@ -64,7 +64,7 @@ namespace Vectorization
                 Nodecl::Mul::make(
                         n.shallow_copy(),
                         const_value_to_nodecl(const_value_get_signed_int(
-                                _environment._unroll_factor)),
+                                _environment._vectorization_factor)),
                         n.get_type(),
                         n.get_locus());
 
