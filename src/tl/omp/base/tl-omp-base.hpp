@@ -130,7 +130,8 @@ namespace TL
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
                         const Nodecl::NodeclBase& ref_scope,
-                        Nodecl::List& environment);
+                        Nodecl::List& environment,
+                        const int default_int);
                 template <typename openmp_node>
                 void process_symbol_list_clause(
                         const TL::PragmaCustomLine& pragma_line,

@@ -143,8 +143,22 @@ namespace Vectorization
             else
             {
                 if (!tl_sym.get_type().is_vector())
-                    fprintf(stderr,"VECTORIZER: '%s' is uniform\n", 
+                {
+                    fprintf(stderr,"VECTORIZER: '%s' is kept scalar", 
                             nodecl_sym.prettyprint().c_str());
+
+                    if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                            is_uniform(_environment._analysis_simd_scope,
+                                nodecl_sym, nodecl_sym))
+                            fprintf(stderr," (uniform)");
+
+                    if (VectorizationAnalysisInterface::_vectorizer_analysis->
+                        is_linear(_environment._analysis_simd_scope,
+                            nodecl_sym))
+                            fprintf(stderr," (linear)");
+                           
+                    fprintf(stderr,"\n");
+                }
             }
         }
 

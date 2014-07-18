@@ -801,7 +801,7 @@ namespace TL {
             FunctionDeepCopyFixVisitor fix_deep_copy_visitor(func_sym, new_func_sym);
             fix_deep_copy_visitor.walk(vector_func_code.get_statements());
 
-            // Process clauses FROM THE COPY (Very Important)
+            // Process clauses FROM THE COPY
             Nodecl::List omp_environment = simd_node_copy.
                 get_environment().as<Nodecl::List>();
 

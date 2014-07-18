@@ -2280,8 +2280,8 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Linear& n )
     {
-        Nodecl::List args = Nodecl::List::make(n.get_linear_expressions().shallow_copy(), 
-                                               n.get_step().shallow_copy());
+        Nodecl::List args = n.get_linear_expressions().shallow_copy().as<Nodecl::List>();
+        args.append(n.get_step().shallow_copy());
         PCFGClause current_clause(__linear, args);
         _utils->_pragma_nodes.top()._clauses.append(current_clause);
         return ObjectList<Node*>();
@@ -2661,7 +2661,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Uniform& n )
     {
-        PCFGClause current_clause(__linear, n.get_uniform_expressions());
+        PCFGClause current_clause(__uniform, n.get_uniform_expressions());
         _utils->_pragma_nodes.top()._clauses.append(current_clause);
         return ObjectList<Node*>();
     }

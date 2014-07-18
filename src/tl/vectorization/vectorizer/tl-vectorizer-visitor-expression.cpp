@@ -495,7 +495,7 @@ namespace Vectorization
             {
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr, "VECTORIZER: Vectorizing IV update '%s'\n",
+                    fprintf(stderr, "VECTORIZER: Vectorizing linear update '%s'\n",
                             lhs.prettyprint().c_str());
                 }
 
@@ -548,7 +548,7 @@ namespace Vectorization
                     }
                     else
                     {
-                        running_error("Vectorizer: This IV update is not supported yet"\
+                        running_error("Vectorizer: This linear update is not supported yet"\
                                 "(%s).", n.prettyprint().c_str());
                     }
 
@@ -1778,7 +1778,7 @@ namespace Vectorization
     {
         VECTORIZATION_DEBUG()
         {
-            fprintf(stderr,"VECTORIZER: IV promotion '%s'\n",
+            fprintf(stderr,"VECTORIZER: Linear promotion '%s'\n",
                     n.prettyprint().c_str());
         }
 
@@ -1952,7 +1952,7 @@ namespace Vectorization
         }
         else
         {
-            running_error("Vectorizer: IV increment is not constant: %s.",
+            running_error("Vectorizer: Linear step is not constant: %s.",
                     ind_var_increment.prettyprint().c_str());
         }
     }

@@ -366,8 +366,7 @@ namespace Vectorization
         if (it == linear_nodes.end())
         {
             result = Analysis::AnalysisInterface::
-                is_non_reduction_basic_induction_variable(
-                        translate_input(scope), translated_n);
+                is_linear(translate_input(scope), translated_n);
 
             linear_nodes.insert(pair_node_bool_t(translated_n, result));
         }
@@ -383,9 +382,14 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n)
     {
-        return translate_output(Analysis::AnalysisInterface::
-                get_induction_variable_increment(
-                    translate_input(scope), translate_input(n)));
+        Nodecl::NodeclBase iv_step = Analysis::AnalysisInterface::
+                get_linear_variable_increment(translate_input(scope),
+                        translate_input(n));
+    
+        if (iv_step.is<Nodecl::IntegerLiteral>())
+            return iv_step;
+
+        return translate_output(iv_step);
     }
     
     bool VectorizationAnalysisInterface::has_been_defined(
