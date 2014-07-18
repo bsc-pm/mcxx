@@ -95,6 +95,17 @@ LIBMCXX_EXTERN char solve_initialization_of_class_type(
         scope_entry_t** conversors,
         scope_entry_list_t** candidates);
 
+LIBMCXX_EXTERN char solve_list_initialization_of_class_type(
+        type_t* class_type,
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        scope_entry_t** constructor,
+        scope_entry_t** conversors,
+        scope_entry_list_t** candidates);
+
 LIBMCXX_EXTERN unsigned long long overload_used_memory(void);
 
 MCXX_END_DECLS

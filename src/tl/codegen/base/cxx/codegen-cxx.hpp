@@ -232,6 +232,7 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxValuePack &);
 
+            Ret visit(const Nodecl::ValueInitialization &);
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 

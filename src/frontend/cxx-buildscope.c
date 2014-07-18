@@ -18718,6 +18718,7 @@ static void build_scope_return_statement(AST a,
                             decl_context,
                             return_type,
                             /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
                             &nodecl_return);
                 }
                 else
@@ -18726,7 +18727,7 @@ static void build_scope_return_statement(AST a,
                             decl_context,
                             return_type,
                             /* disallow_narrowing */ 0,
-                            IK_DIRECT_INITIALIZATION,
+                            IK_COPY_INITIALIZATION,
                             &nodecl_return);
                 }
 
