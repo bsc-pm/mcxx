@@ -3994,7 +3994,10 @@ static char solve_list_initialization_of_class_type_(
         omit_first_phase = 1;
     }
 
+    scope_entry_list_t* candidate_list = NULL;
     scope_entry_list_t* all_constructors = class_type_get_constructors(get_actual_class_type(class_type));
+
+    scope_entry_list_iterator_t* it = NULL;
     scope_entry_list_t* list_initializer_constructors = NULL;
 
     *candidates = NULL;
@@ -4004,7 +4007,6 @@ static char solve_list_initialization_of_class_type_(
             // any initializer-list-constructor
             && std_initializer_list_template != NULL)
     {
-        scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(all_constructors);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
@@ -4029,6 +4031,13 @@ static char solve_list_initialization_of_class_type_(
                         && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
                             std_initializer_list_template->type_information))
                 {
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        type_t* template_type =
+                            template_specialized_type_get_related_template_type(
+                                    entry->type_information);
+                        entry = template_type_get_related_symbol(template_type);
+                    }
                     list_initializer_constructors = entry_list_add(list_initializer_constructors,
                             entry);
                 }
@@ -4097,10 +4106,30 @@ static char solve_list_initialization_of_class_type_(
         }
     }
 
+    for (it = entry_list_iterator_begin(all_constructors);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_constructor
+            = entry_list_iterator_current(it);
+
+        // For template specialized types, use the template symbol
+        if (is_template_specialized_type(current_constructor->type_information))
+        {
+            type_t* template_type =
+                template_specialized_type_get_related_template_type(
+                        current_constructor->type_information);
+            current_constructor = template_type_get_related_symbol(template_type);
+        }
+
+        candidate_list = entry_list_add(candidate_list, current_constructor);
+    }
+    entry_list_iterator_free(it);
+
     // Second phase (only if the first was not done or failed)
 
     // Now use this candidate_list
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(all_constructors,
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(candidate_list,
             NULL, argument_types, num_arguments,
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
@@ -4109,7 +4138,6 @@ static char solve_list_initialization_of_class_type_(
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;
-    scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))

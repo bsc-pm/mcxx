@@ -306,6 +306,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions

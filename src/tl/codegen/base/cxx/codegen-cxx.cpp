@@ -3721,6 +3721,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
     ::xfree(bytes);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::ValueInitialization& node)
+{
+    // Do not print anything for this node
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
@@ -6598,7 +6603,11 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
             }
             CXX_LANGUAGE()
             {
-                if (init.is<Nodecl::CxxEqualInitializer>()
+                if (init.is<Nodecl::ValueInitialization>())
+                {
+                    // Do not emit anything
+                }
+                else if (init.is<Nodecl::CxxEqualInitializer>()
                         || init.is<Nodecl::CxxBracedInitializer>()
                         || init.is<Nodecl::CxxParenthesizedInitializer>())
                 {
