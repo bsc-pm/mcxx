@@ -9717,6 +9717,12 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                 }
                 prototype = strappend(prototype, ")");
 
+                if (get_cv_qualifier(type_info) != CV_NONE)
+                {
+                    prototype = strappend(prototype, " ");
+                    prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                }
+
                 ref_qualifier_t ref_qualif = function_type_get_ref_qualifier(type_info);
                 switch (ref_qualif)
                 {
@@ -9730,12 +9736,6 @@ static void get_type_name_string_internal_impl(decl_context_t decl_context,
                         break;
                     default:
                         internal_error("Invalid value %d ref-qualifier\n", ref_qualif);
-                }
-
-                if (get_cv_qualifier(type_info) != CV_NONE)
-                {
-                    prototype = strappend(prototype, " ");
-                    prototype = strappend(prototype, get_cv_qualifier_string(type_info));
                 }
 
                 if (type_info->function->is_trailing
