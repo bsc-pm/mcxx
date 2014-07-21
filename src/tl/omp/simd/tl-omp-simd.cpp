@@ -70,6 +70,10 @@ namespace TL {
                     _avx2_enabled_str,
                     "0").connect(functor(&Simd::set_avx2, *this));
 
+            register_parameter("spml_enabled",
+                    "If set to '1' enables SPML OpenMP mode, otherwise it is disabled",
+                    _spml_enabled_str,
+                    "0").connect(functor(&Simd::set_spml, *this));
         }
 
         void Simd::set_simd(const std::string simd_enabled_str)
@@ -112,6 +116,14 @@ namespace TL {
             }
         }
 
+        void Simd::set_spml(const std::string spml_enabled_str)
+        {
+            if (spml_enabled_str == "1")
+            {
+                _spml_enabled = true;
+            }
+        }
+
         void Simd::pre_run(TL::DTO& dto)
         {
             this->PragmaCustomCompilerPhase::pre_run(dto);
@@ -147,8 +159,19 @@ namespace TL {
                     running_error("SIMD: AVX2 and KNC SIMD instruction sets enabled at the same time");
                 }
 
-                SimdVisitor simd_visitor(simd_isa, _fast_math_enabled, _svml_enabled);
-                simd_visitor.walk(translation_unit);
+                if (_spml_enabled)
+                {
+                    fprintf(stderr, " -- SPML OpenMP enabled -- \n");
+                    SimdSPMLVisitor spml_visitor(
+                            simd_isa, _fast_math_enabled, _svml_enabled);
+                    spml_visitor.walk(translation_unit);
+                }
+                else
+                {
+                    SimdVisitor simd_visitor(
+                            simd_isa, _fast_math_enabled, _svml_enabled);
+                    simd_visitor.walk(translation_unit);
+                }
             }
         }
 
@@ -885,7 +908,13 @@ namespace TL {
             _vectorizer.postprocess_code(simd_node);
         }
 
-        void SimdVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
+        SimdSPMLVisitor::SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
+                bool fast_math_enabled, bool svml_enabled)
+            : SimdVisitor(simd_isa, fast_math_enabled, svml_enabled)
+        {
+        }
+ 
+        void SimdSPMLVisitor::visit(const Nodecl::OpenMP::SimdParallel& simd_node)
         {
             Nodecl::OpenMP::Parallel omp_parallel = simd_node.
                 get_openmp_parallel().as<Nodecl::OpenMP::Parallel>();
@@ -897,6 +926,9 @@ namespace TL {
             // Skipping AST_LIST_NODE
             Nodecl::NodeclBase parallel_statements = omp_parallel.get_statements().
                 as<Nodecl::List>().front();
+
+            //TODO
+            walk(parallel_statements);
 
             // Aligned clause
             tl_sym_int_map_t aligned_expressions;
