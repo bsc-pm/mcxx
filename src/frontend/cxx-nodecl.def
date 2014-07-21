@@ -116,6 +116,8 @@ pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-s
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
+# C++2011: for(T symbol : range)
+    | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
 
 catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 

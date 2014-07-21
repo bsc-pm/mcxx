@@ -18061,13 +18061,34 @@ static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED
 }
 
 static void build_scope_nodecl_for_statement_nonrange(
-        nodecl_t nodecl_loop_control,
+        nodecl_t nodecl_loop_init,
+        nodecl_t nodecl_loop_condition,
+        nodecl_t nodecl_loop_iter,
         nodecl_t nodecl_loop_name,
         nodecl_t nodecl_statement,
         decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    build_scope_nodecl_condition(
+            nodecl_loop_condition,
+            decl_context,
+            locus,
+            &nodecl_loop_condition);
+    if (nodecl_is_err_expr(nodecl_loop_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    nodecl_t nodecl_loop_control =
+        nodecl_make_loop_control(
+                nodecl_loop_init,
+                nodecl_loop_condition,
+                nodecl_loop_iter,
+                locus);
+
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_for_statement(
                 nodecl_loop_control,
@@ -18164,7 +18185,6 @@ static void build_scope_for_statement_nonrange(AST a,
         check_expression(expression, block_context, &nodecl_loop_iter);
     }
 
-
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
@@ -18174,11 +18194,10 @@ static void build_scope_for_statement_nonrange(AST a,
         solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
     }
 
-    nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
-            ast_get_locus(a));
-
     build_scope_nodecl_for_statement_nonrange(
-            nodecl_loop_control,
+            nodecl_loop_init,
+            nodecl_loop_condition,
+            nodecl_loop_iter,
             /* nodecl_loop_name */ nodecl_null(),
             nodecl_statement,
             block_context,
@@ -18311,13 +18330,17 @@ static void build_scope_for_statement_range(AST a,
             expr_or_init_braced,
             ast_get_locus(expr_or_init_braced), NULL);
 
+
     nodecl_t nodecl_range_initializer = nodecl_null();
-    if (!check_initialization(expr_or_init_braced,
-                block_context,
-                range_symbol,
-                range_symbol->type_information,
-                &nodecl_range_initializer,
-                /* is_auto_type */ 1))
+    check_initialization(
+            expr_or_init_braced,
+            block_context,
+            range_symbol,
+            range_symbol->type_information,
+            &nodecl_range_initializer,
+            /* is_auto_type */ 1);
+
+    if (nodecl_is_err_expr(nodecl_range_initializer))
     {
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
@@ -18325,7 +18348,24 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-    nodecl_t nodecl_initializer_tmp = nodecl_null();;
+    if (is_dependent_type(range_symbol->type_information)
+            || is_dependent_type(iterator_symbol->type_information))
+    {
+        nodecl_t nodecl_statement = nodecl_null();
+        build_scope_normalized_statement(statement, block_context, &nodecl_statement);
+
+        *nodecl_output = nodecl_make_list_1(
+            nodecl_make_cxx_for_ranged(
+                nodecl_range_initializer,
+                nodecl_statement,
+                iterator_symbol,
+                ast_get_locus(a))
+            );
+
+        return;
+    }
+
+    nodecl_t nodecl_initializer_tmp = nodecl_null();
 
     // Craft begin_expr and end_expr
     nodecl_t nodecl_begin_init = nodecl_null(),

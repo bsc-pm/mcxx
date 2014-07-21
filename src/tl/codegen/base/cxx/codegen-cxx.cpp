@@ -1416,6 +1416,32 @@ void CxxBase::emit_range_loop_header(
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxForRanged& node)
+{
+    emit_line_marker(node);
+    indent();
+
+
+    *file << "for (";
+
+    bool old_in_condition = state.in_condition;
+    state.in_condition = 1;
+    define_or_declare_variable(node.get_symbol(), /* is_definition */ 1);
+    state.in_condition = old_in_condition;
+
+    *file << " : ";
+
+    Nodecl::CxxEqualInitializer eq_init = node.get_range().as<Nodecl::CxxEqualInitializer>();
+    ERROR_CONDITION(!eq_init.is<Nodecl::CxxEqualInitializer>(), "Invalid node", 0);
+    walk(eq_init.get_init());
+
+    *file << ")\n";
+
+    inc_indent();
+    walk(node.get_statement());
+    dec_indent();
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 {
     Nodecl::NodeclBase loop_control = node.get_loop_header();
