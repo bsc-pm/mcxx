@@ -428,6 +428,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::UnalignedVectorLoad& n );
         Ret visit( const Nodecl::UnalignedVectorStore& n );
+        Ret visit( const Nodecl::UnalignedVectorStreamStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );

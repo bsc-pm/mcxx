@@ -3437,6 +3437,11 @@ namespace Analysis {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStreamStore& n )
+    {
+        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VirtualFunctionCall& n )
     {
         return visit_function_call( n );
