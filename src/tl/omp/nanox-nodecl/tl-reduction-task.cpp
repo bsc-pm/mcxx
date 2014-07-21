@@ -24,6 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "fortran03-typeutils.h"
+#include "fortran03-typeenviron.h"
+
 #include "tl-nanos.hpp"
 #include "tl-nodecl-utils-fortran.hpp"
 #include "tl-counters.hpp"
@@ -36,100 +39,96 @@ namespace TL { namespace Nanox {
     struct ReductionReplaceSymbolVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
-            const std::map<TL::Symbol, TL::Symbol> & _translation_map;
+            const std::map<TL::Symbol, Nodecl::NodeclBase> & _translation_map;
         public:
-        ReductionReplaceSymbolVisitor(const std::map<TL::Symbol, TL::Symbol> & map)
-            : _translation_map(map)
-        {
-        }
 
-        void visit(const Nodecl::Symbol &node)
-        {
-            TL::Symbol sym = node.get_symbol();
-
-            std::map<TL::Symbol, TL::Symbol>::const_iterator it = _translation_map.find(sym);
-            if (it == _translation_map.end())
-                return;
-
-            TL::Symbol new_sym = it->second;
-            Nodecl::NodeclBase new_sym_ref = Nodecl::Symbol::make(new_sym);
-            new_sym_ref.set_type(new_sym.get_type());
-
-            TL::Type new_type = new_sym.get_type().no_ref();
-            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            ReductionReplaceSymbolVisitor(const std::map<TL::Symbol, Nodecl::NodeclBase> & map)
+                : _translation_map(map)
             {
-                new_type = new_type.points_to().no_ref().get_lvalue_reference_to();
-                node.replace(
-                        Nodecl::Dereference::make(
-                            new_sym_ref,
-                            new_type));
+            }
 
-            }
-            else if (IS_FORTRAN_LANGUAGE)
+            void visit(const Nodecl::Symbol &node)
             {
-                node.replace(new_sym_ref);
+                TL::Symbol sym = node.get_symbol();
+
+                std::map<TL::Symbol, Nodecl::NodeclBase>::const_iterator it = _translation_map.find(sym);
+                if (it == _translation_map.end())
+                    return;
+
+                node.replace(it->second.shallow_copy());
             }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-        }
     };
 
-    static TL::Symbol create_reduction_function_c(
+
+    static TL::Symbol create_reduction_function_internal(
             OpenMP::Reduction* red,
-            TL::Type reduction_type,
             Nodecl::NodeclBase construct,
-            LoweringVisitor::reduction_map_t & reduction_map)
+            std::string function_name,
+            TL::Type omp_out_type,
+            TL::Type omp_in_type,
+            bool omp_out_type_is_allocatable)
     {
-
-        LoweringVisitor::reduction_map_t::iterator it = reduction_map.find(red);
-        if (it != reduction_map.end())
-        {
-            return it->second;
-        }
-
-        std::string fun_name;
-        {
-            std::stringstream ss;
-            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
-            fun_name = ss.str();
-        }
-
         Nodecl::NodeclBase function_body;
         Source src;
-        src << "void " << fun_name << "("
-            << as_type(reduction_type) << "* omp_out, "
-            << as_type(reduction_type) << "* omp_in)"
+        src << "void " << function_name << "("
+            << as_type(omp_out_type.no_ref().get_lvalue_reference_to()) << " omp_out,"
+            << as_type(omp_in_type.no_ref().get_lvalue_reference_to()) << " omp_in)"
             << "{"
             <<    statement_placeholder(function_body)
             << "}"
             ;
 
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::C;
+        }
+
         Nodecl::NodeclBase function_code = src.parse_global(construct.retrieve_context().get_global_scope());
+
+        FORTRAN_LANGUAGE()
+        {
+            Source::source_language = SourceLanguage::Current;
+        }
 
         TL::Scope inside_function = ReferenceScope(function_body).get_scope();
         TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
         ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
         TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
         ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
+        param_omp_out.get_internal_symbol()->entity_specs.is_allocatable = omp_out_type_is_allocatable;
 
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
+        TL::Symbol function_sym = inside_function.get_symbol_from_name(function_name);
+        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", function_name.c_str());
 
         Nodecl::NodeclBase expanded_combiner = red->get_combiner().shallow_copy();
 
-        std::map<TL::Symbol, TL::Symbol> translation_map;
-        translation_map[red->get_omp_in()] = param_omp_in;
-        translation_map[red->get_omp_out()] = param_omp_out;
+        std::map<TL::Symbol, Nodecl::NodeclBase> translation_map;
+
+        if (param_omp_in.get_type().no_ref().is_pointer())
+        {
+            translation_map[red->get_omp_in()] = Nodecl::Dereference::make(
+                    param_omp_in.make_nodecl(true), param_omp_in.get_type().no_ref().points_to());
+        }
+        else
+        {
+            translation_map[red->get_omp_in()] = param_omp_in.make_nodecl(true);
+        }
+
+        if (param_omp_out.get_type().no_ref().is_pointer())
+        {
+            translation_map[red->get_omp_out()] = Nodecl::Dereference::make(
+                    param_omp_out.make_nodecl(true), param_omp_out.get_type().no_ref().points_to());
+        }
+        else
+        {
+            translation_map[red->get_omp_out()] = param_omp_out.make_nodecl(true);
+        }
 
         ReductionReplaceSymbolVisitor expander_visitor(translation_map);
         expander_visitor.walk(expanded_combiner);
 
         function_body.replace(
                 Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
-
-       reduction_map[red] = function_sym;
 
         // As the reduction function is needed during the instantiation of
         // the task, this function should be inserted before the construct
@@ -138,92 +137,77 @@ namespace TL { namespace Nanox {
         return function_sym;
     }
 
-    static TL::Symbol create_reduction_function_fortran(
+    static std::pair<TL::Symbol, TL::Symbol> create_reduction_functions_internal(
             OpenMP::Reduction* red,
-            TL::Type reduction_type,
+            TL::Symbol reduction_item,
             Nodecl::NodeclBase construct,
-            LoweringVisitor::reduction_map_t & reduction_map)
+            LoweringVisitor::reduction_task_map_t & reduction_map)
     {
-        LoweringVisitor::reduction_map_t::iterator it = reduction_map.find(red);
+        TL::Type reduction_type = reduction_item.get_type();
+
+        // Reuse the reduction functions If they are already computed
+        LoweringVisitor::reduction_task_map_t::iterator it = reduction_map.find(red);
         if (it != reduction_map.end())
         {
             return it->second;
         }
 
-        std::string fun_name;
+        std::stringstream red_fun;
+        red_fun << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
+        std::stringstream red_fun_orig_var;
+        red_fun_orig_var << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str()) << "_orig_var";
+
+        TL::Symbol reduction_function, reduction_function_original_var;
+        if (IS_FORTRAN_LANGUAGE
+                && reduction_type.is_array())
         {
-            std::stringstream ss;
-            ss << "nanos_red_" << red << "_" << simple_hash_str(construct.get_filename().c_str());
-            fun_name = ss.str();
-        }
+            reduction_function = create_reduction_function_internal(
+                    red,
+                    construct,
+                    red_fun.str(),
+                    /* omp_out_type */ reduction_type.get_pointer_to(),
+                    /* omp_in_type */ reduction_type.get_pointer_to(),
+                    /* omp_out_is_allocatable */ false);
 
-        Nodecl::NodeclBase function_body;
-        Source src;
-
-        src << "SUBROUTINE " << fun_name << "(omp_out, omp_in)\n"
-            <<    "IMPLICIT NONE\n"
-            <<    as_type(reduction_type) << " :: omp_out\n"
-            <<    as_type(reduction_type) << " :: omp_in\n"
-            <<    statement_placeholder(function_body) << "\n"
-            << "END SUBROUTINE " << fun_name << "\n";
-        ;
-
-        Nodecl::NodeclBase function_code = src.parse_global(construct);
-
-        TL::Scope inside_function = ReferenceScope(function_body).get_scope();
-        TL::Symbol param_omp_in = inside_function.get_symbol_from_name("omp_in");
-        ERROR_CONDITION(!param_omp_in.is_valid(), "Symbol omp_in not found", 0);
-        TL::Symbol param_omp_out = inside_function.get_symbol_from_name("omp_out");
-        ERROR_CONDITION(!param_omp_out.is_valid(), "Symbol omp_out not found", 0);
-
-        TL::Symbol function_sym = inside_function.get_symbol_from_name(fun_name);
-        ERROR_CONDITION(!function_sym.is_valid(), "Symbol %s not found", fun_name.c_str());
-
-        Nodecl::NodeclBase expanded_combiner = red->get_combiner().shallow_copy();
-
-        std::map<TL::Symbol, TL::Symbol> translation_map;
-        translation_map[red->get_omp_in()] = param_omp_in;
-        translation_map[red->get_omp_out()] = param_omp_out;
-        ReductionReplaceSymbolVisitor expander_visitor(translation_map);
-
-        expander_visitor.walk(expanded_combiner);
-
-        function_body.replace(
-                Nodecl::List::make(Nodecl::ExpressionStatement::make(expanded_combiner)));
-
-        reduction_map[red] = function_sym;
-
-        if (IS_FORTRAN_LANGUAGE)
-        {
-            Nodecl::Utils::Fortran::append_used_modules(construct.retrieve_context(),
-                    function_sym.get_related_scope());
-        }
-
-        // As the reduction function is needed during the instantiation of
-        // the task, this function should be inserted before the construct
-        Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, function_code);
-
-        return function_sym;
-    }
-
-    static void create_reduction_function(OpenMP::Reduction* red,
-            Nodecl::NodeclBase construct,
-            TL::Type reduction_type,
-            TL::Symbol& reduction_function,
-            LoweringVisitor::reduction_map_t & reduction_map)
-    {
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            reduction_function = create_reduction_function_c(red, reduction_type, construct, reduction_map);
-        }
-        else if (IS_FORTRAN_LANGUAGE)
-        {
-            reduction_function = create_reduction_function_fortran(red, reduction_type, construct, reduction_map);
+            reduction_function_original_var = create_reduction_function_internal(
+                    red,
+                    construct,
+                    red_fun_orig_var.str(),
+                    /* omp_out_type */ reduction_type,
+                    /* omp_in_type */ reduction_type.get_pointer_to(),
+                    reduction_item.get_internal_symbol()->entity_specs.is_allocatable);
         }
         else
         {
-            internal_error("Code unreachable", 0);
+            reduction_function = create_reduction_function_internal(
+                    red,
+                    construct,
+                    red_fun.str(),
+                    /* omp_out_type */ reduction_type,
+                    /* omp_in_type */ reduction_type,
+                    /* omp_out_is_allocatable */ false);
+
+            reduction_function_original_var = reduction_function;
         }
+
+        std::pair<TL::Symbol, TL::Symbol> red_funcs = std::make_pair(reduction_function, reduction_function_original_var);
+        reduction_map[red] = red_funcs;
+        return red_funcs;
+    }
+
+    static void create_reduction_functions(OpenMP::Reduction* red,
+            Nodecl::NodeclBase construct,
+            TL::Symbol reduction_item,
+            TL::Symbol& reduction_function,
+            TL::Symbol& reduction_function_original_var,
+            LoweringVisitor::reduction_task_map_t & reduction_map)
+    {
+        //std::cerr << "DEBUG: <creating reduction function> " << reduction_item.get_type().print_declarator() << std::endl;
+        std::pair<TL::Symbol, TL::Symbol> red_funcs =
+            create_reduction_functions_internal(red, reduction_item, construct, reduction_map);
+
+        reduction_function = red_funcs.first;
+        reduction_function_original_var = red_funcs.second;
     }
 
     static TL::Symbol create_initializer_function_c(
@@ -248,8 +232,8 @@ namespace TL { namespace Nanox {
         Nodecl::NodeclBase function_body;
         Source src;
         src << "void " << fun_name << "("
-            <<      as_type(reduction_type) << "* omp_priv,"
-            <<      as_type(reduction_type) << "* omp_orig)"
+            <<      as_type(reduction_type.no_ref().get_lvalue_reference_to()) << " omp_priv,"
+            <<      as_type(reduction_type.no_ref().get_lvalue_reference_to()) << " omp_orig)"
             << "{"
             <<    statement_placeholder(function_body)
             << "}"
@@ -277,18 +261,17 @@ namespace TL { namespace Nanox {
             }
         }
 
-        std::map<TL::Symbol, TL::Symbol> translation_map;
-        translation_map[red->get_omp_priv()] = param_omp_priv;
-        translation_map[red->get_omp_orig()] = param_omp_orig;
+        Nodecl::Utils::SimpleSymbolMap translation_map;
 
-        ReductionReplaceSymbolVisitor expander_visitor(translation_map);
-        expander_visitor.walk(initializer);
+        translation_map.add_map(red->get_omp_priv(), param_omp_priv);
+        translation_map.add_map(red->get_omp_orig(), param_omp_orig);
 
+        Nodecl::NodeclBase new_initializer = Nodecl::Utils::deep_copy(initializer, inside_function, translation_map);
 
         if (red->get_is_initialization())
         {
-            // The original initializer was something like 'omp_priv = expr1', but the current
-            // initializer only represents the lhs expression (in our example, expr1).
+            // The original initializer was something like 'omp_priv = expr1', but the
+            // new_initializer only represents the lhs expression (in our example, expr1).
             // For this reason we create manually an assignment expression.
             Nodecl::NodeclBase param_omp_priv_ref = Nodecl::Symbol::make(param_omp_priv);
             param_omp_priv_ref.set_type(param_omp_priv.get_type());
@@ -297,17 +280,15 @@ namespace TL { namespace Nanox {
                     Nodecl::List::make(
                         Nodecl::ExpressionStatement::make(
                             Nodecl::Assignment::make(
-                                Nodecl::Dereference::make(
-                                    param_omp_priv_ref,
-                                    param_omp_priv_ref.get_type().points_to().get_lvalue_reference_to()),
-                                initializer,
-                                param_omp_priv_ref.get_type().points_to().get_lvalue_reference_to())
+                                param_omp_priv_ref,
+                                new_initializer,
+                                param_omp_priv_ref.get_type().no_ref())
                             )));
         }
         else
         {
             function_body.replace(
-                    Nodecl::List::make(Nodecl::ExpressionStatement::make(initializer)));
+                    Nodecl::List::make(Nodecl::ExpressionStatement::make(new_initializer)));
         }
 
         initializer_map[red] = function_sym;
@@ -340,11 +321,45 @@ namespace TL { namespace Nanox {
         }
 
         Nodecl::NodeclBase initializer = red->get_initializer().shallow_copy();
-        Source src;
 
-        src << "SUBROUTINE " << fun_name << "(omp_out)\n"
+        TL::Source omp_out_pointer_opt;
+        TL::Source extra_stuff_array_red;
+        if (reduction_type.is_array())
+        {
+            omp_out_pointer_opt << ", POINTER ";
+            Source extra_dims;
+            {
+                TL::Type t = reduction_type;
+                int rank = 0;
+                if (t.is_fortran_array())
+                {
+                    rank = t.fortran_rank();
+                }
+
+                int i;
+                for (i = 0; i < rank; i++)
+                {
+                    Source lbound_src;
+                    lbound_src << "LBOUND(omp_orig, DIM = " << (rank - i) << ")";
+                    Source ubound_src;
+                    ubound_src << "UBOUND(omp_orig, DIM = " << (rank - i) << ")";
+
+                    extra_dims << "(" << lbound_src << ":" << ubound_src << ")";
+
+                    t = t.array_element();
+                }
+
+                extra_stuff_array_red << "ALLOCATE(omp_out" << extra_dims <<")\n";
+
+            }
+        }
+
+        Source src;
+        src << "SUBROUTINE " << fun_name << "(omp_out, omp_orig)\n"
             <<    "IMPLICIT NONE\n"
-            <<    as_type(reduction_type) << " :: omp_out\n"
+            <<    as_type(reduction_type) << omp_out_pointer_opt << " ::  omp_out\n"
+            <<    as_type(reduction_type) <<  " :: omp_orig\n"
+            <<    extra_stuff_array_red
             <<    "omp_out = " << as_expression(initializer) << "\n"
             << "END SUBROUTINE " << fun_name << "\n";
         ;
@@ -371,6 +386,7 @@ namespace TL { namespace Nanox {
             TL::Symbol& initializer_function,
             LoweringVisitor::reduction_map_t& initializer_map)
     {
+        //std::cerr << "DEBUG: <creating initialize function> " << reduction_type.print_declarator() << std::endl;
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
             initializer_function = create_initializer_function_c(red, reduction_type, construct, initializer_map);
@@ -436,7 +452,7 @@ namespace TL { namespace Nanox {
                 if ((*it)->get_sharing() != OutlineDataItem::SHARING_CONCURRENT_REDUCTION)
                     continue;
 
-                TL::Symbol sym = (*it)->get_symbol();
+                TL::Symbol reduction_item = (*it)->get_symbol();
 
                 there_are_reductions_on_task = true;
 
@@ -445,13 +461,14 @@ namespace TL { namespace Nanox {
                 std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
                 TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
 
-                TL::Type reduction_type = sym.get_type();
+                TL::Type reduction_type = reduction_item.get_type();
 
-                TL::Symbol reduction_function;
-                TL::Nanox::create_reduction_function(reduction_info,
+                TL::Symbol reduction_function, reduction_function_original_var;
+                create_reduction_functions(reduction_info,
                         construct,
-                        reduction_type,
+                        reduction_item,
                         reduction_function,
+                        reduction_function_original_var,
                         _reduction_on_tasks_red_map);
 
                 TL::Symbol initializer_function;
@@ -463,51 +480,115 @@ namespace TL { namespace Nanox {
 
                 if (Nanos::Version::interface_is_at_least("task_reduction", 1000))
                 {
-                    reductions_stuff
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "err = nanos_task_reduction_get_thread_storage("
-                        <<      "(void *) &"<< (*it)->get_field_name() << ","
-                        <<      "(void **) &" << storage_name << ");"
-                        ;
+                    // Mandatory TL::Sources to be filled by any reduction
+                    TL::Source
+                        orig_address, // address of the original reduction variable
+                        storage_var, // variable which holds the address of the storage
+                        final_stmts; // This source contains the stmts for the final clause support
 
-                    TL::Source auxiliar_final;
-                    reductions_stuff_final
-                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "err = nanos_task_reduction_get_thread_storage("
-                        <<      "(void *) &"<< (*it)->get_field_name() << ","
-                        <<      "(void **) &" << storage_name << ");"
-                        << "if (" << storage_name << " == 0)"
-                        << "{"
-                        <<     auxiliar_final
-                        << "}"
-                        ;
+                    // Specific TL::Sources to be filled only by Fortran array reduction
+                    TL::Source extra_array_red_decl, extra_array_red_memcpy;
 
-
-                    if (IS_FORTRAN_LANGUAGE)
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
                     {
-                        // We need to convert a void* type into a pointer to the reduction type.
-                        // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
-                        // conversion directly in the FORTRAN source. For this reason we introduce
-                        // a new function that will be defined in a C file.
-                        TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
-                                // Destination
-                                reduction_type.get_pointer_to(),
-                                // Origin
-                                TL::Type::get_void_type().get_pointer_to(),
-                                construct.retrieve_context());
-
-                        auxiliar_final
-                            << storage_name << " = " << func.get_name() <<"(&"<< (*it)->get_field_name() << ");"
+                        storage_var << storage_name;
+                        orig_address  <<  "(void *) &" << (*it)->get_field_name();
+                        final_stmts
+                            << "if (" << storage_var << " == 0)"
+                            << "{"
+                            <<     storage_name  << " = &" << (*it)->get_field_name() << ";"
+                            << "}"
                             ;
                     }
                     else
                     {
-                        auxiliar_final
-                            << storage_name  << " = &" << (*it)->get_field_name() << ";"
-                            ;
+                        if (reduction_type.is_array())
+                        {
+                            size_t size_of_array_descriptor =
+                                fortran_size_of_array_descriptor(
+                                        fortran_get_rank0_type(reduction_type.get_internal_type()),
+                                        fortran_get_rank_of_type(reduction_type.get_internal_type()));
+
+                            TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
+                            if (reduction_item.is_allocatable())
+                            {
+                                orig_address << ptr_of_sym.get_name() << "(" << (*it)->get_field_name() << ")";
+                            }
+                            else
+                            {
+                                orig_address <<  "(void *) &" << (*it)->get_field_name();
+                            }
+
+                            extra_array_red_decl << "void* indirect;";
+                            storage_var << "indirect";
+
+                            extra_array_red_memcpy
+                                << "err = nanos_memcpy("
+                                <<      "(void **) &" << storage_name << ","
+                                <<      "indirect,"
+                                <<      size_of_array_descriptor << ");"
+                                ;
+
+                            final_stmts
+                                << "if (" << storage_var << " == 0)"
+                                << "{"
+                                <<     "err = nanos_memcpy("
+                                <<         "(void **) &" << storage_name << ","
+                                <<         orig_address << ","
+                                <<         size_of_array_descriptor << ");"
+                                << "}"
+                                << "else"
+                                << "{"
+                                <<     extra_array_red_memcpy
+                                << "}"
+                                ;
+                        }
+                        else
+                        {
+                            // We need to convert a void* type into a pointer to the reduction type.
+                            // As a void* in FORTRAN is represented as an INTEGER(8), we cannot do this
+                            // conversion directly in the FORTRAN source. For this reason we introduce
+                            // a new function that will be defined in a C file.
+                            TL::Symbol func = TL::Nanox::get_function_ptr_conversion(
+                                    // Destination
+                                    reduction_type.get_pointer_to(),
+                                    // Origin
+                                    TL::Type::get_void_type().get_pointer_to(),
+                                    construct.retrieve_context());
+
+                            orig_address <<  "(void *) &"<< (*it)->get_field_name();
+                            storage_var << storage_name;
+
+
+                            final_stmts
+                                << "if (" << storage_var << " == 0)"
+                                << "{"
+                                <<     storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
+                                << "}"
+                                ;
+                        }
+
                     }
+
+                    reductions_stuff
+                        << extra_array_red_decl
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "err = nanos_task_reduction_get_thread_storage("
+                        <<         orig_address  << ","
+                        <<         "(void **) &" << storage_var << ");"
+                        << extra_array_red_memcpy
+                        ;
+
+                    reductions_stuff_final
+                        << extra_array_red_decl
+                        << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
+                        << "err = nanos_task_reduction_get_thread_storage("
+                        <<         orig_address  << ","
+                        <<         "(void **) &" << storage_var << ");"
+                        << final_stmts
+                        ;
                 }
-                else
+                else /* JAN's Version */
                 {
                     std::string cache_storage = (*it)->get_field_name() + "_cache_storage";
                     reductions_stuff
@@ -563,7 +644,7 @@ namespace TL { namespace Nanox {
                             << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
                             ;
 
-                       auxiliar_final
+                        auxiliar_final
                             << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
                             ;
                     }
@@ -581,7 +662,7 @@ namespace TL { namespace Nanox {
                     }
                 }
 
-                reduction_symbols_map[sym] = storage_name;
+                reduction_symbols_map[reduction_item] = storage_name;
             }
 
             if (there_are_reductions_on_task)
@@ -704,15 +785,16 @@ namespace TL { namespace Nanox {
 
             std::pair<TL::OpenMP::Reduction*, TL::Type> red_info_pair= (*it)->get_reduction_info();
             TL::OpenMP::Reduction* reduction_info = red_info_pair.first;
-            TL::Type reduction_type = (*it)->get_symbol().get_type();
 
-            TL::Symbol sym = (*it)->get_symbol();
+            TL::Symbol reduction_item = (*it)->get_symbol();
+            TL::Type reduction_type = reduction_item.get_type();
 
-            TL::Symbol reduction_function;
-            TL::Nanox::create_reduction_function(reduction_info,
+            TL::Symbol reduction_function, reduction_function_original_var;
+            create_reduction_functions(reduction_info,
                     construct,
-                    reduction_type,
+                    reduction_item,
                     reduction_function,
+                    reduction_function_original_var,
                     _reduction_on_tasks_red_map);
 
             TL::Symbol initializer_function;
@@ -722,16 +804,43 @@ namespace TL { namespace Nanox {
                     initializer_function,
                     _reduction_on_tasks_ini_map);
 
+            TL::Source size_to_be_allocated, target_address;
+            if (IS_FORTRAN_LANGUAGE
+                    && reduction_type.is_array())
+            {
+                size_t size_of_array_descriptor =
+                    fortran_size_of_array_descriptor(
+                            fortran_get_rank0_type(reduction_type.get_internal_type()),
+                            fortran_get_rank_of_type(reduction_type.get_internal_type()));
+                size_to_be_allocated << size_of_array_descriptor;
+
+                if (reduction_item.is_allocatable())
+                {
+                    TL::Symbol ptr_of_sym = get_function_ptr_of(reduction_item, construct.retrieve_context());
+                    target_address << ptr_of_sym.get_name() << "( " << (*it)->get_symbol().get_name() << ")";
+                }
+                else
+                {
+                    target_address << "(void *) &" << (*it)->get_field_name();
+                }
+            }
+            else
+            {
+                size_to_be_allocated << "sizeof(" << as_type(reduction_type) << ")";
+                target_address << "(void *) &" << (*it)->get_field_name();
+            }
+
             src
                 << "err = nanos_task_reduction_register("
-                <<      "(void *) &" << (*it)->get_field_name() << ","    // target
-                <<      "sizeof(" << as_type(reduction_type) << "),"    // size
+                <<      target_address << "," // object address
+                <<      "(void *) & " << (*it)->get_field_name() << ","
+                <<      size_to_be_allocated << ","    // size
                 <<      "__alignof__(" << as_type(reduction_type) << "),"
-                <<      "(void (*)(void *, void *)) & " << initializer_function.get_name() << ","         // initializer
-                <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << ");" // reducer
+                <<      "(void (*)(void *, void *))& " << initializer_function.get_name() << ","         // initializer
+                <<      "(void (*)(void *, void *)) &" << reduction_function.get_name() << "," // reducer
+                <<      "(void (*)(void *, void *)) &" << reduction_function_original_var.get_name() << ");" // reducer ori
                 ;
         }
     }
-
 }}
 

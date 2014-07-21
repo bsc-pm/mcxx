@@ -80,6 +80,7 @@ namespace TL { namespace Nanox {
 
         // This is for Fortran only
         TL::Symbol get_function_ptr_of_impl(
+                std::string name,
                 TL::Symbol sym,
                 TL::Type return_type,
                 TL::Type arg_type,
@@ -90,11 +91,11 @@ namespace TL { namespace Nanox {
 
             // FIXME - Avoid creating functions twice for a same arg_type
             std::stringstream ss;
-            ss << "nanox_ptr_of_" 
-                << std::hex 
+            ss << name << "_"
+                << std::hex
                 << simple_hash_str(TL::CompilationProcess::get_current_file().get_filename(/* fullpath */ true).c_str())
                 << std::dec
-                << "_" 
+                << "_"
                 << num;
 
             num++;
@@ -216,7 +217,9 @@ namespace TL { namespace Nanox {
 
     TL::Symbol get_function_ptr_of(TL::Symbol sym, TL::Scope original_scope)
     {
-        return get_function_ptr_of_impl(sym,
+        return get_function_ptr_of_impl(
+                "nanox_ptr_of",
+                sym,
                 /* return_type */ TL::Type::get_void_type().get_pointer_to(),
                 /* argument_type */ sym.get_type(),
                 /* lvalue_param */ true,
@@ -225,7 +228,9 @@ namespace TL { namespace Nanox {
 
     TL::Symbol get_function_ptr_of(TL::Type t, TL::Scope original_scope)
     {
-        return get_function_ptr_of_impl(Symbol(NULL),
+        return get_function_ptr_of_impl(
+                "nanox_ptr_of",
+                Symbol(NULL),
                 /* return_type */ TL::Type::get_void_type().get_pointer_to(),
                 /* argument_type */t,
                 /* lvalue_param */ true,
@@ -238,7 +243,9 @@ namespace TL { namespace Nanox {
     TL::Symbol get_function_ptr_conversion(
             TL::Type return_type, TL::Type argument_type, TL::Scope original_scope)
     {
-        return get_function_ptr_of_impl(Symbol(NULL),
+        return get_function_ptr_of_impl(
+                "nanox_ptr_conversion",
+                Symbol(NULL),
                 return_type,
                 argument_type,
                 /*lvalue_param*/ false,
