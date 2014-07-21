@@ -177,7 +177,6 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
 
         CXX_LANGUAGE()
         {
-            nodecl_t nodecl_converted_arg = nodecl_null();
             check_nodecl_function_argument_initialization(
                     nodecl_arg,
                     decl_context,
@@ -185,7 +184,7 @@ void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda
                     /* disallow_narrowing */ 0,
                     &nodecl_arg);
 
-            is_convertible = !(nodecl_is_err_expr(nodecl_converted_arg));
+            is_convertible = !(nodecl_is_err_expr(nodecl_arg));
         }
 
         if (!is_convertible)
