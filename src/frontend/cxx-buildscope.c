@@ -17622,14 +17622,14 @@ static void build_scope_nodecl_compound_statement(
         call_destructors_of_classes(decl_context, locus, &nodecl_destructors);
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_compound_statement(nodecl_statement_list,
-                        nodecl_destructors,
-                        locus)),
-                decl_context, locus)
-            );
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_compound_statement(
+                    nodecl_statement_list,
+                    nodecl_destructors,
+                    locus
+                    )
+                );
 }
 
 static void build_scope_compound_statement(AST a, 
@@ -17650,6 +17650,14 @@ static void build_scope_compound_statement(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a)
+                )
+            );
 }
 
 static void build_scope_implicit_compound_statement(AST list, 
@@ -17667,6 +17675,78 @@ static void build_scope_implicit_compound_statement(AST list,
     }
 
    *nodecl_output = nodecl_output_list;
+}
+
+static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_expr = nodecl_null();
+    type_t* orig_type = NULL;
+
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_condition;
+        return;
+    }
+    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        orig_type = lvalue_ref(
+                nodecl_get_symbol(nodecl_condition)->type_information
+                );
+        nodecl_expr = nodecl_get_symbol(nodecl_condition)->value;
+    }
+    else
+    {
+        orig_type = nodecl_get_type(nodecl_condition);
+        nodecl_expr = nodecl_condition;
+    }
+
+    C_LANGUAGE()
+    {
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs,
+                    orig_type,
+                    get_bool_type(),
+                    locus))
+        {
+            error_printf("%s: error: expression of type '%s' is not valid in this context\n",
+                    locus_to_str(locus),
+                    print_type_str(orig_type, decl_context));
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        nodecl_expr = cxx_nodecl_make_conversion(
+                nodecl_expr,
+                get_bool_type(),
+                locus);
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                return;
+        }
+    }
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        nodecl_get_symbol(nodecl_condition)->value = nodecl_expr;
+    }
+    else
+    {
+        *nodecl_output = nodecl_expr;
+    }
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -17718,37 +17798,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             return;
         }
 
-        // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
-                "Unsupported extra declarations at the initialization expression", 0);
-
-        C_LANGUAGE()
-        {
-            standard_conversion_t dummy;
-            if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type(), ast_get_locus(a)))
-            {
-                error_printf("%s: error: value of type '%s' where a scalar was expected\n",
-                        ast_location(a),
-                        print_type_str(entry->type_information, decl_context));
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
-                return;
-            }
-
-        }
-        CXX_LANGUAGE()
-        {
-            if (!nodecl_expr_is_type_dependent(nodecl_expr))
-            {
-                check_contextual_conversion(
-                        nodecl_expr,
-                        get_bool_type(),
-                        decl_context,
-                        &nodecl_expr);
-            }
-        }
-
-        if (!nodecl_is_err_expr(nodecl_expr))
-            entry->value = nodecl_expr;
+        entry->value = nodecl_expr;
 
         *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
 
@@ -17758,7 +17808,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     else
     {
         check_expression(ASTSon2(a), decl_context, nodecl_output);
-
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
                 "Unsupported extra declarations at the initialization expression", 0);
@@ -17768,7 +17817,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (ASTType(a) == AST_COMPOUND_STATEMENT)
+    {
         build_scope_statement(a, decl_context, nodecl_output);
+    }
     else
     {
         // Mimick the behaviour of a compound statement
@@ -17799,17 +17850,27 @@ static void build_scope_normalized_statement(AST a, decl_context_t decl_context,
 static void build_scope_nodecl_while_statement(
         nodecl_t nodecl_condition,
         nodecl_t nodecl_statement,
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_while_statement(nodecl_condition, nodecl_statement, 
-                        /* loop_name */ nodecl_null(),
-                        locus)),
-                decl_context,
+            nodecl_make_while_statement(
+                nodecl_condition,
+                nodecl_statement,
+                /* loop_name */ nodecl_null(),
                 locus));
 }
 
@@ -17834,6 +17895,12 @@ static void build_scope_while_statement(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a)));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -17857,6 +17924,7 @@ static void build_scope_declaration_statement(AST a,
 
 static void build_scope_nodecl_expression_statement(nodecl_t nodecl_expr,
         decl_context_t decl_context,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     if (!nodecl_is_err_expr(nodecl_expr))
@@ -17866,23 +17934,26 @@ static void build_scope_nodecl_expression_statement(nodecl_t nodecl_expr,
             const char* message = NULL;
             uniquestr_sprintf(&message,
                     "%s: error: invalid unresolved overloaded expression '%s'\n", 
-                    nodecl_locus_to_str(nodecl_expr),
+                    locus_to_str(locus),
                     codegen_to_str(nodecl_expr, decl_context));
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
-            diagnostic_candidates(candidates, &message, nodecl_get_locus(nodecl_expr));
+            diagnostic_candidates(candidates, &message, locus);
             error_printf("%s", message);
         }
     }
 
-    *nodecl_output = flush_extra_declared_symbols(nodecl_get_locus(nodecl_expr));
+    nodecl_t nodecl_expr_stmt = nodecl_make_expression_statement(
+            nodecl_expr, locus);
+
+    *nodecl_output = flush_extra_declared_symbols(locus);
     *nodecl_output = nodecl_append_to_list(
             *nodecl_output,
-            nodecl_expr);
+            nodecl_expr_stmt);
 }
 
-static void build_scope_expression_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_expression_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
@@ -17897,9 +17968,9 @@ static void build_scope_expression_statement(AST a,
                 ast_location(ASTSon0(a)));
     }
 
-
     build_scope_nodecl_expression_statement(nodecl_expr,
             decl_context,
+            ast_get_locus(a),
             nodecl_output);
 }
 
@@ -17907,24 +17978,33 @@ static void build_scope_nodecl_if_else_statement(
         nodecl_t nodecl_condition,
         nodecl_t nodecl_then_statement,
         nodecl_t nodecl_else_statement,
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_if_else_statement(
-                        nodecl_condition,
-                        nodecl_then_statement,
-                        nodecl_else_statement,
-                        locus)),
-                decl_context,
-                locus));
+            nodecl_make_if_else_statement(
+                nodecl_condition,
+                nodecl_then_statement,
+                nodecl_else_statement,
+                locus)
+            );
 }
 
-static void build_scope_if_else_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_if_else_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -17951,6 +18031,14 @@ static void build_scope_if_else_statement(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a)
+                )
+            );
 }
 
 static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
@@ -17976,20 +18064,17 @@ static void build_scope_nodecl_for_statement_nonrange(
         nodecl_t nodecl_loop_control,
         nodecl_t nodecl_loop_name,
         nodecl_t nodecl_statement,
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    *nodecl_output =
-        nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            nodecl_loop_name,
-                            locus)),
-                    decl_context,
-                    locus
-                    ));
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_for_statement(
+                nodecl_loop_control,
+                nodecl_statement,
+                nodecl_loop_name,
+                locus)
+            );
 }
 
 static void build_scope_for_statement_nonrange(AST a,
@@ -18099,6 +18184,15 @@ static void build_scope_for_statement_nonrange(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    *nodecl_output,
+                    block_context,
+                    ast_get_locus(a))
+                );
+
 }
 
 char class_lookup_begin_or_end(decl_context_t decl_context,
@@ -18137,20 +18231,18 @@ char class_lookup_begin_or_end(decl_context_t decl_context,
 static void build_scope_nodecl_for_statement_range(
         nodecl_t nodecl_loop_control,
         nodecl_t nodecl_statement,
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     *nodecl_output =
         nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            /* loop_name */ nodecl_null(),
-                            locus)),
-                    decl_context,
-                    locus
-                    ));
+                nodecl_make_for_statement(
+                    nodecl_loop_control,
+                    nodecl_statement,
+                    /* loop_name */ nodecl_null(),
+                    locus)
+                );
 }
 
 static void build_scope_for_statement_range(AST a,
@@ -18522,6 +18614,14 @@ static void build_scope_for_statement_range(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+                nodecl_make_context(
+                    *nodecl_output,
+                    block_context,
+                    ast_get_locus(a)
+                    )
+            );
 }
 
 static void build_scope_for_statement(AST a,
@@ -18548,16 +18648,27 @@ static void build_scope_for_statement(AST a,
 static void build_scope_nodecl_switch_statement(
         nodecl_t nodecl_condition,
         nodecl_t nodecl_statement,
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_switch_statement(nodecl_condition, nodecl_statement, locus)),
-                decl_context,
-                locus));
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    *nodecl_output =  nodecl_make_list_1(
+            nodecl_make_switch_statement(nodecl_condition,
+                nodecl_statement,
+                locus)
+            );
 }
 
 static void build_scope_switch_statement(AST a,
@@ -18581,6 +18692,13 @@ static void build_scope_switch_statement(AST a,
             block_context,
             ast_get_locus(a),
             nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a))
+            );
 }
 
 scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus)
@@ -19005,13 +19123,17 @@ static void build_scope_try_block(AST a,
             {
                 error_printf("%s: error: more than one 'catch(...)' handler in try-block\n",
                         ast_location(exception_declaration));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            ast_get_locus(a)
+                            )
+                        );
                 return;
             }
             seen_any_case = 1;
             build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_any);
         }
     }
-
 
     build_scope_nodecl_try_block(
             nodecl_statement,
@@ -19037,7 +19159,42 @@ static void build_scope_nodecl_do_statement(
         return;
     }
 
-    // FIXME - Check that the expression can be converted to bool
+    C_LANGUAGE()
+    {
+        type_t* t = nodecl_get_type(nodecl_expr);
+        standard_conversion_t dummy;
+        if (!standard_conversion_between_types(&dummy, t, get_bool_type(), locus))
+        {
+            error_printf("%s: error: expression of type '%s' is not valid in this context\n",
+                    locus_to_str(locus),
+                    print_type_str(t, decl_context));
+
+            *nodecl_output = nodecl_make_err_statement(locus);
+            return;
+        }
+
+        nodecl_expr =  nodecl_make_conversion(
+                nodecl_shallow_copy(nodecl_expr),
+                get_bool_type(),
+                locus);
+    }
+    CXX_LANGUAGE()
+    {
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+        }
+
+        if (nodecl_is_err_expr(nodecl_expr))
+        {
+            *nodecl_output = nodecl_make_err_statement(locus);
+            return;
+        }
+    }
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_do_statement(
