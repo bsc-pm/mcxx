@@ -9210,8 +9210,6 @@ static void check_new_expression_impl(
     *nodecl_output = nodecl_new;
 }
 
-static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
-
 static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const locus_t* locus = ast_get_locus(new_expr);
@@ -17194,7 +17192,7 @@ static void compute_nodecl_direct_initializer(AST initializer, decl_context_t de
     nodecl_expr_set_is_value_dependent(*nodecl_output, any_is_value_dependent);
 }
 
-static void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
+void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     switch (ASTType(initializer))
     {

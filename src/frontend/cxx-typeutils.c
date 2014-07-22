@@ -14185,6 +14185,20 @@ type_t* get_auto_type(void)
     return _auto;
 }
 
+static type_t* _nondep_auto = NULL;
+type_t* get_nondependent_auto_type(void)
+{
+    if (_nondep_auto == NULL)
+    {
+        _nondep_auto = new_empty_type();
+        _nondep_auto->kind = TK_AUTO;
+        _nondep_auto->unqualified_type = _nondep_auto;
+        _nondep_auto->info->is_dependent = 0;
+    }
+
+    return _nondep_auto;
+}
+
 char is_auto_type(type_t* t)
 {
     t = advance_over_typedefs(t);
