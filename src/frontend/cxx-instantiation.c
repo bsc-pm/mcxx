@@ -89,24 +89,16 @@ static scope_entry_t* add_duplicate_member_to_class(
 
     // aligned attribute requires special treatment
     int i;
-    for (i = 0; i < new_member->entity_specs.num_gcc_attributes; i++)
+    
+    gcc_attribute_t* gcc_aligned_attr = symbol_get_gcc_attribute(new_member, "aligned");
+    if (gcc_aligned_attr != NULL)
     {
-        if (strcmp(new_member->entity_specs.gcc_attributes[i].attribute_name, "aligned") == 0)
-        {
-            nodecl_t aligned_value = instantiate_expression(
-                    nodecl_list_head(new_member->entity_specs.gcc_attributes[i].expression_list),
-                    context_of_being_instantiated,
-                    instantiation_symbol_map, /* pack_index */ -1);
+        nodecl_t aligned_value = instantiate_expression(
+                nodecl_list_head(gcc_aligned_attr->expression_list),
+                context_of_being_instantiated,
+                instantiation_symbol_map, /* pack_index */ -1);
 
-            if (!nodecl_is_constant(aligned_value))
-            {
-                error_printf("%s: error: after instantiation, 'aligned' attribute of member '%s' is not constant\n",
-                        nodecl_locus_to_str(aligned_value),
-                        get_qualified_symbol_name(new_member, new_member->decl_context));
-            }
-
-            new_member->entity_specs.gcc_attributes[i].expression_list = nodecl_make_list_1(aligned_value);
-        }
+        gcc_aligned_attr->expression_list = nodecl_make_list_1(aligned_value);
     }
 
 #undef COPY_ARRAY

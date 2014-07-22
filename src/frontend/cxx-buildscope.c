@@ -2341,19 +2341,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
 
 
-            // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types.
-            //
-            // External global variables are also represented with nodecl_cxx_decl
-            //
-            // (We could use an object init but we reserve those for real data
-            // entities)
+            // (C and C++) Always declare typedefs of variably modified types
             if ((entry->kind == SK_TYPEDEF
-                    && is_variably_modified_type(entry->type_information))
+                        && is_variably_modified_type(entry->type_information))
                     || (IS_C_LANGUAGE
-                        && entry->kind == SK_VARIABLE
-                        && entry->entity_specs.is_extern
-                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
+                        // (Only C) Explicitly declare external variables in the global scope
+                        && ((entry->kind == SK_VARIABLE
+                                && entry->entity_specs.is_extern
+                                && entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            // (Only C) Explicitly declare functions that are aliases of other functions
+                            || (entry->kind == SK_FUNCTION
+                                && symbol_get_gcc_attribute(entry, "alias") != NULL))))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
