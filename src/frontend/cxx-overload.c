@@ -2240,6 +2240,12 @@ char standard_conversion_is_better(standard_conversion_t scs1,
             && !is_lvalue_reference_type(scs1.orig) // a rvalue (either a non-reference or a rvalue reference)
             && is_lvalue_reference_type(scs2.dest))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Standard conversion SCS1 is better "
+                    "than SCS2 because the first binds an rvalue to an rvalue reference and "
+                    "the second binds to an lvalue reference\n");
+        }
         return 1;
     }
     // S1 and S2 are reference bindings and S1 binds an lvalue
@@ -2253,6 +2259,11 @@ char standard_conversion_is_better(standard_conversion_t scs1,
             && is_function_type(no_ref(scs2.orig))
             && is_rvalue_reference_type(scs2.dest))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Standard conversion SCS1 is better "
+                    "than SCS2 because the first has better rank than the second\n");
+        }
         return 1;
     }
     // Cases including "const int*/int*", "const int&/int&" and "const int&&/int&&"
