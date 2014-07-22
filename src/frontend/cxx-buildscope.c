@@ -2341,19 +2341,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
 
 
-            // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types.
-            //
-            // External global variables are also represented with nodecl_cxx_decl
-            //
-            // (We could use an object init but we reserve those for real data
-            // entities)
+            // (C and C++) Always declare typedefs of variably modified types
             if ((entry->kind == SK_TYPEDEF
-                    && is_variably_modified_type(entry->type_information))
+                        && is_variably_modified_type(entry->type_information))
                     || (IS_C_LANGUAGE
-                        && entry->kind == SK_VARIABLE
-                        && entry->entity_specs.is_extern
-                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
+                        // (Only C) Explicitly declare external variables in the global scope
+                        && ((entry->kind == SK_VARIABLE
+                                && entry->entity_specs.is_extern
+                                && entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            // (Only C) Explicitly declare functions that are aliases of other functions
+                            || (entry->kind == SK_FUNCTION
+                                && symbol_get_gcc_attribute(entry, "alias") != NULL))))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -6528,13 +6526,9 @@ static char one_function_is_usable(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     scope_entry_t* overload_resolution = solve_overload(candidate_set,
             decl_context,
-            locus, 
-            augmented_conversors);
+            locus);
 
     if (overload_resolution == NULL)
     {
@@ -17350,7 +17344,7 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
 }
 
-static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER, 
+static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
         AST a, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -17367,7 +17361,6 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
     else
     {
         check_expression(const_expr, decl_context, nodecl_output);
-
         if (!nodecl_is_err_expr(*nodecl_output))
         {
             if (!nodecl_is_constant(*nodecl_output)
@@ -17379,19 +17372,11 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
             }
             if (!nodecl_expr_is_type_dependent(*nodecl_output))
             {
-                scope_entry_t* conversor = NULL;
-                char ambiguous_conversion = 0;
-                if (!type_can_be_contextually_converted_to_bool(
-                            nodecl_get_type(*nodecl_output),
-                            decl_context, 
-                            &ambiguous_conversion,
-                            &conversor,
-                            nodecl_get_locus(*nodecl_output))
-                        || ambiguous_conversion)
-                {
-                    error_printf("%s: error: noexcept expression must be convertible to bool\n",
-                            nodecl_locus_to_str(*nodecl_output));
-                }
+                check_contextual_conversion(
+                        *nodecl_output,
+                        get_bool_type(),
+                        decl_context,
+                        nodecl_output);
             }
         }
     }
@@ -17729,8 +17714,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
                 "Unsupported extra declarations at the initialization expression", 0);
 
-        entry->value = nodecl_expr;
-
         C_LANGUAGE()
         {
             standard_conversion_t dummy;
@@ -17743,47 +17726,23 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 return;
             }
 
-            *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
         }
         CXX_LANGUAGE()
         {
             if (!nodecl_expr_is_type_dependent(nodecl_expr))
             {
-                scope_entry_t* conversor = NULL;
-                char ambiguous_conversion = 0;
-                if (!type_can_be_contextually_converted_to_bool(
-                            entry->type_information,
-                            decl_context, 
-                            &ambiguous_conversion, &conversor, ast_get_locus(initializer))
-                        || ambiguous_conversion)
-                {
-                    error_printf("%s: error: value of type '%s' cannot be converted to 'bool' type\n",
-                            ast_location(a),
-                            print_type_str(entry->type_information, decl_context));
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
-                    return;
-                }
-
-                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
-                if (conversor != NULL)
-                {
-                    ERROR_CONDITION(!conversor->entity_specs.is_conversion,
-                            "I expected a conversion function!", 0);
-                    *nodecl_output = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversor, ast_get_locus(initializer)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(*nodecl_output),
-                            /* function_form */ nodecl_make_cxx_function_form_implicit(ast_get_locus(initializer)),
-                            function_type_get_return_type(conversor->type_information),
-                            decl_context,
-                            ast_get_locus(initializer));
-                }
-            }
-            else
-            {
-                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
+                check_contextual_conversion(
+                        nodecl_expr,
+                        get_bool_type(),
+                        decl_context,
+                        &nodecl_expr);
             }
         }
+
+        if (!nodecl_is_err_expr(nodecl_expr))
+            entry->value = nodecl_expr;
+
+        *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
 
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);

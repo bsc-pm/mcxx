@@ -8319,16 +8319,30 @@ char is_dependent_function(scope_entry_t* entry)
                 && is_dependent_type(entry->entity_specs.class_type));
 }
 
-nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
+gcc_attribute_t* symbol_get_gcc_attribute(scope_entry_t* entry, const char* name)
 {
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
     int i;
     for (i = 0; i < entry->entity_specs.num_gcc_attributes; i++)
     {
-        if (strcmp(entry->entity_specs.gcc_attributes[i].attribute_name, "aligned") == 0)
+        if (strcmp(entry->entity_specs.gcc_attributes[i].attribute_name, name) == 0)
         {
-            return nodecl_list_head(entry->entity_specs.gcc_attributes[i].expression_list);
+            return &entry->entity_specs.gcc_attributes[i];
         }
     }
+    return NULL;
+}
+
+nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
+{
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    gcc_attribute_t* gcc_attr = symbol_get_gcc_attribute(entry, "aligned");
+
+    if (gcc_attr != NULL)
+    {
+        return nodecl_list_head(gcc_attr->expression_list);
+    }
+
     return nodecl_null();
 }

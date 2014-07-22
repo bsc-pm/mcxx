@@ -2912,12 +2912,9 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     entry_list_iterator_free(it);
     entry_list_free(overload_set);
 
-    scope_entry_t* conversors[2] = { NULL, NULL };
-
     scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
-            locus,
-            conversors);
+            locus);
     scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
@@ -3073,12 +3070,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     entry_list_iterator_free(it);
     entry_list_free(overload_set);
 
-    scope_entry_t* conversors[1] = { NULL };
-    
     scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
-            locus,
-            conversors);
+            locus);
     scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     type_t* overloaded_type = NULL;
@@ -7705,8 +7699,6 @@ static void check_nodecl_array_subscript_expression_cxx(
         int num_arguments = 2;
         type_t* argument_types[2] = { subscripted_type, subscript_type };
 
-        scope_entry_t* conversors[2] = {NULL, NULL};
-
         scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
@@ -7729,9 +7721,8 @@ static void check_nodecl_array_subscript_expression_cxx(
         entry_list_free(overload_set);
 
         scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
-                decl_context, 
-                locus,
-                conversors);
+                decl_context,
+                locus);
         scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
         if (overloaded_call != NULL)
@@ -8053,11 +8044,17 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
                 || !is_class_type(no_ref(to_t2))
                 || !class_type_is_base_instantiating(no_ref(to_t2), no_ref(from_t1), locus))
         {
-            if (type_can_be_implicitly_converted_to(from_t1,
-                        get_unqualified_type(no_ref(to_t2)),
-                        decl_context,
-                        is_ambiguous_conversion, /* conversor */ NULL,
-                        locus))
+            nodecl_t nodecl_expr = nodecl_null();
+            diagnostic_context_push_buffered();
+            check_nodecl_function_argument_initialization(
+                    nodecl_make_dummy(from_t1, locus),
+                    decl_context,
+                    get_unqualified_type(no_ref(to_t2)),
+                    /* disallow_narrowing */ 0,
+                    &nodecl_expr);
+            diagnostic_context_pop_and_discard();
+
+            if (!nodecl_is_err_expr(nodecl_expr))
             {
                 DEBUG_CODE()
                 {
@@ -8666,7 +8663,7 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
             scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
-                    decl_context, locus, conversors);
+                    decl_context, locus);
             scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
             if (overloaded_call == NULL)
@@ -9094,8 +9091,7 @@ static void check_new_expression_impl(
     entry_list_iterator_free(it);
 
     scope_entry_t* orig_chosen_operator_new = solve_overload(candidate_set, 
-            decl_context, locus,
-            conversors);
+            decl_context, locus);
     scope_entry_t* chosen_operator_new = entry_advance_aliases(orig_chosen_operator_new);
     candidate_set_free(&candidate_set);
 
@@ -11894,10 +11890,6 @@ static void check_nodecl_function_call_cxx(
         }
     }
 
-    // Add the set of candidates and call the overload machinery
-    scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-    memset(conversors, 0, sizeof(conversors));
-
     candidate_t* candidate_set = NULL;
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(candidates);
@@ -11928,8 +11920,7 @@ static void check_nodecl_function_call_cxx(
 
     scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context,
-            locus,
-            conversors);
+            locus);
     scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
@@ -13741,11 +13732,8 @@ static void check_nodecl_member_access(
         entry_list_iterator_free(it);
         entry_list_free(operator_arrow_list);
 
-        scope_entry_t* conversors[1] = { NULL };
-
         scope_entry_t* orig_selected_operator_arrow = solve_overload(candidate_set,
-                decl_context, nodecl_get_locus(nodecl_accessed),
-                conversors);
+                decl_context, nodecl_get_locus(nodecl_accessed));
         scope_entry_t* selected_operator_arrow = entry_advance_aliases(orig_selected_operator_arrow);
 
         if (selected_operator_arrow == NULL)
@@ -14148,8 +14136,6 @@ static void check_postoperator_user_defined(
     entry_list_free(old_overload_set);
     entry_list_free(operator_overload_set);
 
-    scope_entry_t* conversors[2] = { NULL, NULL };
-
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
@@ -14165,8 +14151,7 @@ static void check_postoperator_user_defined(
 
     scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
             decl_context, 
-            nodecl_get_locus(postoperated_expr), 
-            conversors);
+            nodecl_get_locus(postoperated_expr));
     scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
@@ -14282,8 +14267,6 @@ static void check_preoperator_user_defined(AST operator,
     entry_list_free(old_overload_set);
     entry_list_free(operator_overload_set);
 
-    scope_entry_t* conversors[1] = { NULL };
-
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
@@ -14298,7 +14281,7 @@ static void check_preoperator_user_defined(AST operator,
     entry_list_free(overload_set);
 
     scope_entry_t* orig_overloaded_call = solve_overload(candidate_set,
-            decl_context, nodecl_get_locus(preoperated_expr), conversors);
+            decl_context, nodecl_get_locus(preoperated_expr));
     scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
 
     if (overloaded_call == NULL)
@@ -15920,8 +15903,6 @@ void check_nodecl_braced_initializer(
         arg_list[0] = get_pointer_type(template_arguments->arguments[0]->type);
         arg_list[1] = get_size_t_type();
 
-        scope_entry_t* conversors[num_args + 1];
-        memset(conversors, 0, sizeof(conversors));
         scope_entry_list_t* candidates = NULL;
         scope_entry_t* constructor = NULL;
         char ok = solve_initialization_of_class_type(declared_type,
@@ -15931,7 +15912,6 @@ void check_nodecl_braced_initializer(
                 decl_context,
                 locus,
                 &constructor,
-                conversors,
                 &candidates);
         entry_list_free(candidates);
 
@@ -15986,7 +15966,6 @@ void check_nodecl_braced_initializer(
             arg_list[i] = nodecl_get_type(nodecl_initializer_clause);
         }
 
-        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
         scope_entry_list_t* candidates = NULL;
         scope_entry_t* constructor = NULL;
 
@@ -15998,7 +15977,6 @@ void check_nodecl_braced_initializer(
                 decl_context,
                 locus,
                 &constructor,
-                conversors,
                 &candidates);
 
         if (!ok)
@@ -16362,6 +16340,25 @@ static void check_nodecl_designation_type(nodecl_t nodecl_designation,
     }
 }
 
+void check_contextual_conversion(nodecl_t expression,
+        type_t* dest_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t direct_init = nodecl_make_cxx_parenthesized_initializer(
+            nodecl_make_list_1(expression),
+            nodecl_get_locus(expression));
+
+    check_nodecl_parenthesized_initializer(
+            direct_init,
+            decl_context,
+            dest_type,
+            /* is_explicit */ 0,
+            /* is_explicit_type_cast */ 0,
+            /* emit_cast */ 0,
+            nodecl_output);
+}
+
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         decl_context_t decl_context,
         type_t* declared_type,
@@ -16398,14 +16395,12 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
 
         int i, num_items = 0;
         nodecl_t* list = nodecl_unpack_list(nodecl_list, &num_items);
-        scope_entry_t* conversors[num_items];
 
         for (i = 0; i < num_items; i++)
         {
             nodecl_t nodecl_expr = list[i];
 
             arguments[i] = nodecl_get_type(nodecl_expr);
-            conversors[i] = NULL;
         }
 
         enum initialization_kind initialization_kind = IK_INVALID;
@@ -16438,7 +16433,6 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 decl_context,
                 locus,
                 &chosen_constructor,
-                conversors,
                 &candidates);
 
         if (!ok)
@@ -17355,10 +17349,9 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         return;
     }
 
-    scope_entry_t* conversor = NULL;
-
     if (!is_class_type(declared_type_no_cv))
     {
+        scope_entry_t* conversor = NULL;
         scope_entry_list_t* candidates = NULL;
         char can_be_initialized =
             (is_string_literal_type(initializer_expr_type)
@@ -17461,10 +17454,8 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         // Use a constructor
         int num_arguments = 1;
         type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-        scope_entry_t* conversors[1];
 
         arguments[0] = initializer_expr_type;
-        conversors[0] = NULL;
 
         if (is_class_type(no_ref(initializer_expr_type))
                 && class_type_is_derived_instantiating(
@@ -17480,15 +17471,14 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         }
 
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor;
+        scope_entry_t* chosen_conversor = NULL;
         char ok = solve_initialization_of_class_type(
                 declared_type_no_cv,
                 arguments, num_arguments,
                 initialization_kind,
                 decl_context,
                 nodecl_get_locus(nodecl_expr),
-                &chosen_constructor,
-                conversors,
+                &chosen_conversor,
                 &candidates);
 
         if (!ok)
@@ -17512,44 +17502,33 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         }
         else
         {
-            if (function_has_been_deleted(decl_context, chosen_constructor, locus))
-            {
-                *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
-                return;
-            }
-
             entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, chosen_constructor, nodecl_get_locus(nodecl_expr)))
+
+            if (function_has_been_deleted(decl_context, chosen_conversor, locus))
             {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
                 return;
             }
 
-            conversor = conversors[0];
-        }
-
-        if (conversor != NULL)
-        {
-            if (function_has_been_deleted(decl_context, conversor, locus))
+            if (function_has_been_deleted(decl_context, chosen_conversor, nodecl_get_locus(nodecl_expr)))
             {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_locus(nodecl_expr));
                 return;
             }
 
-            nodecl_expr = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(conversor, nodecl_get_locus(nodecl_expr)),
-                    /* called name */ nodecl_null(),
-                    nodecl_make_list_1(nodecl_expr),
-                    nodecl_make_cxx_function_form_implicit(
-                        nodecl_get_locus(nodecl_expr)),
-                    actual_type_of_conversor(conversor),
-                    decl_context,
-                    nodecl_get_locus(nodecl_expr));
+            if (chosen_conversor->entity_specs.is_constructor)
+            {
+                type_t* param_type = function_type_get_parameter_type_num(chosen_conversor->type_information, 0);
+                check_nodecl_function_argument_initialization(nodecl_expr, decl_context,
+                        param_type,
+                        /* disallow_narrowing */ 0,
+                        &nodecl_expr);
+            }
         }
 
         // Remember a call to the constructor here
         *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(chosen_constructor, nodecl_get_locus(nodecl_expr)),
+                nodecl_make_symbol(chosen_conversor, nodecl_get_locus(nodecl_expr)),
                 /* called name */ nodecl_null(),
                 nodecl_make_list_1(nodecl_expr),
                 nodecl_make_cxx_function_form_implicit(nodecl_get_locus(nodecl_expr)),
@@ -19633,7 +19612,6 @@ char check_default_initialization_of_type(
                 decl_context,
                 locus,
                 &chosen_constructor,
-                /* conversors */ NULL,
                 &candidates);
 
         if (!ok)
@@ -19728,8 +19706,6 @@ char check_copy_constructor(scope_entry_t* entry,
 
         type_t* arguments[1] = { parameter_type };
 
-        scope_entry_t* conversors[1] = { NULL };
-
         scope_entry_list_t* candidates = NULL;
         scope_entry_t* chosen_constructor = NULL;
         char ok = solve_initialization_of_class_type(t,
@@ -19738,7 +19714,6 @@ char check_copy_constructor(scope_entry_t* entry,
                 decl_context,
                 locus,
                 &chosen_constructor,
-                conversors,
                 &candidates);
 
         if (ok)
@@ -19837,11 +19812,9 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         }
         entry_list_iterator_free(it);
 
-        scope_entry_t* conversors[2] = { NULL, NULL };
-
         scope_entry_t *overloaded_call = solve_overload(candidate_set,
                 decl_context,
-                locus, conversors);
+                locus);
 
         if (overloaded_call == NULL)
         {
@@ -19943,11 +19916,8 @@ char check_move_assignment_operator(scope_entry_t* entry,
         }
         entry_list_iterator_free(it);
 
-        scope_entry_t* conversors[2] = { NULL, NULL };
-
         scope_entry_t *overloaded_call = solve_overload(candidate_set,
-                decl_context,
-                locus, conversors);
+                decl_context, locus);
 
         if (overloaded_call == NULL)
         {

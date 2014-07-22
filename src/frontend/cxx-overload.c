@@ -428,7 +428,6 @@ static char solve_list_initialization_of_class_type_(
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates,
         char *is_ambiguous);
 
@@ -523,7 +522,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             && !no_user_defined_conversions)
     {
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
         int num_arguments = braced_list_type_get_num_types(orig);
         type_t* arguments[num_arguments + 1];
@@ -543,7 +541,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 locus,
                 // out
                 &constructor,
-                conversors,
                 &candidates,
                 &is_ambiguous);
         entry_list_free(candidates);
@@ -800,7 +797,6 @@ static char solve_initialization_of_class_type_(
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates,
         char *is_ambiguous);
 
@@ -921,7 +917,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     if (is_class_type(dest))
     {
         scope_entry_t* constructor = NULL;
-        scope_entry_t* dummy_conversor = NULL;
         scope_entry_list_t* candidates = NULL;
         enum initialization_kind specific_initialization;
         if (is_class_type(no_ref(orig))
@@ -945,12 +940,11 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     locus,
                     // Out
                     &constructor,
-                    &dummy_conversor,
                     &candidates,
                     &is_ambiguous);
         entry_list_free(candidates);
 
-        if (ok && dummy_conversor == NULL)
+        if (ok)
         {
             user_defined_conversion
                 = ics_make_user_defined_using_conversor(orig, dest, constructor, locus);
@@ -1028,95 +1022,12 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 }
 
-static char type_can_be_converted_to(
-        type_t* orig,
-        type_t* dest,
-        decl_context_t decl_context, 
-        char needs_contextual_conversion,
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus)
-{
-    CXX_LANGUAGE()
-    {
-        implicit_conversion_sequence_t result;
-        compute_ics_flags(orig, dest, decl_context, &result, 
-                /* no_user_defined_conversions */ 0,
-                /* is_implicit_argument */ 0,
-                needs_contextual_conversion,
-                REF_QUALIFIER_NONE,
-                locus);
-
-        *ambiguous_conversion = ics_is_ambiguous(result);
-
-        if (conversor != NULL
-                && result.kind == ICSK_USER_DEFINED)
-        {
-            *conversor = result.conversor;
-        }
-
-        return (result.kind != ICSK_INVALID);
-    }
-    C_LANGUAGE()
-    {
-        internal_error("This function cannot be used in C", 0);
-    }
-    return 0;
-}
-
-char type_can_be_implicitly_converted_to(
-        type_t* orig,
-        type_t* dest,
-        decl_context_t decl_context, 
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus)
-{
-    return type_can_be_converted_to(
-            orig, dest, decl_context,
-            /* needs_contextual_conversion */ 0,
-            ambiguous_conversion,
-            conversor,
-            locus);
-}
-
-char type_can_be_contextually_converted_to(
-        type_t* orig,
-        type_t* dest,
-        decl_context_t decl_context, 
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus)
-{
-    return type_can_be_converted_to(
-            orig, dest, decl_context,
-            /* needs_contextual_conversion */ 1,
-            ambiguous_conversion,
-            conversor,
-            locus);
-}
-
-char type_can_be_contextually_converted_to_bool(type_t* orig,
-        decl_context_t decl_context,
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus)
-{
-    return type_can_be_contextually_converted_to(orig,
-            get_bool_type(),
-            decl_context,
-            ambiguous_conversion,
-            conversor,
-            locus);
-}
-
 static scope_entry_t* solve_overload_(candidate_t* candidate_set,
         decl_context_t decl_context,
         enum initialization_kind initialization_kind,
         type_t* dest,
         const locus_t* locus,
         // Out
-        scope_entry_t** conversors,
         char *is_ambiguous);
 
 static char solve_initialization_of_direct_reference_type_ics(
@@ -1238,8 +1149,6 @@ static char solve_initialization_of_direct_reference_type_ics(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* dummy_conversors[1];
-
     // Now we have all the candidates, perform an overload resolution on them
     char is_ambiguous = 0;
     scope_entry_t* overload_resolution = solve_overload_(candidate_set,
@@ -1248,7 +1157,6 @@ static char solve_initialization_of_direct_reference_type_ics(
             dest,
             locus,
             // Out
-            dummy_conversors,
             &is_ambiguous);
     candidate_set_free(&candidate_set);
 
@@ -1538,8 +1446,6 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
             }
             entry_list_iterator_free(it);
 
-            scope_entry_t* dummy_conversors[1];
-
             // Now we have all the candidates, perform an overload resolution on them
             char is_ambiguous = 0;
             scope_entry_t* overload_resolution = solve_overload_(candidate_set, 
@@ -1548,7 +1454,6 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
                     dest,
                     locus, 
                     // Out
-                    dummy_conversors,
                     &is_ambiguous);
             candidate_set_free(&candidate_set);
 
@@ -1700,7 +1605,6 @@ static char solve_initialization_of_reference_type_ics(
             if (is_class_type(no_ref(dest)))
             {
                 scope_entry_t* constructor = NULL;
-                scope_entry_t* dummy_conversor = NULL;
                 enum initialization_kind specific_initialization;
                 if (is_class_type(no_ref(orig))
                         && class_type_is_derived_instantiating(
@@ -1722,7 +1626,6 @@ static char solve_initialization_of_reference_type_ics(
                         locus,
                         // Out
                         &constructor,
-                        &dummy_conversor,
                         candidates,
                         &is_ambiguous);
 
@@ -2924,7 +2827,6 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
         type_t* dest,
         const locus_t* locus,
         // Out
-        scope_entry_t** conversors,
         char *is_ambiguous)
 {
     DEBUG_CODE()
@@ -3171,47 +3073,6 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
                 print_declarator(entry->type_information));
     }
 
-    if (conversors != NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: List of called conversors\n");
-        }
-        int i;
-        for (i = 0; i < best_viable->num_ics_arguments; i++)
-        {
-            if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
-            {
-                conversors[i] = best_viable->ics_arguments[i].conversor;
-            }
-            else
-            {
-                conversors[i] = NULL;
-            }
-
-            DEBUG_CODE()
-            {
-                if (conversors[i] == NULL)
-                {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
-                            i);
-                }
-                else
-                {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s\n",
-                            i,
-                            conversors[i]->symbol_name,
-                            locus_to_str(conversors[i]->locus));
-                }
-            }
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: End of list of called conversors\n");
-        }
-    }
-
     // Note that this function effectively returns SK_FUNCTION or SK_USING.
     // It is up to the caller to advance the alias and not to lose track
     // of the SK_USING
@@ -3234,8 +3095,7 @@ static scope_entry_t* solve_overload_(candidate_t* candidate_set,
 
 scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
-        const locus_t* locus,
-        scope_entry_t** conversors)
+        const locus_t* locus)
 {
     char is_ambiguous = 0; // Unused
     return solve_overload_(candidate_set,
@@ -3244,7 +3104,6 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             /* dest */ NULL,
             locus,
             // Out
-            conversors,
             &is_ambiguous);
 }
 
@@ -3783,7 +3642,6 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         char init_constructors_only,
         const locus_t* locus,
         // Output arguments
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates,
         char *is_ambiguous)
 {
@@ -3855,15 +3713,8 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             class_type,
             locus,
             // Out
-            augmented_conversors,
             is_ambiguous);
     candidate_set_free(&candidate_set);
-
-    int i;
-    for (i = 0; i < num_arguments; i++)
-    {
-        conversors[i] = augmented_conversors[i];
-    }
 
     return overload_resolution;
 }
@@ -3877,7 +3728,6 @@ static char solve_initialization_of_class_type_(
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates,
         char *is_ambiguous)
 {
@@ -3909,7 +3759,6 @@ static char solve_initialization_of_class_type_(
             /* init_constructors_only */ 0,
             locus,
             // Out
-            conversors,
             candidates,
             is_ambiguous);
 
@@ -3940,7 +3789,6 @@ char solve_initialization_of_class_type(
         decl_context_t decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates)
 {
     char is_ambiguous = 0;
@@ -3953,7 +3801,6 @@ char solve_initialization_of_class_type(
             locus,
             // Out
             constructor,
-            conversors,
             candidates,
             &is_ambiguous);
 }
@@ -3967,7 +3814,6 @@ static char solve_list_initialization_of_class_type_(
         const locus_t* locus,
         // Out
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates,
         char *is_ambiguous)
 {
@@ -4078,7 +3924,6 @@ static char solve_list_initialization_of_class_type_(
                 class_type,
                 locus,
                 // Out
-                augmented_conversors,
                 is_ambiguous);
         candidate_set_free(&candidate_set);
 
@@ -4093,12 +3938,6 @@ static char solve_list_initialization_of_class_type_(
             {
                 *constructor = 0;
                 return 0;
-            }
-
-            int i;
-            for (i = 0; i < num_arguments; i++)
-            {
-                conversors[i] = augmented_conversors[i];
             }
 
             // We are done
@@ -4158,7 +3997,6 @@ static char solve_list_initialization_of_class_type_(
             class_type,
             locus,
             // Out
-            augmented_conversors,
             is_ambiguous);
     candidate_set_free(&candidate_set);
 
@@ -4174,12 +4012,6 @@ static char solve_list_initialization_of_class_type_(
         return 0;
     }
 
-    int i;
-    for (i = 0; i < num_arguments; i++)
-    {
-        conversors[i] = augmented_conversors[i];
-    }
-
     return (overload_resolution != NULL);
 }
 
@@ -4191,7 +4023,6 @@ char solve_list_initialization_of_class_type(
         decl_context_t decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
         scope_entry_list_t** candidates)
 {
     char is_ambiguous = 0;
@@ -4204,7 +4035,6 @@ char solve_list_initialization_of_class_type(
             locus,
             // Out
             constructor,
-            conversors,
             candidates,
             &is_ambiguous);
 }
