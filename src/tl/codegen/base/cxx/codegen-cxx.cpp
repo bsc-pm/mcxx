@@ -1722,7 +1722,8 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
         return;
 
     if (!function_form.is_null()
-            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>()
+            && called_symbol.get_type().is_template_specialized_type())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
         TL::TemplateParameters deduced_template_args =
