@@ -17685,6 +17685,11 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
     nodecl_t nodecl_expr = nodecl_null();
     type_t* orig_type = NULL;
 
+    if (nodecl_is_null(nodecl_condition))
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
     if (nodecl_is_err_expr(nodecl_condition))
     {
         *nodecl_output = nodecl_condition;
@@ -18075,7 +18080,8 @@ static void build_scope_nodecl_for_statement_nonrange(
             decl_context,
             locus,
             &nodecl_loop_condition);
-    if (nodecl_is_err_expr(nodecl_loop_condition))
+    if (!nodecl_is_null(nodecl_loop_condition)
+            && nodecl_is_err_expr(nodecl_loop_condition))
     {
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(locus));
@@ -18329,7 +18335,6 @@ static void build_scope_for_statement_range(AST a,
     expr_or_init_braced = ASTMake1(AST_EQUAL_INITIALIZER,
             expr_or_init_braced,
             ast_get_locus(expr_or_init_braced), NULL);
-
 
     nodecl_t nodecl_range_initializer = nodecl_null();
     check_initialization(
