@@ -1631,6 +1631,57 @@ static char solve_initialization_of_reference_type_ics(
 
                 if (ok)
                 {
+                    // [DR1604]
+                    //
+                    // If T1 is a class type, user-defined conversions are
+                    // considered using the rules for copy-initialization of an
+                    // object of type "cv1 T1" by user-defined conversion (8.5
+                    // [dcl.init], 13.3.1.4 [over.match.copy]); the program is
+                    // ill-formed if the corresponding non-reference
+                    // copy-initialization would be ill-formed. The result of the
+                    // call to the conversion function, as described for the
+                    // non-reference copy-initialization, is then used to
+                    // direct-initialize the reference. The program is ill-formed
+                    // if the direct-initialization does not result in a direct
+                    // binding or if it involves a user-defined conversion.
+                    type_t* relevant_type = NULL;
+
+                    if (constructor->entity_specs.is_conversion)
+                    {
+                        relevant_type = function_type_get_return_type(constructor->type_information);
+                    }
+                    else if (constructor->entity_specs.is_constructor)
+                    {
+                        relevant_type = get_cv_qualified_type(
+                                constructor->entity_specs.class_type,
+                                get_cv_qualifier(no_ref(orig)));
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+
+                    // Now verify if the resulting type can actually be
+                    // directly-bound. Here we repeat some of the checks above
+                    // but orig is now relevant_type
+                    ok = 0;
+                    if ((is_lvalue_reference_type(dest)
+                                && is_const_qualified_type(no_ref(dest))
+                                && !is_volatile_qualified_type(no_ref(dest)))
+                            || (is_rvalue_reference_type(dest)))
+                    {
+                        if ((is_rvalue_reference_type(relevant_type)
+                                    || is_class_type(relevant_type)
+                                    || (is_lvalue_reference_type(relevant_type) && is_function_type(no_ref(relevant_type))))
+                                && type_is_reference_compatible_to(no_ref(dest), no_ref(relevant_type)))
+                        {
+                            ok = 1;
+                        }
+                    }
+
+                    if (!ok)
+                        return 0;
+
                     *conversor = constructor;
                 }
             }
@@ -1647,9 +1698,10 @@ static char solve_initialization_of_reference_type_ics(
             }
             if (ok && (!type_is_reference_related_to(no_ref(dest), no_ref(orig))
                         // if is type reference related then dest must be more or equal cv-qualified
-                        || (is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))
-                            // if is type reference related and what is being initialized
+                        || (is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(get_unqualified_type(orig)))
+                            // if is type reference related and what is being initialized is more cv-qualified
                             && (!is_rvalue_reference_type(dest)
+                                // it is an rvalue reference, it cannot be initialized with an lvalue
                                 || !is_lvalue_reference_type(orig)))))
             {
                 DEBUG_CODE()

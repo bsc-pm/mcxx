@@ -10855,13 +10855,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_ref_orig = get_unqualified_type(ref_orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
-        if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
-                    || (is_class_type(unqualif_ref_dest)
-                        && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
-                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
-                && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
+        if (equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
+                || (is_class_type(unqualif_ref_dest)
+                    && is_class_type(unqualif_ref_orig)
+                    && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
+                    && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
         {
+            if (!is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
+            {
+                return 0;
+            }
+
             (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
@@ -10881,13 +10885,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_ref_orig = get_unqualified_type(ref_orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
-        if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
-                    || (is_class_type(unqualif_ref_dest)
-                        && is_class_type(unqualif_ref_orig)
-                        && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
-                        && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
-                && is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
+        if (equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
+                || (is_class_type(unqualif_ref_dest)
+                    && is_class_type(unqualif_ref_orig)
+                    && class_type_is_base_instantiating(unqualif_ref_dest, unqualif_ref_orig, locus)
+                    && !class_type_is_ambiguous_base_of_derived_class(unqualif_ref_dest, unqualif_ref_orig)))
         {
+            if (!is_more_or_equal_cv_qualified_type(ref_dest, ref_orig))
+            {
+                return 0;
+            }
+
             (*result) = get_identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
@@ -14655,7 +14663,7 @@ char type_is_reference_related_to(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
             "Do not pass reference types to this function", 0);
-    return (equivalent_types(t1, t2)
+    return (equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2))
             || (is_class_type(t1)
                 && is_class_type(t2)
                 && class_type_is_base(t1, t2)));
@@ -14665,7 +14673,7 @@ char type_is_reference_compatible_to(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
             "Do not pass reference types to this function", 0);
-    return type_is_reference_related_to(get_unqualified_type(t1), get_unqualified_type(t2))
+    return type_is_reference_related_to(t1, t2)
         && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
 }
 

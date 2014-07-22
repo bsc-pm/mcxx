@@ -174,7 +174,8 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
 }
 
 
-type_t* actual_type_of_conversor(scope_entry_t* conv)
+// declared_type is used only to cv-qualify constructors
+static type_t* actual_type_of_conversor(scope_entry_t* conv)
 {
     conv = entry_advance_aliases(conv);
 
@@ -8661,7 +8662,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             entry_list_iterator_free(it);
             entry_list_free(builtins);
 
-            scope_entry_t* conversors[3] = { NULL, NULL, NULL };
             scope_entry_t *orig_overloaded_call = solve_overload(candidate_set,
                     decl_context, locus);
             scope_entry_t* overloaded_call = entry_advance_aliases(orig_overloaded_call);
@@ -8685,28 +8685,6 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
             {
                 *nodecl_output = nodecl_make_err_expr(locus);
                 return;
-            }
-
-            int k;
-            for (k = 0; k < 3; k++)
-            {
-                if (conversors[k] != NULL)
-                {
-                    if (function_has_been_deleted(decl_context, conversors[k], locus))
-                    {
-                        *nodecl_output = nodecl_make_err_expr(locus);
-                        return;
-                    }
-
-                    *nodecl_conditional[k] = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[k], locus),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(*nodecl_conditional[k]),
-                            nodecl_make_cxx_function_form_implicit(locus),
-                            actual_type_of_conversor(conversors[k]),
-                            decl_context,
-                            locus);
-                }
             }
 
             // Get the converted types and use them instead of the originals
@@ -16526,12 +16504,19 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
                 argument_list = nodecl_append_to_list(argument_list, nodecl_arg);
             }
 
+            cv_qualifier_t cv_qualif = CV_NONE;
+            type_t* actual_type = actual_type_of_conversor(chosen_constructor);
+            advance_over_typedefs_with_cv_qualif(
+                    declared_type,
+                    &cv_qualif);
+            actual_type = get_cv_qualified_type(actual_type, cv_qualif);
+
             *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(chosen_constructor, locus),
                     /* called name */ nodecl_null(),
                     argument_list,
                     is_explicit ? nodecl_null() : nodecl_make_cxx_function_form_implicit(locus),
-                    actual_type_of_conversor(chosen_constructor),
+                    actual_type,
                     decl_context,
                     locus);
         }
@@ -17517,10 +17502,14 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
             if (chosen_conversor->entity_specs.is_constructor)
             {
                 type_t* param_type = function_type_get_parameter_type_num(chosen_conversor->type_information, 0);
-                check_nodecl_function_argument_initialization(nodecl_expr, decl_context,
+                check_nodecl_function_argument_initialization(nodecl_expr,
+                        decl_context,
                         param_type,
                         /* disallow_narrowing */ 0,
                         &nodecl_expr);
+
+                ERROR_CONDITION(nodecl_is_err_expr(nodecl_expr),
+                        "We have chosen a constructor that cannot be called", 0);
             }
         }
 
