@@ -17713,7 +17713,7 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
         standard_conversion_t scs;
         if (!standard_conversion_between_types(&scs,
                     orig_type,
-                    get_bool_type(),
+                    get_signed_int_type(),
                     locus))
         {
             error_printf("%s: error: expression of type '%s' is not valid in this context\n",
@@ -17723,10 +17723,13 @@ static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
             return;
         }
 
-        nodecl_expr = cxx_nodecl_make_conversion(
-                nodecl_expr,
-                get_bool_type(),
-                locus);
+        if (!equivalent_types(orig_type, get_signed_int_type()))
+        {
+            nodecl_expr = cxx_nodecl_make_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
+                    locus);
+        }
     }
 
     CXX_LANGUAGE()
