@@ -101,7 +101,7 @@ namespace TL
                 void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
                 void process_cache_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objlist_nodecl_t& cached_expressions);
+                        TL::Vectorization::tl_sym_int_map_t& cached_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,
