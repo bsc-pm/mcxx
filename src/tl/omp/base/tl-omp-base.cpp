@@ -54,6 +54,7 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
+        _omp_report(false),
         _copy_deps_by_default(true),
         _instantiate_omp(false)
     {
