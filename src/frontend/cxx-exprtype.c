@@ -8930,9 +8930,6 @@ static void check_new_expression_impl(
 {
     char is_new_array = is_array_type(new_type);
 
-    scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-    memset(conversors, 0, sizeof(conversors));
-
     type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(arguments, 0, sizeof(arguments));
 
@@ -12004,11 +12001,9 @@ static void check_nodecl_function_call_cxx(
         int arg_i = 0;
         if (overloaded_call->entity_specs.is_member)
         {
-            // We ignore the conversor of this parameter
             arg_i = 1;
         }
 
-        // Set conversors of arguments if needed
         num_items = 0;
         list = nodecl_unpack_list(nodecl_argument_list, &num_items);
 

@@ -3750,9 +3750,6 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             locus, /* explicit_template_parameters */ NULL);
     entry_list_free(candidate_list);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     candidate_t* candidate_set = NULL;
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -3963,9 +3960,6 @@ static char solve_list_initialization_of_class_type_(
                 locus, /* explicit_template_parameters */ NULL);
         entry_list_free(list_initializer_constructors);
 
-        scope_entry_t* augmented_conversors[num_arguments + 1];
-        memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
         candidate_t* candidate_set = NULL;
         for (it = entry_list_iterator_begin(overload_set);
                 !entry_list_iterator_end(it);
@@ -4036,9 +4030,6 @@ static char solve_list_initialization_of_class_type_(
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     candidate_t* candidate_set = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
@@ -4064,7 +4055,7 @@ static char solve_list_initialization_of_class_type_(
     candidate_set_free(&candidate_set);
 
     *constructor = overload_resolution;
-    
+
     // In copy-list-initialization, if an explicit constructor is
     // chosen, the initialization is ill-formed.
     if (overload_resolution != NULL
