@@ -27,8 +27,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-serial-simd-mic
-test_compile_fail=yes
-test_compile_faulty=yes
 </testinfo>
 */
 
@@ -37,7 +35,7 @@ test_compile_faulty=yes
 
 #define VECTOR_SIZE 64
 
-#pragma omp simd linear(j:1)
+#pragma omp simd uniform(x, y, z, a) linear(j) 
 void foo (float *x, float *y, float *z, float a, int j)
 {
     z[j] = a * x[j] + y[j];

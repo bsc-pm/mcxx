@@ -272,7 +272,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -641,23 +641,20 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
-interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
-                    | NODECL_ANALYSIS*PLUS_INFINITY()
-                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*EMPTY_RANGE()
-                    | expression
 
-constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
-                      | interval_expression
-                      | NODECL_ANALYSIS*RANGE_UNION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_SUB([lhs] constraint_expression, [rhs] constraint_expression) type
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY()
+                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
-constraint : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
-           | constraint_expression
-
-expression : NODECL_UNKNOWN()
+expression : constraint_expression
+           | NODECL_UNKNOWN()
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

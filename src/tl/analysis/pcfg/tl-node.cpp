@@ -325,6 +325,11 @@ namespace Analysis {
         return (get_type() == __Break);
     }
 
+    bool Node::is_conditional_expression()
+    {
+        return ((get_type() == __Graph) && (get_graph_type() == __CondExpr));
+    }
+    
     bool Node::is_continue_node()
     {
         return (get_type() == __Continue);
@@ -398,11 +403,6 @@ namespace Analysis {
         return ((get_type() == __Graph) && (get_graph_type() == __LoopDoWhile));
     }
 
-    bool Node::is_loop_stride(Node* loop)
-    {
-        return (loop->get_stride_node() == this);
-    }
-
     bool Node::is_normal_node()
     {
         return (get_type() == __Normal);
@@ -436,9 +436,9 @@ namespace Analysis {
     bool Node::is_omp_node()
     {
         return (is_omp_atomic_node() || is_omp_barrier_node() || is_omp_barrier_graph_node() || is_omp_critical_node() || 
-                 is_omp_flush_node() || is_omp_loop_node() || is_omp_master_node() || is_omp_parallel_node() || 
-                 is_omp_section_node() || is_omp_sections_node() || is_omp_simd_node() || is_omp_single_node() || 
-                 is_omp_task_creation_node() || is_omp_task_node() || is_omp_taskwait_node() || is_omp_taskyield_node());
+                is_omp_flush_node() || is_omp_loop_node() || is_omp_master_node() || is_omp_parallel_node() || 
+                is_omp_section_node() || is_omp_sections_node() || is_omp_simd_node() || is_omp_single_node() || 
+                is_omp_task_creation_node() || is_omp_task_node() || is_omp_taskwait_node() || is_omp_taskyield_node());
     }
     
     bool Node::is_omp_atomic_node()
@@ -497,6 +497,11 @@ namespace Analysis {
         return (is_graph_node() 
                  && ((gt == __OmpSimd) || (gt == __OmpSimdFor) 
                  || (gt == __OmpSimdFunction) || (gt == __OmpSimdParallelFor) || (gt == __OmpSimdParallel)));
+    }
+    
+    bool Node::is_omp_simd_function_node()
+    {
+        return (is_graph_node() && (get_graph_type() == __OmpSimdFunction));
     }
     
     bool Node::is_omp_single_node()
@@ -1393,8 +1398,8 @@ namespace Analysis {
             if(VERBOSE)
             {
                 WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
-                             _id, get_type_as_string().c_str());
-        }
+                                _id, get_type_as_string().c_str());
+            }
         }
         return ivs;
     }
@@ -1450,74 +1455,6 @@ namespace Analysis {
             internal_error("Unexpected node type '%s' while setting condition node to loop graph node '%d'. GRAPH NODE expected.",
                             get_type_as_string().c_str(), _id);
         }
-    }
-    
-    // FIXME Other loop nodes can have a stride
-    Node* Node::get_stride_node()
-    {
-        if(is_graph_node())
-        {
-            if(is_for_loop())
-            {
-                return get_data<Node*>(_STRIDE_NODE);
-            }
-            else
-            {
-                internal_error("Unexpected graph type '%s' while getting the stride node of loop node '%d'. LOOP expected",
-                                get_graph_type_as_string().c_str(), _id);
-            }
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while getting stride node of loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string().c_str(), _id);
-        }
-    }
-    
-    // FIXME Other loop nodes can have a stride
-    void Node::set_stride_node(Node* stride)
-    {
-        if(is_graph_node())
-        {
-            if(is_for_loop())
-            {
-                set_data(_STRIDE_NODE, stride);
-            }
-            else
-            {
-                internal_error("Unexpected graph type '%s' while setting the stride node to loop node '%d'. LOOP expected",
-                                get_graph_type_as_string().c_str(), _id);
-            }
-        }
-        else
-        {
-            internal_error("Unexpected node type '%s' while setting stride node to loop graph node '%d'. GRAPH NODE expected.",
-                            get_type_as_string().c_str(), _id);
-        }
-    }
-
-    // FIXME Other loop nodes can have a stride
-    bool Node::is_stride_node()
-    {
-        bool res = false;
-        Node* outer_node = get_outer_node();
-        while(outer_node != NULL && outer_node->get_graph_type() != __LoopFor)
-        {
-            outer_node = outer_node->get_outer_node();
-        }
-
-        if(outer_node != NULL)
-        {
-            Node* stride = outer_node->get_stride_node();
-            res = (stride->_id == _id);
-        }
-        return res;
-    }
-
-    bool Node::is_stride_node(Node* loop)
-    {
-        Node* stride = loop->get_stride_node();
-        return (stride->_id == _id);
     }
 
     // ***************** END getters and setters for loops analysis ***************** //
@@ -1978,6 +1915,109 @@ namespace Analysis {
                     result.insert(reduc);
                 }
                 break;
+            }
+        }
+        return result;
+    }
+    
+    static void check_for_simd_node(Node*& n)
+    {
+        if(n->is_loop_node())
+        {
+            n = n->get_outer_node();
+            if(!n->is_omp_simd_node())
+            {
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Asking for linear symbols in loop node %d, "\
+                                    "which is not contained in an OpenMP loop. Returning empty list.\n", n->get_id());
+                }
+                n = NULL;
+            }
+        }
+        else if(n->is_function_code_node())
+        {
+            n = n->get_outer_node();
+            if(!n->is_omp_simd_function_node())
+            {
+                if(VERBOSE)
+                {
+                    WARNING_MESSAGE("Asking for linear symbols in function code node %d, "\
+                                    "which is not contained in an simd function code. Returning empty list.\n", n->get_id());
+                }
+                n = NULL;
+            }
+        }
+        else if(!n->is_omp_simd_node())
+        {
+            if(VERBOSE)
+            {
+                WARNING_MESSAGE("Asking for linear symbols in node %d, which is not an OpenMP loop, "\
+                                "neither a simd function code. Returning empty list.\n", n->get_id());
+            }
+            n = NULL;
+        }
+    }
+    
+    ObjectList<Utils::LinearVars> Node::get_linear_symbols()
+    {
+        ObjectList<Utils::LinearVars> result;
+        Node* n = this;
+        check_for_simd_node(n);
+        if(n != NULL)
+        {
+            const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            {
+                if(it->get_clause() == __linear)
+                {
+                    Nodecl::List linear_exprs = it->get_args();
+                    ObjectList<Symbol> syms;
+                    NBase step;
+                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    {
+                        if(!itl->is<Nodecl::IntegerLiteral>())
+                        {   // This is not the step of the linear clause
+                            Symbol lin(itl->get_symbol());
+                            ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
+                                            itl->prettyprint().c_str());
+                            syms.insert(lin);
+                        }
+                        else
+                        {
+                            step = *itl;
+                        }
+                    }
+                   
+                    result.append(Utils::LinearVars(syms, step));
+                }
+            }
+        }
+        return result;
+    }
+    
+    ObjectList<Symbol> Node::get_uniform_symbols()
+    {
+        ObjectList<Symbol> result;
+        Node* n = this;
+        check_for_simd_node(n);
+        if(n != NULL)
+        {
+            const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            {
+                if(it->get_clause() == __uniform)
+                {
+                    Nodecl::List uniform_exprs = it->get_args();
+                    for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
+                    {
+                        Symbol lin(itl->get_symbol());
+                        ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Uniform argument '%s'", 
+                                        itl->prettyprint().c_str());
+                        result.insert(lin);
+                    }
+                    break;
+                }
             }
         }
         return result;

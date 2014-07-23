@@ -249,14 +249,10 @@ namespace Vectorization
             Nodecl::NodeclBase new_step;
 
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_non_reduction_basic_induction_variable(
-                        _environment._analysis_simd_scope,
-                        lhs))
+                    is_linear(_environment._analysis_simd_scope, lhs))
             {
                 step = VectorizationAnalysisInterface::_vectorizer_analysis->
-                    get_induction_variable_increment(
-                        _environment._analysis_scopes.back(),
-                        lhs);
+                    get_linear_step(_environment._analysis_scopes.back(), lhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node
                     <Nodecl::Mul>(
@@ -303,9 +299,7 @@ namespace Vectorization
                         rhs))
             {
                 step = VectorizationAnalysisInterface::_vectorizer_analysis->
-                    get_induction_variable_increment(
-                        _environment._analysis_scopes.back(),
-                        rhs);
+                    get_linear_step(_environment._analysis_scopes.back(), rhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node<Nodecl::Mul>(
                         step.shallow_copy(),

@@ -122,6 +122,8 @@ namespace Analysis {
         Ret visit( const Nodecl::Postincrement& n );
         Ret visit( const Nodecl::Predecrement& n );
         Ret visit( const Nodecl::Preincrement& n );
+        Ret visit(const Nodecl::VectorAssignment& n);
+        Ret visit(const Nodecl::VectorMaskAssignment& n);
     };
 
     // ********************** END class implementing a visitor of reaching definition ********************* //

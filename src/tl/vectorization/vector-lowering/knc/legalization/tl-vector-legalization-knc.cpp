@@ -65,50 +65,57 @@ namespace Vectorization
 
     void KNCVectorLegalization::visit(const Nodecl::VectorConversion& n)
     {
+        walk(n.get_nest());
+
         const TL::Type& src_vector_type = n.get_nest().get_type().get_unqualified_type().no_ref();
         const TL::Type& dst_vector_type = n.get_type().get_unqualified_type().no_ref();
         const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
-        //            const int src_type_size = src_type.get_size();
-        //            const int dst_type_size = dst_type.get_size();
-        /*
-           printf("Conversion from %s(%s) to %s(%s)\n",
-           src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
-         */
-        const unsigned int src_num_elements = src_vector_type.vector_num_elements();
-        const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
-
-        walk(n.get_nest());
-
-        // 4-byte element vector type
-        if ((src_type.is_float() ||
-                    src_type.is_signed_int() ||
-                    src_type.is_unsigned_int())
-                && (src_num_elements < NUM_4B_ELEMENTS))
+       
+        // If mask type, conversion is not needed
+        if (dst_vector_type.is_mask() && src_type.is_integral_type())
         {
-            // If src type is float8, int8, ... then it will be converted to float16, int16
-            if(src_num_elements == 8)
-            {
-                n.get_nest().set_type(
-                        src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-            }
+            n.replace(n.get_nest());
+        }
+        else
+        {
+            /*
+               printf("Conversion from %s(%s) to %s(%s)\n",
+               src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
+             */
+            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
-            // If dst type is float8, int8, ... then it will be converted to float16, int16
-            if ((dst_type.is_float() ||
-                        dst_type.is_signed_int() ||
-                        dst_type.is_unsigned_int())
-                    && (dst_num_elements < NUM_4B_ELEMENTS))
+            // 4-byte element vector type
+            if ((src_type.is_float() ||
+                        src_type.is_signed_int() ||
+                        src_type.is_unsigned_int())
+                    && (src_num_elements < NUM_4B_ELEMENTS))
             {
-                if(dst_num_elements == 8)
+                // If src type is float8, int8, ... then it will be converted to float16, int16
+                if(src_num_elements == 8)
                 {
-                    Nodecl::NodeclBase new_n = n.shallow_copy();
-                    new_n.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-                    n.replace(new_n);
+                    n.get_nest().set_type(
+                            src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
                 }
 
+                // If dst type is float8, int8, ... then it will be converted to float16, int16
+                if ((dst_type.is_float() ||
+                            dst_type.is_signed_int() ||
+                            dst_type.is_unsigned_int())
+                        && (dst_num_elements < NUM_4B_ELEMENTS))
+                {
+                    if(dst_num_elements == 8)
+                    {
+                        Nodecl::NodeclBase new_n = n.shallow_copy();
+                        new_n.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                        n.replace(new_n);
+                    }
+
+                }
             }
         }
     }
