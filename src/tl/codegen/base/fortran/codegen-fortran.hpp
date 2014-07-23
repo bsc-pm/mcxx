@@ -329,7 +329,20 @@ namespace Codegen
             void codegen_blockdata_footer(TL::Symbol);
 
             void codegen_comma_separated_list(Nodecl::NodeclBase);
-            void codegen_reverse_comma_separated_list(Nodecl::NodeclBase);
+
+            void codegen_array_subscripts(TL::Symbol array_symbol, Nodecl::NodeclBase node);
+            void codegen_single_array_subscript(
+                    Nodecl::NodeclBase node,
+                    TL::Symbol array_symbol,
+                    int dim);
+            bool subscript_expresses_whole_dimension(Nodecl::NodeclBase node,
+                    TL::Symbol array_symbol,
+                    int dim);
+            bool calls_to_xbound_for_array_symbol_dim(
+                    Nodecl::NodeclBase range_item,
+                    TL::Symbol array_symbol,
+                    const std::string &function_name,
+                    int dim);
 
             void codegen_function_call_arguments(const Nodecl::NodeclBase arguments, 
                     TL::Symbol called_symbol,
@@ -453,6 +466,10 @@ namespace Codegen
             std::string _deduce_use_statements_str;
             bool _deduce_use_statements;
             void set_deduce_use_statements(const std::string& str);
+
+            std::string _emit_full_array_subscripts_str;
+            bool _emit_full_array_subscripts;
+            void set_emit_full_array_subscripts(const std::string& str);
     };
 }
 

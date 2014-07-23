@@ -272,7 +272,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -306,6 +306,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -326,9 +327,9 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-expressions
 
 cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
+         # This one materializes a subvalue of a pack. const-value should be an integer
          # Here we materialize the expansion, used for nontype template-arguments packs
          | NODECL_CXX_VALUE_PACK_EXPANDED([values]expression-seq-opt) type
-         # | NODECL_CXX_TYPE_PACK_EXPANSION()
 
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions
@@ -393,7 +394,6 @@ cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expr
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_IMPLICIT()
-    | NODECL_CXX_FUNCTION_FORM_IMPLICIT_BRACED_ARGUMENTS()
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
@@ -537,9 +537,9 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*PRIVATE([symbols]name-seq)
                  | NODECL_OPEN_M_P*AUTO([symbols]name-seq)
                  | NODECL_OPEN_M_P*REDUCTION([reductions]reduction-item-seq)
-                 | NODECL_OPEN_M_P*ALLOCA([alloca_expressions]expression-seq)
+                 | NODECL_OPEN_M_P*ALLOCA([exprs] expression-seq)
+                 | NODECL_OPEN_M_P*SHARED_AND_ALLOCA([exprs]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN([in_deps]expression-seq)
-                 | NODECL_OPEN_M_P*DEP_IN_ALLOCA([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_VALUE([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_IN_PRIVATE([in_deps]expression-seq)
                  | NODECL_OPEN_M_P*DEP_OUT([out_deps]expression-seq)

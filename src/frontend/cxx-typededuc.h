@@ -44,11 +44,12 @@ LIBMCXX_EXTERN char deduce_template_arguments_common(
         template_parameter_list_t* type_template_parameters,
         type_t** arguments, int num_arguments,
         type_t** parameters, int num_parameters,
+        type_t** original_parameters,
         decl_context_t decl_context,
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus,
         template_parameter_list_t* explicit_template_parameters,
-        deduction_flags_t flags);
+        char is_function_call);
 
 LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
         int num_arguments, struct type_tag* specialized_named_type, 
@@ -77,6 +78,20 @@ LIBMCXX_EXTERN char deduce_arguments_of_auto_initialization(
         const locus_t* locus);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
+
+LIBMCXX_EXTERN void deduction_set_merge(deduction_set_t* dest, deduction_set_t* source,
+        char combine_sequence);
+LIBMCXX_EXTERN deduction_t* deduction_set_get_unification_item(
+        deduction_set_t* deduction_set,
+        int position, int nesting,
+        enum template_parameter_kind kind,
+        const char* name);
+LIBMCXX_EXTERN deduction_t* deduction_set_get_unification_item_for_template_parameter(deduction_set_t* deduction_set,
+        scope_entry_t* s1);
+LIBMCXX_EXTERN char deduction_set_add_nontype_parameter_deduction(deduction_t* deduction,
+        deduced_parameter_t* current_deduced_parameter);
+LIBMCXX_EXTERN char deduction_set_add_type_parameter_deduction(deduction_t* deduction,
+        deduced_parameter_t* current_deduced_parameter);
 
 MCXX_END_DECLS
 

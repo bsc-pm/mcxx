@@ -38,32 +38,32 @@ namespace Vectorization
             const unsigned int mask_size,
             const bool fast_math,
             const TL::Type& target_type,
-            const aligned_expr_map_t& aligned_expr_map,
-            const objlist_nodecl_t& uniform_expr_list,
-            const objlist_nodecl_t& suitable_expr_list,
-            const nontmp_expr_map_t& nontemporal_expr_list,
+            const tl_sym_int_map_t& aligned_symbols_map,
+            const tl_sym_int_map_t& linear_symbols_map,
+            const objlist_tlsymbol_t& uniform_symbols_list,
+            const objlist_nodecl_t& suitable_exprs_list,
+            const nontmp_expr_map_t& nontemporal_exprs_list,
             const VectorizerCache& vectorizer_cache,
             const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
-        _unroll_factor(vector_length/target_type.get_size()),
         _support_masking(support_masking),
         _mask_size(mask_size),
         _fast_math(fast_math),
-        _target_type(target_type),
-        _aligned_expr_map(aligned_expr_map),
-        _uniform_expr_list(uniform_expr_list),
-        _suitable_expr_list(suitable_expr_list),
-        _nontemporal_expr_map(nontemporal_expr_list),
+        _aligned_symbols_map(aligned_symbols_map),
+        _linear_symbols_map(linear_symbols_map),
+        _uniform_symbols_list(uniform_symbols_list),
+        _suitable_exprs_list(suitable_exprs_list),
+        _nontemporal_exprs_map(nontemporal_exprs_list),
         _vectorizer_cache(vectorizer_cache),
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
-        VECTORIZATION_DEBUG()
-        {
-            std::cerr << "VECTORIZER: Target type size: " << _target_type.get_size()
-                << " . Unroll factor: " << _unroll_factor << std::endl;
-        }
+        if (target_type.is_valid())
+            _vectorization_factor =
+                vector_length/target_type.get_size();
+        else
+            _vectorization_factor = 0;
 
         _inside_inner_masked_bb.push_back(false);
         _mask_check_bb_cost.push_back(0);
@@ -73,6 +73,15 @@ namespace Vectorization
     {
         _inside_inner_masked_bb.pop_back();
         _mask_check_bb_cost.pop_back();
+    }
+
+    void VectorizerEnvironment::set_target_type(
+            TL::Type target_type)
+    {
+        _target_type = target_type;
+
+        _vectorization_factor =
+            _vector_length/target_type.get_size();
     }
 
     void VectorizerEnvironment::load_environment(
@@ -85,13 +94,14 @@ namespace Vectorization
         // Add MaskLiteral to mask_list
         Nodecl::MaskLiteral all_one_mask =
             Nodecl::MaskLiteral::make(
-                    TL::Type::get_mask_type(_unroll_factor),
-                    const_value_get_minus_one(_unroll_factor, 1));
+                    TL::Type::get_mask_type(_vectorization_factor),
+                    const_value_get_minus_one(_vectorization_factor, 1));
         _mask_list.push_back(all_one_mask);
     }
 
     void VectorizerEnvironment::unload_environment()
     {
+        _function_return = TL::Symbol();
         _analysis_simd_scope = Nodecl::NodeclBase::null();
 
         _mask_list.clear();

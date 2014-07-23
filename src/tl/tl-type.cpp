@@ -36,6 +36,7 @@
 #include "cxx-scope.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 
 #include "fortran03-typeutils.h"
 
@@ -1061,8 +1062,10 @@ namespace TL
     ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_nonstatic_data_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_nonstatic_data_members(
+                ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
 
         return result;
     }
@@ -1070,8 +1073,10 @@ namespace TL
     ObjectList<Symbol> Type::get_static_data_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_static_data_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_static_data_members(
+                ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
 
         return result;
     }
@@ -1086,8 +1091,10 @@ namespace TL
     ObjectList<Symbol> Type::get_all_members() const
     {
         ObjectList<Symbol> result;
-        Scope::convert_to_vector(class_type_get_members(
-                    ::get_actual_class_type(_type_info)), result);
+        scope_entry_list_t* list = class_type_get_members(
+                    ::get_actual_class_type(_type_info));
+        Scope::convert_to_vector(list, result);
+        entry_list_free(list);
 
         return result;
     }
@@ -1319,9 +1326,8 @@ namespace TL
         ObjectList<Symbol> base_symbol_list;
 
         scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, /* include_dependent */ 0);
-        scope_entry_list_t* it = all_bases;
-
-        Scope::convert_to_vector(it, base_symbol_list);
+        Scope::convert_to_vector(all_bases, base_symbol_list);
+        entry_list_free(all_bases);
 
         return base_symbol_list;
     }
@@ -1354,11 +1360,22 @@ namespace TL
         ObjectList<Symbol> friend_symbol_list;
 
         scope_entry_list_t* all_friends = class_type_get_friends(_type_info);
-        scope_entry_list_t* it = all_friends;
-
-        Scope::convert_to_vector(it, friend_symbol_list);
+        Scope::convert_to_vector(all_friends, friend_symbol_list);
+        entry_list_free(all_friends);
 
         return friend_symbol_list;
+    }
+
+    ObjectList<Symbol> Type::class_get_inherited_constructors()
+    {
+        ObjectList<Symbol> inherited_constructors_list;
+
+        scope_entry_list_t* inherited_constructors =
+            class_type_get_inherited_constructors(_type_info);
+        Scope::convert_to_vector(inherited_constructors, inherited_constructors_list);
+        entry_list_free(inherited_constructors);
+
+        return inherited_constructors_list;
     }
 
     bool Type::is_pod()
@@ -1410,8 +1427,8 @@ namespace TL
     {
         ObjectList<Symbol> result;
         scope_entry_list_t* entry_list = ::unresolved_overloaded_type_get_overload_set(_type_info);
-
         Scope::convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
 
         return result;
     }
@@ -1476,7 +1493,7 @@ namespace TL
         return ::get_ptrdiff_t_type();
     }
 
-    std::string Type::print_declarator()
+    std::string Type::print_declarator() const
     {
         return ::print_declarator(_type_info);
     }

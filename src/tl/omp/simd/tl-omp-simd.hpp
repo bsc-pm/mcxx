@@ -54,6 +54,7 @@ namespace TL
                 std::string _knc_enabled_str;
                 std::string _prefer_gather_scatter_str;
                 std::string _prefer_mask_gather_scatter_str;
+                std::string _spml_enabled_str;
 
                 bool _simd_enabled;
                 bool _svml_enabled;
@@ -62,6 +63,7 @@ namespace TL
                 bool _knc_enabled;
                 bool _prefer_gather_scatter;
                 bool _prefer_mask_gather_scatter;
+                bool _spml_enabled;
 
                 void set_simd(const std::string simd_enabled_str);
                 void set_svml(const std::string svml_enabled_str);
@@ -70,11 +72,12 @@ namespace TL
                 void set_knc(const std::string knc_enabled_str);
                 void set_prefer_gather_scatter(const std::string prefer_gather_scatter_str);
                 void set_prefer_mask_gather_scatter(const std::string prefer_gather_scatter_str);
+                void set_spml(const std::string spml_enabled_str);
         };
 
         class SimdVisitor : public Nodecl::ExhaustiveVisitor<void>
         {
-            private:
+            protected:
                 TL::Vectorization::Vectorizer& _vectorizer;
 
                 std::string _device_name;
@@ -84,9 +87,11 @@ namespace TL
                 bool _fast_math_enabled;
 
                 void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::aligned_expr_map_t& aligned_expressions_map);
+                        TL::Vectorization::tl_sym_int_map_t& aligned_expressions_map);
+                void process_linear_clause(const Nodecl::List& environment,
+                        TL::Vectorization::tl_sym_int_map_t& linear_symbols_map);
                 void process_uniform_clause(const Nodecl::List& environment,
-                        TL::Vectorization::objlist_nodecl_t& uniform_expressions);
+                        TL::Vectorization::objlist_tlsymbol_t& uniform_symbols);
                 void process_suitable_clause(const Nodecl::List& environment,
                         TL::Vectorization::objlist_nodecl_t& suitable_expressions);
                 void process_nontemporal_clause(const Nodecl::List& environment,
@@ -103,9 +108,8 @@ namespace TL
                         std::map<TL::Symbol, TL::Symbol>& new_external_vector_symbol_map,
                         TL::Scope enclosing_scope);
 
-                void common_simd_function(const Nodecl::OpenMP::SimdFunction& simd_node,
-                        const Nodecl::FunctionCode& function_code,
-                        Vectorization::VectorizerEnvironment& function_environment,
+                void common_simd_function(
+                        const Nodecl::OpenMP::SimdFunction& simd_node,
                         const bool masked_version);
 
             public:
@@ -115,8 +119,18 @@ namespace TL
                 virtual void visit(const Nodecl::OpenMP::Simd& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFor& simd_node);
                 virtual void visit(const Nodecl::OpenMP::SimdFunction& simd_node);
+        };
+
+        class SimdSPMLVisitor : public SimdVisitor
+        {
+            public:
+                SimdSPMLVisitor(Vectorization::SIMDInstructionSet simd_isa,
+                        bool fast_math_enabled, bool svml_enabled);
+
                 virtual void visit(const Nodecl::OpenMP::SimdParallel& simd_node);
         };
+
+
 
         class FunctionDeepCopyFixVisitor : public Nodecl::ExhaustiveVisitor<void>
         {

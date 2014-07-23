@@ -436,6 +436,9 @@ namespace {
             case __ExtensibleGraph:
                 dot_graph += indent + "color=white;\n";
                 break;
+            case __FunctionCode:
+                dot_graph += indent + "color=gray77;\n";
+                break;                
             case __AsmDef:
             case __CondExpr:
             case __FunctionCallGraph:

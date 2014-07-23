@@ -3381,7 +3381,18 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
             CXX_LANGUAGE()
             {
                 // Skip "struct "
-                name += strlen("struct ");
+                if (vector_names[i].type_tag == TT_STRUCT)
+                {
+                    name += strlen("struct ");
+                }
+                else if (vector_names[i].type_tag == TT_UNION)
+                {
+                    name += strlen("union ");
+                }
+                else
+                {
+                    internal_error("Invalid type tag", 0);
+                }
                 name = uniquestr(name);
             }
 
@@ -3435,6 +3446,94 @@ char is_intel_vector_struct_type(type_t* t, int *size)
 #undef VECTOR_TESTS
 
     return 0;
+}
+
+type_t* intel_vector_struct_type_get_vector_type(type_t* vector_type)
+{
+    if (0);
+    else if (equivalent_types(vector_type, get_m128i_struct_type()))
+        return get_vector_type(get_signed_int_type(), 16);
+    else if (equivalent_types(vector_type, get_m128_struct_type()))
+        return get_vector_type(get_float_type(), 16);
+    else if (equivalent_types(vector_type, get_m128d_struct_type()))
+        return get_vector_type(get_double_type(), 16);
+
+    else if (equivalent_types(vector_type, get_m256i_struct_type()))
+        return get_vector_type(get_signed_int_type(), 32);
+    else if (equivalent_types(vector_type, get_m256_struct_type()))
+        return get_vector_type(get_float_type(), 32);
+    else if (equivalent_types(vector_type, get_m256d_struct_type()))
+        return get_vector_type(get_double_type(), 32);
+
+    else if (equivalent_types(vector_type, get_m512i_struct_type()))
+        return get_vector_type(get_signed_int_type(), 64);
+    else if (equivalent_types(vector_type, get_m512_struct_type()))
+        return get_vector_type(get_float_type(), 64);
+    else if (equivalent_types(vector_type, get_m512d_struct_type()))
+        return get_vector_type(get_double_type(), 64);
+
+    else
+        return NULL;
+}
+
+type_t* vector_type_get_intel_vector_struct_type(type_t* vector_type)
+{
+    ERROR_CONDITION(!is_vector_type(vector_type), "Invalid type", 0);
+
+    type_t* element_type = vector_type_get_element_type(vector_type);
+    int vector_size = vector_type_get_num_elements(vector_type) * type_get_size(element_type);
+
+    ERROR_CONDITION(vector_size > 64, "Vector too large", 0);
+
+    enum  { VEC_FLOAT = 1 << 10, VEC_DOUBLE = 1 << 11, VEC_INTEGER = 1 << 12 };
+
+    if (is_float_type(element_type))
+    {
+        vector_size |= VEC_FLOAT;
+    }
+    else if (is_double_type(element_type))
+    {
+        vector_size |= VEC_DOUBLE;
+    }
+    else if (is_float_type(element_type))
+    {
+        vector_size |= VEC_INTEGER;
+    }
+    else
+    {
+        return NULL;
+    }
+
+#define VECTOR_KIND(TYPE, VEC_SIZE) (TYPE | VEC_SIZE)
+
+    switch (vector_size)
+    {
+        case VECTOR_KIND(VEC_INTEGER, 16):
+            return get_m128i_struct_type();
+        case VECTOR_KIND(VEC_INTEGER, 32):
+            return get_m256i_struct_type();
+        case VECTOR_KIND(VEC_INTEGER, 64):
+            return get_m512i_struct_type();
+
+        case VECTOR_KIND(VEC_FLOAT, 16):
+            return get_m128_struct_type();
+        case VECTOR_KIND(VEC_FLOAT, 32):
+            return get_m256_struct_type();
+        case VECTOR_KIND(VEC_FLOAT, 64):
+            return get_m512_struct_type();
+
+        case VECTOR_KIND(VEC_DOUBLE, 16):
+            return get_m128d_struct_type();
+        case VECTOR_KIND(VEC_DOUBLE, 32):
+            return get_m256d_struct_type();
+        case VECTOR_KIND(VEC_DOUBLE, 64):
+            return get_m512d_struct_type();
+
+        default:
+            return NULL;
+    }
+
+#undef VECTOR_KIND
 }
 
 // This function allows conversion between logically equivalent vector types

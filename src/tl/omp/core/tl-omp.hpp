@@ -334,7 +334,19 @@ namespace OpenMP
     {
         private:
             int *_num_refs;
-            typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
+            struct DataSharingAttributeInfo
+            {
+                DataSharingAttribute attr;
+                std::string reason;
+
+                DataSharingAttributeInfo()
+                    : attr(DS_UNDEFINED), reason("(symbol has undefined data-sharing)") { }
+                DataSharingAttributeInfo(DataSharingAttribute a,
+                        const std::string &r)
+                    : attr(a), reason(r) { }
+            };
+
+            typedef std::map<Symbol, DataSharingAttributeInfo> map_symbol_data_t;
             map_symbol_data_t  *_map;
             DataSharingEnvironment *_enclosing;
 
@@ -346,7 +358,8 @@ namespace OpenMP
 
             bool _is_parallel;
 
-            DataSharingAttribute get_internal(Symbol sym);
+            DataSharingAttributeInfo get_internal(Symbol sym);
+            DataSharingAttributeInfo get_data_sharing_info(Symbol sym, bool check_enclosing);
 
             RealTimeInfo _real_time_info;
         public:
@@ -365,31 +378,35 @@ namespace OpenMP
             /*!
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
+                * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr,
+                    const std::string& reason);
 
             //! Sets a data sharing attribute of a symbol
             /*!
                 * \param sym The symbol to be set the data sharing attribute
                 * \param data_attr The symbol to which the data sharing will be set
                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
+                * \param reason String used in data-sharing reports
                 */
-            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+            void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref,
+                    const std::string& reason);
 
             //! Adds a reduction symbol
             /*!
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
-            void set_reduction(const ReductionSymbol &reduction_symbol);
- 
+            void set_reduction(const ReductionSymbol& reduction_symbol, const std::string& reason);
+
             //! Adds a SIMD reduction symbol
             /*!
                 * Reduction symbols are special, adding them sets their attribute
                 * also their attribute and keeps the extra information stored in the ReductionSymbol
                 */
             void set_simd_reduction(const ReductionSymbol &reduction_symbol);
- 
+
             //! Gets the data sharing attribute of a symbol
             /*!
                 * \param sym The symbol requested its data sharing attribute
@@ -398,11 +415,25 @@ namespace OpenMP
                 */
             DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
 
+            //! Gets the data sharing attribute reason of a symbol
+            /*!
+             * This reason is the string passed to set_data_sharing and typically contains
+             * report information useful to tell why a symbol was set a specific data-sharing
+             * attribute
+             * \param sym The symbol requested its data sharing attribute
+             * \param check_enclosing Checks enclosing data sharings
+             * \return The reason or "(symbol has undefined data-sharing)" if no data-sharing for it was set
+             */
+            std::string get_data_sharing_reason(Symbol sym, bool check_enclosing = true);
+
             //! Returns the enclosing data sharing
             DataSharingEnvironment* get_enclosing();
 
             //! Returns all symbols that match the given data attribute
             void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
+
+            typedef std::pair<Symbol, std::string> DataSharingInfoPair;
+            void get_all_symbols_info(DataSharingAttribute data_attr, ObjectList<DataSharingInfoPair> &symbols);
 
             void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
             void get_all_simd_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
@@ -646,13 +677,16 @@ namespace OpenMP
 
                 virtual ~OpenMPPhase() { }
         };
-        
-        // Implemented in tl-omp-deps.cpp
-        void add_extra_data_sharings(Nodecl::NodeclBase data_ref, DataSharingEnvironment& ds);
 
+        // Implemented in tl-omp-deps.cpp
+        void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
+                DataSharingEnvironment& ds,
+                const std::string& clause_name);
+
+        // Implemented in tl-omp.cpp
+        std::string string_of_data_sharing(DataSharingAttribute data_attr);
     // @}
     }
-    
 }
 
 extern "C"

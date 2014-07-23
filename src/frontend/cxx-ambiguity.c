@@ -142,7 +142,7 @@ void solve_ambiguity_generic(AST a, decl_context_t decl_context, void *info,
 
         DEBUG_CODE()
         {
-            printf("Could not solve ambiguity '%s' at '%s'\n",
+            fprintf(stderr, "AMBIGUITY: Could not solve ambiguity '%s' at '%s'\n",
                     prettyprint_in_buffer(a),
                     ast_location(a));
         }

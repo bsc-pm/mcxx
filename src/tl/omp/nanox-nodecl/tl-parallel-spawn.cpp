@@ -167,7 +167,7 @@ namespace TL { namespace Nanox {
 
         Source dynamic_wd_info;
         dynamic_wd_info
-            <<   "nanos_wd_dyn_props_t dyn_props;"
+            << "nanos_wd_dyn_props_t dyn_props;"
             << "dyn_props.tie_to = (nanos_thread_t)0;"
             << "dyn_props.priority = 0;"
             ;
@@ -178,6 +178,12 @@ namespace TL { namespace Nanox {
             dynamic_wd_info
                 << "dyn_props.flags.is_final = 0;"
                 ;
+        }
+
+        TL::Source extra_arg_nanos_create_team;
+        if (Nanos::Version::interface_is_at_least("master", 5027))
+        {
+            extra_arg_nanos_create_team << ", &nanos_wd_const_data.base";
         }
 
         Source spawn_code;
@@ -191,7 +197,8 @@ namespace TL { namespace Nanox {
             <<   "nanos_team_t nanos_team = (nanos_team_t)0;"
             <<   "nanos_thread_t nanos_team_threads[nanos_num_threads];"
             <<   "err = nanos_create_team(&nanos_team, (nanos_sched_t)0, &nanos_num_threads,"
-            <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads);"
+            <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, nanos_team_threads"
+            <<              extra_arg_nanos_create_team << ");"
             <<   "if (err != NANOS_OK) nanos_handle_error(err);"
             <<   dynamic_wd_info
             <<   dependences_info

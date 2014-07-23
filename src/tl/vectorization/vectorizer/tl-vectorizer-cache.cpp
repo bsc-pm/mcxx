@@ -91,11 +91,11 @@ namespace Vectorization
                 new_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 new_sym.set_type(it->first.get_type().basic_type().
-                        get_vector_of_elements(environment._unroll_factor));
+                        get_vector_of_elements(environment._vectorization_factor));
 
                 std::cerr << it->first.get_name() << ": " << it->first.get_type().get_simple_declaration(scope, " ")
                     << it->first.get_type().basic_type().get_simple_declaration(scope, " ")
-                    << it->first.get_type().basic_type().get_vector_of_elements(environment._unroll_factor).get_simple_declaration(scope, " ")
+                    << it->first.get_type().basic_type().get_vector_of_elements(environment._vectorization_factor).get_simple_declaration(scope, " ")
                     << std::endl;
 
                 it->second._register_list.push_back(new_sym);
@@ -176,7 +176,7 @@ namespace Vectorization
                             Nodecl::List::make(
                                 Nodecl::Add::make(
                                     it->second._lower_bound.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_signed_int(environment._unroll_factor)),
+                                    const_value_to_nodecl(const_value_get_signed_int(environment._vectorization_factor)),
                                     TL::Type::get_int_type())),
                             it->first.get_type().basic_type()),
                         register_list[size-1].get_type().basic_type());

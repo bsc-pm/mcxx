@@ -48,15 +48,15 @@ namespace Vectorization
     bool is_simd_aligned_access_internal(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const std::map<TL::Symbol, int>& aligned_expressions,
+            const tl_sym_int_map_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
+            const tl_sym_int_map_t& linear_symbols,
             int unroll_factor, int alignment);
 
      bool is_suitable_expression_internal(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
-            const objlist_nodecl_t& suitable_expressions,
+            const objlist_nodecl_t& suitable_expressions, 
             int unroll_factor, int alignment, int& vector_size_module);
-
 }
 }
 

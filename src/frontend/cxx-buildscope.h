@@ -179,12 +179,24 @@ type_t* compute_underlying_type_enum(
         type_t* underlying_type,
         char short_enums);
 
+void build_scope_friend_class_declaration(
+        type_t* type_of_declaration,
+        const char* declared_name,
+        decl_context_t decl_context,
+        const locus_t* locus);
+
 // Only to be called from cxx-exprtype.c
-char check_constexpr_function(scope_entry_t* entry,
+char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
+        char diagnose,
+        char emit_error);
+char check_constexpr_constructor(scope_entry_t* entry,
         const locus_t* locus,
+        nodecl_t nodecl_initializer_list,
+        char diagnose,
         char emit_error);
 char check_constexpr_function_code(scope_entry_t* entry,
         nodecl_t nodecl_body,
+        char diagnose,
         char emit_error);
 scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus);
 

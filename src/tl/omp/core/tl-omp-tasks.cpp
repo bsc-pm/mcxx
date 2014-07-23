@@ -1252,6 +1252,19 @@ namespace TL
                 inout_arguments = update_clauses(inout_arguments, function_sym);
             }
 
+            {
+                // OpenMP standard clauses
+                TL::ObjectList<Nodecl::NodeclBase> std_in, std_out, std_inout;
+                parse_dependences_info_std_clause(
+                        parsing_scope,
+                        pragma_line.get_clause("depend"),
+                        std_in, std_out, std_inout,
+                        pragma_line.get_locus());
+                input_arguments.append(std_in);
+                output_arguments.append(std_out);
+                inout_arguments.append(std_inout);
+            }
+
             PragmaCustomClause concurrent_clause = pragma_line.get_clause("concurrent");
             ObjectList<Nodecl::NodeclBase> concurrent_arguments;
             if (concurrent_clause.is_defined())
@@ -1271,7 +1284,8 @@ namespace TL
             if (!function_sym.is_function())
             {
                 std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to this declaration since it does not declare a function, skipping" << std::endl;
+                    << ": warning: '#pragma omp task' cannot be applied to this declaration"
+                    << "since it does not declare a function, skipping" << std::endl;
                 return;
             }
 
@@ -1283,7 +1297,8 @@ namespace TL
             if (has_ellipsis)
             {
                 std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
+                    << ": warning: '#pragma omp task' cannot be applied to functions"
+                    << "declarations with ellipsis, skipping" << std::endl;
                 return;
             }
 
@@ -1530,7 +1545,7 @@ namespace TL
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
             RealTimeInfo rt_info = task_real_time_handler_pre(pragma_line);
-            
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
@@ -1540,13 +1555,12 @@ namespace TL
             data_sharing.set_real_time_info(rt_info);
 
             get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
-            
+            bool there_is_default_clause = false;
             DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED, 
+                    there_is_default_clause,
                     /*allow_default_auto*/ true);
 
             get_dependences_info(pragma_line, data_sharing, default_data_attr);
-
-            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             if (_target_context.empty())
             {
@@ -1562,6 +1576,8 @@ namespace TL
 
             // Target info applies after
             get_target_info(pragma_line, data_sharing);
+
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr, there_is_default_clause);
         }
 
 

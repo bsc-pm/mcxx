@@ -60,13 +60,13 @@ namespace TL
             public:
                 static Vectorizer& get_vectorizer();
                 static void initialize_analysis(
-                        const Nodecl::FunctionCode& function_code);
+                        const Nodecl::NodeclBase& function_code);
                 static void finalize_analysis();
 
                 ~Vectorizer();
 
                 void preprocess_code(const Nodecl::NodeclBase& n,
-                        const VectorizerEnvironment& environment);
+                        VectorizerEnvironment& environment);
                 void postprocess_code(const Nodecl::NodeclBase& n);
 
                 void vectorize_loop(Nodecl::NodeclBase& loop_statement,

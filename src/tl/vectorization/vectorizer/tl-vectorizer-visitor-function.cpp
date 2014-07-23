@@ -47,29 +47,39 @@ namespace TL
 
         void VectorizerVisitorFunction::visit(const Nodecl::FunctionCode& function_code)
         {
-            //Vectorize function type and parameters
-            TL::Symbol vect_func_sym = function_code.get_symbol();
-            TL::Type func_type = vect_func_sym.get_type();
-            TL::ObjectList<TL::Symbol> parameters = vect_func_sym.get_function_parameters();
-            TL::ObjectList<TL::Type> parameters_type = func_type.parameters();
-
-            TL::ObjectList<TL::Type> parameters_vector_type;
-
-            TL::ObjectList<TL::Type>::iterator it_type;
-            TL::ObjectList<TL::Symbol>::iterator it_param_sym;
-
+            /*
             for(it_param_sym = parameters.begin(), it_type = parameters_type.begin();
                     it_type != parameters_type.end();
                     it_param_sym++, it_type++)
             {
                 TL::Type sym_type = Utils::get_qualified_vector_to((*it_type),
-                        _environment._unroll_factor);
+                        _environment._vectorization_factor);
 
                 // Set type to parameter TL::Symbol
                 (*it_param_sym).set_type(sym_type);
 
                 parameters_vector_type.append(sym_type);
             }
+            */
+
+            // Vectorize Local Symbols & Parameters
+            VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+            visitor_local_symbol.walk(function_code);
+
+            //Vectorize function type and parameters
+            TL::Symbol vect_func_sym = function_code.get_symbol();
+            TL::Type func_type = vect_func_sym.get_type();
+
+            objlist_tlsymbol_t parameters = vect_func_sym.get_function_parameters();
+            TL::ObjectList<TL::Type> parameters_vector_type;
+
+            for(objlist_tlsymbol_t::iterator it = parameters.begin();
+                    it != parameters.end();
+                    it ++)
+            {
+                parameters_vector_type.append(it->get_type());
+            }
+
 
             if(_masked_version)
             {
@@ -79,7 +89,7 @@ namespace TL
                 TL::Symbol mask_sym = scope.new_symbol("__mask_param");
                 mask_sym.get_internal_symbol()->kind = SK_VARIABLE;
                 mask_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                mask_sym.set_type(TL::Type::get_mask_type(_environment._unroll_factor));
+                mask_sym.set_type(TL::Type::get_mask_type(_environment._vectorization_factor));
 
                 symbol_set_as_parameter_of_function(mask_sym.get_internal_symbol(),
                         vect_func_sym.get_internal_symbol(),
@@ -114,11 +124,12 @@ namespace TL
             }
 
             vect_func_sym.set_type(Utils::get_qualified_vector_to(func_type.returns(),
-                        _environment._unroll_factor).get_function_returning(parameters_vector_type));
+                        _environment._vectorization_factor).get_function_returning(
+                            parameters_vector_type));
 
             // Vectorize Local Symbols
-            VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-            visitor_local_symbol.walk(function_code);
+            //VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
+            //visitor_local_symbol.walk(function_code);
 
             // Vectorize function statements
             VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);

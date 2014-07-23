@@ -29,6 +29,9 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-omp-core.hpp"
+#include <fstream>
+#include <iterator>
+#include <algorithm>
 
 namespace TL
 {
@@ -64,6 +67,11 @@ namespace TL
                 void set_ompss_mode(const std::string &str);
                 bool in_ompss_mode() const;
 
+                std::ofstream* _omp_report_file;
+                std::string _omp_report_str;
+                bool _omp_report;
+                void set_omp_report(const std::string &str);
+
                 std::string _copy_deps_str;
                 bool _copy_deps_by_default;
                 void set_copy_deps_by_default(const std::string& str);
@@ -79,6 +87,10 @@ namespace TL
                 void set_allow_array_reductions(const std::string& allow_array_reductions);
 
                 std::string _disable_task_expr_optim_str;
+
+                bool _instantiate_omp;
+                std::string _instantiate_omp_str;
+                void set_instantiate_omp(const std::string& instantiate_omp);
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
@@ -118,11 +130,13 @@ namespace TL
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
                         const Nodecl::NodeclBase& ref_scope,
-                        Nodecl::List& environment);
+                        Nodecl::List& environment,
+                        const int default_int);
                 template <typename openmp_node>
                 void process_symbol_list_clause(
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
+                        const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
                 void process_common_simd_clauses(
@@ -132,6 +146,49 @@ namespace TL
 
                 static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
                         TL::Scope sc);
+
+                static Nodecl::NodeclBase wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context,
+                        TL::Scope sc);
+            public:
+                template <typename T>
+                void make_data_sharing_list(
+                        OpenMP::DataSharingEnvironment &data_sharing_env,
+                        OpenMP::DataSharingAttribute data_attr,
+                        const locus_t* locus,
+                        ObjectList<Nodecl::NodeclBase>& result_list);
+
+                template <typename T, typename List>
+                    void make_dependency_list(
+                            List& dependences,
+                            DependencyDirection kind,
+                            const locus_t* locus,
+                            ObjectList<Nodecl::NodeclBase>& result_list);
+
+                template <typename T, typename List>
+                    void make_copy_list(
+                            List& dependences,
+                            CopyDirection kind,
+                            const locus_t* locus,
+                            ObjectList<Nodecl::NodeclBase>& result_list);
+
+                bool emit_omp_report() const;
+                std::ofstream* get_omp_report_file() const
+                {
+                    return _omp_report_file;
+                }
+
+                static std::string copy_direction_to_str(CopyDirection kind);
+                static std::string dependence_direction_to_str(DependencyDirection kind);
+
+                void set_omp_report(bool b)
+                {
+                    _omp_report = b;
+                }
+        };
+
+        namespace Report
+        {
+            extern const char indent[];
         };
     }
 }

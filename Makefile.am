@@ -77,6 +77,17 @@ no_undefined=
 dll_exports=
 endif
 
+AM_CFLAGS=
+AM_CPPFLAGS=
+AM_CXXFLAGS=
+AM_LDFLAGS=
+
+if EXTRAE_ENABLED
+AM_CPPFLAGS   += -I@EXTRAE_INCLUDE@
+AM_LDFLAGS  += -L@EXTRAE_LIB@ -lseqtrace
+endif
+
+
 ##########################################################################
 # gnulib
 ##########################################################################
@@ -518,14 +529,11 @@ BUILT_SOURCES += src/frontend/cxx-asttype-str-internal.h
 CLEANFILES += src/frontend/cxx-asttype-str-internal.h
 endif
 
-src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf
 if GPERF_BUILDING
+src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \
       --lookup-function-name=ast_node_name_to_kind_ --output=src/frontend/cxx-asttype-str-internal.h \
       --initializer-suffix=,AST_INVALID_NODE src/frontend/cxx-asttype-str.gperf
-else
-	@echo "*** ERROR: file cxx-asttype-str.gperf was modified but no suitable gperf was found during configure ***"
-	@exit 1
 endif
 
 if FLEX_BUILDING
@@ -533,12 +541,9 @@ CLEANFILES += src/frontend/cxx-scanner.c
 CLEANFILES += src/frontend/cxx03.l
 endif
 
-src/frontend/cxx-scanner.c : src/frontend/cxx03.l src/frontend/cxx-parser.h
 if FLEX_BUILDING
+src/frontend/cxx-scanner.c : src/frontend/cxx03.l src/frontend/cxx-parser.h
 	$(FLEX_verbose)$(FLEX) -Pmcxx -d -osrc/frontend/cxx-scanner.c -8 src/frontend/cxx03.l
-else
-	@echo "*** ERROR: file cxx03.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 src/frontend/cxx03.l : $(TPP) src/frontend/cxx-lexer.l
@@ -555,12 +560,9 @@ src/frontend/cxx03.y : $(TPP) $(top_srcdir)/src/frontend/cxx03.y.in $(addprefix 
 	$(TPP_verbose)(rm -f src/frontend/cxx03.y && $(TPP) -o src/frontend/cxx03.y -D CPLUSPLUS -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/cxx03.y.in && chmod -w src/frontend/cxx03.y)
 
 src/frontend/cxx-parser-internal.h : src/frontend/cxx-parser.c
-src/frontend/cxx-parser.c : src/frontend/cxx03.y
 if BISON_BUILDING
+src/frontend/cxx-parser.c : src/frontend/cxx03.y
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h --report=all --output=src/frontend/cxx-parser.c src/frontend/cxx03.y
-else
-	@echo "*** ERROR: file cxx03.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -573,12 +575,9 @@ CLEANFILES += src/frontend/c99-scanner.c
 CLEANFILES += src/frontend/c99.l
 endif
 
-src/frontend/c99-scanner.c : src/frontend/c99.l src/frontend/c99-parser.h
 if FLEX_BUILDING
+src/frontend/c99-scanner.c : src/frontend/c99.l src/frontend/c99-parser.h
 	$(FLEX_verbose)$(FLEX) -Pmc99 -d -osrc/frontend/c99-scanner.c -8 src/frontend/c99.l
-else
-	@echo "*** ERROR: file c99.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 src/frontend/c99.l : $(TPP) $(top_srcdir)/src/frontend/cxx-lexer.l
@@ -595,12 +594,9 @@ src/frontend/c99.y : $(TPP) $(top_srcdir)/src/frontend/c99.y.in $(addprefix $(to
 	$(TPP_verbose)(rm -f src/frontend/c99.y && $(TPP) -o src/frontend/c99.y -D C99 -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/c99.y.in)
 
 src/frontend/c99-parser-internal.h : src/frontend/c99-parser.c
-src/frontend/c99-parser.c : src/frontend/c99.y
 if BISON_BUILDING
+src/frontend/c99-parser.c : src/frontend/c99.y
 	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=src/frontend/c99-parser-internal.h --report=all --output=src/frontend/c99-parser.c src/frontend/c99.y
-else
-	@echo "*** ERROR: file c99.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -802,12 +798,9 @@ endif
 EXTRA_DIST += src/frontend/fortran/fortran03-parser.c
 
 src/frontend/fortran/fortran03-parser-internal.h : src/frontend/fortran/fortran03-parser.c
-src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 if BISON_BUILDING
+src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h --report=all --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
-else
-	@echo "*** ERROR: file fortran03.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 EXTRA_DIST += src/frontend/fortran/fortran03.l
@@ -818,24 +811,18 @@ endif
 
 EXTRA_DIST += src/frontend/fortran/fortran03-scanner.c
 
-src/frontend/fortran/fortran03-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
 if FLEX_BUILDING
+src/frontend/fortran/fortran03-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
 	$(FLEX_verbose)$(FLEX) -Pmf03 -d -i -o src/frontend/fortran/fortran03-scanner.c -8 $(top_srcdir)/src/frontend/fortran/fortran03.l
-else
-	@echo "*** ERROR: file fortran03.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 if FLEX_BUILDING
 CLEANFILES += src/frontend/fortran/prescanner-scanner.h
 endif
 
-src/frontend/fortran/prescanner-scanner.h : $(top_srcdir)/src/frontend/fortran/prescanner-identifier.h $(top_srcdir)/src/frontend/fortran/prescanner.l
 if FLEX_BUILDING
+src/frontend/fortran/prescanner-scanner.h : $(top_srcdir)/src/frontend/fortran/prescanner-identifier.h $(top_srcdir)/src/frontend/fortran/prescanner.l
 	$(FLEX_verbose)$(FLEX) -Pprescanner -d -i -o src/frontend/fortran/prescanner-scanner.h -8 $(top_srcdir)/src/frontend/fortran/prescanner.l
-else
-	@echo "*** ERROR: file prescanner.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 CLEANFILES += src/frontend/fortran/fortran03-modules-bits.h
@@ -1536,6 +1523,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
@@ -1570,6 +1558,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-target-type-heuristic.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-loop.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-function.hpp \
@@ -1582,6 +1572,10 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp \
                            $(END)
 endif
 
@@ -1656,10 +1650,13 @@ endif
 
 src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base-utils.hpp \
+   src/tl/omp/base/tl-omp-base-utils.cpp \
    src/tl/omp/base/tl-omp-base.hpp \
    src/tl/omp/base/tl-omp-base.cpp \
    src/tl/omp/base/tl-omp-base-task.hpp \
    src/tl/omp/base/tl-omp-base-task.cpp \
+   src/tl/omp/base/tl-omp-base-instantiation.hpp \
+   src/tl/omp/base/tl-omp-base-instantiation.cpp \
    $(END)
 
 ##########################################################################

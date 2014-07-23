@@ -37,6 +37,8 @@
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
 #include "cxx-exprtype.h"
+#include "cxx-gccbuiltins.h"
+#include "cxx-diagnostic.h"
 
 #include <string.h>
 
@@ -60,23 +62,19 @@ typedef
 struct implicit_conversion_sequence_tag
 {
     implicit_conversion_sequence_kind_t kind;
-
-    // Meaningful only in ICSK_STANDARD
     standard_conversion_t first_sc;
 
-    // These below are only meaningful when ICSK_USER_DEFINED
+    // These below are only meaningful only for ICSK_USER_DEFINED
     scope_entry_t* conversor;
     standard_conversion_t second_sc;
-    char is_ambiguous_ics:1;
-    char is_list_ics:1;
-    char is_aggregate_ics:1;
+    _Bool is_list_ics:1;
+    _Bool is_aggregate_ics:1;
+    _Bool is_ambiguous:1;
 } implicit_conversion_sequence_t;
 
-static
-const implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguous_ics = 0 };
+static const implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID };
 
-
-static implicit_conversion_sequence_t identity_ics(type_t* orig, type_t* dest)
+static implicit_conversion_sequence_t ics_make_identity(type_t* orig, type_t* dest)
 {
     implicit_conversion_sequence_t res = {
         .kind = ICSK_STANDARD,
@@ -84,6 +82,174 @@ static implicit_conversion_sequence_t identity_ics(type_t* orig, type_t* dest)
 
     res.first_sc = get_identity_scs(orig, dest);
     return res;
+}
+
+static implicit_conversion_sequence_t ics_make_standard(standard_conversion_t scs)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS: New standard conversion from '%s' to '%s'\n",
+                print_declarator(scs.orig),
+                print_declarator(scs.dest));
+    }
+
+    implicit_conversion_sequence_t res = {
+        .kind = ICSK_STANDARD,
+        .first_sc = scs
+    };
+
+    return res;
+}
+
+static implicit_conversion_sequence_t ics_make_ambiguous(void)
+{
+    implicit_conversion_sequence_t res = {
+        .kind = ICSK_USER_DEFINED, // They are ranked the same way
+        .is_ambiguous = 1,
+    };
+
+    return res;
+}
+
+static char ics_is_ambiguous(implicit_conversion_sequence_t ics)
+{
+    return (ics.kind == ICSK_USER_DEFINED && ics.is_ambiguous);
+}
+
+static implicit_conversion_sequence_t ics_make_user_defined(standard_conversion_t first_sc,
+        scope_entry_t* conversor,
+        standard_conversion_t second_sc)
+{
+    implicit_conversion_sequence_t res = {
+        .kind = ICSK_USER_DEFINED,
+        .first_sc = first_sc,
+        .conversor = conversor,
+        .second_sc = second_sc
+    };
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS: New user defined conversion\n");
+        fprintf(stderr, "ICS:   First SCS: from '%s' to '%s'\n", print_declarator(first_sc.orig), print_declarator(first_sc.dest));
+        fprintf(stderr, "ICS:   Conversor: '%s'\n", get_qualified_symbol_name(conversor, conversor->decl_context));
+        fprintf(stderr, "ICS:   Second SCS: from '%s' to '%s'\n", print_declarator(second_sc.orig), print_declarator(second_sc.orig));
+    }
+
+    return res;
+}
+
+static char standard_conversion_between_types_for_overload(
+        standard_conversion_t *scs,
+        type_t* orig,
+        type_t* dest,
+        const locus_t* locus);
+
+static void compute_scs_for_implicit_argument(
+        standard_conversion_t* scs,
+        type_t* orig,
+        type_t* dest,
+        ref_qualifier_t ref_qualifier,
+        const locus_t* locus)
+{
+    *scs = get_invalid_scs();
+    if (ref_qualifier == REF_QUALIFIER_NONE)
+    {
+        // An implicit argument of rvalue type C can be bound to the implicit
+        // argument parameter of type C
+        if ((equivalent_types(no_ref(orig), no_ref(dest))
+                    || (is_class_type(no_ref(orig))
+                        && is_class_type(no_ref(dest))
+                        && class_type_is_base_instantiating(no_ref(dest), no_ref(orig), locus)
+                        && !class_type_is_ambiguous_base_of_derived_class(no_ref(dest), no_ref(orig))))
+                && (!is_const_qualified_type(no_ref(orig))
+                    || is_const_qualified_type(no_ref(dest))))
+        {
+            *scs = get_identity_scs(orig, dest);
+        }
+    }
+    else if (ref_qualifier == REF_QUALIFIER_LVALUE
+            || ref_qualifier == REF_QUALIFIER_RVALUE)
+    {
+        standard_conversion_t standard_conv;
+        if (standard_conversion_between_types_for_overload(&standard_conv, orig, dest, locus))
+        {
+            *scs = standard_conv;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+static implicit_conversion_sequence_t ics_make_user_defined_using_conversor(type_t* orig,
+        type_t* dest,
+        scope_entry_t* conversor,
+        const locus_t* locus)
+{
+    if (conversor == NULL)
+        return invalid_ics;
+
+    if (conversor->entity_specs.is_constructor)
+    {
+        type_t* conversion_source_type = function_type_get_parameter_type_num(conversor->type_information, 0);
+        type_t* class_type = conversor->entity_specs.class_type;
+
+        standard_conversion_t first_sc;
+        if (!standard_conversion_between_types_for_overload(&first_sc, orig, conversion_source_type, locus))
+            return invalid_ics;
+
+        standard_conversion_t second_sc;
+        if (!standard_conversion_between_types_for_overload(&second_sc, class_type, dest, locus))
+            return invalid_ics;
+
+        return ics_make_user_defined(first_sc, conversor, second_sc);
+    }
+    else if (conversor->entity_specs.is_conversion)
+    {
+        type_t* converted_type = function_type_get_return_type(conversor->type_information);
+        ref_qualifier_t conv_ref_qualifier = function_type_get_ref_qualifier(conversor->type_information);
+
+        type_t* implicit_parameter = conversor->entity_specs.class_type;
+        if (is_const_qualified_type(conversor->type_information))
+        {
+            implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
+        }
+        if (conv_ref_qualifier == REF_QUALIFIER_NONE
+                || conv_ref_qualifier == REF_QUALIFIER_LVALUE)
+        {
+            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+        }
+        else if (conv_ref_qualifier == REF_QUALIFIER_RVALUE)
+        {
+            implicit_parameter = get_rvalue_reference_type(implicit_parameter);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        standard_conversion_t first_sc;
+        compute_scs_for_implicit_argument(
+                &first_sc,
+                orig,
+                implicit_parameter,
+                conv_ref_qualifier,
+                locus);
+
+        standard_conversion_t second_sc;
+        standard_conversion_between_types_for_overload(
+                &second_sc,
+                converted_type,
+                dest,
+                locus);
+
+        return ics_make_user_defined(first_sc, conversor, second_sc);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 typedef
@@ -104,22 +270,15 @@ static
 char standard_conversion_is_better(standard_conversion_t scs1, 
         standard_conversion_t scs2);
 
-static
-char is_better_function_flags(overload_entry_list_t* f,
-        overload_entry_list_t* g,
-        decl_context_t decl_context,
-        const locus_t* locus);
-
 static char is_better_function_despite_equal_ics(scope_entry_t* f,
         scope_entry_t* g,
         decl_context_t decl_context,
         const locus_t* locus);
 
+#if 0
 static char is_better_initialization_ics(
         implicit_conversion_sequence_t ics_1,
         implicit_conversion_sequence_t ics_2,
-        type_t* orig UNUSED_PARAMETER,
-        type_t* dest UNUSED_PARAMETER,
         decl_context_t decl_context,
         const locus_t* locus)
 {
@@ -211,6 +370,7 @@ static char is_better_initialization_ics(
 
     return 0;
 }
+#endif
 
 static char standard_conversion_between_types_for_overload(
         standard_conversion_t *scs,
@@ -255,8 +415,21 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        char needs_contextual_conversion,
         ref_qualifier_t ref_qualifier,
         const locus_t* locus);
+
+static char solve_list_initialization_of_class_type_(
+        type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        // Out
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates,
+        char *is_ambiguous);
 
 static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t decl_context, 
         implicit_conversion_sequence_t *result, 
@@ -277,6 +450,15 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
     *result = invalid_ics;
 
+    int num_types = braced_list_type_get_num_types(orig);
+
+    type_t* ref_dest = dest;
+    if (is_rvalue_reference_type(dest)
+            || (is_lvalue_reference_type(dest) && is_const_qualified_type(no_ref(dest))))
+    {
+        dest = get_unqualified_type(no_ref(dest));
+    }
+
     if (std_initializer_list_template != NULL
             && is_class_type(dest)
             && is_template_specialized_type(get_actual_class_type(dest))
@@ -291,7 +473,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         type_t* new_dest = template_parameters->arguments[0]->type;
 
         int i;
-        int num_types = braced_list_type_get_num_types(orig);
         for (i = 0; i < num_types; i++)
         {
             implicit_conversion_sequence_t current;
@@ -301,6 +482,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &current,
                     no_user_defined_conversions,
                     is_implicit_argument,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -319,9 +501,117 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->is_list_ics = 1;
     }
+    else if (is_class_type(dest)
+            && num_types == 0
+            && !no_user_defined_conversions)
+    {
+        scope_entry_t* default_constructor = class_type_get_default_constructor(dest);
+
+        if (default_constructor != NULL
+                && !default_constructor->entity_specs.is_explicit)
+        {
+            result->kind = ICSK_USER_DEFINED;
+            result->first_sc = get_identity_scs(orig, dest);
+            result->conversor = default_constructor;
+            result->second_sc = get_identity_scs(dest, ref_dest);
+            result->is_list_ics = 1;
+        }
+    }
+    else if (is_class_type(dest)
+            && !is_aggregate_type(dest)
+            && !no_user_defined_conversions)
+    {
+        scope_entry_list_t* candidates = NULL;
+
+        int num_arguments = braced_list_type_get_num_types(orig);
+        type_t* arguments[num_arguments + 1];
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            arguments[i] = braced_list_type_get_type_num(orig, i);
+        }
+
+        char is_ambiguous = 0;
+        scope_entry_t* constructor = NULL;
+        char ok = solve_list_initialization_of_class_type_(
+                dest,
+                arguments, num_arguments,
+                IK_COPY_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS,
+                decl_context,
+                locus,
+                // out
+                &constructor,
+                &candidates,
+                &is_ambiguous);
+        entry_list_free(candidates);
+
+        if (ok)
+        {
+            result->kind = ICSK_USER_DEFINED;
+            result->first_sc = get_identity_scs(orig, dest);
+            result->conversor = constructor;
+            result->second_sc = get_identity_scs(dest, ref_dest);
+            result->is_list_ics = 1;
+        }
+        else if (is_ambiguous)
+        {
+            *result = ics_make_ambiguous();
+        }
+    }
+    else if ((is_class_type(dest)
+                || is_array_type(dest)
+                || is_complex_type(dest)
+                || is_vector_type(dest))
+            && is_aggregate_type(dest))
+    {
+        // Aggregate initialization is so complex that we will use the cxx-exprtype code
+        // rather than poorly mimicking it here
+        nodecl_t nodecl_type_list = nodecl_null();
+
+        int i;
+        for (i = 0; i < num_types; i++)
+        {
+            nodecl_type_list = nodecl_append_to_list(
+                    nodecl_type_list,
+                    nodecl_make_cxx_initializer(
+                        nodecl_make_dummy(
+                            braced_list_type_get_type_num(orig, i),
+                            locus),
+                        braced_list_type_get_type_num(orig, i),
+                        locus));
+        }
+        nodecl_t braced_initializer = nodecl_make_cxx_braced_initializer(
+                nodecl_type_list,
+                orig,
+                locus);
+
+        nodecl_t nodecl_result = nodecl_null();
+
+        diagnostic_context_push_buffered();
+        check_nodecl_braced_initializer(
+                braced_initializer,
+                decl_context,
+                dest,
+                /* is_explicit_type_cast */ 0,
+                IK_COPY_INITIALIZATION,
+                &nodecl_result);
+        diagnostic_context_pop_and_discard();
+        nodecl_free(braced_initializer);
+
+        if (nodecl_is_err_expr(nodecl_result))
+            return;
+
+        result->kind = ICSK_USER_DEFINED;
+        // Aggregate initialization
+        result->first_sc = get_identity_scs(orig, dest);
+        result->conversor = NULL; // No conversor, actually!
+        result->second_sc = get_identity_scs(dest, ref_dest);
+        result->is_list_ics = 1;
+        result->is_aggregate_ics = 1;
+    }
     // An array of N elements, and the length of the braced initializer is M, where M <= N. If M < N then
     // the element type of the array may be default-initialized
-    else if (is_array_type(dest)
+    else if (is_array_type(dest) // We know it is not an aggregate
             && !nodecl_is_null(array_type_get_array_size_expr(dest))
             && nodecl_is_constant(array_type_get_array_size_expr(dest))
             && (braced_list_type_get_num_types(orig) <=
@@ -331,7 +621,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         type_t* new_dest = array_type_get_element_type(dest);
 
         int i;
-        int num_types = braced_list_type_get_num_types(orig);
         for (i = 0; i < num_types; i++)
         {
             implicit_conversion_sequence_t current;
@@ -341,6 +630,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     &current,
                     no_user_defined_conversions,
                     is_implicit_argument,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
 
@@ -375,118 +665,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
 
         result->is_list_ics = 1;
     }
-    else if (is_class_type(dest)
-            && !is_aggregate_type(dest))
-    {
-        scope_entry_list_t* candidates = NULL;
-        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-
-        type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { orig };
-
-        scope_entry_t* constructor = solve_init_list_constructor(
-                dest,
-                arguments, 1,
-                /* is_explicit */ 0,
-                decl_context,
-                locus,
-                conversors,
-                &candidates);
-        entry_list_free(candidates);
-
-        if (constructor != NULL)
-        {
-            result->kind = ICSK_USER_DEFINED;
-            result->first_sc = get_identity_scs(orig, dest);
-            result->conversor = constructor;
-            result->second_sc = get_identity_scs(dest, dest);
-            result->is_list_ics = 1;
-        }
-    }
-    else if (is_class_type(dest)
-            && is_aggregate_type(dest))
-    {
-        // Just check that each of the types can be used to initialize the
-        // nonstatic data members
-        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(dest);
-
-        if (entry_list_size(nonstatic_data_members) != braced_list_type_get_num_types(orig))
-            return;
-
-        scope_entry_list_iterator_t* it = NULL;
-        int i = 0;
-        for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            implicit_conversion_sequence_t init_ics = invalid_ics;
-            scope_entry_t* member = entry_list_iterator_current(it);
-
-            compute_ics_flags(braced_list_type_get_type_num(orig, i),
-                    member->type_information,
-                    decl_context,
-                    &init_ics,
-                    /* no_user_defined_conversions */ 0,
-                    /* is_implicit_argument */ 0,
-                    REF_QUALIFIER_NONE,
-                    locus);
-
-            if (init_ics.kind == ICSK_INVALID)
-                return;
-            i++;
-        }
-        entry_list_iterator_free(it);
-        entry_list_free(nonstatic_data_members);
-
-        result->kind = ICSK_USER_DEFINED;
-        // Aggregate initialization
-        result->first_sc = get_identity_scs(orig, dest);
-        result->conversor = NULL;
-        result->second_sc = get_identity_scs(dest, dest);
-        result->is_list_ics = 1;
-        result->is_aggregate_ics = 1;
-    }
-    else if (is_array_type(dest)
-            && is_aggregate_type(dest))
-    {
-        type_t* element_type = array_type_get_element_type(dest);
-
-        int i, num_elems = braced_list_type_get_num_types(orig);
-        for (i = 0; i < num_elems; i++)
-        {
-            implicit_conversion_sequence_t init_ics = invalid_ics;
-
-            compute_ics_flags(braced_list_type_get_type_num(orig, i),
-                    element_type,
-                    decl_context,
-                    &init_ics,
-                    /* no_user_defined_conversions */ 0,
-                    /* is_implicit_argument */ 0,
-                    REF_QUALIFIER_NONE,
-                    locus);
-
-            if (init_ics.kind == ICSK_INVALID)
-                return;
-        }
-
-        result->kind = ICSK_USER_DEFINED;
-        // Aggregate initialization
-        result->first_sc = get_identity_scs(orig, dest);
-        result->conversor = NULL;
-        result->first_sc = get_identity_scs(dest, dest);
-        result->is_list_ics = 1;
-        result->is_aggregate_ics = 1;
-    }
-    else if (is_rvalue_reference_type(dest)
-            || (is_lvalue_reference_type(dest) && is_const_qualified_type(no_ref(dest))))
-    {
-        compute_ics_braced_list(orig,
-                no_ref(dest),
-                decl_context,
-                result,
-                no_user_defined_conversions,
-                is_implicit_argument,
-                locus);
-    }
     else if (!is_class_type(dest))
     {
         if (braced_list_type_get_num_types(orig) == 1)
@@ -497,6 +675,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     result,
                     /* no_user_defined_conversions */ 1,
                     /* is_implicit_argument */ 0,
+                    /* needs_contextual_conversion */ 0,
                     REF_QUALIFIER_NONE,
                     locus);
             if (result->kind != ICSK_INVALID)
@@ -506,16 +685,126 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         }
         else if (braced_list_type_get_num_types(orig) == 0)
         {
-            *result = identity_ics(orig, dest);
+            *result = ics_make_identity(orig, ref_dest);
             result->is_list_ics = 1;
         }
     }
 }
 
+static scope_entry_t* get_specialized_conversion(
+        scope_entry_t* conv_funct,
+        type_t* dest,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS: Symbol '%s' at '%s' is a template conversion function, "
+                "deducing its arguments\n",
+                conv_funct->symbol_name,
+                locus_to_str(conv_funct->locus));
+    }
+    // This is a template so we have to get the proper specialization
+
+    // Get the primary specialization
+    type_t* specialization_function = get_user_defined_type(conv_funct);
+    // Get its template parameters
+    template_parameter_list_t* type_template_parameters = 
+        template_type_get_template_parameters(template_specialized_type_get_related_template_type(conv_funct->type_information));
+    template_parameter_list_t* template_parameters 
+        = template_specialized_type_get_template_arguments(conv_funct->type_information);
+
+    template_parameter_list_t* deduced_template_arguments = NULL;
+    // Now deduce the arguments
+    if (!deduce_arguments_of_conversion(dest, specialization_function,
+                template_parameters, type_template_parameters,
+                decl_context, &deduced_template_arguments, locus))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: Deduced arguments for template conversion function failed, skipping\n");
+        }
+        return NULL;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS: Deduced arguments for template conversion function succeeded\n");
+    }
+
+    // If the deduction succeeded just get a specialization and use it for the whole
+    // conversion
+    type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
+
+    type_t* named_specialization_type = template_type_get_specialized_type(template_type,
+            deduced_template_arguments,
+            decl_context, locus);
+
+    if (named_specialization_type == NULL)
+    {
+        fprintf(stderr, "ICS: Cannot specialize conversion function\n");
+        return NULL;
+    }
+
+    // Now update the symbol
+    conv_funct = named_type_get_symbol(named_specialization_type);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "ICS: Specialized conversion function '%s' is '%s'\n",
+                conv_funct->symbol_name,
+                print_declarator(conv_funct->type_information));
+    }
+    return conv_funct;
+}
+
+static char solve_initialization_of_nonclass_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics);
+
+static char solve_initialization_of_reference_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics);
+
+static char solve_initialization_of_nonclass_nonreference_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics);
+
+static char solve_initialization_of_class_type_(
+        type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        // Out
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates,
+        char *is_ambiguous);
+
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        char needs_contextual_conversion,
         ref_qualifier_t ref_qualifier,
         const locus_t* locus)
 {
@@ -548,11 +837,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         return;
     }
 
-    cv_qualifier_t cv_orig = CV_NONE;
-    orig = advance_over_typedefs_with_cv_qualif(orig, &cv_orig);
-    cv_qualifier_t cv_dest = CV_NONE;
-    dest = advance_over_typedefs_with_cv_qualif(dest, &cv_dest);
-
     // If this an unresolved address of overload function try to solve it here
     // if it can't be solved, there is no ICS, it is not an error
     if (is_unresolved_overloaded_type(orig))
@@ -575,9 +859,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
             else
             {
-                orig = get_lvalue_reference_type(get_pointer_to_member_type(
+                orig = get_pointer_to_member_type(
                             solved_function->type_information,
-                            solved_function->entity_specs.class_type));
+                            solved_function->entity_specs.class_type);
             }
             // And proceed evaluating this ICS
         }
@@ -588,43 +872,21 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         }
     }
 
-    // Given a class 'A' base of a class 'B'
-    //
-    // To compute that 'B&' can be converted to 'A&' requires testing if 'A' is a base of 'B'
-    // so 'B' must be instantiated.
-    if (is_any_reference_to_class_type(orig)
-            && is_any_reference_to_class_type(dest)
-            && is_named_class_type(no_ref(orig)))
+    if (is_implicit_argument)
     {
-        scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
+        standard_conversion_t scs;
+        compute_scs_for_implicit_argument(
+                &scs,
+                orig,
+                dest,
+                ref_qualifier,
+                locus);
 
-        instantiate_template_class_if_possible(symbol, decl_context, locus);
-
-    }
-    // To compute that 'B*' can be converted to 'A*' requires testing if 'A' is a base of 'B'
-    // so 'B' must be instantiated.
-    if (is_pointer_to_class_type(no_ref(orig))
-            && is_pointer_to_class_type(no_ref(dest))
-            && is_named_class_type(pointer_type_get_pointee_type(no_ref(orig))))
-    {
-        scope_entry_t* symbol = named_type_get_symbol(pointer_type_get_pointee_type(no_ref(orig)));
-
-        instantiate_template_class_if_possible(symbol, decl_context, locus);
-
-    }
-    // Given a class 'A' base of a class 'B'
-    //
-    // To compute that 'T A::*' can be converted to 'T B::*' requires testing if 'A' is a base of 'B'
-    // so 'B' must be instantiated.
-    if (is_pointer_to_member_type(no_ref(dest)))
-    {
-        type_t* class_type = advance_over_typedefs(pointer_to_member_type_get_class_type(no_ref(dest)));
-
-        if (is_named_class_type(class_type))
+        if (!standard_conversion_is_invalid(scs))
         {
-            instantiate_template_class_if_possible(named_type_get_symbol(class_type),
-                    decl_context, locus);
+            *result = ics_make_standard(scs);
         }
+        return;
     }
 
     standard_conversion_t standard_conv;
@@ -637,65 +899,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     print_declarator(standard_conv.dest));
         }
 
-        result->kind = ICSK_STANDARD;
-        result->first_sc = standard_conv;
+        *result = ics_make_standard(standard_conv);
 
         // No need to check anything else
-        return;
-    }
-
-    if (is_implicit_argument)
-    {
-        if (is_named_class_type(no_ref(orig)))
-        {
-            scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
-            }
-            instantiate_template_class_if_possible(symbol, decl_context, locus);
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
-            }
-        }
-        if (ref_qualifier == REF_QUALIFIER_NONE)
-        {
-            // An implicit argument of rvalue type C can be bound to the implicit
-            // argument parameter of type C
-            if ((equivalent_types(no_ref(orig), no_ref(dest))
-                        || (is_class_type(no_ref(orig))
-                            && is_class_type(no_ref(dest))
-                            && class_type_is_base(no_ref(dest), no_ref(orig))
-                            && !class_type_is_ambiguous_base_of_derived_class(no_ref(dest), no_ref(orig))))
-                    && (!is_const_qualified_type(no_ref(orig))
-                        || is_const_qualified_type(no_ref(dest))))
-            {
-                result->kind = ICSK_STANDARD;
-                result->first_sc.orig = no_ref(orig);
-                result->first_sc.dest = dest;
-                result->first_sc.conv[0] = SCI_IDENTITY;
-                result->first_sc.conv[1] = SCI_NO_CONVERSION;
-                result->first_sc.conv[2] = SCI_NO_CONVERSION;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: We allow binding the implicit argument of type '%s' to the implicit parameter type '%s'\n",
-                            print_type_str(orig, decl_context),
-                            print_type_str(dest, decl_context));
-                }
-            }
-        }
-        else if (ref_qualifier == REF_QUALIFIER_LVALUE
-                || ref_qualifier == REF_QUALIFIER_RVALUE)
-        {
-            // If we reach here it means that no standard conversion exists (so
-            // the reference cannot be bound to the implicit parameter)
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
         return;
     }
 
@@ -703,459 +909,94 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     if (no_user_defined_conversions)
         return;
 
-    // So no standard conversion is possible let's try with a user defined
-    // conversion
-    implicit_conversion_sequence_t user_defined_conversions[MCXX_MAX_USER_DEFINED_CONVERSIONS];
-    int num_user_defined_conversions = 0;
-    memset(user_defined_conversions, 0, sizeof(user_defined_conversions));
-
     // Compute user defined conversions by means of conversion functions
-    if (is_class_type(no_ref(orig)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "ICS: Checking user-defined conversions by means of conversion functions\n");
-        }
-
-        // Get the real class type (it will have been instantiated before if needed)
-        type_t* class_type = no_ref(orig);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "ICS: Looking for user defined conversions from '%s' to '%s'\n",
-                    print_declarator(orig),
-                    print_declarator(dest));
-        }
-
-        // Maybe there is a conversion function from class_type to something standard
-        // convertible to dest
-        scope_entry_list_t* conversion_list = class_type_get_all_conversions(
-                get_actual_class_type(class_type), decl_context);
-
-        scope_entry_list_iterator_t *it = NULL;
-        for (it = entry_list_iterator_begin(conversion_list);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* conv_funct = entry_list_iterator_current(it);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Considering user defined conversion '%s' %p declared at '%s'\n",
-                        conv_funct->symbol_name,
-                        conv_funct,
-                        locus_to_str(conv_funct->locus));
-            }
-
-            if (is_template_specialized_type(conv_funct->type_information))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Symbol '%s' at '%s' is a template conversion function, "
-                            "deducing its arguments\n",
-                            conv_funct->symbol_name,
-                            locus_to_str(conv_funct->locus));
-                }
-                // This is a template so we have to get the proper specialization
-
-                // Get the primary specialization
-                type_t* specialization_function = get_user_defined_type(conv_funct);
-                // Get its template parameters
-                template_parameter_list_t* type_template_parameters = 
-                    template_type_get_template_parameters(template_specialized_type_get_related_template_type(conv_funct->type_information));
-                template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_arguments(conv_funct->type_information);
-
-                template_parameter_list_t* deduced_template_arguments = NULL;
-                // Now deduce the arguments
-                if (!deduce_arguments_of_conversion(dest, specialization_function,
-                            template_parameters, type_template_parameters,
-                            decl_context, &deduced_template_arguments, locus))
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "ICS: Deduced arguments for template conversion function failed, skipping\n");
-                    }
-                    continue;
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Deduced arguments for template conversion function succeeded\n");
-                }
-
-                // If the deduction succeeded just get a specialization and use it for the whole
-                // conversion
-                type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
-
-                type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        deduced_template_arguments,
-                        decl_context, locus);
-
-                if (named_specialization_type == NULL)
-                {
-                    fprintf(stderr, "ICS: Cannot specialize conversion function\n");
-                    continue;
-                }
-
-                // Now update the symbol
-                conv_funct = named_type_get_symbol(named_specialization_type);
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Specialized conversion function '%s' is '%s'\n",
-                            conv_funct->symbol_name,
-                            print_declarator(conv_funct->type_information));
-                }
-            }
-
-            type_t* converted_type = function_type_get_return_type(conv_funct->type_information);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Checking conversion function of '%s' to '%s'\n",
-                        print_declarator(orig),
-                        print_declarator(converted_type));
-            }
-
-            // The implicit parameter of this operator function is a reference
-            // to the class type, this will filter not eligible conversion functions
-            // (e.g. given a 'const T' we cannot call a non-const method)
-            type_t* implicit_parameter = NULL;
-
-            ref_qualifier_t conv_ref_qualifier = function_type_get_ref_qualifier(conv_funct->type_information);
-
-            implicit_parameter = conv_funct->entity_specs.class_type;
-            if (is_const_qualified_type(conv_funct->type_information))
-            {
-                implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
-            }
-            if (conv_ref_qualifier == REF_QUALIFIER_NONE
-                    || conv_ref_qualifier == REF_QUALIFIER_LVALUE)
-            {
-                implicit_parameter = get_lvalue_reference_type(implicit_parameter);
-            }
-            else if (conv_ref_qualifier == REF_QUALIFIER_RVALUE)
-            {
-                implicit_parameter = get_rvalue_reference_type(implicit_parameter);
-            }
-            else
-            {
-                internal_error("Code unreachable", 0);
-            }
-
-            standard_conversion_t first_sc;
-            standard_conversion_t second_sc;
-
-            implicit_conversion_sequence_t ics_call;
-            memset(&ics_call, 0, sizeof(ics_call));
-            compute_ics_flags(orig, implicit_parameter, 
-                    decl_context, &ics_call,
-                    /* no_user_defined_conversions */ 1,
-                    /* is_implicit_argument */ 1,
-                    conv_ref_qualifier,
-                    locus);
-            first_sc = ics_call.first_sc;
-
-            if (ics_call.kind == ICSK_STANDARD 
-                    && standard_conversion_between_types_for_overload(&second_sc, converted_type, dest, locus))
-            {
-                implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
-                num_user_defined_conversions++;
-
-                current->kind = ICSK_USER_DEFINED;
-                current->first_sc = first_sc;
-                current->conversor = conv_funct;
-                current->second_sc = second_sc;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
-                            "ICS:     SCS1: %s -> %s\n"
-                            "ICS:     Conversion function: %s (%s)\n"
-                            "ICS:     SCS2: %s -> %s\n",
-                            print_declarator(current->first_sc.orig),
-                            print_declarator(current->first_sc.dest),
-                            current->conversor->symbol_name,
-                            locus_to_str(current->conversor->locus),
-                            print_declarator(current->second_sc.orig),
-                            print_declarator(current->second_sc.dest));
-                }
-            }
-        }
-        entry_list_iterator_free(it);
-        entry_list_free(conversion_list);
-    }
+    int num_user_defined_conversions = 0;
+    implicit_conversion_sequence_t user_defined_conversion;
 
     // Compute user defined conversions by means of constructors
-    if (is_class_type(no_ref(dest)))
+    if (is_class_type(dest))
     {
-        DEBUG_CODE()
+        scope_entry_t* constructor = NULL;
+        scope_entry_list_t* candidates = NULL;
+        enum initialization_kind specific_initialization;
+        if (is_class_type(no_ref(orig))
+                && class_type_is_derived_instantiating(
+                    no_ref(orig),
+                    dest,
+                    locus))
         {
-            fprintf(stderr, "ICS: Checking user-defined conversions by means of conversor constructors\n");
-        }
-        // Get the real class type
-        type_t* class_type = get_unqualified_type(no_ref(dest));
-
-        // Instantiate the destination if needed
-        if (is_named_class_type(class_type))
-        {
-            scope_entry_t* symbol = named_type_get_symbol(class_type);
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
-            }
-
-            instantiate_template_class_if_possible(symbol, decl_context, locus);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Destination type instantiated\n");
-            }
-        }
-
-        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
-
-        int num_constructors = entry_list_size(constructors);
-
-        // Best info
-        scope_entry_t* best_valid_constructor = NULL;
-        standard_conversion_t best_initial_sc; // so far
-
-        // All valids info
-        scope_entry_t* valid_constructors[num_constructors];
-        memset(valid_constructors, 0, sizeof(valid_constructors));
-
-        standard_conversion_t valid_initial_scs[num_constructors];
-        memset(valid_initial_scs, 0, sizeof(valid_initial_scs));
-
-        int num_valid_constructors = 0;
-
-        scope_entry_list_iterator_t* it;
-        for (it = entry_list_iterator_begin(constructors);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* constructor = entry_list_iterator_current(it);
-
-            // Make sure this a non-explicit conversor constructor
-            if (!constructor->entity_specs.is_conversor_constructor
-                    || constructor->entity_specs.is_explicit)
-                continue;
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "ICS: Considering conversor constructor '%s' declared at '%s'\n",
-                        constructor->symbol_name,
-                        locus_to_str(constructor->locus));
-            }
-
-            if (is_template_specialized_type(constructor->type_information))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Symbol '%s' at '%s' is a template conversor constructor, "
-                            "deducing its arguments\n",
-                            constructor->symbol_name,
-                            locus_to_str(constructor->locus));
-                }
-                // This is a template so we have to get the proper specialization
-
-                // Get the primary specialization
-                type_t* specialization_function = get_user_defined_type(constructor);
-                // Get its template parameters
-                template_parameter_list_t* type_template_parameters = 
-                    template_type_get_template_parameters(template_specialized_type_get_related_template_type(constructor->type_information));
-                template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_arguments(constructor->type_information);
-
-                // Now deduce the arguments
-                template_parameter_list_t* deduced_template_arguments = NULL;
-                type_t* argument_types[1] = { orig };
-                if (!deduce_arguments_from_call_to_specific_template_function(argument_types, 
-                            /* num_arguments = */ 1, 
-                            specialization_function,
-                            template_parameters, type_template_parameters,
-                            decl_context, 
-                            &deduced_template_arguments, locus,
-                            /* explicit template arguments */ NULL))
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "ICS: Deduced arguments for template conversor constructor failed, skipping\n");
-                    }
-                    continue;
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Deduced arguments for template conversor constructor succeeded\n");
-                }
-
-                // If the deduction succeeded just get a specialization and use it for the whole
-                // conversion
-                type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
- 
-                type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        deduced_template_arguments,
-                        decl_context, locus); 
-
-                if (named_specialization_type == NULL)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "ICS: Cannot specialize conversor constructor\n");
-                    }
-                    continue;
-                }
-
-                // Now update the symbol
-                constructor = named_type_get_symbol(named_specialization_type);
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Specialized conversor constructor '%s' is '%s'\n",
-                            constructor->symbol_name,
-                            print_declarator(constructor->type_information));
-                }
-            }
-
-            type_t* conversion_source_type = function_type_get_parameter_type_num(constructor->type_information, 0);
-
-            standard_conversion_t first_sc;
-            if (standard_conversion_between_types_for_overload(&first_sc, orig, conversion_source_type, locus))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: First conversion from the original type '%s' "
-                            "to the parameter type '%s' of the constructor suceeded\n",
-                            print_declarator(orig),
-                            print_declarator(conversion_source_type));
-                }
-
-                valid_constructors[num_valid_constructors] = constructor;
-                valid_initial_scs[num_valid_constructors] = first_sc;
-
-                if (num_valid_constructors == 0
-                        || standard_conversion_is_better(first_sc, best_initial_sc))
-                {
-                    best_initial_sc = first_sc;
-                    best_valid_constructor = constructor;
-                }
-
-                num_valid_constructors++;
-            }
-        }
-
-        // Now review the potential constructors
-        int i;
-        for (i = 0; i < num_valid_constructors; i++)
-        {
-            if (best_valid_constructor != valid_constructors[i])
-            {
-                if (!standard_conversion_is_better(best_initial_sc, valid_initial_scs[i]))
-                {
-                    // It turns the better initial sc was not the best one after all
-                    best_valid_constructor = NULL;
-                }
-            }
-        }
-
-        if (best_valid_constructor != NULL)
-        {
-            standard_conversion_t second_sc;
-            if (standard_conversion_between_types_for_overload(&second_sc, class_type, dest, locus))
-            {
-                implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
-                num_user_defined_conversions++;
-
-                current->kind = ICSK_USER_DEFINED;
-                current->first_sc = best_initial_sc;
-                current->conversor = best_valid_constructor;
-                current->second_sc = second_sc;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "ICS: Details of this potential user defined conversion\n"
-                            "ICS:     SCS1: %s -> %s\n"
-                            "ICS:     Conversion function: %s (%s)\n"
-                            "ICS:     SCS2: %s -> %s\n",
-                            print_declarator(current->first_sc.orig),
-                            print_declarator(current->first_sc.dest),
-                            current->conversor->symbol_name,
-                            locus_to_str(current->conversor->locus),
-                            print_declarator(current->second_sc.orig),
-                            print_declarator(current->second_sc.dest));
-                }
-            }
-        }
-
-        entry_list_iterator_free(it);
-        entry_list_free(constructors);
-    }
-
-    if (num_user_defined_conversions > 0)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "ICS: Found %d user defined conversions\n", num_user_defined_conversions);
-
-            if (num_user_defined_conversions > 1)
-            {
-                fprintf(stderr, "ICS: Must choose the best one or deem it ambiguous\n");
-            }
-        }
-        // Pick the first one as the current best
-        int current_best = 0;
-        *result = user_defined_conversions[0];
-
-        // We should select the best one
-        int i;
-        for (i = 1; i < num_user_defined_conversions; i++)
-        {
-            if (is_better_initialization_ics(user_defined_conversions[i],
-                        user_defined_conversions[current_best],
-                        orig,
-                        dest,
-                        decl_context, locus))
-            {
-                // Update the best
-                current_best = i;
-                *result = user_defined_conversions[i];
-            }
-        }
-
-        // Check that it is actually the best
-        for (i = 0; i < num_user_defined_conversions; i++)
-        {
-            if (i == current_best)
-                continue;
-
-            if (!is_better_initialization_ics(user_defined_conversions[current_best],
-                        user_defined_conversions[i],
-                        orig,
-                        dest,
-                        decl_context, locus))
-            {
-                // It is not best, set it to ambiguous
-                result->is_ambiguous_ics = 1;
-                break;
-            }
-        }
-
-        if (result->is_ambiguous_ics)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr,
-                        "ICS: Conversion from '%s' -> '%s' requires an AMBIGUOUS user defined sequence\n",
-                        print_declarator(orig),
-                        print_declarator(dest));
-            }
+            specific_initialization = IK_BY_CONSTRUCTOR;
         }
         else
         {
-            DEBUG_CODE()
+            specific_initialization = IK_BY_USER_DEFINED_CONVERSION;
+        }
+        char is_ambiguous = 0;
+        char ok = solve_initialization_of_class_type_(
+                    get_unqualified_type(dest),
+                    &orig, 1,
+                    IK_COPY_INITIALIZATION | specific_initialization | IK_NO_MORE_USER_DEFINED_CONVERSIONS,
+                    decl_context,
+                    locus,
+                    // Out
+                    &constructor,
+                    &candidates,
+                    &is_ambiguous);
+        entry_list_free(candidates);
+
+        if (ok)
+        {
+            user_defined_conversion
+                = ics_make_user_defined_using_conversor(orig, dest, constructor, locus);
+            num_user_defined_conversions++;
+        }
+        else if (is_ambiguous)
+        {
+            user_defined_conversion = ics_make_ambiguous();
+            num_user_defined_conversions++;
+        }
+    }
+    else // not a class type (may be a reference or a non-class, or both)
+    {
+        scope_entry_t* conversor = NULL;
+        scope_entry_list_t* candidates = NULL;
+        implicit_conversion_sequence_t current_ics;
+
+        enum initialization_kind initialization_kind = IK_INVALID;
+        if (!needs_contextual_conversion)
+        {
+            initialization_kind = IK_COPY_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS;
+        }
+        else
+        {
+            initialization_kind = IK_DIRECT_INITIALIZATION | IK_NO_MORE_USER_DEFINED_CONVERSIONS;
+        }
+
+        char ok = solve_initialization_of_nonclass_type_ics(
+                orig,
+                dest,
+                decl_context,
+                initialization_kind,
+                &conversor,
+                &candidates,
+                locus,
+                &current_ics);
+        entry_list_free(candidates);
+
+        if (ok && conversor != NULL)
+        {
+            user_defined_conversion = current_ics;
+            num_user_defined_conversions++;
+        }
+    }
+
+
+    if (num_user_defined_conversions > 0)
+    {
+        *result = user_defined_conversion;
+        DEBUG_CODE()
+        {
+            if (!ics_is_ambiguous(user_defined_conversion))
             {
                 fprintf(stderr, "ICS: Conversion from '%s' -> '%s' requires a user defined sequence\n",
                         print_declarator(orig),
@@ -1166,51 +1007,771 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         "ICS:     SCS2: %s -> %s\n",
                         print_declarator(result->first_sc.orig),
                         print_declarator(result->first_sc.dest),
-                        result->conversor->symbol_name,
-                        locus_to_str(result->conversor->locus),
+                        result->conversor ? result->conversor->symbol_name : "<<NULL>>",
+                        result->conversor ? locus_to_str(result->conversor->locus) : locus_to_str(0),
                         print_declarator(result->second_sc.orig),
                         print_declarator(result->second_sc.dest));
+            }
+            else
+            {
+                fprintf(stderr, "ICS: Conversion from '%s' -> '%s' requires an ambiguous user defined sequence\n",
+                        print_declarator(orig),
+                        print_declarator(dest));
             }
         }
     }
 }
 
-static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        implicit_conversion_sequence_t *result,
-        const locus_t* locus)
-{
-    compute_ics_flags(orig, dest, decl_context, result, 
-            /* no_user_defined_conversions = */ 0,
-            /* is_implicit_argument */ 0,
-            REF_QUALIFIER_NONE,
-            locus);
-}
+static scope_entry_t* solve_overload_(candidate_t* candidate_set,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        type_t* dest,
+        const locus_t* locus,
+        // Out
+        char *is_ambiguous);
 
-char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor,
-        const locus_t* locus)
+static char solve_initialization_of_direct_reference_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics)
 {
-    CXX_LANGUAGE()
+    // 13.3.1.6 [over.match.ref]
+    // Under the conditions specified in 8.5.3, a reference can be bound directly to a glvalue or class prvalue that is
+    // the result of applying a conversion function to an initializer expression. Overload resolution is used to select
+    // the conversion function to be invoked. Assuming that "cv1 T" is the underlying type of the reference being
+    // initialized, and "cv S" is the type of the initializer expression, with S a class type, the candidate functions
+    // are selected as follows:
+    DEBUG_CODE()
     {
-        implicit_conversion_sequence_t result;
-        compute_ics(orig, dest, decl_context, &result, 
-                locus);
+        fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+                "by direct reference\n",
+                print_declarator(dest),
+                print_declarator(orig));
+    }
+    *ics = invalid_ics;
 
-        *ambiguous_conversion = result.is_ambiguous_ics;
+    // Direct reference binding
+    // We need to use overload here using conversion functions (as we
+    // know the destination is not a class)
+    scope_entry_list_t* candidate_list = NULL;
 
-        if (conversor != NULL 
-                && result.kind == ICSK_USER_DEFINED)
+    // 13.3.1.6 [over.match.ref]
+    // The conversion functions of S and its base classes are considered.
+    standard_conversion_t scs;
+    scope_entry_list_t* conversions =
+        class_type_get_all_conversions(get_actual_class_type(no_ref(orig)),
+                decl_context);
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(conversions);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* conversion
+            = entry_list_iterator_current(it);
+
+        if (is_template_specialized_type(conversion->type_information))
         {
-            *conversor = result.conversor;
+            conversion = get_specialized_conversion(conversion, dest,
+                    decl_context, locus);
+            if (conversion == NULL)
+                continue;
         }
 
-        return (result.kind != ICSK_INVALID);
+        if (initialization_kind & IK_COPY_INITIALIZATION
+                && conversion->entity_specs.is_explicit)
+            continue;
+
+        type_t* return_type =
+            function_type_get_return_type(conversion->type_information);
+
+        char ok = 0;
+        if (!conversion->entity_specs.is_explicit)
+        {
+            // 13.3.1.6 [over.match.ref]
+            // Those non-explicit conversion
+            // functions that are not hidden within S and yield type "lvalue reference to cv2 T2" (when initializing
+            // an lvalue reference or an rvalue reference to function) or " cv2 T2" or "rvalue reference to cv2 T2"
+            // (when initializing an rvalue reference or an lvalue reference to function), where "cv1 T" is reference-
+            // compatible (8.5.3) with "cv2 T2", are candidate functions.
+            if (!is_lvalue_reference_type(dest)
+                    || is_lvalue_reference_type(return_type))
+            {
+                ok = type_is_reference_compatible_to(
+                        no_ref(dest),
+                        no_ref(return_type));
+            }
+        }
+        else
+        {
+            // 13.3.1.6 [over.match.ref]
+            // For direct-initialization, those explicit
+            // conversion functions that are not hidden within S and yield type "lvalue reference to cv2 T2" or "cv2
+            // T2" or "rvalue reference to cv2 T2," respectively, where T2 is the same type as T or can be converted
+            // to type T with a qualification conversion (4.4), are also candidate functions
+            ok = (standard_conversion_between_types(&scs,
+                        return_type,
+                        dest,
+                        locus)
+                    && (standard_conversion_is_identity(scs)
+                        || (scs.conv[2] == SCI_QUALIFICATION_CONVERSION)));
+        }
+
+        if (ok)
+        {
+            candidate_list = entry_list_add(candidate_list, conversion);
+        }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(conversions);
+
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+            candidate_list,
+            NULL, &orig, 1,
+            decl_context,
+            locus, /* explicit_template_parameters */ NULL);
+    entry_list_free(candidate_list);
+
+    candidate_t* candidate_set = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        candidate_set = candidate_set_add(candidate_set,
+                entry_list_iterator_current(it),
+                1,
+                &orig);
+    }
+    entry_list_iterator_free(it);
+
+    // Now we have all the candidates, perform an overload resolution on them
+    char is_ambiguous = 0;
+    scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+            decl_context,
+            initialization_kind | IK_BY_DIRECT_REFERENCE_BINDING,
+            dest,
+            locus,
+            // Out
+            &is_ambiguous);
+    candidate_set_free(&candidate_set);
+
+    if (!is_ambiguous)
+    {
+        *ics = ics_make_user_defined_using_conversor(orig, dest, overload_resolution, locus);
+    }
+    else
+    {
+        *ics = ics_make_ambiguous();
+    }
+    *candidates = overload_set;
+    *conversor = overload_resolution;
+
+    DEBUG_CODE()
+    {
+        if (overload_resolution != NULL)
+        {
+            fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+                    "by direct reference binding succeeded using conversion '%s' at %s\n",
+                    print_declarator(dest),
+                    print_declarator(orig),
+                    get_qualified_symbol_name(overload_resolution, overload_resolution->decl_context),
+                    locus_to_str(overload_resolution->locus));
+        }
+        else
+        {
+            fprintf(stderr, "OVERLOAD: Solving initializaion of reference type '%s' using a value of type '%s' "
+                    "by direct reference binding failed\n",
+                    print_declarator(dest),
+                    print_declarator(orig));
+        }
+    }
+
+    return (overload_resolution != NULL);
+}
+
+static scope_entry_list_t* conversion_function_candidates_initialization_of_nonclass_nonreference_type(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        const locus_t* locus)
+{
+    // 13.3.1.5 [over.match.conv]
+    // Under the conditions specified in 8.5, as part of an initialization of
+    // an object of nonclass type, a conversion function can be invoked to
+    // convert an initializer expression of class type to the type of the
+    // object being initialized.
+
+    scope_entry_list_t* candidate_list = NULL;
+
+    // 13.3.1.5 [over.match.conv]
+    // The conversion functions of S and its base classes are considered.
+    scope_entry_list_t* conversions =
+        class_type_get_all_conversions(get_actual_class_type(no_ref(orig)),
+                decl_context);
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(conversions);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* conversion
+            = entry_list_iterator_current(it);
+
+        if (is_template_specialized_type(conversion->type_information))
+        {
+            conversion = get_specialized_conversion(conversion, dest,
+                    decl_context, locus);
+            if (conversion == NULL)
+                continue;
+        }
+
+        // 13.3.1.5 [over.match.conv]
+        // Conversion functions that return a cv-qualified type are considered to yield
+        // the cv-unqualified version of that type for this process of selecting candidate
+        // functions. Conversion functions that return "reference to cv2 X" return lvalues
+        // or xvalues, depending on the type of reference, of type "cv2 X" and are
+        // therefore considered to yield X for this process of selecting candidate
+        // functions.
+        type_t* return_type =
+            function_type_get_return_type(conversion->type_information);
+
+        standard_conversion_t scs;
+        char ok = 0;
+
+        if (!conversion->entity_specs.is_explicit)
+        {
+            // 13.3.1.5 [over.match.conv]
+            // Those non-explicit conversion functions that are not hidden within S
+            // and yield type T or a type that can be converted to type T via a
+            // standard conversion sequence (13.3.3.1.1) are candidate functions.
+            ok = (standard_conversion_between_types(&scs,
+                    return_type,
+                    dest,
+                    locus));
+
+        }
+        else if (conversion->entity_specs.is_explicit
+                && (initialization_kind & IK_DIRECT_INITIALIZATION))
+        {
+            // 13.3.1.5 [over.match.conv]
+            // For direct-initialization, those explicit conversion functions that are not
+            // hidden within S and yield type T or a type that can be converted to type T
+            // with a qualification conversion (4.4) are also candidate functions.
+            ok = (standard_conversion_between_types(&scs,
+                    return_type,
+                    dest,
+                    locus));
+            ok = ok && (standard_conversion_is_identity(scs)
+                    || (scs.conv[2] == SCI_QUALIFICATION_CONVERSION));
+        }
+
+        if (ok)
+        {
+            candidate_list = entry_list_add(candidate_list, conversion);
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(conversions);
+
+    return candidate_list;
+}
+
+static scope_entry_list_t* conversion_function_candidates_initialization_of_class_type(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        const locus_t* locus)
+{
+    scope_entry_list_t* candidate_list = NULL;
+    // NOTE: Despite the name of the relevant section of the standard, this code can be
+    // used also for direct initialization in this context
+    //
+    // struct A
+    // {
+    // };
+    //
+    // struct B
+    // {
+    //   operator A();
+    // };
+    //
+    // B b;
+    // A a(b);
+
+    // 13.3.1.4 [over.match.copy]
+    // When the type of the initializer expression is a class type "cv
+    // S", the non-explicit conversion functions of S and its base classes
+    // are considered.
+    scope_entry_list_t* conversions = class_type_get_all_conversions(
+            get_actual_class_type(no_ref(orig)),
+            decl_context);
+
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(conversions);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* conversion
+            = entry_list_iterator_current(it);
+
+        if (is_template_specialized_type(conversion->type_information))
+        {
+            conversion = get_specialized_conversion(conversion, dest,
+                    decl_context, locus);
+            if (conversion == NULL)
+                continue;
+        }
+
+        if (initialization_kind & IK_COPY_INITIALIZATION)
+        {
+            // 13.3.1.4 [over.match.copy]
+            // When initializing a temporary to be bound to the
+            // first parameter of a constructor that takes a reference to possibly
+            // cv-qualified T as its first argument, called with a single argument
+            // in the context of direct-initialization of an object of type "cv2
+            // T", explicit conversion functions are also considered.
+            if (conversion->entity_specs.is_explicit)
+                continue;
+        }
+
+        // 13.3.1.4 [over.match.copy]
+        // Those that are not hidden within S and yield a type whose cv-unqualified
+        // version is the same type as T or is a derived class thereof are
+        // candidate functions. Conversion functions that return "reference to X"
+        // return lvalues or xvalues, depending on the type of reference, of type X
+        // and are therefore considered to yield X for this process of selecting
+        // candidate functions.
+        type_t* return_type =
+            get_unqualified_type(
+                    no_ref(function_type_get_return_type(conversion->type_information)));
+
+        if (!equivalent_types(return_type, dest)
+                && (!is_class_type(return_type)
+                    || !class_type_is_derived_instantiating(return_type, dest, locus)))
+            continue;
+
+        candidate_list = entry_list_add(candidate_list, conversion);
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(conversions);
+
+    return candidate_list;
+}
+
+static char solve_initialization_of_nonclass_nonreference_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "OVERLOAD: Solving initialization of nonclass nonreference type '%s' using a value of type '%s'\n",
+                print_declarator(dest),
+                print_declarator(orig));
+    }
+    *ics = invalid_ics;
+
+    ERROR_CONDITION(is_any_reference_type(dest)
+            || is_class_type(dest),
+            "Invalid type", 0);
     C_LANGUAGE()
     {
         internal_error("This function cannot be used in C", 0);
     }
+
+    CXX_LANGUAGE()
+    {
+        standard_conversion_t scs;
+        if (standard_conversion_between_types(&scs, orig, get_unqualified_type(dest), locus))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Initialization of nonclass nonreference "
+                        "type '%s' using a value of type '%s' solved using a standard conversion sequence\n",
+                        print_declarator(dest),
+                        print_declarator(orig));
+            }
+            *conversor = 0;
+            *ics = ics_make_standard(scs);
+            return 1;
+        }
+        else if (is_class_type(no_ref(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Initialization of nonclass nonreference "
+                        "type '%s' using a value of class type '%s' will attempt a user defined conversion\n",
+                        print_declarator(dest),
+                        print_declarator(orig));
+            }
+            // We need to use overload here using conversion functions (as we
+            // know the destination is not a class)
+            scope_entry_list_t* candidate_list =
+                conversion_function_candidates_initialization_of_nonclass_nonreference_type(
+                    no_ref(orig),
+                    dest,
+                    decl_context,
+                    initialization_kind,
+                    locus);
+
+            scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+                    candidate_list,
+                    NULL, &orig, 1,
+                    decl_context,
+                    locus, /* explicit_template_parameters */ NULL);
+            entry_list_free(candidate_list);
+
+            candidate_t* candidate_set = NULL;
+            scope_entry_list_iterator_t* it;
+            for (it = entry_list_iterator_begin(overload_set);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                candidate_set = candidate_set_add(candidate_set,
+                        entry_list_iterator_current(it),
+                        1,
+                        &orig);
+            }
+            entry_list_iterator_free(it);
+
+            // Now we have all the candidates, perform an overload resolution on them
+            char is_ambiguous = 0;
+            scope_entry_t* overload_resolution = solve_overload_(candidate_set, 
+                    decl_context, 
+                    /* initialization_kind */ initialization_kind,
+                    dest,
+                    locus, 
+                    // Out
+                    &is_ambiguous);
+            candidate_set_free(&candidate_set);
+
+            *candidates = overload_set;
+            *conversor = overload_resolution;
+
+            if (!is_ambiguous)
+            {
+                *ics = ics_make_user_defined_using_conversor(orig, dest, *conversor, locus);
+            }
+            else
+            {
+                *ics = ics_make_ambiguous();
+            }
+
+            DEBUG_CODE()
+            {
+                if (overload_resolution != NULL)
+                {
+                    fprintf(stderr, "OVERLOAD: Initialization of nonclass nonreference "
+                            "type '%s' using a value of class type '%s' uses conversor '%s' (at %s)\n",
+                            print_declarator(dest),
+                            print_declarator(orig),
+                            get_qualified_symbol_name(overload_resolution, overload_resolution->decl_context),
+                            locus_to_str(overload_resolution->locus));
+                }
+                else
+                {
+                    fprintf(stderr, "OVERLOAD: Initialization of nonclass nonreference "
+                            "type '%s' using a value of class type '%s' is not possible\n",
+                            print_declarator(dest),
+                            print_declarator(orig));
+                }
+            }
+
+            return (overload_resolution != NULL);
+        }
+    }
     return 0;
+}
+
+static char solve_initialization_of_nonclass_nonreference_type(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus)
+{
+    implicit_conversion_sequence_t dummy_ics = invalid_ics;
+    return solve_initialization_of_nonclass_nonreference_type_ics(
+        orig,
+        dest,
+        decl_context, 
+        initialization_kind,
+        conversor,
+        candidates,
+        locus,
+        &dummy_ics);
+}
+
+static char solve_initialization_of_reference_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "OVERLOAD: Solving initialization of reference type '%s' using a value of type '%s'\n",
+                print_declarator(dest),
+                print_declarator(orig));
+    }
+    *ics = invalid_ics;
+    ERROR_CONDITION(!is_any_reference_type(dest), "Invalid type", 0);
+
+    if (is_lvalue_reference_type(dest))
+    {
+        if (is_lvalue_reference_type(orig)
+                && type_is_reference_compatible_to(no_ref(dest), no_ref(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Initialization of reference type '%s' using a value of type '%s' "
+                        " solved because the first is reference compatible to the second\n",
+                        print_declarator(dest),
+                        print_declarator(orig));
+            }
+            standard_conversion_t scs;
+            standard_conversion_between_types(&scs, orig, dest, locus);
+            *ics = ics_make_standard(scs);
+            return 1;
+        }
+
+        if (is_class_type(no_ref(orig))
+                && solve_initialization_of_direct_reference_type_ics(orig, dest,
+                    decl_context, initialization_kind,
+                    conversor, candidates, locus, ics))
+            return 1;
+    }
+
+    if ((is_lvalue_reference_type(dest)
+                && is_const_qualified_type(no_ref(dest))
+                && !is_volatile_qualified_type(no_ref(dest)))
+            || (is_rvalue_reference_type(dest)))
+    {
+        if ((is_rvalue_reference_type(orig)
+                || is_class_type(orig)
+                || (is_lvalue_reference_type(orig) && is_function_type(no_ref(orig))))
+                && type_is_reference_compatible_to(no_ref(dest), no_ref(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Initialization of reference type '%s' using a value of type '%s' "
+                        "solved because the first is reference compatible to the second and the "
+                        "second is either rvalue, class or lvalue of function\n",
+                        print_declarator(dest),
+                        print_declarator(orig));
+            }
+            standard_conversion_t scs;
+            standard_conversion_between_types(&scs, orig, dest, locus);
+            *ics = ics_make_standard(scs);
+            return 1;
+        }
+
+        if (is_class_type(no_ref(orig))
+                && !type_is_reference_related_to(no_ref(dest), no_ref(orig))
+                && solve_initialization_of_direct_reference_type_ics(orig, dest,
+                    decl_context, initialization_kind,
+                    conversor, candidates, locus, ics))
+            return 1;
+
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Initialization of reference type '%s' using a value of type '%s' "
+                        "will attempt to bind to a temporary\n",
+                        print_declarator(dest),
+                        print_declarator(orig));
+            }
+            // Construct a temporary
+            char ok = 0;
+            char is_ambiguous = 0;
+            if (is_class_type(no_ref(dest)))
+            {
+                scope_entry_t* constructor = NULL;
+                enum initialization_kind specific_initialization;
+                if (is_class_type(no_ref(orig))
+                        && class_type_is_derived_instantiating(
+                            no_ref(orig),
+                            no_ref(dest),
+                            locus))
+                {
+                    specific_initialization = IK_BY_CONSTRUCTOR;
+                }
+                else
+                {
+                    specific_initialization = IK_BY_USER_DEFINED_CONVERSION;
+                }
+                ok = solve_initialization_of_class_type_(
+                        no_ref(dest),
+                        &orig, 1,
+                        IK_COPY_INITIALIZATION  | specific_initialization | (initialization_kind & IK_NO_MORE_USER_DEFINED_CONVERSIONS),
+                        decl_context,
+                        locus,
+                        // Out
+                        &constructor,
+                        candidates,
+                        &is_ambiguous);
+
+                if (ok)
+                {
+                    *conversor = constructor;
+                }
+            }
+            else
+            {
+                ok = solve_initialization_of_nonclass_nonreference_type(
+                        orig,
+                        no_ref(dest),
+                        decl_context,
+                        IK_COPY_INITIALIZATION | (initialization_kind & IK_NO_MORE_USER_DEFINED_CONVERSIONS),
+                        conversor,
+                        candidates,
+                        locus);
+            }
+            if (ok && (!type_is_reference_related_to(no_ref(dest), no_ref(orig))
+                        // if is type reference related then dest must be more or equal cv-qualified
+                        || (is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))
+                            // if is type reference related and what is being initialized
+                            && (!is_rvalue_reference_type(dest)
+                                || !is_lvalue_reference_type(orig)))))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Initialization of reference type '%s' using a value of type '%s' "
+                            "binding to a temporary succeeded\n",
+                            print_declarator(dest),
+                            print_declarator(orig));
+                }
+                if (!is_ambiguous)
+                {
+                    *ics = ics_make_user_defined_using_conversor(orig, dest, *conversor, locus);
+                }
+                else
+                {
+                    *ics = ics_make_ambiguous();
+                }
+                return 1;
+            }
+            else
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Initialization of reference type '%s' using a value of type '%s' "
+                            "binding to a temporary failed\n",
+                            print_declarator(dest),
+                            print_declarator(orig));
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+static char solve_initialization_of_nonclass_type_ics(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus,
+        implicit_conversion_sequence_t* ics)
+{
+    *ics = invalid_ics;
+    if (is_unresolved_overloaded_type(orig))
+    {
+        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
+        scope_entry_t* solved_function = address_of_overloaded_function(
+                unresolved_set,
+                unresolved_overloaded_type_get_explicit_template_arguments(orig),
+                dest,
+                decl_context,
+                locus);
+        entry_list_free(unresolved_set);
+
+        if (solved_function != NULL)
+        {
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                orig = get_lvalue_reference_type(solved_function->type_information);
+            }
+            else
+            {
+                orig = get_pointer_to_member_type(
+                        solved_function->type_information,
+                        solved_function->entity_specs.class_type);
+            }
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    if (is_any_reference_type(dest))
+    {
+        return solve_initialization_of_reference_type_ics(
+                orig,
+                dest,
+                decl_context, 
+                initialization_kind,
+                conversor,
+                candidates,
+                locus,
+                ics);
+    }
+    else
+    {
+        return solve_initialization_of_nonclass_nonreference_type_ics(
+                orig,
+                dest,
+                decl_context, 
+                initialization_kind,
+                conversor,
+                candidates,
+                locus,
+                ics);
+    }
+}
+
+char solve_initialization_of_nonclass_type(
+        type_t* orig,
+        type_t* dest,
+        decl_context_t decl_context, 
+        enum initialization_kind initialization_kind,
+        scope_entry_t** conversor,
+        scope_entry_list_t** candidates,
+        const locus_t* locus)
+{
+    implicit_conversion_sequence_t dummy_ics;
+    return solve_initialization_of_nonclass_type_ics(
+            orig,
+            dest,
+            decl_context,
+            initialization_kind,
+            conversor,
+            candidates,
+            locus,
+            &dummy_ics);
 }
 
 /*
@@ -1269,6 +1830,7 @@ static char is_pointer_conversion(standard_conversion_item_t sci)
 {
     return sci == SCI_POINTER_TO_VOID_CONVERSION
         || sci == SCI_ZERO_TO_POINTER_CONVERSION
+        || sci == SCI_ZERO_TO_NULLPTR
         || sci == SCI_CLASS_POINTER_DERIVED_TO_BASE_CONVERSION
         || sci == SCI_NULLPTR_TO_POINTER_CONVERSION;
 }
@@ -1362,6 +1924,30 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             return 1;
         }
 
+        // Intel vector extension: we favour extensions to the same types
+        {
+            int vector_size = 0; // unused
+            // vector type -> vector type
+            if (is_vector_type(no_ref(scs1.orig))
+                    && is_vector_type(no_ref(scs1.dest))
+                    // vector type -> intel vector struct
+                    && is_vector_type(no_ref(scs2.orig))
+                    && is_intel_vector_struct_type(no_ref(scs2.orig), &vector_size))
+            {
+                return 1;
+            }
+
+            // intel vector struct -> intel vector struct
+            if (is_intel_vector_struct_type(no_ref(scs1.orig), &vector_size)
+                    && is_intel_vector_struct_type(no_ref(scs1.dest), &vector_size)
+                    // intel vector -> vector type
+                    && is_intel_vector_struct_type(no_ref(scs2.orig), &vector_size)
+                    && is_vector_type(no_ref(scs2.dest)))
+            {
+                return 1;
+            }
+        }
+
         /*
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
@@ -1398,12 +1984,12 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             // Fix redundant reference to class pointer
-            if (is_lvalue_reference_type(scs1.orig)
+            if (is_any_reference_type(scs1.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs1.orig)))
             {
                 scs1.orig = reference_type_get_referenced_type(scs1.orig);
             }
-            if (is_lvalue_reference_type(scs2.orig)
+            if (is_any_reference_type(scs2.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs2.orig)))
             {
                 scs2.orig = reference_type_get_referenced_type(scs2.orig);
@@ -1481,11 +2067,11 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(no_ref(scs1.orig)) // C ->
-                    && is_lvalue_reference_to_class_type(scs1.dest) // B&
+                    && is_any_reference_to_class_type(scs1.dest) // B&
                     && class_type_is_derived(no_ref(scs1.orig),
                         reference_type_get_referenced_type(scs1.dest)) // C derives from B&
 
-                    && is_lvalue_reference_to_class_type(scs2.dest) // A&
+                    && is_any_reference_to_class_type(scs2.dest) // A&
                     && class_type_is_derived(reference_type_get_referenced_type(scs1.dest),
                         reference_type_get_referenced_type(scs2.dest)) // B& derives from A&
                )
@@ -1553,12 +2139,12 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(no_ref(scs1.orig)) // B
-                    && is_lvalue_reference_to_class_type(scs1.dest) // A&
+                    && is_any_reference_to_class_type(scs1.dest) // A&
                     && class_type_is_derived(no_ref(scs1.orig), 
                         reference_type_get_referenced_type(scs1.dest)) // B& is derived from A&
 
                     && is_class_type(scs2.orig) // C&
-                    /* && is_reference_to_class_type(scs2.dest) */ // A&
+                    /* && is_any_reference_to_class_type(scs2.dest) */ // A&
                     && class_type_is_derived(scs2.orig, 
                         no_ref(scs1.orig)) // C& is derived from B&
                ) 
@@ -1568,6 +2154,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
         }
+
         // rank1 == rank2
         return 0;
     }
@@ -1581,7 +2168,9 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
     if ((scs1.conv[0] == scs2.conv[0])
             && is_pointer_conversion(scs1.conv[1]))
     {
-        // FIXME - What about the deprecated literal string conversion?
+        // S1 and S2 differ only in their qualification conversion and yield similar types T1 and T2
+        // respectively, and the cv-qualification signature of type T1 is a proper subset of the cv-qualification
+        // signature of type T2
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
 
@@ -1600,28 +2189,10 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
     else if ((scs1.conv[0] == scs2.conv[0])
             && (scs1.conv[1] == scs2.conv[1]))
     {
-        // If both are reference bindings, and scs2 binds a lvalue to a rvalue-reference
-        // while scs1 binds a lvalue to a lvalue-reference, scs1 is better
-        //
-        // scs1: int& -> int&
-        // scs2: int& -> int&&
-        //
-        // scs1 is better
-        if (is_lvalue_reference_type(scs1.orig)        // binds a lvalue
-                && is_lvalue_reference_type(scs1.dest) // to a lvalue-reference
-
-                && is_lvalue_reference_type(scs2.orig) // binds a lvalue
-                && is_rvalue_reference_type(scs2.dest)) // to a rvalue-reference
-        {
-            return 1;
-        }
-
         // If both are reference bindings, and scs2 leads to the same type more qualified,
         // then scs1 is better than scs1
-        if ((is_lvalue_reference_type(scs1.dest) 
-                    || is_rvalue_reference_type(scs1.dest))
-                && (is_lvalue_reference_type(scs2.dest) 
-                    || is_rvalue_reference_type(scs2.dest)))
+        if (is_any_reference_type(scs1.dest) 
+                && is_any_reference_type(scs2.dest))
         {
             type_t* dest1 = get_unqualified_type(reference_type_get_referenced_type(scs1.dest));
             type_t* dest2 = get_unqualified_type(reference_type_get_referenced_type(scs2.dest));
@@ -1660,6 +2231,31 @@ char standard_conversion_is_better(standard_conversion_t scs1,
         }
         return 1;
     }
+    // S1 and S2 are reference bindings and neither refers to an
+    // implicit object parameter of a non-static member function
+    // declared without a ref-qualifier, and S1 binds an rvalue
+    // reference to an rvalue and S2 binds an lvalue reference.
+    // FIXME - Not checking the implicit case
+    else if (is_rvalue_reference_type(scs1.dest)
+            && !is_lvalue_reference_type(scs1.orig) // a rvalue (either a non-reference or a rvalue reference)
+            && is_lvalue_reference_type(scs2.dest))
+    {
+        return 1;
+    }
+    // S1 and S2 are reference bindings and S1 binds an lvalue
+    // reference to a function lvalue and S2 binds an rvalue reference
+    // to a function lvalue
+    else if (is_lvalue_reference_type(scs1.orig)
+            && is_function_type(no_ref(scs1.orig))
+            && is_lvalue_reference_type(scs1.dest)
+
+            && is_lvalue_reference_type(scs2.orig)
+            && is_function_type(no_ref(scs2.orig))
+            && is_rvalue_reference_type(scs2.dest))
+    {
+        return 1;
+    }
+    // Cases including "const int*/int*", "const int&/int&" and "const int&&/int&&"
     else if (standard_conversion_differs_qualification(scs1, scs2))
     {
         DEBUG_CODE()
@@ -1707,8 +2303,15 @@ static char better_ics(implicit_conversion_sequence_t ics1,
     }
     else if (ics1.kind == ICSK_USER_DEFINED
             && ics2.kind == ICSK_USER_DEFINED
-            // They are not list ics at the same time
-            && !(ics1.is_list_ics && ics2.is_list_ics))
+            && (ics_is_ambiguous(ics1)
+                || ics_is_ambiguous(ics2)))
+    {
+        // Ambiguous ICS are always indistinguishable from other user-defined
+        // conversions
+        return 0;
+    }
+    else if (ics1.kind == ICSK_USER_DEFINED
+            && ics2.kind == ICSK_USER_DEFINED)
     {
         DEBUG_CODE()
         {
@@ -1720,12 +2323,55 @@ static char better_ics(implicit_conversion_sequence_t ics1,
         // initialize the same class in an aggregate initialization and in
         // either case the second standard conversion sequence of U1 is better
         // than the second standard conversion sequence of U2
-        if (((ics1.conversor == ics2.conversor)
+        if ((((ics1.conversor == ics2.conversor) && ics1.conversor != NULL)
                     || (ics1.is_aggregate_ics
                         && ics2.is_aggregate_ics
                         && equivalent_types(ics1.first_sc.dest, ics2.first_sc.dest)))
                 && standard_conversion_is_better(ics1.second_sc, ics2.second_sc))
             return 1;
+
+        if (ics1.is_list_ics
+                && ics2.is_list_ics)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: ICS1 and ICS2 are both (user-defined) list-conversion sequences\n");
+            }
+            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
+                    CURRENT_COMPILED_FILE->global_decl_context,
+                    make_locus("", 0, 0), /* mandatory */ 0);
+
+            type_t* std_initializer_list_template_type = NULL;
+            if (std_initializer_list_template != NULL)
+                std_initializer_list_template_type = std_initializer_list_template->type_information;
+
+            // ics1 converts to std::initializer_list<X> for some X and ics2 does not
+            if (std_initializer_list_template_type != NULL
+                    && is_template_specialized_type(ics1.first_sc.dest)
+                    && equivalent_types(
+                        template_specialized_type_get_related_template_type(ics1.first_sc.dest),
+                        std_initializer_list_template_type)
+                    && !(is_template_specialized_type(ics2.first_sc.dest)
+                        || !equivalent_types(
+                            template_specialized_type_get_related_template_type(ics2.first_sc.dest),
+                            std_initializer_list_template_type)))
+            {
+                return 1;
+            }
+            // or if not that ics1 converts to type "array of N1 T", ics2 converts to type "array of N2 T", and N1 is smaller than N2
+            else if (is_array_type(ics1.first_sc.dest)
+                    && is_array_type(ics2.first_sc.dest)
+                    && nodecl_is_constant(array_type_get_array_size_expr(ics1.first_sc.dest))
+                    && nodecl_is_constant(array_type_get_array_size_expr(ics2.first_sc.dest))
+                    && (const_value_cast_to_signed_int(
+                            nodecl_get_constant(array_type_get_array_size_expr(ics1.first_sc.dest)))
+                        <
+                        const_value_cast_to_signed_int(
+                            nodecl_get_constant(array_type_get_array_size_expr(ics2.first_sc.dest)))))
+            {
+                return 1;
+            }
+        }
     }
     else if (ics1.kind == ICSK_USER_DEFINED
             && ics2.kind == ICSK_USER_DEFINED
@@ -1733,42 +2379,6 @@ static char better_ics(implicit_conversion_sequence_t ics1,
             && ics1.is_list_ics
             && ics2.is_list_ics)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "ICS: ICS1 and ICS2 are both (user-defined) list-conversion sequences\n");
-        }
-        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
-                CURRENT_COMPILED_FILE->global_decl_context,
-                make_locus("", 0, 0), /* mandatory */ 0);
-
-        type_t* std_initializer_list_template_type = std_initializer_list_template->type_information;
-
-        // ics1 converts to std::initializer_list<X> for some X and ics2 does not
-        if (std_initializer_list_template_type != NULL
-                && is_template_specialized_type(ics1.first_sc.dest)
-                && equivalent_types(
-                    template_specialized_type_get_related_template_type(ics1.first_sc.dest),
-                    std_initializer_list_template_type)
-                && !(is_template_specialized_type(ics2.first_sc.dest)
-                    || !equivalent_types(
-                        template_specialized_type_get_related_template_type(ics2.first_sc.dest),
-                        std_initializer_list_template_type)))
-        {
-            return 1;
-        }
-        // or if not that ics1 converts to type "array of N1 T", ics2 converts to type "array of N2 T", and N1 is smaller than N2
-        else if (is_array_type(ics1.first_sc.dest)
-                && is_array_type(ics2.first_sc.dest)
-                && nodecl_is_constant(array_type_get_array_size_expr(ics1.first_sc.dest))
-                && nodecl_is_constant(array_type_get_array_size_expr(ics2.first_sc.dest))
-                && (const_value_cast_to_signed_int(
-                        nodecl_get_constant(array_type_get_array_size_expr(ics1.first_sc.dest)))
-                    <
-                    const_value_cast_to_signed_int(
-                        nodecl_get_constant(array_type_get_array_size_expr(ics2.first_sc.dest)))))
-        {
-            return 1;
-        }
     }
 
     return 0;
@@ -1782,8 +2392,10 @@ static char can_be_called_with_number_of_arguments_ovl(scope_entry_t* entry, int
     return can_be_called_with_number_of_arguments(entry, num_arguments);
 }
 
-static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_functions,
+static overload_entry_list_t* compute_viable_functions(
+        candidate_t* candidate_functions,
         decl_context_t decl_context,
+        char no_user_defined_conversions,
         const locus_t* locus)
 {
     overload_entry_list_t *result = NULL;
@@ -1871,8 +2483,9 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                                 member_object_type,
                                 decl_context,
                                 &ics_to_candidate,
-                                /* no_user_defined_conversions */ 1,
+                                no_user_defined_conversions,
                                 /* is_implicit_argument */ 1,
+                                /* needs_contextual_conversion */ 0,
                                 ref_qualifier,
                                 locus);
                     }
@@ -1902,10 +2515,20 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                                 argument_number);
                     }
 
-                    compute_ics(argument_types[i],
+                    char needs_contextual_conversion =
+                        builtin_needs_contextual_conversion(candidate,
+                                argument_number,
+                                parameter_type);
+
+                    compute_ics_flags(argument_types[i],
                             parameter_type,
                             decl_context,
-                            &ics_to_candidate, locus);
+                            &ics_to_candidate,
+                            no_user_defined_conversions,
+                            /* is_implicit_argument */ 0,
+                            needs_contextual_conversion,
+                            REF_QUALIFIER_NONE,
+                            locus);
                 }
 
                 if (ics_to_candidate.kind == ICSK_INVALID)
@@ -1914,11 +2537,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                 }
                 else
                 {
-                    if (ics_to_candidate.kind == ICSK_USER_DEFINED)
-                    {
-                        requires_ambiguous_conversion |= ics_to_candidate.is_ambiguous_ics;
-                    }
-
+                    requires_ambiguous_conversion |= ics_is_ambiguous(ics_to_candidate);
                     P_LIST_ADD(ics_arguments, num_ics_arguments, ics_to_candidate);
                 }
             }
@@ -1950,11 +2569,11 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
         decl_context_t decl_context,
         const locus_t* locus)
 {
-    // f not that, non-template functions are preferred over template
-    // functions
     if (!is_template_specialized_type(f->type_information)
             && is_template_specialized_type(g->type_information))
     {
+        // 13.3.3 [over.match.best]
+        // F1 is not a function template specialization and F2 is a function template specialization, 
         DEBUG_CODE()
         {
             fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better than [%s, %s] because "
@@ -1970,6 +2589,10 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
     if (is_template_specialized_type(f->type_information)
             && is_template_specialized_type(g->type_information))
     {
+        // 13.3.3 [over.match.best]
+        // or, if not that,
+        // F1 and F2 are function template specializations, and the function template for F1 is more specialized
+        //     than the template for F2 according to the partial ordering rules described in 14.5.6.2.
         DEBUG_CODE()
         {
             fprintf(stderr, "OVERLOAD: Found that [%s, %s] and [%s, %s] are template functions "
@@ -1979,7 +2602,7 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
                     print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                     locus_to_str(g->locus));
         }
-        // if �(f <= g) then f > g
+        // if ¬(f <= g) then f > g
         template_parameter_list_t* deduced_template_arguments = NULL;
         if (!is_less_or_equal_specialized_template_function(
                     // Why is it so convoluted to get the type of the primary specialization ?
@@ -2007,11 +2630,22 @@ static char is_better_function_despite_equal_ics(scope_entry_t* f,
     return 0;
 }
 
+static char is_same_kind_of_reference(type_t* t1, type_t* t2)
+{
+    return (is_lvalue_reference_type(t1)
+            && is_lvalue_reference_type(t2))
+        || (is_rvalue_reference_type(t1)
+                && is_rvalue_reference_type(t2));
+}
+
 // States whether f is better than g
 static
-char is_better_function_flags(overload_entry_list_t* ovl_f,
+char is_better_function(
+        overload_entry_list_t* ovl_f,
         overload_entry_list_t* ovl_g,
         decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        type_t* dest,
         const locus_t* locus)
 {
     scope_entry_t* f = ovl_f->candidate->entry;
@@ -2075,10 +2709,13 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
 
     if (!some_is_worse)
     {
-        // If we saw that some argument ICS was really better and none was worse,
-        // then it is better
+        // 13.3.3 [over.match.best]
+        // A viable function F1 is defined to be a better function than another viable function
+        // F2 if for all arguments i, ICSi(F1) is not a worse conversion sequence than ICSi(F2), and then
         if (some_is_better)
         {
+            // 13.3.3 [over.match.best]
+            // for some argument j, ICSj(F1) is a better conversion sequence than ICSj(F2), or, if not that,
             DEBUG_CODE()
             {
                 fprintf(stderr, "OVERLOAD: Found that [%s, %s] IS better"
@@ -2090,6 +2727,79 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
                         locus_to_str(g->locus));
             }
             return 1;
+        }
+
+        if ((initialization_kind & IK_BY_USER_DEFINED_CONVERSION)
+                && function_type_get_return_type(f->type_information) != NULL
+                && function_type_get_return_type(g->type_information) != NULL)
+        {
+            ERROR_CONDITION(dest == NULL, "No destination type", 0);
+            standard_conversion_t scs1;
+            standard_conversion_between_types_for_overload(
+                    &scs1,
+                    function_type_get_return_type(f->type_information),
+                    dest,
+                    locus);
+            standard_conversion_t scs2;
+            standard_conversion_between_types_for_overload(
+                    &scs2,
+                    function_type_get_return_type(g->type_information),
+                    dest,
+                    locus);
+
+            if (!standard_conversion_is_invalid(scs1)
+                    && !standard_conversion_is_invalid(scs2)
+                    && standard_conversion_is_better(scs1, scs2))
+            {
+                // 13.3.3 [over.match.best]
+                // the context is an initialization by user-defined conversion (see 8.5, 13.3.1.5, and 13.3.1.6) and the
+                // standard conversion sequence from the return type of F1 to the destination type (i.e., the type of the
+                // entity being initialized) is a better conversion sequence than the standard conversion sequence from
+                // the return type of F2 to the destination type
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: In the context of a user directed conversion, "
+                            "the target of the standard conversion of ICS1 is better than ICS2, "
+                            " so [%s, %s] is better than [%s, %s]\n",
+                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                            locus_to_str(f->locus),
+                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                            locus_to_str(g->locus));
+                }
+                return 1;
+            }
+        }
+
+        if ((initialization_kind & IK_BY_DIRECT_REFERENCE_BINDING)
+                && function_type_get_return_type(f->type_information) != NULL
+                && function_type_get_return_type(g->type_information) != NULL
+                && is_any_reference_type(dest)
+                && is_function_type(no_ref(dest)))
+        {
+            type_t* return_f = function_type_get_return_type(f->type_information);
+            type_t* return_g = function_type_get_return_type(g->type_information);
+
+            if (is_same_kind_of_reference(dest, return_f)
+                    && !is_same_kind_of_reference(dest, return_g))
+            {
+                // 13.3.3 [over.match.best]
+                // the context is an initialization by conversion function for
+                // direct reference binding (13.3.1.6) of a reference to
+                // function type, the return type of F1 is the same kind of
+                // reference (i.e. lvalue or rvalue) as the reference being
+                // initialized, and the return type of F2 is not
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: In the context of a direct reference binding to a "
+                            "function reference, the target of the standard conversion of ICS1 is better than ICS2, "
+                            " so [%s, %s] is better than [%s, %s]\n",
+                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                            locus_to_str(f->locus),
+                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                            locus_to_str(g->locus));
+                }
+                return 1;
+            }
         }
 
         if (is_better_function_despite_equal_ics(f, g, decl_context, locus))
@@ -2108,23 +2818,16 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     return 0;
 }
 
-static
-char is_better_function(overload_entry_list_t* f,
-        overload_entry_list_t* g,
-        decl_context_t decl_context,
-        const locus_t* locus)
-{
-    return is_better_function_flags(f, g, decl_context, locus);
-}
-
-
 /*
  * num_arguments includes the implicit argument so it should never be zero, at least 1
  */
-scope_entry_t* solve_overload(candidate_t* candidate_set,
+static scope_entry_t* solve_overload_(candidate_t* candidate_set,
         decl_context_t decl_context,
+        enum initialization_kind initialization_kind,
+        type_t* dest,
         const locus_t* locus,
-        scope_entry_t** conversors)
+        // Out
+        char *is_ambiguous)
 {
     DEBUG_CODE()
     {
@@ -2236,7 +2939,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
 
     // First get the viable functions
     overload_entry_list_t *viable_functions = compute_viable_functions(candidate_set, 
-            decl_context, locus);
+            decl_context, !!(initialization_kind & IK_NO_MORE_USER_DEFINED_CONVERSIONS), locus);
 
     if (viable_functions == NULL)
     {
@@ -2275,7 +2978,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     while (it != NULL)
     {
         if (is_better_function(it, best_viable,
-                    decl_context, locus))
+                    decl_context,
+                    initialization_kind,
+                    dest,
+                    locus))
         {
             best_viable = it;
         }
@@ -2304,7 +3010,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         if (sym_best_viable != sym_current)
         {
             if (!is_better_function(best_viable, current, 
-                        decl_context, locus))
+                        decl_context,
+                        initialization_kind,
+                        dest,
+                        locus))
             {
                 DEBUG_CODE()
                 {
@@ -2335,6 +3044,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                        ));
             fprintf(stderr, "OVERLOAD: There is no best function\n");
         }
+        *is_ambiguous = 1;
         return NULL;
     }
     else
@@ -2344,7 +3054,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             DEBUG_CODE()
             {
                 scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
-                fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
+                fprintf(stderr, "OVERLOAD: Call to '%s' requires ambiguous conversion\n",
                         print_decl_type_str(
                             entry->type_information,
                             entry->decl_context,
@@ -2361,47 +3071,6 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
                 entry->symbol_name,
                 print_declarator(entry->type_information));
-    }
-
-    if (conversors != NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: List of called conversors\n");
-        }
-        int i;
-        for (i = 0; i < best_viable->num_ics_arguments; i++)
-        {
-            if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
-            {
-                conversors[i] = best_viable->ics_arguments[i].conversor;
-            }
-            else
-            {
-                conversors[i] = NULL;
-            }
-
-            DEBUG_CODE()
-            {
-                if (conversors[i] == NULL)
-                {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
-                            i);
-                }
-                else
-                {
-                    fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s\n",
-                            i,
-                            conversors[i]->symbol_name,
-                            locus_to_str(conversors[i]->locus));
-                }
-            }
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: End of list of called conversors\n");
-        }
     }
 
     // Note that this function effectively returns SK_FUNCTION or SK_USING.
@@ -2424,6 +3093,20 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     return best_viable_function;
 }
 
+scope_entry_t* solve_overload(candidate_t* candidate_set,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    char is_ambiguous = 0; // Unused
+    return solve_overload_(candidate_set,
+            decl_context,
+            /* initialization_kind */ IK_INVALID,
+            /* dest */ NULL,
+            locus,
+            // Out
+            &is_ambiguous);
+}
+
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
         template_parameter_list_t* explicit_template_parameters,
         type_t* target_type,
@@ -2442,8 +3125,22 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     if (entry_list_size(overload_set) == 1)
     {
         scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
+
+        type_t* source_type = NULL;
+        if (!item->entity_specs.is_member
+                || item->entity_specs.is_static)
+        {
+            source_type = lvalue_ref(item->type_information);
+        }
+        else
+        {
+            source_type = get_pointer_to_member_type(
+                    item->type_information,
+                    item->entity_specs.class_type);
+        }
+
         standard_conversion_t sc;
-        if (standard_conversion_between_types_for_overload(&sc, item->type_information, target_type, locus))
+        if (standard_conversion_between_types_for_overload(&sc, source_type, target_type, locus))
         {
             return item;
         }
@@ -2613,6 +3310,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
                 type_t* primary_type = primary_symbol->type_information;
                 type_t* parameter_types[1] = { primary_type };
+                type_t* original_parameter_types[1] = { primary_type };
                 int num_parameter_types = 1;
 
                 template_parameter_list_t* template_parameters 
@@ -2623,10 +3321,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters, type_template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, num_parameter_types,
+                            original_parameter_types,
                             primary_symbol->decl_context,
                             &deduced_template_arguments, locus,
                             explicit_template_parameters,
-                            deduction_flags_empty()))
+                            /* is_function_call */ 0))
                 {
                     DEBUG_CODE()
                     {
@@ -2839,39 +3538,54 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     return NULL;
 }
 
-
-static scope_entry_t* solve_constructor_(type_t* class_type, 
-        type_t** argument_types, 
-        int num_arguments,
-        char is_explicit, 
+static scope_entry_list_t* constructor_candidates_initialization_of_class_type(
+        type_t* dest,
         decl_context_t decl_context,
-        const locus_t* locus,
-        scope_entry_t** conversors,
-        // Output arguments
-        scope_entry_list_t** candidates,
-        char init_constructors_only)
+        enum initialization_kind initialization_kind,
+        char init_constructors_only,
+        const locus_t* locus)
 {
-    ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
+    // 13.3.1.3 [over.match.ctor]
+    // When objects of class type are direct-initialized (8.5), or copy-initialized from an expression of the same or
+    // a derived class type (8.5), overload resolution selects the constructor.
 
-    instantiate_template_class_if_needed(named_type_get_symbol(class_type), decl_context, locus);
+    // 13.3.1.4 [over.match.copy]
+    // Under the conditions specified in 8.5, as part of a copy-initialization of an object of class type, a user-defined
+    // conversion can be invoked to convert an initializer expression to the type of the object being initialized.
+    // Overload resolution is used to select the user-defined conversion to be invoked.
+    scope_entry_list_t* candidate_list = NULL;
 
-    scope_entry_list_t* constructor_list = NULL;
-
-    scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
+    scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(dest));
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(constructors);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
     {
-        scope_entry_t* constructor 
+        scope_entry_t* constructor
             = entry_list_iterator_current(it);
 
-        // If the context is not explicit ignore all constructors defined as explicit
-        if (!is_explicit
+        // 13.3.1.3 [over.match.ctor]
+        // For direct-initialization, the candidate functions are all the
+        // constructors of the class of the object being initialized.
+        if ((initialization_kind & IK_COPY_INITIALIZATION)
                 && constructor->entity_specs.is_explicit)
-        {
             continue;
-        }
+
+        // 13.3.1.3 [over.match.ctor]
+        // For copy-initialization, the candidate functions are all the converting
+        // constructors (12.3.1) of that class.  The argument list is the
+        // expression-list or assignment-expression of the initializer.
+        if ((initialization_kind & IK_COPY_INITIALIZATION)
+                && (initialization_kind & IK_BY_CONSTRUCTOR)
+                && !constructor->entity_specs.is_conversor_constructor)
+            continue;
+
+        // 13.3.1.4 [over.match.copy]
+        // - The converting constructors (12.3.1) of T are candidate functions.
+        if ((initialization_kind & IK_COPY_INITIALIZATION)
+                && (initialization_kind & IK_BY_USER_DEFINED_CONVERSION)
+                && !constructor->entity_specs.is_conversor_constructor)
+            continue;
 
         // Filter init constructors only
         if (init_constructors_only)
@@ -2912,20 +3626,72 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             constructor = template_type_get_related_symbol(template_type);
         }
 
-        constructor_list = entry_list_add(constructor_list, constructor);
+        candidate_list = entry_list_add(candidate_list, constructor);
     }
     entry_list_iterator_free(it);
     entry_list_free(constructors);
 
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
+    return candidate_list;
+}
+
+static scope_entry_t* solve_constructor_(type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        char init_constructors_only,
+        const locus_t* locus,
+        // Output arguments
+        scope_entry_list_t** candidates,
+        char *is_ambiguous)
+{
+    // 13.3.1.3 [over.match.ctor]
+    // 13.3.1.4 [over.match.copy]
+    ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
+
+    instantiate_template_class_if_possible(named_type_get_symbol(class_type), decl_context, locus);
+
+    // 13.3.1.3 [over.match.ctor]
+    // 13.3.1.4 [over.match.copy]
+    scope_entry_list_t* candidate_list =
+        constructor_candidates_initialization_of_class_type(
+                class_type,
+                decl_context,
+                initialization_kind,
+                init_constructors_only,
+                locus);
+
+    if (((initialization_kind & IK_COPY_INITIALIZATION)
+                || (initialization_kind & IK_DIRECT_INITIALIZATION))
+            && (initialization_kind & IK_BY_USER_DEFINED_CONVERSION)
+            && !init_constructors_only)
+    {
+        // 13.3.1.4 [over.match.copy]
+        if (num_arguments == 1
+                && is_class_type(no_ref(argument_types[0])))
+        {
+            candidate_list = entry_list_concat(candidate_list,
+                    conversion_function_candidates_initialization_of_class_type(
+                        no_ref(argument_types[0]),
+                        class_type,
+                        decl_context,
+                        initialization_kind,
+                        locus));
+        }
+
+    }
+
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(candidate_list,
             NULL, argument_types, num_arguments,
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
+    entry_list_free(candidate_list);
 
     scope_entry_t* augmented_conversors[num_arguments + 1];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;
+    scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
@@ -2941,63 +3707,153 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     *candidates = overload_set;
 
     // Now we have all the constructors, perform an overload resolution on them
-    scope_entry_t* overload_resolution = solve_overload(candidate_set, 
-            decl_context, 
-            locus, 
-            augmented_conversors);
-
-    int i;
-    for (i = 0; i < num_arguments; i++)
-    {
-        conversors[i] = augmented_conversors[i];
-    }
+    scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+            decl_context,
+            initialization_kind,
+            class_type,
+            locus,
+            // Out
+            is_ambiguous);
+    candidate_set_free(&candidate_set);
 
     return overload_resolution;
 }
 
-scope_entry_t* solve_constructor(
-        type_t* class_type, 
-        type_t** argument_types, 
+static char solve_initialization_of_class_type_(
+        type_t* class_type,
+        type_t** argument_types,
         int num_arguments,
-        char is_explicit, 
+        enum initialization_kind initialization_kind,
         decl_context_t decl_context,
         const locus_t* locus,
-        scope_entry_t** conversors,
-        scope_entry_list_t** candidates)
+        // Out
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates,
+        char *is_ambiguous)
 {
-    return solve_constructor_(class_type,
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "OVERLOAD: Solving initialization of class type '%s' ",
+                print_declarator(class_type));
+        if (num_arguments > 0)
+        {
+            fprintf(stderr, "using %d types with argument types:\n",
+                    num_arguments);
+            int i;
+            for (i = 0; i < num_arguments; i++)
+            {
+                fprintf(stderr, "OVERLOAD:    Argument %d: %s\n", i, print_declarator(argument_types[i]));
+            }
+            fprintf(stderr, "OVERLOAD: No more argument types\n");
+        }
+        else
+        {
+            fprintf(stderr, "using 0 types as arguments\n");
+        }
+    }
+    *constructor = solve_constructor_(class_type,
             argument_types,
             num_arguments,
-            is_explicit,
+            initialization_kind,
             decl_context,
+            /* init_constructors_only */ 0,
             locus,
-            conversors,
+            // Out
             candidates,
-            /* init_constructors_only */ 0);
+            is_ambiguous);
+
+    DEBUG_CODE()
+    {
+        if (*constructor != NULL)
+        {
+            fprintf(stderr, "OVERLOAD: Solving initialization of class type '%s' succeeded using constructor '%s' at '%s'\n",
+                    print_declarator(class_type),
+                    get_qualified_symbol_name(*constructor, (*constructor)->decl_context),
+                    locus_to_str((*constructor)->locus));
+        }
+        else
+        {
+            fprintf(stderr, "OVERLOAD: Solving initialization of class type '%s' failed\n",
+                    print_declarator(class_type));
+        }
+    }
+
+    return (*constructor != NULL);
 }
 
-scope_entry_t* solve_init_list_constructor(
+char solve_initialization_of_class_type(
+        type_t* class_type,
+        type_t** argument_types,
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates)
+{
+    char is_ambiguous = 0;
+    return solve_initialization_of_class_type_(
+            class_type,
+            argument_types,
+            num_arguments,
+            initialization_kind,
+            decl_context,
+            locus,
+            // Out
+            constructor,
+            candidates,
+            &is_ambiguous);
+}
+
+static char solve_list_initialization_of_class_type_(
         type_t* class_type, 
         type_t** argument_types, 
         int num_arguments,
-        char is_explicit, 
+        enum initialization_kind initialization_kind,
         decl_context_t decl_context,
         const locus_t* locus,
-        scope_entry_t** conversors,
-        scope_entry_list_t** candidates)
+        // Out
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates,
+        char *is_ambiguous)
 {
-    ERROR_CONDITION(num_arguments != 1, "This function expects a single argument type", 0);
-    ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
-            "This function expects a single argument of type braced initializer list", 0);
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(
+            decl_context, 
+            locus,
+            /* mandatory */ 0);
 
-    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, locus, /* mandatory */ 0);
+    // 13.3.1.7 [over.match.list]
+    //
+    // When objects of non-aggregate class type T are list-initialized (8.5.4), overload resolution selects the con-
+    // structor in two phases:
+    // — Initially, the candidate functions are the initializer-list constructors (8.5.4) of the class T and the
+    // argument list consists of the initializer list as a single argument.
+    // — If no viable initializer-list constructor is found, overload resolution is performed again, where the
+    // candidate functions are all the constructors of the class T and the argument list consists of the elements
+    // of the initializer list.
 
-    char has_initializer_list_ctor = 0;
-    if (std_initializer_list_template != NULL)
+    // If the initializer list has no elements and T has a default constructor, the first phase is omitted.
+    char omit_first_phase = 0;
+    if (num_arguments == 0
+            && class_type_get_default_constructor(class_type) != NULL)
     {
-        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
-        scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(constructors);
+        omit_first_phase = 1;
+    }
+
+    scope_entry_list_t* candidate_list = NULL;
+    scope_entry_list_t* all_constructors = class_type_get_constructors(get_actual_class_type(class_type));
+
+    scope_entry_list_iterator_t* it = NULL;
+    scope_entry_list_t* list_initializer_constructors = NULL;
+
+    *candidates = NULL;
+
+    if (!omit_first_phase
+            // If std::initializer_list is not available there should not be
+            // any initializer-list-constructor
+            && std_initializer_list_template != NULL)
+    {
+        for (it = entry_list_iterator_begin(all_constructors);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
@@ -3021,40 +3877,168 @@ scope_entry_t* solve_init_list_constructor(
                         && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
                             std_initializer_list_template->type_information))
                 {
-                    has_initializer_list_ctor = 1;
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        type_t* template_type =
+                            template_specialized_type_get_related_template_type(
+                                    entry->type_information);
+                        entry = template_type_get_related_symbol(template_type);
+                    }
+                    list_initializer_constructors = entry_list_add(list_initializer_constructors,
+                            entry);
                 }
             }
         }
-
         entry_list_iterator_free(it);
-        entry_list_free(constructors);
+
+
+        type_t* braced_list_type = get_braced_list_type(num_arguments, argument_types);
+
+        scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(list_initializer_constructors,
+                NULL, &braced_list_type, 1,
+                decl_context,
+                locus, /* explicit_template_parameters */ NULL);
+        entry_list_free(list_initializer_constructors);
+
+        scope_entry_t* augmented_conversors[num_arguments + 1];
+        memset(augmented_conversors, 0, sizeof(augmented_conversors));
+
+        candidate_t* candidate_set = NULL;
+        for (it = entry_list_iterator_begin(overload_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            candidate_set = candidate_set_add(candidate_set,
+                    entry_list_iterator_current(it),
+                    1,
+                    &braced_list_type);
+        }
+        entry_list_iterator_free(it);
+
+        *candidates = entry_list_concat(*candidates, overload_set);
+
+        // Now we have all the constructors, perform an overload resolution on them
+        scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+                decl_context,
+                initialization_kind,
+                class_type,
+                locus,
+                // Out
+                is_ambiguous);
+        candidate_set_free(&candidate_set);
+
+        *constructor = overload_resolution;
+
+        if (overload_resolution != NULL)
+        {
+            // In copy-list-initialization, if an explicit constructor is
+            // chosen, the initialization is ill-formed.
+            if ((initialization_kind & IK_COPY_INITIALIZATION)
+                    && overload_resolution->entity_specs.is_explicit)
+            {
+                *constructor = 0;
+                return 0;
+            }
+
+            // We are done
+            return 1;
+        }
     }
 
-    if (has_initializer_list_ctor)
+    for (it = entry_list_iterator_begin(all_constructors);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        return solve_constructor_(class_type,
-                argument_types,
+        scope_entry_t* current_constructor
+            = entry_list_iterator_current(it);
+
+        // For template specialized types, use the template symbol
+        if (is_template_specialized_type(current_constructor->type_information))
+        {
+            type_t* template_type =
+                template_specialized_type_get_related_template_type(
+                        current_constructor->type_information);
+            current_constructor = template_type_get_related_symbol(template_type);
+        }
+
+        candidate_list = entry_list_add(candidate_list, current_constructor);
+    }
+    entry_list_iterator_free(it);
+
+    // Second phase (only if the first was not done or failed)
+
+    // Now use this candidate_list
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(candidate_list,
+            NULL, argument_types, num_arguments,
+            decl_context,
+            locus, /* explicit_template_parameters */ NULL);
+
+    scope_entry_t* augmented_conversors[num_arguments + 1];
+    memset(augmented_conversors, 0, sizeof(augmented_conversors));
+
+    candidate_t* candidate_set = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        candidate_set = candidate_set_add(candidate_set,
+                entry_list_iterator_current(it),
                 num_arguments,
-                is_explicit,
-                decl_context,
-                locus,
-                conversors,
-                candidates,
-                /* init_constructors_only */ 1);
+                argument_types);
     }
-    else
+    entry_list_iterator_free(it);
+
+    *candidates = entry_list_concat(*candidates, overload_set);
+
+    // Now we have all the constructors, perform an overload resolution on them
+    scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+            decl_context,
+            initialization_kind,
+            class_type,
+            locus,
+            // Out
+            is_ambiguous);
+    candidate_set_free(&candidate_set);
+
+    *constructor = overload_resolution;
+    
+    // In copy-list-initialization, if an explicit constructor is
+    // chosen, the initialization is ill-formed.
+    if (overload_resolution != NULL
+            && (initialization_kind & IK_COPY_INITIALIZATION)
+            && overload_resolution->entity_specs.is_explicit)
     {
-        return solve_constructor_(class_type,
-                braced_list_type_get_types(argument_types[0]),
-                braced_list_type_get_num_types(argument_types[0]),
-                is_explicit,
-                decl_context,
-                locus,
-                conversors,
-                candidates,
-                /* init_constructors_only */ 0);
+        *constructor = 0;
+        return 0;
     }
+
+    return (overload_resolution != NULL);
 }
+
+char solve_list_initialization_of_class_type(
+        type_t* class_type,
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        scope_entry_t** constructor,
+        scope_entry_list_t** candidates)
+{
+    char is_ambiguous = 0;
+    return solve_list_initialization_of_class_type_(
+            class_type,
+            argument_types,
+            num_arguments,
+            initialization_kind,
+            decl_context,
+            locus,
+            // Out
+            constructor,
+            candidates,
+            &is_ambiguous);
+}
+
 
 candidate_t* candidate_set_add(candidate_t* candidate_set,
         scope_entry_t* entry,

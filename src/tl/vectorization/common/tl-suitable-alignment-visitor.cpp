@@ -38,10 +38,11 @@ namespace TL
 namespace Vectorization
 {
     SuitableAlignmentVisitor::SuitableAlignmentVisitor(const Nodecl::NodeclBase& scope,
-            const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor,
-            int type_size, int alignment )
-        : _scope( scope ), _suitable_expressions( suitable_expressions ),
-        _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
+            const objlist_nodecl_t& suitable_expressions,
+            int unroll_factor, int type_size, int alignment )
+        : _scope( scope ), _suitable_expressions(suitable_expressions),
+        _unroll_factor( unroll_factor ),
+        _type_size( type_size ), _alignment( alignment )
     {
     }
 
@@ -207,7 +208,8 @@ namespace Vectorization
         return false;
     }
 
-    bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
+    bool SuitableAlignmentVisitor::is_suitable_expression(
+            Nodecl::NodeclBase n)
     {
         bool result = false;
         if( Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
@@ -402,12 +404,12 @@ namespace Vectorization
             return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         else if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_non_reduction_basic_induction_variable(_scope, n))
+                is_linear(_scope, n))
         {
             Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
                 get_induction_variable_lower_bound(_scope, n);
             Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_induction_variable_increment(_scope, n);
+                get_linear_step(_scope, n);
 
             int lb_mod = walk(lb);
             int incr_mod = walk(incr);

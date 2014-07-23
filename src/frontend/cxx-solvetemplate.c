@@ -132,7 +132,7 @@ type_t* solve_class_template(type_t* template_type,
 
     if (num_matching_set >= 1)
     {
-        type_t* more_specialized = 
+        type_t* more_specialized =
             determine_most_specialized_template_class(template_type, matching_set, 
                 num_matching_set, named_type_get_symbol(specialized_type)->decl_context, 
                 locus);

@@ -215,6 +215,7 @@ namespace Codegen
             Ret visit(const Nodecl::VectorArithmeticShr &);
             Ret visit(const Nodecl::VectorArithmeticShrI &);
             Ret visit(const Nodecl::VectorAssignment &);
+            Ret visit(const Nodecl::VectorMaskAssignment &);
             Ret visit(const Nodecl::VectorLaneId &);
             Ret visit(const Nodecl::VectorLiteral &);
             Ret visit(const Nodecl::VectorPromotion &);
@@ -232,6 +233,7 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxValuePack &);
 
+            Ret visit(const Nodecl::ValueInitialization &);
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 
@@ -367,6 +369,14 @@ namespace Codegen
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
                     TL::Scope* scope = NULL);
 
+            void declare_nondependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+            void declare_dependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+
+            void declare_nondependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
+            void declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
+
             void declare_friend_symbol(TL::Symbol friend_symbol,
                     TL::Symbol class_symbol);
 
@@ -470,9 +480,6 @@ namespace Codegen
 
             template <typename Node>
                 static bool is_implicit_function_call(const Node& node);
-
-            template <typename Node>
-                static bool is_implicit_braced_function_call(const Node& node);
 
             static Nodecl::NodeclBase advance_implicit_function_calls(Nodecl::NodeclBase node);
 
@@ -584,11 +591,14 @@ namespace Codegen
 
             void emit_line_marker(Nodecl::NodeclBase n);
             void emit_line_marker(const locus_t* locus);
+
+            bool looks_like_braced_list(Nodecl::NodeclBase n);
         protected:
 
             void walk_list(const Nodecl::List&,
-                    const std::string& separator,
-                    bool parenthesize_elements = false);
+                    const std::string& separator);
+            void walk_initializer_list(const Nodecl::List&,
+                    const std::string& separator);
 
             virtual void do_define_symbol(TL::Symbol symbol,
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),

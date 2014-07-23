@@ -75,8 +75,7 @@ namespace Vectorization
             ivs_values_uniform = VectorizationAnalysisInterface::
                 _vectorizer_analysis->is_uniform(
                         _environment._analysis_simd_scope,
-                        statements,
-                        *it);
+                        statements, *it);
         }
 
         return ivs_values_uniform;
@@ -96,7 +95,6 @@ namespace Vectorization
 
     int VectorizerLoopInfo::get_epilog_info(bool& only_epilog)
     {
-
         int remain_its = -1;
         only_epilog = false;
 
@@ -151,8 +149,8 @@ namespace Vectorization
                     // Suitable LB
                     lb_is_suitable = VectorizationAnalysisInterface::
                         _vectorizer_analysis->is_suitable_expression(
-                                _loop, lb, _environment._suitable_expr_list,
-                                _environment._unroll_factor,
+                                _loop, lb, _environment._suitable_exprs_list,
+                                _environment._vectorization_factor,
                                 _environment._vector_length, lb_vector_size_module);
 
                     _environment._analysis_scopes.pop_back();
@@ -194,8 +192,9 @@ namespace Vectorization
                     // ub is normalized to <= so +1 is needed
                     ub_is_suitable = VectorizationAnalysisInterface::
                         _vectorizer_analysis->is_suitable_expression(
-                                _loop, ub, _environment._suitable_expr_list,
-                                _environment._unroll_factor, _environment._vector_length,
+                                _loop, ub, _environment._suitable_exprs_list,
+                                _environment._vectorization_factor, 
+                                _environment._vector_length,
                                 ub_vector_size_module);
 
                     _environment._analysis_scopes.pop_back();
@@ -204,14 +203,14 @@ namespace Vectorization
                     if (ub_is_suitable)
                     {
                         //                    printf("SUITABLE EPILOG\n");
-                        const_ub = _environment._unroll_factor;
+                        const_ub = _environment._vectorization_factor;
                     }
                     else if (ub_vector_size_module != -1) // Is not suitable but is constant in some way
                     {
                         const_ub = ub_vector_size_module;
 
                         if (const_lb > const_ub)
-                            const_ub += _environment._unroll_factor;
+                            const_ub += _environment._vectorization_factor;
 
                         //                    printf("VECTOR MODULE EPILOG %lld\n", const_ub);
                     }
@@ -236,7 +235,7 @@ namespace Vectorization
                 //    << lb_vector_size_module << " " << ub_is_suitable << " "
                 //    << lb_is_suitable << std::endl;
 
-                if ((num_its < _environment._unroll_factor) &&
+                if ((num_its < _environment._vectorization_factor) &&
                         (!ub_is_suitable) && (!lb_is_suitable) &&
                         (ub_vector_size_module == -1) &&
                         (lb_vector_size_module == -1))
@@ -248,7 +247,7 @@ namespace Vectorization
                     only_epilog = true;
                 }
 
-                remain_its = num_its % _environment._unroll_factor;
+                remain_its = num_its % _environment._vectorization_factor;
 
                 VECTORIZATION_DEBUG()
                 {

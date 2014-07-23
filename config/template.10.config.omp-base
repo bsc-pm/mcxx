@@ -24,14 +24,17 @@ linker_name = @GCC@
 {ompss} preprocessor_options = -D_OMPSS=1
 {openmp} fortran_preprocessor_options = -D_OPENMP=200805
 {ompss} fortran_preprocessor_options = -D_OMPSS=1
-{simd, !mmic} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
-{simd, !mmic} compiler_options = @SIMD_FLAGS@
+{simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
+{simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {mmic} linker_options = -mmic
 {fast-math} options = --variable=fast_math_enabled:1
 {simd, mmic} options = --variable=mic_enabled:1
+{simd, avx2} options = --variable=avx2_enabled:1
+{mmic} preprocessor_options = -include immintrin.h
+{simd, avx2} preprocessor_options = -include immintrin.h
 {cluster} options = --variable=nanos_main_enabled:1
 {ompss} options = --variable=ompss_mode:1
 {!ompss} options = --variable=copy_deps_by_default:0
@@ -43,14 +46,12 @@ linker_name = @GCC@
 #simd
 {prefer-gather-scatter} options = --variable=prefer_gather_scatter:1
 {prefer-mask-gather-scatter} options = --variable=prefer_mask_gather_scatter:1
-{optimize-gather-scatter-strides} options = --variable=optimize_gather_scatter_strides:1
 
 [omp-base : omp-base-common]
 linker_options = -Xlinker --add-needed
 #nanos++
 {openmp,!mmic} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {openmp,mmic} preprocessor_options = -I@NANOX_MIC_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-{mmic} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 {openmp,!(omp-dry-run|openmp-dry-run),!debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
 {openmp,!(omp-dry-run|openmp-dry-run),debug,!(instrument|instrumentation),!mmic} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug

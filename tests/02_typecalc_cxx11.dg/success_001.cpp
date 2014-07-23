@@ -21,7 +21,12 @@ namespace N
 
 void f()
 {
-    int x;
-    x = N :: C :: E1 :: A1;
-    x = N :: C :: E2 :: A2;
+    {
+        N::C::E1 x;
+        x = N :: C :: E1 :: A1;
+    }
+    {
+        N::C::E2 x;
+        x = N :: C :: E2 :: A2;
+    }
 }

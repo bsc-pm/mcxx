@@ -39,22 +39,24 @@ namespace Vectorization
 {
     class VectorizerEnvironment
     {
-        private:
+        public:
             const std::string& _device;
             const unsigned int _vector_length;
-            const unsigned int _unroll_factor;
             const bool _support_masking;
             const unsigned int _mask_size;
             const bool _fast_math;
-            const TL::Type& _target_type;
-            const aligned_expr_map_t& _aligned_expr_map;
-            const objlist_nodecl_t& _uniform_expr_list;
-            const objlist_nodecl_t& _suitable_expr_list;
-            const nontmp_expr_map_t& _nontemporal_expr_map;
+            const tl_sym_int_map_t& _aligned_symbols_map;
+            const tl_sym_int_map_t& _linear_symbols_map;
+            const objlist_tlsymbol_t& _uniform_symbols_list;
+            const objlist_nodecl_t& _suitable_exprs_list;
+            const nontmp_expr_map_t& _nontemporal_exprs_map;
             const VectorizerCache& _vectorizer_cache;
 
             const objlist_tlsymbol_t* _reduction_list;
             std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
+
+            TL::Type _target_type;
+            unsigned int _vectorization_factor;
 
             stdlist_nodecl_t _analysis_scopes;              // Stack of useful scopes (If, FunctionCode and For) for the analysis
             Nodecl::NodeclBase _analysis_simd_scope;        // SIMD scope
@@ -65,15 +67,15 @@ namespace Vectorization
 
             TL::Symbol _function_return;                    // Return symbol when return statement are present in masked code
 
-        public:
             VectorizerEnvironment(const std::string& device,
                     const unsigned int vector_length,
                     const bool support_masking,
                     const unsigned int mask_size,
                     const bool fast_math,
                     const TL::Type& target_type,
-                    const aligned_expr_map_t& aligned_expr_map,
-                    const objlist_nodecl_t& uniform_expr_list,
+                    const tl_sym_int_map_t& aligned_symbol_map,
+                    const tl_sym_int_map_t& linear_symbol_map,
+                    const objlist_tlsymbol_t& uniform_expr_list,
                     const objlist_nodecl_t& suitable_expr_list,
                     const nontmp_expr_map_t& nontemporal_expr_map,
                     const VectorizerCache& vectorizer_cache,
@@ -82,25 +84,10 @@ namespace Vectorization
 
             ~VectorizerEnvironment();
 
+            void set_target_type(TL::Type target_type);
+
             void load_environment(const Nodecl::NodeclBase& for_statement);
             void unload_environment();
-
-            friend class Vectorizer;
-            friend class VectorizationAnalysisInterface;
-            friend class VectorizerCache;
-            friend class VectorizerLoopInfo;
-            friend class VectorizerVectorReduction;
-            friend class VectorizerVisitorLoop;
-            friend class VectorizerVisitorLoopEpilog;
-            friend class VectorizerVisitorLoopHeader;
-            friend class VectorizerVisitorLoopCond;
-            friend class VectorizerVisitorLoopNext;
-            friend class VectorizerVisitorFunction;
-            friend class VectorizerVisitorStatement;
-            friend class VectorizerVisitorLocalSymbol;
-            friend class VectorizerVisitorExpression;
-            friend class VectorizerVisitorPreprocessor;
-            friend class StrideSplitterVisitor;
     };
 }
 }

@@ -744,6 +744,9 @@ namespace Nodecl {
             {
                 nodecl_t parent = nodecl_get_parent(it._current);
 
+                nodecl_t prev = nodecl_get_child(it._current, 0);
+                bool is_first = nodecl_is_null(prev);
+
                 if (!nodecl_is_null(parent))
                 {
                     bool is_last = (it == this->last());
@@ -768,13 +771,29 @@ namespace Nodecl {
                     }
                     else
                     {
-                        // We removed the last, then we should return end
+                        // Make sure the Nodecl::List now represents the "empty" list
+                        if (is_first)
+                        {
+                            // The list became empty
+                            this->operator=(Nodecl::List());
+                        }
+                        // We removed the last, return end
                         return this->end();
                     }
                 }
                 else
                 {
-                    internal_error("Impossible to remove a list without parent", 0);
+                    if (is_first)
+                    {
+                        // The list became empty
+                        this->operator=(Nodecl::List());
+                    }
+                    else
+                    {
+                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
+                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
+                    }
+                    return this->end();
                 }
             }
 

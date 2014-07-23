@@ -31,6 +31,9 @@
 test_generator=config/mercurium-omp
 </testinfo>
 */
+
+#if !defined(__ICC) || (__ICC >= 1400)
+
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
@@ -179,3 +182,13 @@ int main(int argc, char* argv[])
     }
     return 0;
 }
+
+#else
+// ICC <14.0 miscompiles VLA address calculations
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}
+
+#endif

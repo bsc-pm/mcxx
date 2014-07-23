@@ -231,6 +231,9 @@ namespace Analysis {
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
 
+            //! Returns true when the node contains a CONDITIONAL EXPRESSION
+            bool is_conditional_expression();
+            
             //! Returns true when the node is a CONTINUE node
             bool is_continue_node( );
             
@@ -326,6 +329,9 @@ namespace Analysis {
 
             //! Returns true when the node is any kind of OpenMP SIMD node
             bool is_omp_simd_node( );
+            
+            //! Returns true when the node is a SIMD FUNCTION CODE node
+            bool is_omp_simd_function_node();
             
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
@@ -829,7 +835,11 @@ namespace Analysis {
             // ****************************************************************************** //
             // **************** Getters and setters for vectorization analysis ************** //
             
-            ObjectList<Symbol> get_reductions( );
+            ObjectList<Symbol> get_reductions();
+            
+            ObjectList<Utils::LinearVars> get_linear_symbols();
+            
+            ObjectList<Symbol> get_uniform_symbols();
             
             // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //

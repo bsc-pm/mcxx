@@ -20,13 +20,14 @@ linker_options = -Xlinker --add-needed
 {simd, !mmic, !avx2} preprocessor_options = @SIMD_INCLUDES@ @SIMD_FLAGS@
 {simd, !mmic, !avx2} compiler_options = @SIMD_FLAGS@
 {simd} options = --variable=simd_enabled:1
+{simd, spml} options = --variable=spml_enabled:1
 {svml} options = --variable=svml_enabled:1
 {svml} linker_options = -lsvml
 {fast-math} options = --variable=fast_math_enabled:1
-{mmic} options = --variable=mic_enabled:1
-{avx2} options = --variable=avx2_enabled:1
-{mmic} preprocessor_options = -include immintrin.h
-{avx2} preprocessor_options = -include immintrin.h
+{simd, mmic} options = --variable=mic_enabled:1
+{simd, avx2} options = --variable=avx2_enabled:1
+{simd, mmic} preprocessor_options = -include immintrin.h
+{simd, avx2} preprocessor_options = -include immintrin.h
 linker_options = -Xlinker --enable-new-dtags
 linker_options = -L@INTEL_OMP_LIB@ -Xlinker -rpath -Xlinker @INTEL_OMP_LIB@ -liomp5
 {openmp} compiler_phase = libtlintel-omp-lowering.so
