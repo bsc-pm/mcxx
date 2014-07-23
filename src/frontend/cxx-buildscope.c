@@ -18197,17 +18197,17 @@ static void build_scope_for_statement_nonrange(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
-    nodecl_t loop_name = nodecl_null();
+    nodecl_t nodecl_loop_name = nodecl_null();
     if (synthesized_loop_name != NULL)
     {
-        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
+        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &nodecl_loop_name);
     }
 
     build_scope_nodecl_for_statement_nonrange(
             nodecl_loop_init,
             nodecl_loop_condition,
             nodecl_loop_iter,
-            /* nodecl_loop_name */ nodecl_null(),
+            nodecl_loop_name,
             nodecl_statement,
             block_context,
             ast_get_locus(a),
