@@ -1222,6 +1222,17 @@ namespace Vectorization
             return;
         }
 
+        if (func_name == "_mm_clevict")
+        {
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "Warning: preventing eviction function call "\
+                    "from being vectorized: " << n.get_locus() << std::endl;
+            }
+
+            return;
+        }
+
 
         // Vectorizing arguments
         Nodecl::List arguments_list = n.get_arguments().as<Nodecl::List>();
