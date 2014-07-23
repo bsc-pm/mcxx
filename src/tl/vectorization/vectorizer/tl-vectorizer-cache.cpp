@@ -38,37 +38,47 @@ namespace Vectorization
     CacheInfo::CacheInfo(
             const Nodecl::NodeclBase &lower_bound,
             const Nodecl::NodeclBase& upper_bound,
-            const Nodecl::NodeclBase& stride)
-        : _lower_bound(lower_bound), _upper_bound(upper_bound), _stride(stride)
+            const Nodecl::NodeclBase& stride,
+            const int overlap_factor)
+        : _lower_bound(lower_bound), _upper_bound(upper_bound),
+        _stride(stride), _overlap_factor(overlap_factor)
     {
     }
 
-    VectorizerCache::VectorizerCache(const objlist_nodecl_t& cached_expressions)
+    VectorizerCache::VectorizerCache(
+            const tl_sym_int_map_t& cached_symbols)
     {
-        for(objlist_nodecl_t::const_iterator it = cached_expressions.begin();
-                it != cached_expressions.end();
+        for(tl_sym_int_map_t::const_iterator it = cached_symbols.begin();
+                it != cached_symbols.end();
                 it++)
         {
-            ERROR_CONDITION(!it->is<Nodecl::ArraySubscript>(),
-                    "VECTORIZER: cache clause does not contain an ArraySubscript", 0);
+//            ERROR_CONDITION(!it->is<Nodecl::ArraySubscript>(),
+//                    "VECTORIZER: cache clause does not contain an ArraySubscript", 0);
 
-            Nodecl::ArraySubscript arr_it = it->as<Nodecl::ArraySubscript>();
-            Nodecl::NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
+//            Nodecl::ArraySubscript arr_it = it->as<Nodecl::ArraySubscript>();
+//            Nodecl::NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
 
-            ERROR_CONDITION(!list_front.is<Nodecl::Range>(),
-                    "VECTORIZER: Range not found in cache clause", 0);
+//            ERROR_CONDITION(!list_front.is<Nodecl::Range>(),
+//                    "VECTORIZER: Range not found in cache clause", 0);
 
-            Nodecl::Range range_it = list_front.as<Nodecl::Range>();
+//            Nodecl::Range range_it = list_front.as<Nodecl::Range>();
 
 
-            TL::Symbol key = arr_it.get_subscripted().as<Nodecl::Symbol>().get_symbol();
+//            TL::Symbol key = arr_it.get_subscripted().as<Nodecl::Symbol>().get_symbol();
 
-            Nodecl::NodeclBase lower_bound = range_it.get_lower();
-            Nodecl::NodeclBase upper_bound = range_it.get_upper();
-            Nodecl::NodeclBase stride = range_it.get_stride();
+//            Nodecl::NodeclBase lower_bound = range_it.get_lower();
+//            Nodecl::NodeclBase upper_bound = range_it.get_upper();
+//            Nodecl::NodeclBase stride = range_it.get_stride();
 
-            _cache_map.insert(cache_pair_t(key,
-                        CacheInfo(lower_bound, upper_bound, stride)));
+            Nodecl::NodeclBase lower_bound = const_value_to_nodecl(
+                    const_value_get_zero(4, 1));
+            Nodecl::NodeclBase upper_bound = const_value_to_nodecl(
+                    const_value_get_zero(4, 1));
+            Nodecl::NodeclBase stride = const_value_to_nodecl(
+                    const_value_get_zero(4, 1));
+
+            _cache_map.insert(cache_pair_t(it->first,
+                        CacheInfo(lower_bound, upper_bound, stride, it->second)));
         }
     }
 

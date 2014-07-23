@@ -1811,8 +1811,8 @@ namespace TL { namespace OpenMP {
             (pragma_line, "suitable", ref_scope, environment);
 
         // Cache
-        process_symbol_list_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", ref_scope, environment);
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Cache>
+            (pragma_line, "cache", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
