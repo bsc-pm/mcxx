@@ -61,7 +61,6 @@ static scope_entry_t* add_duplicate_member_to_class(
 
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.is_instantiable = 0;
-    new_member->entity_specs.is_user_declared = 0;
     new_member->entity_specs.is_defined_inside_class_specifier = 0;
     new_member->entity_specs.is_member_of_anonymous = 0;
     new_member->decl_context = context_of_being_instantiated;
@@ -228,7 +227,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                     template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
 
     new_primary_symbol->entity_specs.is_instantiable = 1;
-    new_primary_symbol->entity_specs.is_user_declared = 0;
     new_primary_symbol->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(
@@ -1905,6 +1903,27 @@ static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
     return 0;
 }
 
+static void prepend_def(AST it, scope_entry_t* entry)
+{
+    nodecl_t current_list_item = _nodecl_wrap(it);
+    nodecl_t prev_list_item = nodecl_get_child(current_list_item, 0);
+
+    decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
+    templated_context.template_parameters = entry->decl_context.template_parameters;
+
+    nodecl_t new_decl = nodecl_make_cxx_def(
+            nodecl_make_context(
+                nodecl_null(),
+                templated_context,
+                entry->locus),
+            entry,
+            entry->locus);
+    nodecl_t new_list_item = nodecl_make_list_1(new_decl);
+
+    nodecl_set_child(new_list_item, 0, prev_list_item);
+    nodecl_set_child(current_list_item, 0, new_list_item);
+}
+
 static void prepend_decl(AST it, scope_entry_t* entry)
 {
     nodecl_t current_list_item = _nodecl_wrap(it);
@@ -1924,6 +1943,27 @@ static void prepend_decl(AST it, scope_entry_t* entry)
 
     nodecl_set_child(new_list_item, 0, prev_list_item);
     nodecl_set_child(current_list_item, 0, new_list_item);
+
+    if (entry->entity_specs.is_member)
+    {
+        scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+        while (class_symbol != NULL)
+        {
+            if (!class_symbol->entity_specs.is_user_declared)
+            {
+                class_symbol->entity_specs.is_user_declared = 1;
+                prepend_def(it, class_symbol);
+            }
+            if (class_symbol->entity_specs.is_member)
+            {
+                class_symbol = named_type_get_symbol(class_symbol->entity_specs.class_type);
+            }
+            else
+            {
+                class_symbol = NULL;
+            }
+        }
+    }
 }
 
 static char class_contains_specialization(scope_entry_t* class_symbol,
@@ -2240,8 +2280,46 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
         entry->entity_specs.is_user_declared = 1;
         entry->entity_specs.is_defined_inside_class_specifier = 0;
 
-        entry->decl_context.template_parameters =
-            copy_template_parameters(entry->decl_context.template_parameters);
+        if (entry->entity_specs.is_member)
+        {
+            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+
+            if (!is_template_specialized_type(entry->type_information))
+            {
+                template_parameter_list_t* tpl = class_symbol->decl_context.template_parameters;
+                while (tpl != NULL
+                        && tpl->num_parameters == 0)
+                {
+                    tpl = tpl->enclosing;
+                }
+
+                if (tpl != NULL)
+                    tpl = tpl->enclosing;
+
+                entry->decl_context.template_parameters = copy_template_parameters(tpl);
+            }
+            else
+            {
+                entry->decl_context.template_parameters =
+                    copy_template_parameters(class_symbol->decl_context.template_parameters);
+                entry->decl_context.template_parameters->enclosing = NULL;
+
+                scope_entry_t* primary_sym =
+                    named_type_get_symbol(
+                            template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(entry->type_information)));
+
+                primary_sym->entity_specs.is_user_declared = 1;
+                primary_sym->entity_specs.is_defined_inside_class_specifier = 0;
+            }
+
+
+        }
+        else
+        {
+            entry->decl_context.template_parameters =
+                copy_template_parameters(entry->decl_context.template_parameters);
+        }
 
         template_parameter_list_t* tpl = entry->decl_context.template_parameters;
         while (tpl != NULL)
