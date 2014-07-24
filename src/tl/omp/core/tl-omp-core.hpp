@@ -140,6 +140,14 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         const std::string& clause_name);
 
+                void parse_dependences_info_std_clause(
+                        TL::ReferenceScope parsing_scope,
+                        TL::PragmaCustomClause clause,
+                        TL::ObjectList<Nodecl::NodeclBase> &in,
+                        TL::ObjectList<Nodecl::NodeclBase> &out,
+                        TL::ObjectList<Nodecl::NodeclBase> &inout,
+                        const locus_t* locus);
+
                 void get_dependences_info_std_clause(
                         TL::PragmaCustomLine construct,
                         TL::PragmaCustomClause clause,

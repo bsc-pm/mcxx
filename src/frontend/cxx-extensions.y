@@ -8,9 +8,16 @@
 %token<token_atrib> MCC_BYTE "<byte-type-spec>"
 %token<token_atrib> MCC_BOOL "<bool-type-spec>"
 %token<token_atrib> MCC_MASK "<mask-type-spec>"
+%token<token_atrib> MCC_ARRAY_SUBSCRIPT_CHECK "@array-subscript-check@"
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
+
+primary_expression : MCC_ARRAY_SUBSCRIPT_CHECK '(' assignment_expression ',' constant_expression ')'
+{
+    $$ = ASTMake2(AST_MCC_ARRAY_SUBSCRIPT_CHECK, $3, $5, make_locus($1.token_file, $1.token_line, 0), NULL);
+}
+;
 
 postfix_expression : postfix_expression '[' expression_opt ':' expression_opt ']'
 {

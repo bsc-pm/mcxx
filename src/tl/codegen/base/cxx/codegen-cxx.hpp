@@ -217,6 +217,7 @@ namespace Codegen
             Ret visit(const Nodecl::VectorArithmeticShr &);
             Ret visit(const Nodecl::VectorArithmeticShrI &);
             Ret visit(const Nodecl::VectorAssignment &);
+            Ret visit(const Nodecl::VectorMaskAssignment &);
             Ret visit(const Nodecl::VectorLaneId &);
             Ret visit(const Nodecl::VectorLiteral &);
             Ret visit(const Nodecl::VectorPromotion &);
@@ -234,6 +235,7 @@ namespace Codegen
 
             Ret visit(const Nodecl::CxxValuePack &);
 
+            Ret visit(const Nodecl::ValueInitialization &);
             Ret visit(const Nodecl::Verbatim& node);
             Ret visit(const Nodecl::VlaWildcard &);
 
@@ -368,6 +370,14 @@ namespace Codegen
                     void (CxxBase::*decl_sym_fun)(TL::Symbol symbol),
                     void (CxxBase::*def_sym_fun)(TL::Symbol symbol),
                     TL::Scope* scope = NULL);
+
+            void declare_nondependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+            void declare_dependent_friend_class(TL::Symbol friend_symbol,
+                    TL::Symbol class_symbol);
+
+            void declare_nondependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
+            void declare_dependent_friend_function(TL::Symbol friend_symbol, TL::Symbol class_symbol);
 
             void declare_friend_symbol(TL::Symbol friend_symbol,
                     TL::Symbol class_symbol);

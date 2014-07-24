@@ -124,6 +124,11 @@ namespace Vectorization
             result << get_casting_intrinsic(TL::Type::get_float_type(), type)
                 << "(" << KNC_INTRIN_PREFIX << "_undefined())";
         }
+        else if (type.is_void())
+        {
+            result << get_casting_intrinsic(TL::Type::get_float_type(), type)
+                << "(" << KNC_INTRIN_PREFIX << "_undefined())";
+        }
         else
         {
             running_error("KNC Backend: undef intrinsic not supported for type '%s'",
@@ -204,11 +209,13 @@ namespace Vectorization
     {
         // TODO: Do it more efficiently!
         bool contains_vector_nodes =
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAssignment>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorAdd>(n) ||
-            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMinus>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMul>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorConversion>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorLiteral>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorFunctionCode>(n) ||
+            Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorMaskAssignment>(n) ||
             Nodecl::Utils::nodecl_contains_nodecl_of_kind<Nodecl::VectorPromotion>(n);
 
         if (contains_vector_nodes)
@@ -1390,6 +1397,14 @@ namespace Vectorization
                         lhs.prettyprint().c_str());
             }
         }
+        else
+        {
+            VECTORIZATION_DEBUG()
+            {
+                fprintf(stderr, "VECTORIZER: '%s' has NOT been defined\n",
+                        lhs.prettyprint().c_str());
+            }
+        }
 
         if (mask.is_null() || !lhs_has_been_defined)
         {
@@ -2111,7 +2126,7 @@ namespace Vectorization
             // Use scalar symbol to look up
             if(_vectorizer.is_svml_function(scalar_sym.get_name(),
                         "knc",
-                        _vector_length,
+                        vector_type.get_size(),
                         scalar_type,
                         /*masked*/ !mask.is_null()))
             {
@@ -2133,7 +2148,7 @@ namespace Vectorization
 
                 n.replace(intrin_function_call);
             }
-            else // Compound Expression to avoid infinite recursion
+            else // DISABLED: Conditional Expression to avoid infinite recursion
             {
                 TL::Source conditional_exp, mask_casting;
 

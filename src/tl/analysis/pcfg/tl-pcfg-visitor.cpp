@@ -894,9 +894,9 @@ namespace Analysis {
     {
         ObjectList<Node*> comma_nodes;
         bool is_vector = _utils->_is_vector;
-        comma_nodes.append( walk( n.get_rhs( ) ) );
-        _utils->_is_vector = is_vector;
         comma_nodes.append( walk( n.get_lhs( ) ) );
+        _utils->_is_vector = is_vector;
+        comma_nodes.append( walk( n.get_rhs( ) ) );
         _utils->_is_vector = is_vector;
         return comma_nodes;
     }
@@ -2280,8 +2280,8 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Linear& n )
     {
-        Nodecl::List args = Nodecl::List::make(n.get_linear_expressions().shallow_copy(), 
-                                               n.get_step().shallow_copy());
+        Nodecl::List args = n.get_linear_expressions().shallow_copy().as<Nodecl::List>();
+        args.append(n.get_step().shallow_copy());
         PCFGClause current_clause(__linear, args);
         _utils->_pragma_nodes.top()._clauses.append(current_clause);
         return ObjectList<Node*>();
@@ -2661,7 +2661,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Uniform& n )
     {
-        PCFGClause current_clause(__linear, n.get_uniform_expressions());
+        PCFGClause current_clause(__uniform, n.get_uniform_expressions());
         _utils->_pragma_nodes.top()._clauses.append(current_clause);
         return ObjectList<Node*>();
     }
@@ -3317,23 +3317,23 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd1Not& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAnd2Not& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskAssignment& n )
-    {   // We don need a node for the mask
-        return visit_vector_unary_node( n, n.get_rhs( ) );
+    {   // We don't need a node for the mask
+        return visit_vector_binary_node( n, n.get_lhs(), n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskConversion& n )
@@ -3342,17 +3342,17 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskNot& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskOr& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorMaskXor& n )
-    {   // We don need a node for the mask
+    {   // We don't need a node for the mask
         return visit_vector_unary_node( n, n.get_rhs( ) );
     }
 
@@ -3433,6 +3433,11 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorStreamStore& n )
+    {
+        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStreamStore& n )
     {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }

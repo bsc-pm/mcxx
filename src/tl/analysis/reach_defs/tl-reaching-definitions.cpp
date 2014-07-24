@@ -445,6 +445,16 @@ iterate:        ++it;
         visit_assignment(n.get_rhs(), rhs, n);
     }
 
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit(const Nodecl::VectorAssignment& n)
+    {
+        visit_assignment(n.get_lhs(), n.get_rhs(), Nodecl::NodeclBase::null());
+    }
+    
+    GeneratedStatementsVisitor::Ret GeneratedStatementsVisitor::visit(const Nodecl::VectorMaskAssignment& n)
+    {
+        visit_assignment(n.get_lhs(), n.get_rhs(), Nodecl::NodeclBase::null());
+    }
+    
     // ********************** END class implementing a visitor of reaching definition ********************* //
     // **************************************************************************************************** //
 }

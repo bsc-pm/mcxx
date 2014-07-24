@@ -747,9 +747,7 @@ namespace TL
                             it++)
                     {
                         TL::Symbol &sym(*it);
-                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
-
-                        data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                         if (data_attr == DS_UNDEFINED)
                         {
@@ -1513,8 +1511,8 @@ namespace TL
                 }
 
                 _openmp_info->push_current_data_sharing(data_sharing);
-                common_for_handler(construct, stmt, data_sharing);
                 common_parallel_handler(construct, data_sharing);
+                common_for_handler(construct, stmt, data_sharing);
             }
         }
 
@@ -1536,8 +1534,8 @@ namespace TL
             }
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            (this->*common_loop_handler)(construct, loop, data_sharing);
             common_workshare_handler(construct, data_sharing);
+            (this->*common_loop_handler)(construct, loop, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing,
                     /* default_data_sharing */ DS_UNDEFINED);
         }
@@ -1568,8 +1566,8 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(construct, stmt, data_sharing);
             common_workshare_handler(construct, data_sharing);
+            common_for_handler(construct, stmt, data_sharing);
             get_dependences_info(construct.get_pragma_line(), data_sharing,
                     /* default_data_sharing */ DS_UNDEFINED);
         }
@@ -1594,8 +1592,6 @@ namespace TL
             {
                 DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
                 _openmp_info->push_current_data_sharing(data_sharing);
-                common_for_handler(construct, stmt, data_sharing);
-
 
                 if (construct.get_pragma_line().get_clause("collapse").is_defined())
                 {
@@ -1603,6 +1599,7 @@ namespace TL
                 }
 
                 common_parallel_handler(construct, data_sharing);
+                common_for_handler(construct, stmt, data_sharing);
                 get_dependences_info(construct.get_pragma_line(), data_sharing,
                         /* default_data_sharing */ DS_UNDEFINED);
             }

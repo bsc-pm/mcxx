@@ -159,6 +159,7 @@ LIBMCXX_EXTERN void check_nodecl_braced_initializer(nodecl_t braced_initializer,
         decl_context_t decl_context, 
         type_t* declared_type, 
         char is_explicit_type_cast,
+        enum initialization_kind initialization_kind,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -189,6 +190,11 @@ void get_packs_in_expression(nodecl_t nodecl,
 // Used in overload
 char builtin_needs_contextual_conversion(scope_entry_t* candidate,
         int num_arg, type_t* parameter_type);
+
+void check_contextual_conversion(nodecl_t expression,
+        type_t* dest_type,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 
 // Instantiation of expressions
 nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context,

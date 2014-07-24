@@ -50,6 +50,30 @@ namespace Analysis {
         if(Nodecl::Utils::nodecl_is_literal(n))
             return true;
 
+        if (n.is<Nodecl::Symbol>())
+        {
+            TL::Symbol sym = n.get_symbol();
+
+            // If it's in the linear clause -> false
+            ObjectList<Utils::LinearVars> linear_vars = scope_node->get_linear_symbols();
+            for (ObjectList<Utils::LinearVars>::iterator it = 
+                    linear_vars.begin(); 
+                    it != linear_vars.end(); 
+                    ++it)
+            {
+                ObjectList<TL::Symbol> linear_syms = it->get_symbols();
+
+                if (linear_syms.contains(sym))
+                    return false;
+            }
+
+            // If it's in the uniform clause -> true
+            ObjectList<TL::Symbol> uniform_syms = scope_node->get_uniform_symbols();
+            if(uniform_syms.contains(sym))
+                return true;
+        }
+
+
         // Unknown RD
         if(n.is<Nodecl::Unknown>())
         {
@@ -135,44 +159,47 @@ namespace Analysis {
             Node* const scope_node, 
             const Nodecl::NodeclBase& n)
     {
-        Symbol s(n.get_symbol());
-        if(!s.is_valid())
+        if (n.is<Nodecl::Symbol>())
         {
-            WARNING_MESSAGE("Object %s is not linear because it is not a valid symbol.\n", 
-                            n.prettyprint().c_str());
-            return false;
-        }
-        
-        Node* new_scope = scope_node;
-        if(scope_node->is_loop_node())
-        {
-            new_scope = scope_node->get_outer_node();
-            if(!new_scope->is_omp_loop_node())
-                goto iv_as_linear;
-        }
-        else if(scope_node->is_function_code_node())
-        {
-            new_scope = scope_node->get_outer_node();
-            // If the scope is a function and it is not enclosed in a simd pragma
-            // then no IVs will be attached to this node
-            if(!new_scope->is_omp_simd_function_node())
-                goto final_linear;
-        }
-        // If, after checking the possibility of being enclosed within a simd node
-        // then, only induction variables calculated during analysis may be reported
-        if(!new_scope->is_omp_loop_node() && !new_scope->is_omp_simd_function_node())
-            goto iv_as_linear;
-        
-        // First try to get the information form the user clauses
-        {
-            ObjectList<Utils::LinearVars> linear_syms = scope_node->get_linear_symbols();
-            for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
+            Symbol s(n.get_symbol());
+            if(!s.is_valid())
             {
-                ObjectList<Symbol> syms = it->get_symbols();
-                for(ObjectList<Symbol>::iterator itt = syms.begin(); itt != syms.end(); ++itt)
+                WARNING_MESSAGE("Object %s is not linear because it is not a valid symbol.\n", 
+                        n.prettyprint().c_str());
+                return false;
+            }
+
+            Node* new_scope = scope_node;
+            if(scope_node->is_loop_node())
+            {
+                new_scope = scope_node->get_outer_node();
+                if(!new_scope->is_omp_simd_node())
+                    goto iv_as_linear;
+            }
+            else if(scope_node->is_function_code_node())
+            {
+                new_scope = scope_node->get_outer_node();
+                // If the scope is a function and it is not enclosed in a simd pragma
+                // then no IVs will be attached to this node
+                if(!new_scope->is_omp_simd_function_node())
+                    goto final_linear;
+            }
+            // If, after checking the possibility of being enclosed within a simd node
+            // then, only induction variables calculated during analysis may be reported
+            if(!new_scope->is_omp_simd_node())
+                goto iv_as_linear;
+
+            // First try to get the information form the user clauses
+            {
+                ObjectList<Utils::LinearVars> linear_syms = new_scope->get_linear_symbols();
+                for (ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
                 {
-                    if (*itt == s)
-                        return true;
+                    ObjectList<Symbol> syms = it->get_symbols();
+                    for(ObjectList<Symbol>::iterator itt = syms.begin(); itt != syms.end(); ++itt)
+                    {
+                        if (*itt == s)
+                            return true;
+                    }
                 }
             }
         }
@@ -342,7 +369,7 @@ final_linear:
         if(scope_node->is_loop_node())
         {
             new_scope = scope_node->get_outer_node();
-            if(!new_scope->is_omp_loop_node())
+            if(!new_scope->is_omp_simd_node())
                 goto get_ivs;
         }
         else if(scope_node->is_function_code_node())
@@ -355,7 +382,7 @@ final_linear:
         }
         // If, after checking the possibility of being enclosed within a simd node
         // then, only induction variables calculated during analysis may be reported
-        if(!new_scope->is_omp_loop_node() && !new_scope->is_omp_simd_function_node())
+        if(!new_scope->is_omp_simd_node())
             goto get_ivs;
         
         linear_syms = new_scope->get_linear_symbols();
@@ -368,29 +395,39 @@ get_ivs:
         }
         // Enrich the induction variables list with the linear symbols of the clause, if there are
         for(ObjectList<Utils::LinearVars>::iterator it = linear_syms.begin(); it != linear_syms.end(); ++it)
-        {
-            bool found = false;
-            NBase step;
+        {            
             Symbol s;
-            for(Utils::InductionVarList::iterator itt = result.begin(); itt != result.end(); ++itt)
+            ObjectList<Symbol> syms = it->get_symbols();
+            for(ObjectList<Symbol>::iterator itt = syms.begin(); itt != syms.end(); ++itt)
             {
-                s = (*itt)->get_variable().get_symbol();
-                ObjectList<Symbol> syms = it->get_symbols();
-                for(ObjectList<Symbol>::iterator ittt = syms.begin(); ittt != syms.end(); ++ittt)
+                bool found;
+                Utils::InductionVarList::iterator ittt = result.begin();
+                for( ; ittt != result.end(); ++ittt)
                 {
-                    if(s.is_valid() && (s == *ittt))
+                    found = false;
+                    s = (*ittt)->get_variable().get_symbol();
+                    if(s.is_valid() && (s==*itt))
                     {
+                        NBase step = (*ittt)->get_increment();
+                        if(!Nodecl::Utils::structurally_equal_nodecls(step, it->get_step()))
+                        {
+                            WARNING_MESSAGE("Step set by the user for linear variable %s "\
+                                    "is different from step computed during analysis phase.\n", 
+                                    s.get_name().c_str());
+                            (*ittt)->set_increment(it->get_step());
+                        }
                         found = true;
-                        step = it->get_step();
+                        break;
                     }
                 }
-            }
-            if(!found)
-            {   // The variable in the linear clause has not been recognized during analysis as an IV
-                // We add it here to the list
-                Utils::InductionVar* iv = new Utils::InductionVar(s.make_nodecl(/*set_ref_type*/ false));
-                iv->set_increment(step);
-                result.append(iv);
+                if(!found)
+                {
+                    // The variable in the linear clause has not been recognized during analysis as an IV
+                    // We add it here to the list
+                    Utils::InductionVar* iv = new Utils::InductionVar(itt->make_nodecl(/*set_ref_type*/ false));
+                    iv->set_increment(it->get_step());
+                    result.append(iv);
+                }
             }
         }
         

@@ -105,7 +105,15 @@ namespace Analysis {
         ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();
         for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            _func_to_pcfg_map[(*it)->get_nodecl()] = *it;
+            Nodecl::NodeclBase func_nodecl = (*it)->get_nodecl();
+
+            // If SimdFunction, we better associate nested
+            // FunctionCode with PCFG
+            if (func_nodecl.is<Nodecl::OpenMP::SimdFunction>())
+                func_nodecl = func_nodecl.as<Nodecl::OpenMP::SimdFunction>().
+                    get_statement();
+
+            _func_to_pcfg_map[func_nodecl] = *it;
         }
     }
 
