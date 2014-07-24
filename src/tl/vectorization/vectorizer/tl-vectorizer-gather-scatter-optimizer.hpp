@@ -73,6 +73,7 @@ namespace Vectorization
             StrideSplitterVisitor();
 
             stride_splitter_ret_t visit(const Nodecl::VectorAdd& n);
+            stride_splitter_ret_t visit(const Nodecl::VectorMinus& n);
             stride_splitter_ret_t visit(const Nodecl::Neg& n);
             stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShl& n);
             stride_splitter_ret_t visit(const Nodecl::VectorBitwiseShlI& n);

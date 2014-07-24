@@ -28,6 +28,7 @@
 #define TL_SUITABLE_ALIGNMENT_VISITOR_HPP
 
 #include "tl-suitable-alignment-visitor.hpp"
+#include "tl-vectorization-common.hpp"
 
 #include "tl-induction-variables-data.hpp"
 #include "tl-extensible-graph.hpp"
@@ -43,7 +44,7 @@ namespace Vectorization{
     {
     private:
         const Nodecl::NodeclBase _scope;
-        const TL::ObjectList<Nodecl::NodeclBase> _suitable_expressions;
+        const objlist_nodecl_t _suitable_expressions;
         const int _unroll_factor;
         const int _type_size;
         const int _alignment;
@@ -54,8 +55,8 @@ namespace Vectorization{
     public:
         // *** Constructor *** //
         SuitableAlignmentVisitor( const Nodecl::NodeclBase& scope,
-                                  const TL::ObjectList<Nodecl::NodeclBase>& suitable_expressions,
-                                  int unroll_factor, int type_size, int alignment );
+                const objlist_nodecl_t& suitable_expressions,
+                int unroll_factor, int type_size, int alignment );
 
         // *** Visiting methods *** //
         Ret join_list( ObjectList<int>& list );

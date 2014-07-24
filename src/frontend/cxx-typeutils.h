@@ -850,6 +850,7 @@ LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(sco
 
 // C++ auto
 LIBMCXX_EXTERN type_t* get_auto_type(void);
+LIBMCXX_EXTERN type_t* get_nondependent_auto_type(void);
 LIBMCXX_EXTERN char is_auto_type(type_t* t);
 
 // C genericity stuff. 

@@ -97,6 +97,18 @@ namespace Analysis {
                     const Nodecl::NodeclBase& stmt,
                     const Nodecl::NodeclBase& n);
 
+            virtual bool is_linear(
+                    const Nodecl::NodeclBase& scope, 
+                    const Nodecl::NodeclBase& n);
+            virtual Utils::InductionVarList get_linear_variables(
+                    const Nodecl::NodeclBase& scope);
+            virtual NBase get_linear_variable_lower_bound(
+                    const NBase& scope, 
+                    const NBase& n);
+            virtual NBase get_linear_variable_increment(
+                    const NBase& scope, 
+                    const NBase& n);
+            
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
 
             virtual bool is_induction_variable(
@@ -111,9 +123,9 @@ namespace Analysis {
             virtual Nodecl::NodeclBase get_induction_variable_increment(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
-            Utils::InductionVarList get_induction_variables(
+            virtual Utils::InductionVarList get_induction_variables(
                     const Nodecl::NodeclBase& scope);
-
+            
             // *** Queries about Auto-Scoping *** //
 
 //            virtual void print_auto_scoping_results( const Nodecl::NodeclBase& scope );

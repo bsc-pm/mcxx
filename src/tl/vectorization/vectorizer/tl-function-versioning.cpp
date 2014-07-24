@@ -82,7 +82,9 @@ namespace TL
             _versions.insert(std::pair<const std::string, const VectorFunctionVersion>(func_name, value));
         }
 
-        const VectorFunctionVersion FunctionVersioning::get_best_function_version(const std::string& func_name,
+        FunctionVersioning::versions_map_t::const_iterator 
+            FunctionVersioning::find_best_function(
+                const std::string& func_name,
                 const std::string& device,
                 const unsigned int vector_length,
                 const Type& target_type,
@@ -114,6 +116,19 @@ namespace TL
                     best_version = it;
                 }
             }
+
+            return best_version;
+        }
+
+        const VectorFunctionVersion FunctionVersioning::get_best_function_version(const std::string& func_name,
+                const std::string& device,
+                const unsigned int vector_length,
+                const Type& target_type,
+                const bool masked) const
+        {
+            versions_map_t::const_iterator best_version = 
+                find_best_function(func_name, device, 
+                    vector_length, target_type, masked);
 
             if (best_version == _versions.end())
             {
@@ -155,11 +170,15 @@ namespace TL
                 const Type& target_type,
                 const bool masked) const
         {
-            return get_best_function_version(func_name,
-                    device,
-                    vector_length,
-                    target_type,
-                    masked).is_svml_function();
+            versions_map_t::const_iterator best_version = 
+                find_best_function(func_name, device, 
+                    vector_length, target_type, masked);
+
+            if (best_version == _versions.end())
+                return false;
+            else
+                return best_version->second
+                    .is_svml_function();
         }
     };
 }

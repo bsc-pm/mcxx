@@ -88,8 +88,6 @@ static scope_entry_t* add_duplicate_member_to_class(
     COPY_ARRAY(ms_attributes, num_ms_attributes);
 
     // aligned attribute requires special treatment
-    int i;
-    
     gcc_attribute_t* gcc_aligned_attr = symbol_get_gcc_attribute(new_member, "aligned");
     if (gcc_aligned_attr != NULL)
     {

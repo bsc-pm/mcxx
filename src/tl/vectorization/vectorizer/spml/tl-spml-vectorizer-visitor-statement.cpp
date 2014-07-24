@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
 
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,32 +24,18 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZATION_COMMON_HPP
-#define TL_VECTORIZATION_COMMON_HPP
+#include "tl-spml-vectorizer-visitor-statement.hpp"
 
-#include <list>
-#include <map>
-
-#include "tl-symbol.hpp"
-
-#define VECTORIZATION_DEBUG() if (CURRENT_CONFIGURATION->debug_options.vectorization_verbose)
 
 namespace TL
 {
-    namespace Vectorization
+namespace Vectorization
+{
+    SPMLVectorizerVisitorStatement::SPMLVectorizerVisitorStatement(
+            VectorizerEnvironment& environment,
+            const bool cache_enabled)
+        : VectorizerVisitorStatement(environment, cache_enabled)
     {
-        typedef std::map<TL::Symbol, int> tl_sym_int_map_t;
-        typedef std::map<TL::Symbol, TL::ObjectList<Nodecl::NodeclBase> > nontmp_expr_map_t;
-        typedef TL::ObjectList<Nodecl::NodeclBase> objlist_nodecl_t;
-        typedef TL::ObjectList<Nodecl::Symbol> objlist_nodecl_symbol_t;
-        typedef TL::ObjectList<TL::Symbol> objlist_tlsymbol_t;
-
-        typedef std::list<Nodecl::NodeclBase> stdlist_nodecl_t;
-        typedef std::list<TL::Scope> stdlist_scope_t;
-
-        enum SIMDInstructionSet {SSE4_2_ISA, AVX_ISA, AVX2_ISA, AVX512_ISA, KNC_ISA};
     }
 }
-
-#endif //TL_VECTORIZATION_COMMON_HPP
-
+}

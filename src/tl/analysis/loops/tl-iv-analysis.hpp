@@ -41,7 +41,7 @@ namespace Analysis {
     // ********************************************************************************************* //
     // ************************** Class for induction variables analysis *************************** //
 
-    class LIBTL_CLASS InductionVariableAnalysis : public Nodecl::ExhaustiveVisitor<void> {
+    class LIBTL_CLASS InductionVariableAnalysis {
     private:
 
         // Variables for Induction Variables analysis

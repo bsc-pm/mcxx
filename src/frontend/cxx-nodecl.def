@@ -116,6 +116,8 @@ pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-s
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
+# C++2011: for(T symbol : range)
+    | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
 
 catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
@@ -272,7 +274,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -565,7 +567,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq, [overlap_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
@@ -641,23 +643,20 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
-interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
-                    | NODECL_ANALYSIS*PLUS_INFINITY()
-                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*EMPTY_RANGE()
-                    | expression
 
-constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
-                      | interval_expression
-                      | NODECL_ANALYSIS*RANGE_UNION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_SUB([lhs] constraint_expression, [rhs] constraint_expression) type
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY()
+                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
-constraint : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
-           | constraint_expression
-
-expression : NODECL_UNKNOWN()
+expression : constraint_expression
+           | NODECL_UNKNOWN()
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)

@@ -81,47 +81,47 @@ namespace Analysis {
                                                  current->get_id());
                             }
                         }
+                    }
 
-                        // Loop limits
-                        // It is convenient to use the InductionVar structure, even though the return of the
-                        // condition parsing might not be an Induction Variable but a variable that defined the limits
-                        // of the loop
+                    // Loop limits
+                    // It is convenient to use the InductionVar structure, even though the return of the
+                    // condition parsing might not be an Induction Variable but a variable that defined the limits
+                    // of the loop
 
-                        // The upper bound
-                                // Easy case: the condition node contains the upper bound of the induction variable
-                        Node* condition_node = NULL;
-                        if(current->is_for_loop())
-                        {
-                            // Check whether the loop has a condition in the loop control
-                            Nodecl::ForStatement loop_stmt = current->get_graph_related_ast().as<Nodecl::ForStatement>();
-                            Nodecl::LoopControl loop_control = loop_stmt.get_loop_header().as<Nodecl::LoopControl>();
-                            if(!loop_control.get_cond().is_null())
-                            {
-                                condition_node = current->get_graph_entry_node()->get_children()[0];
-                            }
-                        }
-                        else if(current->is_while_loop())
+                    // The upper bound
+                            // Easy case: the condition node contains the upper bound of the induction variable
+                    Node* condition_node = NULL;
+                    if(current->is_for_loop())
+                    {
+                        // Check whether the loop has a condition in the loop control
+                        Nodecl::ForStatement loop_stmt = current->get_graph_related_ast().as<Nodecl::ForStatement>();
+                        Nodecl::LoopControl loop_control = loop_stmt.get_loop_header().as<Nodecl::LoopControl>();
+                        if(!loop_control.get_cond().is_null())
                         {
                             condition_node = current->get_graph_entry_node()->get_children()[0];
                         }
-                        else if(current->is_do_loop())
-                        {
-                            condition_node = current->get_graph_exit_node()->get_parents()[0];
-                        }
-                        if(condition_node != NULL)
-                        {
-                            NodeclList stmts = condition_node->get_statements();
-                            if(stmts.empty())
-                            {   // The condition node is a composite node
-                                stmts.append(condition_node->get_graph_related_ast());
-                            }
-                            NBase condition_stmt = stmts[0];
-                            get_loop_limits(condition_stmt, current->get_id());
-                        }
-
-                                // The upper bound must be computed depending on the loop limits
-                        // TODO
                     }
+                    else if(current->is_while_loop())
+                    {
+                        condition_node = current->get_graph_entry_node()->get_children()[0];
+                    }
+                    else if(current->is_do_loop())
+                    {
+                        condition_node = current->get_graph_exit_node()->get_parents()[0];
+                    }
+                    if(condition_node != NULL)
+                    {
+                        NodeclList stmts = condition_node->get_statements();
+                        if(stmts.empty())
+                        {   // The condition node is a composite node
+                            stmts.append(condition_node->get_graph_related_ast());
+                        }
+                        NBase condition_stmt = stmts[0];
+                        get_loop_limits(condition_stmt, current->get_id());
+                    }
+
+                            // The upper bound must be computed depending on the loop limits
+                    // TODO
 
                 }
             }
@@ -224,7 +224,7 @@ namespace Analysis {
 
             // This is not the UB, is the LB: the lower bound will be the rhs plus 1
             NBase lb;
-            const_value_t* one_const = const_value_get_one(/* bytes */ 4, /* signed*/ 1);
+            const_value_t* one_const = const_value_get_one(/*bytes*/ 4, /*signed*/ 1);
             if(var_limit.is_constant())
                 lb = const_value_to_nodecl(const_value_add(var_limit.get_constant(), one_const));
             else
@@ -260,7 +260,7 @@ namespace Analysis {
             if(loop_info_var != NULL)
             {
                 loop_info_var->set_ub(loop_info_var->get_lb());
-                loop_info_var->set_lb(var);
+                loop_info_var->set_lb(var_limit);
             }
             else
             {

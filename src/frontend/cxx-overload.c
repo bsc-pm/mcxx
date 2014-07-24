@@ -1631,6 +1631,57 @@ static char solve_initialization_of_reference_type_ics(
 
                 if (ok)
                 {
+                    // [DR1604]
+                    //
+                    // If T1 is a class type, user-defined conversions are
+                    // considered using the rules for copy-initialization of an
+                    // object of type "cv1 T1" by user-defined conversion (8.5
+                    // [dcl.init], 13.3.1.4 [over.match.copy]); the program is
+                    // ill-formed if the corresponding non-reference
+                    // copy-initialization would be ill-formed. The result of the
+                    // call to the conversion function, as described for the
+                    // non-reference copy-initialization, is then used to
+                    // direct-initialize the reference. The program is ill-formed
+                    // if the direct-initialization does not result in a direct
+                    // binding or if it involves a user-defined conversion.
+                    type_t* relevant_type = NULL;
+
+                    if (constructor->entity_specs.is_conversion)
+                    {
+                        relevant_type = function_type_get_return_type(constructor->type_information);
+                    }
+                    else if (constructor->entity_specs.is_constructor)
+                    {
+                        relevant_type = get_cv_qualified_type(
+                                constructor->entity_specs.class_type,
+                                get_cv_qualifier(no_ref(orig)));
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
+
+                    // Now verify if the resulting type can actually be
+                    // directly-bound. Here we repeat some of the checks above
+                    // but orig is now relevant_type
+                    ok = 0;
+                    if ((is_lvalue_reference_type(dest)
+                                && is_const_qualified_type(no_ref(dest))
+                                && !is_volatile_qualified_type(no_ref(dest)))
+                            || (is_rvalue_reference_type(dest)))
+                    {
+                        if ((is_rvalue_reference_type(relevant_type)
+                                    || is_class_type(relevant_type)
+                                    || (is_lvalue_reference_type(relevant_type) && is_function_type(no_ref(relevant_type))))
+                                && type_is_reference_compatible_to(no_ref(dest), no_ref(relevant_type)))
+                        {
+                            ok = 1;
+                        }
+                    }
+
+                    if (!ok)
+                        return 0;
+
                     *conversor = constructor;
                 }
             }
@@ -1647,9 +1698,10 @@ static char solve_initialization_of_reference_type_ics(
             }
             if (ok && (!type_is_reference_related_to(no_ref(dest), no_ref(orig))
                         // if is type reference related then dest must be more or equal cv-qualified
-                        || (is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))
-                            // if is type reference related and what is being initialized
+                        || (is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(get_unqualified_type(orig)))
+                            // if is type reference related and what is being initialized is more cv-qualified
                             && (!is_rvalue_reference_type(dest)
+                                // it is an rvalue reference, it cannot be initialized with an lvalue
                                 || !is_lvalue_reference_type(orig)))))
             {
                 DEBUG_CODE()
@@ -2240,6 +2292,12 @@ char standard_conversion_is_better(standard_conversion_t scs1,
             && !is_lvalue_reference_type(scs1.orig) // a rvalue (either a non-reference or a rvalue reference)
             && is_lvalue_reference_type(scs2.dest))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Standard conversion SCS1 is better "
+                    "than SCS2 because the first binds an rvalue to an rvalue reference and "
+                    "the second binds to an lvalue reference\n");
+        }
         return 1;
     }
     // S1 and S2 are reference bindings and S1 binds an lvalue
@@ -2253,6 +2311,11 @@ char standard_conversion_is_better(standard_conversion_t scs1,
             && is_function_type(no_ref(scs2.orig))
             && is_rvalue_reference_type(scs2.dest))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Standard conversion SCS1 is better "
+                    "than SCS2 because the first has better rank than the second\n");
+        }
         return 1;
     }
     // Cases including "const int*/int*", "const int&/int&" and "const int&&/int&&"
@@ -3687,9 +3750,6 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             locus, /* explicit_template_parameters */ NULL);
     entry_list_free(candidate_list);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     candidate_t* candidate_set = NULL;
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -3900,9 +3960,6 @@ static char solve_list_initialization_of_class_type_(
                 locus, /* explicit_template_parameters */ NULL);
         entry_list_free(list_initializer_constructors);
 
-        scope_entry_t* augmented_conversors[num_arguments + 1];
-        memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
         candidate_t* candidate_set = NULL;
         for (it = entry_list_iterator_begin(overload_set);
                 !entry_list_iterator_end(it);
@@ -3973,9 +4030,6 @@ static char solve_list_initialization_of_class_type_(
             decl_context,
             locus, /* explicit_template_parameters */ NULL);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     candidate_t* candidate_set = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
@@ -4001,7 +4055,7 @@ static char solve_list_initialization_of_class_type_(
     candidate_set_free(&candidate_set);
 
     *constructor = overload_resolution;
-    
+
     // In copy-list-initialization, if an explicit constructor is
     // chosen, the initialization is ill-formed.
     if (overload_resolution != NULL

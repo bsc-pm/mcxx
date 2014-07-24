@@ -187,6 +187,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+    BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
@@ -813,8 +814,8 @@ void CxxBase::visit(const Nodecl::Comma & node)
     emit_line_marker(node);
     *(file) << "(";
 
-    Nodecl::NodeclBase lhs = node.children()[0];
-    Nodecl::NodeclBase rhs = node.children()[1];
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
     if (state.in_condition && state.condition_top == node)
     {
         *(file) << "(";
@@ -1415,6 +1416,32 @@ void CxxBase::emit_range_loop_header(
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxForRanged& node)
+{
+    emit_line_marker(node);
+    indent();
+
+
+    *file << "for (";
+
+    bool old_in_condition = state.in_condition;
+    state.in_condition = 1;
+    define_or_declare_variable(node.get_symbol(), /* is_definition */ 1);
+    state.in_condition = old_in_condition;
+
+    *file << " : ";
+
+    Nodecl::CxxEqualInitializer eq_init = node.get_range().as<Nodecl::CxxEqualInitializer>();
+    ERROR_CONDITION(!eq_init.is<Nodecl::CxxEqualInitializer>(), "Invalid node", 0);
+    walk(eq_init.get_init());
+
+    *file << ")\n";
+
+    inc_indent();
+    walk(node.get_statement());
+    dec_indent();
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 {
     Nodecl::NodeclBase loop_control = node.get_loop_header();
@@ -1695,7 +1722,8 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
         return;
 
     if (!function_form.is_null()
-            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>()
+            && called_symbol.get_type().is_template_specialized_type())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
         TL::TemplateParameters deduced_template_args =

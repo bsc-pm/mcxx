@@ -89,6 +89,7 @@ namespace Analysis {
     GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
+    GRAPH_TYPE(FunctionCode) \
     GRAPH_TYPE(IfElse) \
     GRAPH_TYPE(LoopDoWhile) \
     GRAPH_TYPE(LoopFor) \
@@ -730,6 +731,7 @@ namespace Analysis {
     CLAUSE(inout) \
     CLAUSE(lastprivate) \
     CLAUSE(length_for) \
+    CLAUSE(linear) \
     CLAUSE(mask) \
     CLAUSE(name) \
     CLAUSE(no_mask) \
@@ -746,6 +748,7 @@ namespace Analysis {
     CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(uniform) \
     CLAUSE(unroll) \
     CLAUSE(untied) \
     CLAUSE(wait_on)

@@ -261,7 +261,7 @@ namespace Vectorization
 
         // OpenMP For
         // This works only for very simple conditions: IV < UB
-        if (n == _environment._analysis_simd_scope)
+        //if (n == _environment._analysis_simd_scope)
         {
             // CONDITION
             // This works only for very simple conditions: IV < UB
