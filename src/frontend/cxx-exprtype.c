@@ -21168,6 +21168,14 @@ nodecl_t cxx_nodecl_make_function_call(
                             ->entity_specs.instantiation_symbol_map;
                     }
 
+                    const char* default_argument_context_str;
+                    uniquestr_sprintf(&default_argument_context_str,
+                            "%s: info: during instantiation of default argument '%s'\n",
+                            locus_to_str(locus),
+                            codegen_to_str(called_symbol->entity_specs.default_argument_info[arg_i]->argument,
+                                called_symbol->decl_context));
+
+                    diagnostic_context_push_instantiation(default_argument_context_str);
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
@@ -21175,7 +21183,10 @@ nodecl_t cxx_nodecl_make_function_call(
                             instantiation_symbol_map, /* pack_index */ -1);
 
                     if (nodecl_is_err_expr(new_default_argument))
+                    {
+                        diagnostic_context_pop_and_commit();
                         return new_default_argument;
+                    }
 
                     check_nodecl_expr_initializer(new_default_argument,
                             called_symbol->decl_context,
@@ -21183,9 +21194,12 @@ nodecl_t cxx_nodecl_make_function_call(
                             /* disallow_narrowing */ 0,
                             IK_COPY_INITIALIZATION,
                             &new_default_argument);
+                    diagnostic_context_pop_and_commit();
 
                     if (nodecl_is_err_expr(new_default_argument))
+                    {
                         return new_default_argument;
+                    }
 
                     converted_arg_list = nodecl_append_to_list(
                             converted_arg_list,
