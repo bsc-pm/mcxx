@@ -80,11 +80,12 @@ static scope_entry_t* add_duplicate_member_to_class(
     }
 
     // Decouple the arrays, lest we have to modify them
+    COPY_ARRAY(default_argument_info, num_parameters);
     COPY_ARRAY(related_symbols, num_related_symbols);
     COPY_ARRAY(function_parameter_info, num_function_parameter_info);
-    COPY_ARRAY(default_argument_info, num_parameters);
     COPY_ARRAY(gcc_attributes, num_gcc_attributes);
     COPY_ARRAY(ms_attributes, num_ms_attributes);
+
 
     // aligned attribute requires special treatment
     gcc_attribute_t* gcc_aligned_attr = symbol_get_gcc_attribute(new_member, "aligned");
@@ -764,10 +765,28 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->defined = 0;
                     new_member->entity_specs.function_code = nodecl_null();
                     new_member->entity_specs.emission_template = member_of_template;
+
+                    // Hide all the default arguments (this is for codegen)
+                    int i;
+                    if (new_member->entity_specs.default_argument_info != NULL)
+                    {
+                        for (i = 0; i < new_member->entity_specs.num_parameters; i++)
+                        {
+                            if (new_member->entity_specs.default_argument_info[i] != NULL)
+                            {
+                                default_argument_info_t* p = new_member->entity_specs.default_argument_info[i];
+                                new_member->entity_specs.default_argument_info[i] = xcalloc(1, sizeof(*p));
+                                // Copy on write
+                                *new_member->entity_specs.default_argument_info[i] = *p;
+                                new_member->entity_specs.default_argument_info[i]->is_hidden = 1;
+                            }
+                        }
+                    }
                 }
                 else
                 {
-                    type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
+                    type_t* template_type = template_specialized_type_get_related_template_type(
+                            member_of_template->type_information);
                     type_t* primary_template = template_type_get_primary_type(template_type);
                     scope_entry_t* primary_template_sym = named_type_get_symbol(primary_template);
 

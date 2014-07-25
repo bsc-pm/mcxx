@@ -21201,9 +21201,14 @@ nodecl_t cxx_nodecl_make_function_call(
                         return new_default_argument;
                     }
 
+                    if (!called_symbol->entity_specs.default_argument_info[arg_i]->is_hidden)
+                    {
+                        new_default_argument = nodecl_make_default_argument(new_default_argument, locus);
+                    }
+
                     converted_arg_list = nodecl_append_to_list(
                             converted_arg_list,
-                            nodecl_make_default_argument(new_default_argument, locus));
+                            new_default_argument);
                 }
             }
 
