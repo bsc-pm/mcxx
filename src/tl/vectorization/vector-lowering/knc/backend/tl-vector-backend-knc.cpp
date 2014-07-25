@@ -486,7 +486,7 @@ namespace Vectorization
     void KNCVectorBackend::common_comparison_op_lowering(
             const Nodecl::NodeclBase& n,
             const int float_cmp_flavor,
-            const _MM_CMPINT_ENUM int_cmp_flavor)
+            const std::string int_cmp_flavor)
     {
         Nodecl::VectorLowerThan cmp_node = n.as<Nodecl::VectorLowerThan>();
 
@@ -550,32 +550,32 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LT_OS, _MM_CMPINT_LT);
+        common_comparison_op_lowering(n, _CMP_LT_OS, "_MM_CMPINT_LT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LE_OS, _MM_CMPINT_LE);
+        common_comparison_op_lowering(n, _CMP_LE_OS, "_MM_CMPINT_LE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GT_OS, _MM_CMPINT_NLE);
+        common_comparison_op_lowering(n, _CMP_GT_OS, "_MM_CMPINT_NLE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GE_OS, _MM_CMPINT_NLT);
+        common_comparison_op_lowering(n, _CMP_GE_OS, "_MM_CMPINT_NLT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
-        common_comparison_op_lowering(n, _CMP_EQ_OQ, _MM_CMPINT_EQ);
+        common_comparison_op_lowering(n, _CMP_EQ_OQ, "_MM_CMPINT_EQ");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
-        common_comparison_op_lowering(n, _CMP_NEQ_UQ, _MM_CMPINT_NE);
+        common_comparison_op_lowering(n, _CMP_NEQ_UQ, "_MM_CMPINT_NE");
     }
 
     void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& n,

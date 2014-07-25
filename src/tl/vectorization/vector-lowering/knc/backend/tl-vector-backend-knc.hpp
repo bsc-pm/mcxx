@@ -83,7 +83,7 @@ namespace TL
                 virtual void common_comparison_op_lowering(
                         const Nodecl::NodeclBase& node,
                         const int float_cmp_flavor,
-                        const _MM_CMPINT_ENUM int_cmp_flavor);
+                        const std::string int_cmp_flavor);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
