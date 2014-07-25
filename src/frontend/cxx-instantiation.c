@@ -2302,7 +2302,8 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
             {
                 entry->decl_context.template_parameters =
                     copy_template_parameters(class_symbol->decl_context.template_parameters);
-                entry->decl_context.template_parameters->enclosing = NULL;
+                if (entry->decl_context.template_parameters != NULL)
+                    entry->decl_context.template_parameters->enclosing = NULL;
 
                 scope_entry_t* primary_sym =
                     named_type_get_symbol(
