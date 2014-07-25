@@ -95,6 +95,19 @@ namespace TL
                         const TL::Type& type,
                         KNCConfigMaskProcessing conf = KNCConfigMaskProcessing::MASK_DEFAULT );
 
+                void visit_aligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_unaligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_aligned_vector_store(
+                        const Nodecl::VectorStore& node,
+                        const int hint);
+                 void visit_aligned_vector_stream_store(
+                        const Nodecl::VectorStore& node);
+                void visit_unaligned_vector_store(
+                        const Nodecl::VectorStore& node,
+                        const int hint);
+
             public:
 
                 KNCVectorBackend();
@@ -137,16 +150,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLiteral& n);
                 virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
-                virtual void visit(const Nodecl::UnalignedVectorLoad& n);
-                virtual void visit_vector_store(const Nodecl::VectorStore& node,
-                        const int hint);
                 virtual void visit(const Nodecl::VectorStore& n);
-                virtual void visit(const Nodecl::VectorStreamStore& n);
-                virtual void visit_unaligned_vector_store(
-                        const Nodecl::UnalignedVectorStore& node,
-                        const int hint);
-                virtual void visit(const Nodecl::UnalignedVectorStore& n);
-                virtual void visit(const Nodecl::UnalignedVectorStreamStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
                 virtual void visit(const Nodecl::VectorScatter& n);
 

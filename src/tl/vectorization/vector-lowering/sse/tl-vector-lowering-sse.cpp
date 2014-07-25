@@ -25,6 +25,7 @@
   --------------------------------------------------------------------*/
 
 #include "tl-vector-lowering-sse.hpp"
+#include "tl-nodecl-utils.hpp"
 #include "tl-source.hpp"
 
 #define SSE_VECTOR_BIT_SIZE 128
@@ -1236,6 +1237,21 @@ namespace TL
 
         void SSEVectorLowering::visit(const Nodecl::VectorLoad& node) 
         { 
+            TL::ObjectList<Nodecl::NodeclBase> flags = 
+                node.get_flags().as<Nodecl::List>().to_object_list();
+
+            bool aligned = Nodecl::Utils::list_contains_nodecl(
+                    flags, Nodecl::AlignedFlag());
+
+            if (aligned)
+                visit_aligned_vector_load(node);
+            else
+                visit_unaligned_vector_load(node);
+        }
+
+        void SSEVectorLowering::visit_aligned_vector_load(
+                const Nodecl::VectorLoad& node) 
+        {
             TL::Type type = node.get_type().basic_type();
 
             TL::Source intrin_src;
@@ -1279,7 +1295,8 @@ namespace TL
             node.replace(function_call);
         }
 
-        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorLoad& node) 
+        void SSEVectorLowering::visit_unaligned_vector_load(
+                const Nodecl::VectorLoad& node) 
         { 
             TL::Type type = node.get_type().basic_type();
 
@@ -1325,7 +1342,22 @@ namespace TL
         }
 
         void SSEVectorLowering::visit(const Nodecl::VectorStore& node) 
-        { 
+        {
+            TL::ObjectList<Nodecl::NodeclBase> flags = 
+                node.get_flags().as<Nodecl::List>().to_object_list();
+
+            bool aligned = Nodecl::Utils::list_contains_nodecl(
+                    flags, Nodecl::AlignedFlag());
+
+            if (aligned)
+                visit_aligned_vector_store(node);
+            else
+                visit_unaligned_vector_store(node);
+        }
+
+        void SSEVectorLowering::visit_aligned_vector_store(
+                const Nodecl::VectorStore& node) 
+        {
             TL::Type type = node.get_lhs().get_type().basic_type();
 
             TL::Source intrin_src;
@@ -1371,7 +1403,8 @@ namespace TL
             node.replace(function_call);
         }
 
-        void SSEVectorLowering::visit(const Nodecl::UnalignedVectorStore& node) 
+        void SSEVectorLowering::visit_unaligned_vector_store(
+                const Nodecl::VectorStore& node) 
         { 
             TL::Type type = node.get_lhs().get_type().basic_type();
 

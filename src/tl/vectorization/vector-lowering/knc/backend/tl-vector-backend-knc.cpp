@@ -1472,7 +1472,23 @@ namespace Vectorization
         n.replace(function_call);
     }
 
+
     void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> flags = 
+            n.get_flags().as<Nodecl::List>().to_object_list();
+
+        bool aligned = Nodecl::Utils::list_contains_nodecl(
+                flags, Nodecl::AlignedFlag());
+
+        if (aligned)
+            visit_aligned_vector_load(n);
+        else
+            visit_unaligned_vector_load(n);
+    }
+
+    void KNCVectorBackend::visit_aligned_vector_load(
+            const Nodecl::VectorLoad& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
@@ -1532,7 +1548,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorLoad& n)
+    void KNCVectorBackend::visit_unaligned_vector_load(
+            const Nodecl::VectorLoad& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
@@ -1620,7 +1637,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit_vector_store(const Nodecl::VectorStore& n,
+    void KNCVectorBackend::visit_aligned_vector_store(
+            const Nodecl::VectorStore& n,
             const int hint)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
@@ -1698,12 +1716,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
-    {
-        visit_vector_store(n, _MM_HINT_NONE);
-    }
-
-    void KNCVectorBackend::visit(const Nodecl::VectorStreamStore& n)
+    void KNCVectorBackend::visit_aligned_vector_stream_store(
+            const Nodecl::VectorStore& n)
     {
         Nodecl::NodeclBase mask = n.get_mask();
 
@@ -1711,7 +1725,8 @@ namespace Vectorization
         // Emit store with hint instead
         if(!mask.is_null())
         {
-            visit_vector_store(n.as<Nodecl::VectorStore>(), _MM_HINT_NT);
+            visit_aligned_vector_store(n.as<Nodecl::VectorStore>(),
+                    _MM_HINT_NT);
             return;
         }
 
@@ -1807,8 +1822,9 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit_unaligned_vector_store(const Nodecl::UnalignedVectorStore&
-            n, const int hint)
+    void KNCVectorBackend::visit_unaligned_vector_store(
+            const Nodecl::VectorStore& n,
+            const int hint)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
@@ -1915,14 +1931,30 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStore& n)
+    void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
     {
-        visit_unaligned_vector_store(n, _MM_HINT_NONE);
-    }
+        TL::ObjectList<Nodecl::NodeclBase> flags = 
+            n.get_flags().as<Nodecl::List>().to_object_list();
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStreamStore& n)
-    {
-        visit_unaligned_vector_store(n.as<Nodecl::UnalignedVectorStore>(), _MM_HINT_NT);
+        bool aligned = Nodecl::Utils::list_contains_nodecl(
+                flags, Nodecl::AlignedFlag());
+        bool stream = Nodecl::Utils::list_contains_nodecl(
+                flags, Nodecl::NontemporalFlag());
+
+        if (aligned)
+        {
+            if (stream)
+                visit_aligned_vector_stream_store(n);
+            else
+                visit_aligned_vector_store(n, _MM_HINT_NONE);
+        }
+        else
+        {
+            if (stream)
+                visit_unaligned_vector_store(n, _MM_HINT_NT);
+            else
+                visit_unaligned_vector_store(n, _MM_HINT_NONE);
+        }
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGather& n)

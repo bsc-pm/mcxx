@@ -133,7 +133,7 @@ string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 vector-flags: NODECL_ALIGNED_FLAG()
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
-    | NODECL_STREAM_FLAG()
+    | NODECL_NONTEMPORAL_FLAG()
     | expression
 
 expression : literal
@@ -208,12 +208,8 @@ expression : literal
            | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt

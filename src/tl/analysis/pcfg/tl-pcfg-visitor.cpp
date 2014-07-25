@@ -3114,16 +3114,6 @@ namespace Analysis {
         return visit_unary_node( n, n.get_arg( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorLoad& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
     {
         if( VERBOSE )
@@ -3428,16 +3418,6 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorStreamStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStreamStore& n )
     {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }
