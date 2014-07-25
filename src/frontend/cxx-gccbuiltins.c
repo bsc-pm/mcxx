@@ -97,8 +97,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
     This macro describes a pointer type.  ENUM is as above; TYPE is
     the type pointed to.  */
 
-#define UNUSED_FUNCTION __attribute__((unused))
-
 #define DEF_PRIMITIVE_TYPE(NAME, TYPE_T_VALUE) \
     UNUSED_FUNCTION static type_t* __mcxx_builtin_type__##NAME(void) \
     { \

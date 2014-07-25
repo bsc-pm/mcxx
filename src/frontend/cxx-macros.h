@@ -77,6 +77,8 @@
   #define WARN_FUNCTION(x)
 #endif
 
+#define UNUSED_FUNCTION UNUSED_PARAMETER
+
 #ifdef __cplusplus
   #define MCXX_BEGIN_DECLS extern "C" { 
   #define MCXX_END_DECLS }
