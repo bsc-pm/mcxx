@@ -134,7 +134,7 @@ namespace Nodecl
 
         if (container.is<Nodecl::ObjectInit>())
         {
-            get_all_nodecl_occurrences_rec(target_ocurrence, container, result);
+            get_all_nodecl_occurrences_rec(target_ocurrence, container.get_symbol().get_value(), result);
         }
 
         TL::ObjectList<Nodecl::NodeclBase> children = container.children();
