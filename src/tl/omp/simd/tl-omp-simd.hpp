@@ -29,7 +29,7 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-vectorizer.hpp"
-#include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-overlap.hpp"
 
 namespace TL
 {
@@ -100,8 +100,8 @@ namespace TL
                 int process_unroll_and_jam_clause(const Nodecl::List& environment);
                 void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
-                void process_cache_clause(const Nodecl::List& environment,
-                        TL::Vectorization::tl_sym_int_map_t& cached_expressions);
+                void process_overlap_clause(const Nodecl::List& environment,
+                        TL::Vectorization::tl_sym_int_map_t& overlap_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,

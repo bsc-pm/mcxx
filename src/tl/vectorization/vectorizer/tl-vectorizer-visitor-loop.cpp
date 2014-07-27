@@ -51,8 +51,8 @@ namespace Vectorization
     void VectorizerVisitorLoop::visit(const Nodecl::ForStatement& for_statement)
     {
         // CACHE: Before vectorizing!
-        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
-        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
+//        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
+//        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
 
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
@@ -63,10 +63,11 @@ namespace Vectorization
         visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
         // LOOP BODY
-        VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+        VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(for_statement.get_statement());
 
         // Add cache it update to Compound Statement
+/*
         if (!cache_it_update_pre.empty())
         {
             // TODO: Function to do this in Nodecl::Utils
@@ -82,10 +83,12 @@ namespace Vectorization
                 .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
                 .append(cache_it_update_post);
         }
+*/        
     }
 
     void VectorizerVisitorLoop::visit(const Nodecl::WhileStatement& while_statement)
     {
+/*
         // CACHE: Before vectorizing!
         Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
         Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
@@ -93,16 +96,17 @@ namespace Vectorization
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
         visitor_local_symbol.walk(while_statement);
-
+*/
         // Vectorize Loop Header
         VectorizerVisitorLoopCond visitor_loop_cond(_environment);
         visitor_loop_cond.walk(while_statement.get_condition());
 
         // LOOP BODY
-        VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+        VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(while_statement.get_statement());
 
         // Add cache it update to Compound Statement
+        /*
         if (!cache_it_update_pre.empty())
         {
             // TODO: Function to do this in Nodecl::Utils
@@ -118,6 +122,7 @@ namespace Vectorization
                 .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
                 .append(cache_it_update_post);
         }
+        */
     }
 
 
@@ -369,7 +374,7 @@ namespace Vectorization
 
     void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
     {
-        VectorizerVisitorExpression visitor_expression(_environment, true);
+        VectorizerVisitorExpression visitor_expression(_environment);
 
         visitor_expression.walk(node);
     }
@@ -483,7 +488,7 @@ namespace Vectorization
                 _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask
-                VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
+                VectorizerVisitorExpression visitor_mask(_environment);
                 visitor_mask.walk(mask_value);
 
                 _environment._mask_list.pop_back();
@@ -521,7 +526,7 @@ namespace Vectorization
         {
             _environment._mask_list.push_back(mask_nodecl_sym);
 
-            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(comp_statement);
 
             _environment._mask_list.pop_back();

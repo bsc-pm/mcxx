@@ -24,15 +24,16 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_CACHE_HPP
-#define TL_VECTORIZER_CACHE_HPP
+#ifndef TL_VECTORIZER_OVERLAP_HPP
+#define TL_VECTORIZER_OVERLAP_HPP
 
 
 #include <map>
 #include <vector>
 
 #include "tl-nodecl.hpp"
-#include "tl-vectorizer-cache-fwd.hpp"
+#include "tl-nodecl-visitor.hpp"
+#include "tl-vectorizer-overlap-fwd.hpp"
 #include "tl-vectorizer-environment.hpp"
 
 
@@ -40,7 +41,7 @@ namespace TL
 {
     namespace Vectorization
     {
-        class CacheInfo
+        class OverlapInfo
         {
             private:
                 Nodecl::NodeclBase _lower_bound;
@@ -51,38 +52,73 @@ namespace TL
                 std::vector<TL::Symbol> _register_list;
 
             public:
-                CacheInfo(const Nodecl::NodeclBase& lower_bound,
+                OverlapInfo(const Nodecl::NodeclBase& lower_bound,
                        const Nodecl::NodeclBase& upper_bound,
                        const Nodecl::NodeclBase& stride,
                        const int overlap_factor);
 
-            friend class VectorizerCache;
+            friend class VectorizerOverlap;
 
         };
 
-        class VectorizerCache
+        class VectorizerOverlap
         {
             private:
-                typedef std::map<TL::Symbol, CacheInfo> cache_map_t; //Second will be a list
-                typedef std::pair<TL::Symbol, CacheInfo> cache_pair_t; //Second will be a list
+                typedef std::map<TL::Symbol, OverlapInfo> overlap_map_t; //Second will be a list
+                typedef std::pair<TL::Symbol, OverlapInfo> overlap_pair_t; //Second will be a list
 
-                cache_map_t _cache_map;
+                overlap_map_t _overlap_map;
 
             public:
-                VectorizerCache(
-                        const tl_sym_int_map_t& cached_expressions);
+                VectorizerOverlap(
+                        const tl_sym_int_map_t& overlapd_expressions);
 
-                void declare_cache_symbols(TL::Scope scope,
+                void declare_overlap_symbols(TL::Scope scope,
                         const VectorizerEnvironment& environment);
 
                 Nodecl::List get_init_statements(VectorizerEnvironment& environment) const;
                 Nodecl::List get_iteration_update_pre(VectorizerEnvironment& environment) const;
                 Nodecl::List get_iteration_update_post(VectorizerEnvironment& environment) const;
 
-                bool is_cached_access(const Nodecl::ArraySubscript& n) const;
+                bool is_overlapd_access(const Nodecl::ArraySubscript& n) const;
                 Nodecl::NodeclBase get_load_access(const Nodecl::ArraySubscript& n) const;
         };
+
+
+        class OverlapGroup
+        {
+
+        };
+
+        typedef TL::ObjectList<objlist_nodecl_t> objlist_ogroup_t;
+        class OverlappedAccessesOptimizer : public Nodecl::NodeclVisitor<void>
+        {
+            private:
+                tl_sym_int_map_t _overlap_symbols;
+                
+                objlist_nodecl_t get_adjacent_vector_loads_nested_in_one_for(
+                        const Nodecl::ForStatement& n,
+                        const TL::Symbol& sym);
+                bool overlap(const Nodecl::VectorLoad& vector_load,
+                        objlist_nodecl_t group);
+                objlist_ogroup_t get_overlap_groups(
+                        const objlist_nodecl_t& adjacent_accesses);
+                void enable_overlap_cache(const OverlapGroup& ogroup,
+                        const Nodecl::ForStatement& n);
+                void replace_overlapped_loads(const OverlapGroup& ogroup,
+                        const Nodecl::ForStatement& n);
+
+                Nodecl::NodeclBase get_vector_load_subscripts(
+                        const Nodecl::VectorLoad& vl);
+
+ 
+            public:
+                OverlappedAccessesOptimizer(VectorizerEnvironment& environment);
+                
+                void visit(const Nodecl::ForStatement&);
+
+       };
     }
 }
 
-#endif // TL_VECTORIZER_CACHE_HPP
+#endif // TL_VECTORIZER_OVERLAP_HPP

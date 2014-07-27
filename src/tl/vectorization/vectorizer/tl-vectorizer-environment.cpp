@@ -43,7 +43,7 @@ namespace Vectorization
             const objlist_tlsymbol_t& uniform_symbols_list,
             const objlist_nodecl_t& suitable_exprs_list,
             const nontmp_expr_map_t& nontemporal_exprs_list,
-            const VectorizerCache& vectorizer_cache,
+            const tl_sym_int_map_t& overlap_symbols_map,
             const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
@@ -55,7 +55,7 @@ namespace Vectorization
         _uniform_symbols_list(uniform_symbols_list),
         _suitable_exprs_list(suitable_exprs_list),
         _nontemporal_exprs_map(nontemporal_exprs_list),
-        _vectorizer_cache(vectorizer_cache),
+        _overlap_symbols_map(overlap_symbols_map),
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {

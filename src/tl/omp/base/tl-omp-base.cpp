@@ -607,7 +607,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This taskwait does not flush device caches due to 'noflush' clause\n"
+                    << "This taskwait does not flush device overlaps due to 'noflush' clause\n"
                     ;
             }
         }
@@ -617,7 +617,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This taskwait flushes device caches (if any device is used)\n"
+                    << "This taskwait flushes device overlaps (if any device is used)\n"
                     ;
             }
         }
@@ -1810,9 +1810,9 @@ namespace TL { namespace OpenMP {
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
             (pragma_line, "suitable", ref_scope, environment);
 
-        // Cache
-        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", ref_scope, environment, 4);
+        // Overlap
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Overlap>
+            (pragma_line, "overlap", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");

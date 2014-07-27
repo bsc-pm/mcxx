@@ -39,9 +39,8 @@ namespace TL
 namespace Vectorization
 {
     VectorizerVisitorExpression::VectorizerVisitorExpression(
-            VectorizerEnvironment& environment,
-            const bool cache_enabled) :
-        _environment(environment), _cache_enabled(cache_enabled)
+            VectorizerEnvironment& environment) :
+        _environment(environment)
     {
     }
 
@@ -1037,6 +1036,7 @@ namespace Vectorization
         }
         */
         // Cached access
+/*
         else if (_cache_enabled &&
                 _environment._vectorizer_cache.is_cached_access(n))
         {
@@ -1044,6 +1044,7 @@ namespace Vectorization
             n.replace(_environment._vectorizer_cache.get_load_access(n));
             std::cerr << n.prettyprint() << std::endl;
         }
+*/
         // Vector Load
         else
         {

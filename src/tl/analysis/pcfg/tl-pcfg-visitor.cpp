@@ -2015,9 +2015,9 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Cache& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Overlap& n )
     {
-        PCFGClause current_clause( __cache, n.get_cached_expressions( ) );
+        PCFGClause current_clause( __overlap, n.get_overlap_expressions( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }

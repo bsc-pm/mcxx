@@ -31,7 +31,7 @@
 #include "tl-vectorizer-environment-fwd.hpp"
 
 #include "tl-vectorization-common.hpp"
-#include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-overlap.hpp"
 
 namespace TL
 {
@@ -50,7 +50,7 @@ namespace Vectorization
             const objlist_tlsymbol_t& _uniform_symbols_list;
             const objlist_nodecl_t& _suitable_exprs_list;
             const nontmp_expr_map_t& _nontemporal_exprs_map;
-            const VectorizerCache& _vectorizer_cache;
+            const tl_sym_int_map_t& _overlap_symbols_map;
 
             const objlist_tlsymbol_t* _reduction_list;
             std::map<TL::Symbol, TL::Symbol>* _new_external_vector_symbol_map;
@@ -78,7 +78,7 @@ namespace Vectorization
                     const objlist_tlsymbol_t& uniform_expr_list,
                     const objlist_nodecl_t& suitable_expr_list,
                     const nontmp_expr_map_t& nontemporal_expr_map,
-                    const VectorizerCache& vectorizer_cache,
+                    const tl_sym_int_map_t& overlap_symbols_map,
                     const objlist_tlsymbol_t* reduction_list,
                     std::map<TL::Symbol, TL::Symbol>* new_external_vector_symbol_map);
 

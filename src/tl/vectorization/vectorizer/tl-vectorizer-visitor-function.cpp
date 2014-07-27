@@ -132,7 +132,7 @@ namespace TL
             //visitor_local_symbol.walk(function_code);
 
             // Vectorize function statements
-            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(function_code.get_statements());
 
             // Add final return if multi-return function
