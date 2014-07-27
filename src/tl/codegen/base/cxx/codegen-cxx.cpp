@@ -4274,6 +4274,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
     *(file) << "}";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLoad& node)
+{
+    indent();
+    *(file) << "VL{";
+    walk(node.get_rhs());
+    *(file) << "}";
+}
+
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
 {
     indent();
