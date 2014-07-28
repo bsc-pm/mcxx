@@ -834,7 +834,7 @@ namespace Analysis {
                 {
                     for(IpUsageMap::iterator it = _ipa_modif_vars->begin(); it != _ipa_modif_vars->end(); ++it)
                     {
-                        if(Nodecl::Utils::nodecl_contains_nodecl(it->first, n))
+                        if(Nodecl::Utils::dataref_contains_dataref(it->first, n))
                         {
                             // If any other combination, there is nothing to add to the usage information
                             if(_define && ((*_ipa_modif_vars)[n_base]._usage_type & Utils::UsageKind::USED))
