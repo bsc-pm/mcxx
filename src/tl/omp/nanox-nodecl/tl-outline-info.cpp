@@ -1488,8 +1488,8 @@ namespace TL { namespace Nanox {
             {
                 ss << function_symbol.in_module().get_name() << "_";
             }
-
-            ss << (int)task_counter;
+			
+			ss << function_symbol.get_filename() << "_" << (int)task_counter;
 
             unsigned int hash_int = simple_hash_str(ss.str().c_str());
 

@@ -92,12 +92,12 @@ namespace Utils {
         return (_incr.is_constant() && (const_value_is_one(_incr.get_constant())));
     }
 
-    NodeclList InductionVar::get_increment_list() const
+    ObjectList<NBase> InductionVar::get_increment_list() const
     {
         return _incrs;
     }
 
-    void InductionVar::set_increment_list(NodeclList incr_list)
+    void InductionVar::set_increment_list(ObjectList<NBase> incr_list)
     {
         _incrs.insert(incr_list);
     }

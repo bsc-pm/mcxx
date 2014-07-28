@@ -40,7 +40,10 @@ namespace TL {
         Simd::Simd()
             : PragmaCustomCompilerPhase("omp-simd"),
             _simd_enabled(false), _svml_enabled(false), _fast_math_enabled(false),
-            _avx2_enabled(false), _knc_enabled(false)
+            _avx2_enabled(false), _knc_enabled(false),
+            _prefer_gather_scatter(false),
+            _prefer_mask_gather_scatter(false),
+            _spml_enabled(false)
         {
             set_phase_name("Vectorize OpenMP SIMD parallel IR");
             set_phase_description("This phase vectorize the OpenMP SIMD parallel IR");
@@ -264,9 +267,9 @@ namespace TL {
                     vectorlengthfor_type);
 
             // Cache clause
-            objlist_nodecl_t cached_expressions;
-            process_cache_clause(simd_environment, cached_expressions);
-            VectorizerCache vectorizer_cache(cached_expressions);
+            tl_sym_int_map_t cached_symbols;
+            process_cache_clause(simd_environment, cached_symbols);
+            VectorizerCache vectorizer_cache(cached_symbols);
 
             // External symbols (loop)
             std::map<TL::Symbol, TL::Symbol> new_external_vector_symbol_map;
@@ -525,9 +528,9 @@ namespace TL {
             process_nontemporal_clause(omp_simd_for_environment, nontemporal_expressions);
 
             // Cache clause
-            objlist_nodecl_t cached_expressions;
-            process_cache_clause(omp_simd_for_environment, cached_expressions);
-            VectorizerCache vectorizer_cache(cached_expressions);
+            tl_sym_int_map_t cached_symbols;
+            process_cache_clause(omp_simd_for_environment, cached_symbols);
+            VectorizerCache vectorizer_cache(cached_symbols);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -849,9 +852,9 @@ namespace TL {
             process_nontemporal_clause(omp_environment, nontemporal_expressions);
 
             // Cache clause
-            objlist_nodecl_t cached_expressions;
-            process_cache_clause(omp_environment, cached_expressions);
-            VectorizerCache vectorizer_cache(cached_expressions);
+            tl_sym_int_map_t cached_symbols;
+            process_cache_clause(omp_environment, cached_symbols);
+            VectorizerCache vectorizer_cache(cached_symbols);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -951,9 +954,9 @@ namespace TL {
             process_nontemporal_clause(omp_simd_parallel_environment, nontemporal_expressions);
 
             // Cache clause
-            objlist_nodecl_t cached_expressions;
-            process_cache_clause(omp_simd_parallel_environment, cached_expressions);
-            VectorizerCache vectorizer_cache(cached_expressions);
+            tl_sym_int_map_t cached_symbols;
+            process_cache_clause(omp_simd_parallel_environment, cached_symbols);
+            VectorizerCache vectorizer_cache(cached_symbols);
 
             // Vectorlengthfor clause
             TL::Type vectorlengthfor_type;
@@ -1257,7 +1260,7 @@ namespace TL {
                 vectorlengthfor_type = omp_vector_length_for.get_type();
             }
         }
-
+/*
         void SimdVisitor::process_cache_clause(const Nodecl::List& environment,
                 objlist_nodecl_t& cached_expressions)
         {
@@ -1268,6 +1271,37 @@ namespace TL {
             {
                 cached_expressions = omp_cache.get_cached_expressions().
                     as<Nodecl::List>().to_object_list();
+            }
+        }
+*/
+        void SimdVisitor::process_cache_clause(const Nodecl::List& environment,
+                tl_sym_int_map_t& cached_symbols)
+        {
+            TL::ObjectList<Nodecl::OpenMP::Cache> omp_cache_list =
+                environment.find_all<Nodecl::OpenMP::Cache>();
+
+            for(TL::ObjectList<Nodecl::OpenMP::Cache>::iterator it = omp_cache_list.begin();
+                    it != omp_cache_list.end();
+                    it++)
+            {
+                Nodecl::OpenMP::Cache& omp_cache = *it;
+
+                objlist_nodecl_t cache_symbols_list =
+                    omp_cache.get_cached_expressions().as<Nodecl::List>().to_object_list();
+
+                int overlap_factor = const_value_cast_to_signed_int(
+                        it->get_overlap_factor().as<Nodecl::IntegerLiteral>().get_constant());
+
+                for(objlist_nodecl_t::iterator it2 = cache_symbols_list.begin();
+                        it2 != cache_symbols_list.end();
+                        it2++)
+                {
+                    if(!cached_symbols.insert(std::pair<TL::Symbol, int>(
+                                    it2->as<Nodecl::Symbol>().get_symbol(), overlap_factor)).second)
+                    {
+                        running_error("SIMD: multiple instances of the same variable in the 'cache' clause detected\n");
+                    }
+                }
             }
         }
 

@@ -77,6 +77,8 @@ LIBMCXX_EXTERN void check_nodecl_initialization(
         nodecl_t* nodecl_output,
         char is_auto_type);
 
+LIBMCXX_EXTERN void compute_nodecl_initialization(AST initializer, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
 
@@ -132,8 +134,6 @@ LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id,
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, 
         const locus_t* locus, 
         char mandatory);
-
-LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char**, const locus_t* locus);
 
