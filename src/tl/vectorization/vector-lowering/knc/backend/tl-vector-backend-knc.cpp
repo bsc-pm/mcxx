@@ -1475,16 +1475,19 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> flags = 
-            n.get_flags().as<Nodecl::List>().to_object_list();
+        Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-        bool aligned = Nodecl::Utils::list_contains_nodecl(
-                flags, Nodecl::AlignedFlag());
+        bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+            is_null();
 
         if (aligned)
+        {
             visit_aligned_vector_load(n);
+        }
         else
+        {
             visit_unaligned_vector_load(n);
+        }
     }
 
     void KNCVectorBackend::visit_aligned_vector_load(
@@ -1735,13 +1738,12 @@ namespace Vectorization
 
         TL::Type type = n.get_lhs().get_type().basic_type();
 
-        TL::ObjectList<Nodecl::NodeclBase> ss_flags =
-            n.get_flags().as<Nodecl::List>().to_object_list();
+        Nodecl::List ss_flags = n.get_flags().as<Nodecl::List>();
 
-        bool relaxed_store = Nodecl::Utils::list_contains_nodecl(
-                ss_flags, Nodecl::RelaxedFlag::make());
-        bool cache_eviction = Nodecl::Utils::list_contains_nodecl(
-                ss_flags, Nodecl::EvictFlag::make());
+        bool relaxed_store = !ss_flags.find_first<Nodecl::RelaxedFlag>().
+           is_null();
+        bool cache_eviction = !ss_flags.find_first<Nodecl::EvictFlag>().
+            is_null();
 
         TL::Source stream_store_src, cache_evict_src, intrin_src, intrin_name,
             intrin_op_name, args,intrin_type_suffix, mask_prefix, mask_args;
@@ -1933,13 +1935,12 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
     {
-        TL::ObjectList<Nodecl::NodeclBase> flags = 
-            n.get_flags().as<Nodecl::List>().to_object_list();
+        Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-        bool aligned = Nodecl::Utils::list_contains_nodecl(
-                flags, Nodecl::AlignedFlag());
-        bool stream = Nodecl::Utils::list_contains_nodecl(
-                flags, Nodecl::NontemporalFlag());
+        bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+            is_null();
+        bool stream = !flags.find_first<Nodecl::NontemporalFlag>().
+            is_null();
 
         if (aligned)
         {

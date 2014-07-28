@@ -705,7 +705,7 @@ namespace Vectorization
                                     _environment._vectorization_factor,
                                     _environment._vectorization_factor * assignment_type.get_size()))
                         {
-                            store_flags.append(Nodecl::AlignedFlag());
+                            store_flags.append(Nodecl::AlignedFlag::make());
 
                             VECTORIZATION_DEBUG()
                             {
@@ -1100,7 +1100,7 @@ namespace Vectorization
                             _environment._vectorization_factor,
                             _environment._vector_length))
                 {
-                    load_flags.append(Nodecl::AlignedFlag());
+                    load_flags.append(Nodecl::AlignedFlag::make());
 
                     VECTORIZATION_DEBUG()
                     {
