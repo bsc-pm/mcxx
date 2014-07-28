@@ -217,8 +217,6 @@ namespace {
     }
 }
     
-    static int id_ = 0;
-    
     void ExtensibleGraph::print_graph_to_dot(bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                              bool ranges, bool auto_scoping, bool auto_deps)
     {
