@@ -1152,14 +1152,19 @@ end_get_switch_cond:
                 json_tdg << "\t\t\t{\n";
                 
                     json_tdg << "\t\t\t\t\"id\" : " << cs->get_id() << ",\n";
-                    json_tdg << "\t\t\t\t\"type\" : \"" << cs->get_type_as_string() << "\",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << cs->get_type_as_string();
                     if(cs->get_pcfg_node() != NULL)
                     {
+                        json_tdg << "\",\n";
                         json_tdg << "\t\t\t\t\"locus\" : \"" << cs->get_pcfg_node()->get_graph_related_ast().get_locus_str() << "\",\n";
                         json_tdg << "\t\t\t\t\"when\" : {\n";
                         print_condition(NULL, cs, json_tdg, "\t\t\t\t\t", 
                                         /*unnecessary param for a control structure's condition*/dependency_size);
                         json_tdg << "\t\t\t\t}\n";
+                    }
+                    else
+                    {
+                        json_tdg << "\"\n";
                     }
                     
                 ++it;
