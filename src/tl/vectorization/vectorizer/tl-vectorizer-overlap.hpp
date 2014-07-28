@@ -41,6 +41,7 @@ namespace TL
 {
     namespace Vectorization
     {
+        /*
         class OverlapInfo
         {
             private:
@@ -83,17 +84,26 @@ namespace TL
                 bool is_overlapd_access(const Nodecl::ArraySubscript& n) const;
                 Nodecl::NodeclBase get_load_access(const Nodecl::ArraySubscript& n) const;
         };
-
+*/
 
         struct OverlapGroup
         {
-            Nodecl::NodeclBase _first_cache_index;
-            objlist_tlsymbol_t _cache_registers;
-            objlist_nodecl_t _overlap_loads;
+            Nodecl::Symbol _group_subscripted;
+            objlist_tlsymbol_t _group_registers;
+            objlist_nodecl_t _group_registers_indexes;
+            objlist_nodecl_t _group_loads;
+            TL::Type _basic_type;
+            TL::Type _vector_type;
+
+            Nodecl::List get_init_statements(
+                    const TL::Scope& scope) const;
+            Nodecl::List get_iteration_update_pre() const;
+            Nodecl::List get_iteration_update_post() const;
         };
 
         typedef TL::ObjectList<OverlapGroup> objlist_ogroup_t;
-        class OverlappedAccessesOptimizer : public Nodecl::NodeclVisitor<void>
+        class OverlappedAccessesOptimizer : 
+            public Nodecl::ExhaustiveVisitor<void>
         {
             private:
                 tl_sym_int_map_t _overlap_symbols;
@@ -114,7 +124,9 @@ namespace TL
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
-                Nodecl::NodeclBase get_vector_load_subscripts(
+                Nodecl::NodeclBase get_vector_load_subscripted(
+                        const Nodecl::VectorLoad& vl);
+                Nodecl::NodeclBase get_vector_load_subscript(
                         const Nodecl::VectorLoad& vl);
  
             public:
