@@ -794,7 +794,14 @@ end_get_switch_cond:
             if(control_structure == NULL)
             {   // Add dummy control structure
                 ObjectList<std::string> taken_branches;
-                ControlStructure* cs = new ControlStructure(0, Blank, NBase::null(), NULL);
+                ControlStructure* cs;
+                if(_pcfg_to_cs_map.find(NULL) != _pcfg_to_cs_map.end())
+                    cs = _pcfg_to_cs_map[NULL];
+                else
+                {   // The control structure did not exist yet
+                    cs = new ControlStructure(++control_id, Blank, NBase::null(), NULL);
+                    _pcfg_to_cs_map[NULL] = cs;
+                }
                 (*it)->add_control_structure(cs, taken_branches);
             }
             while(control_structure != NULL)
@@ -1134,41 +1141,34 @@ end_get_switch_cond:
     {
         json_tdg << "\t\t\"control_structures\" : [\n";
         
-            // Print the Blank Control Structure (for nodes with no control structure associated)
-            json_tdg << "\t\t\t{\n";
-                json_tdg << "\t\t\t\t\"id\" : 0,\n";
-                json_tdg << "\t\t\t\t\"type\" : \"Blank\",\n";
-            if(_pcfg_to_cs_map.empty())
-                json_tdg << "\t\t\t}\n";
-            else
-                json_tdg << "\t\t\t},\n";
-            
-            // Print the Controls Structures involved in the tasks instantiation            
-            if(!_pcfg_to_cs_map.empty())
-            {
-                NBase dependency_size;
+        // Print the Controls Structures involved in the tasks instantiation
+        if(!_pcfg_to_cs_map.empty())
+        {
+            NBase dependency_size;
 
-                for(PCFG_to_CS::const_iterator it = _pcfg_to_cs_map.begin(); it != _pcfg_to_cs_map.end(); )
-                {
-                    ControlStructure* cs = it->second;
-                    json_tdg << "\t\t\t{\n";
-                    
-                        json_tdg << "\t\t\t\t\"id\" : " << cs->get_id() << ",\n";
-                        json_tdg << "\t\t\t\t\"type\" : \"" << cs->get_type_as_string() << "\",\n";
+            for(PCFG_to_CS::const_iterator it = _pcfg_to_cs_map.begin(); it != _pcfg_to_cs_map.end(); )
+            {
+                ControlStructure* cs = it->second;
+                json_tdg << "\t\t\t{\n";
+                
+                    json_tdg << "\t\t\t\t\"id\" : " << cs->get_id() << ",\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << cs->get_type_as_string() << "\",\n";
+                    if(cs->get_pcfg_node() != NULL)
+                    {
                         json_tdg << "\t\t\t\t\"locus\" : \"" << cs->get_pcfg_node()->get_graph_related_ast().get_locus_str() << "\",\n";
-                    
                         json_tdg << "\t\t\t\t\"when\" : {\n";
-                            print_condition(NULL, cs, json_tdg, "\t\t\t\t\t", 
-                                            /*unnecessary param for a control structure's condition*/dependency_size);
+                        print_condition(NULL, cs, json_tdg, "\t\t\t\t\t", 
+                                        /*unnecessary param for a control structure's condition*/dependency_size);
                         json_tdg << "\t\t\t\t}\n";
-                        
-                    ++it;
-                    if(it != _pcfg_to_cs_map.end())
-                        json_tdg << "\t\t\t},\n";
-                    else
-                        json_tdg << "\t\t\t}\n";
-                }
+                    }
+                    
+                ++it;
+                if(it != _pcfg_to_cs_map.end())
+                    json_tdg << "\t\t\t},\n";
+                else
+                    json_tdg << "\t\t\t}\n";
             }
+        }
         
         json_tdg << "\t\t],\n" ;
     }
@@ -1186,7 +1186,7 @@ end_get_switch_cond:
                     json_tdg << "\t\t\t\t\"id\" : " << i << ",\n";
                     json_tdg << "\t\t\t\t\"name\" : \"" << n.prettyprint() << "\",\n";
                     json_tdg << "\t\t\t\t\"locus\" : \"" << n.get_locus_str() << "\",\n";
-                    json_tdg << "\t\t\t\t\"type\" : \"" << n.get_type().get_declaration(n.retrieve_context(), /*no symbol name*/"") << "\"\n";
+                    json_tdg << "\t\t\t\t\"type\" : \"" << n.get_type().no_ref().get_declaration(n.retrieve_context(), /*no symbol name*/"") << "\"\n";
                 _syms[n] = i;
                 ++it;
                 if(it != _syms.end())
@@ -1280,11 +1280,21 @@ end_get_switch_cond:
                 for(ControlStList::iterator itt = control_structures.begin(); itt != control_structures.end(); )
                 {
                     json_tdg << "\t\t\t\t\t{\n";
-                    json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->first->get_id() << ",\n";
+                    json_tdg << "\t\t\t\t\t\t\"control_id\" : " << itt->first->get_id();
                     if(itt->first->get_type() == IfElse)
-                        json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << get_list_as_string(itt->second) << "],\n";
+                    {
+                        json_tdg << ",\n";
+                        json_tdg << "\t\t\t\t\t\t\"branch_id\" : [" << get_list_as_string(itt->second) << "]\n";
+                    }
                     else if(itt->first->get_type() == Switch)
-                        json_tdg << "\t\t\t\t\t\t\"branch_cond\" : [" << get_list_as_string(itt->second) << "],\n";
+                    {
+                        json_tdg << ",\n";
+                        json_tdg << "\t\t\t\t\t\t\"branch_cond\" : [" << get_list_as_string(itt->second) << "]\n";
+                    }
+                    else
+                    {
+                        json_tdg << "\n";
+                    }
                     ++itt;
                     if(itt != control_structures.end())
                         json_tdg << "\t\t\t\t\t},\n";
