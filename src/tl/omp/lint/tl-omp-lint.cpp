@@ -120,7 +120,8 @@ namespace {
             
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
             
-            if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
+            if (CURRENT_CONFIGURATION->debug_options.print_pcfg || 
+                CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
                 graph->print_graph_to_dot(/*use_def_computed*/true, /*liveness_computed*/true);
             
             // Create the log file that will store the logs
