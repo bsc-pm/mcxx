@@ -41,8 +41,6 @@ namespace Utils {
 
     std::string generate_hashed_name(NBase ast)
     {
-        std::string result;
-
         std::string date_str;
         {
             time_t t = time(NULL);
@@ -57,12 +55,9 @@ namespace Utils {
         }
 
         std::string filename = ::give_basename(ast.get_filename().c_str());
-        int line = ast.get_line();
-        std::stringstream ss; ss << line;
+        std::stringstream line; line << ast.get_line();
 
-        result = filename + "_" + ss.str() + "_" + date_str;
-
-        return result;
+        return filename + "_" + line.str() + "_" + date_str;
     }
 
     NBase find_main_function(NBase ast)
