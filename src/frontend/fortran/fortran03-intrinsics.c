@@ -6016,7 +6016,7 @@ scope_entry_t* compute_intrinsic_sizeof(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = no_ref(argument_types[0]);
 
     return GET_INTRINSIC_INQUIRY(symbol, "sizeof",
-            get_size_t_type(),
+            get_ptrdiff_t_type(),
             lvalue_ref(t0));
 
     return NULL;
@@ -6845,7 +6845,7 @@ scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
 {
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY(symbol, "c_sizeof", get_size_t_type(),
+    return GET_INTRINSIC_INQUIRY(symbol, "c_sizeof", get_ptrdiff_t_type(),
             lvalue_ref(t0));
 }
 

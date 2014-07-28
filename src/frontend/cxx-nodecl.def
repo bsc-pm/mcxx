@@ -115,11 +115,11 @@ pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [c
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]statement-seq-opt, [any]statement-seq-opt)
 # C++2011: for(T symbol : range)
     | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
-
-catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+# This one should only appear inside a NODECL_TRY_BLOCK
+    | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value

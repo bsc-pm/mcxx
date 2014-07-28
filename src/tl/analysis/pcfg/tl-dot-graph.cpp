@@ -160,7 +160,7 @@ namespace {
         return ranges;
     }
     
-    std::string print_node_ranges_propagated_str(Node* current)
+    UNUSED_FUNCTION std::string print_node_ranges_propagated_str(Node* current)
     {
         std::string propagated_ranges = "";
         if(_ranges)

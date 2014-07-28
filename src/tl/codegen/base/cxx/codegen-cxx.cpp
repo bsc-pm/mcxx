@@ -32,6 +32,7 @@
 #include "cxx-entrylist.h"
 #include "string_utils.h"
 #include "tl-compilerpipeline.hpp"
+#include "tl-counters.hpp"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
@@ -3815,6 +3816,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         *(file) << "(" << this->get_declaration(type, this->get_current_scope(), "") << ")";
     }
 
+    bool wrapped_in_compound_expression = false;
+
     if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
             || (structured_value_form == EXPLICIT_TYPECAST_BRACED
                 && !state.inside_structured_value))
@@ -3831,9 +3834,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         {
             *(file) << "unsigned";
         }
+        else if ((!type.is_named()
+                    && (type.is_pointer()
+                        || type.is_any_reference()
+                        || type.is_array()
+                        || type.is_pointer_to_member()))
+                || get_cv_qualifier(type.get_internal_type()) != CV_NONE
+
+                // Builtin types requiring more than one token
+                || (type.is_char() && !(type.is_same_type(::get_char_type())))
+                || type.is_unsigned_char()
+                || type.is_unsigned_int()
+                || type.is_unsigned_short_int()
+                || type.is_unsigned_long_int()
+                || type.is_signed_long_long_int()
+                || type.is_unsigned_long_long_int()
+                || type.is_long_double()
+                )
+        {
+            // This is a hack to workaround the somewhat limited expressivity
+            // of C++ in this syntax
+            wrapped_in_compound_expression = true;
+            TL::Counter &c = TL::CounterManager::get_counter("auxiliar_type");
+
+            std::stringstream ss;
+            ss << "__aux_type" << (int)c;
+            c++;
+
+            *(file) << "({ typedef "
+                << this->get_declaration(type, this->get_current_scope(), ss.str()) << "; "
+                << ss.str();
+        }
         else
         {
-            // No effort done for invalid cases that the syntax does not allow
+            // Usual case
             *(file) << this->get_declaration(type, this->get_current_scope(),  "");
         }
     }
@@ -3865,6 +3899,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             || structured_value_form == TYPECAST)
     {
         *(file) << ")";
+    }
+
+    if (wrapped_in_compound_expression)
+    {
+        *(file) << "; })";
     }
 }
 
@@ -9530,7 +9569,7 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
         TL::Symbol current_param = *it;
         if (current_param.is_valid())
         {
-            if(!current_param.not_to_be_printed())
+            if (!current_param.not_to_be_printed())
             {
                 parameter_names[i] = current_param.get_name();
             }
@@ -9542,11 +9581,12 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
 
             if (emit_default_arguments
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
-                    && symbol.has_default_argument_num(i))
+                    && symbol.has_default_argument_num(i)
+                    && !symbol.has_hidden_default_argument_num(i))
             {
                 // Note that we add redundant parentheses because of a g++ 4.3 problem
                 parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i), 
-                        current_param.get_scope()) + ")";
+                            current_param.get_scope()) + ")";
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }

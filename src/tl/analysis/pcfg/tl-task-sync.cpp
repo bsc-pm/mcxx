@@ -140,7 +140,7 @@ namespace {
 
     }
 
-    bool has_task_creation_edges(Node* n)
+    UNUSED_FUNCTION bool has_task_creation_edges(Node* n)
     {
         ObjectList<Edge*> exit_edges = n->get_exit_edges();
 
@@ -171,7 +171,7 @@ namespace {
         return result;
     }
 
-    std::string print_set(AliveTaskSet& t)
+    UNUSED_FUNCTION std::string print_set(AliveTaskSet& t)
     {
         std::stringstream ss;
         ss << "{ ";

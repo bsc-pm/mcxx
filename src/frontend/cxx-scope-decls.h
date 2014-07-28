@@ -277,6 +277,7 @@ struct default_argument_info_tag
 {
     nodecl_t argument;
     decl_context_t context;
+    char is_hidden;
 };
 
 // This acts as a map <function> -> information of the parameter
