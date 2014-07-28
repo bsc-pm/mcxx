@@ -838,6 +838,33 @@ namespace Nodecl
                 && n.get_parent().is<Nodecl::List>());
     }
 
+    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        if (!Utils::is_in_list(n))
+        {
+            n = Utils::get_enclosing_node_in_list(n);
+        }
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
+    }
+
     void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
     {
         if (!Utils::is_in_list(n))
@@ -865,31 +892,36 @@ namespace Nodecl
         }
     }
 
-    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    void Nodecl::Utils::prepend_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items)
     {
-        if (!Utils::is_in_list(n))
-        {
-            n = Utils::get_enclosing_node_in_list(n);
-        }
+        Nodecl::CompoundStatement node = 
+            nodecl_get_first_nodecl_of_kind<Nodecl::CompoundStatement>(n).
+            as<Nodecl::CompoundStatement>();
 
-        if (!items.is<Nodecl::List>())
-        {
-            items = Nodecl::List::make(items);
-        }
+        ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
 
-        Nodecl::List list_items = items.as<Nodecl::List>();
+        Nodecl::List stmts_list =
+            node.get_statements().as<List>();
 
-        Nodecl::List list = n.get_parent().as<Nodecl::List>();
-        Nodecl::List::iterator last_it = list.last();
+        stmts_list.prepend(items);
+    }
 
-        for (Nodecl::List::iterator it = list_items.begin();
-                it != list_items.end();
-                it++)
-        {
-            list.insert(last_it + 1, *it);
-            // We may have a new last node now
-            last_it = it->get_parent().as<Nodecl::List>().last();
-        }
+    void Nodecl::Utils::append_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items)
+    {
+        Nodecl::CompoundStatement node = 
+            nodecl_get_first_nodecl_of_kind<Nodecl::CompoundStatement>(n).
+            as<Nodecl::CompoundStatement>();
+
+        ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
+
+        Nodecl::List stmts_list =
+            node.get_statements().as<List>();
+
+        stmts_list.append(items);
     }
 
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)

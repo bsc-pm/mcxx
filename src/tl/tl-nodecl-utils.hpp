@@ -103,6 +103,13 @@ namespace Utils {
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
 
+    void append_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items);
+    void prepend_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items);
+
     TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
     //! Returns the first list node that encloses n
     Nodecl::NodeclBase get_enclosing_list(Nodecl::NodeclBase n);
@@ -301,9 +308,8 @@ namespace Utils {
     template <typename Kind>
     struct SimpleFinderVisitorHelper : ExhaustiveVisitor<void>
     {
-            bool found;
-            SimpleFinderVisitorHelper()
-                : found(false) {}
+            TL::ObjectList<Nodecl::NodeclBase> found_nodes;
+            SimpleFinderVisitorHelper() {}
 
             virtual void visit(const Nodecl::ObjectInit& n)
             {
@@ -312,16 +318,29 @@ namespace Utils {
 
             virtual void visit(const Kind& k)
             {
-                found = true;
+                found_nodes.append(k);
             }
     };
 
     template <typename Kind>
-    bool nodecl_contains_nodecl_of_kind(const Nodecl::NodeclBase& n)
+    bool nodecl_contains_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
     {
         SimpleFinderVisitorHelper<Kind> finder;
         finder.walk(n);
-        return finder.found;
+        return !finder.found_nodes.empty();
+    }
+
+    template <typename Kind>
+    Nodecl::NodeclBase nodecl_get_first_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
+    {
+        SimpleFinderVisitorHelper<Kind> finder;
+        finder.walk(n);
+        if (!finder.found_nodes.empty())
+            return finder.found_nodes[0];
+        else
+            return Nodecl::NodeclBase::null();
     }
 
     bool find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
@@ -334,7 +353,7 @@ namespace Utils {
             CollectFinderVisitorHelper()
                 : found_nodes() {}
 
-            virtual void visit(const Nodecl::ObjectInit& n)
+            virtual void visit_pre(const Nodecl::ObjectInit& n)
             {
                 walk(n.get_symbol().get_value());
             }
