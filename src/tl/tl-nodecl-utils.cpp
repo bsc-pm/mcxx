@@ -1436,13 +1436,13 @@ namespace Nodecl
         return result_array;
     }
 
-    bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& containee)
+    bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& contained)
     {
         for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = container.begin();
                 it != container.end();
                 it ++)
         {
-            if (structurally_equal_nodecls(containee, *it, true))
+            if (structurally_equal_nodecls(contained, *it, true))
             {
                 return true;
             }
