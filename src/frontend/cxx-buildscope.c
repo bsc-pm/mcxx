@@ -20280,6 +20280,12 @@ static void instantiate_stmt_not_implemented_yet(nodecl_instantiate_stmt_visitor
             nodecl_locus_to_str(nodecl_stmt));
 }
 
+static void instantiate_unknown_pragma(nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t nodecl_stmt)
+{
+    v->nodecl_result = nodecl_make_list_1(nodecl_shallow_copy(nodecl_stmt));
+}
+
 // This function does not return a NODECL_TEMPLATE_FUNCTION_CODE but a NODECL_FUNCTION_CODE
 static void instantiate_template_function_code(
         nodecl_instantiate_stmt_visitor_t* v,
@@ -21157,6 +21163,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context); // --
 
+    NODECL_VISITOR(v)->visit_unknown_pragma = instantiate_stmt_visitor_fun(instantiate_unknown_pragma);
     NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
     NODECL_VISITOR(v)->visit_pragma_custom_directive = instantiate_stmt_visitor_fun(instantiate_pragma_custom_directive);
     NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);
