@@ -127,7 +127,8 @@ namespace TL
             initialize_builtin_reductions(global_scope);
 
             // If we are instantiating omp we have to ignore template functions
-            if (instantiate_omp())
+            if (instantiate_omp()
+                    || CURRENT_CONFIGURATION->explicit_instantiation)
                 this->set_ignore_template_functions(true);
 
             PragmaCustomCompilerPhase::run(dto);

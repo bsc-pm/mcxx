@@ -160,6 +160,10 @@ namespace TL { namespace OpenMP {
             InstantiateVisitorOmp instantiate_omp_functions(dto);
             instantiate_omp_functions.instantiate();
         }
+        else if (CURRENT_CONFIGURATION->explicit_instantiation)
+        {
+            this->set_ignore_template_functions(true);
+        }
 
         _core.run(dto);
 
