@@ -41,15 +41,14 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
     
+    #define RANGES_DEBUG
+    
     // **************************************************************************************************** //
     // **************************** Visitor implementing constraint building ****************************** //
     
 namespace {
-        
-#define RANGES_DEBUG
     
-    static unsigned int cgnode_id = 0;
-    
+    // *** Variables and methods to simulate SSA during the Constraint Graph construction *** //
     unsigned int non_sym_constraint_id = 0;
     
     //! This maps stores the relationship between each variable in a given node and 
@@ -72,40 +71,14 @@ namespace {
         return next_id;
     }
     
+    // *** Convenient global constants to create the ranges *** //
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
     const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
     
-    void print_constraint(std::string stmt_name, const Symbol& s, const NBase& val, const Type& t)
-    {
-#ifdef RANGES_DEBUG
-        std::cerr << "    " << stmt_name << " Constraint " << s.get_name() << " = " << val.prettyprint() 
-                  << " (" << t.print_declarator() << ")" << std::endl;
-#endif
-    }
-    
-    std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> CONSTRAINTS;
-    ObjectList<NBase> ORDERED_CONSTRAINTS;
-    
-    Utils::Constraint build_constraint(const Symbol& s, const NBase& val, 
-                                       const Type& t, std::string c_name)
-    {
-        // Create the constraint
-        Utils::Constraint c = Utils::Constraint(s, val);
-        
-        // Insert the constraint in the global structures that will allow us building the Constraint Graph
-        Nodecl::Symbol s_n = s.make_nodecl(/*set_ref_type*/false);
-        if(CONSTRAINTS.find(s_n) == CONSTRAINTS.end())
-            ORDERED_CONSTRAINTS.push_back(s_n);
-        CONSTRAINTS[s_n] = val.no_conv();
-        
-        // Print the constraint in the standard error
-        print_constraint(c_name, s, val, t);
-        
-        return c;
-    }
+    Optimizations::Calculator calc;
 }
     
-    ConstraintReplacement::ConstraintReplacement(Utils::ConstraintMap constraints_map)
+    ConstraintReplacement::ConstraintReplacement(Utils::VarToConstraintMap constraints_map)
         : _constraints_map(constraints_map)
     {}
     
@@ -141,28 +114,90 @@ namespace {
         n.replace(_constraints_map[n].get_symbol().make_nodecl(/*set_ref_type*/false));
     }
     
-    ConstraintBuilderVisitor::ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints_map, 
-                                                       Utils::ConstraintMap current_constraints)
-        : _input_constraints_map(input_constraints_map), _output_constraints_map(current_constraints), 
-          _output_true_constraints_map(), _output_false_constraints_map()
+    ConstraintBuilderVisitor::ConstraintBuilderVisitor(
+            Node* n,
+            Utils::VarToConstraintMap input_constraints_map, 
+            Utils::VarToConstraintMap current_constraints, 
+            PCFGNodeToSSAVar_map *pcfg_to_cg,
+            SSAVarToValue_map *constraints,
+            NodeclList *ordered_constraints)
+        : _n(n), _input_constraints_map(input_constraints_map), _output_constraints_map(current_constraints), 
+          _output_true_constraints_map(), _output_false_constraints_map(), 
+          _pcfg_to_cg(pcfg_to_cg), _constraints(constraints), _ordered_constraints(ordered_constraints)
     {}
     
-    void ConstraintBuilderVisitor::compute_constraints(const NBase& n)
+    ConstraintBuilderVisitor::ConstraintBuilderVisitor(
+            Node* n,
+            PCFGNodeToSSAVar_map *pcfg_to_cg,
+            SSAVarToValue_map *constraints,
+            NodeclList *ordered_constraints)
+        : _n(n), _input_constraints_map(), _output_constraints_map(), 
+          _output_true_constraints_map(), _output_false_constraints_map(), 
+          _pcfg_to_cg(pcfg_to_cg), _constraints(constraints), _ordered_constraints(ordered_constraints)
+    {}
+    
+    Utils::Constraint ConstraintBuilderVisitor::build_constraint(
+            const Symbol& s, 
+            const NBase& val, 
+            const Type& t, 
+            std::string c_name)
+    {
+        // Create the constraint
+        Utils::Constraint c = Utils::Constraint(s, val);
+        
+        // Insert the constraint in the global structures that will allow us building the Constraint Graph
+        Nodecl::Symbol s_n = s.make_nodecl(/*set_ref_type*/false);
+        if(_constraints->find(s_n) == _constraints->end())
+            _ordered_constraints->push_back(s_n);
+        (*_constraints)[s_n] = val.no_conv();
+        _pcfg_to_cg->insert(std::pair<Node*, NBase>(_n, s_n));
+        
+        // Print the constraint in the standard error
+        print_constraint(c_name, s, val, t);
+        
+        return c;
+    }
+    
+    void ConstraintBuilderVisitor::compute_stmt_constraints(const NBase& n)
     {
         walk(n);
     }
     
-    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_constraints_map()
+    void ConstraintBuilderVisitor::compute_parameters_constraints(const ObjectList<Symbol>& params)
+    {
+        for(ObjectList<Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
+        {
+            Nodecl::Symbol param_s = it->make_nodecl(/*set_ref_type*/false);
+            Type t = it->get_type();
+            
+            // Build a symbol for the new constraint based on the name of the original variable
+            std::stringstream ss; ss << get_next_id(param_s);
+            std::string constr_name = it->get_name() + "_" + ss.str();
+            Symbol s(it->get_scope().new_symbol(constr_name));
+            s.set_type(t);
+            
+            // Get the value for the constraint
+            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                            Nodecl::Analysis::PlusInfinity::make(t), 
+                                            const_value_to_nodecl(zero), t);
+            
+            // Build the constraint and insert it in the constraints map
+            Utils::Constraint c = build_constraint(s, val, t, "Parameter");
+            _output_constraints_map[param_s] = c;
+        }
+    }
+    
+    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_constraints_map()
     {
         return _output_constraints_map;
     }
 
-    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_true_constraints_map()
+    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_true_constraints_map()
     {
         return _output_true_constraints_map;
     }
     
-    Utils::ConstraintMap ConstraintBuilderVisitor::get_output_false_constraints_map()
+    Utils::VarToConstraintMap ConstraintBuilderVisitor::get_output_false_constraints_map()
     {
         return _output_false_constraints_map;
     }
@@ -559,250 +594,8 @@ namespace {
     // **************************************************************************************************** //
     // ******************************* Class implementing constraint graph ******************************** //
     
-namespace {
-    std::set<CGNode*> convert_cgnodes_map_in_set(CGNode_map nodes_map)
-    {
-        std::set<CGNode*> result;
-        for(CGNode_map::iterator it = nodes_map.begin(); it != nodes_map.end(); ++it)
-            result.insert(it->second);
-        return result;
-    }
-    
-    std::map<CGNode*, SCC*> node_to_scc_map;
-    Optimizations::Calculator calc;
-    
-    void print_constraints()
-    {
-        std::cerr << "CONSTRAINT MAP: " << std::endl;
-        for(ObjectList<NBase>::iterator it = ORDERED_CONSTRAINTS.begin(); it != ORDERED_CONSTRAINTS.end(); ++it)
-        {
-            std::pair<NBase, NBase> c = *CONSTRAINTS.find(*it);
-            std::cerr << "    " << c.first.prettyprint() << "  ->  " << c.second.prettyprint() << std::endl;
-        }
-    }
-}
-    
-    CGNode::CGNode(CGNode_type type, const NBase& constraint)
-        : _id(++cgnode_id), _type(type), _constraint(constraint), _valuation(), _entries(), _exits(), 
-          _scc_index(-1), _scc_lowlink_index(-1)
-    {}
-    
-    unsigned int CGNode::get_id() const
-    { 
-        return _id;
-    }
-    
-    CGNode_type CGNode::get_type() const
-    {
-        return _type;
-    }
-    
-    std::string CGNode::get_type_as_str() const
-    {
-        switch(_type)
-        {
-            #undef CGNODE_TYPE
-            #define CGNODE_TYPE(X) case __##X : return #X;
-            CGNODE_TYPE_LIST
-            #undef CGNODE_TYPE
-            default: WARNING_MESSAGE("Unexpected type of node '%d'", _type);
-        }
-        return "";
-    }
-    
-    NBase CGNode::get_constraint() const
-    { 
-        return _constraint; 
-    }
-    
-    NBase CGNode::get_valuation() const
-    { 
-        return _valuation;
-    }
-    
-    void CGNode::set_valuation(const NBase& valuation)
-    {
-        _valuation = valuation;
-    }
-    
-    ObjectList<CGEdge*> CGNode::get_entries() const
-    {
-        return _entries;
-    }
-    
-    ObjectList<CGNode*> CGNode::get_parents()
-    {
-        ObjectList<CGNode*> parents;
-        for(ObjectList<CGEdge*>::iterator it = _entries.begin(); it != _entries.end(); ++it)
-            parents.append((*it)->get_source());
-        return parents;
-    }
-    
-    void CGNode::add_entry(CGEdge* e)
-    {
-        _entries.insert(e);
-    }
-    
-    ObjectList<CGEdge*> CGNode::get_exits() const
-    {
-        return _exits;
-    }
-    
-    ObjectList<CGNode*> CGNode::get_children()
-    {
-        ObjectList<CGNode*> children;
-        for(ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
-            children.append((*it)->get_target());
-        return children;
-    }
-    
-    CGEdge* CGNode::add_child(CGNode* child, bool is_back_edge, NBase predicate)
-    {
-        CGEdge* e;
-        ObjectList<CGNode*> children = get_children();
-        if(!children.contains(child))
-        {
-            e = new CGEdge(this, child, is_back_edge, predicate);
-            _exits.insert(e); 
-        }
-        else
-        {
-            for(ObjectList<CGEdge*>::iterator it = _exits.begin(); it != _exits.end(); ++it)
-            {
-                if((*it)->get_target() == child)
-                {
-                    e = *it;
-                    break;
-                }
-            }
-        }
-        return e;
-    }
-    
-    int CGNode::get_scc_index() const
-    {
-        return _scc_index;
-    }
-    
-    void CGNode::set_scc_index(int scc_index)
-    {
-        _scc_index = scc_index;
-    }
-    
-    int CGNode::get_scc_lowlink_index() const
-    {
-        return _scc_lowlink_index;
-    }
-    
-    void CGNode::set_scc_lowlink_index(int scc_lowlink_index)
-    {
-        _scc_lowlink_index = scc_lowlink_index;
-    }
-    
-    CGEdge::CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate)
-        : _source(source), _target(target), _is_back_edge(is_back), _predicate(predicate), _is_saturated(false)
-    {
-        if(!predicate.is_null() && predicate.is<Nodecl::Range>())
-            _is_saturated = true;
-    }
-    
-    CGNode* CGEdge::get_source() const
-    {
-        return _source;
-    }
-    
-    CGNode* CGEdge::get_target() const
-    {
-        return _target;
-    }
-    
-    bool CGEdge::is_back_edge() const
-    {
-        return _is_back_edge;
-    }
-    
-    NBase CGEdge::get_predicate() const
-    {
-        return _predicate;        
-    }
-    
-    bool CGEdge::is_saturated() const
-    {
-        return _is_saturated;
-    }
-    
-    void CGEdge::set_saturated(bool s)
-    {
-        _is_saturated = s;
-    }
-    
-    
-    static unsigned int SccId = 0;
-    
-    SCC::SCC()
-        : _nodes(), _root(NULL), _id(++SccId)
-    {}
-    
-    bool SCC::empty() const
-    {
-        return _nodes.empty();
-    }
-    
-    std::vector<CGNode*> SCC::get_nodes() const
-    {
-        return _nodes;
-    }
-    
-    void SCC::add_node(CGNode* n)
-    {
-        _nodes.push_back(n);
-    }
-    
-    CGNode* SCC::get_root() const
-    {
-        return _root;
-    }
-    
-    void SCC::set_root(CGNode* root)
-    {
-        _root = root;
-    }
-    
-    unsigned int SCC::get_id() const
-    {
-        return _id;
-    }
-    
-    bool SCC::is_trivial() const
-    {
-        return (_nodes.size() == 1);
-    }
-    
-    // FIXME A SCC is positive if it contains a cycle that increments the involved variable
-    bool SCC::is_positive() const
-    {
-        return (!is_trivial() && true);
-    }
-    
-    ObjectList<SCC*> SCC::get_scc_exits()
-    {
-        ObjectList<SCC*> res;
-        ObjectList<CGNode*> children;
-        for(std::vector<CGNode*>::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
-        {
-            children = (*it)->get_children();
-            for(ObjectList<CGNode*>::iterator itt = children.begin(); itt != children.end(); ++itt)
-            {
-                SCC* scc = node_to_scc_map[*itt];
-                if(scc != this)
-                    res.append(scc);
-            }
-        }
-        return res;
-    }
-    
     ConstraintGraph::ConstraintGraph(std::string name)
-        : _name(name), _nodes()
+        : _name(name), _nodes(), _node_to_scc_map()
     {}
     
     CGNode* ConstraintGraph::insert_node(const NBase& value)
@@ -836,69 +629,6 @@ namespace {
         }
     }
     
-    void ConstraintGraph::collapse_consecutive_phi_nodes()
-    {
-        for(ObjectList<NBase>::iterator oit = ORDERED_CONSTRAINTS.begin(); oit != ORDERED_CONSTRAINTS.end(); ++oit)
-        {
-            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = CONSTRAINTS.find(*oit);
-            ERROR_CONDITION(it == CONSTRAINTS.end(), 
-                            "Constraint %s not found in the constraints map.\n", 
-                            oit->prettyprint().c_str());
-            if(it->second.is<Nodecl::Analysis::Phi>())
-            {
-                // Collect all the expressions from nested Phi nodes
-                Nodecl::Analysis::Phi phi = it->second.shallow_copy().as<Nodecl::Analysis::Phi>();
-                Nodecl::List phi_exprs = phi.get_expressions().shallow_copy().as<Nodecl::List>();
-                Nodecl::List new_phi_exprs;
-                Nodecl::List phi_to_remove;
-                bool has_phi = false;
-                while(!phi_exprs.empty())
-                {
-                    NBase tmp = phi_exprs.back();
-                    phi_exprs.pop_back();
-                    
-                    std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator tmp_it = CONSTRAINTS.find(tmp);
-                    ERROR_CONDITION(tmp_it == CONSTRAINTS.end(), 
-                                    "Constraint %s not found in the global constraints map.\n", 
-                                    tmp.prettyprint().c_str());
-                    
-                    if(tmp_it->second.is<Nodecl::Analysis::Phi>())
-                    {
-                        phi_to_remove.append(tmp_it->first);
-                        phi_exprs.append(tmp_it->second.as<Nodecl::Analysis::Phi>().get_expressions());
-                        has_phi = true;
-                    }
-                    else
-                    {
-                        new_phi_exprs.append(tmp_it->first);
-                    }
-                }
-                
-                if(has_phi)
-                {
-                    // Create the new constraint
-                    NBase new_phi = Nodecl::Analysis::Phi::make(new_phi_exprs, phi.get_type());
-                    CONSTRAINTS[it->first] = new_phi;
-                    
-                    // Delete the nested constraints
-                    for(Nodecl::List::iterator itt = phi_to_remove.begin(); itt != phi_to_remove.end(); ++itt)
-                    {
-                        CONSTRAINTS.erase(*itt);
-                        for(ObjectList<NBase>::iterator ittt = ORDERED_CONSTRAINTS.begin(); 
-                            ittt != ORDERED_CONSTRAINTS.end(); ++ittt)
-                        {
-                            if(Nodecl::Utils::structurally_equal_nodecls(*itt, *ittt, /*skip_conversion_nodes*/true))
-                            {
-                                ORDERED_CONSTRAINTS.erase(ittt);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
     /*! Generate a constraint graph from the PCFG and the precomputed Constraints for each node
      *  A Constraint Graph is created as follows:
      *  - The nodes of the graphs are:
@@ -914,13 +644,15 @@ namespace {
      *                                                                              Edge    e  ---------------> c1
      *    - H. Constraint : c1 = c0                                                 Edge    c0 ---------------> c1
      */
-    void ConstraintGraph::create_constraint_graph()
+    void ConstraintGraph::fill_constraint_graph(
+        const SSAVarToValue_map& constraints,
+        const NodeclList& ordered_constraints)
     {
-        std::map<NBase, NBase> back_edges;
-        for(ObjectList<NBase>::iterator oit = ORDERED_CONSTRAINTS.begin(); oit != ORDERED_CONSTRAINTS.end(); ++oit)
+        std::map<NBase, CGNode*> back_edges;
+        for(NodeclList::const_iterator oit = ordered_constraints.begin(); oit != ordered_constraints.end(); ++oit)
         {
-            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::iterator it = CONSTRAINTS.find(*oit);
-            ERROR_CONDITION(it == CONSTRAINTS.end(), 
+            std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less>::const_iterator it = constraints.find(*oit);
+            ERROR_CONDITION(it == constraints.end(), 
                             "Constraint %s not found in the constraints map.\n", 
                             oit->prettyprint().c_str());
             NBase s = it->first;
@@ -946,7 +678,7 @@ namespace {
                     if(_nodes.find(e) == _nodes.end())
                     {   // The expression inside the Phi node comes from a back edge
                         // We will print it later so the order of node creation respects the order in the sequential code
-                        back_edges.insert(std::pair<NBase, NBase>(e, s));
+                        back_edges.insert(std::pair<NBase, CGNode*>(e, target_phi));
                     }
                     else
                     {
@@ -1003,7 +735,8 @@ namespace {
                     {   // G.a.
                         CGNode* source = insert_node(lhs);
                         CGNode* target = insert_node(s);  // A.
-                        connect_nodes(source, target, rhs.shallow_copy());
+                        Nodecl::Plus predicate = Nodecl::Plus::make(rhs.shallow_copy(), rhs.get_type());
+                        connect_nodes(source, target, predicate);
                     }
                     else
                     {
@@ -1050,10 +783,7 @@ namespace {
                     {   // G.a.
                         CGNode* source = insert_node(lhs);
                         CGNode* target = insert_node(s);  // A.
-                        
-                        NBase neg_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
-                        const_value_t* c_val = calc.compute_const_value(neg_rhs);
-                        NBase predicate = Nodecl::IntegerLiteral::make(Type::get_int_type(), c_val);
+                        NBase predicate = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type());
                         connect_nodes(source, target, predicate);
                     }
                     else
@@ -1090,57 +820,11 @@ namespace {
         }
         
         // Connect now the back edges
-        for(std::map<NBase, NBase>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
-        {
-            // Both source and target must exist already
+        for(std::map<NBase, CGNode*>::iterator it = back_edges.begin(); it != back_edges.end(); ++it)
+        {   // Both source and target must exist already
             CGNode* source = insert_node(it->first);
-            CGNode* target = insert_node(it->second);
+            CGNode* target = it->second;
             connect_nodes(source, target);
-        }
-    }
-    
-    void ConstraintGraph::print_graph_(std::ofstream& dot_file)
-    {
-        for(CGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
-        {
-            CGNode* n = it->second;
-            unsigned int source = n->get_id();
-            
-            // 1.- Print the Constraint Node
-            CGNode_type node_t = n->get_type();
-            // 1.1.- The node has a constraint associated
-            if(node_t == __CG_Sym)
-            {
-                NBase constraint = n->get_constraint();
-                dot_file << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\"];\n";
-                NBase val = n->get_valuation();
-                if(!constraint.is<Nodecl::Range>() && !val.is_null())
-                {
-                    // Print a node containing the valuation
-                    dot_file << "\t0" << source << " [label=\"" << val.prettyprint() << "\", "
-                            << "style=\"dashed\", color=\"gray55\", fontcolor=\"gray27\", shape=\"polygon\"];\n";
-                    // Connect it to its constraint node
-                    dot_file << "\t" << source << "->" << "0" << source << " [label=\"\", style=\"dashed\", color=\"gray55\"];\n";
-                    // set the same rank to the constraint node an its valuation node
-                    dot_file << "\t{rank=same; " << source << "; 0" << source << ";}";
-                }
-            }
-            else
-            {
-                dot_file << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_str() << "\"];\n";
-            }
-            
-            // Print the node relations
-            ObjectList<CGEdge*> exits = n->get_exits();
-            for(ObjectList<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
-            {
-                unsigned int target = (*ite)->get_target()->get_id();
-                const NBase predicate = (*ite)->get_predicate();
-                bool back_edge = (*ite)->is_back_edge();
-                std::string attrs = " [label=\"" + (predicate.is_null() ? "" : predicate.prettyprint()) + "\","
-                                  + " style=\"" + (back_edge ? "dotted" : "solid") + "\"]";
-                dot_file << "\t" << source << "->" << target << attrs << ";\n";
-            }
         }
     }
     
@@ -1171,8 +855,48 @@ namespace {
         if(VERBOSE)
             std::cerr << "- CG DOT file '" << dot_file_name << "'" << std::endl;
         dot_cg << "digraph CG {\n";
-            dot_cg << "\tcompound=true;\n";
-            print_graph_(dot_cg);
+        dot_cg << "\tcompound=true;\n";
+        for(CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
+        {
+            CGNode* n = it->second;
+            unsigned int source = n->get_id();
+            
+            // 1.- Print the Constraint Node
+            CGNode_type node_t = n->get_type();
+            // 1.1.- The node has a constraint associated
+            if(node_t == __CG_Sym)
+            {
+                NBase constraint = n->get_constraint();
+                dot_cg << "\t" << source << " [label=\"[" << source << "] " << constraint.prettyprint() << "\"];\n";
+                NBase val = n->get_valuation();
+                if(!constraint.is<Nodecl::Range>() && !val.is_null())
+                {
+                    // Print a node containing the valuation
+                    dot_cg << "\t0" << source << " [label=\"" << val.prettyprint() << "\", "
+                           << "style=\"dashed\", color=\"gray55\", fontcolor=\"gray27\", shape=\"polygon\"];\n";
+                    // Connect it to its constraint node
+                    dot_cg << "\t" << source << "->" << "0" << source << " [label=\"\", style=\"dashed\", color=\"gray55\"];\n";
+                    // set the same rank to the constraint node an its valuation node
+                    dot_cg << "\t{rank=same; " << source << "; 0" << source << ";}";
+                }
+            }
+            else
+            {
+                dot_cg << "\t" << source << " [label=\"[" << source << "] " << n->get_type_as_str() << "\"];\n";
+            }
+            
+            // Print the node relations
+            ObjectList<CGEdge*> exits = n->get_exits();
+            for(ObjectList<CGEdge*>::iterator ite = exits.begin(); ite != exits.end(); ++ite)
+            {
+                unsigned int target = (*ite)->get_target()->get_id();
+                const NBase predicate = (*ite)->get_predicate();
+                bool back_edge = (*ite)->is_back_edge();
+                std::string attrs = " [label=\"" + (predicate.is_null() ? "" : predicate.prettyprint()) + "\","
+                                  + " style=\"" + (back_edge ? "dotted" : "solid") + "\"]";
+                dot_cg << "\t" << source << "->" << target << attrs << ";\n";
+            }
+        }
         dot_cg << "}\n";
         dot_cg.close();
         if(!dot_cg.good())
@@ -1192,13 +916,17 @@ namespace {
         }
         return result;
     }
+}
     
-    void strong_connect(CGNode* n, unsigned int& scc_index, std::stack<CGNode*>& s, std::vector<SCC*>& scc_list)
+    void ConstraintGraph::strong_connect(CGNode* n, unsigned int& scc_current_index, 
+                                         std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
+                                         std::map<CGNode*, int>& scc_lowlink_index,
+                                         std::map<CGNode*, int>& scc_index)
     {
         // Set the depth index for 'n' to the smallest unused index
-        n->set_scc_index(scc_index);
-        n->set_scc_lowlink_index(scc_index);
-        ++scc_index;
+        scc_index[n] = scc_current_index;
+        scc_lowlink_index[n] = scc_current_index;
+        ++scc_current_index;
         s.push(n);
         
         // Consider the successors of 'n'
@@ -1206,21 +934,26 @@ namespace {
         for(ObjectList<CGNode*>::iterator it = succ.begin(); it != succ.end(); ++it)
         {
             CGNode* m = *it;
-            if(m->get_scc_index() == -1)
+            if(scc_index.find(m)==scc_index.end())
+            {   // Initialize values for this node if it has not yet been initialized
+                scc_index[m] = -1;
+                scc_lowlink_index[m] = -1;
+            }
+            if(scc_index[m] == -1)
             {   // Successor 'm' has not yet been visited: recurse on it
-                strong_connect(m, scc_index, s, scc_list);
-                n->set_scc_lowlink_index(std::min(n->get_scc_lowlink_index(), m->get_scc_lowlink_index()));
+                strong_connect(m, scc_current_index, s, scc_list, scc_lowlink_index, scc_index);
+                scc_lowlink_index[n] = std::min(scc_lowlink_index[n], scc_lowlink_index[m]);
             }
             else if(stack_contains_cgnode(s, m))
             {   // Successor 'm' is in the current SCC
-                n->set_scc_lowlink_index(std::min(n->get_scc_lowlink_index(), m->get_scc_index()));
+                scc_lowlink_index[n] = std::min(scc_lowlink_index[n], scc_index[m]);
             }
         }   
         
         // If 'n' is a root node, pop the set and generate an SCC
-        if((n->get_scc_lowlink_index() == n->get_scc_index()) && !s.empty())
+        if((scc_lowlink_index[n] == scc_index[n]) && !s.empty())
         {
-            SCC* scc = new SCC();
+            SCC* scc = new SCC(&_node_to_scc_map);
             while(!s.empty() && s.top()!=n)
             {
                 scc->add_node(s.top());
@@ -1234,31 +967,31 @@ namespace {
             scc_list.push_back(scc);
         }
     }
-}
     
     // Implementation of the Tarjan's strongly connected components algorithm
     std::vector<SCC*> ConstraintGraph::topologically_compose_strongly_connected_components()
     {
         std::vector<SCC*> scc_list;
         std::stack<CGNode*> s;
-        unsigned int scc_index = 0;
+        unsigned int scc_current_index = 0;
         
-        // Compute the sets
-        std::set<CGNode*> all_nodes = convert_cgnodes_map_in_set(_nodes);
-        for(std::set<CGNode*>::iterator it = all_nodes.begin(); it != all_nodes.end(); ++it)
+        // Collect each set of nodes that form a SCC
+        std::map<CGNode*, int> scc_lowlink_index;
+        std::map<CGNode*, int> scc_index;
+        for(CGValueToCGNode_map::iterator it = _nodes.begin(); it != _nodes.end(); ++it)
         {
-            if((*it)->get_scc_index() == -1)
-                strong_connect(*it, scc_index, s, scc_list);
-            
+            CGNode* n = it->second;
+            if((scc_index.find(n) == scc_index.end()) || (scc_index[n] == -1))
+                strong_connect(n, scc_current_index, s, scc_list, scc_lowlink_index, scc_index);
         }
         
-        // Create a map between SCC nodes and their SCC
+        // Create a map between the Constraint Graph nodes and their SCC
         for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             std::vector<CGNode*> scc_nodes = (*it)->get_nodes();
             for(std::vector<CGNode*>::iterator itt = scc_nodes.begin(); itt != scc_nodes.end(); ++itt)
             {
-                node_to_scc_map.insert(std::pair<CGNode*, SCC*>(*itt, *it));
+                _node_to_scc_map.insert(std::pair<CGNode*, SCC*>(*itt, *it));
             }
         }
         
@@ -1278,7 +1011,7 @@ namespace {
                     ObjectList<CGNode*> parents = (*itt)->get_parents();
                     for(ObjectList<CGNode*>::iterator ittt = parents.begin(); ittt != parents.end(); ++ittt)
                     {
-                        if(node_to_scc_map[*ittt] != scc)
+                        if(_node_to_scc_map[*ittt] != scc)
                         {
                             scc->set_root(*itt);
                             goto root_done;
@@ -1289,32 +1022,11 @@ namespace {
 root_done:  ;
         }
         
-
-#ifdef RANGES_DEBUG
-        std::cerr << "STRONGLY CONNECTED COMPONENTS" << std::endl;
-        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
-        {
-            SCC* scc = *it;
-            std::vector<CGNode*> nodes = scc->get_nodes();
-            std::cerr << "    SCC " << (*it)->get_id() << ": ";
-            for(std::vector<CGNode*>::iterator itt = nodes.begin(); itt != nodes.end(); )
-            {
-                std::cerr << (*itt)->get_id();
-//                 if((*itt)->get_type() == __CG_Sym)
-//                     std::cerr << (*itt)->get_constraint().prettyprint();
-//                 else
-//                     std::cerr << (*itt)->get_id() << "_" << (*itt)->get_type_as_str();
-                ++itt;
-                if(itt != nodes.end())
-                    std::cerr << ", ";
-            }
-            std::cerr << " (root: " << scc->get_root()->get_id() << ")" << std::endl;
-        }
-#endif
+        print_sccs(scc_list);
         
         // Collect the roots of each SCC tree
         std::vector<SCC*> roots;
-        for(std::map<CGNode*, SCC*>::iterator it = node_to_scc_map.begin(); it != node_to_scc_map.end(); ++it)
+        for(std::map<CGNode*, SCC*>::iterator it = _node_to_scc_map.begin(); it != _node_to_scc_map.end(); ++it)
         {
             if(it->first->get_entries().empty())
                 roots.push_back(it->second);
@@ -1323,27 +1035,7 @@ root_done:  ;
         return roots;
     }
     
-namespace {
-    
-    NBase join_previous_valuations(NBase (*)(const NBase&, const NBase&), 
-                                   const ObjectList<NBase>& previous_valuations)
-    {
-        NBase next_valuation;
-        ObjectList<NBase>::const_iterator it = previous_valuations.begin();
-        next_valuation = *it;
-        if(previous_valuations.size() > 1)
-        {
-            ++it;
-            while(it != previous_valuations.end())
-            {
-                next_valuation = Utils::range_union(next_valuation, *it);
-                ++it;
-            }
-        }
-        return next_valuation;
-    }
-    
-    void evaluate_cgnode(CGNode* node)
+    void ConstraintGraph::evaluate_cgnode(CGNode* const node)
     {
         NBase valuation;
         CGNode_type type = node->get_type();
@@ -1354,7 +1046,7 @@ namespace {
         }
         else
         {
-            ObjectList<NBase> entry_valuations;
+            NodeclList entry_valuations;
             ObjectList<CGEdge*> entries = node->get_entries();
             ERROR_CONDITION(entries.empty(), 
                             "CG node %d representing symbol or operation has no entries. Expected at least one entry.\n", 
@@ -1367,17 +1059,24 @@ namespace {
                 NBase predicate = (*it)->get_predicate();
                 if(predicate.is_null())
                     valuation = last_valuation;
-                else if(predicate.is<Nodecl::IntegerLiteral>())
-                    valuation = Utils::range_value_add(last_valuation, predicate.as<Nodecl::IntegerLiteral>());
+                else if(predicate.is<Nodecl::Plus>())
+                    valuation = Utils::range_value_add(last_valuation, predicate.as<Nodecl::Plus>().get_rhs());
+                else if(predicate.is<Nodecl::Neg>())
+                    valuation = Utils::range_value_subtract(last_valuation, predicate.as<Nodecl::Neg>().get_rhs());
                 else if(predicate.is<Nodecl::Range>() || predicate.is<Nodecl::Analysis::RangeUnion>())
-                    valuation = Utils::range_intersection(last_valuation, predicate, /*is_positive*/true);
+                {
+                    // Check whether the cycle is positive or negative
+                    SCC* scc = _node_to_scc_map[node];
+                    Utils::CycleDirection cycle_direction = scc->get_cycle_direction(*it);
+                    valuation = Utils::range_intersection(last_valuation, predicate, cycle_direction);
+                }
                 else
                     internal_error("Unexpected type %s of CG predicate %s. Expected IntegerLiteral or Range.\n", 
                                    ast_print_node_type(predicate.get_kind()), predicate.prettyprint().c_str());
                     entry_valuations.append(valuation);
             }
             
-            ObjectList<NBase>::iterator it = entry_valuations.begin();
+            NodeclList::iterator it = entry_valuations.begin();
             if(type == __CG_Sym)
             {
                 ERROR_CONDITION(entry_valuations.size()>1, 
@@ -1388,11 +1087,11 @@ namespace {
             else
             {
                 if(type == __CG_Phi)
-                    valuation = join_previous_valuations(Utils::range_union, entry_valuations);  // RANGE_UNION
+                    valuation = join_valuations(Utils::range_union, entry_valuations);         // RANGE_UNION
                 else if(type == __CG_Add)
-                    valuation = join_previous_valuations(Utils::range_add, entry_valuations);    // RANGE_ADD
+                    valuation = join_valuations(Utils::range_addition, entry_valuations);      // RANGE_ADD
                 else if(type == __CG_Sub)
-                    valuation = join_previous_valuations(Utils::range_sub, entry_valuations);    // RANGE_SUB
+                    valuation = join_valuations(Utils::range_subtraction, entry_valuations);   // RANGE_SUB
             }
         }
 #ifdef RANGES_DEBUG
@@ -1401,12 +1100,8 @@ namespace {
         node->set_valuation(valuation);
     }
     
-    void resolve_cycle(SCC* scc)
+    void ConstraintGraph::resolve_cycle(SCC* scc)
     {
-#ifdef RANGES_DEBUG
-        std::cerr << "_____________________________________" << std::endl;
-        std::cerr << "SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
-#endif
         // Evaluate the root of the SCC
         CGNode* root = scc->get_root();
         evaluate_cgnode(root);
@@ -1426,21 +1121,26 @@ namespace {
             next_nodes.pop();
             
             // If the node is not in the same SCC, then we will treat it later
-            if(node_to_scc_map[n] != scc)
+            if(_node_to_scc_map[n] != scc)
                 continue;
             
             // If the node was already treated, there is nothing to be done
+            const ObjectList<CGEdge*> entries = n->get_entries();
             if(visited.find(n) != visited.end())
+            {
+                for(ObjectList<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
+                {
+                    if((*it)->is_back_edge())
+                        back_edges.append(*it);
+                }
                 continue;
+            }
             
             // Check whether the node can be treated or not: all parent have already been treated
             bool is_ready = true;
-            const ObjectList<CGEdge*> entries = n->get_entries();
             for(ObjectList<CGEdge*>::const_iterator it = entries.begin(); it != entries.end(); ++it)
             {
-                if((*it)->is_back_edge())
-                    back_edges.append(*it);
-                else if((*it)->get_source()->get_valuation().is_null())
+                if((*it)->get_source()->get_valuation().is_null())
                 {
                     is_ready = false;
                     break;
@@ -1478,17 +1178,22 @@ namespace {
                 else
                     valuation = Utils::range_union(source_valuation, target_valuation);
                 target->set_valuation(valuation);
+                ObjectList<CGEdge*> exits = target->get_exits();
+                ERROR_CONDITION(exits.size() != 1, 
+                                "The number of children of a Phi node is expected to be one, but %d found for node %d.\n", 
+                                exits.size(), target->get_id());
+                ERROR_CONDITION(!exits[0]->get_predicate().is_null(), 
+                                "Null predicate expected for a back-edge, but %s found for edge %d->%d.\n", 
+                                exits[0]->get_predicate().prettyprint().c_str(), target->get_id(), exits[0]->get_target()->get_id());
+                exits[0]->get_target()->set_valuation(valuation);
 #ifdef RANGES_DEBUG
-                std::cerr << "        PROPAGATE back edge to " << target->get_id() << "  ::  " << valuation.prettyprint() << std::endl;
+                std::cerr << "        PROPAGATE back edge to " << target->get_id() << " and " << exits[0]->get_target()->get_id() 
+                          << "  ::  " << valuation.prettyprint() << std::endl;
 #endif
             }
         }
-        
-#ifdef RANGES_DEBUG
-        std::cerr << "_____________________________________" << std::endl;
-#endif
     }
-}
+    
     void ConstraintGraph::solve_constraints(const std::vector<SCC*>& roots)
     {
 #ifdef RANGES_DEBUG
@@ -1502,7 +1207,7 @@ namespace {
         {
             SCC* scc = next_scc.front();
             next_scc.pop();
-            std::cerr << "  SCC " << scc->get_id() << std::endl;
+            
             // Check whether this scc is ready to be solved
             CGNode* root = scc->get_root();
             ObjectList<CGEdge*> entries = root->get_entries();
@@ -1525,13 +1230,17 @@ namespace {
             
             // Treat the current SCC
             if(scc->is_trivial())
-            {
-                // Evaluate the only node within the SCC
+            {   // Evaluate the only node within the SCC
+#ifdef RANGES_DEBUG
+                std::cerr << "  SCC " << scc->get_id() << "  ->  TRIVIAL" << std::endl;
+#endif
                 evaluate_cgnode(scc->get_nodes()[0]);
             }
             else
-            {
-                // Cycle resolution
+            {   // Cycle resolution
+#ifdef RANGES_DEBUG
+                std::cerr << "  SCC " << scc->get_id() << "  ->  RESOLVE CYCLE" << std::endl;
+#endif
                 resolve_cycle(scc);
             }
             visited.insert(scc);
@@ -1543,7 +1252,6 @@ namespace {
             {
                 if(visited.find(*it) == visited.end())
                 {
-                    std::cerr << "  scc_exit: " << (*it)->get_id() << std::endl;
                     next_scc.push(*it);
                 }
             }
@@ -1559,28 +1267,17 @@ namespace {
     // ******************************** Class implementing range analysis ********************************* //
     
     RangeAnalysis::RangeAnalysis(ExtensibleGraph* pcfg)
-        : _pcfg(pcfg), _cg(new ConstraintGraph(pcfg->get_name()))
+        : _pcfg(pcfg), _cg(new ConstraintGraph(pcfg->get_name())), 
+          _pcfg_to_cg(), _constraints(), _ordered_constraints()
     {}
     
     void RangeAnalysis::compute_range_analysis()
     {   
         // 1.- Compute the constraints of the current PCFG
-        set_parameters_constraints();
-        
-        Node* entry = _pcfg->get_graph()->get_graph_entry_node();
-        create_constraints(entry);
-        ExtensibleGraph::clear_visits(entry);
-        
-        propagate_constraints_from_backwards_edges(entry);
-        ExtensibleGraph::clear_visits(entry);
-        
-        // 2.- Create the Constraint Graph
-//         _cg->collapse_consecutive_phi_nodes();
-        if(VERBOSE)
-            print_constraints();
-        _cg->create_constraint_graph();
-        if(VERBOSE)
-            _cg->print_graph();
+        compute_constraints();
+
+        // 2.- Build the Constraint Graph (CG) from the computed constraints
+        build_constraint_graph();
         
         // 3.- Extract the Strongly Connected Components (SCC) of the graph
         //     And get the root of each topologically ordered subgraph
@@ -1592,45 +1289,47 @@ namespace {
             _cg->print_graph();
     }
     
+    void RangeAnalysis::compute_constraints()
+    {
+        compute_parameters_constraints();
+        
+        Node* entry = _pcfg->get_graph()->get_graph_entry_node();
+        compute_constraints_rec(entry);
+        ExtensibleGraph::clear_visits(entry);
+        
+        propagate_constraints_from_back_edges(entry);
+        ExtensibleGraph::clear_visits(entry);
+        
+        // 2.- Create the Constraint Graph
+//         _cg->collapse_consecutive_phi_nodes();
+        
+        if(VERBOSE)
+            print_constraints();
+    }
+    
+    void RangeAnalysis::build_constraint_graph()
+    {
+        _cg->fill_constraint_graph(_constraints, _ordered_constraints);
+    }
+    
     // Set an constraint to the graph entry node for each parameter of the function
-    void RangeAnalysis::set_parameters_constraints()
+    void RangeAnalysis::compute_parameters_constraints()
     {
         Symbol func_sym = _pcfg->get_function_symbol();
         if(!func_sym.is_valid())    // The PCFG have been built for something other than a FunctionCode
             return;
-        
-        // Set the constraints for each parameter to both nodes
-        Utils::ConstraintMap constraints;
+
         Node* entry = _pcfg->get_graph()->get_graph_entry_node();
-        const ObjectList<Symbol> params = func_sym.get_function_parameters();
-        for(ObjectList<Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
-        {
-            Nodecl::Symbol param_s = it->make_nodecl(/*set_ref_type*/false);
-            Type t = it->get_type();
-            
-            // Build a symbol for the new constraint based on the name of the original variable
-            std::stringstream ss; ss << get_next_id(param_s);
-            std::string constr_name = it->get_name() + "_" + ss.str();
-            Symbol s(it->get_scope().new_symbol(constr_name));
-            s.set_type(t);
-            
-            // Get the value for the constraint
-            NBase val = Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
-                                            Nodecl::Analysis::PlusInfinity::make(t), 
-                                            const_value_to_nodecl(zero), t);
-            
-            // Build the constraint and insert it in the constraints map
-            Utils::Constraint c = build_constraint(s, val, t, "Parameter");
-            constraints[param_s] = c;
-        }
-        // Attach the constraints to the entry node of the graph
-        entry->set_constraints_map(constraints);
+        const ObjectList<Symbol>& params = func_sym.get_function_parameters();
+        ConstraintBuilderVisitor cbv(entry, &_pcfg_to_cg, &_constraints, &_ordered_constraints);
+        cbv.compute_parameters_constraints(params);
+        entry->set_constraints_map(cbv.get_output_constraints_map());
     }
     
     // This is a breadth-first search because for a given node we need all its parents 
-    // (except from those that come from back edges, for they will be recalculated later 'propagate_constraints_from_backwards_edges')
+    // (except from those that come from back edges, for they will be recalculated later 'propagate_constraints_from_back_edges')
     // to be computed before propagating their information to the node
-    void RangeAnalysis::create_constraints(Node* entry)
+    void RangeAnalysis::compute_constraints_rec(Node* entry)
     {
         ERROR_CONDITION(!entry->is_entry_node(), 
                         "Expected ENTRY node but found %s node.", entry->get_type_as_string().c_str());
@@ -1656,7 +1355,7 @@ namespace {
                 if(n->is_graph_node())
                 {
                     // recursively compute the constraints for the inner nodes
-                    create_constraints(n->get_graph_entry_node());
+                    compute_constraints_rec(n->get_graph_entry_node());
                     // propagate constraint from the inner nodes (summarized in the exit node) to the graph node
                     n->set_propagated_constraints_map(n->get_graph_exit_node()->get_propagated_constraints_map());
                     n->add_propagated_constraints_map(n->get_graph_exit_node()->get_constraints_map());
@@ -1664,15 +1363,16 @@ namespace {
                 else
                 {
                     // Collect the constraints computed from all the parents
-                    Utils::ConstraintMap input_constraints_map, new_input_constraints;
+                    Utils::VarToConstraintMap input_constraints_map, new_input_constraints;
                     ObjectList<Node*> parents = (n->is_entry_node() ? n->get_outer_node()->get_parents() : n->get_parents());
 #ifdef RANGES_DEBUG
                     std::cerr << "PCFG NODE " << n->get_id() << std::endl;
 #endif
+                    ConstraintBuilderVisitor cbv_propagation(n, &_pcfg_to_cg, &_constraints, &_ordered_constraints);
                     for(ObjectList<Node*>::iterator itt = parents.begin(); itt != parents.end(); ++itt)
                     {
-                        Utils::ConstraintMap it_constraints_map = (*itt)->get_all_constraints_map();
-                        for(Utils::ConstraintMap::iterator ittt = it_constraints_map.begin(); 
+                        Utils::VarToConstraintMap it_constraints_map = (*itt)->get_all_constraints_map();
+                        for(Utils::VarToConstraintMap::iterator ittt = it_constraints_map.begin(); 
                             ittt != it_constraints_map.end(); ++ittt)
                         {
                             if(input_constraints_map.find(ittt->first)==input_constraints_map.end() && 
@@ -1723,7 +1423,7 @@ namespace {
                                     if(input_constraints_map.find(ittt->first)!=input_constraints_map.end())
                                         input_constraints_map.erase(input_constraints_map.find(ittt->first));
                                     // Build the actual constraint and insert it in the proper list
-                                    Utils::Constraint c = build_constraint(s, new_constraint_val, t, "Propagated");
+                                    Utils::Constraint c = cbv_propagation.build_constraint(s, new_constraint_val, t, "Propagated");
                                     new_input_constraints[ittt->first] = c;
                                 }
                             }
@@ -1737,11 +1437,12 @@ namespace {
                     {
                         // Compute the constraints of the current node
                         // Note: take into account the constraints the node may already have (if it is the TRUE or FALSE child of a conditional)
-                        Utils::ConstraintMap current_constraints_map = n->get_constraints_map();
-                        ConstraintBuilderVisitor cbv(input_constraints_map, current_constraints_map);
+                        Utils::VarToConstraintMap current_constraints_map = n->get_constraints_map();
+                        ConstraintBuilderVisitor cbv(n, input_constraints_map, current_constraints_map, 
+                                                     &_pcfg_to_cg, &_constraints, &_ordered_constraints);
                         NodeclList stmts = n->get_statements();
                         for(NodeclList::iterator itt = stmts.begin(); itt != stmts.end(); ++itt)
-                            cbv.compute_constraints(*itt);
+                            cbv.compute_stmt_constraints(*itt);
                         n->add_constraints_map(cbv.get_output_constraints_map());
                         
                         // Set true/false output constraints to current children, if applies
@@ -1749,8 +1450,8 @@ namespace {
                         if(exits.size()==2 &&
                             ((exits[0]->is_true_edge() && exits[1]->is_false_edge()) || (exits[1]->is_true_edge() && exits[0]->is_false_edge())))
                         {
-                            Utils::ConstraintMap out_true_constraints_map = cbv.get_output_true_constraints_map();
-                            Utils::ConstraintMap out_false_constraints_map = cbv.get_output_false_constraints_map();
+                            Utils::VarToConstraintMap out_true_constraints_map = cbv.get_output_true_constraints_map();
+                            Utils::VarToConstraintMap out_false_constraints_map = cbv.get_output_false_constraints_map();
                             
                             // We always propagate to the TRUE edge
                             Node* true_node = (exits[0]->is_true_edge() ? exits[0]->get_target() : exits[1]->get_target());
@@ -1798,10 +1499,14 @@ namespace {
         }
     }
     
-    static void recompute_node_constraints(Node* n, Utils::ConstraintMap new_constraint_map)
+    static void recompute_node_constraints(Node* n, Utils::VarToConstraintMap new_constraint_map, 
+                                           PCFGNodeToSSAVar_map *pcfg_to_cg,
+                                           SSAVarToValue_map *constraints,
+                                           NodeclList *ordered_constraints)
     {
-        Utils::ConstraintMap current_constraint_map = n->get_constraints_map();
-        for(Utils::ConstraintMap::iterator it = new_constraint_map.begin(); it != new_constraint_map.end(); ++it)
+        Utils::VarToConstraintMap current_constraint_map = n->get_constraints_map();
+        ConstraintBuilderVisitor cbv(n, pcfg_to_cg, constraints, ordered_constraints);
+        for(Utils::VarToConstraintMap::iterator it = new_constraint_map.begin(); it != new_constraint_map.end(); ++it)
         {
             if((current_constraint_map.find(it->first) != current_constraint_map.end()) && 
                 (current_constraint_map[it->first] != it->second))
@@ -1811,34 +1516,45 @@ namespace {
                 Nodecl::List expressions = Nodecl::List::make(c1, c2);
                 NBase c_val = Nodecl::Analysis::Phi::make(expressions, Utils::get_nodecl_base(it->first).get_symbol().get_type());
                 // Set the new constraint
-                Utils::Constraint c = build_constraint(current_constraint_map[it->first].get_symbol(), c_val, c_val.get_type(), "Recomputed");
+                Utils::Constraint c = cbv.build_constraint(current_constraint_map[it->first].get_symbol(), c_val, c_val.get_type(), "Recomputed");
                 current_constraint_map[it->first] = c;
             }
         }
         n->set_constraints_map(current_constraint_map);
     }
     
-    void RangeAnalysis::propagate_constraints_from_backwards_edges(Node* n)
+    void RangeAnalysis::propagate_constraints_from_back_edges(Node* n)
     {
         if(n->is_visited())
             return;
         n->set_visited(true);
         
         if(n->is_graph_node())
-            propagate_constraints_from_backwards_edges(n->get_graph_entry_node());
+            propagate_constraints_from_back_edges(n->get_graph_entry_node());
         
         // Check the exit edges looking for back edges
         ObjectList<Edge*> exit_edges = n->get_exit_edges();
         for(ObjectList<Edge*>::iterator it = exit_edges.begin(); it != exit_edges.end(); ++it)
         {
             if((*it)->is_back_edge())
-                recompute_node_constraints((*it)->get_target(), n->get_all_constraints_map());
+                recompute_node_constraints((*it)->get_target(), n->get_all_constraints_map(), 
+                                           &_pcfg_to_cg, &_constraints, &_ordered_constraints);
         }
         
         // Recursively treat the children
         ObjectList<Node*> children = n->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-            propagate_constraints_from_backwards_edges(*it);
+            propagate_constraints_from_back_edges(*it);
+    }
+    
+    void RangeAnalysis::print_constraints()
+    {
+        std::cerr << "CONSTRAINT MAP: " << std::endl;
+        for(NodeclList::iterator it = _ordered_constraints.begin(); it != _ordered_constraints.end(); ++it)
+        {
+            std::pair<NBase, NBase> c = *_constraints.find(*it);
+            std::cerr << "    " << c.first.prettyprint() << "  ->  " << c.second.prettyprint() << std::endl;
+        }
     }
     
     // ****************************** End class implementing range analysis ******************************* //

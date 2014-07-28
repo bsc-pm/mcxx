@@ -28,161 +28,14 @@
 #define TL_RANGE_ANALYSIS_HPP
 
 #include "tl-extensible-graph.hpp"
-#include "tl-range-analysis-utils.hpp"
+#include "tl-range-utils.hpp"
 
 namespace TL {
 namespace Analysis {
 
-    // **************************************************************************************************** //
-    // ****************************** Classes implementing constraint graph ******************************* //
-    
-    class CGEdge;
-    
-    #define CGNODE_TYPE_LIST \
-    CGNODE_TYPE(CG_Sym) \
-    CGNODE_TYPE(CG_Phi) \
-    CGNODE_TYPE(CG_Add) \
-    CGNODE_TYPE(CG_Sub)
-    
-    enum CGNode_type {
-        #undef CGNODE_TYPE
-        #define CGNODE_TYPE(X) __##X,
-        CGNODE_TYPE_LIST
-        #undef CGNODE_TYPE
-    };
-    
-    class LIBTL_CLASS CGNode
-    {
-    private:
-        // *** Members *** //
-        unsigned int _id;
-        CGNode_type _type;
-        NBase _constraint;
-        NBase _valuation;
-        ObjectList<CGEdge*> _entries;
-        ObjectList<CGEdge*> _exits;
-        
-        int _scc_index;
-        int _scc_lowlink_index;
-        
-    public:    
-        // *** Constructor *** //
-        CGNode(CGNode_type type, const NBase& constraint=NBase::null());
-        
-        // *** Getters and setters *** //
-        unsigned int get_id() const;
-        CGNode_type get_type() const;
-        std::string get_type_as_str() const;
-        
-        NBase get_constraint() const;
-        NBase get_valuation() const;
-        void set_valuation(const NBase& valuation);
-        
-        ObjectList<CGEdge*> get_entries() const;
-        ObjectList<CGNode*> get_parents();
-        void add_entry(CGEdge* e);
-        
-        ObjectList<CGEdge*> get_exits() const;
-        ObjectList<CGNode*> get_children();
-        CGEdge* add_child(CGNode* child, bool is_back_edge, NBase predicate = NBase::null());
-        
-        int get_scc_index() const;
-        void set_scc_index(int scc_index);
-        int get_scc_lowlink_index() const;
-        void set_scc_lowlink_index(int scc_lowlink_index);
-    };
-    
-    class LIBTL_CLASS CGEdge
-    {
-    private:
-        // *** Members *** //
-        CGNode* _source;
-        CGNode* _target;
-        bool _is_back_edge;
-        NBase _predicate;
-        bool _is_saturated;
-        
-    public:
-        // *** Constructor *** //
-        CGEdge(CGNode* source, CGNode* target, bool is_back, const NBase& predicate);
-        
-        // *** Getters and setters *** //
-        CGNode* get_source() const;
-        CGNode* get_target() const;
-        bool is_back_edge() const;
-        NBase get_predicate() const;
-        bool is_saturated() const;
-        void set_saturated(bool s);
-    };
-    
-    typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGNode_map;
-    
-    class LIBTL_CLASS SCC
-    {
-    private:
-        // *** Members *** //
-        std::vector<CGNode*> _nodes;
-        CGNode* _root;
-        unsigned int _id;
-        
-    public:
-        // *** Constructor *** //
-        SCC();
-        
-        // *** Getters and setters *** //
-        bool empty() const;
-        std::vector<CGNode*> get_nodes() const;
-        void add_node(CGNode* n);
-        CGNode* get_root() const;
-        void set_root(CGNode* root);
-        unsigned int get_id() const;
-        
-        // *** Consultants *** //
-        bool is_trivial() const;
-        bool is_positive() const;
-        ObjectList<SCC*> get_scc_exits();
-    };
-    
-    class LIBTL_CLASS ConstraintGraph
-    {
-    private:
-        // *** Members *** //
-        std::string _name;
-        CGNode_map _nodes;
-        
-        void print_graph_(std::ofstream& dot_file);
-        
-    public:
-        // *** Constructor *** //
-        ConstraintGraph(std::string name);
-        
-        // *** Modifiers *** //
-        //! Insert, if it is not yet there, a new node in the CG with the value #value
-        CGNode* insert_node(const NBase& value);
-        CGNode* insert_node(CGNode_type type);
-        
-        //! Connects nodes #source and #target with a directed edge extended with #predicate
-        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
-        
-        //! Reduce two consecutive Phi nodes into one (exclusive parent-child)
-        void collapse_consecutive_phi_nodes();
-        
-        
-        void create_constraint_graph();
-        
-        //! Decompose the Constraint Graph in a set of Strongly Connected Components
-        std::vector<SCC*> topologically_compose_strongly_connected_components();
-
-        //! Use the different rules to topologically solve and propagate the constraints over the CG
-        void solve_constraints(const std::vector<SCC*>& roots);
-        
-        //! Generates a dot file with the structure of the graph
-        void print_graph();
-    };
-    
-    // **************************** END classes implementing constraint graph ***************************** //
-    // **************************************************************************************************** //
-    
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> SSAVarToValue_map;
+    typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
+    typedef std::map<Node*, NBase> PCFGNodeToSSAVar_map;
     
     
     // **************************************************************************************************** //
@@ -191,11 +44,11 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintReplacement : public Nodecl::ExhaustiveVisitor<void>
     {
     private:
-        Utils::ConstraintMap _constraints_map;
+        Utils::VarToConstraintMap _constraints_map;
         
     public:
         // *** Constructor *** //
-        ConstraintReplacement(Utils::ConstraintMap constraints_map);
+        ConstraintReplacement(Utils::VarToConstraintMap constraints_map);
         
         // *** Visiting methods *** //
         Ret visit(const Nodecl::ArraySubscript& n);
@@ -206,11 +59,18 @@ namespace Analysis {
     class LIBTL_CLASS ConstraintBuilderVisitor : public Nodecl::NodeclVisitor<void>
     {
     private:
+        //! PCFG node related to the constraints that are to be built
+        Node* _n;
+        
         // map containing the constraints arriving at the nodecl being visited
-        Utils::ConstraintMap _input_constraints_map;        // Constraints coming from the parents or from previous statements in the current node
-        Utils::ConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
-        Utils::ConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
-        Utils::ConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        Utils::VarToConstraintMap _input_constraints_map;        // Constraints coming from the parents or from previous statements in the current node
+        Utils::VarToConstraintMap _output_constraints_map;       // Constraints computed so far for the current node
+        Utils::VarToConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
+        Utils::VarToConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
+        
+        PCFGNodeToSSAVar_map *_pcfg_to_cg;
+        SSAVarToValue_map *_constraints;
+        NodeclList *_ordered_constraints;
         
         Symbol get_condition_node_constraints(const NBase& lhs, const Type& t, 
                                               std::string s_str, std::string nodecl_str);
@@ -220,16 +80,27 @@ namespace Analysis {
     public:
         
         // *** Constructor *** //
-        ConstraintBuilderVisitor(Utils::ConstraintMap input_constraints, 
-                                 Utils::ConstraintMap current_constraints );
+        ConstraintBuilderVisitor(Node* n,
+                Utils::VarToConstraintMap input_constraints, 
+                Utils::VarToConstraintMap current_constraints, 
+                PCFGNodeToSSAVar_map *pcfg_to_cg,
+                SSAVarToValue_map *constraints,
+                NodeclList *ordered_constraints);
+        
+        ConstraintBuilderVisitor(Node* n,
+                PCFGNodeToSSAVar_map *pcfg_to_cg,
+                SSAVarToValue_map *constraints,
+                NodeclList *ordered_constraints);
         
         // *** Modifiers *** //
-        void compute_constraints(const NBase& n);
+        Utils::Constraint build_constraint(const Symbol& s, const NBase& val, const Type& t, std::string c_name);
+        void compute_stmt_constraints(const NBase& n);
+        void compute_parameters_constraints(const ObjectList<Symbol>& params);
         
         // *** Getters and setters *** //
-        Utils::ConstraintMap get_output_constraints_map();
-        Utils::ConstraintMap get_output_true_constraints_map();
-        Utils::ConstraintMap get_output_false_constraints_map();
+        Utils::VarToConstraintMap get_output_constraints_map();
+        Utils::VarToConstraintMap get_output_true_constraints_map();
+        Utils::VarToConstraintMap get_output_false_constraints_map();
         
         // *** Consultants *** //
         bool new_constraint_is_repeated(const Utils::Constraint& c);
@@ -256,6 +127,60 @@ namespace Analysis {
     
     
     // **************************************************************************************************** //
+    // ****************************** Classes implementing constraint graph ******************************* //
+    
+    class LIBTL_CLASS ConstraintGraph
+    {
+    private:
+        // *** Members *** //
+        std::string _name;
+        CGValueToCGNode_map _nodes;
+        std::map<CGNode*, SCC*> _node_to_scc_map;
+        
+        //! Method building the SCCs from the Constraint Graph. It follows the Tarjan's method to do so
+        void strong_connect(CGNode* n, unsigned int& scc_current_index, 
+                            std::stack<CGNode*>& s, std::vector<SCC*>& scc_list, 
+                            std::map<CGNode*, int>& scc_lowlink_index,
+                            std::map<CGNode*, int>& scc_index);
+        
+        //! Insert, if it is not yet there, a new node in the CG with the value #value
+        CGNode* insert_node(const NBase& value);
+        CGNode* insert_node(CGNode_type type);
+        
+        //! Connects nodes #source and #target with a directed edge extended with #predicate
+        void connect_nodes(CGNode* source, CGNode* target, NBase predicate = NBase::null());
+        
+        //! Method to solve constraints within a cycle
+        void resolve_cycle(SCC* scc);
+        
+        //! Method to evaluate the ranges in a sinle Constraint Graph node
+        void evaluate_cgnode(CGNode* const node);
+        
+    public:
+        // *** Constructor *** //
+        ConstraintGraph(std::string name);
+        
+        // *** Modifiers *** //
+        void fill_constraint_graph(
+                const SSAVarToValue_map& constraints,
+                const NodeclList& ordered_constraints);
+        
+        //! Decompose the Constraint Graph in a set of Strongly Connected Components
+        std::vector<SCC*> topologically_compose_strongly_connected_components();
+        
+        //! Use the different rules to topologically solve and propagate the constraints over the CG
+        void solve_constraints(const std::vector<SCC*>& roots);
+        
+        //! Generates a dot file with the structure of the graph
+        void print_graph();
+    };
+    
+    // **************************** END classes implementing constraint graph ***************************** //
+    // **************************************************************************************************** //
+    
+    
+    
+    // **************************************************************************************************** //
     // ******************************** Class implementing range analysis ********************************* //
     
     class LIBTL_CLASS RangeAnalysis
@@ -264,17 +189,32 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;
         ConstraintGraph* _cg;
         
-        void set_parameters_constraints();
-        void compute_initial_constraints(Node* entry);
-        void propagate_constraints_from_backwards_edges(Node* n);
-        void create_constraints(Node* n);
+        PCFGNodeToSSAVar_map _pcfg_to_cg;
+        SSAVarToValue_map _constraints;
+        NodeclList _ordered_constraints;
+        
+        void compute_parameters_constraints();
+        void compute_constraints_rec(Node* n);
+        void propagate_constraints_from_back_edges(Node* n);
         
     public:
         //! Constructor
         RangeAnalysis(ExtensibleGraph* pcfg);
         
-        //! Method computing the Ranges information on the member #pcfg
+        //! Method computing the Ranges information on the #pcfg
         void compute_range_analysis();
+        
+        //! Method generating all constraints of the #pcfg
+        void compute_constraints();
+        
+        //! Method building a Constraint Graph from a set of constraints
+        void build_constraint_graph();
+        
+        //! Method propagating ranges information from the #cg to the #pcfg
+        void set_ranges_to_pcfg();
+        
+        // *** Utils *** //
+        void print_constraints();
     };
 
     // ****************************** End class implementing range analysis ******************************* //
