@@ -91,8 +91,7 @@ namespace {
                         || (lhs.is<Nodecl::ArraySubscript>()
                             && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(),
-                                                                rhs.get_locus());
+                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(), rhs.get_locus());
                 iv = st_.get_lhs();
                 incr = new_rhs;
                 is_iv = true;
@@ -206,7 +205,7 @@ namespace {
                 for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     NBase incr;
-                    NodeclList incr_list;
+                    ObjectList<NBase> incr_list;
                     NBase iv = is_basic_induction_variable(*it, loop, incr, incr_list);
                     if(!iv.is_null())
                     {
@@ -229,7 +228,7 @@ namespace {
     // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
     NBase InductionVariableAnalysis::is_basic_induction_variable(NBase st, Node* loop,
-                                                                 NBase& incr, NodeclList& incr_list)
+                                                                 NBase& incr, ObjectList<NBase>& incr_list)
     {
         NBase iv = NBase::null();
 
@@ -486,8 +485,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::AddAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -528,8 +527,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::ArithmeticShrAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -537,8 +536,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::Assignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -580,8 +579,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseAndAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -589,8 +588,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseOrAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -598,8 +597,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseShlAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -607,8 +606,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseShrAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -616,8 +615,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::BitwiseXorAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -634,8 +633,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::DivAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -652,8 +651,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::MinusAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -694,8 +693,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::ModAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -703,8 +702,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::MulAssignment& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_lhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_lhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_lhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_lhs()))
         {
             undefine_induction_variable();
         }
@@ -712,8 +711,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::Postdecrement& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_rhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_rhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -741,8 +740,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::Postincrement& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_rhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_rhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -770,8 +769,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::Predecrement& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_rhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_rhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
             if(_n_nested_conditionals > 0)
             {
@@ -799,8 +798,8 @@ namespace {
 
     void FalseInductionVariablesVisitor::visit(const Nodecl::Preincrement& n)
     {
-        if(Nodecl::Utils::nodecl_contains_nodecl(n.get_rhs(), _iv) ||
-            Nodecl::Utils::nodecl_contains_nodecl(_iv, n.get_rhs()))
+        if(Nodecl::Utils::dataref_contains_dataref(n.get_rhs(), _iv) ||
+            Nodecl::Utils::dataref_contains_dataref(_iv, n.get_rhs()))
         {
             if(_n_nested_conditionals > 0)
             {
