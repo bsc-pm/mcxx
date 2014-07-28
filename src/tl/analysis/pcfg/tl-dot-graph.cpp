@@ -217,8 +217,6 @@ namespace {
     }
 }
     
-    static int id_ = 0;
-    
     void ExtensibleGraph::print_graph_to_dot(bool usage, bool liveness, bool reaching_defs, bool induction_vars,
                                              bool ranges, bool auto_scoping, bool auto_deps)
     {
@@ -285,6 +283,17 @@ namespace {
             current->set_visited(true);
             
             // Generate the node
+            if(!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+            {
+                if(current->is_context_node())
+                {
+                    Node* entry = current->get_graph_entry_node();
+                    Node* child = entry->get_children()[0];
+                    get_nodes_dot_data(child, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
+                    goto connect_node;
+                }
+            }
+            
             if(current->is_graph_node())
             {
                 // Calculate the name of the new dot subgraph
@@ -312,6 +321,7 @@ namespace {
                 get_node_dot_data(current, dot_graph, dot_analysis_info, indent);
             }
             
+connect_node:
             // Connect the current node and the possible inner nodes (when current is a graph) 
             // with the nodes in the current nesting level
             bool connect_current = true;
@@ -336,10 +346,49 @@ namespace {
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     std::stringstream ss_target_id;
-                    if((*it)->is_graph_node())
-                        ss_target_id << (*it)->get_graph_entry_node()->get_id();
+                    Node* next = *it;
+                    if(CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+                    {
+                        if((*it)->is_graph_node())
+                            ss_target_id << (*it)->get_graph_entry_node()->get_id();
+                        else
+                            ss_target_id << (*it)->get_id();
+                    }
                     else
-                        ss_target_id << (*it)->get_id();
+                    {
+                        Node* target = next;
+                        if((*it)->is_context_node())
+                        {
+                            next = (*it)->get_graph_entry_node()->get_children()[0];
+                            while(next->is_context_node())
+                                next = next->get_graph_entry_node()->get_children()[0];
+                            if(next->is_graph_node())
+                                target = next->get_graph_entry_node();
+                            else
+                                target = next;
+                        }
+                        else if((*it)->is_graph_node())
+                        {
+                            target = (*it)->get_graph_entry_node();
+                        }
+                        
+                        // If we have traversed a context node in the previous IfElse,
+                        // We may be in the following situation now (and empty context occurred)
+                        if(next->is_exit_node() && next->get_outer_node()->is_context_node())
+                        {
+                            next = next->get_outer_node()->get_children()[0];
+                            while((next->is_exit_node() && next->get_outer_node()->is_context_node()) || 
+                                next->is_context_node())
+                            {
+                                if(next->is_exit_node())
+                                    next = next->get_outer_node()->get_children()[0];
+                                else // next is context node
+                                    next = next->get_graph_entry_node()->get_children()[0];
+                            }
+                            target = next;
+                        }
+                        ss_target_id << target->get_id();
+                    }
                     
                     std::string direction = "";
                     if(ss_source_id.str() == ss_target_id.str())
@@ -351,14 +400,14 @@ namespace {
                         extra_edge_attrs = ", style=dashed";
                     
                     std::string edge = ss_source_id.str() + " -> " + ss_target_id.str()
-                                        + " [label=\"" + current_edge->get_label_as_string() 
-                                        + "\"" + direction + extra_edge_attrs + "];\n";
+                                     + " [label=\"" + current_edge->get_label_as_string() 
+                                     + "\"" + direction + extra_edge_attrs + "];\n";
                     Node* source_outer = current->get_outer_node();
                     Node* target_outer = (*it)->get_outer_node();
                     if(source_outer == target_outer)
                     {   // The edge has to be printed now
                         dot_graph += indent + edge;
-                        get_nodes_dot_data(*it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
+                            get_nodes_dot_data(next, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
                     }
                     else
                     {
