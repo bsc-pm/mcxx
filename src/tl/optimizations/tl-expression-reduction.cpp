@@ -49,6 +49,13 @@ namespace Optimizations {
                             n.replace(lhs_rhs.shallow_copy());
                         }
                     }
+                    else
+                    {
+                        // R6i
+                        //Nodecl::NodeclBase tmp = lhs_lhs.shallow_copy();
+                        //lhs_lhs.replace(rhs.shallow_copy());
+                        //rhs.replace(tmp);
+                    }
                 }
                 else if(lhs.is<Nodecl::Minus>())
                 {   // R6c
@@ -394,6 +401,58 @@ namespace Optimizations {
             else if(Nodecl::Utils::structurally_equal_nodecls(lhs, rhs))
             {
                 n.replace(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)));
+            }
+            // R30
+            else if(lhs.is<Nodecl::Add>() && rhs.is<Nodecl::Add>())
+            {
+                Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
+                Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+                Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs();
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
+                
+                //R30a
+                if(Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_lhs))
+                {
+                    n.replace(rhs_rhs);
+                }
+                //R30b
+                else if(Nodecl::Utils::structurally_equal_nodecls(rhs, lhs_lhs))
+                {
+                    n.replace(lhs_rhs);
+                }
+                //R30c
+                else if (Nodecl::Utils::structurally_equal_nodecls(lhs_lhs, rhs_lhs))
+                {
+                    Nodecl::Minus minus = Nodecl::Minus::make(
+                            lhs_rhs, rhs_rhs, lhs_rhs.get_type());
+
+                    if (lhs_rhs.is_constant() && rhs_rhs.is_constant())
+                        minus.set_constant(const_value_sub(
+                                    lhs_rhs.get_constant(),
+                                    rhs_rhs.get_constant()));
+
+                    walk(minus);
+
+                    n.replace(minus);
+
+                }
+                //R30d
+                else if (Nodecl::Utils::structurally_equal_nodecls(lhs_rhs, rhs_rhs))
+                {
+                    Nodecl::Minus minus = Nodecl::Minus::make(
+                            lhs_lhs, lhs_lhs, lhs_lhs.get_type());
+
+                    if (lhs_lhs.is_constant() && rhs_lhs.is_constant())
+                        minus.set_constant(const_value_sub(
+                                    lhs_lhs.get_constant(),
+                                    rhs_lhs.get_constant()));
+
+                    walk(minus);
+
+                    n.replace(minus);
+                }
             }
         }
     }

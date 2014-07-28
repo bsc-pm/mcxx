@@ -49,6 +49,11 @@ namespace Optimizations {
     *         -    c2     =>    c1-c2     t            c1    -     =>  c1-c2     t
     *       /   \                                          /  \
     *     c1    t                                        c2   t
+    * R6i :      +                     +      
+    *          /   \                 /   \
+    *         +    c     =>         +    t1
+    *       /   \                  /  \
+    *     t1    t2                c   t2
     *
     * R7 :   *                                     R8 :    *                 *
     *      /   \          =>     c1 * c2                 /   \     =>      /   \
@@ -87,7 +92,22 @@ namespace Optimizations {
     *   /  \   /  \                / \
     *  c1  t1 c2  t2              t2 t1
     * 
-    * 
+    * R30a :  -                      R30b:   -
+    *      /    \                          /   \
+    *     +     +         => t3           +     +    => t3
+    *   /  \   /  \                      / \   /  \ 
+    *  t1  t2 +   t3                    +  t3 t1  t2
+    *        / \                       / \
+    *       t1  t2                    t1 t2
+    * R30c :  -                      R30d:   -
+    *      /    \                          /   \
+    *     +     +         => t3 - t4      +     +    => t3 - t4
+    *   /  \   /  \                      / \   /  \ 
+    *  +   t3 +   t4                    +  t3 +   t4
+    * / \    / \                       / \   / \
+    *t1 t2 t1  t2                    t1 t2  t1 t2
+ 
+    *
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
