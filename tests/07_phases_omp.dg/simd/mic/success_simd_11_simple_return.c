@@ -31,7 +31,7 @@ test_generator="config/mercurium-serial-simd-mic run"
 */
 
 
-#pragma omp simd 
+#pragma omp simd linear(n)
 int foo(int n)
 {
     if ((n%2) == 0)

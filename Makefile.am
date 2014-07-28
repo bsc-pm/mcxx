@@ -1523,6 +1523,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
@@ -1571,6 +1572,10 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp \
                            $(END)
 endif
 
@@ -2028,6 +2033,24 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
    src/tl/omp/lint/tl-omp-lint.hpp \
    src/tl/omp/lint/tl-omp-lint.cpp \
    $(END)
+endif
+
+##########################################################################
+# src/tl/omp/example
+##########################################################################
+
+if BUILD_TL_EXAMPLES
+
+phases_LTLIBRARIES += src/tl/omp/example/libtlomp-example.la
+
+src_tl_omp_example_libtlomp_example_la_CXXFLAGS = $(phases_cflags)
+src_tl_omp_example_libtlomp_example_la_SOURCES = \
+						src/tl/omp/example/tl-omp-example.hpp \
+						src/tl/omp/example/tl-omp-example.cpp
+
+src_tl_omp_example_libtlomp_example_la_LIBADD = $(phases_libadd)
+src_tl_omp_example_libtlomp_example_la_LDFLAGS = $(phases_ldflags)
+
 endif
 
 ##########################################################################

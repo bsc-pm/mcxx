@@ -54,6 +54,7 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
+        _omp_report(false),
         _copy_deps_by_default(true),
         _instantiate_omp(false)
     {
@@ -1712,7 +1713,8 @@ namespace TL { namespace OpenMP {
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
             const Nodecl::NodeclBase& ref_scope,
-            Nodecl::List& environment)
+            Nodecl::List& environment,
+            const int default_int)
     {
         PragmaCustomClause clause_clause = pragma_line.get_clause(pragma_name);
 
@@ -1736,9 +1738,9 @@ namespace TL { namespace OpenMP {
                         "'%s' clause has a wrong format", 
                         pragma_name.c_str());
 
-                // Int value will be 0 by default
+                // Int value will be default_int
                 Nodecl::IntegerLiteral int_value = 
-                    const_value_to_nodecl(const_value_get_zero(4, 1));
+                    const_value_to_nodecl(const_value_get_signed_int(default_int));
 
                 if (colon_splited_list_size == 2)
                 {
@@ -1773,6 +1775,7 @@ namespace TL { namespace OpenMP {
     void Base::process_symbol_list_clause(
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
+            const Nodecl::NodeclBase& ref_scope,
             Nodecl::List& environment)
     {
         PragmaCustomClause clause = pragma_line.get_clause(pragma_name);
@@ -1780,7 +1783,8 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             environment.append(openmp_node::make(
-                        Nodecl::List::make(clause.get_arguments_as_expressions()),
+                        Nodecl::List::make(
+                            clause.get_arguments_as_expressions(ref_scope)),
                         pragma_line.get_locus()));
         }
     }
@@ -1792,23 +1796,23 @@ namespace TL { namespace OpenMP {
     {
         // Aligned
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Aligned>
-            (pragma_line, "aligned", ref_scope, environment);
+            (pragma_line, "aligned", ref_scope, environment, 0);
 
         // Linear
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Linear>
-            (pragma_line, "linear", ref_scope, environment);
+            (pragma_line, "linear", ref_scope, environment, 1);
 
         // Uniform
         process_symbol_list_clause<Nodecl::OpenMP::Uniform>
-            (pragma_line, "uniform", environment);
+            (pragma_line, "uniform", ref_scope, environment);
 
         // Suitable
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
-            (pragma_line, "suitable", environment);
+            (pragma_line, "suitable", ref_scope, environment);
 
         // Cache
-        process_symbol_list_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", environment);
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Cache>
+            (pragma_line, "cache", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");

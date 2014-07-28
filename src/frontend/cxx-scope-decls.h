@@ -153,6 +153,8 @@ struct decl_context_tag
     SYMBOL_KIND(SK_ENUM, "enum name") \
     SYMBOL_KIND(SK_ENUMERATOR, "enumerator name") \
     SYMBOL_KIND(SK_FUNCTION, "function name") \
+    SYMBOL_KIND(SK_FRIEND_CLASS, "friend class") \
+    SYMBOL_KIND(SK_FRIEND_FUNCTION, "friend function") \
     SYMBOL_KIND(SK_LABEL, "label name") \
     SYMBOL_KIND(SK_NAMESPACE, "namespace name") \
     SYMBOL_KIND(SK_VARIABLE, "object name") \
@@ -275,6 +277,7 @@ struct default_argument_info_tag
 {
     nodecl_t argument;
     decl_context_t context;
+    char is_hidden;
 };
 
 // This acts as a map <function> -> information of the parameter

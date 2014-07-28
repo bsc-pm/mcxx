@@ -115,9 +115,11 @@ pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [c
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
-
-catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]statement-seq-opt, [any]statement-seq-opt)
+# C++2011: for(T symbol : range)
+    | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
+# This one should only appear inside a NODECL_TRY_BLOCK
+    | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
@@ -272,7 +274,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -306,6 +308,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -564,7 +567,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq, [overlap_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)

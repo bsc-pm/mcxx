@@ -1925,7 +1925,7 @@ namespace Analysis {
         if(n->is_loop_node())
         {
             n = n->get_outer_node();
-            if(!n->is_omp_loop_node())
+            if(!n->is_omp_simd_node())
             {
                 if(VERBOSE)
                 {
@@ -1948,7 +1948,7 @@ namespace Analysis {
                 n = NULL;
             }
         }
-        else if(!n->is_omp_loop_node() && !n->is_omp_simd_function_node())
+        else if(!n->is_omp_simd_node())
         {
             if(VERBOSE)
             {
@@ -1964,9 +1964,7 @@ namespace Analysis {
         ObjectList<Utils::LinearVars> result;
         Node* n = this;
         check_for_simd_node(n);
-        if(n == NULL)
-            goto fin_linear;
-        
+        if(n != NULL)
         {
             const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
             for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
@@ -1990,15 +1988,11 @@ namespace Analysis {
                             step = *itl;
                         }
                     }
-                    // If no step is contained in the clause, the default value is one
-                    if(step.is_null())
-                        step = Nodecl::IntegerLiteral::make(Type::get_int_type(), const_value_get_one(/*num_bytes*/4, /*sign*/1));
-                    
+                   
                     result.append(Utils::LinearVars(syms, step));
                 }
             }
         }
-fin_linear:        
         return result;
     }
     
@@ -2007,20 +2001,18 @@ fin_linear:
         ObjectList<Symbol> result;
         Node* n = this;
         check_for_simd_node(n);
-        if(n == NULL)
-            goto fin_uniform;
-        
+        if(n != NULL)
         {
             const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
             for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
                 if(it->get_clause() == __uniform)
                 {
-                    Nodecl::List linear_exprs = it->get_args();
-                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    Nodecl::List uniform_exprs = it->get_args();
+                    for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
                     {
                         Symbol lin(itl->get_symbol());
-                        ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
+                        ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Uniform argument '%s'", 
                                         itl->prettyprint().c_str());
                         result.insert(lin);
                     }
@@ -2028,7 +2020,6 @@ fin_linear:
                 }
             }
         }
-fin_uniform:        
         return result;
     }
     

@@ -6393,7 +6393,11 @@ scope_entry_list_t* query_nodecl_template_id(
             decl_flags_t)
         )
 {
+
     nodecl_t simple_name = nodecl_get_child(nodecl_name, 0);
+
+    // Lookup must behave different for template destructor-ids
+    char is_destructor_id = nodecl_get_text(simple_name)[0] == '~';
 
     template_parameter_list_t* template_parameters = nodecl_get_template_parameters(nodecl_name);
 
@@ -6425,143 +6429,241 @@ scope_entry_list_t* query_nodecl_template_id(
         entry_list = entry_list_new(entry_name);
     }
 
-    // Filter template-names
-    enum cxx_symbol_kind template_name_filter[] = {
-        SK_TEMPLATE_TEMPLATE_PARAMETER,
-        SK_TEMPLATE,
-        SK_USING,
-        SK_USING_TYPENAME,
-        SK_DEPENDENT_ENTITY
-    };
-
-    scope_entry_list_t* old_entry_list = entry_list;
-    entry_list = filter_symbol_kind_set(entry_list, 
-            STATIC_ARRAY_LENGTH(template_name_filter), 
-            template_name_filter);
-    entry_list_free(old_entry_list);
-
-    if (entry_list == NULL)
+    if (!is_destructor_id)
     {
-        return NULL;
-    }
+        // Filter template-names
+        enum cxx_symbol_kind template_name_filter[] = {
+            SK_TEMPLATE_TEMPLATE_PARAMETER,
+            SK_TEMPLATE,
+            SK_USING,
+            SK_USING_TYPENAME,
+            SK_DEPENDENT_ENTITY
+        };
 
-    scope_entry_t* template_symbol = entry_advance_aliases(entry_list_head(entry_list));
+        scope_entry_list_t* old_entry_list = entry_list;
+        entry_list = filter_symbol_kind_set(entry_list, 
+                STATIC_ARRAY_LENGTH(template_name_filter), 
+                template_name_filter);
+        entry_list_free(old_entry_list);
 
-    if (template_symbol->kind == SK_DEPENDENT_ENTITY)
-    {
-        scope_entry_t* dependent_entity = NULL;
-        nodecl_t nodecl_parts = nodecl_null();
-        dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
-        // nodecl_parts here lacks the template-id part
-
-        scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
-        new_sym->kind = SK_DEPENDENT_ENTITY;
-        new_sym->locus = nodecl_get_locus(nodecl_name);
-        new_sym->symbol_name = dependent_entity->symbol_name;
-        new_sym->decl_context = decl_context;
-        new_sym->type_information = build_dependent_typename_for_entry(
-            dependent_entity,
-            nodecl_name,
-            nodecl_get_locus(nodecl_name));
-
-        entry_list_free(entry_list);
-        return entry_list_new(new_sym);
-    }
-
-    type_t* generic_type = template_symbol->type_information;
-
-    scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(generic_type));
-
-    type_t* specialized_type = NULL;
-    if (primary_symbol->kind == SK_CLASS)
-    {
-        DEBUG_CODE()
+        if (entry_list == NULL)
         {
-            fprintf(stderr, "SCOPE: This is a template class-name\n");
-        }
-
-        template_parameter_list_t* completed_template_parameters =
-            complete_template_parameters_of_template_class(decl_context,
-                    generic_type,
-                    template_parameters,
-                    nodecl_get_locus(nodecl_name));
-
-        if (completed_template_parameters == NULL)
-        {
-            entry_list_free(entry_list);
             return NULL;
         }
 
-        specialized_type = template_type_get_specialized_type(generic_type,
-                completed_template_parameters,
-                decl_context,
-                nodecl_get_locus(nodecl_name));
+        scope_entry_t* template_symbol = entry_advance_aliases(entry_list_head(entry_list));
 
-        if (specialized_type != NULL)
+        if (template_symbol->kind == SK_DEPENDENT_ENTITY)
         {
-            ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+            scope_entry_t* dependent_entity = NULL;
+            nodecl_t nodecl_parts = nodecl_null();
+            dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
+            // nodecl_parts here lacks the template-id part
 
-            scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
+            scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+            new_sym->kind = SK_DEPENDENT_ENTITY;
+            new_sym->locus = nodecl_get_locus(nodecl_name);
+            new_sym->symbol_name = dependent_entity->symbol_name;
+            new_sym->decl_context = decl_context;
+            new_sym->type_information = build_dependent_typename_for_entry(
+                    dependent_entity,
+                    nodecl_name,
+                    nodecl_get_locus(nodecl_name));
 
             entry_list_free(entry_list);
-            return result;
+            return entry_list_new(new_sym);
+        }
+
+        type_t* generic_type = template_symbol->type_information;
+
+        scope_entry_t* primary_symbol = named_type_get_symbol(template_type_get_primary_type(generic_type));
+
+        type_t* specialized_type = NULL;
+        if (primary_symbol->kind == SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: This is a template class-name\n");
+            }
+
+            template_parameter_list_t* completed_template_parameters =
+                complete_template_parameters_of_template_class(decl_context,
+                        generic_type,
+                        template_parameters,
+                        nodecl_get_locus(nodecl_name));
+
+            if (completed_template_parameters == NULL)
+            {
+                entry_list_free(entry_list);
+                return NULL;
+            }
+
+            specialized_type = template_type_get_specialized_type(generic_type,
+                    completed_template_parameters,
+                    decl_context,
+                    nodecl_get_locus(nodecl_name));
+
+            if (specialized_type != NULL)
+            {
+                ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+
+                scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
+
+                entry_list_free(entry_list);
+                return result;
+            }
+            else
+            {
+                entry_list_free(entry_list);
+                return NULL;
+            }
+        }
+        else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: This is a template alias\n");
+            }
+
+            template_parameter_list_t* completed_template_parameters =
+                complete_template_parameters_of_template_class(decl_context,
+                        generic_type,
+                        template_parameters,
+                        nodecl_get_locus(nodecl_name));
+
+            if (completed_template_parameters == NULL)
+                return NULL;
+
+            specialized_type = template_type_get_specialized_type(generic_type,
+                    completed_template_parameters,
+                    decl_context,
+                    nodecl_get_locus(nodecl_name));
+
+            if (specialized_type != NULL)
+            {
+                ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+
+                scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
+
+                entry_list_free(entry_list);
+                return result;
+            }
+            else
+            {
+                entry_list_free(entry_list);
+                return NULL;
+            }
+        }
+        else if (primary_symbol->kind == SK_FUNCTION)
+        {
+            // Now we have to solve the best function
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: This is a template function-name\n");
+            }
+
+            // Let the user of this function select the proper template
+            return entry_list;
         }
         else
         {
-            entry_list_free(entry_list);
-            return NULL;
+            internal_error("Invalid templated type", 0);
         }
-    }
-    else if (primary_symbol->kind == SK_TEMPLATE_ALIAS)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: This is a template alias\n");
-        }
-
-        template_parameter_list_t* completed_template_parameters =
-            complete_template_parameters_of_template_class(decl_context,
-                    generic_type,
-                    template_parameters,
-                    nodecl_get_locus(nodecl_name));
-
-        if (completed_template_parameters == NULL)
-            return NULL;
-
-        specialized_type = template_type_get_specialized_type(generic_type,
-                completed_template_parameters,
-                decl_context,
-                nodecl_get_locus(nodecl_name));
-
-        if (specialized_type != NULL)
-        {
-            ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
-
-            scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
-
-            entry_list_free(entry_list);
-            return result;
-        }
-        else
-        {
-            entry_list_free(entry_list);
-            return NULL;
-        }
-    }
-    else if (primary_symbol->kind == SK_FUNCTION)
-    {
-        // Now we have to solve the best function
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: This is a template function-name\n");
-        }
-
-        // Let the user of this function select the proper template
-        return entry_list;
     }
     else
     {
-        internal_error("Invalid templated type", 0);
+        // Filter destructor template-id
+        enum cxx_symbol_kind template_name_filter[] = {
+            SK_FUNCTION,
+            SK_USING,
+            SK_USING_TYPENAME,
+        };
+
+
+        scope_entry_list_t* old_entry_list = entry_list;
+        entry_list = filter_symbol_kind_set(entry_list, 
+                STATIC_ARRAY_LENGTH(template_name_filter), 
+                template_name_filter);
+        entry_list_free(old_entry_list);
+
+        if (entry_list == NULL)
+        {
+            return NULL;
+        }
+
+        scope_entry_t* destructor_symbol = entry_advance_aliases(entry_list_head(entry_list));
+
+        if (destructor_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            scope_entry_t* dependent_entity = NULL;
+            nodecl_t nodecl_parts = nodecl_null();
+            dependent_typename_get_components(destructor_symbol->type_information, &dependent_entity, &nodecl_parts);
+            // nodecl_parts here lacks the template-id part
+
+            scope_entry_t* new_sym = counted_xcalloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+            new_sym->kind = SK_DEPENDENT_ENTITY;
+            new_sym->locus = nodecl_get_locus(nodecl_name);
+            new_sym->symbol_name = dependent_entity->symbol_name;
+            new_sym->decl_context = decl_context;
+            new_sym->type_information = build_dependent_typename_for_entry(
+                    dependent_entity,
+                    nodecl_name,
+                    nodecl_get_locus(nodecl_name));
+
+            entry_list_free(entry_list);
+            return entry_list_new(new_sym);
+        }
+        else if (destructor_symbol->kind != SK_FUNCTION)
+        {
+            internal_error("Invalid symbol for a template destructor-id", 0);
+        }
+
+        ERROR_CONDITION(!destructor_symbol->entity_specs.is_member, "A destructor must be member", 0);
+
+        if (!is_template_specialized_type(get_actual_class_type(destructor_symbol->entity_specs.class_type)))
+        {
+            error_printf("%s: error: designated class in destructor-id is not a template-type\n",
+                    nodecl_locus_to_str(nodecl_name));
+            return NULL;
+        }
+
+        if (is_dependent_type(destructor_symbol->entity_specs.class_type))
+            return entry_list_new(destructor_symbol);
+
+        // If not dependent, we will verify that the template-arguments square
+        // with those of the template class
+
+        type_t* generic_type = template_specialized_type_get_related_template_type(
+                get_actual_class_type(destructor_symbol->entity_specs.class_type));
+        template_parameter_list_t* completed_template_parameters =
+            complete_template_parameters_of_template_class(decl_context,
+                    generic_type,
+                    template_parameters,
+                    nodecl_get_locus(nodecl_name));
+
+        if (completed_template_parameters == NULL)
+        {
+            entry_list_free(entry_list);
+            return NULL;
+        }
+
+        type_t* specialized_type = template_type_get_specialized_type(generic_type,
+                completed_template_parameters,
+                decl_context,
+                nodecl_get_locus(nodecl_name));
+
+        if (!equivalent_types(specialized_type, destructor_symbol->entity_specs.class_type))
+        {
+            error_printf("%s: error: template destructor-id '%s' is not a valid destructor designation for class '%s'\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    codegen_to_str(nodecl_name, decl_context),
+                    print_type_str(destructor_symbol->entity_specs.class_type,
+                        decl_context)
+                    );
+            return NULL;
+        }
+
+        return entry_list_new(destructor_symbol);
     }
 }
 
@@ -7087,6 +7189,12 @@ static scope_entry_list_t* query_nodecl_name_first(decl_context_t current_contex
     }
 }
 
+struct class_lookup_info_tag
+{
+    scope_entry_t* class_symbol;
+    char is_destructor_id;
+};
+
 static scope_entry_list_t* query_nodecl_name_first_in_class(
         decl_context_t current_context,
         nodecl_t current_name,
@@ -7095,7 +7203,8 @@ static scope_entry_list_t* query_nodecl_name_first_in_class(
         char is_global,
         void *extra_info)
 {
-    scope_entry_t* class_symbol = (scope_entry_t*)extra_info;
+    scope_entry_t* class_symbol = ((struct class_lookup_info_tag*)extra_info)->class_symbol;
+    char is_destructor_id = ((struct class_lookup_info_tag*)extra_info)->is_destructor_id;
 
     scope_entry_list_t* entry_list_postfix =
         query_nodecl_name_flags(current_context, current_name, NULL, decl_flags);
@@ -7162,7 +7271,39 @@ static scope_entry_list_t* query_nodecl_name_first_in_class(
                 fprintf(stderr, "SCOPE: When looking up the first part of the id-expression "
                         "of a class-member-access the two lookups do not match\n");
             }
-            return NULL;
+            if (is_destructor_id
+                    && entry1->kind == SK_TEMPLATE
+                    && entry2->kind == SK_CLASS
+                    && is_template_specialized_type(entry2->type_information)
+                    && !is_dependent_type(entry2->type_information)
+                    && template_type_get_related_symbol(
+                        template_specialized_type_get_related_template_type(
+                            entry2->type_information)) == entry1)
+            {
+                /* This is for this case
+                 *
+                 * template <typename T>
+                 * struct A { };
+                 *
+                 * void f(A<int>& a)
+                 * {
+                 *    a.A::~A();
+                 *    // Note that 'A' here is a template-name at the postfix
+                 *    // lookup but the injected class-name inside the class.
+                 *    // So we act as if the user had written a.A<int>::~A();
+                 * }
+                 */
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But we are looking up a destructor-id and we are naming the template-name of "
+                            "the injected class-name, so the lookup will use the in-class lookup result\n");
+                }
+                return entry_list_in_class;
+            }
+            else
+            {
+                return NULL;
+            }
         }
 
         entry_list_free(entry_list_in_class);
@@ -7363,7 +7504,7 @@ static char check_symbol_is_base_or_member(
         field_path_t* field_path,
         void* data)
 {
-    scope_entry_t* class_symbol = (scope_entry_t*)data;
+    scope_entry_t* class_symbol = ((struct class_lookup_info_tag*)data)->class_symbol;
 
     if (class_symbol->entity_specs.is_injected_class_name)
     {
@@ -7447,6 +7588,19 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
         field_path_t* field_path,
         decl_flags_t decl_flags)
 {
+    nodecl_t nodecl_last = nodecl_name_get_last_part(nodecl_name);
+    char is_destructor_id = (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_NAME_SIMPLE
+            && (nodecl_get_text(nodecl_last)[0] == '~'))
+        || (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID
+                && ((nodecl_get_text(nodecl_get_child(nodecl_last, 0))[0]) == '~'));
+
+
+    struct class_lookup_info_tag class_lookup_info =
+    {
+        .class_symbol = class_symbol,
+        .is_destructor_id = is_destructor_id,
+    };
+
     return query_nodecl_qualified_name_common(decl_context,
             nodecl_name,
             field_path,
@@ -7454,7 +7608,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
             /* allow_namespaces */ 1,
             query_nodecl_name_first_in_class,
             check_symbol_is_base_or_member,
-            class_symbol);
+            &class_lookup_info);
 }
 
 static scope_entry_list_t* query_nodecl_name_in_class_aux(
@@ -7690,20 +7844,40 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
             {
                 AST symbol = ASTSon0(unqualified_id);
                 *nodecl_output = nodecl_make_cxx_dep_name_simple(
-                        ASTText(symbol), 
+                        ASTText(symbol),
                         ast_get_locus(unqualified_id));
                 break;
             }
         case AST_DESTRUCTOR_TEMPLATE_ID :
             {
-                internal_error("Not supported yet", 0);
-                // AST symbol = ASTSon0(expression);
-                // AST template_args 
-                // *nodecl_output = nodecl_make_cxx_dep_name_simple(
-                //         nodecl_null(),
-                //         ASTText(symbol), 
-                //         ASTFileName(unqualified_id), 
-                //         ASTLine(unqualified_id));
+                // This syntax has a redundant template argument ~A<int>
+                const char* name = ASTText(unqualified_id);
+
+                AST template_id = ASTSon0(unqualified_id);
+                AST template_arguments = ASTSon1(template_id);
+
+                template_parameter_list_t* template_parameters =
+                    get_template_arguments_from_syntax(template_arguments, decl_context);
+
+                if (template_parameters == NULL)
+                {
+                    *nodecl_output = nodecl_make_err_expr(
+                            ast_get_locus(unqualified_id));
+                    return;
+                }
+
+                const char* template_tag = "";
+                if (ast_get_text(template_id) != NULL)
+                    template_tag = ast_get_text(template_id);
+
+                *nodecl_output = nodecl_make_cxx_dep_template_id(
+                        nodecl_make_cxx_dep_name_simple(
+                            name,
+                            ast_get_locus(unqualified_id)),
+                        template_tag,
+                        template_parameters,
+                        ast_get_locus(unqualified_id));
+
                 break;
             }
         default:
@@ -8145,16 +8319,30 @@ char is_dependent_function(scope_entry_t* entry)
                 && is_dependent_type(entry->entity_specs.class_type));
 }
 
-nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
+gcc_attribute_t* symbol_get_gcc_attribute(scope_entry_t* entry, const char* name)
 {
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
     int i;
     for (i = 0; i < entry->entity_specs.num_gcc_attributes; i++)
     {
-        if (strcmp(entry->entity_specs.gcc_attributes[i].attribute_name, "aligned") == 0)
+        if (strcmp(entry->entity_specs.gcc_attributes[i].attribute_name, name) == 0)
         {
-            return nodecl_list_head(entry->entity_specs.gcc_attributes[i].expression_list);
+            return &entry->entity_specs.gcc_attributes[i];
         }
     }
+    return NULL;
+}
+
+nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry)
+{
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    gcc_attribute_t* gcc_attr = symbol_get_gcc_attribute(entry, "aligned");
+
+    if (gcc_attr != NULL)
+    {
+        return nodecl_list_head(gcc_attr->expression_list);
+    }
+
     return nodecl_null();
 }
