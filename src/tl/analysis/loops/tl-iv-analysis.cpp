@@ -91,8 +91,7 @@ namespace {
                         || (lhs.is<Nodecl::ArraySubscript>()
                             && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(),
-                                                                rhs.get_locus());
+                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(), rhs.get_locus());
                 iv = st_.get_lhs();
                 incr = new_rhs;
                 is_iv = true;
@@ -206,7 +205,7 @@ namespace {
                 for(NodeclList::iterator it = stmts.begin(); it != stmts.end(); ++it)
                 {
                     NBase incr;
-                    NodeclList incr_list;
+                    ObjectList<NBase> incr_list;
                     NBase iv = is_basic_induction_variable(*it, loop, incr, incr_list);
                     if(!iv.is_null())
                     {
@@ -229,7 +228,7 @@ namespace {
     // FIXME This method does not cover all kind induction variable.
     // F.i., 'st': iv = 1 + iv + z, where 'z' is loop invariant, will return false
     NBase InductionVariableAnalysis::is_basic_induction_variable(NBase st, Node* loop,
-                                                                 NBase& incr, NodeclList& incr_list)
+                                                                 NBase& incr, ObjectList<NBase>& incr_list)
     {
         NBase iv = NBase::null();
 
