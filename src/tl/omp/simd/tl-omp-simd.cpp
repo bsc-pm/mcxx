@@ -346,7 +346,6 @@ namespace TL {
                         loop_statement, loop_environment);
                 _vectorizer.opt_overlapped_accesses(
                         loop_statement, loop_environment);
-                running_error("Voy por aqui\n");
             }
 
             // Add new vector symbols

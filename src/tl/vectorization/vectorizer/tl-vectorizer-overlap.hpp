@@ -85,12 +85,14 @@ namespace TL
         };
 
 
-        class OverlapGroup
+        struct OverlapGroup
         {
-
+            Nodecl::NodeclBase _first_cache_index;
+            objlist_tlsymbol_t _cache_registers;
+            objlist_nodecl_t _overlap_loads;
         };
 
-        typedef TL::ObjectList<objlist_nodecl_t> objlist_ogroup_t;
+        typedef TL::ObjectList<OverlapGroup> objlist_ogroup_t;
         class OverlappedAccessesOptimizer : public Nodecl::NodeclVisitor<void>
         {
             private:
@@ -103,14 +105,17 @@ namespace TL
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses);
+
+                void compute_group_properties(
+                        OverlapGroup& ogroup,
+                        const Nodecl::ForStatement& for_stmt);
                 void enable_overlap_cache(const OverlapGroup& ogroup,
                         const Nodecl::ForStatement& n);
-                void replace_overlapped_loads(const OverlapGroup& ogroup,
-                        const Nodecl::ForStatement& n);
+                void replace_overlapped_loads(
+                        const OverlapGroup& ogroup);
 
                 Nodecl::NodeclBase get_vector_load_subscripts(
                         const Nodecl::VectorLoad& vl);
-
  
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment);

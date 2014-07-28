@@ -313,19 +313,18 @@ namespace Vectorization
 
             objlist_ogroup_t overlap_groups = 
                 get_overlap_groups(vector_loads);
-/*
-            for(std::list<OverlapGroup>::iterator ogroup =
-                    sym_overlap_groups.begin();
-                    ogroup != sym_overlap_groups.end();
+
+            for(objlist_ogroup_t::iterator ogroup =
+                    overlap_groups.begin();
+                    ogroup != overlap_groups.end();
                     ogroup++)
             {
+                compute_group_properties(*ogroup, n);
                 enable_overlap_cache(*ogroup, n);
-                replace_overlapped_loads(*ogroup, n);
+                replace_overlapped_loads(*ogroup);
             }
-*/
         }
     }
-
 
     objlist_nodecl_t OverlappedAccessesOptimizer::
         get_adjacent_vector_loads_nested_in_one_for(
@@ -385,7 +384,7 @@ namespace Vectorization
                 vl_rhs.as<Nodecl::ArraySubscript>();
 
             return array.get_subscripts().as<Nodecl::List>().
-                front();
+                front().no_conv();
         }
 
         internal_error("Invalid Vector Load\n", 0);
@@ -421,40 +420,80 @@ namespace Vectorization
                 << minus.prettyprint()
                 << std::endl;
 
+            // TODO: distance
             // if result is constant and 1, for example, return true
+            if (minus.is_constant() &&
+                    const_value_is_one(minus.get_constant()))
+                return true;
         }
 
-        return true;
+        return false;
     }
 
     objlist_ogroup_t OverlappedAccessesOptimizer::
         get_overlap_groups(const objlist_nodecl_t& vector_loads)
     {
         objlist_ogroup_t result;
-        objlist_nodecl_t group;
+        OverlapGroup group;
         objlist_nodecl_t::const_iterator target_load =
             vector_loads.begin();
 
+        //TODO: >1 groups
         std::cerr << "Overlap Group:" << std::endl;
         std::cerr << target_load->prettyprint() << std::endl;
 
-        group.append(*target_load);
+        group._overlap_loads.append(*target_load);
 
         target_load++;
 
         while(target_load != vector_loads.end())
         {
             if(overlap(target_load->as<Nodecl::VectorLoad>(),
-                        group))
+                        group._overlap_loads))
             {
-                std::cerr << target_load->prettyprint() << std::endl;
-                group.append(*target_load);
+                std::cerr << target_load->prettyprint() << " overlap!"<< std::endl;
+                group._overlap_loads.append(*target_load);
+            }
+            else
+            {
+                std::cerr << target_load->prettyprint() << " DOESN'T overlap!"<< std::endl;
             }
                 
             target_load++;
         }
 
+        result.append(group);
+
         return result;
+    }
+
+
+    void OverlappedAccessesOptimizer::compute_group_properties(
+            OverlapGroup& ogroup,
+            const Nodecl::ForStatement& for_stmt)
+    {
+        // TODO # registers
+        // Declare cache registers
+        TL::Scope scope = for_stmt.retrieve_context();
+        TL::Type cache_type = ogroup._overlap_loads.front().get_type().no_ref();
+
+        for (int i=0; i<2; i++)
+        {
+            std::stringstream new_sym_name;
+            new_sym_name << "__overlap_" << i;//it->first.get_name() << "_" << i;
+
+            TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
+            new_sym.get_internal_symbol()->kind = SK_VARIABLE;
+            new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+            new_sym.set_type(cache_type);
+
+            ogroup._cache_registers.push_back(new_sym);
+        }
+
+        // Cache First Element Index
+        // TODO
+        ogroup._first_cache_index = get_vector_load_subscripts(
+                ogroup._overlap_loads.front().as<Nodecl::VectorLoad>());
     }
 
     void OverlappedAccessesOptimizer::enable_overlap_cache(
@@ -464,9 +503,66 @@ namespace Vectorization
     }
 
     void OverlappedAccessesOptimizer::replace_overlapped_loads(
-            const OverlapGroup& ogroup,
-            const Nodecl::ForStatement& n)
+            const OverlapGroup& ogroup)
     {
+        //TODO: init_cache_index
+        Nodecl::NodeclBase init_cache_index =
+            get_vector_load_subscripts(
+                    ogroup._overlap_loads.front().
+                    as<Nodecl::VectorLoad>());
+
+        for(objlist_nodecl_t::const_iterator load_it =
+                ogroup._overlap_loads.begin();
+                load_it != ogroup._overlap_loads.end();
+                load_it++)
+        {
+            Nodecl::NodeclBase load_subscript =
+                get_vector_load_subscripts(
+                        load_it->as<Nodecl::VectorLoad>()).shallow_copy();
+
+            Nodecl::Minus shifted_elements = Nodecl::Minus::make(
+                    load_subscript,
+                    ogroup._first_cache_index.shallow_copy(),
+                    load_it->get_type());
+
+            TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
+            reduce_expr_visitor.walk(shifted_elements);
+
+            std::cerr << "Align elements: " << load_subscript.prettyprint()
+                << " MINUS " << ogroup._first_cache_index.prettyprint()
+                << " = "
+                << shifted_elements.prettyprint()
+                << std::endl;
+
+            objlist_tlsymbol_t::const_iterator register_it =
+                ogroup._cache_registers.begin();
+
+            if (shifted_elements.is_constant())
+            {
+                if (const_value_is_zero(
+                            shifted_elements.get_constant()))
+                {
+                    load_it->replace(
+                            register_it->make_nodecl(true));
+                }
+                else
+                {
+                    load_it->replace(Nodecl::VectorAlignRight::make(
+                                register_it->make_nodecl(true),
+                                (register_it++)->make_nodecl(true),
+                                shifted_elements,
+                                load_it->as<Nodecl::VectorLoad>().
+                                get_mask().shallow_copy(),
+                                register_it->get_type()));
+                }
+            }
+            else
+            {
+                std::cerr << "NOT CONSTANT: "
+                    << shifted_elements.prettyprint()
+                    << std::endl;
+            }
+        }
     }
 }
 }

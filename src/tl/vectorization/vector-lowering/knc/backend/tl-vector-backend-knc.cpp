@@ -884,7 +884,7 @@ namespace Vectorization
         TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-            mask_prefix, args, mask_args, rhs_expression;
+            mask_prefix, args, mask_args;
 
         intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
             << "("
@@ -905,7 +905,7 @@ namespace Vectorization
         intrin_op_name << "alignr";
         intrin_type_suffix << "epi32";
 
-        process_mask_component(mask, mask_prefix, mask_args, type);
+        process_mask_component(mask, mask_prefix, mask_args, TL::Type::get_int_type());
 
         walk(left_vector);
         walk(right_vector);
