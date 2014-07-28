@@ -323,7 +323,10 @@ namespace Vectorization
         Nodecl::NodeclBase condition = n.get_condition();
 
         // Non-constant comparison. Vectorize them with masks
-        if(!n.is_constant())
+        if(!(condition.is_constant() ||
+                VectorizationAnalysisInterface::
+                _vectorizer_analysis->is_uniform(
+                    _environment._analysis_simd_scope, condition, condition)))
         {
             Utils::MaskCheckCostEstimation mask_check_cost_visitor;
 
