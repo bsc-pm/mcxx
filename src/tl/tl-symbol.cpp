@@ -948,8 +948,15 @@ namespace TL
     bool Symbol::has_default_argument_num(int i) const
     {
         return (_symbol->entity_specs.default_argument_info != NULL
+                && i < _symbol->entity_specs.num_parameters
                 && _symbol->entity_specs.default_argument_info[i] != NULL
                 && !nodecl_is_null(_symbol->entity_specs.default_argument_info[i]->argument));
+    }
+
+    bool Symbol::has_hidden_default_argument_num(int i) const
+    {
+        return this->has_default_argument_num(i)
+            && _symbol->entity_specs.default_argument_info[i]->is_hidden;
     }
 
     Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const

@@ -2036,6 +2036,24 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/omp/example
+##########################################################################
+
+if BUILD_TL_EXAMPLES
+
+phases_LTLIBRARIES += src/tl/omp/example/libtlomp-example.la
+
+src_tl_omp_example_libtlomp_example_la_CXXFLAGS = $(phases_cflags)
+src_tl_omp_example_libtlomp_example_la_SOURCES = \
+						src/tl/omp/example/tl-omp-example.hpp \
+						src/tl/omp/example/tl-omp-example.cpp
+
+src_tl_omp_example_libtlomp_example_la_LIBADD = $(phases_libadd)
+src_tl_omp_example_libtlomp_example_la_LDFLAGS = $(phases_ldflags)
+
+endif
+
+##########################################################################
 # src/tl/examples
 ##########################################################################
 

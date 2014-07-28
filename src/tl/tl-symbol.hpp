@@ -732,6 +732,11 @@ namespace TL
             bool has_default_argument_num(int i) const;
 
             /*!
+             * States whether this symbol has a parameter i with a hidden default argument
+             */
+            bool has_hidden_default_argument_num(int i) const;
+
+            /*!
              * Returns the default argument of parameter i
              */
             Nodecl::NodeclBase get_default_argument_num(int i) const;

@@ -54,6 +54,7 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
+        _omp_report(false),
         _copy_deps_by_default(true),
         _instantiate_omp(false)
     {
@@ -1810,8 +1811,8 @@ namespace TL { namespace OpenMP {
             (pragma_line, "suitable", ref_scope, environment);
 
         // Cache
-        process_symbol_list_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", ref_scope, environment);
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Cache>
+            (pragma_line, "cache", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");

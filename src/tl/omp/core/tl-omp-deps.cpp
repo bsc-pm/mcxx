@@ -40,77 +40,84 @@
 
 namespace TL { namespace OpenMP {
 
-    struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
+    void add_extra_symbols(Nodecl::NodeclBase data_ref,
+            DataSharingEnvironment& ds,
+            ObjectList<Symbol>& extra_symbols)
     {
-        struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
+        struct DataRefVisitorDep : public Nodecl::ExhaustiveVisitor<void>
         {
-            DataSharingEnvironment& _data_sharing;
-            std::string _clause_name;
-
-            ExtraDataSharing(DataSharingEnvironment& ds, const std::string& clause_name)
-                :_data_sharing(ds), _clause_name(clause_name) { }
-
-            void visit(const Nodecl::Symbol& node)
+            struct ExtraDataSharing : public Nodecl::ExhaustiveVisitor<void>
             {
-                TL::Symbol sym = node.get_symbol();
-                if (!sym.is_valid()
-                        || !sym.is_variable()
-                        || sym.is_fortran_parameter())
-                    return;
+                DataSharingEnvironment& _data_sharing;
+                ObjectList<Symbol>& _symbols;
 
-                if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
-                        == DS_UNDEFINED)
+                ExtraDataSharing(DataSharingEnvironment& ds, ObjectList<Symbol>& symbols)
+                    :_data_sharing(ds), _symbols(symbols) { }
+
+                void visit(const Nodecl::Symbol& node)
                 {
-                    std::stringstream reason;
-                    reason << "variable is used in the expression of a '" << _clause_name << "' clause";
+                    TL::Symbol sym = node.get_symbol();
 
-                    // Mark this as an implicit firstprivate
-                    _data_sharing.set_data_sharing(sym,
-                           TL::OpenMP::DataSharingAttribute( DS_FIRSTPRIVATE | DS_IMPLICIT),
-                           reason.str());
+                    if (!sym.is_valid()
+                            || !sym.is_variable()
+                            || sym.is_fortran_parameter())
+                        return;
 
-                    // Do not warn saved expressions, it confuses users
-                    if (!sym.is_saved_expression())
+                    if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false) & ~DS_IMPLICIT)
+                            == DS_UNDEFINED)
                     {
-                        std::cerr << node.get_locus_str() << ": warning: assuming '"
-                            << sym.get_qualified_name() << "' as firstprivate" << std::endl;
+                       _symbols.append(sym);
+                    }
+                }
+
+                void visit(const Nodecl::ClassMemberAccess& node)
+                {
+                    walk(node.get_lhs());
+                    // Do not walk the rhs
+                }
+            };
+
+            ExtraDataSharing _extra_data_sharing;
+
+            DataRefVisitorDep(DataSharingEnvironment& ds, ObjectList<Symbol>& symbols)
+                : _extra_data_sharing(ds, symbols) { }
+
+            void visit_pre(const Nodecl::Symbol &node)
+            {
+                if (node.get_type().no_ref().is_array())
+                {
+                    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+                    {
+                        _extra_data_sharing.walk(node.get_type().no_ref().array_get_size());
+                    }
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        Nodecl::NodeclBase lb, ub;
+                        node.get_type().no_ref().array_get_bounds(lb, ub);
+
+                        _extra_data_sharing.walk(lb);
+                        _extra_data_sharing.walk(ub);
                     }
                 }
             }
 
-            void visit(const Nodecl::ClassMemberAccess& node)
+            void visit_pre(const Nodecl::Shaping &node)
             {
-                walk(node.get_lhs());
-                // Do not walk the rhs
+                _extra_data_sharing.walk(node.get_shape());
+            }
+
+            void visit_pre(const Nodecl::ArraySubscript &node)
+            {
+                _extra_data_sharing.walk(node.get_subscripts());
+            }
+
+            void visit_pre(const Nodecl::ClassMemberAccess &node)
+            {
+                _extra_data_sharing.walk(node.get_lhs());
             }
         };
 
-        ExtraDataSharing _extra_data_sharing;
-
-        DataRefVisitorDep(DataSharingEnvironment& ds, const std::string& clause_name)
-            : _extra_data_sharing(ds, clause_name) { }
-
-        void visit_pre(const Nodecl::Shaping &node)
-        {
-            _extra_data_sharing.walk(node.get_shape());
-        }
-
-        void visit_pre(const Nodecl::ArraySubscript &node)
-        {
-            _extra_data_sharing.walk(node.get_subscripts());
-        }
-
-        void visit_pre(const Nodecl::ClassMemberAccess &node)
-        {
-            _extra_data_sharing.walk(node.get_lhs());
-        }
-    };
-
-    void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
-            DataSharingEnvironment& ds,
-            const std::string& clause_name)
-    {
-        DataRefVisitorDep data_ref_visitor_dep(ds, clause_name);
+        DataRefVisitorDep data_ref_visitor_dep(ds, extra_symbols);
         data_ref_visitor_dep.walk(data_ref);
     }
 
@@ -119,9 +126,9 @@ namespace TL { namespace OpenMP {
             DependencyDirection dep_attr,
             DataSharingAttribute default_data_attr,
             bool in_ompss_mode,
-            const std::string &clause_name)
+            const std::string &clause_name,
+            ObjectList<Symbol>& extra_symbols)
     {
-        DataRefVisitorDep data_ref_visitor_dep(data_sharing, clause_name);
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
@@ -194,40 +201,43 @@ namespace TL { namespace OpenMP {
             }
 
             data_sharing.add_dependence(dep_item);
-
-            data_ref_visitor_dep.walk(expr);
+            add_extra_symbols(expr, data_sharing, extra_symbols);
         }
     }
 
-    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing, 
-        DataSharingAttribute default_data_attr)
+    void Core::get_dependences_info(TL::PragmaCustomLine construct,
+            DataSharingEnvironment& data_sharing,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
     {
-        PragmaCustomClause input_clause = construct.get_clause("in",
-                /* deprecated */ "input");
-        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN, default_data_attr, "in");
+        PragmaCustomClause input_clause = construct.get_clause("in",/* deprecated */ "input");
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_IN,
+                default_data_attr, "in", extra_symbols);
 
-        TL::ObjectList<std::string> input_private_names;
         PragmaCustomClause input_private_clause = construct.get_clause("inprivate");
-        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE, default_data_attr, "inprivate");
+        get_dependences_info_clause(input_private_clause, data_sharing, DEP_DIR_IN_PRIVATE,
+                default_data_attr, "inprivate", extra_symbols);
 
-        PragmaCustomClause output_clause = construct.get_clause("out",
-                /* deprecated */ "output");
-        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT, default_data_attr, "out");
-        
+        PragmaCustomClause output_clause = construct.get_clause("out", /* deprecated */ "output");
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUT,
+                default_data_attr, "out", extra_symbols);
+
         PragmaCustomClause inout_clause = construct.get_clause("inout");
-        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT, default_data_attr, "inout");
+        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT,
+                default_data_attr, "inout", extra_symbols);
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
-        get_dependences_info_clause(concurrent_clause, data_sharing,
-                DEP_CONCURRENT, default_data_attr, "concurrent");
+        get_dependences_info_clause(concurrent_clause, data_sharing, DEP_CONCURRENT,
+                default_data_attr, "concurrent", extra_symbols);
 
         PragmaCustomClause commutative_clause = construct.get_clause("commutative");
-        get_dependences_info_clause(commutative_clause, data_sharing,
-                DEP_COMMUTATIVE, default_data_attr, "commutative");
+        get_dependences_info_clause(commutative_clause, data_sharing, DEP_COMMUTATIVE,
+                default_data_attr, "commutative", extra_symbols);
 
         // OpenMP standard proposal
         PragmaCustomClause depends = construct.get_clause("depend");
-        get_dependences_info_std_clause(construct, depends, data_sharing, default_data_attr);
+        get_dependences_info_std_clause(construct, depends, data_sharing,
+                default_data_attr, extra_symbols);
     }
 
     static decl_context_t decl_context_map_id(decl_context_t d)
@@ -359,8 +369,9 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_info_std_clause(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
-            DataSharingEnvironment& data_sharing, 
-            DataSharingAttribute default_data_attr)
+            DataSharingEnvironment& data_sharing,
+            DataSharingAttribute default_data_attr,
+            ObjectList<Symbol>& extra_symbols)
     {
             TL::ObjectList<Nodecl::NodeclBase> in, out, inout;
             parse_dependences_info_std_clause(
@@ -372,24 +383,25 @@ namespace TL { namespace OpenMP {
                     construct.get_locus());
 
             add_data_sharings(in, data_sharing,
-                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)");
+                    DEP_DIR_IN, default_data_attr, this->in_ompss_mode(), "depend(in:)", extra_symbols);
             add_data_sharings(out, data_sharing,
-                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)");
+                    DEP_DIR_OUT, default_data_attr, this->in_ompss_mode(), "depend(out:)", extra_symbols);
             add_data_sharings(inout, data_sharing,
-                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)");
+                    DEP_DIR_INOUT, default_data_attr, this->in_ompss_mode(), "depend(inout:)", extra_symbols);
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
-           DependencyDirection dep_attr, 
+           DependencyDirection dep_attr,
            DataSharingAttribute default_data_attr,
-           const std::string& clause_name)
+           const std::string& clause_name,
+           ObjectList<Symbol>& extra_symbols)
     {
         if (clause.is_defined())
         {
             ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
             add_data_sharings(expr_list, data_sharing,
-                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name);
+                    dep_attr, default_data_attr, this->in_ompss_mode(), clause_name, extra_symbols);
         }
     }
 

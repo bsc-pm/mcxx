@@ -1554,13 +1554,15 @@ namespace TL
             //adding real time information to the task
             data_sharing.set_real_time_info(rt_info);
 
-            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
+            ObjectList<Symbol> extra_symbols;
+            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing, extra_symbols);
+
             bool there_is_default_clause = false;
             DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_UNDEFINED, 
                     there_is_default_clause,
                     /*allow_default_auto*/ true);
 
-            get_dependences_info(pragma_line, data_sharing, default_data_attr);
+            get_dependences_info(pragma_line, data_sharing, default_data_attr, extra_symbols);
 
             if (_target_context.empty())
             {
@@ -1578,8 +1580,8 @@ namespace TL
             get_target_info(pragma_line, data_sharing);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr, there_is_default_clause);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
-
 
         RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)
         {

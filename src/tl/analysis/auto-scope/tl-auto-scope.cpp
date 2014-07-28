@@ -116,7 +116,7 @@ namespace {
         }
     }
     
-    bool task_in_loop_is_synchronized_within_loop(Node* task)
+    UNUSED_FUNCTION bool task_in_loop_is_synchronized_within_loop(Node* task)
     {
         bool res = false;
         
@@ -139,7 +139,7 @@ namespace {
         return res;
     }
     
-    void collect_previous_tasks_synchronized_after_scheduling_point(Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result)
+    UNUSED_FUNCTION void collect_previous_tasks_synchronized_after_scheduling_point(Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result)
     {
         for(ObjectList<Node*>::iterator it = currents.begin(); it != currents.end(); ++it)
         {

@@ -400,7 +400,7 @@ get_ivs:
             ObjectList<Symbol> syms = it->get_symbols();
             for(ObjectList<Symbol>::iterator itt = syms.begin(); itt != syms.end(); ++itt)
             {
-                bool found;
+                bool found = false;
                 Utils::InductionVarList::iterator ittt = result.begin();
                 for( ; ittt != result.end(); ++ittt)
                 {

@@ -265,6 +265,8 @@
 "                           action will be carried by the driver\n" \
 "  --enable-ms-builtins     Enables __int8, __int16, __int32 and\n" \
 "                           __int64 builtin types\n" \
+"  --enable-intel-builtins\n" \
+"                           Enables some Intel C/C++ builtins\n" \
 "  --enable-intel-vector-types\n" \
 "                           Enables special support for SIMD types\n" \
 "                           __m128, __m256 and __m512 as struct types\n" \
@@ -351,6 +353,7 @@ typedef enum
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_ENABLE_MS_BUILTIN,
+    OPTION_ENABLE_INTEL_BUILTINS,
     OPTION_ENABLE_INTEL_VECTOR_TYPES,
     OPTION_PASS_THROUGH,
     OPTION_DISABLE_SIZEOF,
@@ -468,6 +471,7 @@ struct command_line_long_options command_line_long_options[] =
     {"no-whole-file", CLP_NO_ARGUMENT, OPTION_NO_WHOLE_FILE },
     {"do-not-process-file", CLP_NO_ARGUMENT, OPTION_DO_NOT_PROCESS_FILE },
     {"enable-ms-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_MS_BUILTIN },
+    {"enable-intel-builtins", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_BUILTINS },
     {"enable-intel-vector-types", CLP_NO_ARGUMENT, OPTION_ENABLE_INTEL_VECTOR_TYPES },
     {"disable-locking", CLP_NO_ARGUMENT, OPTION_DISABLE_FILE_LOCKING },
     {"xl-compat", CLP_NO_ARGUMENT, OPTION_XL_COMPATIBILITY },
@@ -1285,6 +1289,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_ENABLE_MS_BUILTIN:
                     {
                         CURRENT_CONFIGURATION->enable_ms_builtin_types = 1;
+                        break;
+                    }
+                case OPTION_ENABLE_INTEL_BUILTINS:
+                    {
+                        CURRENT_CONFIGURATION->enable_intel_builtins = 1;
                         break;
                     }
                 case OPTION_ENABLE_INTEL_VECTOR_TYPES:

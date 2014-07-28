@@ -679,9 +679,9 @@ namespace OpenMP
         };
 
         // Implemented in tl-omp-deps.cpp
-        void add_extra_data_sharings(Nodecl::NodeclBase data_ref,
+        void add_extra_symbols(Nodecl::NodeclBase data_ref,
                 DataSharingEnvironment& ds,
-                const std::string& clause_name);
+                ObjectList<Symbol>& extra_symbols);
 
         // Implemented in tl-omp.cpp
         std::string string_of_data_sharing(DataSharingAttribute data_attr);

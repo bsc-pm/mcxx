@@ -63,7 +63,8 @@ namespace TL { namespace OpenMP {
             TL::PragmaCustomClause clause,
             const ObjectList<Symbol>& symbols_in_construct,
             DataSharingEnvironment& data_sharing,
-            ObjectList<ReductionSymbol>& sym_list)
+            ObjectList<ReductionSymbol>& sym_list,
+            ObjectList<Symbol>& extra_symbols)
     {
         if (!clause.is_defined())
             return;
@@ -294,11 +295,7 @@ namespace TL { namespace OpenMP {
                             type_name);
                 }
 
-                if (_allow_array_reductions
-                        && var_tree.is<Nodecl::Shaping>())
-                {
-                    add_extra_data_sharings(var_tree, data_sharing, "reduction");
-                }
+                add_extra_symbols(DataReference(var_tree), data_sharing, extra_symbols);
             }
         }
     }
