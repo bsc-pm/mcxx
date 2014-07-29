@@ -1083,15 +1083,6 @@ namespace {
                     }
                 }
             }
-            
-            // Iterate over nested nodes if necessary
-            if(n->is_graph_node())
-                create_constraint_graph(n->get_graph_entry_node());
-            
-            // Keep traversing the PCFG through the node's children
-            ObjectList<Node*> children = n->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                create_constraint_graph(*it);
         }
     }
     

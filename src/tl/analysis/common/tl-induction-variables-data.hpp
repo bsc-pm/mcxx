@@ -90,6 +90,8 @@ namespace Utils {
         bool is_basic();
 
         bool operator==(const InductionVar& rhs) const;
+
+        std::string print_iv_as_range() const;  
     };
 
     typedef ObjectList<InductionVar*> InductionVarList;

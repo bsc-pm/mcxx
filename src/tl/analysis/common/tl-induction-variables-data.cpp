@@ -131,6 +131,13 @@ namespace Utils {
                  && (_type == rhs._type) && (_family == rhs._family));
     }
 
+    std::string InductionVar::print_iv_as_range() const
+    {
+        return ("[" + (_lb.is_null() ? "NULL" : _lb.prettyprint()) + 
+                ":" + (_ub.is_null() ? "NULL" : _ub.prettyprint()) + 
+                ":" + (_incr.is_null() ? "NULL" : _incr.prettyprint()) + "]");
+    }
+    
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //
 
