@@ -364,7 +364,7 @@ connect_node:
                                 next = next->get_graph_entry_node()->get_children()[0];
                         }
                         
-                        Node* target = next
+                        Node* target = next;
                         // Skip context nodes (from inner to outer)
                         if(next->is_exit_node() && next->get_outer_node()->is_context_node())
                         {
