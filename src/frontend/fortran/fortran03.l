@@ -1885,6 +1885,11 @@ concurrent {
     RETURN_TOKEN(TOKEN_CONCURRENT);
 }
 
+convert {
+    parse_token_text();
+    RETURN_TOKEN(TOKEN_CONVERT);
+}
+
 endfile {
     parse_token_text();
     RETURN_TOKEN(TOKEN_ENDFILE);

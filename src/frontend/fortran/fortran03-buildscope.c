@@ -9045,6 +9045,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(advance) \
   OPT_VALUE(asynchronous) \
   OPT_VALUE(blank) \
+  OPT_VALUE(convert) \
   OPT_VALUE(decimal) \
   OPT_VALUE(delim) \
   OPT_VALUE(direct) \
@@ -9238,6 +9239,15 @@ static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl
     opt_common_character_expr(value, decl_context, "ACCESS", &nodecl_value);
 
     *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ACCESS", ast_get_locus(opt_value));
+}
+
+static void opt_convert_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "CONVERT", &nodecl_value);
+
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "CONVERT", ast_get_locus(opt_value));
 }
 
 static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)

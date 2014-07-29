@@ -594,7 +594,7 @@ namespace Analysis {
         }
         else
         {
-            cs.append(c);
+            cs.append(c.shallow_copy());
         }
 
         for(Nodecl::List::iterator it = cs.begin(); it != cs.end() && result; ++it)
