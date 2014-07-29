@@ -201,72 +201,65 @@ namespace{
         return condition;
     }
     
-    void get_cases_leading_to_task(Node* control_structure, Node* current, ObjectList<Edge*>& cases)
+    void get_cases_leading_to_task(Node* switch_node, Node* control_structure, Node* current, NodeclList& cases)
     {
-        if(current->is_visited())
-            return;
-        
         if(current->is_switch_case_node())
         {
             ObjectList<Edge*> entry_edges = current->get_entry_edges();
             for(ObjectList<Edge*>::iterator it = entry_edges.begin(); it != entry_edges.end(); ++it )
                 if((*it)->is_case_edge())
-                    cases.append(*it);
+                    cases.insert((*it)->get_label());
             
             // If there is only one entry, no other case can lead to 'task'
             if(entry_edges.size()==1)
                 return;
         }
+        else if(current == switch_node)
+        {
+            return;
+        }
         
         ObjectList<Node*> parents = (current->is_entry_node() ? ObjectList<Node*>(1, current->get_outer_node())
                                                               : current->get_parents());
         for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-            get_cases_leading_to_task(control_structure, *it, cases);
+            get_cases_leading_to_task(switch_node, control_structure, *it, cases);
     }
     
-    Node* get_switch_condition_node_from_case(Node* case_node)
+    NBase get_switch_condition_from_path(Node* switch_node, Node* control_structure, Node* task)
     {
-        ERROR_CONDITION(!case_node->is_switch_case_node(), 
-                        "Expecting SwitchCase node but %s found.\n", 
-                        case_node->get_type_as_string().c_str());
+        NBase condition;
         
-        Node* switch_cond = NULL;
-        ObjectList<Node*> control_parents = case_node->get_parents();
+        // Get the statements that form the condition
+        Node* cond = NULL;
+        ObjectList<Node*> control_parents = control_structure->get_parents();
         for(ObjectList<Node*>::iterator it = control_parents.begin(); it != control_parents.end(); ++it)
             if((*it)->is_entry_node())
             {
-                Node* switch_node = (*it);
-                while(!switch_node->is_switch_statement() && switch_node != NULL)
-                    switch_node = switch_node->get_outer_node();
-                ERROR_CONDITION(switch_node==NULL, "No switch node found for case node %d.\n", case_node->get_id());
+                Node* p = (*it);
+                while(!p->is_switch_statement() && (p != NULL))
+                    p = p->get_outer_node();
+                ERROR_CONDITION(p==NULL, "No switch node found for case node %d.", control_structure->get_id());
                 
-                switch_cond = switch_node->get_condition_node();
-                goto end_get_switch_cond;
+                cond = p->get_condition_node();
+                break;
             }
+        NBase cond_stmt = get_condition_stmts(cond);
         
-        internal_error("No switch node found for case node %d.\n", case_node->get_id());
-end_get_switch_cond:        
-        return switch_cond;
-    }
-    
-    NBase get_switch_condition_and_path(Node* case_node, Node* task, 
-                                        ObjectList<std::string>& taken_branches)
-    {
-        // Get the condition
-        NBase condition = get_condition_stmts(get_switch_condition_node_from_case(case_node));
-                
-        // Collect information of all cases leading to the task
-        ObjectList<Edge*> cases;
-        get_cases_leading_to_task(case_node, task->get_parents()[0], cases);
+        NodeclList cases;
+        get_cases_leading_to_task(switch_node, control_structure, task->get_parents()[0], cases);
         ERROR_CONDITION(cases.empty(), "No case leading to task %d has been found in control structure %d.\n", 
-                        task->get_id(), case_node->get_id());
-        ObjectList<Edge*>::iterator it = cases.begin();
-        // 1.- Add the first condition
-        taken_branches.insert((*it)->get_label().prettyprint());
-        // 2.- Build the rest of cases, if there is any
+                        task->get_id(), control_structure->get_id());
+        
+        // Create the nodecl for the first case
+        TL::Type cond_type = cond_stmt.get_type();
+        NodeclList::iterator it = cases.begin();
+        condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type);
+        // Build the others, if there is some
         ++it;
         for(; it != cases.end(); ++it)
-            taken_branches.insert((*it)->get_label().prettyprint());
+            condition = Nodecl::LogicalOr::make(condition.shallow_copy(), 
+                                                Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type), 
+                                                cond_type);
         
         return condition;
     }
@@ -832,11 +825,20 @@ end_get_switch_cond:
                 }
                 else if(control_structure->is_switch_case_node())
                 {
+                    // Get the switch containing the current case
+                    Node* outer_switch = control_structure->get_outer_node();
+                    while((outer_switch!=NULL) && !outer_switch->is_switch_statement())
+                        outer_switch = outer_switch->get_outer_node();
+
+                    ERROR_CONDITION(outer_switch==NULL, 
+                                    "No switch previously found for switch case %d\n", 
+                                    control_structure->get_id());
+                    
                     // get the type of the Control Structure
                     cs_t = Switch;
                     
                     // Build the condition depending on the branch where the task is created
-                    condition = get_switch_condition_and_path(control_structure, node, taken_branches);
+                    condition = get_switch_condition_from_path(outer_switch, control_structure, node);
                 }
                 else
                 {
