@@ -349,31 +349,23 @@ connect_node:
                     Node* next = *it;
                     if(CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
                     {
-                        if((*it)->is_graph_node())
-                            ss_target_id << (*it)->get_graph_entry_node()->get_id();
+                        if(next->is_graph_node())
+                            ss_target_id << next->get_graph_entry_node()->get_id();
                         else
-                            ss_target_id << (*it)->get_id();
+                            ss_target_id << next->get_id();
                     }
                     else
                     {
-                        Node* target = next;
-                        if((*it)->is_context_node())
+                        // Skip context nodes (from outer to inner)
+                        if(next->is_context_node())
                         {
-                            next = (*it)->get_graph_entry_node()->get_children()[0];
+                            next = next->get_graph_entry_node()->get_children()[0];
                             while(next->is_context_node())
                                 next = next->get_graph_entry_node()->get_children()[0];
-                            if(next->is_graph_node())
-                                target = next->get_graph_entry_node();
-                            else
-                                target = next;
-                        }
-                        else if((*it)->is_graph_node())
-                        {
-                            target = (*it)->get_graph_entry_node();
                         }
                         
-                        // If we have traversed a context node in the previous IfElse,
-                        // We may be in the following situation now (and empty context occurred)
+                        Node* target = next
+                        // Skip context nodes (from inner to outer)
                         if(next->is_exit_node() && next->get_outer_node()->is_context_node())
                         {
                             next = next->get_outer_node()->get_children()[0];
@@ -386,6 +378,10 @@ connect_node:
                                     next = next->get_graph_entry_node()->get_children()[0];
                             }
                             target = next;
+                        }
+                        if(next->is_graph_node())
+                        {
+                            target = next->get_graph_entry_node();
                         }
                         ss_target_id << target->get_id();
                     }
@@ -414,8 +410,10 @@ connect_node:
                         int nest = outer_edges.size();
                         while(source_outer != target_outer && source_outer != NULL)
                         {
+                            if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
+                                !source_outer->is_context_node())
+                                nest--;
                             source_outer = source_outer->get_outer_node();
-                            nest--;
                         }
                         ERROR_CONDITION(nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0);
                         outer_edges[nest-1].push_back(edge);
