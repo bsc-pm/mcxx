@@ -80,7 +80,7 @@ namespace Vectorization
     VectorizationAnalysisInterface::VectorizationAnalysisInterface(
             const Nodecl::NodeclBase& n, 
             const Analysis::WhichAnalysis analysis_mask)
-        : VectorizationAnalysisMaps(),
+        : VectorizationAnalysisCopyMaps(),
         Analysis::AnalysisInterface::AnalysisInterface(
                 copy_function_code(n),
                 analysis_mask, 
@@ -184,7 +184,7 @@ namespace Vectorization
                 _copy_to_orig_nodes.find(n);
             if (it2 != _copy_to_orig_nodes.end())
             {
-                return n;
+                //return n;
                 internal_error("VectorizerAnalysis: Error translating Nodecl "
                 "from origin to copy. NODE ALREADY TRANSLATED", 0);
             }
@@ -333,24 +333,45 @@ namespace Vectorization
             const Nodecl::NodeclBase& stmt,
             const Nodecl::NodeclBase& n)
     {
-        bool result;
+        Nodecl::NodeclBase translated_n =
+            translate_input(n);
+        Nodecl::NodeclBase translated_scope =
+            translate_input(scope);
 
-        Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = uniform_nodes.find(translated_n);
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(
+                    translated_scope);
 
-        if (it == uniform_nodes.end())
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
         {
-            result = Analysis::AnalysisInterface::is_uniform(
-                    translate_input(scope), translate_input(stmt),
-                    translated_n);
+            const map_node_bool_t& uniform_nodes =
+                scope_it->second.uniform_nodes;
 
-            uniform_nodes.insert(pair_node_bool_t(translated_n, result));
+            map_node_bool_t::const_iterator node_it =
+                uniform_nodes.find(translated_n);
+
+            if (node_it != uniform_nodes.end())
+            {
+                return node_it->second;
+            }
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(
+                        translated_scope,
+                        VectorizationAnalysisInfo())).first;
         }
 
+        // New 
+        bool result = Analysis::AnalysisInterface::is_uniform(
+                translated_scope, translate_input(stmt),
+                translated_n);
+
+        scope_it->second.uniform_nodes.insert(
+                pair_node_bool_t(translated_n, result));
+        
         return result;
     }
 
@@ -358,22 +379,43 @@ namespace Vectorization
         const Nodecl::NodeclBase& scope,
         const Nodecl::NodeclBase& n)
     {
-        bool result;
+        Nodecl::NodeclBase translated_n =
+            translate_input(n);
+        Nodecl::NodeclBase translated_scope =
+            translate_input(scope);
 
-        Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = linear_nodes.find(translated_n);
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(
+                    translated_scope);
 
-        if (it == linear_nodes.end())
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
         {
-            result = Analysis::AnalysisInterface::
-                is_linear(translate_input(scope), translated_n);
+            const map_node_bool_t& linear_nodes =
+                scope_it->second.linear_nodes;
 
-            linear_nodes.insert(pair_node_bool_t(translated_n, result));
+            map_node_bool_t::const_iterator node_it =
+                linear_nodes.find(translated_n);
+
+            if (node_it != linear_nodes.end())
+            {
+                return node_it->second;
+            }
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(
+                        translated_scope,
+                        VectorizationAnalysisInfo())).first;
         }
+
+        // New 
+        bool result = Analysis::AnalysisInterface::is_linear(
+                translated_scope, translated_n);
+
+        scope_it->second.linear_nodes.insert(
+                pair_node_bool_t(translated_n, result));
 
         return result;
     }
@@ -399,6 +441,7 @@ namespace Vectorization
                 translate_input(n));
     }
 
+    /*
     bool VectorizationAnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
@@ -420,7 +463,8 @@ namespace Vectorization
 
         return result;
     }
-
+    */
+    /*
     bool VectorizationAnalysisInterface::
         is_non_reduction_basic_induction_variable(
             const Nodecl::NodeclBase& scope,
@@ -445,6 +489,7 @@ namespace Vectorization
 
         return result;
     }
+    */
 
     Nodecl::NodeclBase
         VectorizationAnalysisInterface::get_induction_variable_lower_bound(
@@ -458,6 +503,7 @@ namespace Vectorization
         return translate_output(return_nodecl);
     }
 
+    /*
     Nodecl::NodeclBase
         VectorizationAnalysisInterface::get_induction_variable_increment(
             const Nodecl::NodeclBase& scope,
@@ -469,6 +515,7 @@ namespace Vectorization
 
         return translate_output(return_nodecl);
     }
+    */
 
     objlist_nodecl_t VectorizationAnalysisInterface::get_ivs_nodecls(
                 const Nodecl::NodeclBase& scope )
@@ -496,44 +543,40 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment)
     {
-        bool result;
-        Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = simd_aligned_nodes.find(translated_n);
- 
-        if (it == simd_aligned_nodes.end())
+        //DO NOT TRANSLATE
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(scope);
+
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
         {
-            Nodecl::NodeclBase translated_scope = translate_input(scope);
-            const std::map<TL::Symbol, int>& translated_aligned_expressions = 
-                translate_input(aligned_expressions);
-            const objlist_nodecl_t& translated_suitable_expressions =
-                translate_input(suitable_expressions);
- 
-            if( !translated_n.is<Nodecl::ArraySubscript>( ) )
+            const map_node_bool_t& simd_aligned_nodes =
+                scope_it->second.simd_aligned_nodes;
+
+            map_node_bool_t::const_iterator node_it =
+                simd_aligned_nodes.find(n);
+
+            if (node_it != simd_aligned_nodes.end())
             {
-                std::cerr << "warning: returning false for is_simd_aligned_access when asking for nodecl '"
-                    << n.prettyprint( ) << "' which is not an array subscript" << std::endl;
-                return false;
+                return node_it->second;
             }
-
-            Nodecl::ArraySubscript array_subscript = translated_n.as<Nodecl::ArraySubscript>( );
-            Nodecl::NodeclBase subscripted = array_subscript.get_subscripted( );
-
-            int type_size = subscripted.get_type().basic_type().get_size();
-
-            SuitableAlignmentVisitor sa_v( translated_scope,
-                    translated_suitable_expressions, 
-                    unroll_factor,
-                    type_size, alignment );
-
-            result = sa_v.is_aligned_access( array_subscript, translated_aligned_expressions );
-
-            simd_aligned_nodes.insert(pair_node_bool_t(translated_n, result));
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(scope,
+                        VectorizationAnalysisInfo())).first;
         }
 
+        // New 
+        bool result = is_simd_aligned_access_internal(
+                    scope, n, aligned_expressions,
+                    suitable_expressions, unroll_factor,
+                    alignment);
+
+        scope_it->second.simd_aligned_nodes.insert(
+                pair_node_bool_t(n, result));
+        
         return result;
     }
 
@@ -542,12 +585,11 @@ namespace Vectorization
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment, int& vector_size_module)
     {
-        Nodecl::NodeclBase translated_scope = translate_input(scope);
-//        const objlist_nodecl_t& translated_suitable_expressions =
-//            translate_input(suitable_expressions);
-
-        return is_suitable_expression_internal(translated_scope, n,
-                suitable_expressions, unroll_factor,
+        // Do not translate n!
+        return is_suitable_expression_internal(scope,
+                n,
+                suitable_expressions,
+                unroll_factor,
                 alignment, vector_size_module);
     }
 
@@ -555,37 +597,58 @@ namespace Vectorization
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n) 
     {
-        bool result;
-        Nodecl::NodeclBase translated_n = translate_input(n);
-        map_node_bool_t::iterator it = adjacent_nodes.find(translated_n);
- 
-        if (it == adjacent_nodes.end())
+        Nodecl::NodeclBase translated_n =
+            translate_input(n);
+        Nodecl::NodeclBase translated_scope =
+            translate_input(scope);
+
+        map_scope_analysis_info_t::iterator scope_it =
+            _scope_analysis_info.find(
+                    translated_scope);
+
+        // Already computed
+        if (scope_it != _scope_analysis_info.end())
         {
-            Nodecl::NodeclBase translated_scope = translate_input(scope);
+            const map_node_bool_t& adjacent_nodes =
+                scope_it->second.adjacent_nodes;
 
-            // Retrieve PCFG
-            Analysis::ExtensibleGraph* pcfg = retrieve_pcfg_from_func(
-                    translated_scope);
-            ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n",
-                    n.prettyprint().c_str());
+            map_node_bool_t::const_iterator node_it =
+                adjacent_nodes.find(translated_n);
 
-            // Retrieve nodes from PCFG
-            Analysis::Node* n_node = pcfg->find_nodecl_pointer(translated_n);
-            ERROR_CONDITION(n_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", 
-                    n.get_locus_str().c_str(), n.prettyprint().c_str());
-            Analysis::Node* scope_node = pcfg->find_nodecl_pointer(
-                    translated_scope);
-            ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
-                    scope.get_locus_str().c_str(), scope.prettyprint().c_str());
-
-            result = is_adjacent_access_internal(scope_node, n_node, translated_n, pcfg);
-
-            adjacent_nodes.insert(pair_node_bool_t(translated_n, result));
+            if (node_it != adjacent_nodes.end())
+            {
+                return node_it->second;
+            }
         }
         else
         {
-            result = it->second;
+            scope_it = _scope_analysis_info.insert(
+                    pair_scope_analysis_info_t(
+                        translated_scope,
+                        VectorizationAnalysisInfo())).first;
         }
+
+        // New 
+        // Retrieve PCFG
+        Analysis::ExtensibleGraph* pcfg = retrieve_pcfg_from_func(
+                translated_scope);
+        ERROR_CONDITION(pcfg==NULL, "No PCFG found for nodecl %s\n",
+                n.prettyprint().c_str());
+
+        // Retrieve nodes from PCFG
+        Analysis::Node* n_node = pcfg->find_nodecl_pointer(translated_n);
+        ERROR_CONDITION(n_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n", 
+                n.get_locus_str().c_str(), n.prettyprint().c_str());
+        Analysis::Node* scope_node = pcfg->find_nodecl_pointer(
+                translated_scope);
+        ERROR_CONDITION(scope_node==NULL, "No PCFG node found for nodecl '%s:%s'. \n",
+                scope.get_locus_str().c_str(), scope.prettyprint().c_str());
+
+        bool result = is_adjacent_access_internal(
+                scope_node, n_node, translated_n, pcfg);
+
+        scope_it->second.adjacent_nodes.insert(
+                pair_node_bool_t(translated_n, result));
 
         return result;
     }

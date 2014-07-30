@@ -131,6 +131,18 @@ namespace Utils {
     std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
     std::string get_elemental_operator_of_binary_expression(node_t);
 
+    template <typename Kind>
+    Nodecl::NodeclBase get_enclosing_nodecl_of_kind(
+            Nodecl::NodeclBase n)
+    {
+        while (!n.is_null() && !n.is<Kind>())
+        {
+            n = n.get_parent();
+        }
+
+        return n;
+    }
+
     struct SymbolMap
     {
         private:

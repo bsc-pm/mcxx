@@ -1086,7 +1086,7 @@ namespace Vectorization
                 
                 VECTORIZATION_DEBUG()
                 {
-                    fprintf(stderr, "VECTORIZER: load   '%s'",
+                    fprintf(stderr, "VECTORIZER: Load   '%s'",
                             n.prettyprint().c_str());
                 }
 

@@ -37,7 +37,8 @@ namespace TL
 {
 namespace Vectorization
 {
-    SuitableAlignmentVisitor::SuitableAlignmentVisitor(const Nodecl::NodeclBase& scope,
+    SuitableAlignmentVisitor::SuitableAlignmentVisitor(
+            const Nodecl::NodeclBase& scope,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int type_size, int alignment )
         : _scope( scope ), _suitable_expressions(suitable_expressions),
@@ -56,7 +57,8 @@ namespace Vectorization
         return result;
     }
 
-    bool SuitableAlignmentVisitor::is_aligned_access( const Nodecl::ArraySubscript& n,
+    bool SuitableAlignmentVisitor::is_aligned_access(
+            const Nodecl::ArraySubscript& n,
             const std::map<TL::Symbol, int> aligned_expressions)
     {
         int i;
@@ -74,10 +76,12 @@ namespace Vectorization
                     subscripted.as<Nodecl::Cast>().get_rhs());
         }
 
-        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Subscripted is not a Nodecl::Symbol", 0);
+        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(),
+                "Subscripted is not a Nodecl::Symbol", 0);
 
-        std::map<TL::Symbol, int>::const_iterator alignment_info = aligned_expressions.find(
-                subscripted.as<Nodecl::Symbol>().get_symbol());
+        std::map<TL::Symbol, int>::const_iterator alignment_info =
+            aligned_expressions.find(
+                    subscripted.as<Nodecl::Symbol>().get_symbol());
 
         if(alignment_info == aligned_expressions.end())
         {
@@ -403,6 +407,7 @@ namespace Vectorization
         {
             return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
+        // IV of the SIMD loop
         else if(VectorizationAnalysisInterface::_vectorizer_analysis->
                 is_linear(_scope, n))
         {
@@ -416,6 +421,42 @@ namespace Vectorization
 
             if (lb_mod != -1 && incr_mod != -1)
                 return lb_mod + incr_mod * _unroll_factor;
+        }
+        else // Try to get information of the evolution of 'n'
+        {
+            Nodecl::ForStatement enclosing_for_stmt =
+                Nodecl::Utils::get_enclosing_nodecl_of_kind
+                <Nodecl::ForStatement>(n).as<Nodecl::ForStatement>();
+
+            while (!enclosing_for_stmt.is_null())
+            {
+                if(VectorizationAnalysisInterface::_vectorizer_analysis->
+                    is_linear(enclosing_for_stmt, n))
+                {
+                    Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
+                        get_induction_variable_lower_bound(enclosing_for_stmt, n);
+                    Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
+                        get_linear_step(enclosing_for_stmt, n);
+
+                    int lb_mod = walk(lb);
+                    int incr_mod = walk(incr);
+
+                    if (lb_mod != -1 && incr_mod != -1 &&
+                            ((lb_mod % _unroll_factor) == 0) &&
+                            ((incr_mod % _unroll_factor) == 0))
+                    {
+                        return lb_mod + incr_mod;
+                    }
+
+                    break;
+                }
+
+                enclosing_for_stmt =
+                    Nodecl::Utils::get_enclosing_nodecl_of_kind
+                    <Nodecl::ForStatement>(
+                            enclosing_for_stmt.get_parent()).
+                    as<Nodecl::ForStatement>();
+            }
         }
 
         return -1;
