@@ -606,6 +606,7 @@ namespace{
         std::string result;
         switch(_type)
         {
+            case Implicit:  result = "Implicit"; break;
             case Loop:      result = "Loop";     break;
             case IfElse:    result = "IfElse";   break;
             case Switch:    result = "Switch";   break;
@@ -783,20 +784,17 @@ namespace{
         {
             Node* node = (*it)->_pcfg_node;
             
-            Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(node);
-            if(control_structure == NULL)
-            {   // Add dummy control structure
+            // 1.- Add the implicit control structure: 
+            //     this is necessary to set the values of the variables reaching a task
+            {
                 ObjectList<std::string> taken_branches;
-                ControlStructure* cs;
-                if(_pcfg_to_cs_map.find(NULL) != _pcfg_to_cs_map.end())
-                    cs = _pcfg_to_cs_map[NULL];
-                else
-                {   // The control structure did not exist yet
-                    cs = new ControlStructure(++control_id, Blank, NBase::null(), NULL);
-                    _pcfg_to_cs_map[NULL] = cs;
-                }
+                ControlStructure* cs = new ControlStructure(++control_id, Implicit, NBase::null(), NULL);
+                _pcfg_to_cs_map[node] = cs;
                 (*it)->add_control_structure(cs, taken_branches);
             }
+            
+            // 2.- Add the real control structures
+            Node* control_structure = ExtensibleGraph::get_enclosing_control_structure(node);
             while(control_structure != NULL)
             {
                 // 1.- Get control structure type and condition
@@ -1032,7 +1030,7 @@ namespace{
         for(ControlStList::const_reverse_iterator it = control_structures.rbegin(); it != control_structures.rend(); ++it)
         {
             ControlStructure* cs = it->first;
-            if(cs->get_type() != Blank)
+            if(cs->get_type() != Implicit)
             {
                 dot_tdg << indent << "subgraph cluster_" << ++id << "{\n";
                 indent += "\t";

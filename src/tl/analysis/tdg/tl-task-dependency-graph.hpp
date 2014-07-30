@@ -36,7 +36,7 @@ namespace Analysis {
     // ************ Task Dependency Graph Control Structures ************* //
     
     enum ControlStructureType {
-        Blank,
+        Implicit,
         Loop,
         IfElse,
         Switch
