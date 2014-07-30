@@ -1162,7 +1162,29 @@ namespace{
                         json_tdg << "\t\t\t\t\"when\" : {\n";
                         print_condition(NULL, cs, json_tdg, "\t\t\t\t\t", 
                                         /*unnecessary param for a control structure's condition*/dependency_size);
-                        json_tdg << "\t\t\t\t}\n";
+                        json_tdg << "\t\t\t\t}";
+                        if((cs->get_type() == IfElse) || (cs->get_type() == Switch))
+                        {
+                            json_tdg << ",\n";
+                            unsigned int nbranches = 0;
+                            ObjectList<Node*> branches = cs->get_pcfg_node()->get_condition_node()->get_children();
+                            if(cs->get_type() == IfElse)
+                            {   // branches list contains 2 elements
+                                if(!branches[0]->is_exit_node())
+                                    nbranches++;
+                            }
+                            else    // Switch
+                            {
+                                // The children of the condition in a Switch node is the Context
+                                branches = branches[0]->get_graph_entry_node()->get_children();
+                                nbranches = branches.size();
+                            }
+                            json_tdg << "\t\t\t\t\"nbranches\" : " << nbranches << "\n";
+                        }
+                        else
+                        {
+                            json_tdg << "\n";
+                        }
                     }
                     else
                     {
