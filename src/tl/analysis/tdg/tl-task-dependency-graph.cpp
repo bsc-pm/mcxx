@@ -225,10 +225,8 @@ namespace{
             get_cases_leading_to_task(switch_node, control_structure, *it, cases);
     }
     
-    NBase get_switch_condition_from_path(Node* switch_node, Node* control_structure, Node* task)
+    NBase get_switch_condition_from_path(Node* switch_node, Node* control_structure, Node* task, ObjectList<std::string>& taken_branches)
     {
-        NBase condition;
-        
         // Get the statements that form the condition
         Node* cond = NULL;
         ObjectList<Node*> control_parents = control_structure->get_parents();
@@ -243,23 +241,17 @@ namespace{
                 cond = p->get_condition_node();
                 break;
             }
-        NBase cond_stmt = get_condition_stmts(cond);
+        NBase condition = get_condition_stmts(cond);
         
         NodeclList cases;
         get_cases_leading_to_task(switch_node, control_structure, task->get_parents()[0], cases);
         ERROR_CONDITION(cases.empty(), "No case leading to task %d has been found in control structure %d.\n", 
                         task->get_id(), control_structure->get_id());
         
-        // Create the nodecl for the first case
-        TL::Type cond_type = cond_stmt.get_type();
-        NodeclList::iterator it = cases.begin();
-        condition = Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type);
-        // Build the others, if there is some
-        ++it;
-        for(; it != cases.end(); ++it)
-            condition = Nodecl::LogicalOr::make(condition.shallow_copy(), 
-                                                Nodecl::Equal::make(cond_stmt.shallow_copy(), it->shallow_copy(), cond_type), 
-                                                cond_type);
+        // Create the condition for each case leading to the task
+        TL::Type cond_type = condition.get_type();
+        for(NodeclList::iterator it = cases.begin(); it != cases.end(); ++it)
+            taken_branches.append(Nodecl::Equal::make(condition.shallow_copy(), it->shallow_copy(), cond_type).prettyprint());
         
         return condition;
     }
@@ -836,7 +828,7 @@ namespace{
                     cs_t = Switch;
                     
                     // Build the condition depending on the branch where the task is created
-                    condition = get_switch_condition_from_path(outer_switch, control_structure, node);
+                    condition = get_switch_condition_from_path(outer_switch, control_structure, node, taken_branches);
                 }
                 else
                 {
