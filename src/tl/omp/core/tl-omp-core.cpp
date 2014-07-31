@@ -53,8 +53,7 @@ namespace TL
             _allow_shared_without_copies(false),
             _allow_array_reductions(true),
             _ompss_mode(false),
-            _copy_deps_by_default(true),
-            _instantiate_omp(false)
+            _copy_deps_by_default(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -127,8 +126,7 @@ namespace TL
             initialize_builtin_reductions(global_scope);
 
             // If we are instantiating omp we have to ignore template functions
-            if (instantiate_omp()
-                    || CURRENT_CONFIGURATION->explicit_instantiation)
+            if (CURRENT_CONFIGURATION->explicit_instantiation)
                 this->set_ignore_template_functions(true);
 
             PragmaCustomCompilerPhase::run(dto);

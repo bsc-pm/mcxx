@@ -240,7 +240,6 @@ namespace TL
                 bool _allow_array_reductions;
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
-                bool _instantiate_omp;
             public:
                 Core();
 
@@ -274,9 +273,6 @@ namespace TL
                 {
                     return _copy_deps_by_default;
                 }
-
-                void set_instantiate_omp(bool b) { _instantiate_omp = b; }
-                bool instantiate_omp() const { return _instantiate_omp; }
         };
 
         Nodecl::NodeclBase get_statement_from_pragma(
