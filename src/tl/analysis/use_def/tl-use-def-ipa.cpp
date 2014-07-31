@@ -504,7 +504,12 @@ namespace Analysis {
                     NBase one = const_value_to_nodecl(const_value_get_one(/*bytes*/4, /*signed*/1));
                     for(Nodecl::List::iterator ita = args.begin(); ita != args.end(); ++ita)
                     {
-                        NBase arg = ita->no_conv();
+                        NBase arg = *ita;
+
+                        if (arg.is<Nodecl::DefaultArgument>())
+                            arg = arg.as<Nodecl::DefaultArgument>().get_argument();
+
+                        arg = arg.no_conv();
                         Type par_t = (itp != params.end() ? itp->get_type() : Type());
                         
                         if(arg.is<Nodecl::Symbol>() || arg.is<Nodecl::ArraySubscript>() || arg.is<Nodecl::ClassMemberAccess>())
