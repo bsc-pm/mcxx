@@ -5871,44 +5871,41 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
     }
     else
     {
-        FORTRAN_LANGUAGE()
-        {
-            // Consider this case
-            //
-            // MODULE M1
-            //   TYPE T             ! This is M1.T
-            //     INTEGER :: X
-            //   END TYPE T
-            // END MODULE M1
-            //
-            // MODULE M2
-            //   USE M1             ! Introduces M2.T as an alias to M1.T
-            //
-            //  CONTAINS 
-            //    SUBROUTINE S(X)   
-            //     TYPE(T) :: X     ! X is of type M2.T (not M1.T)
-            //    END
-            // END
-            //
-            // MODULE M3
-            //   USE M1             ! Introduces M3.T as an alias to M1.T
-            //   USE M2             ! Introduces M3.S as an alias to M2.S
-            //                      ! (M2.T is not introduced as it would be repeat an existing alias to M1.T)
-            // CONTAINS
-            //   SUBROUTINE S2
-            //     TYPE(T) :: X1     ! X1 is of type M3.T (not M2.T or M1.T)
-            //
-            //     CALL S(X1)        !<-- We need to realize that M3.T and M2.T are both aliases of M1.T
-            //   END
-            // END
-            s1 = fortran_get_ultimate_symbol(s1);
-            s2 = fortran_get_ultimate_symbol(s2);
-        }
+       // Consider this case
+       //
+       // MODULE M1
+       //   TYPE T             ! This is M1.T
+       //     INTEGER :: X
+       //   END TYPE T
+       // END MODULE M1
+       //
+       // MODULE M2
+       //   USE M1             ! Introduces M2.T as an alias to M1.T
+       //
+       //  CONTAINS
+       //    SUBROUTINE S(X)
+       //     TYPE(T) :: X     ! X is of type M2.T (not M1.T)
+       //    END
+       // END
+       //
+       // MODULE M3
+       //   USE M1             ! Introduces M3.T as an alias to M1.T
+       //   USE M2             ! Introduces M3.S as an alias to M2.S
+       //                      ! (M2.T is not introduced as it would be repeat an existing alias to M1.T)
+       // CONTAINS
+       //   SUBROUTINE S2
+       //     TYPE(T) :: X1     ! X1 is of type M3.T (not M2.T or M1.T)
+       //
+       //     CALL S(X1)        !<-- We need to realize that M3.T and M2.T are both aliases of M1.T
+       //   END
+       // END
+       s1 = fortran_get_ultimate_symbol(s1);
+       s2 = fortran_get_ultimate_symbol(s2);
 
-        if (s1 == s2)
-            return 1;
+       if (s1 == s2)
+          return 1;
 
-        return equivalent_types_in_context(s1->type_information, s2->type_information, decl_context);
+       return equivalent_types_in_context(s1->type_information, s2->type_information, decl_context);
     }
 }
 
