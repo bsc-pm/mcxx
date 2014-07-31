@@ -10,7 +10,7 @@ PROGRAM P
 
     RES = 100
 
-    DO I= I, 10
+    DO I= 1, 10
         V(I) = I
     END DO
 
