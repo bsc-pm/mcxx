@@ -438,17 +438,24 @@ namespace Vectorization
                     Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
                         get_linear_step(enclosing_for_stmt, n);
 
-                    int lb_mod = walk(lb);
-                    int incr_mod = walk(incr);
-
-                    if (lb_mod != -1 && incr_mod != -1 &&
-                            ((lb_mod % _unroll_factor) == 0) &&
-                            ((incr_mod % _unroll_factor) == 0))
+                    // for(j=j; 
+                    if (!Nodecl::Utils::structurally_equal_nodecls(
+                                lb, n, true) &&
+                            Nodecl::Utils::structurally_equal_nodecls(
+                                incr, n, true))
                     {
-                        return lb_mod + incr_mod;
-                    }
+                        int lb_mod = walk(lb);
+                        int incr_mod = walk(incr);
 
-                    break;
+                        if (lb_mod != -1 && incr_mod != -1 &&
+                                ((lb_mod % _unroll_factor) == 0) &&
+                                ((incr_mod % _unroll_factor) == 0))
+                        {
+                            return lb_mod + incr_mod;
+                        }
+
+                        break;
+                    }
                 }
 
                 enclosing_for_stmt =
