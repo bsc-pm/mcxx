@@ -44,8 +44,6 @@ namespace Utils {
     TL::ObjectList<TL::Symbol> get_local_symbols(Nodecl::NodeclBase);
 
     TL::ObjectList<Nodecl::Symbol> get_all_symbols_occurrences(Nodecl::NodeclBase);
-    TL::ObjectList<Nodecl::NodeclBase> get_all_nodecl_occurrences(Nodecl::NodeclBase target_occurrence,
-            Nodecl::NodeclBase container);
     TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_occurrences(Nodecl::NodeclBase);
     TL::ObjectList<Nodecl::Symbol> get_local_symbols_occurrences(Nodecl::NodeclBase);
 

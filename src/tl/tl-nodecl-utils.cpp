@@ -121,40 +121,6 @@ namespace Nodecl
         return get_all_symbols(n).filter(non_local);
     }
 
-    static void get_all_nodecl_occurrences_rec(Nodecl::NodeclBase target_ocurrence,
-            Nodecl::NodeclBase container, TL::ObjectList<Nodecl::NodeclBase> &result)
-    {
-        if (target_ocurrence.is_null() || container.is_null())
-            return;
-
-        if (Nodecl::Utils::structurally_equal_nodecls(target_ocurrence, container))
-        {
-            result.append(container);
-        }
-
-        if (container.is<Nodecl::ObjectInit>())
-        {
-            get_all_nodecl_occurrences_rec(target_ocurrence, container.get_symbol().get_value(), result);
-        }
-
-        TL::ObjectList<Nodecl::NodeclBase> children = container.children();
-
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            get_all_nodecl_occurrences_rec(target_ocurrence, *it, result);
-        }
-    }
-
-    TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_nodecl_occurrences(Nodecl::NodeclBase target_ocurrence,
-            Nodecl::NodeclBase container)
-    {
-        TL::ObjectList<Nodecl::NodeclBase> result;
-        get_all_nodecl_occurrences_rec(target_ocurrence, container, result);
-        return result;
-    }
-
     static void get_all_symbols_occurrences_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::Symbol> &result)
     {
         if (n.is_null())
