@@ -28,8 +28,10 @@
 
 #include "tl-vectorizer-visitor-expression.hpp"
 #include "tl-vectorization-utils.hpp"
-#include "tl-nodecl-utils.hpp"
 #include "tl-expression-reduction.hpp"
+#include "tl-vectorization-analysis-interface.hpp"
+
+#include "tl-nodecl-utils.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL
@@ -37,8 +39,9 @@ namespace TL
 namespace Vectorization
 {
     Nodecl::List OverlapGroup::get_init_statements(
-            const TL::Scope& scope) const
+            const Nodecl::ForStatement& for_stmt) const
     {
+        TL::Scope scope = for_stmt.retrieve_context();
         Nodecl::List result_list;
 
         for(objlist_tlsymbol_t::const_iterator it = _group_registers.begin();
@@ -46,6 +49,31 @@ namespace Vectorization
                 it++)
         {
             // __overlap_X_1 = vload(&a[i]);
+
+            Nodecl::NodeclBase vload_index =
+                _group_registers_indexes[0].shallow_copy();
+
+            // Replace IV by LB in vload_index
+            objlist_nodecl_t ivs_list = VectorizationAnalysisInterface::
+                _vectorizer_analysis->get_ivs_nodecls(for_stmt);
+
+            for (objlist_nodecl_t::iterator iv = ivs_list.begin();
+                    iv != ivs_list.end();
+                    iv++)
+            {
+                Nodecl::NodeclBase iv_lb = VectorizationAnalysisInterface::
+                    _vectorizer_analysis->get_induction_variable_lower_bound(
+                            for_stmt,*iv);
+
+                if (!iv_lb.is_null())
+                {
+                    Nodecl::Utils::nodecl_replace_nodecl_by_structure(
+                            vload_index,
+                            *iv,
+                            iv_lb);
+                }
+            }
+
 
             Nodecl::VectorAssignment vassignment =
                 Nodecl::VectorAssignment::make(
@@ -55,7 +83,7 @@ namespace Vectorization
                                 Nodecl::ArraySubscript::make(
                                     _group_subscripted.shallow_copy(),
                                     Nodecl::List::make(
-                                        _group_registers_indexes[0].shallow_copy()),
+                                        vload_index),
                                     _basic_type),
                                 _basic_type.get_pointer_to()),
                             Utils::get_null_mask(),
@@ -449,7 +477,7 @@ namespace Vectorization
                     nested_for != nested_for_stmts.end();
                     nested_for++)
             {
-                if (Nodecl::Utils::find_nodecl_by_pointer(
+                if (Nodecl::Utils::nodecl_contains_nodecl_by_pointer(
                             *nested_for, *vload))
                 {
                     vload_is_nested_in_nested_for = true;
@@ -658,7 +686,7 @@ namespace Vectorization
     {
         // Init Statements
         Nodecl::List init_stmts = 
-            ogroup.get_init_statements(n.retrieve_context());
+            ogroup.get_init_statements(n);
         n.prepend_sibling(init_stmts);
         
         // Update Pre

@@ -96,7 +96,7 @@ namespace TL
             TL::Type _vector_type;
 
             Nodecl::List get_init_statements(
-                    const TL::Scope& scope) const;
+                    const Nodecl::ForStatement& for_stmt) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
         };
