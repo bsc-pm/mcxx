@@ -352,6 +352,48 @@ namespace {
             return result;
         }
         
+        Nodecl::List collect_all_shared_variables(TL::Analysis::Node* n)
+        {
+            TL::Analysis::PCFGPragmaInfo task_pragma_info = n->get_pragma_node_info();
+            Nodecl::List shared_vars;
+            if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__in ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__out ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__concurrent ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__concurrent).get_nodecl().as<Nodecl::OpenMP::Concurrent>().get_inout_deps());
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__commutative ) )
+            {
+                shared_vars.append(
+                    task_pragma_info.get_clause(TL::Analysis::__commutative).get_nodecl().as<Nodecl::OpenMP::Commutative>().get_inout_deps());
+            }
+            return shared_vars;
+        }
+        
         tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
         {
             ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
@@ -360,36 +402,8 @@ namespace {
             Nodecl::NodeclBase task = n->get_graph_related_ast( );
             ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
             
-            tribool result = false;
-            
-            TL::Analysis::PCFGPragmaInfo task_pragma_info = n->get_pragma_node_info( );
-            if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
-            {
-                Nodecl::List shared = task_pragma_info.get_clause( TL::Analysis::__shared ).get_args( );
-                result = result || any_symbol_is_local( shared, local_vars );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__in ) )
-            {
-                Nodecl::List in_alloca = task_pragma_info.get_clause( TL::Analysis::__in ).get_args( );
-                result = result || any_data_ref_is_local( in_alloca, local_vars );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
-            {
-                Nodecl::List in = task_pragma_info.get_clause( TL::Analysis::__in_alloca ).get_args( );
-                result = result || any_data_ref_is_local( in, local_vars );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__out ) )
-            {
-                Nodecl::List out = task_pragma_info.get_clause( TL::Analysis::__out ).get_args( );
-                result = result || any_data_ref_is_local( out, local_vars );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
-            {
-                Nodecl::List inout = task_pragma_info.get_clause( TL::Analysis::__inout ).get_args( );
-                result = result || any_data_ref_is_local( inout, local_vars );
-            }
-                 
-            return result;
+            Nodecl::List shared_vars = collect_all_shared_variables(n);
+            return any_symbol_is_local(shared_vars, local_vars);
         }
         
         static bool enclosing_context_contains_node(TL::Analysis::Node* ctx, TL::Analysis::Node* node)
@@ -514,33 +528,7 @@ namespace {
             tribool result = false;
             
             // Collect all symbols/data references that may cause a race condition
-            Nodecl::List task_shared_variables;
-            TL::Analysis::PCFGPragmaInfo task_pragma_info = n->get_pragma_node_info( );
-            if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
-            {
-                Nodecl::List shared = task_pragma_info.get_clause( TL::Analysis::__shared ).get_args( );
-                task_shared_variables.append( shared );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__in ) )
-            {
-                Nodecl::List in = task_pragma_info.get_clause( TL::Analysis::__in ).get_args( );
-                task_shared_variables.append( in );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
-            {
-                Nodecl::List in_alloca = task_pragma_info.get_clause( TL::Analysis::__in_alloca ).get_args( );
-                task_shared_variables.append( in_alloca );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__out ) )
-            {
-                Nodecl::List out = task_pragma_info.get_clause( TL::Analysis::__out ).get_args( );
-                task_shared_variables.append( out );
-            }
-            if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
-            {
-                Nodecl::List inout = task_pragma_info.get_clause( TL::Analysis::__inout ).get_args( );
-                task_shared_variables.append( inout );
-            }
+            Nodecl::List task_shared_variables = collect_all_shared_variables(n);
             
             // Get the previous and next synchronization points (computed during Liveness analysis)
             TL::ObjectList<TL::Analysis::Node*> last_sync = pcfg->get_task_last_synchronization( n );
@@ -849,20 +837,25 @@ namespace {
             TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
             if( task_pragma_info.has_clause( TL::Analysis::__firstprivate ) )
             {
-                firstprivate_vars = task_pragma_info.get_clause( TL::Analysis::__firstprivate ).get_args( );
+                firstprivate_vars = task_pragma_info.get_clause(TL::Analysis::__firstprivate).get_nodecl().as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
                 all_private_vars.append( firstprivate_vars );
                 task_scoped_vars.append( firstprivate_vars );
             } 
             if( task_pragma_info.has_clause( TL::Analysis::__private ) )
             {
-                private_vars = task_pragma_info.get_clause( TL::Analysis::__private ).get_args( );
+                private_vars = task_pragma_info.get_clause(TL::Analysis::__private).get_nodecl().as<Nodecl::OpenMP::Private>().get_symbols().as<Nodecl::List>();
                 all_private_vars.append( private_vars );
                 task_scoped_vars.append( private_vars );
             } 
             if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
             {
-                Nodecl::List shared_vars = task_pragma_info.get_clause( TL::Analysis::__shared ).get_args( );
+                Nodecl::List shared_vars = task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols().as<Nodecl::List>();
                 task_scoped_vars.append( shared_vars );
+            }
+            if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
+            {
+                Nodecl::List shared_alloca_vars = task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().as<Nodecl::List>();
+                task_scoped_vars.append( shared_alloca_vars );
             }
             
             // Collect usage of variables inside the task
@@ -884,13 +877,11 @@ namespace {
             // Collect dependency clauses, for these may use variables that need to be scoped (shape expressions, array subscripts)
             Nodecl::List dependency_vars;
             if( task_pragma_info.has_clause( TL::Analysis::__in ) )
-                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in).get_args());
-            if( task_pragma_info.has_clause( TL::Analysis::__in_alloca ) )
-                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in_alloca).get_args());
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
             if( task_pragma_info.has_clause( TL::Analysis::__out ) )
-                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__out).get_args());
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
             if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
-                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_args());
+                dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
             
             // Collect the addresses used within the task
             TL::Analysis::NodeclSet used_addresses = task->get_used_addresses( );
