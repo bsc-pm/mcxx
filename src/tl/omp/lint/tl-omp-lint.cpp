@@ -832,8 +832,7 @@ namespace {
             bool result = false;
             for(Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
             {
-                if(Nodecl::Utils::structurally_equal_nodecls(n, *it, /*skip_conversion_nodes*/true) || 
-                   Nodecl::Utils::find_nodecl_by_structure(*it, n))
+                if(Nodecl::Utils::nodecl_contains_nodecl_by_structure(*it, n))
                 {
                     result = true;
                     break;

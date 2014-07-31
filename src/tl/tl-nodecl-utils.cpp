@@ -188,8 +188,6 @@ namespace Nodecl
         return result;
     }
 
-
-
     struct IsLocalOcurrence : TL::Predicate<Nodecl::Symbol>
     {
         private:
@@ -505,20 +503,57 @@ namespace Nodecl
         return n.get_type().is_lvalue_reference( );
     }
 
-    bool Utils::find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    bool Utils::nodecl_contains_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle)
     {
-        StructuralFinderVisitor finder(needle);
+        SimpleStructuralNodeFinderVisitor finder(needle);
         finder.walk(haystack);
-        return finder.found;
+        return !finder._found_node.is_null();
     }
 
-    bool Utils::find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    bool Utils::nodecl_contains_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle)
     {
-        PointerFinderVisitor finder(needle);
+        SimplePointerNodeFinderVisitor finder(needle);
         finder.walk(haystack);
-        return finder.found;
+        return !finder._found_node.is_null();
     }
 
+    void Utils::nodecl_replace_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement)
+    {
+        CollectStructuralNodeFinderVisitor finder(needle);
+        finder.walk(haystack);
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                finder._found_nodes.begin();
+                it != finder._found_nodes.end();
+                it++)
+        {
+            it->replace(replacement.shallow_copy());
+        }
+    }
+
+    void Utils::nodecl_replace_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement)
+    {
+        CollectPointerNodeFinderVisitor finder(needle);
+        finder.walk(haystack);
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                finder._found_nodes.begin();
+                it != finder._found_nodes.end();
+                it++)
+        {
+            it->replace(replacement.shallow_copy());
+        }
+    }
 
     bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
@@ -1480,11 +1515,12 @@ namespace Nodecl
     // *************** Visitor looking for a nodecl contained in a scope *************** //
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::generic_finder(const Nodecl::NodeclBase& n)
+    void Utils::SimpleNodeFinderVisitor<Comparator>::generic_finder(
+            const Nodecl::NodeclBase& n)
     {
         if( _comparator( n, _needle ) )
         {
-            found = true;
+            _found_node = n;
         }
         else
         {
@@ -1497,7 +1533,7 @@ namespace Nodecl
                 if (!it->is_null())
                 {
                     walk(*it);
-                    if (found)
+                    if (!_found_node.is_null())
                         break;
                 }
             }
@@ -1505,24 +1541,71 @@ namespace Nodecl
     }
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
+    void Utils::SimpleNodeFinderVisitor<Comparator>::unhandled_node(
+            const Nodecl::NodeclBase& n)
     {
         generic_finder(n);
     }
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
+    void Utils::SimpleNodeFinderVisitor<Comparator>::visit(
+            const Nodecl::ObjectInit& n)
     {
         generic_finder(n);
-        if( !found )
+        if(_found_node.is_null())
         {
             TL::Symbol sym = n.get_symbol( );
             Nodecl::NodeclBase val = sym.get_value( );
 
-            if( !val.is_null( ) )
+            if(!val.is_null( ))
                 walk(val);
         }
     }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::generic_finder(
+            const Nodecl::NodeclBase& n)
+    {
+        if( _comparator( n, _needle ) )
+        {
+            _found_nodes.append(n);
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
+            {
+                if (!it->is_null())
+                {
+                    walk(*it);
+                }
+            }
+        }
+    }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::unhandled_node(
+            const Nodecl::NodeclBase& n)
+    {
+        generic_finder(n);
+    }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::visit(
+            const Nodecl::ObjectInit& n)
+    {
+        generic_finder(n);
+            
+        TL::Symbol sym = n.get_symbol( );
+        Nodecl::NodeclBase val = sym.get_value( );
+
+        if( !val.is_null( ) )
+            walk(val);
+    }
+
 
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //

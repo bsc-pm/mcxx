@@ -296,32 +296,49 @@ namespace Utils {
             const Nodecl::NodeclBase& ref_scope);
 
     template <class Comparator>
-    class LIBTL_CLASS FinderVisitor : public Nodecl::NodeclVisitor<void>
+        struct SimpleNodeFinderVisitor : public Nodecl::NodeclVisitor<void>
     {
-        private:
-            Comparator _comparator;
-            Nodecl::NodeclBase _needle;
+        Comparator _comparator;
+        Nodecl::NodeclBase _needle;
+        Nodecl::NodeclBase _found_node;
 
-            void generic_finder(const Nodecl::NodeclBase& n);
+        SimpleNodeFinderVisitor( const Nodecl::NodeclBase& needle)
+            : _needle(needle) { }
+        void generic_finder(const Nodecl::NodeclBase& n);
 
-        public:
-            bool found;
-            // *** Constructor *** //
-            FinderVisitor( const Nodecl::NodeclBase& needle) : _needle(needle), found(false) { }
-
-            // *** Visitors *** //
-            void unhandled_node( const Nodecl::NodeclBase& n );
-            void visit( const Nodecl::ObjectInit& n );
+        void unhandled_node( const Nodecl::NodeclBase& n );
+        void visit( const Nodecl::ObjectInit& n );
     };
 
-    typedef FinderVisitor<std::equal_to<Nodecl::NodeclBase> > PointerFinderVisitor;
-    typedef FinderVisitor<Nodecl_structural_equal> StructuralFinderVisitor;
+    typedef SimpleNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > PointerSimpleNodeFinderVisitor;
+    typedef SimpleNodeFinderVisitor<Nodecl_structural_equal> StructuralSimpleNodeFinderVisitor;
+
+    template <class Comparator>
+    struct CollectNodeFinderVisitor : public Nodecl::NodeclVisitor<void>
+    {
+        Comparator _comparator;
+        Nodecl::NodeclBase _needle;
+        TL::ObjectList<Nodecl::NodeclBase> _found_nodes;
+
+        CollectNodeFinderVisitor( const Nodecl::NodeclBase& needle)
+            : _needle(needle) { }
+        void generic_finder(const Nodecl::NodeclBase& n);
+
+        void unhandled_node( const Nodecl::NodeclBase& n );
+        void visit( const Nodecl::ObjectInit& n );
+    };
+
+    typedef SimpleNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > SimplePointerNodeFinderVisitor;
+    typedef SimpleNodeFinderVisitor<Nodecl_structural_equal> SimpleStructuralNodeFinderVisitor;
+    typedef CollectNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > CollectPointerNodeFinderVisitor;
+    typedef CollectNodeFinderVisitor<Nodecl_structural_equal> CollectStructuralNodeFinderVisitor;
+
 
     template <typename Kind>
-    struct SimpleFinderVisitorHelper : ExhaustiveVisitor<void>
+    struct SimpleKindFinderVisitor : ExhaustiveVisitor<void>
     {
-            TL::ObjectList<Nodecl::NodeclBase> found_nodes;
-            SimpleFinderVisitorHelper() {}
+            Nodecl::NodeclBase found_node;
+            SimpleKindFinderVisitor() {}
 
             virtual void visit(const Nodecl::ObjectInit& n)
             {
@@ -330,40 +347,15 @@ namespace Utils {
 
             virtual void visit(const Kind& k)
             {
-                found_nodes.append(k);
+                found_node = k;
             }
     };
 
     template <typename Kind>
-    bool nodecl_contains_nodecl_of_kind(
-            const Nodecl::NodeclBase& n)
-    {
-        SimpleFinderVisitorHelper<Kind> finder;
-        finder.walk(n);
-        return !finder.found_nodes.empty();
-    }
-
-    template <typename Kind>
-    Nodecl::NodeclBase nodecl_get_first_nodecl_of_kind(
-            const Nodecl::NodeclBase& n)
-    {
-        SimpleFinderVisitorHelper<Kind> finder;
-        finder.walk(n);
-        if (!finder.found_nodes.empty())
-            return finder.found_nodes[0];
-        else
-            return Nodecl::NodeclBase::null();
-    }
-
-    bool find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
-    bool find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
-
-    template <typename Kind>
-    struct CollectFinderVisitorHelper : ExhaustiveVisitor<void>
+    struct CollectKindFinderVisitor : ExhaustiveVisitor<void>
     {
             TL::ObjectList<Nodecl::NodeclBase> found_nodes;
-            CollectFinderVisitorHelper()
-                : found_nodes() {}
+            CollectKindFinderVisitor() {}
 
             virtual void visit_pre(const Nodecl::ObjectInit& n)
             {
@@ -376,13 +368,49 @@ namespace Utils {
             }
     };
 
+    bool nodecl_contains_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle);
+    bool nodecl_contains_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle);
+
     template <typename Kind>
-    TL::ObjectList<Nodecl::NodeclBase> nodecl_get_all_nodecls_of_kind(const Nodecl::NodeclBase& n)
+    bool nodecl_contains_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
     {
-        CollectFinderVisitorHelper<Kind> finder;
+        SimpleKindFinderVisitor<Kind> finder;
+        finder.walk(n);
+        return !finder.found_node.is_null();
+    }
+
+    template <typename Kind>
+    Nodecl::NodeclBase nodecl_get_first_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
+    {
+        SimpleKindFinderVisitor<Kind> finder;
+        finder.walk(n);
+        return finder.found_node;
+    }
+
+    template <typename Kind>
+    TL::ObjectList<Nodecl::NodeclBase> nodecl_get_all_nodecls_of_kind(
+            const Nodecl::NodeclBase& n)
+    {
+        CollectKindFinderVisitor<Kind> finder;
         finder.walk(n);
         return finder.found_nodes;
     }
+
+    void nodecl_replace_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement);
+
+    void nodecl_replace_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement);
 
     void print_ast(Nodecl::NodeclBase n);
 }
