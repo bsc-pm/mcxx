@@ -595,7 +595,10 @@ namespace TL {
             // VECTORIZE FOR
             if(!only_epilog)
             {
-                _vectorizer.vectorize_loop(for_statement, for_environment);
+                _vectorizer.vectorize_loop(
+                        for_statement, for_environment);
+                _vectorizer.opt_overlapped_accesses(
+                        for_statement, for_environment);
             }
 
             // Add new vector symbols

@@ -628,7 +628,9 @@ namespace Vectorization
             target_load++;
         }
 
-        result.append(group);
+        // TODO: Length
+        if (group._group_loads.size() >= 4)
+            result.append(group);
 
         return result;
     }
