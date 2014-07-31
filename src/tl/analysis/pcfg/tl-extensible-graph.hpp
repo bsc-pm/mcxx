@@ -136,6 +136,12 @@ namespace Analysis {
         // *************************************************************************************** //
         // ********************************* DOT printing methods ******************************** //
         
+        void create_and_connect_node(Node* source, Node* target, 
+                Node* real_source, Node* real_target, 
+                std::string& dot_graph, std::string& dot_analysis_info,
+                std::vector<std::vector<std::string> >& outer_edges, 
+                std::vector<std::vector<Node*> >& outer_nodes, std::string indent);
+        
         //! Prints nodes and relations between them in a string in a recursive way.
         /*!
          * \param actual_node Source node from which the printing is started.

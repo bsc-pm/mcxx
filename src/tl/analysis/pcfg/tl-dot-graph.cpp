@@ -160,7 +160,7 @@ namespace {
         return ranges;
     }
     
-    std::string print_node_ranges_propagated_str(Node* current)
+    UNUSED_FUNCTION std::string print_node_ranges_propagated_str(Node* current)
     {
         std::string propagated_ranges = "";
         if(_ranges)
@@ -217,10 +217,8 @@ namespace {
     }
 }
     
-    static int id_ = 0;
-    
     void ExtensibleGraph::print_graph_to_dot(bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                              bool ranges, bool auto_scoping, bool auto_deps)
+                                             bool ranges, bool auto_scoping, bool auto_deps)
     {
         std::ofstream dot_pcfg;
         
@@ -238,29 +236,8 @@ namespace {
                 internal_error ("An error occurred while creating the dot files directory in '%s'", directory_name.c_str());
         }
 
-        std::string date_str;
-        {
-            time_t t = time(NULL);
-            struct tm* tmp = localtime(&t);
-            if (tmp == NULL)
-            {
-                internal_error("localtime failed", 0);
-            }
-            char outstr[200];
-            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
-            {
-                internal_error("strftime failed", 0);
-            }
-            outstr[199] = '\0';
-            date_str = outstr;
-        }
-
-        NBase node = this->get_nodecl();
-        std::string filename = ::give_basename(node.get_filename().c_str());
-        int line = node.get_line();
-        std::stringstream ss; ss << filename << "_" << line;
-        std::stringstream ss_; ss_ << ++id_;
-        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + "_" + ss_.str() + "_pcfg.dot";
+        // Generate the full path to the file where to store the PCFG
+        std::string dot_file_name = directory_name + _name + "_pcfg.dot";
         dot_pcfg.open(dot_file_name.c_str());
         if(!dot_pcfg.good())
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str());
@@ -296,6 +273,50 @@ namespace {
             internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str());
     }
 
+    void ExtensibleGraph::create_and_connect_node(Node* source, Node* target, 
+            Node* real_source, Node* real_target, 
+            std::string& dot_graph, std::string& dot_analysis_info,
+            std::vector<std::vector<std::string> >& outer_edges, 
+            std::vector<std::vector<Node*> >& outer_nodes, std::string indent)
+    {
+        std::stringstream ss_source_id; ss_source_id << real_source->get_id();
+        std::stringstream ss_target_id; ss_target_id << real_target->get_id();
+        std::string direction = "";
+        if(ss_source_id.str() == ss_target_id.str())
+            direction = ", headport=n, tailport=s";
+        
+        std::string extra_edge_attrs = "";
+        Edge* edge = ExtensibleGraph::get_edge_between_nodes(source, target);
+        if(edge->is_task_edge())
+            extra_edge_attrs = ", style=dashed";
+        
+        std::string edge_srt = ss_source_id.str() + " -> " + ss_target_id.str()
+                             + " [label=\"" + edge->get_label_as_string() 
+                             + "\"" + direction + extra_edge_attrs + "];\n";
+        Node* source_outer = source->get_outer_node();
+        Node* target_outer = target->get_outer_node();
+        if(source_outer == target_outer)
+        {   // The edge has to be printed now
+            dot_graph += indent + edge_srt;
+            get_nodes_dot_data(real_target->is_entry_node() ? real_target->get_outer_node() : real_target, 
+                               dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
+        }
+        else
+        {
+            int nest = outer_edges.size();
+            while(source_outer != target_outer && source_outer != NULL)
+            {
+                if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
+                    !source_outer->is_context_node())
+                    nest--;
+                source_outer = source_outer->get_outer_node();
+            }
+            ERROR_CONDITION(nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0);
+            outer_edges[nest-1].push_back(edge_srt);
+            outer_nodes[nest-1].push_back(target);
+        }
+    }
+    
     // Preorder traversal
     void ExtensibleGraph::get_nodes_dot_data(Node* current, std::string& dot_graph, std::string& dot_analysis_info,
                                               std::vector<std::vector<std::string> >& outer_edges, 
@@ -306,6 +327,17 @@ namespace {
             current->set_visited(true);
             
             // Generate the node
+            if(!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+            {
+                if(current->is_context_node())
+                {
+                    Node* entry = current->get_graph_entry_node();
+                    Node* child = entry->get_children()[0];
+                    get_nodes_dot_data(child, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
+                    goto connect_node;
+                }
+            }
+            
             if(current->is_graph_node())
             {
                 // Calculate the name of the new dot subgraph
@@ -333,10 +365,11 @@ namespace {
                 get_node_dot_data(current, dot_graph, dot_analysis_info, indent);
             }
             
+connect_node:
             // Connect the current node and the possible inner nodes (when current is a graph) 
             // with the nodes in the current nesting level
             bool connect_current = true;
-            std::stringstream ss_source_id;
+            Node* real_source = current;
             if(current->is_graph_node()) {
                 // It may happen that the exit of a graph node has no entry edges 
                 // when there is a break point inside the graph that avoid reaching the exit of the graph.
@@ -345,9 +378,7 @@ namespace {
                 if(exit->get_entry_edges().empty())
                     connect_current = false;
                 
-                ss_source_id << exit->get_id();
-            } else {
-                ss_source_id << current->get_id();
+                real_source = exit;
             }
                 
             // Connect current children
@@ -356,42 +387,55 @@ namespace {
                 ObjectList<Node*> children = current->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    std::stringstream ss_target_id;
-                    if((*it)->is_graph_node())
-                        ss_target_id << (*it)->get_graph_entry_node()->get_id();
-                    else
-                        ss_target_id << (*it)->get_id();
-                    
-                    std::string direction = "";
-                    if(ss_source_id.str() == ss_target_id.str())
-                        direction = ", headport=n, tailport=s";
-                    
-                    std::string extra_edge_attrs = "";
-                    Edge* current_edge = ExtensibleGraph::get_edge_between_nodes(current, *it);
-                    if(current_edge->is_task_edge())
-                        extra_edge_attrs = ", style=dashed";
-                    
-                    std::string edge = ss_source_id.str() + " -> " + ss_target_id.str()
-                                        + " [label=\"" + current_edge->get_label_as_string() 
-                                        + "\"" + direction + extra_edge_attrs + "];\n";
-                    Node* source_outer = current->get_outer_node();
-                    Node* target_outer = (*it)->get_outer_node();
-                    if(source_outer == target_outer)
-                    {   // The edge has to be printed now
-                        dot_graph += indent + edge;
-                        get_nodes_dot_data(*it, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
+                    Node* real_target = *it;
+                    if(CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+                    {
+                        if(real_target->is_graph_node())
+                            real_target = real_target->get_graph_entry_node();
+                        
+                        create_and_connect_node(current, *it, real_source, real_target, dot_graph, 
+                                                dot_analysis_info, outer_edges, outer_nodes, indent);
                     }
                     else
                     {
-                        int nest = outer_edges.size();
-                        while(source_outer != target_outer && source_outer != NULL)
+                        // Skip context nodes (from outer to inner)
+                        ObjectList<Node*> real_target_list;
+                        if(real_target->is_context_node())
                         {
-                            source_outer = source_outer->get_outer_node();
-                            nest--;
+                            // In case of Swith Statements, the entry node of the inner context may have more than one child
+                            // That is why we need a list here, instead of a single node
+                            real_target_list = real_target->get_graph_entry_node()->get_children();
+                            while(real_target_list.size()==1 && real_target_list[0]->is_context_node())
+                                real_target_list = real_target_list[0]->get_graph_entry_node()->get_children();
                         }
-                        ERROR_CONDITION(nest < 0, "Nested outer edges are not properly managed when generating the PCFG dot", 0);
-                        outer_edges[nest-1].push_back(edge);
-                        outer_nodes[nest-1].push_back(*it);
+                        else
+                            real_target_list.append(real_target);
+                        
+                        for(ObjectList<Node*>::iterator itt = real_target_list.begin(); itt != real_target_list.end(); ++itt)
+                        {
+                            real_target = *itt;
+                            
+                            // Skip context nodes (from inner to outer)
+                            if(real_target->is_exit_node() && real_target->get_outer_node()->is_context_node())
+                            {
+                                real_target = real_target->get_outer_node()->get_children()[0];
+                                while((real_target->is_exit_node() && real_target->get_outer_node()->is_context_node()) || 
+                                    real_target->is_context_node())
+                                {
+                                    if(real_target->is_exit_node())
+                                        real_target = real_target->get_outer_node()->get_children()[0];
+                                    else // real_target is context node
+                                        real_target = real_target->get_graph_entry_node()->get_children()[0];
+                                }
+                            }
+                            if(real_target->is_graph_node())
+                            {
+                                real_target = real_target->get_graph_entry_node();
+                            }
+                            
+                            create_and_connect_node(current, *it, real_source, real_target, dot_graph, 
+                                                    dot_analysis_info, outer_edges, outer_nodes, indent);
+                        }
                     }
                 }
             }

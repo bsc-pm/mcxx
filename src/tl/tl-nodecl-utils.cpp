@@ -520,7 +520,7 @@ namespace Nodecl
     }
 
 
-    bool Utils::nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
+    bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
         bool result = false;
 
@@ -530,11 +530,11 @@ namespace Nodecl
         }
         else if( container.is<Nodecl::Conversion>( ) )
         {
-            result = nodecl_contains_nodecl( container.as<Nodecl::Conversion>( ).get_nest( ), contained );
+            result = dataref_contains_dataref( container.as<Nodecl::Conversion>( ).get_nest( ), contained );
         }
         else if( contained.is<Nodecl::Conversion>( ) )
         {
-            result = nodecl_contains_nodecl( container, contained.as<Nodecl::Conversion>( ).get_nest( ) );
+            result = dataref_contains_dataref( container, contained.as<Nodecl::Conversion>( ).get_nest( ) );
         }
         else if( container.is<Nodecl::Dereference>( ) )
         {
@@ -569,7 +569,7 @@ namespace Nodecl
                     Nodecl::List::iterator it2 = contained_subscripts.begin( );
                     for( ; it1 != container_subscripts.end( ) && it2 != contained_subscripts.end( ) && !result; ++it1, ++it2 )
                     {
-                        result = nodecl_contains_nodecl( *it1, *it2 );
+                        result = dataref_contains_dataref( *it1, *it2 );
                     }
                 }
             }
@@ -577,7 +577,7 @@ namespace Nodecl
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
         {
             Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-            result = nodecl_contains_nodecl( container, lhs );
+            result = dataref_contains_dataref( container, lhs );
         }
         else if( container.is<Nodecl::Symbol>( ) )
         {
@@ -594,7 +594,7 @@ namespace Nodecl
             }
             else if( contained.is<Nodecl::ClassMemberAccess>( ) )
             {
-                result = nodecl_contains_nodecl( container, contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
+                result = dataref_contains_dataref( container, contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
             }
         }
 
