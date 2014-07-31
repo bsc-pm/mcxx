@@ -60,6 +60,7 @@ namespace{
         return ids.str();
     }
 
+    // FIXME We should get this information form the PCFGPragmaInfo instead of getting it from the related AST
     //! TDG_Edge :: This method returns the clauses associated to a Nodecl::OpenMP::Task node
     NodeclList get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
     {
@@ -249,9 +250,8 @@ namespace{
                         task->get_id(), control_structure->get_id());
         
         // Create the condition for each case leading to the task
-        TL::Type cond_type = condition.get_type();
         for(NodeclList::iterator it = cases.begin(); it != cases.end(); ++it)
-            taken_branches.append(Nodecl::Equal::make(condition.shallow_copy(), it->shallow_copy(), cond_type).prettyprint());
+            taken_branches.append("\"" + it->prettyprint() + "\"");
         
         return condition;
     }
@@ -341,8 +341,6 @@ namespace{
     
     struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> 
     {
-        typedef std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> VarToIdMap;
-        
         // *** Class members *** //
         TDG_Edge* _edge;
         int _id;
@@ -1161,6 +1159,8 @@ namespace{
                             if(cs->get_type() == IfElse)
                             {   // branches list contains 2 elements
                                 if(!branches[0]->is_exit_node())
+                                    nbranches++;
+                                if(!branches[1]->is_exit_node())
                                     nbranches++;
                             }
                             else    // Switch
