@@ -709,7 +709,6 @@ namespace Analysis {
     CLAUSE(flushed_vars) \
     CLAUSE(if) \
     CLAUSE(in) \
-    CLAUSE(in_alloca) \
     CLAUSE(in_value) \
     CLAUSE(inout) \
     CLAUSE(lastprivate) \
@@ -726,6 +725,7 @@ namespace Analysis {
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(shared_alloca) \
     CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
     CLAUSE(task_label) \
@@ -736,7 +736,7 @@ namespace Analysis {
     CLAUSE(untied) \
     CLAUSE(wait_on)
     
-    enum Clause {
+    enum ClauseType {
 #undef CLAUSE
 #define CLAUSE(X) __##X,
         CLAUSE_LIST
@@ -745,26 +745,22 @@ namespace Analysis {
     
     class PCFGClause {
     private:
-        Clause _clause;
-        Nodecl::List _args;
-
-    public:
-        //! Empty constructor
-        PCFGClause();
-
-        //! Constructor
-        PCFGClause(Clause c);
-        PCFGClause(Clause c, NBase arg);
-
-        //! Copy constructor
-        PCFGClause(const PCFGClause& clause);
-
-        //! Getters
-        Clause get_clause() const;
-        std::string get_clause_as_string() const;
-        Nodecl::List get_args() const;
+        ClauseType _clause_type;
+        NBase _clause;
         
-    friend class PCFGVisitor;
+    public:
+        //! Constructor
+        PCFGClause(ClauseType ct, const NBase& c);
+
+        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
+        PCFGClause(const PCFGClause& clause);
+        
+        //! Getters
+        ClauseType get_type() const;
+        std::string get_type_as_string() const;
+        NBase get_nodecl() const;
+        
+    friend class PCFGVisitor;   // FIXME Friendship is propagated. We can delete this
     friend class PCFGPragmaInfo;
     };
 
@@ -773,24 +769,20 @@ namespace Analysis {
     {
     private:
         ObjectList<PCFGClause> _clauses;
-
+        
     public:
-        //! Empty Constructor
-        PCFGPragmaInfo();
-
         //! Constructor
-        PCFGPragmaInfo(PCFGClause clause);
-
-        //! Copy constructor
-        PCFGPragmaInfo(const PCFGPragmaInfo& pragma);
-
-        //! Destructor
-        ~PCFGPragmaInfo();
-
-        bool has_clause(Clause clause) const;
-        PCFGClause get_clause(Clause clause) const;
-
-        void add_clause(PCFGClause pcfg_clause);
+        PCFGPragmaInfo(const PCFGClause& clause);
+        
+        //! Deafault constructor (needed to use this object in LinkData)
+        PCFGPragmaInfo();
+        
+        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
+        PCFGPragmaInfo(const PCFGPragmaInfo& p);
+        
+        bool has_clause(ClauseType clause) const;
+        PCFGClause get_clause(ClauseType clause) const;
+        void add_clause(const PCFGClause& clause);
         
         ObjectList<PCFGClause> get_clauses() const;
 

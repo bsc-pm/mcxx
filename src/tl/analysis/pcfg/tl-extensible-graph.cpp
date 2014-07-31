@@ -243,20 +243,9 @@ namespace Analysis {
     {
         Node* flush_node = new Node(_utils->_nid, __OmpFlush, outer_node);
 
-        // Create the convenient clause with the flushed variables
-        if (n.is_null())
-        {   // Flushing all memory
-            PCFGClause current_clause(__flushed_vars);
-            PCFGPragmaInfo current_info(current_clause);
-            flush_node->set_pragma_node_info(current_info);
-        }
-        else
-        {   // Flushing a list of expressions
-            Nodecl::List flushed_vars = n.as<Nodecl::List>();
-            PCFGClause current_clause(__flushed_vars, flushed_vars);
-            PCFGPragmaInfo current_info(current_clause);
-            flush_node->set_pragma_node_info(current_info);
-        }
+        PCFGClause current_clause(__flushed_vars, n);
+        PCFGPragmaInfo current_info(current_clause);
+        flush_node->set_pragma_node_info(current_info);
 
         connect_nodes(_utils->_last_nodes, flush_node);
         _utils->_last_nodes = ObjectList<Node*>(1, flush_node);

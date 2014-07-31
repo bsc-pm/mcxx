@@ -639,103 +639,6 @@ connect_node:
             }
         };
     }
-
-    static std::string pcfgclause_to_str(PCFGClause clause)
-    {
-        std::string clauses_str = ""; 
-        int i = 0;
-        Nodecl::List args = clause.get_args();
-        int n_args = args.size();
-        for(Nodecl::List::const_iterator it = args.begin(); it != args.end(); ++it, ++i)
-        {
-            if(it->is<Nodecl::OpenMP::ReductionItem>())
-            {
-                Nodecl::OpenMP::ReductionItem red = it->as<Nodecl::OpenMP::ReductionItem>();
-                clauses_str += clause.get_clause_as_string() + "(" 
-                             + red.get_reductor().prettyprint() + ":" + red.get_reduced_symbol().prettyprint() + ")";
-            }
-            else if(it->is<Nodecl::OpenMP::Final>())
-            {
-                Nodecl::OpenMP::Final fin = it->as<Nodecl::OpenMP::Final>();
-                clauses_str += "final(" + fin.get_condition().prettyprint() + ")";
-            }
-            else if(it->is<Nodecl::OpenMP::Target>())
-            {
-                Nodecl::OpenMP::Target tar = it->as<Nodecl::OpenMP::Target>();
-                // Get devices info
-                Nodecl::List devices = tar.get_devices().as<Nodecl::List>();
-                std::string devices_str = "";
-                int n_devices = devices.size();
-                int j = 0;
-                for(Nodecl::List::iterator it2 = devices.begin(); it2 != devices.end(); ++it2, ++j)
-                {
-                    devices_str += it2->prettyprint();
-                    if(j < n_devices-1)
-                        devices_str += ", ";
-                }
-                clauses_str += "device(" + devices_str + ") ";
-                // Get other target clauses (copies)
-                Nodecl::List copies = tar.get_items().as<Nodecl::List>();
-                int n_copies = copies.size();
-                if(n_copies != 0)
-                {
-                    clauses_str += "\\n";
-                }
-                j = 0;
-                for(Nodecl::List::iterator it2 = copies.begin(); it2 != copies.end(); ++it2)
-                {
-                    if(it2->is<Nodecl::OpenMP::CopyIn>())
-                    {
-                        clauses_str += "copy_in(";
-                    }
-                    else if(it2->is<Nodecl::OpenMP::CopyOut>())
-                    {
-                        clauses_str += "copy_out(";
-                    }
-                    else if(it2->is<Nodecl::OpenMP::CopyInout>())
-                    {
-                        clauses_str += "copy_inout(";
-                    }
-                    else if(it2->is<Nodecl::OpenMP::Implements>())
-                    {
-                        clauses_str += "implements(";
-                    }
-                    if (it2->children()[0].is<Nodecl::List>())
-                    {
-                        Nodecl::List copied_values = it2->children()[0].as<Nodecl::List>();
-                        int n_copied_values = copied_values.size();
-                        int k = 0;
-                        for(Nodecl::List::iterator it3 = copied_values.begin(); it3 != copied_values.end(); ++it3, ++k)
-                        {
-                            clauses_str += it3->prettyprint();
-                            if(k < n_copied_values-1)
-                            {
-                                clauses_str += ", ";
-                            }
-                        }
-                    }
-                    else
-                    {
-                        clauses_str += it2->children()[0].prettyprint();
-                    }
-                    clauses_str += ") ";
-                    if(j < n_copies-1)
-                    {
-                        clauses_str += "\\n";
-                    }
-                }
-            }
-            else
-            {
-                clauses_str += clause.get_clause_as_string() + "(" + it->prettyprint() + ")";
-            }   
-            
-            if(i < n_args-1)
-                clauses_str += ", ";
-        }
-        
-        return clauses_str;
-    }
     
     std::string ExtensibleGraph::print_pragma_node_clauses(Node* current, std::string indent, std::string cluster_name)
     {
@@ -755,7 +658,7 @@ connect_node:
                 std::string clauses_str = "";
                 for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it, ++i)
                 {
-                    clauses_str += pcfgclause_to_str(*it);
+                    clauses_str += it->get_nodecl().prettyprint();
                     if(i < n_clauses-1)
                         clauses_str += "\\n ";
                 }

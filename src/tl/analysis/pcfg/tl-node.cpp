@@ -833,7 +833,7 @@ namespace Analysis {
         }
     }
 
-    void Node::set_pragma_node_info(PCFGPragmaInfo pragma)
+    void Node::set_pragma_node_info(const PCFGPragmaInfo& pragma)
     {
         if(((get_data<Node_type>(_NODE_TYPE) == __Graph)
                && node_is_claused_graph_omp(get_data<Graph_type>(_GRAPH_TYPE)))
@@ -1904,9 +1904,10 @@ namespace Analysis {
         const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
         for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
         {
-            if(it->get_clause() == __reduction)
+            if(it->get_type() == __reduction)
             {
-                Nodecl::List reductions = it->get_args();
+                Nodecl::List reductions = 
+                    it->get_nodecl().as<Nodecl::OpenMP::Reduction>().get_reductions().as<Nodecl::List>();
                 for(Nodecl::List::iterator itr = reductions.begin(); itr != reductions.end(); ++itr)
                 {
                     Symbol reduc(itr->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
@@ -1969,9 +1970,10 @@ namespace Analysis {
             const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
             for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_clause() == __linear)
+                if(it->get_type() == __linear)
                 {
-                    Nodecl::List linear_exprs = it->get_args();
+                    Nodecl::List linear_exprs = 
+                        it->get_nodecl().as<Nodecl::OpenMP::Linear>().get_linear_expressions().as<Nodecl::List>();
                     ObjectList<Symbol> syms;
                     NBase step;
                     for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
@@ -2006,9 +2008,10 @@ namespace Analysis {
             const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
             for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_clause() == __uniform)
+                if(it->get_type() == __uniform)
                 {
-                    Nodecl::List uniform_exprs = it->get_args();
+                    Nodecl::List uniform_exprs = 
+                        it->get_nodecl().as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
                     for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
                     {
                         Symbol lin(itl->get_symbol());
