@@ -2558,26 +2558,6 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
-    if (template_type_get_template_parameters(t)->num_parameters == 0)
-    {
-        // Special handling for 0-parameterized templates. These template types
-        // only have two specializations: a primary (the proper template) and
-        // the specialization (the only instantiation possible)
-        int num_specializations = template_type_get_num_specializations(t);
-        if (num_specializations == 1)
-        {
-            return NULL;
-        }
-        else if (num_specializations == 2)
-        {
-            return template_type_get_specialization_num(t, 1);
-        }
-        else
-        {
-            internal_error("Wrong number of specializations (%d) for a 0-parameterized template type", num_specializations);
-        }
-    }
-
     rb_red_blk_tree* specialization_identical_set = template_type_get_canonical_specialization_set_(t);
 
     rb_red_blk_node * n = rb_tree_query(specialization_identical_set, template_parameters);
@@ -2620,10 +2600,7 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
                     locus_to_str(entry->locus));
         }
 
-        if (same_template_argument_list(template_parameters, specialization_template_parameters, decl_context)
-                // If this template type is 0-parameterized, the primary never matches
-                && !(specialization == template_type_get_primary_type(t)
-                    && template_type_get_template_parameters(t)->num_parameters == 0))
+        if (same_template_argument_list(template_parameters, specialization_template_parameters, decl_context))
         {
             DEBUG_CODE()
             {
@@ -5252,6 +5229,47 @@ void class_type_add_member_before(type_t* class_type,
     }
 }
 
+static scope_entry_t* get_class_symbol(scope_entry_t* entry)
+{
+    if (entry->kind == SK_TYPEDEF
+            || entry->kind == SK_TEMPLATE_ALIAS)
+    {
+        type_t* t = advance_over_typedefs(entry->type_information);
+        if (is_named_type(t))
+            entry = named_type_get_symbol(t);
+    }
+
+    return entry;
+}
+
+void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+{
+    entry = get_class_symbol(entry);
+
+    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid symbol", 0);
+
+    if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
+        instantiate_template_class_if_needed(entry, decl_context, locus);
+    else if (entry->entity_specs.is_member
+            && entry->entity_specs.emission_template != NULL)
+        instantiate_nontemplate_member_class_if_needed(entry, decl_context, locus);
+}
+
+char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus)
+{
+    entry = get_class_symbol(entry);
+
+    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid symbol", 0);
+
+    if (is_template_specialized_type(get_actual_class_type(entry->type_information)))
+        return instantiate_template_class_if_possible(entry, decl_context, locus);
+    else if (entry->entity_specs.is_member
+            && entry->entity_specs.emission_template != NULL)
+        return instantiate_nontemplate_member_class_if_possible(entry, decl_context, locus);
+
+    return 1;
+}
+
 char is_enum_type(type_t* t)
 {
     return is_unnamed_enumerated_type(t)
@@ -5945,18 +5963,9 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                         && p_t2->info->is_template_specialized_type
                         && same_template_type(p_t1->related_template_type, p_t2->related_template_type))
                 {
-                    if (template_type_get_template_parameters(p_t1->related_template_type)->num_parameters == 0
-                            && template_type_get_template_parameters(p_t2->related_template_type)->num_parameters == 0)
-                    {
-                        // For 0-parameterized template types, equality is by pointer
-                        result = (t1 == t2);
-                    }
-                    else
-                    {
-                        template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
-                        template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
-                        result = same_template_argument_list(tpl1, tpl2, decl_context);
-                    }
+                    template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
+                    template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
+                    result = same_template_argument_list(tpl1, tpl2, decl_context);
                 }
                 else
                 {
@@ -7990,7 +7999,7 @@ char class_type_is_base_instantiating(type_t* possible_base, type_t* possible_de
         {
             if (is_named_class_type(possible_derived))
             {
-                instantiate_template_class_if_possible(
+                class_type_complete_if_possible(
                         named_type_get_symbol(possible_derived),
                         named_type_get_symbol(possible_derived)->decl_context,
                         locus);
@@ -14873,3 +14882,5 @@ static type_t* rewrite_redundant_typedefs(type_t* orig)
 
     return result;
 }
+
+

@@ -295,6 +295,9 @@ LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_
 LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
         char is_definition);
 
+LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
 LIBMCXX_EXTERN void enum_type_set_underlying_type_is_fixed(type_t* t, char is_fixed);

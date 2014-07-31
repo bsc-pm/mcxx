@@ -3712,7 +3712,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     // 13.3.1.4 [over.match.copy]
     ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
 
-    instantiate_template_class_if_possible(named_type_get_symbol(class_type), decl_context, locus);
+    class_type_complete_if_possible(named_type_get_symbol(class_type), decl_context, locus);
 
     // 13.3.1.3 [over.match.ctor]
     // 13.3.1.4 [over.match.copy]
