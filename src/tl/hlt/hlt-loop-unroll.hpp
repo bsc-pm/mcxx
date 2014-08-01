@@ -53,7 +53,6 @@ namespace TL
                 int _unroll_factor;
                 bool _create_epilog;
             public:
-                //! Creates a LoopUnroll object
                 LoopUnroll();
 
                 // Properties

@@ -110,33 +110,8 @@ namespace TL
                 HLTPragmaPhase();
                 virtual void run(TL::DTO& dto);
             private:
-                void unroll_loop(TL::PragmaCustomStatement construct);
-                // void block_loop(PragmaCustomConstruct construct);
-                // void stripmine_loop(PragmaCustomConstruct construct);
-                // void distribute_loop(PragmaCustomConstruct construct);
-
-                // void pre_fuse_loops(PragmaCustomConstruct construct);
-                // void fuse_loops(PragmaCustomConstruct construct);
-
-                // void interchange_loops(PragmaCustomConstruct construct);
-                // void collapse_loop(PragmaCustomConstruct construct);
-
-                // void jam_loops(Statement unrolled_loop);
-
-                // void outline_code(PragmaCustomConstruct construct);
-
-                // void extend_function(PragmaCustomConstruct construct);
-
-                // void peel_loop(PragmaCustomConstruct construct);
-
-                // void task_aggregate(PragmaCustomConstruct construct);
-
-                // void set_instrument_hlt(const std::string &str);
-                // void set_acml_hlt(const std::string &str);
-                // void set_intermediate_simd_prettyprint(const std::string &str);
-
-                // void simd_pre_run(AST_t translation_unit, ScopeLink scope_link);
-                // void simdize(PragmaCustomConstruct construct);
+                void do_loop_unroll(TL::PragmaCustomStatement construct);
+                void do_loop_normalize(TL::PragmaCustomStatement construct);
         };
 
         //! @}

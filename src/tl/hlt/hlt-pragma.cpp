@@ -27,7 +27,8 @@
 #include "tl-pragmasupport.hpp"
 
 #include "hlt-pragma.hpp"
-#include "hlt-unroll.hpp"
+#include "hlt-loop-unroll.hpp"
+#include "hlt-loop-normalize.hpp"
 #include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
@@ -40,72 +41,19 @@ HLTPragmaPhase::HLTPragmaPhase()
     set_phase_description("This phase implements several high level "
             "transformations available through the usage of #pragma hlt");
 
-    register_construct("unroll");
-    dispatcher().statement.post["unroll"].connect(
+    register_construct("normalize");
+    dispatcher().statement.post["normalize"].connect(
             functor(
-                (void (HLTPragmaPhase::*)(TL::PragmaCustomStatement))&HLTPragmaPhase::unroll_loop,
+                (void (HLTPragmaPhase::*)(TL::PragmaCustomStatement))&HLTPragmaPhase::do_loop_normalize,
                 *this)
             );
 
-    // register_construct("block");
-    // on_directive_post["block"].connect(functor(&HLTPragmaPhase::block_loop, *this));
-
-    // register_construct("blocking");
-    // on_directive_post["blocking"].connect(functor(&HLTPragmaPhase::block_loop, *this));
-
-    // register_construct("stripmine");
-    // on_directive_post["stripmine"].connect(functor(&HLTPragmaPhase::stripmine_loop, *this));
-
-    // register_construct("distribute");
-    // on_directive_post["distribute"].connect(functor(&HLTPragmaPhase::distribute_loop, *this));
-
-    // register_construct("fusion");
-    // on_directive_pre["fusion"].connect(functor(&HLTPragmaPhase::pre_fuse_loops, *this));
-    // on_directive_post["fusion"].connect(functor(&HLTPragmaPhase::fuse_loops, *this));
-
-    // register_construct("interchange");
-    // on_directive_post["interchange"].connect(functor(&HLTPragmaPhase::interchange_loops, *this));
-
-    // register_construct("collapse");
-    // on_directive_post["collapse"].connect(functor(&HLTPragmaPhase::collapse_loop, *this));
-
-    // register_construct("outline");
-    // on_directive_post["outline"].connect(functor(&HLTPragmaPhase::outline_code, *this));
-
-    // register_construct("extend");
-    // on_directive_post["extend"].connect(functor(&HLTPragmaPhase::extend_function, *this));
-
-    // register_construct("peel");
-    // on_directive_post["peel"].connect(functor(&HLTPragmaPhase::peel_loop, *this));
-
-    // register_construct("task_aggregate");
-    // on_directive_post["task_aggregate"].connect(functor(&HLTPragmaPhase::task_aggregate, *this));
-
-    // register_construct("simd");
-    // on_directive_post["simd"].connect(functor(&HLTPragmaPhase::simdize, *this));
-
-    // _allow_identity_str = "1";
-
-    // register_parameter("allow_identity", 
-    //         "Use this to disable identity, this is for testing only",
-    //         _allow_identity_str,
-    //         "true").connect(functor( update_identity_flag ));
-
-    // register_parameter("instrument",
-    //         "Enables mintaka instrumentation if set to '1'",
-    //         _enable_hlt_instr_str,
-    //         "0").connect(functor( &HLTPragmaPhase::set_instrument_hlt, *this ));
-
-    // register_parameter("acml",
-    //         "Enables ACML library in SIMD regions if set to '1'",
-    //         _enable_hlt_acml_str,
-    //         "0").connect(functor( &HLTPragmaPhase::set_acml_hlt, *this ));
-
-    // register_parameter("interm-simd",
-    //         "Enables Intermediate SIMD code prettyprint if set to '1'",
-    //         _enable_hlt_intermediate_simd_prettyprint,
-    //         "0").connect(functor( &HLTPragmaPhase::set_intermediate_simd_prettyprint, *this ));
-
+    register_construct("unroll");
+    dispatcher().statement.post["unroll"].connect(
+            functor(
+                (void (HLTPragmaPhase::*)(TL::PragmaCustomStatement))&HLTPragmaPhase::do_loop_unroll,
+                *this)
+            );
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -134,7 +82,7 @@ namespace {
 
 }
 
-void HLTPragmaPhase::unroll_loop(TL::PragmaCustomStatement construct)
+void HLTPragmaPhase::do_loop_unroll(TL::PragmaCustomStatement construct)
 {
     HLT::LoopUnroll loop_unroll;
     Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
@@ -158,12 +106,24 @@ void HLTPragmaPhase::unroll_loop(TL::PragmaCustomStatement construct)
         }
     }
 
-    Nodecl::NodeclBase unrolled, epilog;
     loop_unroll.unroll();
     info_printf("%s: info: loop unrolled by a factor %d\n",
             construct.get_locus_str().c_str(), unroll_factor);
 
     Nodecl::NodeclBase transformed_code = loop_unroll.get_whole_transformation();
+    construct.replace(transformed_code);
+}
+
+void HLTPragmaPhase::do_loop_normalize(TL::PragmaCustomStatement construct)
+{
+    HLT::LoopNormalize loop_normalize;
+    Nodecl::NodeclBase loop = get_statement_from_pragma(construct);
+    loop_normalize.set_loop(loop);
+
+    loop_normalize.normalize();
+    info_printf("%s: info: loop normalized\n", construct.get_locus_str().c_str());
+
+    Nodecl::NodeclBase transformed_code = loop_normalize.get_whole_transformation();
     construct.replace(transformed_code);
 }
 

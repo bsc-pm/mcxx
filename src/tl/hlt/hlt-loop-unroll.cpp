@@ -27,7 +27,7 @@
 
 
 
-#include "hlt-unroll.hpp"
+#include "hlt-loop-unroll.hpp"
 #include "tl-analysis-interface.hpp"
 #include "cxx-cexpr.h"
 
@@ -68,6 +68,8 @@ namespace TL { namespace HLT {
         this->_create_epilog = b;
         return *this;
     }
+
+    namespace {
 
     struct ReplaceInductionVar : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -119,6 +121,8 @@ namespace TL { namespace HLT {
             }
         }
     };
+
+    }
 
     void LoopUnroll::unroll()
     {

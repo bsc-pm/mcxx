@@ -2155,8 +2155,10 @@ src_tl_hlt_libtl_hlt_la_SOURCES = \
 	  src/tl/hlt/hlt-common.hpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
-      src/tl/hlt/hlt-unroll.hpp \
-      src/tl/hlt/hlt-unroll.cpp \
+      src/tl/hlt/hlt-loop-normalize.hpp \
+      src/tl/hlt/hlt-loop-normalize.cpp \
+      src/tl/hlt/hlt-loop-unroll.hpp \
+      src/tl/hlt/hlt-loop-unroll.cpp \
       $(END)
 
 phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
