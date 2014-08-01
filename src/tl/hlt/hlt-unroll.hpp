@@ -51,6 +51,7 @@ namespace TL
             private:
                 Nodecl::NodeclBase _loop, _transformation, _unrolled, _epilog;
                 int _unroll_factor;
+                bool _create_epilog;
             public:
                 //! Creates a LoopUnroll object
                 LoopUnroll();
@@ -58,6 +59,7 @@ namespace TL
                 // Properties
                 LoopUnroll& set_loop(Nodecl::NodeclBase loop);
                 LoopUnroll& set_unroll_factor(int n);
+                LoopUnroll& set_create_epilog(bool b);
 
                 // Action
                 void unroll();

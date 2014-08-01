@@ -34,7 +34,7 @@
 namespace TL { namespace HLT {
 
     LoopUnroll::LoopUnroll()
-        : Transform(), _loop(), _unrolled(), _epilog(), _unroll_factor(-1)
+        : Transform(), _loop(), _unrolled(), _epilog(), _unroll_factor(-1), _create_epilog(true)
     {
     }
 
@@ -60,6 +60,12 @@ namespace TL { namespace HLT {
         this->_unroll_factor = n;
         ERROR_CONDITION(this->_unroll_factor <= 1, "Invalid unroll factor", 0);
 
+        return *this;
+    }
+
+    LoopUnroll& LoopUnroll::set_create_epilog(bool b)
+    {
+        this->_create_epilog = b;
         return *this;
     }
 
@@ -227,46 +233,49 @@ namespace TL { namespace HLT {
                 unrolled_loop_body,
                 /* loop-name */ Nodecl::NodeclBase::null());
 
-        Nodecl::NodeclBase epilog_loop_control = loop.get_loop_header();
-        epilog_loop_control = epilog_loop_control.shallow_copy();
-        if (epilog_loop_control.is<Nodecl::LoopControl>())
+        if (_create_epilog)
         {
-            epilog_loop_control.as<Nodecl::LoopControl>().set_init(Nodecl::NodeclBase::null());
-        }
-        else if (epilog_loop_control.is<Nodecl::RangeLoopControl>())
-        {
-            epilog_loop_control.as<Nodecl::RangeLoopControl>().set_lower(
-                    induction_var.make_nodecl());
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
+            Nodecl::NodeclBase epilog_loop_control = loop.get_loop_header();
+            epilog_loop_control = epilog_loop_control.shallow_copy();
+            if (epilog_loop_control.is<Nodecl::LoopControl>())
+            {
+                epilog_loop_control.as<Nodecl::LoopControl>().set_init(Nodecl::NodeclBase::null());
+            }
+            else if (epilog_loop_control.is<Nodecl::RangeLoopControl>())
+            {
+                epilog_loop_control.as<Nodecl::RangeLoopControl>().set_lower(
+                        induction_var.make_nodecl());
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
 
-        TL::Scope epilog_loop_scope;
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            epilog_loop_scope = (new_block_context(orig_loop_scope.get_decl_context()));
-        }
-        else
-        {
-            epilog_loop_scope = orig_loop_scope;
-        }
+            TL::Scope epilog_loop_scope;
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                epilog_loop_scope = (new_block_context(orig_loop_scope.get_decl_context()));
+            }
+            else
+            {
+                epilog_loop_scope = orig_loop_scope;
+            }
 
-        Nodecl::NodeclBase epilog_loop_body = Nodecl::Utils::deep_copy(orig_loop_body, epilog_loop_scope);
-        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
-        {
-            epilog_loop_body = Nodecl::List::make(
-                    Nodecl::Context::make(
-                        Nodecl::List::make(
-                            Nodecl::CompoundStatement::make(epilog_loop_body, Nodecl::NodeclBase::null())),
-                        epilog_loop_scope));
-        }
+            Nodecl::NodeclBase epilog_loop_body = Nodecl::Utils::deep_copy(orig_loop_body, epilog_loop_scope);
+            if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+            {
+                epilog_loop_body = Nodecl::List::make(
+                        Nodecl::Context::make(
+                            Nodecl::List::make(
+                                Nodecl::CompoundStatement::make(epilog_loop_body, Nodecl::NodeclBase::null())),
+                            epilog_loop_scope));
+            }
 
-        _epilog = Nodecl::ForStatement::make(
-                epilog_loop_control,
-                epilog_loop_body,
-                /* loop-name */ Nodecl::NodeclBase::null());
+            _epilog = Nodecl::ForStatement::make(
+                    epilog_loop_control,
+                    epilog_loop_body,
+                    /* loop-name */ Nodecl::NodeclBase::null());
+        }
 
         TL::ObjectList<Nodecl::NodeclBase> transformation_stmts;
 
@@ -285,7 +294,10 @@ namespace TL { namespace HLT {
         }
 
         transformation_stmts.append(_unrolled);
-        transformation_stmts.append(_epilog);
+        if (_create_epilog)
+        {
+            transformation_stmts.append(_epilog);
+        }
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
