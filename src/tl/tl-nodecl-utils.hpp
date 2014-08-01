@@ -95,6 +95,9 @@ namespace Utils {
 
     Nodecl::List get_all_list_from_list_node(Nodecl::List);
 
+    Nodecl::NodeclBase skip_contexts_and_lists(
+            Nodecl::NodeclBase n);
+
     bool is_in_list(Nodecl::NodeclBase n);
     void remove_from_enclosing_list(Nodecl::NodeclBase n);
 
@@ -286,8 +289,12 @@ namespace Utils {
     // Returns the whole ArraySbuscript with a single subscript linearized
     Nodecl::ArraySubscript linearize_array_subscript(const Nodecl::ArraySubscript& n);
 
-    bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container,
-            const NodeclBase& containee);
+    bool list_contains_nodecl_by_structure(
+            const TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained);
+    TL::ObjectList<Nodecl::NodeclBase>::iterator list_get_nodecl_by_structure(
+            TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained);
 
     TL::ObjectList<Nodecl::NodeclBase> get_strings_as_expressions(
             const TL::ObjectList<std::string>& string_list,

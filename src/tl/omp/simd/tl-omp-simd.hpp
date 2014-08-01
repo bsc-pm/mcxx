@@ -87,9 +87,9 @@ namespace TL
                 bool _fast_math_enabled;
 
                 void process_aligned_clause(const Nodecl::List& environment,
-                        TL::Vectorization::tl_sym_int_map_t& aligned_expressions_map);
+                        TL::Vectorization::map_tl_sym_int_t& aligned_expressions_map);
                 void process_linear_clause(const Nodecl::List& environment,
-                        TL::Vectorization::tl_sym_int_map_t& linear_symbols_map);
+                        TL::Vectorization::map_tl_sym_int_t& linear_symbols_map);
                 void process_uniform_clause(const Nodecl::List& environment,
                         TL::Vectorization::objlist_tlsymbol_t& uniform_symbols);
                 void process_suitable_clause(const Nodecl::List& environment,
@@ -101,7 +101,7 @@ namespace TL
                 void process_vectorlengthfor_clause(const Nodecl::List& environment,
                         TL::Type& vectorlengthfor_type);
                 void process_overlap_clause(const Nodecl::List& environment,
-                        TL::Vectorization::tl_sym_int_map_t& overlap_expressions);
+                        TL::Vectorization::map_tl_sym_int_t& overlap_expressions);
 
                 Nodecl::List process_reduction_clause(const Nodecl::List& environment,
                         TL::ObjectList<TL::Symbol>& reductions,

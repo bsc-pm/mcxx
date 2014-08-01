@@ -216,7 +216,8 @@ namespace Vectorization
             Nodecl::NodeclBase n)
     {
         bool result = false;
-        if( Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
+        if(Nodecl::Utils::list_contains_nodecl_by_structure(
+                    _suitable_expressions, n ) )
             result = true;
 
         if (!result && n.is<Nodecl::Symbol>())
@@ -225,7 +226,7 @@ namespace Vectorization
             //VLA dimension
             if (tl_sym.is_saved_expression())
             {
-               if(Nodecl::Utils::list_contains_nodecl(
+               if(Nodecl::Utils::list_contains_nodecl_by_structure(
                            _suitable_expressions, tl_sym.get_value()))
                    result = true;
             }

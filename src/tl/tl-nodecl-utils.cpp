@@ -500,7 +500,24 @@ namespace Nodecl
                 it != finder._found_nodes.end();
                 it++)
         {
-            it->replace(replacement.shallow_copy());
+            Nodecl::NodeclBase target_node = *it;
+
+            //Conversions!
+            if (target_node.get_parent() != Nodecl::NodeclBase::null() &&
+                    !replacement.is<Nodecl::Symbol>() &&
+                    target_node.get_parent().is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion parent_conv =
+                    target_node.as<Nodecl::Conversion>();
+
+                if (parent_conv.get_type().no_ref() ==
+                        replacement.get_type())
+                {
+                    target_node = target_node.get_parent();
+                }
+            }
+
+            target_node.replace(replacement.shallow_copy());
         }
     }
 
@@ -831,6 +848,23 @@ namespace Nodecl
         {
             simple_replace(dest, src);
         }
+    }
+
+    Nodecl::NodeclBase Utils::skip_contexts_and_lists(
+            Nodecl::NodeclBase n)
+    {
+        while ((!n.is_null()) &&
+            (n.is<Nodecl::Context>() ||
+             n.is<Nodecl::List>()))
+        {
+            if (n.is<Nodecl::List>())
+                n = n.as<Nodecl::List>().front();
+            else if (n.is<Nodecl::Context>())
+                n = n.as<Nodecl::Context>().
+                    get_in_context();
+        }
+
+        return n;
     }
 
     bool Utils::is_in_list(Nodecl::NodeclBase n)
@@ -1437,7 +1471,9 @@ namespace Nodecl
         return result_array;
     }
 
-    bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& contained)
+    bool Utils::list_contains_nodecl_by_structure(
+            const TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained)
     {
         for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = container.begin();
                 it != container.end();
@@ -1450,6 +1486,24 @@ namespace Nodecl
         }
 
         return false;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase>::iterator
+        Utils::list_get_nodecl_by_structure(
+            TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained)
+    {
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = container.begin();
+                it != container.end();
+                it ++)
+        {
+            if (structurally_equal_nodecls(contained, *it, true))
+            {
+                return it;
+            }
+        }
+
+        return container.end();
     }
 
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_strings_as_expressions(

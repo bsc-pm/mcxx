@@ -1090,12 +1090,8 @@ namespace Optimizations {
                         lhs.get_constant(), rhs.get_constant())));
         }
 
-        std::cerr << "PRE: " << n.prettyprint() << std::endl;
-
         TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
         reduce_expr_visitor.walk(n);
-
-        std::cerr << "POST: " << n.prettyprint() << std::endl;
 
         if (n.is<Nodecl::Minus>())
         {

@@ -169,7 +169,8 @@ namespace Vectorization
         TL::ObjectList<Nodecl::NodeclBase> flags = 
             n.get_flags().as<Nodecl::List>().to_object_list();
 
-        bool aligned = Nodecl::Utils::list_contains_nodecl(
+        bool aligned =
+            Nodecl::Utils::list_contains_nodecl_by_structure(
                 flags, Nodecl::AlignedFlag());
 
         if (!aligned)

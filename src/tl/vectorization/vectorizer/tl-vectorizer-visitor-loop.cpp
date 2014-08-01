@@ -65,38 +65,10 @@ namespace Vectorization
         // LOOP BODY
         VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(for_statement.get_statement());
-
-        // Add cache it update to Compound Statement
-/*
-        if (!cache_it_update_pre.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .prepend(cache_it_update_pre);
-        }
-
-        if (!cache_it_update_post.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .append(cache_it_update_post);
-        }
-*/        
     }
 
     void VectorizerVisitorLoop::visit(const Nodecl::WhileStatement& while_statement)
     {
-/*
-        // CACHE: Before vectorizing!
-        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
-        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
-
-        // Vectorize Local Symbols
-        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-        visitor_local_symbol.walk(while_statement);
-*/
         // Vectorize Loop Header
         VectorizerVisitorLoopCond visitor_loop_cond(_environment);
         visitor_loop_cond.walk(while_statement.get_condition());
@@ -104,25 +76,6 @@ namespace Vectorization
         // LOOP BODY
         VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(while_statement.get_statement());
-
-        // Add cache it update to Compound Statement
-        /*
-        if (!cache_it_update_pre.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            while_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .prepend(cache_it_update_pre);
-        }
-
-        if (!cache_it_update_post.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            while_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .append(cache_it_update_post);
-        }
-        */
     }
 
 
@@ -428,9 +381,9 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_cond,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        Nodecl::CompoundStatement comp_statement = loop_statement.as<Nodecl::ForStatement>().
-            get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context().
-            as<Nodecl::List>().front().as<Nodecl::CompoundStatement>();
+        Nodecl::CompoundStatement comp_statement =
+            Nodecl::Utils::skip_contexts_and_lists(loop_statement.as<Nodecl::ForStatement>().
+            get_statement()).as<Nodecl::CompoundStatement>();
 
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);

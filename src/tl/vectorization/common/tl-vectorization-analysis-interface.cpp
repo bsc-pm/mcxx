@@ -539,7 +539,7 @@ namespace Vectorization
     bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,
             const Nodecl::NodeclBase& n,
-            const tl_sym_int_map_t& aligned_expressions,
+            const map_tl_sym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
             int unroll_factor, int alignment)
     {

@@ -737,7 +737,7 @@ namespace {
             {
                 wv.walk( *it );
                 ObjectList<Nodecl::NodeclBase> defined_syms = wv.get_defined_symbols( );
-                if( Nodecl::Utils::list_contains_nodecl( defined_syms, n ) )
+                if( Nodecl::Utils::list_contains_nodecl_by_structure( defined_syms, n ) )
                     it2 = it;
                 wv.clear( );
             }
@@ -749,7 +749,7 @@ namespace {
             for( ; it != stmts.end( ) && !result; ++it )
             {
                 TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
                     result = true;
             }
             }
@@ -777,7 +777,7 @@ namespace {
                     for( TL::ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ) && !result; ++it )
                     {
                         TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                        if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                        if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
                         {
                             result = true;
                             break;
