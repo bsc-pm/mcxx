@@ -4282,6 +4282,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorAlignRight& node)
+{
+    indent();
+    *(file) << "{(";
+
+    walk(node.get_left_vector());
+
+    *(file) << ", ";
+
+    walk(node.get_right_vector());
+
+    *(file) << ") >> ";
+
+    walk(node.get_num_elements());
+
+    *(file) << "}";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorConversion& node)
 {
     // Do nothing
