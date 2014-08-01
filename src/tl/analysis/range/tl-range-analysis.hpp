@@ -193,9 +193,16 @@ namespace Analysis {
         SSAVarToValue_map _constraints;
         NodeclList _ordered_constraints;
         
-        void compute_parameters_constraints();
-        void compute_constraints_rec(Node* n);
-        void propagate_constraints_from_back_edges(Node* n);
+        void compute_parameters_constraints(
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map);
+        void compute_constraints_rec(
+                Node* n, 
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+        void propagate_constraints_from_back_edges(
+                Node* n, 
+                std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
+                std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
         
     public:
         //! Constructor

@@ -347,7 +347,9 @@ namespace {
     //                                                : [al, au] ∪ [bl, bu]             -> cannot synthesize the result as a unique range
     NBase range_union(const NBase& r1, const NBase& r2)
     {
-        if(r1.is<Nodecl::Analysis::EmptyRange>() && r2.is<Nodecl::Analysis::EmptyRange>())
+        if(r1.is<Nodecl::Analysis::EmptyRange>())
+            return r2.shallow_copy();
+        if(r2.is<Nodecl::Analysis::EmptyRange>())
             return r1.shallow_copy();
         
         if (r1.is<Nodecl::Analysis::RangeIntersection>() || r1.is<Nodecl::Analysis::RangeUnion>() || 
