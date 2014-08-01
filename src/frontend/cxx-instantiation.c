@@ -61,7 +61,6 @@ static scope_entry_t* add_duplicate_member_to_class(
 
     new_member->entity_specs.is_member = 1;
     new_member->entity_specs.is_instantiable = 0;
-    new_member->entity_specs.is_defined_inside_class_specifier = 0;
     new_member->entity_specs.is_member_of_anonymous = 0;
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
@@ -244,6 +243,11 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     return new_member;
 }
 
+static void instantiate_nontemplate_member_class_of_template_class(
+        scope_entry_t* being_instantiated_sym,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus);
+
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
@@ -296,7 +300,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     type_t* t = advance_over_typedefs(new_member->type_information);
 
                     scope_entry_t* class_entry = named_type_get_symbol(t);
-                    instantiate_template_class_if_needed(class_entry, context_of_being_instantiated, locus);
+                    class_type_complete_if_needed(class_entry, context_of_being_instantiated, locus);
                 }
 
                 if (new_member->entity_specs.is_bitfield)
@@ -562,65 +566,27 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             {
                 if (!is_template_specialized_type(member_of_template->type_information))
                 {
-                    template_parameter_list_t* tpl_empty = xcalloc(1, sizeof(*tpl_empty));
-                    tpl_empty->enclosing = context_of_being_instantiated.template_parameters;
+                    scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                            being_instantiated,
+                            instantiation_symbol_map,
+                            member_of_template);
 
-                    decl_context_t new_context_of_being_instantiated = context_of_being_instantiated;
-                    new_context_of_being_instantiated.template_parameters = tpl_empty;
+                    new_member->type_information = get_new_class_type(
+                            context_of_being_instantiated,
+                            class_type_get_class_kind(member_of_template->type_information));
 
-                    scope_entry_t* new_fake_template_symbol = xcalloc(1, sizeof(*new_fake_template_symbol));
-                    new_fake_template_symbol->kind = SK_TEMPLATE;
-                    new_fake_template_symbol->symbol_name = member_of_template->symbol_name;
-                    new_fake_template_symbol->locus = member_of_template->locus;
-
-                    new_fake_template_symbol->entity_specs.is_member = 1;
-                    new_fake_template_symbol->entity_specs.class_type = being_instantiated;
-
-                    type_t* template_type = get_new_template_type(tpl_empty, 
-                            member_of_template->type_information, 
-                            member_of_template->symbol_name, 
-                            new_context_of_being_instantiated, 
-                            member_of_template->locus);
-
-                    new_fake_template_symbol->type_information = template_type;
-                    template_type_set_related_symbol(template_type, new_fake_template_symbol);
-
-                    scope_entry_t* primary_template = named_type_get_symbol(template_type_get_primary_type(template_type));
-                    primary_template->entity_specs.is_instantiable = 1;
-                    primary_template->entity_specs.is_member = 1;
-                    primary_template->entity_specs.class_type = being_instantiated;
-
-                    type_t* primary_specialization = primary_template->type_information;
-
-                    // Fix some bits inherited from the original class type
-                    class_type_set_enclosing_class_type(get_actual_class_type(primary_specialization),
+                    class_type_set_enclosing_class_type(
+                            get_actual_class_type(new_member->type_information),
                             get_actual_class_type(being_instantiated));
+                    set_is_complete_type(new_member->type_information,
+                            is_complete_type(member_of_template->type_information));
 
-                    set_is_complete_type(primary_specialization, is_complete_type(member_of_template->type_information));
-
-                    scope_entry_t* new_member = named_type_get_symbol(
-                            template_type_get_specialized_type(template_type,
-                                tpl_empty,
-                                new_context_of_being_instantiated,
-                                member_of_template->locus));
-
-                    insert_entry(context_of_being_instantiated.current_scope, new_member);
-
-                    new_member->entity_specs = member_of_template->entity_specs;
-                    new_member->entity_specs.is_member = 1;
-                    new_member->entity_specs.is_user_declared = 0;
-                    new_member->entity_specs.class_type = being_instantiated;
-
-                    class_type_add_member(get_actual_class_type(being_instantiated),
-                            new_member,
-                            member_of_template->defined);
-
-                    set_is_complete_type(new_member->type_information, 0);
-                    set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
+                    // Use this when completing this class
+                    new_member->entity_specs.emission_template = member_of_template;
 
                     if (new_member->entity_specs.is_anonymous_union)
                     {
-                        instantiate_template_class_if_needed(new_member, context_of_being_instantiated, locus);
+                        instantiate_nontemplate_member_class_of_template_class(new_member, context_of_being_instantiated, locus);
 
                         scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
 
@@ -751,7 +717,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             instantiation_symbol_map,
                             member_of_template);
 
-                    // FIXME - Maybe we should create also a 0-template like in classes?
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
@@ -764,6 +729,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     new_member->defined = 0;
                     new_member->entity_specs.function_code = nodecl_null();
+                    new_member->entity_specs.is_instantiable = 1;
                     new_member->entity_specs.emission_template = member_of_template;
 
                     // Hide all the default arguments (this is for codegen)
@@ -806,15 +772,19 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     if (new_member == NULL)
                         return;
 
-                    new_member->defined = 1;
-
                     // We work on the primary template
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
 
                     new_member->defined = primary_template_sym->defined;
+                    new_member->entity_specs.function_code = nodecl_null();
+                    new_member->entity_specs.is_instantiable = 1;
+                    new_member->entity_specs.emission_template = primary_template_sym;
                     new_member->entity_specs.is_inline = primary_template_sym->entity_specs.is_inline;
                     new_member->entity_specs.is_static = primary_template_sym->entity_specs.is_static;
+                    new_member->entity_specs.is_user_declared = primary_template_sym->entity_specs.is_user_declared;
+                    new_member->entity_specs.is_defined_inside_class_specifier
+                        = primary_template_sym->entity_specs.is_defined_inside_class_specifier;
                 }
 
                 DEBUG_CODE()
@@ -831,6 +801,15 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 new_member->entity_specs.is_copy_assignment_operator =
                     function_is_copy_assignment_operator(new_member, being_instantiated);
+
+                CXX11_LANGUAGE()
+                {
+                    new_member->entity_specs.is_move_constructor =
+                        function_is_move_constructor(new_member, being_instantiated);
+
+                    new_member->entity_specs.is_move_assignment_operator =
+                        function_is_move_assignment_operator(new_member, being_instantiated);
+                }
 
                 if (member_of_template->entity_specs.is_constructor)
                 {
@@ -1097,7 +1076,8 @@ static void instantiate_dependent_friend_function(
         if (!is_templ_funct_decl)
         {
             ERROR_CONDITION(is_dependent_type(new_type),
-                    "At this point, this type cannot be dependent\n", 0);
+                    "At this point, the type '%s' cannot be dependent\n",
+                    print_declarator(new_type));
 
             // 1.1 It's a qualified or unqualified template-id -> refers to a
             // specialization of a function template
@@ -1349,68 +1329,15 @@ static void instantiate_bases(
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus);
 
-static void instantiate_specialized_template_class(type_t* selected_template,
+static void instantiate_class_common(
+        scope_entry_t* being_instantiated_sym,
         type_t* being_instantiated,
-        template_parameter_list_t* template_arguments,
+        scope_entry_t* selected_template_sym,
+        type_t* selected_template,
+        instantiation_symbol_map_t* enclosing_instantiation_symbol_map,
+        decl_context_t inner_decl_context,
         const locus_t* locus)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n",
-                locus_to_str(locus),
-                print_declarator(being_instantiated),
-                print_declarator(selected_template));
-    }
-
-    ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
-
-    scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
-    scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
-
-    const char* instantiation_header = NULL;
-    uniquestr_sprintf(&instantiation_header,
-            "%s: info: while instantiating class '%s'\n",
-            locus_to_str(locus),
-            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
-    diagnostic_context_push_instantiation(instantiation_header);
-
-    // Update the template parameter with the deduced template parameters
-    decl_context_t instantiation_context = being_instantiated_sym->decl_context;
-
-    // But the selected_template might be a nested one in a dependent context so we must update
-    // the enclosing template arguments with those of the original class
-    ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
-
-    template_arguments->enclosing = being_instantiated_sym->decl_context.template_parameters->enclosing;
-
-    // Our instantiation context is ready
-    instantiation_context.template_parameters = template_arguments;
-
-    template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
-            instantiation_context.template_parameters);
-
-    decl_context_t inner_decl_context = new_class_context(instantiation_context, 
-            being_instantiated_sym);
-    if (inner_decl_context.template_parameters->num_parameters > 0)
-    {
-        // Only real template types can become explicit specializations
-        inner_decl_context.template_parameters->is_explicit_specialization = 1;
-    }
-
-    being_instantiated_sym->decl_context = instantiation_context;
-
-    class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
-
-    // From now this class acts as instantiated
-    being_instantiated_sym->entity_specs.is_instantiated = 1;
-
-    instantiation_symbol_map_t* enclosing_instantiation_symbol_map = NULL;
-    if (selected_template_sym->entity_specs.is_member)
-    {
-        scope_entry_t* enclosing_class = named_type_get_symbol(selected_template_sym->entity_specs.class_type);
-        enclosing_instantiation_symbol_map = enclosing_class->entity_specs.instantiation_symbol_map;
-    }
-
     instantiation_symbol_map_t* instantiation_symbol_map =
         instantiation_symbol_map_push(enclosing_instantiation_symbol_map);
     being_instantiated_sym->entity_specs.instantiation_symbol_map = instantiation_symbol_map;
@@ -1612,13 +1539,85 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 print_declarator(being_instantiated));
     }
 
+    // if (being_instantiated_sym->entity_specs.is_member)
+    // {
+    //     scope_entry_t* enclosing_class = named_type_get_symbol(being_instantiated_sym->entity_specs.class_type);
+    //     class_type_add_member(enclosing_class->type_information,
+    //             being_instantiated_sym,
+    //             /* is_definition */ 1);
+    // }
+}
+
+static void instantiate_specialized_template_class(type_t* selected_template,
+        type_t* being_instantiated,
+        template_parameter_list_t* template_arguments,
+        const locus_t* locus)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n",
+                locus_to_str(locus),
+                print_declarator(being_instantiated),
+                print_declarator(selected_template));
+    }
+
+    ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
+
+    scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
+    scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
+
+    const char* instantiation_header = NULL;
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating class '%s'\n",
+            locus_to_str(locus),
+            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
+    diagnostic_context_push_instantiation(instantiation_header);
+
+    // Update the template parameter with the deduced template parameters
+    decl_context_t instantiation_context = being_instantiated_sym->decl_context;
+
+    // But the selected_template might be a nested one in a dependent context so we must update
+    // the enclosing template arguments with those of the original class
+    ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
+
+    template_arguments->enclosing = being_instantiated_sym->decl_context.template_parameters->enclosing;
+
+    // Our instantiation context is ready
+    instantiation_context.template_parameters = template_arguments;
+
+    template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
+            instantiation_context.template_parameters);
+
+    decl_context_t inner_decl_context = new_class_context(instantiation_context, 
+            being_instantiated_sym);
+    if (inner_decl_context.template_parameters->num_parameters > 0)
+    {
+        // Only real template types can become explicit specializations
+        inner_decl_context.template_parameters->is_explicit_specialization = 1;
+    }
+
+    being_instantiated_sym->decl_context = instantiation_context;
+
+    class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
+
+    // From now this class acts as instantiated
+    being_instantiated_sym->entity_specs.is_instantiated = 1;
+
+    instantiation_symbol_map_t* enclosing_instantiation_symbol_map = NULL;
     if (selected_template_sym->entity_specs.is_member)
     {
         scope_entry_t* enclosing_class = named_type_get_symbol(selected_template_sym->entity_specs.class_type);
-        class_type_add_member(enclosing_class->type_information,
-                being_instantiated_sym,
-                /* is_definition */ 1);
+        enclosing_instantiation_symbol_map = enclosing_class->entity_specs.instantiation_symbol_map;
     }
+
+    instantiate_class_common(
+            being_instantiated_sym,
+            being_instantiated,
+            selected_template_sym,
+            selected_template,
+            enclosing_instantiation_symbol_map,
+            inner_decl_context,
+            locus);
 
     diagnostic_context_pop_and_commit();
 
@@ -1680,13 +1679,18 @@ static void instantiate_bases(
         if (is_error_type(upd_base_class_named_type))
             continue;
 
-        ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
-                print_type_str(upd_base_class_named_type, context_of_being_instantiated));
+        if (!is_class_type(upd_base_class_named_type))
+        {
+            error_printf("%s: error: type '%s' is not a class type\n",
+                    locus_to_str(locus),
+                    print_type_str(upd_base_class_named_type, context_of_being_instantiated));
+            continue;
+        }
 
         scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
 
         // If the entity (being an independent one) has not been completed, then instantiate it
-        instantiate_template_class_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
+        class_type_complete_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
         class_type_add_base_class(instantiated_class_type, upd_base_class_sym, 
                 is_virtual,
@@ -1701,9 +1705,8 @@ static void instantiate_bases(
     }
 }
 
-
-
-static type_t* solve_template_for_instantiation(scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER, 
+static type_t* solve_template_for_instantiation(scope_entry_t* entry,
+        decl_context_t decl_context UNUSED_PARAMETER,
         template_parameter_list_t** deduced_template_arguments,
         const locus_t* locus)
 {
@@ -1766,7 +1769,7 @@ static void instantiate_template_class(scope_entry_t* entry,
 
         ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
     }
-    
+
     if (selected_template == NULL)
         selected_template = solve_template_for_instantiation(entry, decl_context, &deduced_template_arguments, locus);
 
@@ -1774,26 +1777,148 @@ static void instantiate_template_class(scope_entry_t* entry,
     {
         if (is_incomplete_type(selected_template))
         {
-            error_printf("%s: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
+            error_printf("%s: instantiation of '%s' is not possible at this point since "
+                    "its most specialized template '%s' is incomplete\n",
                     locus_to_str(locus),
                     print_type_str(get_user_defined_type(entry), decl_context),
                     print_type_str(selected_template, decl_context));
             return;
         }
 
-        instantiate_specialized_template_class(selected_template, 
+        instantiate_specialized_template_class(selected_template,
                 get_user_defined_type(entry),
                 deduced_template_arguments, locus);
     }
     else
     {
-        error_printf("%s: instantiation of '%s' is not possible at this point\n", 
+        error_printf("%s: instantiation of '%s' is not possible at this point\n",
                 locus_to_str(locus), print_type_str(get_user_defined_type(entry), decl_context));
         return;
     }
 }
 
-char template_class_needs_to_be_instantiated(scope_entry_t* entry)
+static void instantiate_nontemplate_member_class_of_template_class(
+        scope_entry_t* being_instantiated_sym,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(being_instantiated_sym->kind != SK_CLASS
+            || !being_instantiated_sym->entity_specs.is_member,
+            "Invalid symbol", 0);
+    type_t* being_instantiated = get_user_defined_type(being_instantiated_sym);
+
+    scope_entry_t* selected_template_sym = being_instantiated_sym->entity_specs.emission_template;
+    ERROR_CONDITION(selected_template_sym == NULL
+            || selected_template_sym->kind != SK_CLASS, "Invalid emission template", 0);
+
+    type_t* selected_template = get_user_defined_type(selected_template_sym);
+
+    if (is_incomplete_type(selected_template))
+    {
+        error_printf("%s: instantiation of '%s' is not possible at this point since "
+                "its template '%s' is incomplete\n",
+                locus_to_str(locus),
+                print_type_str(being_instantiated, decl_context),
+                print_type_str(selected_template, decl_context));
+        return;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: %s: Instantiating class '%s' using '%s' as a template\n",
+                locus_to_str(locus),
+                print_declarator(being_instantiated),
+                print_declarator(selected_template));
+    }
+
+    being_instantiated_sym->entity_specs.emission_template = NULL;
+
+    decl_context_t instantiation_context = being_instantiated_sym->decl_context;
+
+    decl_context_t inner_decl_context = new_class_context(instantiation_context,
+            being_instantiated_sym);
+
+    class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
+
+    const char* instantiation_header = NULL;
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating class '%s'\n",
+            locus_to_str(locus),
+            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
+    diagnostic_context_push_instantiation(instantiation_header);
+
+    instantiation_symbol_map_t* enclosing_instantiation_symbol_map = NULL;
+    scope_entry_t* enclosing_class = named_type_get_symbol(being_instantiated_sym->entity_specs.class_type);
+    enclosing_instantiation_symbol_map = enclosing_class->entity_specs.instantiation_symbol_map;
+
+    instantiate_class_common(
+            being_instantiated_sym,
+            being_instantiated,
+            selected_template_sym,
+            selected_template,
+            enclosing_instantiation_symbol_map,
+            inner_decl_context,
+            locus);
+
+    diagnostic_context_pop_and_commit();
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
+                print_declarator(being_instantiated));
+    }
+}
+
+static char member_function_may_be_instantiated(scope_entry_t* entry)
+{
+    ERROR_CONDITION(!entry->entity_specs.is_member, "This function must be a member", 0);
+
+    if (is_template_specialized_type(entry->type_information))
+    {
+        entry =
+            named_type_get_symbol(
+                    template_type_get_primary_type(
+                        template_specialized_type_get_related_template_type(entry->type_information)));
+    }
+
+    return entry->entity_specs.is_instantiable
+        && entry->entity_specs.emission_template != NULL
+        && entry->entity_specs.emission_template->defined
+        && !nodecl_is_null(entry->entity_specs.emission_template->entity_specs.function_code);
+}
+
+static char nonmember_template_function_may_be_instantiated(scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_template_specialized_type(entry->type_information), "Function must be specialized", 0);
+
+    if (is_template_specialized_type(entry->type_information))
+    {
+        entry =
+            named_type_get_symbol(
+                    template_type_get_primary_type(
+                        template_specialized_type_get_related_template_type(entry->type_information)));
+    }
+
+    return entry->entity_specs.is_instantiable
+        && entry->entity_specs.emission_template != NULL
+        && entry->entity_specs.emission_template->defined
+        && !nodecl_is_null(entry->entity_specs.emission_template->entity_specs.function_code);
+}
+
+char function_may_be_instantiated(scope_entry_t* entry)
+{
+    if (entry->entity_specs.is_member)
+    {
+        return member_function_may_be_instantiated(entry);
+    }
+    else if (is_template_specialized_type(entry->type_information))
+    {
+        return nonmember_template_function_may_be_instantiated(entry);
+    }
+    return 0;
+}
+
+static char template_class_needs_to_be_instantiated(scope_entry_t* entry)
 {
     return (class_type_is_incomplete_independent(entry->type_information) // it is independent incomplete
             && !entry->entity_specs.is_instantiated); // and we need to instantiated at this point
@@ -1826,6 +1951,39 @@ char instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t
         return 0;
 
     instantiate_template_class(entry, decl_context, selected_template, deduced_template_arguments, locus);
+
+    return 1;
+}
+
+void instantiate_nontemplate_member_class_if_needed(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(entry->kind != SK_CLASS
+            || !entry->entity_specs.is_member,
+            "Invalid symbol", 0);
+
+    if (entry->entity_specs.emission_template == NULL)
+        return;
+
+    instantiate_nontemplate_member_class_of_template_class(entry, decl_context, locus);
+}
+
+char instantiate_nontemplate_member_class_if_possible(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(entry->kind != SK_CLASS
+            || !entry->entity_specs.is_member,
+            "Invalid symbol", 0);
+
+    if (entry->entity_specs.emission_template == NULL)
+        return 1;
+
+    if (is_incomplete_type(entry->entity_specs.emission_template->type_information))
+        return 0;
+
+    instantiate_nontemplate_member_class_of_template_class(entry, decl_context, locus);
 
     return 1;
 }
@@ -1945,23 +2103,25 @@ static void prepend_def(AST it, scope_entry_t* entry)
 
 static void prepend_decl(AST it, scope_entry_t* entry)
 {
-    nodecl_t current_list_item = _nodecl_wrap(it);
-    nodecl_t prev_list_item = nodecl_get_child(current_list_item, 0);
+    {
+        nodecl_t current_list_item = _nodecl_wrap(it);
+        nodecl_t prev_list_item = nodecl_get_child(current_list_item, 0);
 
-    decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
-    templated_context.template_parameters = entry->decl_context.template_parameters;
+        decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
+        templated_context.template_parameters = entry->decl_context.template_parameters;
 
-    nodecl_t new_decl = nodecl_make_cxx_decl(
-            nodecl_make_context(
-                nodecl_null(),
-                templated_context,
-                entry->locus),
-            entry,
-            entry->locus);
-    nodecl_t new_list_item = nodecl_make_list_1(new_decl);
+        nodecl_t new_decl = nodecl_make_cxx_decl(
+                nodecl_make_context(
+                    nodecl_null(),
+                    templated_context,
+                    entry->locus),
+                entry,
+                entry->locus);
+        nodecl_t new_list_item = nodecl_make_list_1(new_decl);
 
-    nodecl_set_child(new_list_item, 0, prev_list_item);
-    nodecl_set_child(current_list_item, 0, new_list_item);
+        nodecl_set_child(new_list_item, 0, prev_list_item);
+        nodecl_set_child(current_list_item, 0, new_list_item);
+    }
 
     if (entry->entity_specs.is_member)
     {
@@ -2093,7 +2253,6 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
             "Invalid symbol", 0);
     ERROR_CONDITION(!is_template_specialized_type(entry->type_information),
             "This is not a specialized function", 0);
-
     ERROR_CONDITION(!nodecl_is_null(entry->entity_specs.function_code),
             "Attempting to instantiate a specialized function apparently already instantiated", 0);
 
@@ -2108,8 +2267,18 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
     type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
 
+    // Cannot be instantiated
     if (!primary_specialization_function->defined)
         return 0;
+
+    scope_entry_t* emission_template =
+        primary_specialization_function->entity_specs.emission_template;
+    ERROR_CONDITION(emission_template == NULL, "Function lacks emission template", 0);
+    if (!emission_template->defined)
+        return 0;
+
+    nodecl_t orig_function_code = emission_template->entity_specs.function_code;
+    ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
 
     DEBUG_CODE()
     {
@@ -2118,12 +2287,6 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
                 print_type_str(entry->type_information, entry->decl_context),
                 locus_to_str(entry->locus));
     }
-
-    nodecl_t orig_function_code = primary_specialization_function->entity_specs.function_code;
-
-    ERROR_CONDITION(nodecl_is_null(orig_function_code), "Invalid function code", 0);
-
-    // ast_dump_graphviz(nodecl_get_ast(orig_function_code), stderr);
 
     instantiation_symbol_map_t* instantiation_symbol_map = NULL;
     if (entry->entity_specs.is_member)
@@ -2145,6 +2308,9 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
 
     entry->entity_specs.function_code = instantiated_function_code;
     entry->defined = 1;
+    entry->entity_specs.is_instantiated = 1;
+    entry->entity_specs.is_instantiable = 0;
+    entry->entity_specs.is_user_declared = 1;
 
     DEBUG_CODE()
     {
@@ -2155,7 +2321,7 @@ static char instantiate_true_template_function(scope_entry_t* entry, const locus
     return 1;
 }
 
-static char instantiate_nontemplate_member_of_template_class(scope_entry_t* entry, const locus_t* locus)
+static char instantiate_nontemplate_member_function_of_template_class(scope_entry_t* entry, const locus_t* locus)
 {
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
             "Invalid symbol", 0);
@@ -2166,17 +2332,11 @@ static char instantiate_nontemplate_member_of_template_class(scope_entry_t* entr
 
     entry->locus = locus;
 
-    scope_entry_t* emission_template = 
+    scope_entry_t* emission_template =
         entry->entity_specs.emission_template;
 
-    // ERROR_CONDITION(emission_template == NULL,
-    //         "Invalid nontemplate member function", 0);
-
-    if (emission_template == NULL)
-    {
-        fprintf(stderr, "Function lacks emission template = %s\n", get_qualified_symbol_name(entry, entry->decl_context));
-        return 0;
-    }
+    ERROR_CONDITION(emission_template == NULL,
+            "Invalid nontemplate member function", 0);
 
     // Cannot be instantiated
     if (!emission_template->defined)
@@ -2210,6 +2370,9 @@ static char instantiate_nontemplate_member_of_template_class(scope_entry_t* entr
 
     entry->entity_specs.function_code = instantiated_function_code;
     entry->defined = 1;
+    entry->entity_specs.is_instantiated = 1;
+    entry->entity_specs.is_instantiable = 0;
+    entry->entity_specs.is_user_declared = 1;
 
     DEBUG_CODE()
     {
@@ -2246,7 +2409,7 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
             "Invalid symbol", 0);
 
-    if (entry->defined)
+    if (entry->entity_specs.is_instantiated)
         return 0;
 
     int i;
@@ -2279,15 +2442,23 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
 
     char was_instantiated = 0;
 
-    if (is_template_specialized_type(entry->type_information))
+    if (!entry->entity_specs.is_member
+            && is_template_specialized_type(entry->type_information)
+            && nonmember_template_function_may_be_instantiated(entry))
     {
         was_instantiated = instantiate_true_template_function(entry, locus);
     }
     else if (entry->entity_specs.is_member
-                && is_template_specialized_type(
-                    named_type_get_symbol(entry->entity_specs.class_type)->type_information))
+            && member_function_may_be_instantiated(entry))
     {
-        was_instantiated = instantiate_nontemplate_member_of_template_class(entry, locus);
+        if (is_template_specialized_type(entry->type_information))
+        {
+            was_instantiated = instantiate_true_template_function(entry, locus);
+        }
+        else
+        {
+            was_instantiated = instantiate_nontemplate_member_function_of_template_class(entry, locus);
+        }
     }
     else
     {
@@ -2296,59 +2467,6 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
 
     if (was_instantiated)
     {
-        entry->entity_specs.is_user_declared = 1;
-        entry->entity_specs.is_defined_inside_class_specifier = 0;
-
-        if (entry->entity_specs.is_member)
-        {
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
-
-            if (!is_template_specialized_type(entry->type_information))
-            {
-                template_parameter_list_t* tpl = class_symbol->decl_context.template_parameters;
-                while (tpl != NULL
-                        && tpl->num_parameters == 0)
-                {
-                    tpl = tpl->enclosing;
-                }
-
-                if (tpl != NULL)
-                    tpl = tpl->enclosing;
-
-                entry->decl_context.template_parameters = copy_template_parameters(tpl);
-            }
-            else
-            {
-                entry->decl_context.template_parameters =
-                    copy_template_parameters(class_symbol->decl_context.template_parameters);
-                if (entry->decl_context.template_parameters != NULL)
-                    entry->decl_context.template_parameters->enclosing = NULL;
-
-                scope_entry_t* primary_sym =
-                    named_type_get_symbol(
-                            template_type_get_primary_type(
-                                template_specialized_type_get_related_template_type(entry->type_information)));
-
-                primary_sym->entity_specs.is_user_declared = 1;
-                primary_sym->entity_specs.is_defined_inside_class_specifier = 0;
-            }
-
-
-        }
-        else
-        {
-            entry->decl_context.template_parameters =
-                copy_template_parameters(entry->decl_context.template_parameters);
-        }
-
-        template_parameter_list_t* tpl = entry->decl_context.template_parameters;
-        while (tpl != NULL)
-        {
-            if (tpl->num_parameters > 0)
-                tpl->is_explicit_specialization = 1;
-            tpl = tpl->enclosing;
-        }
-
         if (!entry->entity_specs.is_inline)
         {
             gcc_attribute_t gcc_attr = { uniquestr("weak"), nodecl_null() };
@@ -2356,6 +2474,31 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
                     entry->entity_specs.num_gcc_attributes,
                     gcc_attr,
                     compare_gcc_attribute);
+        }
+        entry->decl_context.template_parameters = copy_template_parameters(entry->decl_context.template_parameters);
+
+        template_parameter_list_t* tpl = entry->decl_context.template_parameters;
+
+        if (is_template_specialized_type(entry->type_information))
+        {
+            if (tpl != NULL)
+            {
+                tpl->is_explicit_specialization = 1;
+                tpl = tpl->enclosing;
+            }
+        }
+
+        while (tpl != NULL)
+        {
+            tpl->is_explicit_instantiation = 1;
+            tpl = tpl->enclosing;
+        }
+
+        if (entry->entity_specs.is_member
+                && entry->entity_specs.is_defined_inside_class_specifier
+                && !entry->entity_specs.is_defaulted)
+        {
+            entry->entity_specs.is_defined_inside_class_specifier = 0;
         }
     }
 
@@ -2372,7 +2515,6 @@ static void instantiate_template_function_and_add_to_instantiation_units(scope_e
         const locus_t* locus UNUSED_PARAMETER)
 {
     char was_instantiated = instantiate_template_function_internal(entry, locus);
-
     if (was_instantiated)
     {
         nodecl_instantiation_units = nodecl_append_to_list(
@@ -2381,18 +2523,18 @@ static void instantiate_template_function_and_add_to_instantiation_units(scope_e
     }
 }
 
-static void instantiate_template_function_if_needed(scope_entry_t* entry, const locus_t* locus)
-{
-    instantiate_template_function_and_add_to_instantiation_units(entry, locus);
-}
-
+// This function eventually may have to "instantiate" data, for the moment
+// it only instantiates functions
 static void instantiate_every_symbol(scope_entry_t* entry,
         const locus_t* locus)
 {
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
-        instantiate_template_function_if_needed(entry, locus);
+        if (function_may_be_instantiated(entry))
+        {
+            instantiate_template_function_and_add_to_instantiation_units(entry, locus);
+        }
     }
 }
 
@@ -2401,24 +2543,11 @@ void instantiate_template_function(scope_entry_t* entry, const locus_t* locus)
     instantiate_template_function_internal(entry, locus);
 }
 
-void instantiate_template_function_and_integrate_in_translation_unit(scope_entry_t* entry, const locus_t* locus)
+void instantiate_template_function_and_integrate_in_translation_unit(
+        scope_entry_t* entry UNUSED_PARAMETER,
+        const locus_t* locus UNUSED_PARAMETER)
 {
-    char instantiated = instantiate_template_function_internal(entry, locus);
-
-    if (!instantiated)
-        return;
-
-    nodecl_t top_level = CURRENT_COMPILED_FILE->nodecl;
-    nodecl_t list = nodecl_get_child(top_level, 0);
-
-    add_forward_declaration_to_top_level(&list, entry);
-
-    if (!nodecl_is_null(entry->entity_specs.function_code))
-    {
-        list = nodecl_append_to_list(list, entry->entity_specs.function_code);
-    }
-
-    nodecl_set_child(top_level, 0, list);
+    internal_error("This function should not be called anymore", 0);
 }
 
 // Instantiation map

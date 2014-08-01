@@ -475,14 +475,10 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
 
     add_associated_scope(koenig_info, outer_namespace);
 
-    if (is_template_specialized_type(named_type_get_symbol(type_info)->type_information)
-            && is_incomplete_type(named_type_get_symbol(type_info)->type_information))
-    {
-        instantiate_template_class_if_possible(
-                named_type_get_symbol(type_info),
-                named_type_get_symbol(type_info)->decl_context,
-                locus);
-    }
+    class_type_complete_if_possible(
+            named_type_get_symbol(type_info),
+            named_type_get_symbol(type_info)->decl_context,
+            locus);
 
     add_associated_class(koenig_info, class_symbol);
 

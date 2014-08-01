@@ -49,6 +49,7 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
+#include "cxx-diagnostic.h"
 #include "cxx-ast.h"
 /*!if C99*/
 #include "c99-parser-internal.h"
@@ -492,7 +493,7 @@ type {
 
 		if (!found)
 		{
-			fprintf(stderr, "%s:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf("%s:%d: warning: unknown '#pragma %s'\n", 
 					scanning_now.current_filename,
 					scanning_now.line_number,
 					yytext);
@@ -774,7 +775,7 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf("%s:%d: warning: unended custom clause. Skipping.\n",
                 scanning_now.current_filename,
                 scanning_now.line_number);
     }
@@ -964,7 +965,7 @@ type {
     {
         if (extern_c_block)
         {
-            fprintf(stderr, "%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf("%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
                     scanning_now.current_filename,
                     scanning_now.line_number);
         }
@@ -1795,13 +1796,13 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        fprintf(stderr, "%s:%d: warning: unknown character '%c' (%#x). Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character '%c' (%#x)\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext, *yytext);
     }
     else
     {
-        fprintf(stderr, "%s:%d: warning: unknown character %#x. Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character %#x\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext);
     }
@@ -1984,7 +1985,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    fprintf(stderr, "Warning, directive or construct "
+                    warn_printf("Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);

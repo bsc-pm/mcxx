@@ -1633,8 +1633,6 @@ src_tl_omp_base_libtlomp_base_la_SOURCES = \
    src/tl/omp/base/tl-omp-base.cpp \
    src/tl/omp/base/tl-omp-base-task.hpp \
    src/tl/omp/base/tl-omp-base-task.cpp \
-   src/tl/omp/base/tl-omp-base-instantiation.hpp \
-   src/tl/omp/base/tl-omp-base-instantiation.cpp \
    $(END)
 
 ##########################################################################
