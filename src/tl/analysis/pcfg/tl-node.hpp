@@ -423,7 +423,7 @@ namespace Analysis {
             PCFGPragmaInfo get_pragma_node_info( );
 
             //! Set info to an OmpSs node: pragma type and associated clauses
-            void set_pragma_node_info( PCFGPragmaInfo pragma );
+            void set_pragma_node_info( const PCFGPragmaInfo& pragma );
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned

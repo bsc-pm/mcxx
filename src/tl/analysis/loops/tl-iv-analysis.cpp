@@ -91,7 +91,7 @@ namespace {
                         || (lhs.is<Nodecl::ArraySubscript>()
                             && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(), rhs.get_locus());
+                NBase new_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type(), rhs.get_locus());
                 iv = st_.get_lhs();
                 incr = new_rhs;
                 is_iv = true;

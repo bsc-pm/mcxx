@@ -508,7 +508,6 @@ namespace {
         }
 
         NBase target_dep_in;
-        NBase target_dep_in_alloca;
         NBase target_dep_out;
         NBase target_dep_inout;
         for (Nodecl::List::iterator it = task_target_env.begin();
