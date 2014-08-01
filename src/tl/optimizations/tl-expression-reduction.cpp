@@ -1059,5 +1059,293 @@ namespace Optimizations {
         }
     }
 
+    UnitaryReductor::UnitaryReductor()
+    {
+    }
+
+    bool UnitaryReductor::is_leaf_node(
+            const Nodecl::NodeclBase& n)
+    {
+        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::Mul>() ||
+                n.is<Nodecl::Div>() || n.is<Nodecl::Mod>())
+            return true;
+
+        return false;
+    }
+
+    void UnitaryReductor::reduce(
+            const Nodecl::Minus& n)
+    {
+        Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
+        Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+
+        UnitaryDecomposer decomp;
+        _unitary_rhss = decomp.walk(rhs);
+
+        walk(n.get_lhs());
+
+        if (rhs.is_constant() && lhs.is_constant())
+        {
+            n.replace(const_value_to_nodecl(const_value_sub(
+                        lhs.get_constant(), rhs.get_constant())));
+        }
+
+        std::cerr << "PRE: " << n.prettyprint() << std::endl;
+
+        TL::Optimizations::ReduceExpressionVisitor reduce_expr_visitor;
+        reduce_expr_visitor.walk(n);
+
+        std::cerr << "POST: " << n.prettyprint() << std::endl;
+
+        if (n.is<Nodecl::Minus>())
+        {
+            lhs = n.get_lhs().no_conv();
+            rhs = n.get_rhs().no_conv();
+
+            if (rhs.is_constant() && lhs.is_constant())
+            {
+                n.replace(const_value_to_nodecl(const_value_sub(
+                                lhs.get_constant(), rhs.get_constant())));
+            }
+        }
+
+        _unitary_rhss.clear();
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Conversion& n)
+    {
+        //TODO
+        bool is_symbol_pre = n.get_nest().is<Nodecl::Symbol>();
+
+        walk(n.get_nest());
+
+        bool is_integer_post = n.get_nest().is<Nodecl::IntegerLiteral>();
+
+        if (is_symbol_pre && is_integer_post)
+            n.replace(n.get_nest());
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Add& n)
+    {
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+
+        if (is_leaf_node(lhs))
+        {
+            TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                Nodecl::Utils::list_get_nodecl_by_structure(
+                        _unitary_rhss, lhs);
+
+            if (it != _unitary_rhss.end())
+            {
+                n.replace(rhs);
+                it->replace(const_value_to_nodecl(
+                            const_value_get_zero(1, 4)));
+                _unitary_rhss.erase(it);
+            }
+        }
+        else
+        {
+            walk(lhs);
+
+            if (is_leaf_node(rhs))
+            {
+                TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                    Nodecl::Utils::list_get_nodecl_by_structure(
+                            _unitary_rhss, rhs);
+
+                if (it != _unitary_rhss.end())
+                {
+                    n.replace(lhs);
+                    it->replace(const_value_to_nodecl(
+                                const_value_get_zero(1, 4)));
+                    _unitary_rhss.erase(it);
+                }
+            }
+            else
+            {
+                walk(rhs);
+            }
+        }
+
+        if (rhs.is_constant() && lhs.is_constant())
+        {
+            n.replace(const_value_to_nodecl(const_value_add(
+                        lhs.get_constant(), rhs.get_constant())));
+        }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Minus& n)
+    {
+        Nodecl::NodeclBase lhs = n.get_lhs();
+        Nodecl::NodeclBase rhs = n.get_rhs();
+
+        if (rhs.is_constant() && lhs.is_constant())
+        {
+            n.replace(const_value_to_nodecl(const_value_sub(
+                        lhs.get_constant(), rhs.get_constant())));
+        }
+
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Mul& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+            Nodecl::Utils::list_get_nodecl_by_structure(
+                    _unitary_rhss, n);
+
+        if (it != _unitary_rhss.end())
+        {
+            n.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            it->replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            _unitary_rhss.erase(it);
+
+        }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Div& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+            Nodecl::Utils::list_get_nodecl_by_structure(
+                    _unitary_rhss, n);
+
+        if (it != _unitary_rhss.end())
+        {
+            n.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            it->replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            _unitary_rhss.erase(it);
+
+        }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Mod& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+            Nodecl::Utils::list_get_nodecl_by_structure(
+                    _unitary_rhss, n);
+
+        if (it != _unitary_rhss.end())
+        {
+            n.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            it->replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            _unitary_rhss.erase(it);
+
+        }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::Symbol& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+            Nodecl::Utils::list_get_nodecl_by_structure(
+                    _unitary_rhss, n);
+
+        if (it != _unitary_rhss.end())
+        {
+            n.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            it->replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            _unitary_rhss.erase(it);
+
+        }
+    }
+
+    void UnitaryReductor::visit(const Nodecl::IntegerLiteral& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+            Nodecl::Utils::list_get_nodecl_by_structure(
+                    _unitary_rhss, n);
+
+        if (it != _unitary_rhss.end())
+        {
+            n.replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            it->replace(const_value_to_nodecl(
+                        const_value_get_zero(1, 4)));
+            _unitary_rhss.erase(it);
+        }
+    }
+
+    void UnitaryReductor::unhandled_node(
+            const Nodecl::NodeclBase& n)
+    {
+        internal_error("UnitaryReductor: Unhandled node type '%s'\n",
+                ast_print_node_type(n.get_kind()));
+ 
+        return Ret();
+    }
+
+    UnitaryDecomposer::UnitaryDecomposer()
+    {
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Conversion& n)
+    {
+        //TODO
+        n.replace(n.get_nest());
+        return walk(n);
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Add& n)
+    {
+        return walk(n.get_lhs()).append(walk(n.get_rhs()));
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Minus& n)
+    {
+        return walk(n.get_lhs()).append(walk(n.get_rhs()));
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Mul& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        result.append(n);
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Div& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        result.append(n);
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Mod& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        result.append(n);
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Symbol& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        result.append(n);
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::IntegerLiteral& n)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> result;
+        result.append(n);
+        return result;
+    }
+
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::unhandled_node(
+            const Nodecl::NodeclBase& n)
+    {
+        internal_error("UnitaryDecomposer: Unhandled node type '%s'\n",
+                ast_print_node_type(n.get_kind()));
+ 
+        return Ret();
+    }
+ 
 }
 }
