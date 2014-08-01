@@ -49,18 +49,24 @@ namespace TL
         class LIBHLT_CLASS LoopUnroll : public Transform
         {
             private:
-                Nodecl::NodeclBase _tree;
-                int _factor;
+                Nodecl::NodeclBase _loop, _transformation, _unrolled, _epilog;
+                int _unroll_factor;
             public:
                 //! Creates a LoopUnroll object
-                /*!
-                  \param for_stmt Regular loop
-                  \param factor Number of times this loop is unrolled
-                 */
-                LoopUnroll(Nodecl::NodeclBase for_stmt, unsigned int factor);
+                LoopUnroll();
 
-                virtual bool check(bool diagnostic);
-                virtual void transform();
+                // Properties
+                LoopUnroll& set_loop(Nodecl::NodeclBase loop);
+                LoopUnroll& set_unroll_factor(int n);
+
+                // Action
+                void unroll();
+
+                // Results
+                Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
+
+                Nodecl::NodeclBase get_unrolled_loop() const { return _unrolled; }
+                Nodecl::NodeclBase get_epilog_loop() const { return _epilog; }
         };
 
         //! @}

@@ -2139,7 +2139,7 @@ HLT_ANALYSIS_CFLAGS= \
 			  -I $(srcdir)/src/tl/analysis/tdg \
 			  $(END)
 
-HLT_ANALYSIS_LIBADD = src/tl/analysis/interface/libanalysis_interface.la
+HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
 
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
 			  -I $(srcdir)/src/tl/omp/core \
@@ -2757,6 +2757,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config/00.config.plain \
        config/10.config.analysis-base \
+       config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
        config/40.config.cuda \
