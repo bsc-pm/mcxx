@@ -7909,7 +7909,7 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
 
             nodecl_t nodecl_current = nodecl_null();
             compute_nodecl_name_from_unqualified_id(
-                    ASTSon0(nested_name),
+                    nested_name,
                     decl_context,
                     &nodecl_current);
 

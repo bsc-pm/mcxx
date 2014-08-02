@@ -4729,7 +4729,7 @@ nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandl
 
 nested_name_specifier_0 : class_or_namespace_name
 {
- 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+    $$ = $1;
 }
 ;
 
@@ -4740,8 +4740,7 @@ nested_name_specifier_1 : nested_name_specifier_0
 | TEMPLATE template_id
 {
     ast_set_text($2, "template ");
-
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, NULL, ast_get_locus($2), NULL);
+    $$ = $2;
 }
 ;
 
