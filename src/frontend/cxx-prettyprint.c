@@ -1339,7 +1339,7 @@ static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
     if (ASTSon1(a) != NULL)
     {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
+        sequence_handler(f, ASTSon1(a), pt_ctx);
     }
 
     prettyprint_level(f, ASTSon2(a), pt_ctx);

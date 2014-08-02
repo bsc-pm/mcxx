@@ -7894,29 +7894,35 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_nested = nodecl_null();
-    AST nested_it = nested_part;
-    while (nested_it != NULL)
+
+    if (nested_part != NULL)
     {
-        nodecl_t current = nodecl_null();
-        if (ASTType(nested_it) == AST_AMBIGUITY)
+        if (ASTType(nested_part) == AST_AMBIGUITY)
         {
-            solve_ambiguous_nested_part(nested_it, decl_context);
+            solve_ambiguous_nested_part(nested_part, decl_context);
         }
 
-        AST nested_name = ASTSon0(nested_it);
-        compute_nodecl_name_from_unqualified_id(nested_name, 
-                decl_context,
-                &current);
-
-        if (nodecl_is_err_expr(current))
+        AST it;
+        for_each_element(nested_part, it)
         {
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(nested_part));
-            return;
-        }
+            AST nested_name = ASTSon1(it);
 
-        nodecl_nested = nodecl_append_to_list(nodecl_nested, current);
-        nested_it = ASTSon1(nested_it);
+            nodecl_t nodecl_current = nodecl_null();
+            compute_nodecl_name_from_unqualified_id(
+                    ASTSon0(nested_name),
+                    decl_context,
+                    &nodecl_current);
+
+            if (nodecl_is_err_expr(nodecl_current))
+            {
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(nested_part));
+                return;
+            }
+
+            nodecl_nested = nodecl_append_to_list(nodecl_nested, nodecl_current);
+        }
     }
+    
     *nodecl_output = nodecl_nested;
 }
 
