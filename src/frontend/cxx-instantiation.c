@@ -1548,6 +1548,28 @@ static void instantiate_class_common(
     // }
 }
 
+struct instantiate_class_header_message_fun_data_tag
+{
+    type_t* being_instantiated;
+    scope_entry_t* being_instantiated_sym;
+    const locus_t* locus;
+};
+
+static const char* instantiate_class_header_message_fun(void* v)
+{
+    const char* instantiation_header = NULL;
+
+    struct instantiate_class_header_message_fun_data_tag* p =
+        (struct instantiate_class_header_message_fun_data_tag*)v;
+
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating class '%s'\n",
+            locus_to_str(p->locus),
+            print_type_str(p->being_instantiated, p->being_instantiated_sym->decl_context));
+
+    return instantiation_header;
+}
+
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
         template_parameter_list_t* template_arguments,
@@ -1566,11 +1588,16 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
     scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
 
-    const char* instantiation_header = NULL;
-    uniquestr_sprintf(&instantiation_header,
-            "%s: info: while instantiating class '%s'\n",
-            locus_to_str(locus),
-            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
+    header_message_fun_t instantiation_header;
+    instantiation_header.message_fun = instantiate_class_header_message_fun;
+    {
+        struct instantiate_class_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        p->being_instantiated = being_instantiated;
+        p->being_instantiated_sym = being_instantiated_sym;
+        p->locus = locus;
+        instantiation_header.data = p;
+    }
+
     diagnostic_context_push_instantiation(instantiation_header);
 
     // Update the template parameter with the deduced template parameters
@@ -1840,11 +1867,15 @@ static void instantiate_nontemplate_member_class_of_template_class(
 
     class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
 
-    const char* instantiation_header = NULL;
-    uniquestr_sprintf(&instantiation_header,
-            "%s: info: while instantiating class '%s'\n",
-            locus_to_str(locus),
-            print_type_str(being_instantiated, being_instantiated_sym->decl_context));
+    header_message_fun_t instantiation_header;
+    instantiation_header.message_fun = instantiate_class_header_message_fun;
+    {
+        struct instantiate_class_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        p->being_instantiated = being_instantiated;
+        p->being_instantiated_sym = being_instantiated_sym;
+        p->locus = locus;
+        instantiation_header.data = p;
+    }
     diagnostic_context_push_instantiation(instantiation_header);
 
     instantiation_symbol_map_t* enclosing_instantiation_symbol_map = NULL;
@@ -2404,6 +2435,28 @@ static template_parameter_list_t* copy_template_parameters(template_parameter_li
     return res;
 }
 
+struct instantiate_function_header_message_fun_data_tag
+{
+    scope_entry_t* entry;
+    const locus_t* locus;
+};
+
+static const char* instantiate_function_header_message_fun(void* v)
+{
+    const char* instantiation_header = NULL;
+    struct instantiate_function_header_message_fun_data_tag* p =
+        (struct instantiate_function_header_message_fun_data_tag*)v;
+
+    uniquestr_sprintf(&instantiation_header,
+            "%s: info: while instantiating function '%s'\n",
+            locus_to_str(p->locus),
+            print_decl_type_str(p->entry->type_information,
+                p->entry->decl_context,
+                get_qualified_symbol_name(p->entry, p->entry->decl_context)));
+
+    return instantiation_header;
+}
+
 static char instantiate_template_function_internal(scope_entry_t* entry, const locus_t* locus)
 {
     ERROR_CONDITION(entry == NULL || entry->kind != SK_FUNCTION,
@@ -2431,13 +2484,15 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-    const char* instantiation_header = NULL;
-    uniquestr_sprintf(&instantiation_header,
-            "%s: info: while instantiating function '%s'\n",
-            locus_to_str(locus),
-            print_decl_type_str(entry->type_information,
-                entry->decl_context,
-                get_qualified_symbol_name(entry, entry->decl_context)));
+
+    header_message_fun_t instantiation_header;
+    instantiation_header.message_fun = instantiate_function_header_message_fun;
+    {
+        struct instantiate_function_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+        p->entry = entry;
+        p->locus = locus;
+        instantiation_header.data = p;
+    }
     diagnostic_context_push_instantiation(instantiation_header);
 
     char was_instantiated = 0;
