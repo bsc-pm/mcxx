@@ -7671,7 +7671,7 @@ char is_pointer_to_member_type(type_t* t)
 }
 
 
-char is_named_type(type_t* t)
+extern inline char is_named_type(type_t* t)
 {
     return (t != NULL
             && t->kind == TK_DIRECT
@@ -7688,7 +7688,7 @@ char is_indirect_type(type_t* t)
             && t->type->user_defined_type != NULL);
 }
 
-scope_entry_t* named_type_get_symbol(type_t* t)
+extern inline scope_entry_t* named_type_get_symbol(type_t* t)
 {
     ERROR_CONDITION(!is_named_type(t), "This is not a named type\n", 0);
 
