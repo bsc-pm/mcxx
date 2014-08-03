@@ -12914,6 +12914,66 @@ static char find_function_declaration(AST declarator_id,
                 internal_error("Code unreachable", 0);
             }
 
+            type_t* considered_type = considered_symbol->type_information;
+            type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
+
+            if (IS_CXX_LANGUAGE
+                    && considered_symbol->entity_specs.is_member)
+            {
+                /*
+                   Make sure the two types look like the same
+
+                   template <typename T>
+                   struct B { };
+                   template <typename T>
+                   struct A
+                   {
+                      typename B<T>::S foo(); // (1)
+                      typedef B<T>::S Q;
+                   };
+
+                   template <typename T>
+                   typename A<T>::Q A<T>::foo() { } // (2)
+
+                   Note that in (2), 'typename A<T>::Q' is actually 'typename
+                   B<T>::S', but the syntactic nature of a dependent typename
+                   hinders us from claiming that they are the same.
+
+                   We can only discover that this is so if we contextually
+                   advance the types of the two declarations (note that it is
+                   not always that (2) must be advanced, sometimes (1) must be
+                   advanced too). This means that we can examine uninstantiated
+                   templates only if they belong to the class of the member
+                   function being declared (i.e. we can examine inside A<T>
+                   because we are declaring A<T>::foo).
+
+                   This process is performed in fix_dependent_typenames_in_context,
+                   this way we avoid passing a context to equivalent_types
+               */
+
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+                considered_type =
+                    fix_dependent_typenames_in_context(considered_type,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+                function_type_being_declared_advanced_to_context =
+                    fix_dependent_typenames_in_context(function_type_being_declared,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+            }
+
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
@@ -12924,8 +12984,6 @@ static char find_function_declaration(AST declarator_id,
                         print_declarator(considered_symbol->type_information)
                        );
             }
-
-            type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
             if (entry->kind == SK_TEMPLATE)
             {
@@ -12943,7 +13001,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
 
@@ -13008,13 +13066,13 @@ static char find_function_declaration(AST declarator_id,
             {
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
-                        function_type_being_declared,
+                        function_type_being_declared_advanced_to_context,
                         considered_type,
                         entry->decl_context);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         function_matches = 0;

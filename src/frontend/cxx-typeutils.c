@@ -5767,8 +5767,6 @@ extern inline type_t* advance_over_typedefs(type_t* t1)
         return t1;
 }
 
-static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_t decl_context);
-
 /*
  * States if two types are equivalent. This means that they are the same
  * (ignoring typedefs). Just plain comparison, no standard conversion is
@@ -5785,6 +5783,7 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
+#if 0
     if (is_dependent_typename_type(t1))
     {
         t1 = advance_dependent_typename_if_in_context(t1, decl_context);
@@ -5793,6 +5792,7 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     {
         t2 = advance_dependent_typename_if_in_context(t2, decl_context);
     }
+#endif
 
     if (t1->kind != t2->kind)
     {
@@ -6341,7 +6341,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl
 
 static const char* get_template_parameters_list_str(template_parameter_list_t* template_parameters);
 
-static type_t* rebuild_advanced_dependent_type(
+static type_t* rebuild_advanced_dependent_typename(
         type_t* original_type,
         scope_entry_t* advanced_member,
         int nested_name_index,
@@ -6606,7 +6606,7 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
             }
 
-            type_t* result = rebuild_advanced_dependent_type(original_type, 
+            type_t* result = rebuild_advanced_dependent_typename(original_type, 
                     current_member, 
                     0, num_items,
                     dep_parts);
@@ -6621,7 +6621,7 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
             }
 
-            type_t* result = rebuild_advanced_dependent_type(original_type, 
+            type_t* result = rebuild_advanced_dependent_typename(original_type, 
                     current_member, 
                     0, num_items,
                     dep_parts);
@@ -6657,7 +6657,7 @@ static type_t* advance_dependent_typename_aux(
                 {
                     fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
                 }
-                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                type_t* result = rebuild_advanced_dependent_typename(original_type, 
                         current_member, 
                         0, num_items,
                         dep_parts);
@@ -6682,7 +6682,7 @@ static type_t* advance_dependent_typename_aux(
                     fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
                 }
 
-                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                type_t* result = rebuild_advanced_dependent_typename(original_type, 
                         current_member, 
                         0, num_items,
                         dep_parts);
@@ -6701,7 +6701,7 @@ static type_t* advance_dependent_typename_aux(
                     fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
                 }
 
-                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                type_t* result = rebuild_advanced_dependent_typename(original_type, 
                         current_member, 
                         0, num_items,
                         dep_parts);
@@ -6729,7 +6729,7 @@ static type_t* advance_dependent_typename_aux(
                     fprintf(stderr, "TYPEUTILS: Somehow when requesting a specialization nothing was returned");
                 }
 
-                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                type_t* result = rebuild_advanced_dependent_typename(original_type, 
                         current_member, 
                         0, num_items,
                         dep_parts);
@@ -6746,7 +6746,7 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
             }
 
-            type_t* result = rebuild_advanced_dependent_type(original_type, 
+            type_t* result = rebuild_advanced_dependent_typename(original_type, 
                     current_member, 
                     0, num_items,
                     dep_parts);
@@ -6754,7 +6754,7 @@ static type_t* advance_dependent_typename_aux(
             return result;
         }
 
-        type_t* result = rebuild_advanced_dependent_type(
+        type_t* result = rebuild_advanced_dependent_typename(
                 original_type, 
                 current_member, 
                 1, num_items,
@@ -6843,6 +6843,231 @@ static type_t* advance_dependent_typename_if_in_context(type_t* t, decl_context_
     }
 
     return result;
+}
+
+static char type_contains_a_dependent_typename(type_t* t)
+{
+    if (t == NULL)
+        return 0;
+
+    if (is_dependent_typename_type(t))
+    {
+        return 1;
+    }
+    else if (is_named_type(t)
+        && is_template_specialized_type(named_type_get_symbol(t)->type_information))
+    {
+        return type_contains_a_dependent_typename(named_type_get_symbol(t)->type_information);
+    }
+    else if (is_template_specialized_type(t))
+    {
+        template_parameter_list_t* tpl = template_specialized_type_get_template_arguments(t);
+
+        int i;
+        for (i = 0; i < tpl->num_parameters; i++)
+        {
+            if (type_contains_a_dependent_typename(tpl->arguments[i]->type))
+                return 1;
+        }
+    }
+    else if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
+    {
+        return type_contains_a_dependent_typename(no_ref(t));
+    }
+    else if (is_pointer_type(t))
+    {
+        return type_contains_a_dependent_typename(pointer_type_get_pointee_type(t));
+    }
+    else if (is_array_type(t))
+    {
+        return type_contains_a_dependent_typename(array_type_get_element_type(t));
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        return type_contains_a_dependent_typename(pointer_to_member_type_get_class_type(t))
+            || type_contains_a_dependent_typename(pointer_type_get_pointee_type(t));
+    }
+    else if (is_pack_type(t))
+    {
+        return type_contains_a_dependent_typename(pack_type_get_packed_type(t));
+    }
+    else if (is_function_type(t))
+    {
+        type_t* return_type = function_type_get_return_type(t);
+        if (type_contains_a_dependent_typename(return_type))
+            return 1;
+
+        int num_types = function_type_get_num_parameters(t);
+
+        char has_ellipsis = function_type_get_has_ellipsis(t);
+        if (has_ellipsis)
+            num_types--;
+
+        int i;
+        for (i = 0; i < num_types; i++)
+        {
+            type_t* param_type = function_type_get_parameter_type_num(t, i);
+
+            if (type_contains_a_dependent_typename(param_type))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
+static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    if (t == NULL)
+        return NULL;
+
+    cv_qualifier_t cv_qualif_orig = CV_NONE;
+    advance_over_typedefs_with_cv_qualif(t, &cv_qualif_orig);
+
+    type_t* result = t;
+
+    if (is_dependent_typename_type(t))
+    {
+        result = advance_dependent_typename_if_in_context(t, decl_context);
+    }
+    else if (is_named_type(t)
+        && is_template_specialized_type(named_type_get_symbol(t)->type_information))
+    {
+        result = rebuild_type_advancing_dependent_typenames(
+            named_type_get_symbol(t)->type_information,
+                decl_context, locus);
+    }
+    else if (is_template_specialized_type(t))
+    {
+        template_parameter_list_t* fixed_tpl = duplicate_template_argument_list(
+                template_specialized_type_get_template_arguments(t)
+                );
+
+        int i;
+        for (i = 0; i < fixed_tpl->num_parameters; i++)
+        {
+            fixed_tpl->arguments[i]->type = rebuild_type_advancing_dependent_typenames(
+                    fixed_tpl->arguments[i]->type,
+                    decl_context,
+                    locus);
+        }
+
+        // Reask a new specialization
+        result = template_type_get_specialized_type(
+                template_specialized_type_get_related_template_type(t),
+                fixed_tpl,
+                decl_context,
+                locus);
+    }
+    else if (is_lvalue_reference_type(t))
+    {
+        type_t* fixed_type = rebuild_type_advancing_dependent_typenames(
+                no_ref(t),
+                decl_context,
+                locus);
+
+        result = get_lvalue_reference_type(fixed_type);
+    }
+    else if(is_rvalue_reference_type(t))
+    {
+        type_t* fixed_type = rebuild_type_advancing_dependent_typenames(
+                no_ref(t),
+                decl_context,
+                locus);
+
+        result = get_rvalue_reference_type(fixed_type);
+    }
+    else if (is_pointer_type(t))
+    {
+        type_t* fixed_type = rebuild_type_advancing_dependent_typenames(
+                pointer_type_get_pointee_type(t),
+                decl_context,
+                locus);
+
+        result = get_pointer_type(fixed_type);
+    }
+    else if (is_array_type(t))
+    {
+        type_t* fixed_type = rebuild_type_advancing_dependent_typenames(
+                array_type_get_element_type(t),
+                decl_context,
+                locus);
+
+        result = get_array_type(fixed_type,
+                array_type_get_array_size_expr(t),
+                array_type_get_array_size_expr_context(t));
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        type_t* fixed_class_type = rebuild_type_advancing_dependent_typenames(
+                pointer_to_member_type_get_class_type(t),
+                decl_context,
+                locus);
+        type_t* fixed_pointee = rebuild_type_advancing_dependent_typenames(
+                pointer_type_get_pointee_type(t),
+                decl_context,
+                locus);
+
+        result = get_pointer_to_member_type(
+                fixed_pointee,
+                fixed_class_type);
+    }
+    else if (is_pack_type(t))
+    {
+        return get_pack_type(
+                rebuild_type_advancing_dependent_typenames(
+                    pack_type_get_packed_type(t),
+                    decl_context,
+                    locus));
+    }
+    else if (is_function_type(t))
+    {
+        type_t* fixed_return_type = rebuild_type_advancing_dependent_typenames(
+                function_type_get_return_type(t),
+                decl_context,
+                locus);
+
+        int N = function_type_get_num_parameters(t), P = N;
+
+        parameter_info_t param_info[N+1];
+        memset(param_info, 0, sizeof(param_info));
+
+        if (function_type_get_has_ellipsis(t))
+        {
+            param_info[N-1].is_ellipsis = 1;
+            param_info[N-1].type_info = get_ellipsis_type();
+            param_info[N-1].nonadjusted_type_info = NULL;
+            P = N - 1;
+        }
+
+        int i;
+        for (i = 0; i < P; i++)
+        {
+            type_t* fixed_param_type = rebuild_type_advancing_dependent_typenames(
+                    function_type_get_parameter_type_num(t, i),
+                    decl_context,
+                    locus);
+            param_info[i].type_info = fixed_param_type;
+        }
+
+        result = get_new_function_type(fixed_return_type, param_info, N, function_type_get_ref_qualifier(t));
+    }
+
+    result = get_cv_qualified_type(result, cv_qualif_orig);
+
+    return result;
+}
+
+type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus)
+{
+    if (!type_contains_a_dependent_typename(t))
+        return t;
+
+    type_t* rebuilt_type = rebuild_type_advancing_dependent_typenames(t, decl_context, locus);
+    return rebuilt_type;
 }
 
 static char syntactic_comparison_of_one_dependent_part(

@@ -263,6 +263,10 @@ LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compu
 
 /* Type comparison functions */
 LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_context_t decl_context);
+
+/* Fixes dependent typenames in types so they can be compared without context */
+LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus);
+
 // This one uses the global context of the current compiled file
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
