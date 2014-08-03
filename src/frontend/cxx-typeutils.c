@@ -487,10 +487,6 @@ struct type_tag
     // (all types)
     type_t* unqualified_type;
 
-    // For parameter types, if not null it means some adjustement was done
-    // (all types)
-    type_t* original_type;
-
     // Pointer
     // (kind == TK_POINTER)
     // (kind == TK_POINTER_TO_MEMBER)
