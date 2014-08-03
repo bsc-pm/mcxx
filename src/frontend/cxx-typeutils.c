@@ -681,19 +681,19 @@ size_t get_type_t_size(void)
 }
 
 // Forward declarations of functions used during structural type equivalence
-static char equivalent_simple_types(type_t *t1, type_t *t2, decl_context_t decl_context);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, decl_context_t decl_context);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, decl_context_t decl_context);
-static char equivalent_function_type(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl_context_t decl_context);
-static char compare_template_dependent_typename_types(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_context_t decl_context);
-static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char equivalent_builtin_type(type_t* t1, type_t *t2, decl_context_t decl_context);
+static char equivalent_simple_types(type_t *t1, type_t *t2);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
+static char equivalent_function_type(type_t* t1, type_t* t2);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2);
+static char compare_template_dependent_typename_types(type_t* t1, type_t* t2);
+static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2);
+static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2);
+static char equivalent_vector_type(type_t* t1, type_t* t2);
+static char equivalent_builtin_type(type_t* t1, type_t *t2);
 
-static char equivalent_pack_types(type_t* t1, type_t *t2, decl_context_t decl_context);
-static char equivalent_sequence_types(type_t* t1, type_t *t2, decl_context_t decl_context);
+static char equivalent_pack_types(type_t* t1, type_t *t2);
+static char equivalent_sequence_types(type_t* t1, type_t *t2);
 
 
 long long unsigned int type_system_used_memory(void)
@@ -1453,8 +1453,7 @@ type_t* get_indirect_type(scope_entry_t* entry)
 
 static char same_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
-        template_parameter_list_t* template_parameter_list_2,
-        decl_context_t decl_context);
+        template_parameter_list_t* template_parameter_list_2);
 
 static int compare_dependent_parts(const void *v1, const void *v2)
 {
@@ -1551,9 +1550,7 @@ static int compare_dependent_parts(const void *v1, const void *v2)
 
                         if (!same_template_argument_list(
                                     tpl1,
-                                    tpl2,
-                                    // Cannot get a better context at this point
-                                    CURRENT_COMPILED_FILE->global_decl_context))
+                                    tpl2))
                         {
                             if (tpl1->num_parameters < tpl2->num_parameters)
                             {
@@ -2241,8 +2238,7 @@ type_t* template_type_get_primary_type(type_t* t)
 
 static char same_template_argument_list(
         template_parameter_list_t* template_parameter_list_1,
-        template_parameter_list_t* template_parameter_list_2,
-        decl_context_t decl_context)
+        template_parameter_list_t* template_parameter_list_2)
 {
     if (template_parameter_list_1->num_parameters !=
             template_parameter_list_2->num_parameters)
@@ -2264,9 +2260,9 @@ static char same_template_argument_list(
             case TPK_TYPE:
             case TPK_TEMPLATE:
                 {
-                    if (!equivalent_types_in_context(
+                    if (!equivalent_types(
                                 targ_1->type,
-                                targ_2->type, decl_context))
+                                targ_2->type))
                     {
                         return 0;
                     }
@@ -2571,8 +2567,7 @@ static type_t* template_type_get_identical_specialized_type(type_t* t,
 }
 
 static type_t* template_type_get_equivalent_specialized_type(type_t* t,
-        template_parameter_list_t* template_parameters,
-        decl_context_t decl_context)
+        template_parameter_list_t* template_parameters)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
@@ -2600,7 +2595,7 @@ static type_t* template_type_get_equivalent_specialized_type(type_t* t,
                     locus_to_str(entry->locus));
         }
 
-        if (same_template_argument_list(template_parameters, specialization_template_parameters, decl_context))
+        if (same_template_argument_list(template_parameters, specialization_template_parameters))
         {
             DEBUG_CODE()
             {
@@ -2642,8 +2637,7 @@ static type_t* template_type_get_specialized_type_(
     }
 
     type_t* equivalent_match = template_type_get_equivalent_specialized_type(t,
-            template_arguments,
-            decl_context);
+            template_arguments);
 
     scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
 
@@ -5772,8 +5766,7 @@ extern inline type_t* advance_over_typedefs(type_t* t1)
  * (ignoring typedefs). Just plain comparison, no standard conversion is
  * performed. cv-qualifiers are relevant for comparison
  */
-char equivalent_types_in_context(type_t* t1, type_t* t2,
-        decl_context_t decl_context)
+extern inline char equivalent_types(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
 
@@ -5782,17 +5775,6 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
-
-#if 0
-    if (is_dependent_typename_type(t1))
-    {
-        t1 = advance_dependent_typename_if_in_context(t1, decl_context);
-    }
-    if (is_dependent_typename_type(t2))
-    {
-        t2 = advance_dependent_typename_if_in_context(t2, decl_context);
-    }
-#endif
 
     if (t1->kind != t2->kind)
     {
@@ -5804,30 +5786,30 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     switch (t1->kind)
     {
         case TK_DIRECT :
-            result = equivalent_simple_types(t1, t2, decl_context);
+            result = equivalent_simple_types(t1, t2);
             break;
         case TK_POINTER :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_LVALUE_REFERENCE :
         case TK_RVALUE_REFERENCE :
         case TK_REBINDABLE_REFERENCE :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_POINTER_TO_MEMBER :
-            result = equivalent_pointer_to_member_type(t1, t2, decl_context);
+            result = equivalent_pointer_to_member_type(t1, t2);
             break;
         case TK_ARRAY :
-            result = equivalent_array_type(t1->array, t2->array, decl_context);
+            result = equivalent_array_type(t1->array, t2->array);
             break;
         case TK_FUNCTION :
-            result = equivalent_function_type(t1, t2, decl_context);
+            result = equivalent_function_type(t1, t2);
             break;
         case TK_PACK:
-            result = equivalent_pack_types(t1, t2, decl_context);
+            result = equivalent_pack_types(t1, t2);
             break;
         case TK_SEQUENCE:
-            result = equivalent_sequence_types(t1, t2, decl_context);
+            result = equivalent_sequence_types(t1, t2);
             break;
         case TK_AUTO:
         case TK_ERROR:
@@ -5847,12 +5829,7 @@ char equivalent_types_in_context(type_t* t1, type_t* t2,
     return result;
 }
 
-char equivalent_types(type_t* t1, type_t* t2)
-{
-    return equivalent_types_in_context(t1, t2, CURRENT_COMPILED_FILE->global_decl_context);
-}
-
-static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_context_t decl_context)
+static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
     if (s1->entity_specs.is_template_parameter
             || s2->entity_specs.is_template_parameter)
@@ -5905,7 +5882,7 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
        if (s1 == s2)
           return 1;
 
-       return equivalent_types_in_context(s1->type_information, s2->type_information, decl_context);
+       return equivalent_types(s1->type_information, s2->type_information);
     }
 }
 
@@ -5938,7 +5915,7 @@ static char same_template_type(type_t* t1, type_t* t2)
     return 0;
 }
 
-char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_context)
+static char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
 {
     simple_type_t* t1 = p_t1->type;
     simple_type_t* t2 = p_t2->type;
@@ -5952,7 +5929,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
     switch (t1->kind)
     {
         case STK_BUILTIN_TYPE :
-            result = equivalent_builtin_type(p_t1, p_t2, decl_context);
+            result = equivalent_builtin_type(p_t1, p_t2);
             break;
         case STK_CLASS :
             {
@@ -5962,7 +5939,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
                 {
                     template_parameter_list_t* tpl1= template_specialized_type_get_template_arguments(p_t1);
                     template_parameter_list_t* tpl2= template_specialized_type_get_template_arguments(p_t2);
-                    result = same_template_argument_list(tpl1, tpl2, decl_context);
+                    result = same_template_argument_list(tpl1, tpl2);
                 }
                 else
                 {
@@ -5980,10 +5957,10 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             break;
         case STK_INDIRECT :
             result = equivalent_named_types(t1->user_defined_type, 
-                    t2->user_defined_type, decl_context);
+                    t2->user_defined_type);
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
-            result = compare_template_dependent_typename_types(p_t1, p_t2, decl_context);
+            result = compare_template_dependent_typename_types(p_t1, p_t2);
             break;
         case STK_TYPEOF :
             C_LANGUAGE()
@@ -5998,10 +5975,9 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             break;
         case STK_UNDERLYING:
             {
-                result = equivalent_types_in_context(
+                result = equivalent_types(
                         t1->underlying_type,
-                        t2->underlying_type,
-                        decl_context);
+                        t2->underlying_type);
             }
             break;
         case STK_VA_LIST :
@@ -6009,10 +5985,10 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
             result = 1;
             break;
         case STK_COMPLEX:
-            return equivalent_types_in_context(t1->complex_element, t2->complex_element, decl_context);
+            return equivalent_types(t1->complex_element, t2->complex_element);
             break;
         case STK_VECTOR:
-            return equivalent_vector_type(p_t1, p_t2, decl_context);
+            return equivalent_vector_type(p_t1, p_t2);
         case STK_MASK:
             return mask_type_get_num_bits(p_t1) == mask_type_get_num_bits(p_t2);
         case STK_TYPE_DEP_EXPR:
@@ -6027,7 +6003,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2, decl_context_t decl_con
     return result;
 }
 
-char equivalent_builtin_type(type_t* p_t1, type_t *p_t2, decl_context_t decl_context UNUSED_PARAMETER)
+char equivalent_builtin_type(type_t* p_t1, type_t *p_t2)
 {
     simple_type_t* t1 = p_t1->type;
     simple_type_t* t2 = p_t2->type;
@@ -6093,22 +6069,22 @@ char equivalent_builtin_type(type_t* p_t1, type_t *p_t2, decl_context_t decl_con
     return 1;
 }
 
-static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2, decl_context_t decl_context)
+static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2)
 {
     return equivalent_pointer_type(t1->pointer, 
-            t2->pointer, decl_context)
-        && equivalent_types_in_context(t1->pointer->pointee_class_type, 
-                t2->pointer->pointee_class_type, decl_context);
+            t2->pointer)
+        && equivalent_types(t1->pointer->pointee_class_type, 
+                t2->pointer->pointee_class_type);
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, decl_context_t decl_context)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
 {
-    return equivalent_types_in_context(t1->pointee, t2->pointee, decl_context);
+    return equivalent_types(t1->pointee, t2->pointee);
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, decl_context_t decl_context)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
 {
-    if (!equivalent_types_in_context(t1->element_type, t2->element_type, decl_context))
+    if (!equivalent_types(t1->element_type, t2->element_type))
         return 0;
 
     if (!nodecl_is_null(t1->whole_size)
@@ -6156,15 +6132,14 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, decl_conte
     return 1;
 }
 
-static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context)
+static char equivalent_vector_type(type_t* t1, type_t* t2)
 {
     // This mimics gcc behaviour
-    return ((equivalent_types_in_context(t1->type->vector_element, t2->type->vector_element, decl_context)))
+    return ((equivalent_types(t1->type->vector_element, t2->type->vector_element)))
         && (t1->type->vector_size == t2->type->vector_size);
 }
 
-static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, type_t* ft2,
-        decl_context_t decl_context)
+static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, type_t* ft2)
 {
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
@@ -6180,12 +6155,12 @@ static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, typ
         // This path reveals some error but let ignore it
         return 0;
     }
-    else if (!equivalent_types_in_context(t1->return_type, t2->return_type, decl_context))
+    else if (!equivalent_types(t1->return_type, t2->return_type))
     {
         return 0;
     }
 
-    if (!compatible_parameters(t1, t2, decl_context))
+    if (!compatible_parameters(t1, t2))
         return 0;
 
     if (t1->ref_qualifier != t2->ref_qualifier)
@@ -6197,9 +6172,9 @@ static char equivalent_function_types_may_differ_ref_qualifier_(type_t* ft1, typ
     return 1;
 }
 
-static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t decl_context)
+static char equivalent_function_type(type_t* ft1, type_t* ft2)
 {
-    if (!equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context))
+    if (!equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2))
         return 0;
 
     function_info_t* t1 = ft1->function;
@@ -6211,26 +6186,24 @@ static char equivalent_function_type(type_t* ft1, type_t* ft2, decl_context_t de
     return 1;
 }
 
-char equivalent_function_types_may_differ_ref_qualifier(type_t* ft1, type_t* ft2,
-        decl_context_t decl_context)
+char equivalent_function_types_may_differ_ref_qualifier(type_t* ft1, type_t* ft2)
 {
     ERROR_CONDITION(!is_function_type(ft1) || !is_function_type(ft2), "Invalid types", 0);
 
     ft1 = advance_over_typedefs(ft1);
     ft2 = advance_over_typedefs(ft2);
 
-    return equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2, decl_context);
+    return equivalent_function_types_may_differ_ref_qualifier_(ft1, ft2);
 }
 
 
-char equivalent_pack_types(type_t* t1, type_t *t2, decl_context_t decl_context)
+char equivalent_pack_types(type_t* t1, type_t *t2)
 {
-    return equivalent_types_in_context(t1->pack_type->packed,
-            t2->pack_type->packed,
-            decl_context);
+    return equivalent_types(t1->pack_type->packed,
+            t2->pack_type->packed);
 }
 
-char equivalent_sequence_types(type_t* t1, type_t *t2, decl_context_t decl_context)
+char equivalent_sequence_types(type_t* t1, type_t *t2)
 {
     if (t1->sequence_type->num_types != t2->sequence_type->num_types)
         return 0;
@@ -6238,9 +6211,8 @@ char equivalent_sequence_types(type_t* t1, type_t *t2, decl_context_t decl_conte
     int i;
     for (i = 0; i < t1->sequence_type->num_types; i++)
     {
-        if (!equivalent_types_in_context(t1->sequence_type->types[i],
-                    t2->sequence_type->types[i],
-                    decl_context))
+        if (!equivalent_types(t1->sequence_type->types[i],
+                    t2->sequence_type->types[i]))
             return 0;
     }
 
@@ -6253,7 +6225,7 @@ char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
     return (cv1 == cv2);
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl_context_t decl_context)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 {
     if (t1->num_parameters != t2->num_parameters)
         return 0;
@@ -6275,7 +6247,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl
         type_t* par1 = get_cv_qualified_type(t1->parameter_list[i]->type_info, CV_NONE);
         type_t* par2 = get_cv_qualified_type(t2->parameter_list[i]->type_info, CV_NONE);
 
-        if (!equivalent_types_in_context(par1, par2, decl_context))
+        if (!equivalent_types(par1, par2))
         {
             // They are not equivalent types.
             //
@@ -6297,7 +6269,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl
                 type_t* array_type = (par1->kind == TK_ARRAY) ? par1 : par2;
                 type_t* pointer_type = (par1->kind == TK_POINTER) ? par1 : par2;
 
-                if (!equivalent_types_in_context(array_type->array->element_type, pointer_type->pointer->pointee, decl_context))
+                if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee))
                 {
                     still_compatible = 0;
                 }
@@ -6323,7 +6295,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, decl
                 }
                 else
                 {
-                    if (!equivalent_types_in_context(pointer_type->pointer->pointee, function_type, decl_context))
+                    if (!equivalent_types(pointer_type->pointer->pointee, function_type))
                     {
                         still_compatible = 0;
                     }
@@ -7072,8 +7044,7 @@ type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_contex
 
 static char syntactic_comparison_of_one_dependent_part(
         nodecl_t dependent_part_1,
-        nodecl_t dependent_part_2,
-        decl_context_t decl_context)
+        nodecl_t dependent_part_2)
 {
     if (nodecl_get_kind(dependent_part_1) != 
             nodecl_get_kind(dependent_part_2))
@@ -7124,7 +7095,7 @@ static char syntactic_comparison_of_one_dependent_part(
     if (template_parameter_list_1 != NULL)
     {
         if (!same_template_argument_list(template_parameter_list_1,
-                    template_parameter_list_2, decl_context))
+                    template_parameter_list_2))
         {
             DEBUG_CODE()
             {
@@ -7139,8 +7110,7 @@ static char syntactic_comparison_of_one_dependent_part(
 
 static char syntactic_comparison_of_dependent_parts(
         nodecl_t dependent_parts_1,
-        nodecl_t dependent_parts_2,
-        decl_context_t decl_context)
+        nodecl_t dependent_parts_2)
 {
     DEBUG_CODE()
     {
@@ -7199,7 +7169,7 @@ static char syntactic_comparison_of_dependent_parts(
         nodecl_t item1 = list1[i];
         nodecl_t item2 = list2[i];
 
-        if (!syntactic_comparison_of_one_dependent_part(item1, item2, decl_context))
+        if (!syntactic_comparison_of_one_dependent_part(item1, item2))
         {
             xfree(list1);
             xfree(list2);
@@ -7216,7 +7186,7 @@ static char syntactic_comparison_of_dependent_parts(
     return 1;
 }
 
-static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2, decl_context_t decl_context)
+static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
     // It is likely that in these contrived cases users will use a typedef
     // to help themselves so most of the time this fast path will be fired
@@ -7295,7 +7265,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
             type_to_compare_2 = dependent_entry_2->type_information;
         }
 
-        if (!equivalent_types_in_context(type_to_compare_1, type_to_compare_2, decl_context))
+        if (!equivalent_types(type_to_compare_1, type_to_compare_2))
         {
             DEBUG_CODE()
             {
@@ -7305,7 +7275,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         }
     }
 
-    return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2, decl_context);
+    return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
 }
 
 char is_builtin_type(type_t* t)
@@ -12622,17 +12592,13 @@ static char covariant_return(type_t* overrided_type, type_t* virtual_type)
 
 char function_type_can_override(type_t* potential_overrider, type_t* function_type)
 {
-    return compatible_parameters(potential_overrider->function, function_type->function, 
-            // FIXME - May we need the proper context?
-            CURRENT_COMPILED_FILE->global_decl_context)
+    return compatible_parameters(potential_overrider->function, function_type->function)
         && covariant_return(potential_overrider, function_type);
 }
 
 char function_type_same_parameter_types_and_cv_qualif(type_t* t1, type_t* t2)
 {
-    return compatible_parameters(t1->function, t2->function, 
-            // FIXME - May we need the proper context?
-            CURRENT_COMPILED_FILE->global_decl_context)
+    return compatible_parameters(t1->function, t2->function)
         && get_cv_qualifier(t1) == get_cv_qualifier(t2);
 }
 

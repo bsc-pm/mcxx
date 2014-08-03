@@ -7239,8 +7239,8 @@ static char exists_constructor_with_same_characteristics(
     return 0;
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type);
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type);
 
 static void declare_constructors_for_candidate_constructor(
         type_t* candidate_constructor_type,
@@ -7270,17 +7270,15 @@ static void declare_constructors_for_candidate_constructor(
 
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)
+                        inherited_constructor->entity_specs.class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)))
+                        inherited_constructor->entity_specs.class_type)))
             return;
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)
+                        class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)))
+                        class_type)))
             return;
     }
     // Similarly, for each constructor template in the candidate set of
@@ -12616,10 +12614,9 @@ static char same_template_parameter_list(
         if (template_parameter_list_1->parameters[i]->kind == TPK_NONTYPE)
         {
             // Check both types
-            if (!equivalent_types_in_context(
+            if (!equivalent_types(
                         template_parameter_list_1->parameters[i]->entry->type_information,
-                        template_parameter_list_2->parameters[i]->entry->type_information,
-                        decl_context))
+                        template_parameter_list_2->parameters[i]->entry->type_information))
             {
                 return 0;
             }
@@ -13067,8 +13064,7 @@ static char find_function_declaration(AST declarator_id,
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
                         function_type_being_declared_advanced_to_context,
-                        considered_type,
-                        entry->decl_context);
+                        considered_type);
 
                 CXX11_LANGUAGE()
                 {
@@ -16205,10 +16201,9 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //  operator=(cv T&)
         //  operator=(T)
         if ((is_lvalue_reference_type(first_parameter)
-                    && equivalent_types_in_context(class_type,
-                        get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                        entry->decl_context))
-                || (equivalent_types_in_context(class_type, first_parameter, entry->decl_context)))
+                    && equivalent_types(class_type,
+                        get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
+                || equivalent_types(class_type, first_parameter))
         {
             return 1;
         }
@@ -16228,9 +16223,8 @@ char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //
         //  operator=(cv T&&)
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16238,7 +16232,7 @@ char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_ty
     return 0;
 }
 
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16259,9 +16253,8 @@ static char function_is_copy_constructor_types(type_t* function_type, type_t* cl
         // A(A&, X = x);
 
         if (is_lvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16273,10 +16266,10 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_copy_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_copy_constructor_types(entry->type_information, class_type));
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16297,9 +16290,8 @@ static char function_is_move_constructor_types(type_t* function_type, type_t* cl
         // A(A&&, X = x);
 
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16311,7 +16303,7 @@ char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_move_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_move_constructor_types(entry->type_information, class_type));
 }
 
 static char is_virtual_destructor(type_t* class_type)

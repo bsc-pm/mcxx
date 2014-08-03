@@ -1027,10 +1027,10 @@ static char same_type_conversion(scope_entry_t* entry, void *p)
     {
         struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
         type_t* t = same_info->t;
-        decl_context_t decl_context = same_info->decl_context;
+        // decl_context_t decl_context = same_info->decl_context;
 
         type_t* conversion_type = function_type_get_return_type(entry->type_information);
-        return equivalent_types_in_context(conversion_type, t, decl_context);
+        return equivalent_types(conversion_type, t);
     }
     else if (entry->kind == SK_TEMPLATE)
     {

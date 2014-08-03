@@ -261,20 +261,16 @@ LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size_bits);
 
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
-/* Type comparison functions */
-LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_context_t decl_context);
-
 /* Fixes dependent typenames in types so they can be compared without context */
 LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus);
 
-// This one uses the global context of the current compiled file
+/* Type comparison functions */
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 // Compares two function types ignoring ref qualifiers
 LIBMCXX_EXTERN char equivalent_function_types_may_differ_ref_qualifier(
-        type_t* ft1, type_t* ft2,
-        decl_context_t decl_context);
+        type_t* ft1, type_t* ft2);
 
 /* Modifiers used when the type is still being built */
 
