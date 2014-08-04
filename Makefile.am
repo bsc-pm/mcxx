@@ -1812,6 +1812,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-flush.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-atomic.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-target.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-nanox-ocl-intrinsics.cpp \
 								 src/tl/omp/nanox-nodecl/tl-parallel-spawn.cpp \
 								 src/tl/omp/nanox-nodecl/tl-loop-spawn-worksharing.cpp \
 								 src/tl/omp/nanox-nodecl/tl-loop-spawn-slicer.cpp \
