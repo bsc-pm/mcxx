@@ -117,34 +117,10 @@ namespace Utils {
     };
     
     typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
     
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
-    
-    
-    
-    // ******************************************************************************************* //
-    // ************************* Range analysis methods and definitions ************************** //
-    
-    /*! A Range Expression has the following form:
-     * RE := r | X | n x X | E + E
-     *       |   |     |       |_ range addition
-     *       |   |     |_________ scalar multiplication
-     *       |   |_______________ range variable
-     *       |___________________ range constant
-     */
-    union RangeValue_tag {
-        NBase* n;           // This represents a constant range
-        InductionVar* iv;   // This represents a variable range
-    };
-    
-    typedef std::pair<NBase, ObjectList<RangeValue_tag> > RangeValuesMapEntry;
-    typedef std::map<NBase, ObjectList<RangeValue_tag> > RangeValuesMap;
-    
-    // *********************** END Range analysis methods and definitions ************************ //
-    // ******************************************************************************************* //
-
-    std::string prettyprint_range_values_map(RangeValuesMap s, bool print_in_dot);
     
 }
 }

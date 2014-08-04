@@ -1465,35 +1465,31 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    Utils::RangeValuesMap Node::get_ranges_in()
+    Utils::RangeValuesMap Node::get_ranges()
     {
-        Utils::RangeValuesMap ranges_in;
-        if(has_key(_RANGES_IN))
-            ranges_in = get_data<Utils::RangeValuesMap>(_RANGES_IN);
-        return ranges_in;
+        Utils::RangeValuesMap ranges;
+        if(has_key(_RANGES))
+            ranges = get_data<Utils::RangeValuesMap>(_RANGES);
+        return ranges;
     }
     
-    void Node::set_range_in(const NBase& var, const ObjectList<Utils::RangeValue_tag>& values)
+    void Node::set_range(const NBase& var, const NBase& value)
     {
-        Utils::RangeValuesMap ranges_in = get_ranges_in();
-        ranges_in.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_IN, ranges_in);
-    }
-    
-    Utils::RangeValuesMap Node::get_ranges_out()
-    {
-        Utils::RangeValuesMap ranges_out;
-        if(has_key(_RANGES_OUT))
-            ranges_out = get_data<Utils::RangeValuesMap>(_RANGES_OUT);
-        return ranges_out;
-    }
-    
-    void Node::set_range_out(const NBase& var, 
-                              const ObjectList<Utils::RangeValue_tag>& values)
-    {
-        Utils::RangeValuesMap ranges_out = get_ranges_out();
-        ranges_out.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_OUT, ranges_out);
+        Utils::RangeValuesMap ranges = get_ranges();
+        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        if(it != ranges.end())
+        {   // Check whether the value already in the set is the same we are trying to insert here
+            // - If it is different, something wrong happened. In this case, abort here
+            // - If it is the same, one may com from the list of constraints belonging to the node
+            //   and the other propagated from previous nodes. In this case we want the value only once
+            if(Nodecl::Utils::structurally_equal_nodecls(it->second, value, /*skip_conversion_nodes*/true))
+                return;
+            WARNING_MESSAGE("Two different ranges (%s and %s) for the same variable '%s' in the same node %d.\n", 
+                            it->second.prettyprint().c_str(), value.prettyprint().c_str(), 
+                            var.prettyprint().c_str(), _id);
+        }
+        ranges.insert(std::pair<NBase, NBase>(var, value));
+        set_data(_RANGES, ranges);
     }
     
     // ***************** END getters and setters for range analysis ***************** //

@@ -428,17 +428,11 @@ namespace Analysis {
     // Range Analysis
     /////////////////
     
-    /*! \def _RANGES_IN
-     * Map containing range of values assigned to a value at the entry point of a node
+    /*! \def _RANGES
+     * Map containing range of values assigned to a value in a given node
      * Available in all nodes (Mandatory after Range Analysis is performed).
      */
-    #define _RANGES_IN                      "ranges_in"
-
-    /*! \def _RANGES_OUT
-     * Map containing range of values assigned to a value at the exit point of a node
-     * Available in all nodes (Mandatory after Range Analysis is performed).
-     */
-    #define _RANGES_OUT                     "ranges_out"
+    #define _RANGES                         "ranges"
     
     
     // Auto-scoping attributes

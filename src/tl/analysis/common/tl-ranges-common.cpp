@@ -543,58 +543,6 @@ namespace {
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
     
-    std::string prettyprint_range_values_map(Utils::RangeValuesMap s, bool print_in_dot)
-    {
-        std::string result = "";
-        int line_size = 0;
-        for(Utils::RangeValuesMap::iterator it = s.begin(); it != s.end(); ++it)
-        {
-            std::string it_str = it->first.prettyprint() + "= {";
-                ObjectList<Utils::RangeValue_tag> values = it->second;
-                for(ObjectList<Utils::RangeValue_tag>::iterator itv = values.begin(); itv != values.end();)
-                {
-                    if(!itv->n->is_null())
-                        it_str += itv->n->prettyprint();
-                    else
-                    {
-                        NBase lb = itv->iv->get_lb();
-                        NBase ub = itv->iv->get_ub();
-                        NBase incr = itv->iv->get_increment();
-
-                        it_str += "[ " + (lb.is_null()   ? "NULL" : lb.prettyprint())
-                                + ":"  + (ub.is_null()   ? "NULL" : ub.prettyprint())
-                                + ":"  + (incr.is_null() ? "NULL" : incr.prettyprint())
-                                + ":"   + itv->iv->get_type_as_string() + " ]";
-                    }
-
-                    ++itv;
-                    if(itv != values.end())
-                        it_str += ", ";
-                }
-                it_str += "}; ";
-
-                if(line_size + it_str.size() > 100)
-                {
-                    result += "$$";
-                    line_size = it_str.size();
-                }
-                else
-                    line_size += it_str.size();
-                result += it_str;
-                if(line_size > 100)
-                    result += "$$";
-        }
-
-        if(!result.empty())
-        {
-            result = result.substr(0, result.size() - 2);
-            if(print_in_dot)
-                makeup_dot_block(result);
-        }
-
-        return result;
-    }
-    
 }
 }
 }

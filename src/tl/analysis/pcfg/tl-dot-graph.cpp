@@ -149,15 +149,13 @@ namespace {
         std::string ranges = "";
         if(_ranges)
         {
-            // FIXME Constraints are not stored in the PCFG anymore.
-            //       Here we should print the ranges information instead
-//             Utils::VarToConstraintMap constraints_map = current->get_constraints_map();
-//             for(Utils::VarToConstraintMap::iterator it = constraints_map.begin(); it != constraints_map.end(); ++it)
-//                 ranges += it->second.get_symbol().get_name() + " = " + it->second.get_constraint().prettyprint() + "\\n";
-//             
-//             int l_size = ranges.size();
-//             if((l_size > 3) && (ranges.substr(l_size - 2, l_size - 1) == "\\n"))
-//                 ranges = ranges.substr(0, l_size - 2);
+            Utils::RangeValuesMap ranges_map = current->get_ranges();
+            for(Utils::RangeValuesMap::iterator it = ranges_map.begin(); it != ranges_map.end(); ++it)
+                ranges += it->first.prettyprint() + " = " + it->second.prettyprint() + "\\n";
+            
+            int l_size = ranges.size();
+            if((l_size > 3) && (ranges.substr(l_size - 2, l_size - 1) == "\\n"))
+                ranges = ranges.substr(0, l_size - 2);
         }
         return ranges;
     }
@@ -523,15 +521,11 @@ connect_node:
             case __Entry:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
-                if(_ranges)
-                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __Exit:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
-                if(_ranges)
-                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __UnclassifiedNode:

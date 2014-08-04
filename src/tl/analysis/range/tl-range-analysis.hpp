@@ -35,7 +35,6 @@ namespace Analysis {
 
     typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> SSAVarToValue_map;
     typedef std::map<NBase, CGNode*, Nodecl::Utils::Nodecl_structural_less> CGValueToCGNode_map;
-    typedef std::map<Node*, NBase> PCFGNodeToSSAVar_map;
     
     
     // **************************************************************************************************** //
@@ -68,7 +67,6 @@ namespace Analysis {
         Utils::VarToConstraintMap _output_true_constraints_map;  // Constraints for the child of the current node that reaches when the condition of the current node evaluates to true
         Utils::VarToConstraintMap _output_false_constraints_map; // Constraints for the child of the current node that reaches when the condition of the current node evaluates to false
         
-        PCFGNodeToSSAVar_map *_pcfg_to_cg;
         SSAVarToValue_map *_constraints;
         NodeclList *_ordered_constraints;
         
@@ -83,12 +81,10 @@ namespace Analysis {
         ConstraintBuilderVisitor(Node* n,
                 Utils::VarToConstraintMap input_constraints, 
                 Utils::VarToConstraintMap current_constraints, 
-                PCFGNodeToSSAVar_map *pcfg_to_cg,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
         ConstraintBuilderVisitor(Node* n,
-                PCFGNodeToSSAVar_map *pcfg_to_cg,
                 SSAVarToValue_map *constraints,
                 NodeclList *ordered_constraints);
         
@@ -160,6 +156,10 @@ namespace Analysis {
         // *** Constructor *** //
         ConstraintGraph(std::string name);
         
+        // *** Getters and setters *** //
+        //! Retrieves the Constraint Graph node given a SSA variable
+        CGNode* get_node_from_ssa_var(const NBase& n);
+        
         // *** Modifiers *** //
         void fill_constraint_graph(
                 const SSAVarToValue_map& constraints,
@@ -171,6 +171,7 @@ namespace Analysis {
         //! Use the different rules to topologically solve and propagate the constraints over the CG
         void solve_constraints(const std::vector<SCC*>& roots);
         
+        // *** Utils *** //
         //! Generates a dot file with the structure of the graph
         void print_graph();
     };
@@ -189,21 +190,38 @@ namespace Analysis {
         ExtensibleGraph* _pcfg;
         ConstraintGraph* _cg;
         
-        PCFGNodeToSSAVar_map _pcfg_to_cg;
         SSAVarToValue_map _constraints;
         NodeclList _ordered_constraints;
         
+        //! Method computing constraints for the parameters of a function
         void compute_parameters_constraints(
                 std::map<Node*, Utils::VarToConstraintMap>& constr_map);
+        
+        //! Method computing the constraints of the whole #pcfg
+        //! It perform deep first search over the #pcfg without back edges
         void compute_constraints_rec(
                 Node* n, 
                 std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
                 std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+        
+        //! Method propagating constraints from the back edges of the #pcfg
         void propagate_constraints_from_back_edges(
                 Node* n, 
                 std::map<Node*, Utils::VarToConstraintMap>& constr_map, 
                 std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
         
+        //! Method generating all constraints of the #pcfg
+        void compute_constraints(
+            std::map<Node*, Utils::VarToConstraintMap>& constr_map,
+            std::map<Node*, Utils::VarToConstraintMap>& propagated_constr_map);
+        
+        //! Method building a Constraint Graph from a set of constraints
+        void build_constraint_graph();
+        
+        //! Method propagating ranges information from the #cg to the #pcfg
+        void set_ranges_to_pcfg(
+            const std::map<Node*, Utils::VarToConstraintMap>& constr_map);
+
     public:
         //! Constructor
         RangeAnalysis(ExtensibleGraph* pcfg);
@@ -211,16 +229,7 @@ namespace Analysis {
         //! Method computing the Ranges information on the #pcfg
         void compute_range_analysis();
         
-        //! Method generating all constraints of the #pcfg
-        void compute_constraints();
-        
-        //! Method building a Constraint Graph from a set of constraints
-        void build_constraint_graph();
-        
-        //! Method propagating ranges information from the #cg to the #pcfg
-        void set_ranges_to_pcfg();
-        
-        // *** Utils *** //
+        //! Method printing all constraint found so far in the #pcfg
         void print_constraints();
     };
 

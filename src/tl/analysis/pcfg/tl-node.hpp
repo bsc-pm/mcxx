@@ -685,22 +685,12 @@ namespace Analysis {
             // ******************* Getters and setters for range analysis ******************* //
             
             //! Returns the map of variables and their range values associated 
-            //! at the entry point of the node
-            Utils::RangeValuesMap get_ranges_in();
+            //! at the exit point of the node
+            Utils::RangeValuesMap get_ranges();
             
             //! Set a pair of variable and range value to the RangeValue map 
             //! related to the entry point of the node
-            void set_range_in(const NBase& var, 
-                              const ObjectList<Utils::RangeValue_tag>& values);
-            
-            //! Returns the map of variables and their range values associated 
-            //! at the exit point of the node
-            Utils::RangeValuesMap get_ranges_out();
-            
-            //! Set a pair of variable and range value to the RangeValue map 
-            //! related to the exit point of the node
-            void set_range_out(const NBase& var, 
-                               const ObjectList<Utils::RangeValue_tag>& values);
+            void set_range(const NBase& var, const NBase& value);
             
             // ***************** END getters and setters for range analysis ***************** //
             // ****************************************************************************** //
