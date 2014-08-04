@@ -536,6 +536,8 @@ connect_node:
             case __OmpBarrier:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] BARRIER\", shape=diamond];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpFlush:
@@ -546,6 +548,8 @@ connect_node:
             case __OmpTaskwait:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASKWAIT\", shape=ellipse];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpWaitonDeps:
