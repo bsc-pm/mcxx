@@ -10164,6 +10164,13 @@ static void check_nodecl_cast_expr(
         }
     }
 
+    if (!is_any_reference_type(declarator_type)
+            && !is_array_type(declarator_type) // This should never happen
+            && !is_class_type(declarator_type))
+    {
+        declarator_type = get_unqualified_type(declarator_type);
+    }
+
 #define CONVERSION_ERROR \
     do { \
       const char* message = NULL; \
@@ -20962,6 +20969,15 @@ nodecl_t cxx_nodecl_make_function_call(
 {
     ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
+
+    // Adjust the return type
+    if (t != NULL
+            && !is_any_reference_type(t)
+            && !is_array_type(t) // This should never happen
+            && !is_class_type(t))
+    {
+        t = get_unqualified_type(t);
+    }
 
     bool preserve_orig_name = false;
 
