@@ -38,6 +38,7 @@ prepare-check: ./config/bets wipe-modules
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-fortran
 	chmod +x config/mercurium-nanox
+	chmod +x config/mercurium-hlt
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ompss
 	chmod +x config/mercurium-serial-simd
@@ -99,6 +100,7 @@ CORE_DIRS=\
 		$(BETS_DIRS)/05_torture_cxx_1.dg \
 		$(BETS_DIRS)/05_torture_cxx_2.dg \
 		$(BETS_DIRS)/06_run_cxx.dg \
+		$(BETS_DIRS)/07_phases_hlt.dg \
 		$(END)
 
 OMP_DIRS= \

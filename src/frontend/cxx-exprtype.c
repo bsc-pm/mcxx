@@ -10164,6 +10164,13 @@ static void check_nodecl_cast_expr(
         }
     }
 
+    if (!is_any_reference_type(declarator_type)
+            && !is_array_type(declarator_type) // This should never happen
+            && !is_class_type(declarator_type))
+    {
+        declarator_type = get_unqualified_type(declarator_type);
+    }
+
 #define CONVERSION_ERROR \
     do { \
       const char* message = NULL; \
@@ -20929,6 +20936,27 @@ static void define_inherited_constructor(
     }
 }
 
+struct instantiate_default_argument_header_message_fun_data_tag
+{
+    scope_entry_t* called_symbol;
+    int arg_i;
+    const locus_t* locus;
+};
+
+static const char* instantiate_default_argument_header_message_fun(void* v)
+{
+    struct instantiate_default_argument_header_message_fun_data_tag* p =
+        (struct instantiate_default_argument_header_message_fun_data_tag*)v;
+
+    const char* default_argument_context_str;
+    uniquestr_sprintf(&default_argument_context_str,
+            "%s: info: during instantiation of default argument '%s'\n",
+            locus_to_str(p->locus),
+            codegen_to_str(p->called_symbol->entity_specs.default_argument_info[p->arg_i]->argument,
+                p->called_symbol->decl_context));
+
+    return default_argument_context_str;
+}
 
 nodecl_t cxx_nodecl_make_function_call(
         nodecl_t orig_called,
@@ -20941,6 +20969,15 @@ nodecl_t cxx_nodecl_make_function_call(
 {
     ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
+
+    // Adjust the return type
+    if (t != NULL
+            && !is_any_reference_type(t)
+            && !is_array_type(t) // This should never happen
+            && !is_class_type(t))
+    {
+        t = get_unqualified_type(t);
+    }
 
     bool preserve_orig_name = false;
 
@@ -21201,14 +21238,18 @@ nodecl_t cxx_nodecl_make_function_call(
                             ->entity_specs.instantiation_symbol_map;
                     }
 
-                    const char* default_argument_context_str;
-                    uniquestr_sprintf(&default_argument_context_str,
-                            "%s: info: during instantiation of default argument '%s'\n",
-                            locus_to_str(locus),
-                            codegen_to_str(called_symbol->entity_specs.default_argument_info[arg_i]->argument,
-                                called_symbol->decl_context));
 
-                    diagnostic_context_push_instantiation(default_argument_context_str);
+                    header_message_fun_t instantiation_header;
+                    instantiation_header.message_fun = instantiate_default_argument_header_message_fun;
+                    {
+                        struct instantiate_default_argument_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+                        p->called_symbol = called_symbol;
+                        p->arg_i = arg_i;
+                        p->locus = locus;
+                        instantiation_header.data = p;
+                    }
+                    diagnostic_context_push_instantiation(instantiation_header);
+
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,

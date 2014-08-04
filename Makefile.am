@@ -2146,7 +2146,7 @@ HLT_ANALYSIS_CFLAGS= \
 			  -I $(srcdir)/src/tl/analysis/tdg \
 			  $(END)
 
-HLT_ANALYSIS_LIBADD = src/tl/analysis/interface/libanalysis_interface.la
+HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
 
 HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
 			  -I $(srcdir)/src/tl/omp/core \
@@ -2162,8 +2162,10 @@ src_tl_hlt_libtl_hlt_la_SOURCES = \
 	  src/tl/hlt/hlt-common.hpp \
       src/tl/hlt/hlt-transform.hpp \
       src/tl/hlt/hlt-transform.cpp \
-      src/tl/hlt/hlt-unroll.hpp \
-      src/tl/hlt/hlt-unroll.cpp \
+      src/tl/hlt/hlt-loop-normalize.hpp \
+      src/tl/hlt/hlt-loop-normalize.cpp \
+      src/tl/hlt/hlt-loop-unroll.hpp \
+      src/tl/hlt/hlt-loop-unroll.cpp \
       $(END)
 
 phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
@@ -2764,6 +2766,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config/00.config.plain \
        config/10.config.analysis-base \
+       config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
        config/40.config.cuda \

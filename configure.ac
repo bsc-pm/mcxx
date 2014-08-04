@@ -114,6 +114,10 @@ dnl --------------------- end check of old gcc ---
 
 INSTALL_CONFIG_FILES="00.config.plain"
 
+# Note that these profiles are just for testing, no soft link
+# is created for them
+INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.hlt"
+
 # plaincxx is always installed as a binary
 COMPILER_NAMES="plaincc plainfc plainf95"
 SCRIPT_COMPILER_NAMES=""
@@ -1944,6 +1948,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
+           tests/config/mercurium-hlt
            tests/config/mercurium-nanox
            tests/config/mercurium-omp
            tests/config/mercurium-ompss
@@ -1959,7 +1964,6 @@ AC_CONFIG_FILES([Makefile
            tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
-           tests/07_phases_hlt.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            ])

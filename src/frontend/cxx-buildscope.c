@@ -6701,8 +6701,6 @@ static void register_symbol_this(decl_context_t decl_context,
     // function is const)
     type_t* pointed_this = get_user_defined_type(class_symbol);
     type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
 
     scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
 
@@ -6724,10 +6722,7 @@ static void update_symbol_this(scope_entry_t* entry,
     {
         pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
     }
-
     type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
 
     scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
     // If the function is defined inside the class specifier, build_scope_function_definition_declarator
@@ -7239,8 +7234,8 @@ static char exists_constructor_with_same_characteristics(
     return 0;
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type);
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type);
 
 static void declare_constructors_for_candidate_constructor(
         type_t* candidate_constructor_type,
@@ -7270,17 +7265,15 @@ static void declare_constructors_for_candidate_constructor(
 
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)
+                        inherited_constructor->entity_specs.class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)))
+                        inherited_constructor->entity_specs.class_type)))
             return;
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)
+                        class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)))
+                        class_type)))
             return;
     }
     // Similarly, for each constructor template in the candidate set of
@@ -12616,10 +12609,9 @@ static char same_template_parameter_list(
         if (template_parameter_list_1->parameters[i]->kind == TPK_NONTYPE)
         {
             // Check both types
-            if (!equivalent_types_in_context(
+            if (!equivalent_types(
                         template_parameter_list_1->parameters[i]->entry->type_information,
-                        template_parameter_list_2->parameters[i]->entry->type_information,
-                        decl_context))
+                        template_parameter_list_2->parameters[i]->entry->type_information))
             {
                 return 0;
             }
@@ -12914,6 +12906,66 @@ static char find_function_declaration(AST declarator_id,
                 internal_error("Code unreachable", 0);
             }
 
+            type_t* considered_type = considered_symbol->type_information;
+            type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
+
+            if (IS_CXX_LANGUAGE
+                    && considered_symbol->entity_specs.is_member)
+            {
+                /*
+                   Make sure the two types look like the same
+
+                   template <typename T>
+                   struct B { };
+                   template <typename T>
+                   struct A
+                   {
+                      typename B<T>::S foo(); // (1)
+                      typedef B<T>::S Q;
+                   };
+
+                   template <typename T>
+                   typename A<T>::Q A<T>::foo() { } // (2)
+
+                   Note that in (2), 'typename A<T>::Q' is actually 'typename
+                   B<T>::S', but the syntactic nature of a dependent typename
+                   hinders us from claiming that they are the same.
+
+                   We can only discover that this is so if we contextually
+                   advance the types of the two declarations (note that it is
+                   not always that (2) must be advanced, sometimes (1) must be
+                   advanced too). This means that we can examine uninstantiated
+                   templates only if they belong to the class of the member
+                   function being declared (i.e. we can examine inside A<T>
+                   because we are declaring A<T>::foo).
+
+                   This process is performed in fix_dependent_typenames_in_context,
+                   this way we avoid passing a context to equivalent_types
+               */
+
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+                considered_type =
+                    fix_dependent_typenames_in_context(considered_type,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+                function_type_being_declared_advanced_to_context =
+                    fix_dependent_typenames_in_context(function_type_being_declared,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+            }
+
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
@@ -12924,8 +12976,6 @@ static char find_function_declaration(AST declarator_id,
                         print_declarator(considered_symbol->type_information)
                        );
             }
-
-            type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
             if (entry->kind == SK_TEMPLATE)
             {
@@ -12943,7 +12993,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
 
@@ -13008,13 +13058,12 @@ static char find_function_declaration(AST declarator_id,
             {
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
-                        function_type_being_declared,
-                        considered_type,
-                        entry->decl_context);
+                        function_type_being_declared_advanced_to_context,
+                        considered_type);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         function_matches = 0;
@@ -16147,10 +16196,9 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //  operator=(cv T&)
         //  operator=(T)
         if ((is_lvalue_reference_type(first_parameter)
-                    && equivalent_types_in_context(class_type,
-                        get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                        entry->decl_context))
-                || (equivalent_types_in_context(class_type, first_parameter, entry->decl_context)))
+                    && equivalent_types(class_type,
+                        get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
+                || equivalent_types(class_type, first_parameter))
         {
             return 1;
         }
@@ -16170,9 +16218,8 @@ char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //
         //  operator=(cv T&&)
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16180,7 +16227,7 @@ char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_ty
     return 0;
 }
 
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16201,9 +16248,8 @@ static char function_is_copy_constructor_types(type_t* function_type, type_t* cl
         // A(A&, X = x);
 
         if (is_lvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16215,10 +16261,10 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_copy_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_copy_constructor_types(entry->type_information, class_type));
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16239,9 +16285,8 @@ static char function_is_move_constructor_types(type_t* function_type, type_t* cl
         // A(A&&, X = x);
 
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16253,7 +16298,7 @@ char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_move_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_move_constructor_types(entry->type_information, class_type));
 }
 
 static char is_virtual_destructor(type_t* class_type)

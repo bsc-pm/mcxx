@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -26,24 +26,35 @@
 
 
 
-/*
-<testinfo>
-test_generator=config/mercurium-hlt
-test_ignore=yes
-</testinfo>
-*/
+#ifndef HLT_NORMALIZE_LOOP_HPP
+#define HLT_NORMALIZE_LOOP_HPP
 
-template <typename _T>
-struct A
-{
-    void f(_T t);
-};
+#include "hlt-transform.hpp"
 
-template <typename _Q>
-void A<_Q>::f(_Q q)
-{
-#pragma hlt outline packed
+namespace TL { namespace HLT {
+
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Transforms a loop into a one with a step of one
+    class LIBHLT_CLASS LoopNormalize
     {
-        q = 0;
-    }
-}
+        private:
+            Nodecl::NodeclBase _transformation;
+            Nodecl::NodeclBase _loop;
+        public:
+            LoopNormalize();
+
+            // Properties
+            LoopNormalize& set_loop(Nodecl::NodeclBase loop);
+
+            // Action
+            void normalize();
+
+            // Results
+            Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
+    };
+
+} }
+
+#endif //  HLT_NORMALIZE_LOOP_HPP
