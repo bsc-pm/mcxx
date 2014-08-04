@@ -6701,8 +6701,6 @@ static void register_symbol_this(decl_context_t decl_context,
     // function is const)
     type_t* pointed_this = get_user_defined_type(class_symbol);
     type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
 
     scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
 
@@ -6724,10 +6722,7 @@ static void update_symbol_this(scope_entry_t* entry,
     {
         pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
     }
-
     type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
 
     scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
     // If the function is defined inside the class specifier, build_scope_function_definition_declarator

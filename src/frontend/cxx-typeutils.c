@@ -11114,10 +11114,16 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
     }
 
-    // Some type converted to const T& or T&&
+    // cv1 T1 -> const T2&
+    // cv1 T1 ->   cv2 T2&&   where cv2 is more or equal qualified thant cv1
     if ((is_lvalue_reference_type(dest)
                 && is_const_qualified_type(reference_type_get_referenced_type(dest)))
-            || (!is_lvalue_reference_type(orig) && is_rvalue_reference_type(dest)))
+            || (!is_lvalue_reference_type(orig) // Make sure that orig is not a lvalue reference.
+                                                // Note that when both orig and dest are both references
+                                                // of  the same kind (lvalue or rvalue) has already been
+                                                // handled above
+                && is_rvalue_reference_type(dest)
+                && is_more_or_equal_cv_qualified_type(no_ref(dest), no_ref(orig))))
     {
         standard_conversion_t conversion_among_lvalues = no_scs_conversion;
         // cv T1 -> T2
