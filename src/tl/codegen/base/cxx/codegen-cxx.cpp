@@ -243,7 +243,7 @@ void CxxBase::emit_line_marker(const locus_t* locus)
         return;
 
     // Avoid 0-th line
-    int line = locus_get_line(locus);
+    unsigned int line = locus_get_line(locus);
     if (line == 0)
         return;
 

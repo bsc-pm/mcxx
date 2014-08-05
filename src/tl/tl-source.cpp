@@ -336,7 +336,7 @@ namespace TL
         return result;
     }
 
-    std::string line_marker(const std::string& filename, int line)
+    std::string line_marker(const std::string& filename, unsigned int line)
     {
         std::stringstream ss;
 
@@ -357,7 +357,7 @@ namespace TL
     // This is quite inefficient but will do
     std::string Source::format_source(const std::string& src)
     {
-        int line = 1;
+        unsigned int line = 1;
 
         std::stringstream ss;
 

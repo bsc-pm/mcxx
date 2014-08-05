@@ -1924,7 +1924,7 @@ static sqlite3_uint64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     // FIXME - Devise ways to make this a prepared statement
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, decl_context, name, kind, type, file, line, value, "
             "bit_entity_specs, related_decl_context, %s) "
-            "VALUES (%llu, %llu, %llu, %llu, %llu, %llu, %d, %llu, " Q ", %llu, %s);",
+            "VALUES (%llu, %llu, %llu, %llu, %llu, %llu, %u, %llu, " Q ", %llu, %s);",
             attr_field_names,
             P2ULL(symbol), // oid
             decl_context_oid, // decl_context
@@ -3057,6 +3057,11 @@ static int get_module_extra_data(void *data,
 
     switch (kind)
     {
+        case TL_UNSIGNED_INTEGER : 
+            {
+                *(p->current_item) = tl_unsigned_integer(safe_atoi(values[1]));
+                break;
+            }
         case TL_INTEGER : 
             {
                 *(p->current_item) = tl_integer(safe_atoi(values[1]));
@@ -3222,6 +3227,13 @@ void extend_module_info(scope_entry_t* module, const char* domain, int num_items
         char* query = NULL;
         switch (kind)
         {
+            case TL_UNSIGNED_INTEGER : 
+            {
+                query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "
+                            "VALUES (%llu, %d, %d, %u);", 
+                            domain_oid, i, kind, info[i].data._unsigned_integer);
+                break;
+            }
             case TL_INTEGER : 
                 {
                     query = sqlite3_mprintf("INSERT INTO module_extra_data(oid_name, order_, kind, value) "

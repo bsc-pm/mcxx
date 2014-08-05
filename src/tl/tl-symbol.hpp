@@ -145,7 +145,7 @@ namespace TL
             std::string get_filename() const;
 
             //! Returns the line where the symbol was declared
-            int get_line() const;
+            unsigned int get_line() const;
 
             virtual ~Symbol()
             {
