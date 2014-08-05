@@ -7,7 +7,7 @@
 struct locus_tag
 {
     const char* filename;
-    int line, col;
+    unsigned int line, col;
 };
 
 // Heavily inspired in lib/char_hash.c contributed by Jan Hoogerbrugge
@@ -21,7 +21,7 @@ struct locus_link
 
 static struct locus_link *hash_table[49999];
 
-static unsigned int hash_locus(const char *filename, int line, int col)
+static unsigned int hash_locus(const char *filename, unsigned int line, unsigned int col)
 {
     unsigned int hash = 0;
     const char *p;
@@ -35,7 +35,7 @@ static unsigned int hash_locus(const char *filename, int line, int col)
     return hash;
 }
 
-const locus_t* make_locus(const char* filename, int line, int col)
+const locus_t* make_locus(const char* filename, unsigned int line, unsigned int col)
 {
     if (filename == NULL)
         filename = "";
@@ -98,12 +98,12 @@ const char* locus_get_filename(const locus_t* l)
     return l->filename;
 }
 
-int locus_get_line(const locus_t* l)
+unsigned int locus_get_line(const locus_t* l)
 {
     return l == NULL ? 0 : l->line;
 }
 
-int locus_get_col(const locus_t* l)
+unsigned int locus_get_col(const locus_t* l)
 {
     return l == NULL ? 0 : l->col;
 }

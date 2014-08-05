@@ -41,7 +41,12 @@ namespace TL
     {
         ERROR_CONDITION(!_module.is_fortran_module(), "This must be a Fortran module!", 0);
     }
-
+    
+    void ModuleWriter::builtin_write(unsigned int i)
+    {
+        _tl_values.append(tl_unsigned_integer(i));
+    }
+    
     void ModuleWriter::builtin_write(int i)
     {
         _tl_values.append(tl_integer(i));
@@ -113,6 +118,14 @@ namespace TL
         }
     }
 
+    void ModuleReader::builtin_read(unsigned int& i)
+    {
+        tl_type_t &t = read_item_from_module();
+        
+        ERROR_CONDITION(t.kind != TL_UNSIGNED_INTEGER, "Invalid read of unsigned integer", 0);
+        i = t.data._unsigned_integer;
+    }
+    
     void ModuleReader::builtin_read(int& i)
     {
         tl_type_t &t = read_item_from_module();

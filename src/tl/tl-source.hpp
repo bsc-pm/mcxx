@@ -447,7 +447,7 @@ namespace TL
      * \a filename Can be an empty string
      * \a line Line
      */
-    LIBTL_EXTERN std::string line_marker(const std::string& filename, int line);
+    LIBTL_EXTERN std::string line_marker(const std::string& filename, unsigned int line);
 
     //! Convenience function to convert a list into a string
     /*!
