@@ -37,7 +37,7 @@
 namespace TL { 
 namespace Analysis {
     
-    typedef ObjectList<TDG_Node*> TDG_Node_list;
+    typedef std::map<unsigned int, TDG_Node*> TDG_Node_map;
     typedef ObjectList<TDG_Edge*> TDG_Edge_list;
     typedef ObjectList<Node*> Node_list;
     typedef ObjectList<Edge*> Edge_list;
@@ -60,7 +60,7 @@ namespace{
         return ids.str();
     }
 
-    // FIXME We should get this information form the PCFGPragmaInfo instead of getting it from the related AST
+    // FIXME We should get this information from the PCFGPragmaInfo instead of getting it from the related AST
     //! TDG_Edge :: This method returns the clauses associated to a Nodecl::OpenMP::Task node
     NodeclList get_task_dependency_clauses(const Nodecl::OpenMP::Task& task)
     {
@@ -716,10 +716,10 @@ namespace{
     TDG_Node* TaskDependencyGraph::find_task_from_tdg_nodes_list(Node* task)
     {
         TDG_Node* result = NULL;
-        for(TDG_Node_list::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
-            if((*it)->_pcfg_node == task)
+        for(TDG_Node_map::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+            if(it->second->_pcfg_node == task)
             {
-                result = *it;
+                result = it->second;
                 break;
             }
         return result;
@@ -749,17 +749,26 @@ namespace{
             if(current->is_graph_node())
                 create_tdg_nodes_from_pcfg(current->get_graph_entry_node());
             
-            // Create the TDG task node
+            // Create the TDG task|taskwait|barrier node if applies
             TDG_Node* tdg_current = NULL;
+            unsigned int tdg_node_id;
             if(current->is_omp_task_node())
+            {
+                tdg_node_id = current->get_graph_related_ast().get_line();
                 tdg_current = new TDG_Node(current, Task);
+            }
             else if(current->is_omp_taskwait_node())
+            {
+                tdg_node_id = current->get_statements()[0].get_line();
                 tdg_current = new TDG_Node(current, Taskwait);
+            }
             else if(current->is_omp_barrier_graph_node())   // We do not need to traverse the Graph Barrier Node
+            {
+                tdg_node_id = current->get_statements()[0].get_line();
                 tdg_current = new TDG_Node(current, Barrier);
-            
+            }
             if(tdg_current != NULL)
-                _tdg_nodes.insert(tdg_current);
+                _tdg_nodes.insert(std::pair<unsigned int, TDG_Node*>(tdg_node_id, tdg_current));
             
             // Iterate over the children
             Node_list children = current->get_children();
@@ -770,9 +779,10 @@ namespace{
     
     void TaskDependencyGraph::set_tdg_nodes_control_structures()
     {
-        for(ObjectList<TDG_Node*>::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+        for(TDG_Node_map::iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
         {
-            Node* node = (*it)->_pcfg_node;
+            TDG_Node* tdg_node = it->second;
+            Node* node = tdg_node->_pcfg_node;
             
             // 1.- Add the implicit control structure: 
             //     this is necessary to set the values of the variables reaching a task
@@ -780,7 +790,7 @@ namespace{
                 ObjectList<std::string> taken_branches;
                 ControlStructure* cs = new ControlStructure(++control_id, Implicit, NBase::null(), NULL);
                 _pcfg_to_cs_map[node] = cs;
-                (*it)->add_control_structure(cs, taken_branches);
+                tdg_node->add_control_structure(cs, taken_branches);
             }
             
             // 2.- Add the real control structures
@@ -860,7 +870,7 @@ namespace{
                     cs = new ControlStructure(++control_id, cs_t, condition, real_control_structure);
                     _pcfg_to_cs_map[real_control_structure] = cs;
                 }
-                (*it)->add_control_structure(cs, taken_branches);
+                tdg_node->add_control_structure(cs, taken_branches);
                 
                 // Prepare next iteration
                 control_structure = ExtensibleGraph::get_enclosing_control_structure(control_structure);
@@ -1081,7 +1091,7 @@ namespace{
             if(!(*it)->_condition.is_null())
                 condition = ", label=\"" + (*it)->_condition.prettyprint() + "\"";
             else
-                condition = "true";
+                condition = ", label=\"true\"";
             // Create the dot edge
             std::stringstream child_id; child_id << (*it)->_target->_id;
             dot_tdg << "\t" << current_id << " -> " << child_id.str() 
@@ -1118,8 +1128,8 @@ namespace{
             std::cerr << "- TDG DOT file '" << dot_file_name << "'" << std::endl;
         dot_tdg << "digraph TDG {\n";
             dot_tdg << "\tcompound=true;\n";
-            for(TDG_Node_list::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
-                print_tdg_node_to_dot(*it, dot_tdg);
+            for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+                print_tdg_node_to_dot(it->second, dot_tdg);
         dot_tdg << "}\n";
         dot_tdg.close();
         if(!dot_tdg.good())
@@ -1268,9 +1278,9 @@ namespace{
     void TaskDependencyGraph::print_tdg_nodes_to_json(std::ofstream& json_tdg) const
     {
         json_tdg << "\t\t\"nodes\" : [\n";
-        for(TDG_Node_list::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); )
+        for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); )
         {
-            TDG_Node* n = *it;
+            TDG_Node* n = it->second;
             json_tdg << "\t\t\t{\n";
                 
             // node identifier
@@ -1336,8 +1346,8 @@ namespace{
     {
         // Get all edges in the graph
         TDG_Edge_list edges;
-        for(TDG_Node_list::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
-            edges.append((*it)->_exits);
+        for(TDG_Node_map::const_iterator it = _tdg_nodes.begin(); it != _tdg_nodes.end(); ++it)
+            edges.append(it->second->_exits);
         
         // Print the edges into the dot file
         if(!edges.empty())

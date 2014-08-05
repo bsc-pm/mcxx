@@ -137,8 +137,10 @@ namespace Analysis {
     {
     private:
         // *** Class members *** //
-        ExtensibleGraph* _pcfg;                     /*!< PCFG corresponding to the graph */
-        ObjectList<TDG_Node*> _tdg_nodes;           /*!< List of nodes in the TDG */
+        ExtensibleGraph* _pcfg;                         /*!< PCFG corresponding to the graph */
+        std::map<unsigned int, TDG_Node*> _tdg_nodes;   /*!< Map of nodes in the TDG */
+                                                        // We have a map where the key is the locus of the original statement
+                                                        // this way we can print the nodes in order
         
         std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> _syms; /*!< Map of symbols appearing in the TDG associated to their identifier */
         PCFG_to_CS _pcfg_to_cs_map;                 /*!< Map of PCFG control structure nodes to their TDG control structure object */
