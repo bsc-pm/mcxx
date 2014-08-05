@@ -650,7 +650,7 @@ else
  then
   AC_MSG_RESULT([no])
  else
-  AC_MSG_RESULT([no, Nanos++ library directori does not exist])
+  AC_MSG_RESULT([no, Nanos++ library directory does not exist])
  fi
 fi
 
