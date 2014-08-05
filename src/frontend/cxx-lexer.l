@@ -167,9 +167,9 @@ static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
 
-static int num_new_lines(const char* c)
+static unsigned int num_new_lines(const char* c)
 {
-    int result = 0;
+    unsigned int result = 0;
 
     while (*c)
     {
@@ -808,7 +808,7 @@ type {
    p++;
 
  // Compute line
- int line_num = 0;
+ unsigned int line_num = 0;
  while (*p != ' ' 
          && *p != '\0' // The filename location is optional
          )
@@ -823,6 +823,8 @@ type {
      }
      p++;
  }
+ // There are no zero lines, so if for some reason we end with a 0 line, fix it to 1
+ line_num = line_num == 0 ? 1 : line_num;
 
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
@@ -864,7 +866,7 @@ type {
 	// Jump the blank
 	directive++;
 
-	int line_num = 0;
+	unsigned int line_num = 0;
 	while (*directive != ' ')
 	{
 		if (isdigit(*directive))

@@ -14206,7 +14206,7 @@ static void build_scope_type_template_parameter(AST a,
     AST name = ASTSon0(a);
     AST type_id = ASTSon1(a);
 
-    int line;
+    unsigned int line;
     const char *file;
 
 

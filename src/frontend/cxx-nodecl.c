@@ -230,7 +230,7 @@ const char* nodecl_get_filename(nodecl_t t)
     return ASTFileName(t.tree);
 }
 
-int nodecl_get_line(nodecl_t t)
+unsigned int nodecl_get_line(nodecl_t t)
 {
     return ASTLine(t.tree);
 }
