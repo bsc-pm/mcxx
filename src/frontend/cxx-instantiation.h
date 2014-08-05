@@ -38,9 +38,15 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN char template_class_needs_to_be_instantiated(scope_entry_t* entry);
 LIBMCXX_EXTERN void instantiate_template_class_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
 LIBMCXX_EXTERN char instantiate_template_class_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+
+LIBMCXX_EXTERN void instantiate_nontemplate_member_class_if_needed(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus);
+LIBMCXX_EXTERN char instantiate_nontemplate_member_class_if_possible(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus);
 
 LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
 
@@ -51,6 +57,7 @@ LIBMCXX_EXTERN void instantiation_instantiate_pending_functions(nodecl_t* nodecl
 LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
         const locus_t* locus);
 
+LIBMCXX_EXTERN char function_may_be_instantiated(scope_entry_t* entry);
 LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, const locus_t* locus);
 
 LIBMCXX_EXTERN void instantiate_template_function_and_integrate_in_translation_unit(scope_entry_t* entry,

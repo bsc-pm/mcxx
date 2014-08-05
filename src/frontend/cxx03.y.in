@@ -73,8 +73,6 @@ extern int yylex(void);
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 
-static AST duplicate_nested_name_specifier_list(AST);
-
 %}
 
 %token END 0 "end of input"
@@ -4721,25 +4719,17 @@ nonglobal_qualified_id_template : nested_name_specifier TEMPLATE template_id
 
 nested_name_specifier : nested_name_specifier_0 TWO_COLONS %merge<ambiguityHandler>
 {
-    $$ = $1;
+    $$ = ASTListLeaf($1);
 }
 | nested_name_specifier nested_name_specifier_1 TWO_COLONS %merge<ambiguityHandler>
 {
-    // Since we mutate this tree rather than creating another one,
-    // we have to duplicate some nodes. Note that we cannot free
-    // $1 due to complex sharing issues
-    $$ = duplicate_nested_name_specifier_list($1);
-
-    AST last = $$;
-    while (ast_get_child(last, 1) != NULL)
-         last = ast_get_child(last, 1);
-    ast_set_child(last, 1, $2);
+    $$ = ASTList($1, $2);
 }
 ;
 
 nested_name_specifier_0 : class_or_namespace_name
 {
- 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ast_get_locus($1), NULL);
+    $$ = $1;
 }
 ;
 
@@ -4750,8 +4740,7 @@ nested_name_specifier_1 : nested_name_specifier_0
 | TEMPLATE template_id
 {
     ast_set_text($2, "template ");
-
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $2, NULL, ast_get_locus($2), NULL);
+    $$ = $2;
 }
 ;
 
@@ -6601,17 +6590,4 @@ right_bracket_token : '>'
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
 	fprintf(stderr, "%s:%d: error: %s\n", scanning_now.current_filename, scanning_now.line_number, c);
-}
-
-static AST duplicate_nested_name_specifier_list(AST a)
-{
-    if (a == NULL)
-     return NULL;
-
-    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "Invalid node %s", ast_print_node_type(ASTType(a)));
-
-    return ASTMake2(AST_NESTED_NAME_SPECIFIER,
-            ast_get_child(a, 0),
-            duplicate_nested_name_specifier_list(ast_get_child(a, 1)),
-            ast_get_locus(a), NULL);
 }

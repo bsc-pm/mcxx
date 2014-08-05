@@ -249,7 +249,7 @@ diagnostic_context_buffered_instantiation_t;
 struct diagnostic_buffered_instantiation_tag
 {
     diagnostic_context_buffered_t _base;
-    const char* header_message;
+    header_message_fun_t header_message_fun;
 };
 
 static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_instantiation_t* ctx, diagnostic_context_t* dest)
@@ -257,9 +257,11 @@ static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_
     diagnostic_context_buffered_t* buffered_ctx = (diagnostic_context_buffered_t*)ctx;
     if (buffered_ctx->num_diagnostics > 0)
     {
+        const char* header_message = (ctx->header_message_fun.message_fun)(ctx->header_message_fun.data);
+
         // Create a big message
         size_t len = 0;
-        len += strlen(ctx->header_message);
+        len += strlen(header_message);
 
         diagnostic_severity_t severity = DS_INFO;
         int i;
@@ -277,7 +279,7 @@ static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_
         char* merged_message = xmalloc(len * sizeof(char));
         merged_message[0] = '\0';
 
-        merged_message = strcat(merged_message, ctx->header_message);
+        merged_message = strcat(merged_message, header_message);
 
         for (i = 0; i < buffered_ctx->num_diagnostics; i++)
         {
@@ -292,15 +294,16 @@ static void diagnose_to_buffer_instantiation_commit(diagnostic_context_buffered_
         (dest->diagnose)(dest, severity, unique_merged_message);
     }
 
+    xfree(ctx->header_message_fun.data);
     xfree(buffered_ctx->diagnostics);
     xfree(ctx);
 }
 
-diagnostic_context_t* diagnostic_context_new_instantiation(const char* header_message)
+diagnostic_context_t* diagnostic_context_new_instantiation(header_message_fun_t header_message_fun)
 {
     diagnostic_context_buffered_instantiation_t *result = xcalloc(1, sizeof(*result));
 
-    result->header_message = header_message;
+    result->header_message_fun = header_message_fun;
     result->_base._base.diagnose = (diagnose_fun_t)diagnose_to_buffer;
     result->_base._base.get_count = (get_count_fun_t)diagnose_to_buffer_count;
     result->_base._base.discard = (discard_fun_t)diagnose_to_buffer_discard;
@@ -309,7 +312,7 @@ diagnostic_context_t* diagnostic_context_new_instantiation(const char* header_me
     return (diagnostic_context_t*)result;
 }
 
-diagnostic_context_t* diagnostic_context_push_instantiation(const char* header_message)
+diagnostic_context_t* diagnostic_context_push_instantiation(header_message_fun_t header_message)
 {
     diagnostic_context_t* ctx = diagnostic_context_new_instantiation(header_message);
     diagnostic_context_push(ctx);

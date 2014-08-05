@@ -108,6 +108,7 @@ namespace TL
             TemplateParameters get_enclosing_parameters() const;
 
             bool get_is_explicit_specialization() const;
+            bool get_is_explicit_instantiation() const;
     };
 
     struct LIBTL_CLASS MemberDeclarationInfo

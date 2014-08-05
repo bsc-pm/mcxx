@@ -1027,10 +1027,10 @@ static char same_type_conversion(scope_entry_t* entry, void *p)
     {
         struct same_type_conversion_info_tag* same_info = (struct same_type_conversion_info_tag*)p;
         type_t* t = same_info->t;
-        decl_context_t decl_context = same_info->decl_context;
+        // decl_context_t decl_context = same_info->decl_context;
 
         type_t* conversion_type = function_type_get_return_type(entry->type_information);
-        return equivalent_types_in_context(conversion_type, t, decl_context);
+        return equivalent_types(conversion_type, t);
     }
     else if (entry->kind == SK_TEMPLATE)
     {
@@ -2476,7 +2476,7 @@ static type_t* update_dependent_typename(
 
     scope_entry_t* current_member = dependent_entry;
 
-    char possible = instantiate_template_class_if_possible(current_member, current_member->decl_context, locus);
+    char possible = class_type_complete_if_possible(current_member, current_member->decl_context, locus);
 
     if (!possible)
         return NULL;
@@ -5181,7 +5181,6 @@ static const char* template_arguments_to_str_ex(
 
 {
     if (template_parameters == NULL
-            || template_parameters->num_parameters == 0
             || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
@@ -6982,31 +6981,34 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                 {
                     // Do nothing if the class is in lexical scope
                 }
-                else if (template_class_needs_to_be_instantiated(current_symbol))
+                else
                 {
-                    instantiate_template_class_if_needed(current_symbol, current_symbol->decl_context,
+                    class_type_complete_if_possible(current_symbol, current_symbol->decl_context,
                             nodecl_get_locus(current_name));
 
+                    if (class_type_is_incomplete_dependent(class_type)
+                            // In some cases we do not want to examine uninstantiated templates
+                            || (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+                                // Why are we checking this?
+                                && (class_type_is_complete_dependent(class_type)
+                                    || (current_symbol->decl_context.current_scope->kind == CLASS_SCOPE
+                                        && is_dependent_type(current_symbol->decl_context.current_scope->related_entry->type_information))
+                                   )))
+                    {
+                        scope_entry_t* dependent_symbol = create_new_dependent_entity(
+                                decl_context,
+                                current_symbol,
+                                i, num_items,
+                                nodecl_get_locus(current_name),
+                                list);
+                        xfree(list);
+                        return entry_list_new(dependent_symbol);
+                    }
+
                     if (is_incomplete_type(current_symbol->type_information))
+                    {
                         return NULL;
-                }
-                else if (class_type_is_incomplete_dependent(class_type)
-                        // In some cases we do not want to examine uninstantiated templates
-                        || (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
-                            // Why are we checking this?
-                            && (class_type_is_complete_dependent(class_type)
-                                || (current_symbol->decl_context.current_scope->kind == CLASS_SCOPE
-                                    && is_dependent_type(current_symbol->decl_context.current_scope->related_entry->type_information))
-                               )))
-                {
-                    scope_entry_t* dependent_symbol = create_new_dependent_entity(
-                            decl_context,
-                            current_symbol,
-                            i, num_items,
-                            nodecl_get_locus(current_name),
-                            list);
-                    xfree(list);
-                    return entry_list_new(dependent_symbol);
+                    }
                 }
 
                 current_context = class_type_get_inner_context(class_type);
@@ -7677,7 +7679,7 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(
 
     type_t* class_type = class_symbol->type_information;
 
-    instantiate_template_class_if_needed(class_symbol, class_symbol->decl_context,
+    class_type_complete_if_needed(class_symbol, class_symbol->decl_context,
             nodecl_get_locus(nodecl_name));
 
     if (is_incomplete_type(class_symbol->type_information))
@@ -7892,29 +7894,35 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_nested = nodecl_null();
-    AST nested_it = nested_part;
-    while (nested_it != NULL)
+
+    if (nested_part != NULL)
     {
-        nodecl_t current = nodecl_null();
-        if (ASTType(nested_it) == AST_AMBIGUITY)
+        if (ASTType(nested_part) == AST_AMBIGUITY)
         {
-            solve_ambiguous_nested_part(nested_it, decl_context);
+            solve_ambiguous_nested_part(nested_part, decl_context);
         }
 
-        AST nested_name = ASTSon0(nested_it);
-        compute_nodecl_name_from_unqualified_id(nested_name, 
-                decl_context,
-                &current);
-
-        if (nodecl_is_err_expr(current))
+        AST it;
+        for_each_element(nested_part, it)
         {
-            *nodecl_output = nodecl_make_err_expr(ast_get_locus(nested_part));
-            return;
-        }
+            AST nested_name = ASTSon1(it);
 
-        nodecl_nested = nodecl_append_to_list(nodecl_nested, current);
-        nested_it = ASTSon1(nested_it);
+            nodecl_t nodecl_current = nodecl_null();
+            compute_nodecl_name_from_unqualified_id(
+                    nested_name,
+                    decl_context,
+                    &nodecl_current);
+
+            if (nodecl_is_err_expr(nodecl_current))
+            {
+                *nodecl_output = nodecl_make_err_expr(ast_get_locus(nested_part));
+                return;
+            }
+
+            nodecl_nested = nodecl_append_to_list(nodecl_nested, nodecl_current);
+        }
     }
+    
     *nodecl_output = nodecl_nested;
 }
 
@@ -8134,7 +8142,7 @@ scope_entry_list_t* query_dependent_entity_in_context(
                         }
 
                         // Make sure class_type_get_inner_context does not return a bogus context below
-                        instantiate_template_class_if_needed(class_sym, class_sym->decl_context, locus);
+                        class_type_complete_if_needed(class_sym, class_sym->decl_context, locus);
 
                         if (is_incomplete_type(class_sym->type_information))
                             return NULL;

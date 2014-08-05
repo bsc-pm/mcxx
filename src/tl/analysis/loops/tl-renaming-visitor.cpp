@@ -37,7 +37,7 @@
 namespace TL {
 namespace Analysis {
 
-    RenamingVisitor::RenamingVisitor( std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, int line )
+    RenamingVisitor::RenamingVisitor( std::map<Symbol, Nodecl::NodeclBase> rename_map, const char* filename, unsigned int line )
         : _rename_map( rename_map ), _filename( filename ), _line( line ), _s( NULL ), _computing_limits( false )
     {}
 

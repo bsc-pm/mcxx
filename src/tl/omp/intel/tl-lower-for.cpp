@@ -211,6 +211,14 @@ namespace TL { namespace Intel {
                         stmt_placeholder.prepend_sibling(init_array_tree);
                     }
                 }
+
+                CXX_LANGUAGE()
+                {
+                    stmt_placeholder.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                /* context */ Nodecl::NodeclBase::null(),
+                                new_private_sym));
+                }
             }
 
             Source type_kind; // 4, 4u, 8, 8u

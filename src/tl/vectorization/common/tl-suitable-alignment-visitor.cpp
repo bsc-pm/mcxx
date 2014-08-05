@@ -95,7 +95,7 @@ namespace Vectorization
         int num_subscripts = subscripts.size( );
 
         // Get dimension sizes
-        int *dimension_sizes = (int *)malloc( ( num_subscripts-1 ) * sizeof( int ) );
+        std::vector<int> dimension_sizes(/* n = */ num_subscripts - 1, /* val = */ 0);
 
         for( i = 0; i < (num_subscripts-1); i++ ) // Skip the first one. It does not have size
         {
@@ -111,14 +111,12 @@ namespace Vectorization
             else
             {
                 WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
-                free( dimension_sizes );
                 return false;
             }
 
             if( !element_type.array_has_size( ) )
             {
                 WARNING_MESSAGE( "Array type does not have size", 0 );
-                free( dimension_sizes );
                 return false;
             }
 
@@ -184,7 +182,6 @@ namespace Vectorization
 
             if( it_alignment == -1 )
             {
-                free( dimension_sizes );
                 return false;
             }
 
@@ -193,14 +190,11 @@ namespace Vectorization
 
         if( it_alignment == -1 )
         {
-            free( dimension_sizes );
             return false;
         }
 
         // Add adjacent dimension
         alignment += it_alignment;
-
-        free( dimension_sizes );
 
         if( (alignment % _alignment) == 0 )
             return true;
