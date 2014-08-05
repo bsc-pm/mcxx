@@ -1465,103 +1465,31 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    Utils::ConstraintMap Node::get_constraints_map()
+    Utils::RangeValuesMap Node::get_ranges()
     {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-        return constraints_map;
+        Utils::RangeValuesMap ranges;
+        if(has_key(_RANGES))
+            ranges = get_data<Utils::RangeValuesMap>(_RANGES);
+        return ranges;
     }
     
-    Utils::ConstraintMap Node::get_propagated_constraints_map()
+    void Node::set_range(const NBase& var, const NBase& value)
     {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_PROPAGATED_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_PROPAGATED_CONSTRAINTS);
-        return constraints_map;
-    }
-    
-    Utils::ConstraintMap Node::get_all_constraints_map()
-    {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_PROPAGATED_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_PROPAGATED_CONSTRAINTS);
-        if(has_key(_CONSTRAINTS))
-        {
-            Utils::ConstraintMap tmp = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-            for(Utils::ConstraintMap::iterator it = tmp.begin(); it != tmp.end(); ++it)
-                constraints_map[it->first] = it->second;
-            
+        Utils::RangeValuesMap ranges = get_ranges();
+        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        if(it != ranges.end())
+        {   // Check whether the value already in the set is the same we are trying to insert here
+            // - If it is different, something wrong happened. In this case, abort here
+            // - If it is the same, one may com from the list of constraints belonging to the node
+            //   and the other propagated from previous nodes. In this case we want the value only once
+            if(Nodecl::Utils::structurally_equal_nodecls(it->second, value, /*skip_conversion_nodes*/true))
+                return;
+            WARNING_MESSAGE("Two different ranges (%s and %s) for the same variable '%s' in the same node %d.\n", 
+                            it->second.prettyprint().c_str(), value.prettyprint().c_str(), 
+                            var.prettyprint().c_str(), _id);
         }
-        return constraints_map;
-    }
-    
-    Utils::Constraint Node::get_constraint(const NBase& var)
-    {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-        Utils::Constraint var_constraint;
-        if(constraints_map.find(var) != constraints_map.end())
-            var_constraint = constraints_map[var];
-        return var_constraint;
-    }
-    
-    void Node::add_constraints_map(Utils::ConstraintMap new_constraints_map)
-    {
-        Utils::ConstraintMap constraints_map = get_constraints_map();
-        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
-            constraints_map[it->first] = it->second;
-        set_data(_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::set_constraints_map(Utils::ConstraintMap constraints_map)
-    {
-        set_data(_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::add_propagated_constraints_map(Utils::ConstraintMap new_constraints_map)
-    {
-        Utils::ConstraintMap constraints_map = get_propagated_constraints_map();
-        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
-            constraints_map[it->first] = it->second;
-        set_data(_PROPAGATED_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::set_propagated_constraints_map(Utils::ConstraintMap constraints_map)
-    {
-        set_data(_PROPAGATED_CONSTRAINTS, constraints_map);
-    }
-    
-    Utils::RangeValuesMap Node::get_ranges_in()
-    {
-        Utils::RangeValuesMap ranges_in;
-        if(has_key(_RANGES_IN))
-            ranges_in = get_data<Utils::RangeValuesMap>(_RANGES_IN);
-        return ranges_in;
-    }
-    
-    void Node::set_range_in(const NBase& var, const ObjectList<Utils::RangeValue_tag>& values)
-    {
-        Utils::RangeValuesMap ranges_in = get_ranges_in();
-        ranges_in.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_IN, ranges_in);
-    }
-    
-    Utils::RangeValuesMap Node::get_ranges_out()
-    {
-        Utils::RangeValuesMap ranges_out;
-        if(has_key(_RANGES_OUT))
-            ranges_out = get_data<Utils::RangeValuesMap>(_RANGES_OUT);
-        return ranges_out;
-    }
-    
-    void Node::set_range_out(const NBase& var, 
-                              const ObjectList<Utils::RangeValue_tag>& values)
-    {
-        Utils::RangeValuesMap ranges_out = get_ranges_out();
-        ranges_out.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_OUT, ranges_out);
+        ranges.insert(std::pair<NBase, NBase>(var, value));
+        set_data(_RANGES, ranges);
     }
     
     // ***************** END getters and setters for range analysis ***************** //

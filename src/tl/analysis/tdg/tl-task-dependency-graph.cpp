@@ -465,8 +465,8 @@ namespace{
             // Get the size of the data flow
             Type t = lhs.get_type();
             Nodecl::Analysis::RangeIntersection intersec = lhs.as<Nodecl::Analysis::RangeIntersection>();
-            Nodecl::Analysis::Range r1 = intersec.get_lhs().as<Nodecl::Analysis::Range>();
-            Nodecl::Analysis::Range r2 = intersec.get_rhs().as<Nodecl::Analysis::Range>();
+            Nodecl::Range r1 = intersec.get_lhs().as<Nodecl::Range>();
+            Nodecl::Range r2 = intersec.get_rhs().as<Nodecl::Range>();
             NBase current_size = 
                 Nodecl::Mul::make(
                     Nodecl::Minus::make(

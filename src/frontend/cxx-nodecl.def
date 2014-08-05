@@ -648,10 +648,9 @@ constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
                       | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
                       | NODECL_ANALYSIS*EMPTY_RANGE()
-                      | NODECL_ANALYSIS*MINUS_INFINITY()
-                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINUS_INFINITY() type
+                      | NODECL_ANALYSIS*PLUS_INFINITY() type
                       | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
                       | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
