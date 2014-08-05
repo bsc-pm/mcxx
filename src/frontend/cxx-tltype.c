@@ -41,6 +41,16 @@ tl_type_t tl_bool(char c)
     return result;
 }
 
+tl_type_t tl_unsigned_integer(unsigned int i)
+{
+    tl_type_t result;
+    
+    result.kind = TL_UNSIGNED_INTEGER;
+    result.data._unsigned_integer = i;
+    
+    return result;
+}
+
 tl_type_t tl_integer(int i)
 {
     tl_type_t result;

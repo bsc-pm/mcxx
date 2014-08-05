@@ -255,10 +255,19 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
             }
         }
 
+
         // Will override privates.
         // Do not move before the if (firstprivate_symbols.contains(*it))
         // or the __builtin_memcpy will not work
         symbol_map.add_map(*it, new_private_sym);
+
+        CXX_LANGUAGE()
+        {
+            outline_function_stmt.prepend_sibling(
+                    Nodecl::CxxDef::make(
+                        /* context */ Nodecl::NodeclBase::null(),
+                        new_private_sym));
+        }
     }
 
     Nodecl::NodeclBase parallel_body = Nodecl::Utils::deep_copy(statements,
@@ -267,7 +276,7 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
 
     outline_function_stmt.prepend_sibling(parallel_body);
 
-    Nodecl::Utils::prepend_to_top_level_nodecl(outline_function_code);
+    Nodecl::Utils::prepend_to_enclosing_top_level_location(construct, outline_function_code);
     
 
     // Reductions

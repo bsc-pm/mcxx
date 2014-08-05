@@ -48,7 +48,7 @@ namespace Analysis {
         //! when this value is null, the renaming visitor just substitutes a range by its LB or UB, depending on #limit value
         std::map<Symbol, Nodecl::NodeclBase> _rename_map;
         const char* _filename;
-        int _line;
+        unsigned int _line;
 
         //! Value stored to recuperate info about the symbol that matches in a rename process
         Symbol _s;

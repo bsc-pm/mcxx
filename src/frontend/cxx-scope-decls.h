@@ -260,7 +260,8 @@ struct template_parameter_list_tag
     template_parameter_t** parameters;
     template_parameter_value_t** arguments;
     struct template_parameter_list_tag* enclosing;
-    char is_explicit_specialization;
+    char is_explicit_specialization:1;
+    char is_explicit_instantiation:1;
 };
 
 // Access specifier, saved but not enforced by the compiler
