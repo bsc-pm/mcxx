@@ -60,8 +60,15 @@ diagnostic_context_t* diagnostic_context_push_buffered(void);
 void diagnostic_context_pop_and_discard(void);
 void diagnostic_context_pop_and_commit(void);
 
-diagnostic_context_t* diagnostic_context_new_instantiation(const char* header_message);
-diagnostic_context_t* diagnostic_context_push_instantiation(const char* header_message);
+typedef struct header_message_fun_tag header_message_fun_t;
+struct header_message_fun_tag
+{
+    const char* (*message_fun)(void*);
+    void *data;
+};
+
+diagnostic_context_t* diagnostic_context_new_instantiation(header_message_fun_t);
+diagnostic_context_t* diagnostic_context_push_instantiation(header_message_fun_t);
 
 MCXX_END_DECLS
 

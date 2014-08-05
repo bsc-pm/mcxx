@@ -300,6 +300,8 @@ FORTRAN_GENERIC_INTRINSIC(NULL, exit,  "?STATUS", S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fdate, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, fgetc, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, free, "PTR", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, fseek, "UNIT,OFFSET,WHENCE,?STATUS", S, NULL) \
+FORTRAN_GENERIC_INTRINSIC(NULL, ftell, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getarg, NULL, S, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getcwd, NULL, M, NULL) \
 FORTRAN_GENERIC_INTRINSIC(NULL, getlog, NULL, S, NULL) \
@@ -335,6 +337,8 @@ MERCURIUM_SPECIFIC_INTRINSICS
 #define MERCURIUM_SPECIFIC_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_loc, "X", I, simplify_mcc_loc) \
   FORTRAN_GENERIC_INTRINSIC(NULL, mercurium_null, "", I, simplify_mcc_null) \
+  FORTRAN_GENERIC_INTRINSIC(NULL, nanox_opencl_allocate, "ARR", S, NULL)\
+  FORTRAN_GENERIC_INTRINSIC(NULL, nanox_opencl_deallocate, "ARR", S, NULL)
 
 #define IEEE_EXCEPTIONS_INTRINSICS \
   FORTRAN_GENERIC_INTRINSIC("ieee_exceptions", ieee_support_flag, "FLAG,?X", I, NULL) \
@@ -3101,6 +3105,64 @@ scope_entry_t* compute_intrinsic_free(scope_entry_t* symbol UNUSED_PARAMETER,
                     /* subroutine */ get_void_type(),
                     lvalue_ref(t0));
         }
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_fseek(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+    type_t* t2 = no_ref(argument_types[2]);
+    type_t* t3 = no_ref(argument_types[3]);
+
+    if(is_integer_type(t0)
+            && is_integer_type(t1)
+            && is_integer_type(t2)
+            && (t3 == NULL ||
+                // The type of t3 should be INTEGER(4)
+                (equivalent_types(t3, fortran_choose_int_type_from_kind(4)))))
+    {
+        return GET_INTRINSIC_IMPURE(symbol, "fseek",
+                /* subroutine */ get_void_type(),
+                lvalue_ref(t0),
+                lvalue_ref(t1),
+                lvalue_ref(t2),
+                lvalue_ref(t3));
+    }
+
+    return NULL;
+}
+
+scope_entry_t* compute_intrinsic_ftell(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    type_t* t0 = no_ref(argument_types[0]);
+    type_t* t1 = no_ref(argument_types[1]);
+
+    if(num_arguments == 2
+            && is_integer_type(t0)
+            && is_integer_type(t1))
+    {
+        return GET_INTRINSIC_IMPURE(symbol, "ftell",
+                /* subroutine */ get_void_type(),
+                lvalue_ref(t0),
+                lvalue_ref(t1));
+    }
+    else if (num_arguments == 1
+            && is_integer_type(t0))
+    {
+        return GET_INTRINSIC_TRANSFORMATIONAL(symbol, "ftell",
+                fortran_get_default_integer_type(),
+                lvalue_ref(t0));
     }
 
     return NULL;
@@ -5956,7 +6018,7 @@ scope_entry_t* compute_intrinsic_sizeof(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = no_ref(argument_types[0]);
 
     return GET_INTRINSIC_INQUIRY(symbol, "sizeof",
-            get_size_t_type(),
+            get_ptrdiff_t_type(),
             lvalue_ref(t0));
 
     return NULL;
@@ -6785,7 +6847,7 @@ scope_entry_t* compute_intrinsic_c_sizeof(scope_entry_t* symbol,
 {
     type_t* t0 = no_ref(argument_types[0]);
 
-    return GET_INTRINSIC_INQUIRY(symbol, "c_sizeof", get_size_t_type(),
+    return GET_INTRINSIC_INQUIRY(symbol, "c_sizeof", get_ptrdiff_t_type(),
             lvalue_ref(t0));
 }
 
@@ -6811,6 +6873,73 @@ scope_entry_t* compute_intrinsic_mercurium_null(scope_entry_t* symbol,
         const_value_t** const_value UNUSED_PARAMETER)
 {
     return GET_INTRINSIC_INQUIRY(symbol, "mercurium_null", get_pointer_type(get_void_type()));
+}
+
+scope_entry_t* compute_intrinsic_nanox_opencl_allocate(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions,
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    nodecl_t arg = argument_expressions[0];
+    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
+        arg = nodecl_get_child(arg, 0);
+
+    ERROR_CONDITION(nodecl_get_kind(arg) != NODECL_ARRAY_SUBSCRIPT,
+            "The argument of 'nanox_opencl_allocate' intrinsic must be "
+            "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
+
+    nodecl_t nodecl_sym = nodecl_get_child(arg, 0);
+    ERROR_CONDITION(nodecl_get_kind(nodecl_sym) != NODECL_SYMBOL, "Unreachable code\n", 0);
+
+    scope_entry_t* sym = nodecl_get_symbol(nodecl_sym);
+    ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
+
+    ERROR_CONDITION(
+            !(sym->entity_specs.is_allocatable
+                && fortran_is_array_type(sym->type_information))
+            &&
+            !(is_pointer_type(sym->type_information)
+                && fortran_is_pointer_to_array_type(sym->type_information)),
+            "The argument of 'nanox_opencl_allocate' intrinsic must be "
+            "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
+
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    return GET_INTRINSIC_IMPURE(symbol, "nanox_opencl_allocate", get_void_type(), lvalue_ref(t0));
+}
+
+scope_entry_t* compute_intrinsic_nanox_opencl_deallocate(scope_entry_t* symbol,
+        type_t** argument_types UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    nodecl_t arg = argument_expressions[0];
+    if (nodecl_get_kind(arg) == NODECL_DEREFERENCE)
+        arg = nodecl_get_child(arg, 0);
+
+    ERROR_CONDITION(nodecl_get_kind(arg) != NODECL_SYMBOL, "Unreachable code\n", 0);
+
+    scope_entry_t* sym = nodecl_get_symbol(arg);
+    ERROR_CONDITION(sym == NULL, "Unreachable code\n", 0);
+
+    ERROR_CONDITION(
+            !(sym->entity_specs.is_allocatable
+                && fortran_is_array_type(sym->type_information))
+            &&
+            !(is_pointer_type(sym->type_information)
+                && fortran_is_pointer_to_array_type(sym->type_information)),
+            "The argument of 'nanox_opencl_deallocate' intrinsic must be "
+            "an allocatable array or a pointer to an array\n", 0);
+
+    type_t* t0 = no_ref(fortran_get_rank0_type(argument_types[0]));
+    return GET_INTRINSIC_IMPURE(symbol, "nanox_opencl_deallocate", get_void_type(), lvalue_ref(t0));
 }
 
 scope_entry_t* fortran_solve_generic_intrinsic_call(scope_entry_t* symbol,

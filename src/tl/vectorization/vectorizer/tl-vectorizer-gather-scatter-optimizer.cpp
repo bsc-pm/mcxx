@@ -399,6 +399,13 @@ namespace Vectorization
     }
 
     stride_splitter_ret_t StrideSplitterVisitor::visit(
+            const Nodecl::VectorMinus& n)
+    {
+        return visit_distributive_binary_op<Nodecl::VectorMinus,
+              Nodecl::Minus>(n, const_value_sub);
+    }
+
+    stride_splitter_ret_t StrideSplitterVisitor::visit(
             const Nodecl::Neg& n)
     {
         running_error("NEG");

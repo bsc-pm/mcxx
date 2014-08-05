@@ -38,10 +38,11 @@ namespace TL
 namespace Vectorization
 {
     SuitableAlignmentVisitor::SuitableAlignmentVisitor(const Nodecl::NodeclBase& scope,
-            const ObjectList<Nodecl::NodeclBase>& suitable_expressions, int unroll_factor,
-            int type_size, int alignment )
-        : _scope( scope ), _suitable_expressions( suitable_expressions ),
-        _unroll_factor( unroll_factor ), _type_size( type_size ), _alignment( alignment )
+            const objlist_nodecl_t& suitable_expressions,
+            int unroll_factor, int type_size, int alignment )
+        : _scope( scope ), _suitable_expressions(suitable_expressions),
+        _unroll_factor( unroll_factor ),
+        _type_size( type_size ), _alignment( alignment )
     {
     }
 
@@ -94,7 +95,7 @@ namespace Vectorization
         int num_subscripts = subscripts.size( );
 
         // Get dimension sizes
-        int *dimension_sizes = (int *)malloc( ( num_subscripts-1 ) * sizeof( int ) );
+        std::vector<int> dimension_sizes(/* n = */ num_subscripts - 1, /* val = */ 0);
 
         for( i = 0; i < (num_subscripts-1); i++ ) // Skip the first one. It does not have size
         {
@@ -110,14 +111,12 @@ namespace Vectorization
             else
             {
                 WARNING_MESSAGE( "Array subscript does not have array type or pointer to array type", 0 );
-                free( dimension_sizes );
                 return false;
             }
 
             if( !element_type.array_has_size( ) )
             {
                 WARNING_MESSAGE( "Array type does not have size", 0 );
-                free( dimension_sizes );
                 return false;
             }
 
@@ -183,7 +182,6 @@ namespace Vectorization
 
             if( it_alignment == -1 )
             {
-                free( dimension_sizes );
                 return false;
             }
 
@@ -192,14 +190,11 @@ namespace Vectorization
 
         if( it_alignment == -1 )
         {
-            free( dimension_sizes );
             return false;
         }
 
         // Add adjacent dimension
         alignment += it_alignment;
-
-        free( dimension_sizes );
 
         if( (alignment % _alignment) == 0 )
             return true;
@@ -207,7 +202,8 @@ namespace Vectorization
         return false;
     }
 
-    bool SuitableAlignmentVisitor::is_suitable_expression( Nodecl::NodeclBase n )
+    bool SuitableAlignmentVisitor::is_suitable_expression(
+            Nodecl::NodeclBase n)
     {
         bool result = false;
         if( Nodecl::Utils::list_contains_nodecl( _suitable_expressions, n ) )
@@ -402,12 +398,12 @@ namespace Vectorization
             return const_value_cast_to_signed_int( n.get_constant( )) * _type_size;
         }
         else if(VectorizationAnalysisInterface::_vectorizer_analysis->
-                is_non_reduction_basic_induction_variable(_scope, n))
+                is_linear(_scope, n))
         {
             Nodecl::NodeclBase lb = VectorizationAnalysisInterface::_vectorizer_analysis->
                 get_induction_variable_lower_bound(_scope, n);
             Nodecl::NodeclBase incr = VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_induction_variable_increment(_scope, n);
+                get_linear_step(_scope, n);
 
             int lb_mod = walk(lb);
             int incr_mod = walk(incr);

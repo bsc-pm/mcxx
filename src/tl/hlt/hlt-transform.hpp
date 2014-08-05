@@ -41,32 +41,10 @@ namespace TL
 
         //! Base for all transformations
         /*!
-          All HLT transformations derive from this class.
+          All HLT transformations derive from this class although it does not
+          introduce any behaviour.
          */
-        struct LIBHLT_CLASS Transform
-        {
-            public:
-
-                /*! States if the passed tree is suitable for the transformation
-                 *
-                 * \param diagnostic If true the check routine should diagnose why the tree is not suitable
-                 */
-                virtual bool check(bool diagnostic) = 0;
-
-                /*! Performs the transformation
-                 * \pre Transform::check should have returned true
-                 */
-                virtual void perform() = 0;
-                bool check() { return this->check(false); }
-
-                Transform(Nodecl::NodeclBase n) { }
-
-            private:
-                // Not copiable
-                Transform();
-                Transform(const Transform&);
-                Transform& operator=(const Transform&);
-        };
+        struct LIBHLT_CLASS Transform { };
 
         //! @}
     }

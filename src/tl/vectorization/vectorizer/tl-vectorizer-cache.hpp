@@ -46,13 +46,15 @@ namespace TL
                 Nodecl::NodeclBase _lower_bound;
                 Nodecl::NodeclBase _upper_bound;
                 Nodecl::NodeclBase _stride;
+                const int _overlap_factor; 
 
                 std::vector<TL::Symbol> _register_list;
 
             public:
                 CacheInfo(const Nodecl::NodeclBase& lower_bound,
                        const Nodecl::NodeclBase& upper_bound,
-                       const Nodecl::NodeclBase& stride);
+                       const Nodecl::NodeclBase& stride,
+                       const int overlap_factor);
 
             friend class VectorizerCache;
 
@@ -67,7 +69,8 @@ namespace TL
                 cache_map_t _cache_map;
 
             public:
-                VectorizerCache(const objlist_nodecl_t& cached_expressions);
+                VectorizerCache(
+                        const tl_sym_int_map_t& cached_expressions);
 
                 void declare_cache_symbols(TL::Scope scope,
                         const VectorizerEnvironment& environment);

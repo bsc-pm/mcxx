@@ -71,25 +71,6 @@ namespace Nodecl
         return sym_list;
     }
 
-    static bool is_parameter_of_nonnested_function(TL::Symbol symbol, TL::Scope sc)
-    {
-        // This function returns true if this symbol is a parameter of a
-        // function that is not the current one nor an enclosing one
-        if (!symbol.is_parameter_of_a_function())
-            return false;
-
-        TL::Symbol current_function = sc.get_decl_context().current_scope->related_entry;
-        if (!current_function.is_valid())
-            return false;
-
-        if (symbol.is_parameter_of(current_function))
-            return false;
-        else if (current_function.is_nested_function())
-            return is_parameter_of_nonnested_function(symbol, current_function.get_scope());
-
-        return true;
-    }
-
     struct IsLocalSymbol : TL::Predicate<TL::Symbol>
     {
         private:
@@ -105,8 +86,7 @@ namespace Nodecl
             {
                 // If its scope is contained in the base node one, then it is
                 // "local"
-                return sym.get_scope().scope_is_enclosed_by(_sc)
-                    && !is_parameter_of_nonnested_function(sym, _sc);
+                return sym.get_scope().scope_is_enclosed_by(_sc);
             }
     };
 
@@ -125,8 +105,7 @@ namespace Nodecl
             {
                 // If its scope is not contained in the base node one, then it
                 // is "nonlocal"
-                return !sym.get_scope().scope_is_enclosed_by(_sc)
-                    && !is_parameter_of_nonnested_function(sym, _sc);
+                return !sym.get_scope().scope_is_enclosed_by(_sc);
             }
     };
 
@@ -541,7 +520,7 @@ namespace Nodecl
     }
 
 
-    bool Utils::nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
+    bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
         bool result = false;
 
@@ -551,11 +530,11 @@ namespace Nodecl
         }
         else if( container.is<Nodecl::Conversion>( ) )
         {
-            result = nodecl_contains_nodecl( container.as<Nodecl::Conversion>( ).get_nest( ), contained );
+            result = dataref_contains_dataref( container.as<Nodecl::Conversion>( ).get_nest( ), contained );
         }
         else if( contained.is<Nodecl::Conversion>( ) )
         {
-            result = nodecl_contains_nodecl( container, contained.as<Nodecl::Conversion>( ).get_nest( ) );
+            result = dataref_contains_dataref( container, contained.as<Nodecl::Conversion>( ).get_nest( ) );
         }
         else if( container.is<Nodecl::Dereference>( ) )
         {
@@ -590,7 +569,7 @@ namespace Nodecl
                     Nodecl::List::iterator it2 = contained_subscripts.begin( );
                     for( ; it1 != container_subscripts.end( ) && it2 != contained_subscripts.end( ) && !result; ++it1, ++it2 )
                     {
-                        result = nodecl_contains_nodecl( *it1, *it2 );
+                        result = dataref_contains_dataref( *it1, *it2 );
                     }
                 }
             }
@@ -598,7 +577,7 @@ namespace Nodecl
         else if( container.is<Nodecl::ClassMemberAccess>( ) )
         {
             Nodecl::NodeclBase lhs = contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( );
-            result = nodecl_contains_nodecl( container, lhs );
+            result = dataref_contains_dataref( container, lhs );
         }
         else if( container.is<Nodecl::Symbol>( ) )
         {
@@ -615,7 +594,7 @@ namespace Nodecl
             }
             else if( contained.is<Nodecl::ClassMemberAccess>( ) )
             {
-                result = nodecl_contains_nodecl( container, contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
+                result = dataref_contains_dataref( container, contained.as<Nodecl::ClassMemberAccess>( ).get_lhs( ) );
             }
         }
 

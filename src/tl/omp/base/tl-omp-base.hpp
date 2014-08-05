@@ -88,10 +88,6 @@ namespace TL
 
                 std::string _disable_task_expr_optim_str;
 
-                bool _instantiate_omp;
-                std::string _instantiate_omp_str;
-                void set_instantiate_omp(const std::string& instantiate_omp);
-
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 void _name##_handler_pre(TL::PragmaCustomDirective); \
@@ -130,11 +126,13 @@ namespace TL
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
                         const Nodecl::NodeclBase& ref_scope,
-                        Nodecl::List& environment);
+                        Nodecl::List& environment,
+                        const int default_int);
                 template <typename openmp_node>
                 void process_symbol_list_clause(
                         const TL::PragmaCustomLine& pragma_line,
                         const std::string& pragma_name,
+                        const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
                 void process_common_simd_clauses(

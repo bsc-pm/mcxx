@@ -27,7 +27,6 @@
 #include "tl-omp-base.hpp"
 #include "tl-omp-base-task.hpp"
 #include "tl-omp-base-utils.hpp"
-#include "tl-omp-base-instantiation.hpp"
 
 #include "config.h"
 #include "tl-nodecl-utils.hpp"
@@ -54,8 +53,8 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
-        _copy_deps_by_default(true),
-        _instantiate_omp(false)
+        _omp_report(false),
+        _copy_deps_by_default(true)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -106,11 +105,6 @@ namespace TL { namespace OpenMP {
                 _disable_task_expr_optim_str,
                 "0");
 
-        register_parameter("instantiate_omp",
-                "EXPERIMENTAL FEATURE: In C++, instantiates functions containing #pragma omp",
-                _instantiate_omp_str,
-                "0").connect(functor(&Base::set_instantiate_omp, *this));
-
 #define OMP_DIRECTIVE(_directive, _name, _pred) \
                 if (_pred) { \
                     std::string directive_name = remove_separators_of_directive(_directive); \
@@ -136,10 +130,6 @@ namespace TL { namespace OpenMP {
 
     void Base::pre_run(TL::DTO& dto)
     {
-        if (_instantiate_omp)
-        {
-            _core.set_instantiate_omp(true);
-        }
         _core.pre_run(dto);
 
         // Do nothing once we have analyzed everything
@@ -151,13 +141,9 @@ namespace TL { namespace OpenMP {
 
     void Base::run(TL::DTO& dto)
     {
-        if (_instantiate_omp)
+        if (CURRENT_CONFIGURATION->explicit_instantiation)
         {
-            _core.set_instantiate_omp(true);
             this->set_ignore_template_functions(true);
-
-            InstantiateVisitorOmp instantiate_omp_functions(dto);
-            instantiate_omp_functions.instantiate();
         }
 
         _core.run(dto);
@@ -186,14 +172,6 @@ namespace TL { namespace OpenMP {
                 << "=================================================================\n";
         }
 
-        if (_instantiate_omp)
-        {
-            InstantiateVisitorOmp instantiate_omp_functions(dto);
-            instantiate_omp_functions.instantiate();
-
-            this->set_ignore_template_functions(true);
-        }
-
         this->PragmaCustomCompilerPhase::run(dto);
 
         RefPtr<FunctionTaskSet> function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
@@ -202,7 +180,7 @@ namespace TL { namespace OpenMP {
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
         TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
-                /* ignore_template_functions */ _instantiate_omp);
+                /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
 
@@ -221,7 +199,7 @@ namespace TL { namespace OpenMP {
                 enclosing_stmt_to_original_stmt_map,
                 enclosing_stmt_to_return_vars_map,
                 this,
-                /* ignore_template_functions */ _instantiate_omp);
+                /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
 
         function_call_visitor.walk(translation_unit);
         function_call_visitor.build_all_needed_task_expressions();
@@ -330,12 +308,6 @@ namespace TL { namespace OpenMP {
     {
         parse_boolean_option("copy_deps", str, _copy_deps_by_default, "Assuming true.");
         _core.set_copy_deps_by_default(_copy_deps_by_default);
-    }
-
-    void Base::set_instantiate_omp(const std::string& str)
-    {
-        parse_boolean_option("instantiate_omp", str, _instantiate_omp, "Assuming false");
-        _core.set_instantiate_omp(_instantiate_omp);
     }
 
     bool Base::copy_deps_by_default() const
@@ -1712,7 +1684,8 @@ namespace TL { namespace OpenMP {
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
             const Nodecl::NodeclBase& ref_scope,
-            Nodecl::List& environment)
+            Nodecl::List& environment,
+            const int default_int)
     {
         PragmaCustomClause clause_clause = pragma_line.get_clause(pragma_name);
 
@@ -1736,9 +1709,9 @@ namespace TL { namespace OpenMP {
                         "'%s' clause has a wrong format", 
                         pragma_name.c_str());
 
-                // Int value will be 0 by default
+                // Int value will be default_int
                 Nodecl::IntegerLiteral int_value = 
-                    const_value_to_nodecl(const_value_get_zero(4, 1));
+                    const_value_to_nodecl(const_value_get_signed_int(default_int));
 
                 if (colon_splited_list_size == 2)
                 {
@@ -1773,6 +1746,7 @@ namespace TL { namespace OpenMP {
     void Base::process_symbol_list_clause(
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
+            const Nodecl::NodeclBase& ref_scope,
             Nodecl::List& environment)
     {
         PragmaCustomClause clause = pragma_line.get_clause(pragma_name);
@@ -1780,7 +1754,8 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             environment.append(openmp_node::make(
-                        Nodecl::List::make(clause.get_arguments_as_expressions()),
+                        Nodecl::List::make(
+                            clause.get_arguments_as_expressions(ref_scope)),
                         pragma_line.get_locus()));
         }
     }
@@ -1792,23 +1767,23 @@ namespace TL { namespace OpenMP {
     {
         // Aligned
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Aligned>
-            (pragma_line, "aligned", ref_scope, environment);
+            (pragma_line, "aligned", ref_scope, environment, 0);
 
         // Linear
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Linear>
-            (pragma_line, "linear", ref_scope, environment);
+            (pragma_line, "linear", ref_scope, environment, 1);
 
         // Uniform
         process_symbol_list_clause<Nodecl::OpenMP::Uniform>
-            (pragma_line, "uniform", environment);
+            (pragma_line, "uniform", ref_scope, environment);
 
         // Suitable
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
-            (pragma_line, "suitable", environment);
+            (pragma_line, "suitable", ref_scope, environment);
 
         // Cache
-        process_symbol_list_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", environment);
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Cache>
+            (pragma_line, "cache", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");

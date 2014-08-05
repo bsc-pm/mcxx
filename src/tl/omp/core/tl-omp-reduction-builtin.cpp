@@ -343,11 +343,11 @@ namespace TL { namespace OpenMP {
                     integer_types,
                     "omp_priv = HUGE(omp_priv)",
                     "omp_out = min(omp_in, omp_out)");
-            // parse_builtin_reduction(sc,
-            //         "min",
-            //         floating_types,
-            //         "omp_priv = HUGE(omp_priv)",
-            //         "omp_out = min(omp_in, omp_out)");
+            parse_builtin_reduction(sc,
+                    "min",
+                    floating_types,
+                    "omp_priv = HUGE(omp_priv)",
+                    "omp_out = min(omp_in, omp_out)");
         }
         else
         {

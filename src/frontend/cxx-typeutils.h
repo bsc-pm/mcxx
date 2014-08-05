@@ -261,16 +261,16 @@ LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size_bits);
 
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
+/* Fixes dependent typenames in types so they can be compared without context */
+LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus);
+
 /* Type comparison functions */
-LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_context_t decl_context);
-// This one uses the global context of the current compiled file
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 // Compares two function types ignoring ref qualifiers
 LIBMCXX_EXTERN char equivalent_function_types_may_differ_ref_qualifier(
-        type_t* ft1, type_t* ft2,
-        decl_context_t decl_context);
+        type_t* ft1, type_t* ft2);
 
 /* Modifiers used when the type is still being built */
 
@@ -294,6 +294,9 @@ LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_
         char is_definition);
 LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
         char is_definition);
+
+LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
@@ -850,6 +853,7 @@ LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(sco
 
 // C++ auto
 LIBMCXX_EXTERN type_t* get_auto_type(void);
+LIBMCXX_EXTERN type_t* get_nondependent_auto_type(void);
 LIBMCXX_EXTERN char is_auto_type(type_t* t);
 
 // C genericity stuff. 

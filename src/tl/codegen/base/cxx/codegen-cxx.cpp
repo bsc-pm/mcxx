@@ -32,6 +32,7 @@
 #include "cxx-entrylist.h"
 #include "string_utils.h"
 #include "tl-compilerpipeline.hpp"
+#include "tl-counters.hpp"
 #include <iomanip>
 #ifdef HAVE_QUADMATH_H
 MCXX_BEGIN_DECLS
@@ -187,6 +188,7 @@ TL::Scope CxxBase::get_current_scope() const
     BINARY_EXPRESSION_EX(VectorArithmeticShr, " >> ") \
     BINARY_EXPRESSION_EX(VectorArithmeticShrI, " >> ") \
     BINARY_EXPRESSION_ASSIG(VectorAssignment, " = ") \
+    BINARY_EXPRESSION_ASSIG(VectorMaskAssignment, " = ") \
  
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     void CxxBase::visit(const Nodecl::_name &node) \
@@ -813,8 +815,8 @@ void CxxBase::visit(const Nodecl::Comma & node)
     emit_line_marker(node);
     *(file) << "(";
 
-    Nodecl::NodeclBase lhs = node.children()[0];
-    Nodecl::NodeclBase rhs = node.children()[1];
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    Nodecl::NodeclBase rhs = node.get_rhs();
     if (state.in_condition && state.condition_top == node)
     {
         *(file) << "(";
@@ -1415,6 +1417,32 @@ void CxxBase::emit_range_loop_header(
     dec_indent();
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::CxxForRanged& node)
+{
+    emit_line_marker(node);
+    indent();
+
+
+    *file << "for (";
+
+    bool old_in_condition = state.in_condition;
+    state.in_condition = 1;
+    define_or_declare_variable(node.get_symbol(), /* is_definition */ 1);
+    state.in_condition = old_in_condition;
+
+    *file << " : ";
+
+    Nodecl::CxxEqualInitializer eq_init = node.get_range().as<Nodecl::CxxEqualInitializer>();
+    ERROR_CONDITION(!eq_init.is<Nodecl::CxxEqualInitializer>(), "Invalid node", 0);
+    walk(eq_init.get_init());
+
+    *file << ")\n";
+
+    inc_indent();
+    walk(node.get_statement());
+    dec_indent();
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::ForStatement& node)
 {
     Nodecl::NodeclBase loop_control = node.get_loop_header();
@@ -1695,7 +1723,8 @@ void CxxBase::visit_function_call_form_template_id(const Node& node)
         return;
 
     if (!function_form.is_null()
-            && function_form.is<Nodecl::CxxFunctionFormTemplateId>())
+            && function_form.is<Nodecl::CxxFunctionFormTemplateId>()
+            && called_symbol.get_type().is_template_specialized_type())
     {
         TL::TemplateParameters template_args = function_form.get_template_parameters();
         TL::TemplateParameters deduced_template_args =
@@ -2527,26 +2556,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (!symbol.get_class_type().is_valid()
             || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
-        if (symbol.is_member())
+        if (!symbol.is_member()
+                && is_template_specialized)
         {
-            TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-            do_define_symbol(class_symbol,
-                    &CxxBase::declare_symbol_always,
-                    &CxxBase::define_symbol_always);
-        }
-        else
-        {
-            if (is_template_specialized)
-            {
-                TL::Type template_type = symbol_type.get_related_template_type();
-                TL::Type primary_type = template_type.get_primary_template();
-                TL::Symbol primary_symbol = primary_type.get_symbol();
-                do_declare_symbol(primary_symbol,
-                        &CxxBase::declare_symbol_always,
-                        &CxxBase::define_symbol_always);
+            TL::Type template_type = symbol_type.get_related_template_type();
+            TL::Type primary_type = template_type.get_primary_template();
+            TL::Symbol primary_symbol = primary_type.get_symbol();
 
-                is_primary = (primary_symbol == symbol);
-            }
+            is_primary = (primary_symbol == symbol);
         }
     }
 
@@ -2583,8 +2600,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
     while (tpl.is_valid())
     {
-        // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0
+        if (!tpl.get_is_explicit_instantiation()
                 && tpl.get_is_explicit_specialization())
         {
              indent();
@@ -3721,6 +3737,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
     ::xfree(bytes);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::ValueInitialization& node)
+{
+    // Do not print anything for this node
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
 {
     Nodecl::List items = node.get_items().as<Nodecl::List>();
@@ -3782,6 +3803,8 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         *(file) << "(" << this->get_declaration(type, this->get_current_scope(), "") << ")";
     }
 
+    bool wrapped_in_compound_expression = false;
+
     if (structured_value_form == EXPLICIT_TYPECAST_PARENTHESIZED
             || (structured_value_form == EXPLICIT_TYPECAST_BRACED
                 && !state.inside_structured_value))
@@ -3798,9 +3821,40 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
         {
             *(file) << "unsigned";
         }
+        else if ((!type.is_named()
+                    && (type.is_pointer()
+                        || type.is_any_reference()
+                        || type.is_array()
+                        || type.is_pointer_to_member()))
+                || get_cv_qualifier(type.get_internal_type()) != CV_NONE
+
+                // Builtin types requiring more than one token
+                || (type.is_char() && !(type.is_same_type(::get_char_type())))
+                || type.is_unsigned_char()
+                || type.is_unsigned_int()
+                || type.is_unsigned_short_int()
+                || type.is_unsigned_long_int()
+                || type.is_signed_long_long_int()
+                || type.is_unsigned_long_long_int()
+                || type.is_long_double()
+                )
+        {
+            // This is a hack to workaround the somewhat limited expressivity
+            // of C++ in this syntax
+            wrapped_in_compound_expression = true;
+            TL::Counter &c = TL::CounterManager::get_counter("auxiliar_type");
+
+            std::stringstream ss;
+            ss << "__aux_type" << (int)c;
+            c++;
+
+            *(file) << "({ typedef "
+                << this->get_declaration(type, this->get_current_scope(), ss.str()) << "; "
+                << ss.str();
+        }
         else
         {
-            // No effort done for invalid cases that the syntax does not allow
+            // Usual case
             *(file) << this->get_declaration(type, this->get_current_scope(),  "");
         }
     }
@@ -3832,6 +3886,11 @@ CxxBase::Ret CxxBase::visit(const Nodecl::StructuredValue& node)
             || structured_value_form == TYPECAST)
     {
         *(file) << ")";
+    }
+
+    if (wrapped_in_compound_expression)
+    {
+        *(file) << "; })";
     }
 }
 
@@ -4934,8 +4993,9 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else
                 {
-                    while (template_parameters.is_valid() &&
-                            template_parameters.get_is_explicit_specialization())
+                    while (template_parameters.is_valid()
+                            && !template_parameters.get_is_explicit_instantiation()
+                            && template_parameters.get_is_explicit_specialization())
                     {
                         indent();
                         *(file) << "template <>\n";
@@ -5560,8 +5620,9 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                 }
                 else
                 {
-                    while (template_parameters.is_valid() &&
-                            template_parameters.get_is_explicit_specialization())
+                    while (template_parameters.is_valid()
+                            && !template_parameters.get_is_explicit_instantiation()
+                            && template_parameters.get_is_explicit_specialization())
                     {
                         indent();
                         *(file) << "template <>\n";
@@ -6598,7 +6659,11 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
             }
             CXX_LANGUAGE()
             {
-                if (init.is<Nodecl::CxxEqualInitializer>()
+                if (init.is<Nodecl::ValueInitialization>())
+                {
+                    // Do not emit anything
+                }
+                else if (init.is<Nodecl::CxxEqualInitializer>()
                         || init.is<Nodecl::CxxBracedInitializer>()
                         || init.is<Nodecl::CxxParenthesizedInitializer>())
                 {
@@ -7518,8 +7583,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     TL::TemplateParameters tpl = template_parameters;
                     while (tpl.is_valid())
                     {
-                        // We should ignore some 'fake' empty template headers
-                        if (tpl.get_num_parameters() > 0
+                        if (!tpl.get_is_explicit_instantiation()
                                 && tpl.get_is_explicit_specialization())
                         {
                             indent();
@@ -8993,8 +9057,11 @@ void CxxBase::codegen_template_header(
         return;
 
     indent();
-    if (template_parameters.get_num_parameters() > 0 
-            && template_parameters.get_is_explicit_specialization())
+    if (template_parameters.get_is_explicit_instantiation())
+    {
+        return;
+    }
+    else if (template_parameters.get_is_explicit_specialization())
     {
         *(file) << "template <>";
         if (endline)
@@ -9303,11 +9370,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     if (IS_CXX_LANGUAGE
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
             && !_this->symbol_is_nested_in_defined_classes(sym)
-            && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
+            && ((sym->kind == SK_CLASS
+                    && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM)
-            && !(sym->entity_specs.is_member
-                && is_template_specialized_type(get_actual_class_type(sym->entity_specs.class_type))
-                && class_type_is_complete_independent(get_actual_class_type(sym->entity_specs.class_type))))
+            && !sym->entity_specs.is_member)
     {
         result = sym->symbol_name;
 
@@ -9493,7 +9559,7 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
         TL::Symbol current_param = *it;
         if (current_param.is_valid())
         {
-            if(!current_param.not_to_be_printed())
+            if (!current_param.not_to_be_printed())
             {
                 parameter_names[i] = current_param.get_name();
             }
@@ -9505,11 +9571,12 @@ void CxxBase::fill_parameter_names_and_parameter_attributes(TL::Symbol symbol,
 
             if (emit_default_arguments
                     && get_codegen_status(current_param) != CODEGEN_STATUS_DEFINED
-                    && symbol.has_default_argument_num(i))
+                    && symbol.has_default_argument_num(i)
+                    && !symbol.has_hidden_default_argument_num(i))
             {
                 // Note that we add redundant parentheses because of a g++ 4.3 problem
                 parameter_attributes[i] += " = (" + this->codegen_to_str(symbol.get_default_argument_num(i), 
-                        current_param.get_scope()) + ")";
+                            current_param.get_scope()) + ")";
             }
             set_codegen_status(current_param, CODEGEN_STATUS_DEFINED);
         }

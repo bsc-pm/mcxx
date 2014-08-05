@@ -160,7 +160,7 @@ namespace {
         return ranges;
     }
     
-    std::string print_node_ranges_propagated_str(Node* current)
+    UNUSED_FUNCTION std::string print_node_ranges_propagated_str(Node* current)
     {
         std::string propagated_ranges = "";
         if(_ranges)
@@ -217,10 +217,8 @@ namespace {
     }
 }
     
-    static int id_ = 0;
-    
     void ExtensibleGraph::print_graph_to_dot(bool usage, bool liveness, bool reaching_defs, bool induction_vars,
-                                              bool ranges, bool auto_scoping, bool auto_deps)
+                                             bool ranges, bool auto_scoping, bool auto_deps)
     {
         std::ofstream dot_pcfg;
         
@@ -238,29 +236,8 @@ namespace {
                 internal_error ("An error occurred while creating the dot files directory in '%s'", directory_name.c_str());
         }
 
-        std::string date_str;
-        {
-            time_t t = time(NULL);
-            struct tm* tmp = localtime(&t);
-            if (tmp == NULL)
-            {
-                internal_error("localtime failed", 0);
-            }
-            char outstr[200];
-            if (strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
-            {
-                internal_error("strftime failed", 0);
-            }
-            outstr[199] = '\0';
-            date_str = outstr;
-        }
-
-        NBase node = this->get_nodecl();
-        std::string filename = ::give_basename(node.get_filename().c_str());
-        int line = node.get_line();
-        std::stringstream ss; ss << filename << "_" << line;
-        std::stringstream ss_; ss_ << ++id_;
-        std::string dot_file_name = directory_name + ss.str() + "_" + date_str + "_" + ss_.str() + "_pcfg.dot";
+        // Generate the full path to the file where to store the PCFG
+        std::string dot_file_name = directory_name + _name + "_pcfg.dot";
         dot_pcfg.open(dot_file_name.c_str());
         if(!dot_pcfg.good())
             internal_error ("Unable to open the file '%s' to store the PCFG.", dot_file_name.c_str());
@@ -436,6 +413,9 @@ namespace {
             case __ExtensibleGraph:
                 dot_graph += indent + "color=white;\n";
                 break;
+            case __FunctionCode:
+                dot_graph += indent + "color=gray77;\n";
+                break;                
             case __AsmDef:
             case __CondExpr:
             case __FunctionCallGraph:

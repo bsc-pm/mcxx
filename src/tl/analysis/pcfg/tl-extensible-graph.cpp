@@ -24,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <queue>
+
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -185,7 +187,7 @@ namespace Analysis {
             internal_error("Wrong list size while connecting a list of nodes as parent of "
                             "other node (parents '%d', edge types '%d', edge labels '%d')\n",
                            parents.size(), actual_etypes.size(), actual_elabels.size());
-    }
+        }
 
         ObjectList<Node*>::const_iterator it = parents.begin();
         ObjectList<Edge_type>::const_iterator itt = actual_etypes.begin();
@@ -294,6 +296,63 @@ namespace Analysis {
     {
         clear_unnecessary_nodes();
         concat_sequential_nodes();
+    }
+    
+    void ExtensibleGraph::remove_unnecessary_connections_rec(Node* n)
+    {
+        if(!n->is_visited_extgraph())
+        {
+            n->set_visited_extgraph(true);
+            
+            ObjectList<Node*> children = n->get_children();
+            if(n->is_graph_node())
+            {   // Only graph nodes may be unnecessarily connected 
+                
+                // First try recursively in the inner nodes
+                remove_unnecessary_connections_rec(n->get_graph_entry_node());
+                
+                // Second check whether the current graph node has to be unconnected
+                Node* exit = n->get_graph_exit_node();
+                if(exit->get_entry_edges().empty())
+                {   // If the exit of the graph node has no parent, 
+                    // then the graph node should not have any children
+                    std::queue<Node*> nodes_to_disconnect;
+                    nodes_to_disconnect.push(n);
+                    while(!nodes_to_disconnect.empty())
+                    {
+                        Node* n_ = nodes_to_disconnect.front();
+                        nodes_to_disconnect.pop();
+                        
+                        ObjectList<Node*> tmp = n_->get_children();
+                        for(ObjectList<Node*>::iterator it = tmp.begin(); it != tmp.end(); ++it)
+                        {
+                            disconnect_nodes(n_, *it);
+                            if((*it)->get_entry_edges().empty() && !(*it)->is_graph_node())
+                            {   // We have removed the only parent that this node had => keep removing unconnected node
+                                // But do not disconnect graph nodes, because they may have unexpected inner connections
+                                // We do not delete the nodes because they may be structurally necessary (i.e.: the exit node of a graph node)
+                                if((*it)->is_exit_node())
+                                    nodes_to_disconnect.push((*it)->get_outer_node());
+                                else
+                                    nodes_to_disconnect.push(*it);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Get again the children, because we may have deleted some of them
+            children = n->get_children();
+            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                remove_unnecessary_connections_rec(*it);
+        }
+    }
+    
+    void ExtensibleGraph::remove_unnecessary_connections()
+    {
+        Node* entry = _graph->get_graph_entry_node();
+        remove_unnecessary_connections_rec(entry);
+        clear_visits_extgraph(entry);
     }
 
     void ExtensibleGraph::concat_sequential_nodes()
@@ -535,7 +594,7 @@ namespace Analysis {
         }
         else
         {
-            cs.append(c);
+            cs.append(c.shallow_copy());
         }
 
         for(Nodecl::List::iterator it = cs.begin(); it != cs.end() && result; ++it)
@@ -1203,7 +1262,7 @@ namespace Analysis {
         return (enclosing_task == NULL ? false : true);
     }
 
-    bool ExtensibleGraph::node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
+    static bool node_contains_tasks_rec(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
     {
         bool result = false;
         if(!current->is_visited_extgraph())
@@ -1219,22 +1278,27 @@ namespace Analysis {
                 }
 
                 if(current->is_graph_node())
-                    result = node_contains_tasks(graph_node, current->get_graph_entry_node(), tasks) || result;
+                    result = node_contains_tasks_rec(graph_node, current->get_graph_entry_node(), tasks) || result;
 
                 if(current != graph_node)
                 {
                     ObjectList<Node*> children = current->get_children();
                     for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                         if(!(*it)->is_omp_task_node())
-                            result = node_contains_tasks(graph_node, *it, tasks) || result;
+                            result = node_contains_tasks_rec(graph_node, *it, tasks) || result;
                 }
             }
-            else
-                ExtensibleGraph::clear_visits_extgraph(graph_node);
         }
         return result;
     }
 
+    bool ExtensibleGraph::node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
+    {
+        bool res = node_contains_tasks_rec(graph_node, current, tasks);
+        ExtensibleGraph::clear_visits_extgraph(current);
+        return res;
+    }
+    
     Node* get_enclosing_control_structure_rec(Node* outer_node)
     {
         Node* result = NULL;

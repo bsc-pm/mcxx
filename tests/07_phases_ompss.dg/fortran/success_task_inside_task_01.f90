@@ -25,6 +25,7 @@ PROGRAM MAIN
         X = X + 1
         Y = Y + 1
         !$OMP END TASK
+        !$OMP TASKWAIT
     !$OMP END TASK
     !$OMP TASKWAIT
 
@@ -57,6 +58,7 @@ SUBROUTINE S(X, Y)
         X = X + 1
         Y = Y + 1
         !$OMP END TASK
+        !$OMP TASKWAIT
     !$OMP END TASK
 
     !$OMP TASKWAIT

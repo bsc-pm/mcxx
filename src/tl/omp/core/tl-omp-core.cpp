@@ -53,8 +53,7 @@ namespace TL
             _allow_shared_without_copies(false),
             _allow_array_reductions(true),
             _ompss_mode(false),
-            _copy_deps_by_default(true),
-            _instantiate_omp(false)
+            _copy_deps_by_default(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -127,7 +126,7 @@ namespace TL
             initialize_builtin_reductions(global_scope);
 
             // If we are instantiating omp we have to ignore template functions
-            if (instantiate_omp())
+            if (CURRENT_CONFIGURATION->explicit_instantiation)
                 this->set_ignore_template_functions(true);
 
             PragmaCustomCompilerPhase::run(dto);
@@ -201,10 +200,11 @@ namespace TL
         }
 
         void Core::get_clause_symbols(
-                PragmaCustomClause clause, 
+                PragmaCustomClause clause,
                 const TL::ObjectList<TL::Symbol> &symbols_in_construct,
                 ObjectList<DataReference>& data_ref_list,
-                bool allow_extended_references)
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             ObjectList<Nodecl::NodeclBase> expr_list;
             if (clause.is_defined())
@@ -212,14 +212,14 @@ namespace TL
                 expr_list = clause.get_arguments_as_expressions();
 
                 for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
-                        it != expr_list.end(); 
+                        it != expr_list.end();
                         it++)
                 {
                     DataReference data_ref(*it);
 
                     std::string warning;
                     if (!data_ref.is_valid()
-                            || (!allow_extended_references && !it->has_symbol()))
+                            || !it->has_symbol())
                     {
                         std::cerr << data_ref.get_error_log();
                         std::cerr << data_ref.get_locus_str() << ": warning: '" << data_ref.prettyprint()
@@ -253,6 +253,7 @@ namespace TL
                         }
 
                         data_ref_list.append(data_ref);
+                        add_extra_symbols(data_ref, data_sharing, extra_symbols);
                     }
                 }
             }
@@ -378,26 +379,32 @@ namespace TL
             return result;
         }
 
-        void Core::get_data_explicit_attributes(TL::PragmaCustomLine construct, 
+        void Core::get_data_explicit_attributes(TL::PragmaCustomLine construct,
                 Nodecl::NodeclBase statements,
-                DataSharingEnvironment& data_sharing)
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             TL::ObjectList<TL::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols(statements);
 
             ObjectList<DataReference> shared_references;
-            get_clause_symbols(construct.get_clause("shared"), nonlocal_symbols, shared_references);
-            std::for_each(shared_references.begin(), shared_references.end(), 
+            get_clause_symbols(construct.get_clause("shared"), nonlocal_symbols,
+                    shared_references, data_sharing, extra_symbols);
+            std::for_each(shared_references.begin(), shared_references.end(),
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_SHARED, "shared"));
 
             ObjectList<DataReference> private_references;
-            get_clause_symbols(construct.get_clause("private"), nonlocal_symbols, private_references);
-            std::for_each(private_references.begin(), private_references.end(), 
+            get_clause_symbols(construct.get_clause("private"), nonlocal_symbols,
+                    private_references, data_sharing, extra_symbols);
+            std::for_each(private_references.begin(), private_references.end(),
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE, "private"));
 
             ObjectList<DataReference> firstprivate_references;
-            get_clause_symbols(construct.get_clause("firstprivate"), nonlocal_symbols, firstprivate_references);
+            get_clause_symbols(construct.get_clause("firstprivate"), nonlocal_symbols,
+                    firstprivate_references, data_sharing, extra_symbols);
+
             ObjectList<DataReference> lastprivate_references;
-            get_clause_symbols(construct.get_clause("lastprivate"), nonlocal_symbols, lastprivate_references);
+            get_clause_symbols(construct.get_clause("lastprivate"), nonlocal_symbols,
+                    lastprivate_references, data_sharing, extra_symbols);
 
             ObjectList<DataReference> only_firstprivate_references;
             ObjectList<DataReference> only_lastprivate_references;
@@ -416,26 +423,28 @@ namespace TL
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"),
-                    nonlocal_symbols, data_sharing, reduction_references);
-            std::for_each(reduction_references.begin(), reduction_references.end(), 
+                    nonlocal_symbols, data_sharing, reduction_references, extra_symbols);
+            std::for_each(reduction_references.begin(), reduction_references.end(),
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 
             ObjectList<OpenMP::ReductionSymbol> simd_reduction_references;
             get_reduction_symbols(construct, construct.get_clause("simd_reduction"),
-                    nonlocal_symbols, data_sharing, simd_reduction_references);
-            std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(), 
+                    nonlocal_symbols, data_sharing, simd_reduction_references, extra_symbols);
+            std::for_each(simd_reduction_references.begin(), simd_reduction_references.end(),
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_SIMD_REDUCTION));
 
             // Do not confuse OpenMP copyin (related with threadprivate) with
             // OmpSs copy_in (related to copies between targets)
             ObjectList<DataReference> copyin_references;
-            get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols, copyin_references);
-            std::for_each(copyin_references.begin(), copyin_references.end(), 
+            get_clause_symbols(construct.get_clause("copyin"), nonlocal_symbols,
+                    copyin_references, data_sharing, extra_symbols);
+            std::for_each(copyin_references.begin(), copyin_references.end(),
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYIN, "copyin"));
 
             ObjectList<DataReference> copyprivate_references;
-            get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols, copyprivate_references);
-            std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
+            get_clause_symbols(construct.get_clause("copyprivate"), nonlocal_symbols,
+                    copyprivate_references, data_sharing, extra_symbols);
+            std::for_each(copyprivate_references.begin(), copyprivate_references.end(),
                     DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE, "copyprivate"));
         }
 
@@ -747,9 +756,7 @@ namespace TL
                             it++)
                     {
                         TL::Symbol &sym(*it);
-                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
-
-                        data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                        DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                         if (data_attr == DS_UNDEFINED)
                         {
@@ -848,11 +855,15 @@ namespace TL
             get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_sharing, nonlocal_symbols);
         }
 
-        void Core::common_parallel_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        void Core::common_parallel_handler(
+                TL::PragmaCustomStatement construct,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             ERROR_CONDITION(_ompss_mode, "Visiting a OpenMP::Parallel in OmpSs", 0);
             data_sharing.set_is_parallel(true);
-            common_construct_handler(construct, data_sharing);
+
+            common_construct_handler(construct, data_sharing, extra_symbols);
         }
 
         void Core::fix_sections_layout(TL::PragmaCustomStatement construct, const std::string& pragma_name)
@@ -1076,8 +1087,11 @@ namespace TL
                 .replace(compound_statement);
         }
 
-        void Core::common_for_handler(Nodecl::NodeclBase outer_statement,
-                Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
+        void Core::common_for_handler(
+                Nodecl::NodeclBase outer_statement,
+                Nodecl::NodeclBase statement,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             if (!statement.is<Nodecl::ForStatement>())
             {
@@ -1145,8 +1159,11 @@ namespace TL
             }
         }
 
-        void Core::common_while_handler(Nodecl::NodeclBase outer_statement,
-                Nodecl::NodeclBase statement, DataSharingEnvironment& data_sharing)
+        void Core::common_while_handler(
+                Nodecl::NodeclBase outer_statement,
+                Nodecl::NodeclBase statement,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             if (!statement.is<Nodecl::WhileStatement>())
             {
@@ -1165,18 +1182,23 @@ namespace TL
             }
         }
 
-        void Core::common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        void Core::common_workshare_handler(
+                TL::PragmaCustomStatement construct,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
-            common_construct_handler(construct, data_sharing);
+            common_construct_handler(construct, data_sharing, extra_symbols);
         }
 
-        void Core::common_construct_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
+        void Core::common_construct_handler(
+                TL::PragmaCustomStatement construct,
+                DataSharingEnvironment& data_sharing,
+                ObjectList<Symbol>& extra_symbols)
         {
             TL::PragmaCustomLine pragma_line = construct.get_pragma_line();
 
             get_target_info(pragma_line, data_sharing);
-
-            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing);
+            get_data_explicit_attributes(pragma_line, construct.get_statements(), data_sharing, extra_symbols);
 
             bool there_is_default_clause = false;
             DataSharingAttribute default_data_attr = get_default_data_sharing(pragma_line, /* fallback */ DS_SHARED,
@@ -1208,9 +1230,7 @@ namespace TL
                         it++)
                 {
                     TL::Symbol &sym(*it);
-                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
-
-                    data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                    DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                     if (data_attr == DS_UNDEFINED)
                     {
@@ -1479,6 +1499,27 @@ namespace TL
             }
         }
 
+        void Core::get_data_extra_symbols(
+                DataSharingEnvironment& data_sharing,
+                const ObjectList<Symbol>& extra_symbols)
+        {
+            for (ObjectList<Symbol>::const_iterator it = extra_symbols.begin();
+                    it != extra_symbols.end();
+                    ++it)
+            {
+                Symbol sym(*it);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+
+                std::string reason;
+                if (data_attr == DS_UNDEFINED)
+                {
+                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT), std::string("foo"));
+                }
+
+            }
+        }
+
+
         // Handlers
         void Core::parallel_handler_pre(TL::PragmaCustomStatement construct)
         {
@@ -1486,7 +1527,10 @@ namespace TL
             {
                 DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
                 _openmp_info->push_current_data_sharing(data_sharing);
-                common_parallel_handler(construct, data_sharing);
+
+                ObjectList<Symbol> extra_symbols;
+                common_parallel_handler(construct, data_sharing, extra_symbols);
+                get_data_extra_symbols(data_sharing, extra_symbols);
             }
         }
 
@@ -1513,8 +1557,10 @@ namespace TL
                 }
 
                 _openmp_info->push_current_data_sharing(data_sharing);
-                common_for_handler(construct, stmt, data_sharing);
-                common_parallel_handler(construct, data_sharing);
+                ObjectList<Symbol> extra_symbols;
+                common_parallel_handler(construct, data_sharing, extra_symbols);
+                common_for_handler(construct, stmt, data_sharing, extra_symbols);
+                get_data_extra_symbols(data_sharing, extra_symbols);
             }
         }
 
@@ -1526,7 +1572,7 @@ namespace TL
         void Core::loop_handler_pre(TL::PragmaCustomStatement construct,
                 Nodecl::NodeclBase loop,
                 void (Core::*common_loop_handler)(Nodecl::NodeclBase,
-                    Nodecl::NodeclBase, DataSharingEnvironment&))
+                    Nodecl::NodeclBase, DataSharingEnvironment&, TL::ObjectList<Symbol>&))
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
 
@@ -1536,10 +1582,14 @@ namespace TL
             }
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            (this->*common_loop_handler)(construct, loop, data_sharing);
-            common_workshare_handler(construct, data_sharing);
+            ObjectList<Symbol> extra_symbols;
+            common_workshare_handler(construct, data_sharing, extra_symbols);
+            (this->*common_loop_handler)(construct, loop, data_sharing, extra_symbols);
+
+            // Maybe in a future this construct has support to dependences
             get_dependences_info(construct.get_pragma_line(), data_sharing,
-                    /* default_data_sharing */ DS_UNDEFINED);
+                    /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
 
         void Core::for_handler_pre(TL::PragmaCustomStatement construct)
@@ -1568,10 +1618,13 @@ namespace TL
             stmt = stmt.as<Nodecl::List>().front();
 
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_for_handler(construct, stmt, data_sharing);
-            common_workshare_handler(construct, data_sharing);
+            ObjectList<Symbol> extra_symbols;
+            common_workshare_handler(construct, data_sharing, extra_symbols);
+            common_for_handler(construct, stmt, data_sharing, extra_symbols);
+            // Maybe in a future this construct has support to dependences
             get_dependences_info(construct.get_pragma_line(), data_sharing,
-                    /* default_data_sharing */ DS_UNDEFINED);
+                    /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
 
         void Core::do_handler_post(TL::PragmaCustomStatement construct)
@@ -1594,17 +1647,19 @@ namespace TL
             {
                 DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
                 _openmp_info->push_current_data_sharing(data_sharing);
-                common_for_handler(construct, stmt, data_sharing);
-
 
                 if (construct.get_pragma_line().get_clause("collapse").is_defined())
                 {
                     collapse_check_loop(construct);
                 }
 
-                common_parallel_handler(construct, data_sharing);
+                ObjectList<Symbol> extra_symbols;
+                common_parallel_handler(construct, data_sharing, extra_symbols);
+                common_for_handler(construct, stmt, data_sharing, extra_symbols);
+
+                // Maybe in a future this construct has support to dependences
                 get_dependences_info(construct.get_pragma_line(), data_sharing,
-                        /* default_data_sharing */ DS_UNDEFINED);
+                         /* default_data_sharing */ DS_UNDEFINED, extra_symbols);
             }
         }
 
@@ -1617,7 +1672,10 @@ namespace TL
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
+
+            ObjectList<Symbol> extra_symbols;
+            common_workshare_handler(construct, data_sharing, extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
 
         void Core::single_handler_post(TL::PragmaCustomStatement construct)
@@ -1629,14 +1687,17 @@ namespace TL
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
+
+            ObjectList<Symbol> extra_symbols;
             if (_ompss_mode)
             {
-                common_workshare_handler(construct, data_sharing);
+                common_workshare_handler(construct, data_sharing, extra_symbols);
             }
             else
             {
-                common_parallel_handler(construct, data_sharing);
+                common_parallel_handler(construct, data_sharing, extra_symbols);
             }
+            get_data_extra_symbols(data_sharing, extra_symbols);
             fix_sections_layout(construct, "parallel sections");
         }
 
@@ -1649,7 +1710,10 @@ namespace TL
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
-            common_workshare_handler(construct, data_sharing);
+
+            ObjectList<Symbol> extra_symbols;
+            common_workshare_handler(construct, data_sharing, extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
 
         void Core::workshare_handler_post(TL::PragmaCustomStatement construct)
@@ -1760,12 +1824,15 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
+            ObjectList<Symbol> extra_symbols;
             get_dependences_info_clause(
                     construct.get_pragma_line().get_clause("on"),
                     data_sharing,
                     DEP_DIR_INOUT,
                     /* default data sharing */ DS_UNDEFINED,
-                    "on");
+                    "on",
+                    extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
         }
 
         void Core::taskwait_handler_post(TL::PragmaCustomDirective construct)
@@ -1898,7 +1965,9 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            common_workshare_handler(construct, data_sharing);
+            ObjectList<Symbol> extra_symbols;
+            common_workshare_handler(construct, data_sharing, extra_symbols);
+            get_data_extra_symbols(data_sharing, extra_symbols);
 
             fix_sections_layout(construct, "sections");
         }
@@ -2168,8 +2237,6 @@ namespace TL
             RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
         }
-
-
     }
 }
 

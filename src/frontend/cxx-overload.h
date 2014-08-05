@@ -45,34 +45,12 @@ LIBMCXX_EXTERN void candidate_set_free(candidate_t** candidate_set);
 
 LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
-        const locus_t* locus,
-        scope_entry_t** conversor_per_argument);
+        const locus_t* locus);
 
-LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(
+LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(
         type_t* orig,
         type_t* dest,
         decl_context_t decl_context, 
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN char type_can_be_contextually_converted_to(
-        type_t* orig,
-        type_t* dest,
-        decl_context_t decl_context, 
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN char type_can_be_contextually_converted_to_bool(type_t* orig,
-        decl_context_t decl_context, 
-        char *ambiguous_conversion,
-        scope_entry_t** conversor,
-        const locus_t* locus);
-
-LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(type_t* orig,
-        type_t* dest,
-        decl_context_t decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -92,7 +70,16 @@ LIBMCXX_EXTERN char solve_initialization_of_class_type(
         decl_context_t decl_context,
         const locus_t* locus,
         scope_entry_t** constructor,
-        scope_entry_t** conversors,
+        scope_entry_list_t** candidates);
+
+LIBMCXX_EXTERN char solve_list_initialization_of_class_type(
+        type_t* class_type,
+        type_t** argument_types, 
+        int num_arguments,
+        enum initialization_kind initialization_kind,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        scope_entry_t** constructor,
         scope_entry_list_t** candidates);
 
 LIBMCXX_EXTERN unsigned long long overload_used_memory(void);

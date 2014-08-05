@@ -363,6 +363,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::FunctionTaskParsingContext& n );
         Ret visit( const Nodecl::OpenMP::If& n );
         Ret visit( const Nodecl::OpenMP::Lastprivate& n );
+        Ret visit( const Nodecl::OpenMP::Linear& n );
         Ret visit( const Nodecl::OpenMP::Mask& n );
         Ret visit( const Nodecl::OpenMP::Master& n );
         Ret visit( const Nodecl::OpenMP::NoMask& n );
@@ -391,6 +392,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::TaskLabel& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitDeep& n );
         Ret visit( const Nodecl::OpenMP::TaskwaitShallow& n );
+        Ret visit( const Nodecl::OpenMP::Uniform& n );
         Ret visit( const Nodecl::OpenMP::Unroll& n );
         Ret visit( const Nodecl::OpenMP::Untied& n );
         Ret visit( const Nodecl::OpenMP::VectorLengthFor& n );
@@ -426,6 +428,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Typeid& n );
         Ret visit( const Nodecl::UnalignedVectorLoad& n );
         Ret visit( const Nodecl::UnalignedVectorStore& n );
+        Ret visit( const Nodecl::UnalignedVectorStreamStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );

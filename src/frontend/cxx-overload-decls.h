@@ -50,7 +50,6 @@ enum initialization_kind {
     IK_INVALID = 0,
     IK_COPY_INITIALIZATION   =   1 << 1,
     IK_DIRECT_INITIALIZATION =   1 << 2,
-    IK_LIST_INITIALIZATION   =   1 << 3,   // This case does not allow modifiers
     // Modifiers for copy and direct initialization
     IK_BY_CONSTRUCTOR                   =   1 << 10,
     IK_BY_USER_DEFINED_CONVERSION       =   1 << 11,
