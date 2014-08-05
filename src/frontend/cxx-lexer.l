@@ -49,6 +49,7 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
+#include "cxx-diagnostic.h"
 #include "cxx-ast.h"
 /*!if C99*/
 #include "c99-parser-internal.h"
@@ -166,9 +167,9 @@ static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
 
-static int num_new_lines(const char* c)
+static unsigned int num_new_lines(const char* c)
 {
-    int result = 0;
+    unsigned int result = 0;
 
     while (*c)
     {
@@ -492,7 +493,7 @@ type {
 
 		if (!found)
 		{
-			fprintf(stderr, "%s:%d: warning: unknown '#pragma %s'\n", 
+			warn_printf("%s:%d: warning: unknown '#pragma %s'\n", 
 					scanning_now.current_filename,
 					scanning_now.line_number,
 					yytext);
@@ -774,7 +775,7 @@ type {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
+        warn_printf("%s:%d: warning: unended custom clause. Skipping.\n",
                 scanning_now.current_filename,
                 scanning_now.line_number);
     }
@@ -807,7 +808,7 @@ type {
    p++;
 
  // Compute line
- int line_num = 0;
+ unsigned int line_num = 0;
  while (*p != ' ' 
          && *p != '\0' // The filename location is optional
          )
@@ -822,6 +823,8 @@ type {
      }
      p++;
  }
+ // There are no zero lines, so if for some reason we end with a 0 line, fix it to 1
+ line_num = line_num == 0 ? 1 : line_num;
 
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
@@ -863,7 +866,7 @@ type {
 	// Jump the blank
 	directive++;
 
-	int line_num = 0;
+	unsigned int line_num = 0;
 	while (*directive != ' ')
 	{
 		if (isdigit(*directive))
@@ -964,7 +967,7 @@ type {
     {
         if (extern_c_block)
         {
-            fprintf(stderr, "%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+            warn_printf("%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
                     scanning_now.current_filename,
                     scanning_now.line_number);
         }
@@ -1795,13 +1798,13 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        fprintf(stderr, "%s:%d: warning: unknown character '%c' (%#x). Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character '%c' (%#x)\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext, *yytext);
     }
     else
     {
-        fprintf(stderr, "%s:%d: warning: unknown character %#x. Ignoring it.\n", 
+        error_printf("%s:%d: error: invalid character %#x\n", 
 				scanning_now.current_filename, scanning_now.line_number,
                 *yytext);
     }
@@ -1984,7 +1987,7 @@ void register_new_directive(compilation_configuration_t* configuration,
             {
                 if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
                 {
-                    fprintf(stderr, "Warning, directive or construct "
+                    warn_printf("Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
                             ", ignoring additional registrations\n",
                             directive, prefix);

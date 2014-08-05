@@ -142,6 +142,8 @@ void build_scope_friend_declarator(decl_context_t decl_context,
 
 LIBMCXX_EXTERN char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type);
 LIBMCXX_EXTERN char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type);
+LIBMCXX_EXTERN char function_is_move_constructor(scope_entry_t* entry, type_t* class_type);
+LIBMCXX_EXTERN char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_type);
 
 LIBMCXX_EXTERN void set_function_type_for_lambda(type_t** declarator_type,
         gather_decl_spec_t* gather_info,

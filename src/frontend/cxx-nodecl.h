@@ -88,7 +88,7 @@ template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n);
 const locus_t* nodecl_get_locus(nodecl_t);
 
 const char* nodecl_get_filename(nodecl_t);
-int nodecl_get_line(nodecl_t);
+unsigned int nodecl_get_line(nodecl_t);
 const char* nodecl_locus_to_str(nodecl_t);
 
 void nodecl_set_locus(nodecl_t n, const locus_t* locus);

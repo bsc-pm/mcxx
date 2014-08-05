@@ -68,7 +68,7 @@ LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN CHEC
     exit(EXIT_FAILURE); \
 }
 
-LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
+LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \

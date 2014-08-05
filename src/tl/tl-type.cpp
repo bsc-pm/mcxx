@@ -1574,6 +1574,11 @@ namespace TL
         return _tpl_params->is_explicit_specialization;
     }
 
+    bool TemplateParameters::get_is_explicit_instantiation() const
+    {
+        return _tpl_params->is_explicit_instantiation;
+    }
+
     Type::BaseInfo::BaseInfo(TL::Symbol _base,
             bool _is_virtual,
             bool _is_dependent,

@@ -1348,7 +1348,7 @@ char solve_ambiguous_list_of_initializer_clauses(AST ambiguous_list, decl_contex
 static char solve_ambiguous_nested_part_check_interpretation(AST a, decl_context_t decl_context,
         int position UNUSED_PARAMETER, void* info UNUSED_PARAMETER)
 {
-    ERROR_CONDITION(ASTType(a) != AST_NESTED_NAME_SPECIFIER, "invalid kind\n", 0);
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "invalid kind\n", 0);
     nodecl_t nodecl_nested_part;
     compute_nodecl_name_from_nested_part(a, decl_context, &nodecl_nested_part);
     return !nodecl_is_err_expr(nodecl_nested_part);

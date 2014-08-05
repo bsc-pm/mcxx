@@ -69,7 +69,7 @@ namespace Nodecl {
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             void set_text(const std::string& str) { nodecl_set_text(_n, uniquestr(str.c_str())); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
-            int get_line() const { return nodecl_get_line(_n); }
+            unsigned int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
             const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
             void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }

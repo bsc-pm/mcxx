@@ -94,8 +94,8 @@ static char check_continued_sentinel_line(const char* line,
 static char is_valid_pragma_custom_prefix(const char* sentinel);
 static const char* get_real_second_line(const char* second_line, 
         const char** filename, 
-        int* new_line, 
-        int* num_joined_lines, 
+        unsigned int* new_line, 
+        unsigned int* num_joined_lines, 
         bool ignore_comments);
 static void reintroduce_continued_line(char* split_line,
         enum continuation_kind_tag continuation_kind,
@@ -112,7 +112,7 @@ struct line_marker_flags_tag
     _Bool extern_c_block:1;
 } line_marker_flags_t;
 
-static void parse_line_marker(const char* str, const char** filename, int *line, line_marker_flags_t *flags);
+static void parse_line_marker(const char* str, const char** filename, unsigned int *line, line_marker_flags_t *flags);
 
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
@@ -222,7 +222,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 <preprocess>([ ]*line)?[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n\r]* {
     const char *directive = yytext;
 
-    int line = 0;
+    unsigned int line = 0;
     const char* filename = NULL;
     line_marker_flags_t flags;
 
@@ -241,7 +241,7 @@ next_line_double_continued ([[:blank:]]*&[^\n\r]+)
 <preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n\r]* {
 	char* directive = yytext;
 
-    int line = 0;
+    unsigned int line = 0;
     const char* filename = NULL;
     line_marker_flags_t flags;
 
@@ -1885,6 +1885,11 @@ concurrent {
     RETURN_TOKEN(TOKEN_CONCURRENT);
 }
 
+convert {
+    parse_token_text();
+    RETURN_TOKEN(TOKEN_CONVERT);
+}
+
 endfile {
     parse_token_text();
     RETURN_TOKEN(TOKEN_ENDFILE);
@@ -2416,8 +2421,8 @@ static void reintroduce_continued_line(char* continued_line,
         const char* sentinel)
 {
     char* temporal = NULL;
-    int new_line_number = 0;
-    int num_joined_lines = 1;
+    unsigned int new_line_number = 0;
+    unsigned int num_joined_lines = 1;
     const char* filename = NULL;
 
     if (sentinel == NULL)
@@ -2875,8 +2880,8 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
         p++; q++;
     }
 
-    int dummy_num_joined_lines = 0;
-    int dummy_new_line_number = 0;
+    unsigned int dummy_num_joined_lines = 0;
+    unsigned int dummy_new_line_number = 0;
     const char* dummy_filename = 0;
     char* newline = strchr(yytext, '\n');
     // Ignore comments and empty lines
@@ -3186,8 +3191,8 @@ static const char* format_pragma_string(const char* c)
 
 static const char* get_real_second_line(const char* second_line, 
         const char** filename, 
-        int* new_line, 
-        int* num_joined_lines, 
+        unsigned int* new_line, 
+        unsigned int* num_joined_lines, 
         bool ignore_comments)
 {
     char not_real_second_line = 1;
@@ -3252,7 +3257,7 @@ static const char* get_real_second_line(const char* second_line,
     return second_line;
 }
 
-static void parse_line_marker(const char* str, const char** filename, int *line, line_marker_flags_t *flags)
+static void parse_line_marker(const char* str, const char** filename, unsigned int *line, line_marker_flags_t *flags)
 {
     ERROR_CONDITION(flags == NULL, "Invalid parameter", 0);
     memset(flags, 0, sizeof(*flags));
@@ -3291,10 +3296,12 @@ static void parse_line_marker(const char* str, const char** filename, int *line,
                 && *p <= '9')
     {
         *line = *line*10 + (*p - '0');
-
         p++;
     }
-
+    
+    // There are no zero lines, so if for some reason we end with a 0 line, fix it to 1
+    *line = (*line == 0) ? 1 : *line;
+    
     // Skip blanks
     while (*p == ' ' || *p == '\t') p++;
 

@@ -1296,7 +1296,7 @@ static void deduce_template_arguments_from_types(
                 fprintf(stderr, "TYPEDEDUC: Instantiating class '%s' since we will try to deduce against bases\n",
                         print_declarator(class_argument_type));
             }
-            instantiate_template_class_if_possible(named_type_get_symbol(class_argument_type), updated_context, locus);
+            class_type_complete_if_possible(named_type_get_symbol(class_argument_type), updated_context, locus);
 
             scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(class_argument_type),
                     /* include_dependent */ 0);

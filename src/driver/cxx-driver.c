@@ -2964,6 +2964,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Load codegen if not yet loaded
                 ensure_codegen_is_loaded();
 
+                // Initialize diagnostics
+                diagnostics_reset();
+
+                // Fill the context with initial information
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
                 // * Open file
@@ -3289,8 +3293,6 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
 {
-    diagnostics_reset();
-
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
