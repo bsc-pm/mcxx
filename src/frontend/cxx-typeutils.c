@@ -2682,7 +2682,7 @@ static type_t* template_type_get_specialized_type_(
 
     if (exact_match != NULL)
     {
-        // DEBUG_CODE()
+        DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: %s: Found an exact match for specialization: %p '%s'\n",
                     locus_to_str(locus),
@@ -2914,7 +2914,7 @@ static type_t* template_type_get_specialized_type_(
 
     type_t* result = get_user_defined_type(specialized_symbol);
 
-    // DEBUG_CODE()
+    DEBUG_CODE()
     {
         if (equivalent_match == NULL)
         {
@@ -12059,36 +12059,26 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
         return NULL;
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(t->overload_set));
-    template_parameter_list_t *argument_list = t->template_arguments;
+
+    if ((entry->entity_specs.is_member
+                && is_dependent_type(entry->entity_specs.class_type)))
+        return NULL;
 
     if (entry->kind != SK_TEMPLATE)
     {
         return entry;
     }
-    else if (argument_list == NULL)
-    {
+
+    template_parameter_list_t *template_arguments = t->template_arguments;
+    if (template_arguments == NULL
+            || has_dependent_template_parameters(template_arguments))
         return NULL;
-    }
 
-    ERROR_CONDITION(entry->kind != SK_TEMPLATE, "This should be a template type\n", 0);
-
-    template_parameter_list_t* template_arguments =
-        duplicate_template_argument_list(template_type_get_template_parameters(entry->type_information));
-    template_arguments->arguments = argument_list->arguments;
-
-    // Get a specialization of this template
-    type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-            template_arguments, decl_context, locus);
-
-    if (!is_dependent_type(named_specialization_type))
-    {
-        return named_type_get_symbol(named_specialization_type);
-    }
-    else
-    {
-        free_template_parameter_list(template_arguments);
-        return NULL;
-    }
+    return expand_template_function_given_template_arguments(
+            entry,
+            decl_context,
+            locus,
+            template_arguments);
 }
 
 scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,

@@ -259,6 +259,21 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
+scope_entry_t* expand_template_function_given_template_arguments(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        template_parameter_list_t* explicit_template_parameters)
+{
+    return expand_template_given_arguments(
+            entry,
+            NULL, 0,
+            decl_context,
+            locus,
+            explicit_template_parameters);
+}
+
+
 type_t* compute_type_for_type_id_tree(AST type_id,
         decl_context_t decl_context,
         // Out
@@ -6391,22 +6406,14 @@ static void compute_operator_reference_type(nodecl_t* op,
         // This one is special
         if (is_unresolved_overloaded_type(nodecl_get_type(*op)))
         {
-            scope_entry_t* entry = unresolved_overloaded_type_simplify(
+            *nodecl_output = nodecl_make_reference(*op,
                     nodecl_get_type(*op),
-                    decl_context,
                     locus);
-            if (entry != NULL)
-            {
-                if (!update_simplified_unresolved_overloaded_type(
-                            entry,
-                            decl_context,
-                            locus,
-                            op))
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
-                }
-            }
+            nodecl_expr_set_is_type_dependent(*nodecl_output,
+                    nodecl_expr_is_type_dependent(*op));
+            nodecl_expr_set_is_value_dependent(*nodecl_output,
+                    nodecl_expr_is_value_dependent(*op));
+            return;
         }
 
         compute_unary_operator_generic(op, 

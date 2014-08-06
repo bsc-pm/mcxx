@@ -3184,35 +3184,11 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 locus_to_str(locus));
     }
 
-    // If the set is a singleton, try first a simpler approach
-    if (entry_list_size(overload_set) == 1)
-    {
-        scope_entry_t* item = entry_advance_aliases(entry_list_head(overload_set));
-
-        type_t* source_type = NULL;
-        if (!item->entity_specs.is_member
-                || item->entity_specs.is_static)
-        {
-            source_type = lvalue_ref(item->type_information);
-        }
-        else
-        {
-            source_type = get_pointer_to_member_type(
-                    item->type_information,
-                    item->entity_specs.class_type);
-        }
-
-        standard_conversion_t sc;
-        if (standard_conversion_between_types_for_overload(&sc, source_type, target_type, locus))
-        {
-            return item;
-        }
-    }
-
     // Check sanity of the target type
     if (!is_pointer_type(target_type)
             && !is_pointer_to_member_type(target_type)
             && !is_lvalue_reference_type(target_type)
+            && !is_rvalue_reference_type(target_type)
             && !is_function_type(target_type))
     {
         return NULL;
@@ -3221,29 +3197,26 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     type_t* functional_type = NULL;
     type_t *class_type = NULL;
 
-    if (is_pointer_to_function_type(target_type))
+    functional_type = no_ref(target_type);
+    if (is_pointer_to_function_type(functional_type))
     {
-        functional_type = pointer_type_get_pointee_type(target_type);
+        functional_type = pointer_type_get_pointee_type(functional_type);
     }
-    else if (is_pointer_to_member_type(target_type))
+    else if (is_pointer_to_member_type(functional_type))
     {
-        functional_type = pointer_type_get_pointee_type(target_type);
-        class_type = pointer_to_member_type_get_class_type(target_type);
+        class_type = pointer_to_member_type_get_class_type(functional_type);
+        functional_type = pointer_type_get_pointee_type(functional_type);
     }
-    else if (is_lvalue_reference_type(target_type))
+    else if (is_function_type(functional_type))
     {
-        functional_type = reference_type_get_referenced_type(target_type);
-    }
-    else if (is_function_type(target_type))
-    {
-        functional_type = target_type;
+        functional_type = functional_type;
     }
 
     if (!is_function_type(functional_type))
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "OVERLOAD: Type '%s' is not a function type\n", print_declarator(target_type));
+            fprintf(stderr, "OVERLOAD: Type '%s' is not a valid function type\n", print_declarator(target_type));
         }
         return NULL;
     }
@@ -3276,7 +3249,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
             if (current_fun->entity_specs.is_member 
                     && !current_fun->entity_specs.is_static
-                    && is_pointer_to_member_type(target_type)
+                    && is_pointer_to_member_type(no_ref(target_type))
                     && (equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
                             get_actual_class_type(class_type))
                         || class_type_is_base(get_actual_class_type(current_fun->entity_specs.class_type),
@@ -3289,7 +3262,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             else if ((!current_fun->entity_specs.is_member
                         || (current_fun->entity_specs.is_member
                             && current_fun->entity_specs.is_static))
-                    && !is_pointer_to_member_type(target_type))
+                    && !is_pointer_to_member_type(no_ref(target_type)))
             {
                 can_match = 1;
             }
@@ -3345,7 +3318,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
             if (primary_symbol->entity_specs.is_member 
                     && !primary_symbol->entity_specs.is_static
-                    && is_pointer_to_member_type(target_type)
+                    && is_pointer_to_member_type(no_ref(target_type))
                     && (equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
                             get_actual_class_type(class_type))
                         || class_type_is_base(get_actual_class_type(primary_symbol->entity_specs.class_type),
@@ -3358,7 +3331,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             else if ((!primary_symbol->entity_specs.is_member
                         || (primary_symbol->entity_specs.is_member
                             && primary_symbol->entity_specs.is_static))
-                    && !is_pointer_to_member_type(target_type))
+                    && !is_pointer_to_member_type(no_ref(target_type)))
             {
                 can_match = 1;
             }
