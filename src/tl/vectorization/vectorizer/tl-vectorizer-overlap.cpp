@@ -434,8 +434,11 @@ namespace Vectorization
 
         objlist_blocks_pairs_t if_epilog_blocks_pairs;
 
+        int min_unroll_factor = get_loop_min_unroll_factor(
+                main_loop, ivs_list);
+
         // UNROLL
-        if(loop_needs_unrolling(main_loop, ivs_list))
+        if (min_unroll_factor > 1)
         {
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
@@ -457,7 +460,7 @@ namespace Vectorization
                         n, main_loop);
                 
             // If Epilog
-            loop_unroller.set_unroll_factor(4).
+            loop_unroller.set_unroll_factor(min_unroll_factor).
                 set_create_epilog(false).unroll();
 
             if_epilog = loop_unroller.get_unrolled_loop()
@@ -468,7 +471,8 @@ namespace Vectorization
                         n, if_epilog);
  
             if_epilog_blocks_pairs = 
-                apply_overlap_blocked_unrolling(if_epilog);
+                apply_overlap_blocked_unrolling(if_epilog,
+                        min_unroll_factor);
 
             last_epilog.prepend_sibling(if_epilog);
             n.replace(whole_main_transformation);
@@ -484,6 +488,7 @@ namespace Vectorization
                 it++)
         {
             TL::Symbol sym = it->first;
+            int min_group_length = it->second;
 
             // MAIN LOOP
             objlist_nodecl_t main_loop_vector_loads =
@@ -495,6 +500,7 @@ namespace Vectorization
                 objlist_ogroup_t overlap_groups = 
                     get_overlap_groups(
                             main_loop_vector_loads,
+                            min_group_length,
                             main_loop_blocks_pairs,
                             ivs_list);
 
@@ -523,7 +529,9 @@ namespace Vectorization
                 if (!if_epilog_vector_loads.empty())
                 {
                     objlist_ogroup_t if_epilog_overlap_groups = 
-                        get_overlap_groups(if_epilog_vector_loads,
+                        get_overlap_groups(
+                                if_epilog_vector_loads,
+                                min_group_length,
                                 if_epilog_blocks_pairs,
                                 ivs_list);
 
@@ -563,42 +571,49 @@ namespace Vectorization
         walk(if_epilog);
     }
 
-    bool OverlappedAccessesOptimizer::loop_needs_unrolling(
+    unsigned int OverlappedAccessesOptimizer::get_loop_min_unroll_factor(
             Nodecl::ForStatement n,
             const objlist_nodecl_t& ivs_list)
     {
-        //TODO
+        unsigned int unroll_factor = 1;
+
         Nodecl::NodeclBase iv = ivs_list.front();
-        // Epilog!
         
         if (Nodecl::Utils::structurally_equal_nodecls(iv,
                     VectorizationAnalysisInterface::
                     _vectorizer_analysis->get_induction_variable_lower_bound(
                         n, iv), true))
                 return false;
-        //
 
         for(map_tl_sym_int_t::iterator it = _overlap_symbols.begin();
                 it != _overlap_symbols.end();
                 it++)
         {
             TL::Symbol sym = it->first;
+            unsigned int min_group_length = it->second;
 
             objlist_nodecl_t vector_loads =
                 get_adjacent_vector_loads_not_nested_in_for(
                         n.get_statement(), sym);
 
-            //TODO
-            if (!vector_loads.empty())
-                return true;
+            unsigned int vector_loads_size = vector_loads.size();
+            if (vector_loads_size > 0 &&
+                    vector_loads_size < min_group_length &&
+                    (unroll_factor * vector_loads_size)
+                    < min_group_length)
+            {
+                unroll_factor = min_group_length /
+                    vector_loads_size; 
+            }
         }
 
-        return false;
+        return unroll_factor;
     }
 
     objlist_blocks_pairs_t OverlappedAccessesOptimizer::
         apply_overlap_blocked_unrolling(
-            const Nodecl::ForStatement& n)
+            const Nodecl::ForStatement& n,
+            const unsigned int block_size)
     {
         objlist_blocks_pairs_t blocks_pairs;
 
@@ -623,7 +638,7 @@ namespace Vectorization
 
         blocks_pairs.append(pair_nodecl_int_t(outer_stmt, 0));
 
-        for (int i=1; i<(16/4)-1; i++)
+        for (unsigned int i=1; i<(16/block_size)-1; i++)
         {
             Nodecl::List stmts_copy =
                 outer_stmt.shallow_copy().as<Nodecl::List>();
@@ -638,7 +653,7 @@ namespace Vectorization
             Nodecl::Utils::append_items_in_outermost_compound_statement(
                     outer_stmt, if_else_stmt);
 
-            blocks_pairs.append(pair_nodecl_int_t(stmts_copy, i*4));
+            blocks_pairs.append(pair_nodecl_int_t(stmts_copy, i*block_size));
 
             outer_stmt = if_else_stmt.get_then().as<Nodecl::List>();
         }
@@ -799,6 +814,7 @@ namespace Vectorization
 
     objlist_ogroup_t OverlappedAccessesOptimizer::
         get_overlap_groups(const objlist_nodecl_t& vector_loads,
+                const unsigned int min_group_length,
                 const objlist_blocks_pairs_t& blocks_pairs,
                 const objlist_nodecl_t& ivs_list)
     {
@@ -808,7 +824,9 @@ namespace Vectorization
             vector_loads.begin();
 
         //TODO: >1 groups
-        std::cerr << "Overlap Group:" << std::endl;
+        std::cerr << "Overlap Group ("
+            << min_group_length << ")" 
+            << std::endl;
         std::cerr << target_load->prettyprint() << std::endl;
 
         group._group_loads.append(*target_load);
@@ -881,7 +899,7 @@ namespace Vectorization
         }
 
         // TODO: Length
-        if (group._group_loads.size() >= 4)
+        if (group._group_loads.size() >= min_group_length)
             result.append(group);
 
         return result;

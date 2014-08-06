@@ -116,6 +116,7 @@ namespace TL
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
+                        const unsigned int min_group_length,
                         const objlist_blocks_pairs_t& blocks_pairs,
                         const objlist_nodecl_t& ivs_list);
 
@@ -136,10 +137,11 @@ namespace TL
                 Nodecl::NodeclBase get_vector_load_subscript(
                         const Nodecl::VectorLoad& vl);
                 
-                bool loop_needs_unrolling(Nodecl::ForStatement n,
+                unsigned int get_loop_min_unroll_factor(Nodecl::ForStatement n,
                         const objlist_nodecl_t& ivs_list);
                 objlist_blocks_pairs_t apply_overlap_blocked_unrolling(
-                        const Nodecl::ForStatement& n);
+                        const Nodecl::ForStatement& n,
+                        const unsigned int block_size);
 
             public:
                 OverlappedAccessesOptimizer(VectorizerEnvironment& environment);
