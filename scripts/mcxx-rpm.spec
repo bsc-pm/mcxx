@@ -13,7 +13,6 @@
 %define buildroot       %{_topdir}/%{name}-%{version}-root
 %define nanox_dir       %{_prefix}
 %define nanox_lib       %{_libdir}
-%define mcxx_libs       find %{1} -regextype posix-egrep -not -regex "([^/]*/)+[^/]+(omp|nano|ss|superscalar).*"
 # Forget about the .la files for now
 %define _unpackaged_files_terminate_build 0
 
@@ -52,15 +51,8 @@ make -j%{threads}
 
 %install
 %makeinstall
-find %{buildroot}%{_libdir} -regextype posix-egrep -not -regex "([^/]*/)+[^/]+(omp|nano|ss|superscalar).*" | grep "\.so" > tmp.list
-sed -e "s|^%{buildroot}||" < tmp.list > mcxx_files.list
-find %{buildroot}%{_libdir} -regextype posix-egrep -regex "([^/]*/)+[^/]+(omp|nano|ss|superscalar).*" | grep "\.so" > tmp.list
-sed -e "s|^%{buildroot}||" < tmp.list > ompss_files.list
-rm tmp.list
-#%{_topdir}/fix-paths.sh %{nanox_dir} %{prefix} %{nanox_lib} %{prefix}/lib64 %{buildroot}/%{_datadir}/mcxx/config.d/
 
 %files
-#%files -f mcxx_files.list
 %defattr(-,root,root)
 %{_bindir}/*
 %{_libdir}/*
@@ -70,9 +62,3 @@ rm tmp.list
 %{_datadir}/mcxx/fortran/*
 %{_datadir}/mcxx/config.mcxx
 %{_datadir}/mcxx/config.d/*
-
-
-#%doc %attr(0444,root,root) /usr/local/share/man/man1/wget.1
-
-
-

@@ -426,6 +426,9 @@ struct braced_list_info_tag
 typedef
 struct common_type_info_tag
 {
+    // If not NULL, points to the nonvariant type
+    // (if NULL this type is not a variant)
+    type_t* nonvariant;
     // See below for more detailed descriptions
     _Bool is_template_specialized_type:1;
     _Bool valid_size:1;
@@ -560,7 +563,7 @@ static common_type_info_t* copy_common_type_info(common_type_info_t* t)
     return result;
 }
 
-static type_t* copy_type_for_variant(type_t* t)
+static type_t* copy_type_for_class_alias(type_t* t)
 {
     type_t* result = xcalloc(1, sizeof(*result));
     *result = *t;
@@ -568,6 +571,31 @@ static type_t* copy_type_for_variant(type_t* t)
     result->info = copy_common_type_info(t->info);
 
     return result;
+}
+
+static type_t* copy_type_for_variant(type_t* t)
+{
+    type_t* result = xcalloc(1, sizeof(*result));
+    *result = *t;
+
+    result->unqualified_type = result;
+
+    result->info = copy_common_type_info(t->info);
+
+    if (result->info->nonvariant == NULL)
+        result->info->nonvariant = t;
+
+    return result;
+}
+
+char is_variant_type(type_t* t)
+{
+    return t->info->nonvariant != NULL;
+}
+
+type_t* variant_type_get_nonvariant(type_t* t)
+{
+    return t->info->nonvariant;
 }
 
 static type_t* new_empty_type_without_info(void)
@@ -2696,7 +2724,7 @@ static type_t* template_type_get_specialized_type_(
 
         // Now duplicate the type node as there are some bits that cannot be
         // shared with the obtained specialized type. This may happen when updating
-        specialized_type = copy_type_for_variant(specialized_type);
+        specialized_type = copy_type_for_class_alias(specialized_type);
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {

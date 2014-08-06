@@ -5184,83 +5184,84 @@ static const char* template_arguments_to_str_ex(
             || template_parameters->num_parameters <= first_argument_to_be_printed)
         return "";
 
-    const char* result = "";
+    strbuilder_t *result = strbuilder_new();
     if (print_first_level_bracket)
     {
         // It is not enough with the name, we have to print the arguments
-        result = strappend(result, "<");
+        strbuilder_append(result, "<");
     }
 
     int i;
     char print_comma = 0;
     for (i = first_argument_to_be_printed; i < template_parameters->num_parameters; i++, print_comma = 1)
     {
-        template_parameter_value_t* argument = template_parameters->arguments[i];
+        template_parameter_value_t* current_argument = template_parameters->arguments[i];
 
         if (print_comma)
         {
-            if (argument == NULL
-                    || !is_sequence_of_types(argument->type)
-                    || sequence_of_types_get_num_types(argument->type) > 0)
+            if (current_argument == NULL
+                    || !is_sequence_of_types(current_argument->type)
+                    || sequence_of_types_get_num_types(current_argument->type) > 0)
             {
-                result = strappend(result, ", ");
+                strbuilder_append(result, ", ");
             }
         }
 
-        if (argument == NULL)
+        if (current_argument == NULL)
         {
-            result = strappend(result, template_parameters->parameters[i]->entry->symbol_name);
+            strbuilder_append(result, template_parameters->parameters[i]->entry->symbol_name);
             continue;
         }
 
-        const char* argument_str = "";
-        switch (argument->kind)
+        strbuilder_t *argument = strbuilder_new();
+        switch (current_argument->kind)
         {
             case TPK_TYPE:
                 {
-                    argument_str = strappend(argument_str, 
-                            print_type_fun(argument->type, decl_context, print_type_data));
+                    strbuilder_append(argument,
+                            print_type_fun(current_argument->type, decl_context, print_type_data));
                     break;
                 }
             case TPK_NONTYPE:
                 {
                     // The first unparenthesized '>' indicates the end of
                     // template arguments. For this reason, in some cases we
-                    // need to parenthesize this template argument.
+                    // need to parenthesize this template current_argument.
                     char codegen_of_nontype_template_argument;
                     codegen_of_nontype_template_argument = 1;
 
                     codegen_set_parameter(CODEGEN_PARAM_NONTYPE_TEMPLATE_ARGUMENT,
                             (void*)&codegen_of_nontype_template_argument);
 
-                    if (nodecl_is_list(argument->value))
+                    if (nodecl_is_list(current_argument->value))
                     {
                         if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
                         {
-                            argument_str = strappend(argument_str, " /* { */ ");
+                            strbuilder_append(argument, " /* { */ ");
                         }
 
                         int num_items;
                         int j;
-                        nodecl_t* list = nodecl_unpack_list(argument->value, &num_items);
+                        nodecl_t* list = nodecl_unpack_list(current_argument->value, &num_items);
                         for (j = 0; j < num_items; j++)
                         {
                             if (j > 0)
-                                argument_str = strappend(argument_str, ", ");
+                                strbuilder_append(argument, ", ");
 
-                            argument_str = strappend(argument_str, codegen_to_str(list[j], decl_context));
+                            strbuilder_append(argument, codegen_to_str(list[j], decl_context));
                         }
 
                         if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
                         {
-                            argument_str = strappend(argument_str, " /* } */ ");
+                            strbuilder_append(argument, " /* } */ ");
                         }
 
                         xfree(list);
                     }
                     else
                     {
-                        argument_str = codegen_to_str(argument->value, decl_context);
+                        strbuilder_append(argument,
+                                codegen_to_str(current_argument->value, decl_context));
                     }
 
                     codegen_of_nontype_template_argument = 0;
@@ -5271,16 +5272,16 @@ static const char* template_arguments_to_str_ex(
                 }
             case TPK_TEMPLATE:
                 {
-                    type_t* template_type = argument->type;
-                    if (is_pack_type(argument->type))
+                    type_t* template_type = current_argument->type;
+                    if (is_pack_type(current_argument->type))
                     {
-                        template_type = pack_type_get_packed_type(argument->type);
+                        template_type = pack_type_get_packed_type(current_argument->type);
                     }
                     if (is_sequence_of_types(template_type))
                     {
                         if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
                         {
-                            argument_str = strappend(argument_str, " /* { */ ");
+                            strbuilder_append(argument, " /* { */ ");
                         }
 
                         int num_types = sequence_of_types_get_num_types(template_type);
@@ -5288,9 +5289,9 @@ static const char* template_arguments_to_str_ex(
                         for (k = 0; k < num_types; k++)
                         {
                             if (k > 0)
-                                argument_str = strappend(argument_str, ", ");
+                                strbuilder_append(argument, ", ");
 
-                            argument_str = strappend(argument_str,
+                            strbuilder_append(argument,
                                     get_qualified_symbol_name(
                                         named_type_get_symbol(sequence_of_types_get_type_num(template_type, k)),
                                         decl_context)
@@ -5299,51 +5300,60 @@ static const char* template_arguments_to_str_ex(
 
                         if (CURRENT_CONFIGURATION->debug_options.show_template_packs)
                         {
-                            argument_str = strappend(argument_str, " /* } */ ");
+                            strbuilder_append(argument, " /* } */ ");
                         }
                     }
                     else
                     {
-                        argument_str = get_qualified_symbol_name(
-                                named_type_get_symbol(template_type),
-                                decl_context);
+                        strbuilder_append(argument,
+                                get_qualified_symbol_name(
+                                    named_type_get_symbol(template_type),
+                                    decl_context));
                     }
-                    if (is_pack_type(argument->type))
+                    if (is_pack_type(current_argument->type))
                     {
-                        argument_str = strappend(argument_str, " ...");
+                        strbuilder_append(argument, " ...");
                     }
                     break;
                 }
             default:
                 {
-                    internal_error("Undefined template argument\n", 0);
+                    internal_error("Undefined template current_argument\n", 0);
                     break;
                 }
         }
 
-        if (result[strlen(result) - 1] == '<'
-               && argument_str != NULL
-               && argument_str[0] == ':')
+        const char* result_str = strbuilder_str(result);
+        const char* argument_str = strbuilder_str(argument);
+        if ((strlen(result_str) > 0)
+                && result_str[strlen(result_str) - 1] == '<'
+                && argument_str != NULL
+                && argument_str[0] == ':')
         {
-            result = strappend(result, " ");
+            strbuilder_append(result, " ");
         }
 
-        result = strappend(result, argument_str);
+        strbuilder_append(result, strbuilder_str(argument));
+        strbuilder_free(argument);
     }
 
     if (print_first_level_bracket)
     {
-        if (result[strlen(result) - 1] == '>')
+        const char* result_str = strbuilder_str(result);
+        if (result_str[strlen(result_str) - 1] == '>')
         {
-            result = strappend(result, " >");
+            strbuilder_append(result, " >");
         }
         else
         {
-            result = strappend(result, ">");
+            strbuilder_append(result, ">");
         }
     }
 
-    return result;
+    const char* str = uniquestr(strbuilder_str(result));
+    strbuilder_free(result);
+
+    return str;
 }
 
 static const char* print_type_str_internal(type_t* t, decl_context_t decl_context, void *data UNUSED_PARAMETER)
