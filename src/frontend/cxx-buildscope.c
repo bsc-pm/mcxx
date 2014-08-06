@@ -19496,7 +19496,9 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
             {
                 error_printf("%s: error: invalid nesting of #pragma\n",
                         ast_location(pragma_stmt));
-                *nodecl_output = nodecl_make_err_statement(ast_get_locus(pragma_stmt));
+
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(pragma_stmt)));
                 return;
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
