@@ -645,18 +645,16 @@ namespace {
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
-        PCFGAnalysis_memento memento;
-
         NBase ast = dto["nodecl"];
-
-        ObjectList<ExtensibleGraph*> pcfgs;
 
         // Auto Scope analysis encloses all other analysis
         // FIXME we should launch the analyses depending on the clauses in the assert directives
-        pcfgs = analysis.all_analyses( memento, ast );
+        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
+        PCFGAnalysis_memento memento;
+        analysis.all_analyses(memento, ast);
 
         // Check PCFG consistency
+        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             if( VERBOSE )

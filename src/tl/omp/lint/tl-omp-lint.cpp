@@ -114,8 +114,8 @@ namespace {
             TL::Analysis::PCFGAnalysis_memento memento;
             // We compute liveness analysis (that includes PCFG and use-def) because 
             // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
-            TL::ObjectList<TL::Analysis::ExtensibleGraph*> extensible_graphs =
-                    singleton.tune_task_synchronizations( memento, function_code );
+            singleton.tune_task_synchronizations(memento, function_code);
+            TL::ObjectList<TL::Analysis::ExtensibleGraph*> extensible_graphs = memento.get_pcfgs();
             ERROR_CONDITION( extensible_graphs.size() != 1, "I expected 1 graph per FunctionCode", 0 );
             
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
