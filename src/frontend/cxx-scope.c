@@ -108,23 +108,31 @@ static void field_path_prepend(field_path_t* field_path, scope_entry_t* symbol)
 }
 #endif
 
-template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters)
+template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* tpl)
 {
-    ERROR_CONDITION(template_parameters == NULL, "Template parameters cannot be NULL here", 0);
+    ERROR_CONDITION(tpl == NULL, "Template parameters cannot be NULL here", 0);
 
     template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
+    result->num_parameters = tpl->num_parameters;
+    if (tpl->parameters != NULL)
+    {
+        result->parameters = counted_xcalloc(tpl->num_parameters, sizeof(*result->parameters), &_bytes_used_scopes);
+        memcpy(result->parameters, tpl->parameters, tpl->num_parameters * sizeof(*result->parameters));
+    }
 
-    result->num_parameters = template_parameters->num_parameters;
+    result->arguments = counted_xcalloc(tpl->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
+    int i;
+    for (i = 0; i < result->num_parameters; i++)
+    {
+        if (tpl->arguments[i] != NULL)
+        {
+            result->arguments[i] = xmalloc(sizeof(*result->arguments[i]));
+            *result->arguments[i] = *tpl->arguments[i];
+        }
+    }
 
-    result->parameters = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->parameters), &_bytes_used_scopes);
-    memcpy(result->parameters, template_parameters->parameters, sizeof(*(result->parameters)) * (result->num_parameters));
-
-    result->arguments = counted_xcalloc(template_parameters->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
-    memcpy(result->arguments, template_parameters->arguments, sizeof(*(result->arguments)) * (result->num_parameters));
-
-    result->enclosing = template_parameters->enclosing;
-
-    result->is_explicit_specialization = template_parameters->is_explicit_specialization;
+    result->enclosing = tpl->enclosing;
+    result->is_explicit_specialization = tpl->is_explicit_specialization;
 
     return result;
 }
@@ -135,10 +143,39 @@ void free_template_parameter_list(template_parameter_list_t* tpl)
         return;
 
     xfree(tpl->parameters);
-    tpl->parameters = NULL;
+    int i;
+    for (i = 0; i < tpl->num_parameters; i++)
+    {
+        xfree(tpl->arguments[i]);
+    }
     xfree(tpl->arguments);
-    tpl->arguments = NULL;
     xfree(tpl);
+}
+
+static void copy_template_parameter_list(template_parameter_list_t* dest, template_parameter_list_t* src)
+{
+    ERROR_CONDITION(src == NULL, "Invalid source", 0);
+
+    int i;
+
+    memset(dest, 0, sizeof(*dest));
+    dest->enclosing = src->enclosing;
+    dest->parameters = NULL;
+    if (src->parameters != NULL)
+    {
+        dest->parameters = xcalloc(src->num_parameters, sizeof(*(dest->parameters)));
+        memcpy(dest->parameters, src->parameters, src->num_parameters * sizeof(*src->parameters));
+    }
+    dest->arguments = xcalloc(src->num_parameters, sizeof(*(dest->arguments)));
+    for (i = 0; i < src->num_parameters; i++)
+    {
+        if (src->arguments[i] != NULL)
+        {
+            dest->arguments[i] = xmalloc(sizeof(*dest->arguments[i]));
+            *dest->arguments[i] = *src->arguments[i];
+        }
+    }
+    dest->is_explicit_specialization = src->is_explicit_specialization;
 }
 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
@@ -4396,29 +4433,6 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
 }
 
 
-static void copy_template_parameter_list(template_parameter_list_t* dest, template_parameter_list_t* src)
-{
-    ERROR_CONDITION(src == NULL, "Invalid source", 0);
-
-    int i;
-
-    memset(dest, 0, sizeof(*dest));
-    dest->enclosing = src->enclosing;
-    dest->arguments = xcalloc(src->num_parameters, sizeof(*(dest->arguments)));
-    for (i = 0; i < src->num_parameters; i++)
-    {
-        dest->arguments[i] = src->arguments[i];
-    }
-    if (src->parameters != NULL)
-    {
-        dest->parameters = xcalloc(src->num_parameters, sizeof(*(dest->parameters)));
-        for (i = 0; i < src->num_parameters; i++)
-        {
-            dest->parameters[i] = src->parameters[i];
-        }
-    }
-    dest->is_explicit_specialization = src->is_explicit_specialization;
-}
 
 static char template_parameter_list_invalid_marker = 0;
 
