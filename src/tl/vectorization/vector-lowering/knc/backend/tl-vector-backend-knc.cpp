@@ -29,6 +29,7 @@
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-optimizations.hpp"
 #include "cxx-cexpr.h"
 
 #define KNC_VECTOR_BIT_SIZE 512
@@ -221,7 +222,10 @@ namespace Vectorization
         if (contains_vector_nodes)
         {
             // Initialize analisys
-            VectorizationAnalysisInterface::initialize_analysis(n);
+            TL::Optimizations::canonicalize_and_fold(n,
+                    /*_fast_math_enabled*/ false);
+            VectorizationAnalysisInterface::initialize_analysis(n,
+                    Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
 
             walk(n.get_statements());
 

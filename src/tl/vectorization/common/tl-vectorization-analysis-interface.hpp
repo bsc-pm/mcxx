@@ -100,7 +100,9 @@ namespace Vectorization
             static VectorizationAnalysisInterface *_vectorizer_analysis;
 
             static void initialize_analysis(
-                    const Nodecl::NodeclBase& enclosing_function);
+                    const Nodecl::NodeclBase& enclosing_function,
+                    const Analysis::WhichAnalysis which_analysis =
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
 
             static void finalize_analysis();
 
@@ -155,6 +157,10 @@ namespace Vectorization
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
 
+            virtual void register_copy(
+                    const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
+ 
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 

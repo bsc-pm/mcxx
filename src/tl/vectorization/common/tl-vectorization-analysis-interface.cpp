@@ -39,7 +39,8 @@ namespace Vectorization
     VectorizationAnalysisInterface* VectorizationAnalysisInterface::_vectorizer_analysis = 0;
 
     void VectorizationAnalysisInterface::initialize_analysis(
-            const Nodecl::NodeclBase& enclosing_function)
+            const Nodecl::NodeclBase& enclosing_function,
+            const Analysis::WhichAnalysis which_analysis)
     {
         if(_vectorizer_analysis != 0)
         {
@@ -59,8 +60,7 @@ namespace Vectorization
 
         _vectorizer_analysis = new VectorizationAnalysisInterface(
                 enclosing_function,
-                Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS |
-                Analysis::WhichAnalysis::CONSTANTS_ANALYSIS);
+                which_analysis);
     }
 
     void VectorizationAnalysisInterface::finalize_analysis()
@@ -653,7 +653,7 @@ namespace Vectorization
         return result;
     }
 
-    void VectorizationAnalysisInterface::shallow_copy_rec(
+    void VectorizationAnalysisInterface::register_copy(
             const Nodecl::NodeclBase& n,
             const Nodecl::NodeclBase& n_copy)
     {
@@ -683,6 +683,15 @@ namespace Vectorization
                 internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
             }
         }
+    }
+
+    void VectorizationAnalysisInterface::shallow_copy_rec(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& n_copy)
+    {
+        // Register shallow_copy in the maps
+        register_copy(n, n_copy);
+
         // Register also children
         objlist_nodecl_t children_list = n.children();
         objlist_nodecl_t children_copy_list = n_copy.children();
