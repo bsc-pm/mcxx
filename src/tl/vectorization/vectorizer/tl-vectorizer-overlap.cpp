@@ -569,6 +569,16 @@ namespace Vectorization
  
         walk(main_loop.get_statement());
         walk(if_epilog);
+
+        // Add #pragma nounroll to main_loop and epilog
+        if (min_unroll_factor > 1)
+        {
+            Nodecl::UnknownPragma unroll_pragma =
+                Nodecl::UnknownPragma::make("nounroll");
+
+            main_loop.prepend_sibling(unroll_pragma.shallow_copy());
+            last_epilog.prepend_sibling(unroll_pragma.shallow_copy());
+        }
     }
 
     unsigned int OverlappedAccessesOptimizer::get_loop_min_unroll_factor(

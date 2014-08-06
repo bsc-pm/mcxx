@@ -428,6 +428,10 @@ namespace TL {
                 // Remove Simd node from epilog
                 simd_node_epilog.replace(simd_node_epilog.get_statement());
 
+                // Overlap
+                _vectorizer.opt_overlapped_accesses(
+                        loop_stmt_epilog, loop_environment);
+
                 loop_environment.unload_environment();
             }
             else // Remove epilog
@@ -679,6 +683,10 @@ namespace TL {
                         epilog_iterations,
                         only_epilog,
                         true /*parallel loop*/);
+
+                // Overlap
+                _vectorizer.opt_overlapped_accesses(
+                        net_epilog_node, for_environment);
 
                 for_environment.unload_environment();
 

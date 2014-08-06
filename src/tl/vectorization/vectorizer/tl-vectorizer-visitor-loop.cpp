@@ -486,8 +486,9 @@ namespace Vectorization
         }
 
         // Same as comp_statement
-        Nodecl::NodeclBase loop_inner_statement = loop_statement.as<Nodecl::ForStatement>().
-            get_statement().as<Nodecl::List>().front().shallow_copy();
+        Nodecl::NodeclBase loop_inner_statement = 
+            loop_statement.as<Nodecl::ForStatement>().
+            get_statement().as<Nodecl::List>().front();//.shallow_copy();
 
 
         // Add IF check to skip epilog if mask is not zero
