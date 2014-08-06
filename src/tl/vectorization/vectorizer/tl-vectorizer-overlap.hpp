@@ -85,7 +85,7 @@ namespace TL
                 Nodecl::NodeclBase get_load_access(const Nodecl::ArraySubscript& n) const;
         };
 */
-        typedef TL::ObjectList<pair_nodecl_int_t> objlist_blocks_pairs;
+        typedef TL::ObjectList<pair_nodecl_int_t> objlist_blocks_pairs_t;
         struct OverlapGroup
         {
             Nodecl::Symbol _group_subscripted;
@@ -109,22 +109,25 @@ namespace TL
             private:
                 map_tl_sym_int_t _overlap_symbols;
                 
-                objlist_nodecl_t get_adjacent_vector_loads_nested_in_one_for(
-                        const Nodecl::ForStatement& n,
+                objlist_nodecl_t get_adjacent_vector_loads_not_nested_in_for(
+                        const Nodecl::NodeclBase& n,
                         const TL::Symbol& sym);
                 bool overlap(const Nodecl::VectorLoad& vector_load,
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
-                        const objlist_blocks_pairs& blocks_pairs,
+                        const objlist_blocks_pairs_t& blocks_pairs,
                         const objlist_nodecl_t& ivs_list);
 
                 void compute_group_properties(
                         OverlapGroup& ogroup,
-                        const Nodecl::ForStatement& for_stmt);
-                void enable_overlap_cache(const OverlapGroup& ogroup,
+                        TL::Scope& scope,
+                        const bool is_group_epilog);
+                void insert_group_update_stmts(
+                        OverlapGroup& ogroup,
                         const Nodecl::ForStatement& n,
-                        const objlist_nodecl_t& ivs_list);
+                        const objlist_nodecl_t& ivs_list,
+                        const bool is_group_epilog);
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
@@ -135,7 +138,7 @@ namespace TL
                 
                 bool loop_needs_unrolling(Nodecl::ForStatement n,
                         const objlist_nodecl_t& ivs_list);
-                objlist_blocks_pairs apply_overlap_blocked_unrolling(
+                objlist_blocks_pairs_t apply_overlap_blocked_unrolling(
                         const Nodecl::ForStatement& n);
 
             public:

@@ -32,6 +32,7 @@
 #include "tl-vectorization-analysis-interface.hpp"
 
 #include "tl-nodecl-utils.hpp"
+#include "hlt-loop-unroll.hpp"
 #include "cxx-cexpr.h"
 
 namespace TL
@@ -420,50 +421,146 @@ namespace Vectorization
 
     void OverlappedAccessesOptimizer::visit(const Nodecl::ForStatement& n)
     {
-        std::cerr << std::endl << std::endl << std::endl
-            << "NEW LOOP" << std::endl;
+        Nodecl::ForStatement main_loop = n;
+        Nodecl::ForStatement if_epilog;
+        Nodecl::ForStatement last_epilog;
 
         objlist_nodecl_t ivs_list = VectorizationAnalysisInterface::
-            _vectorizer_analysis->get_ivs_nodecls(n);
+            _vectorizer_analysis->get_ivs_nodecls(main_loop);
 
-        objlist_blocks_pairs blocks_pairs;
+        objlist_blocks_pairs_t main_loop_blocks_pairs;
+        main_loop_blocks_pairs.append(
+                pair_nodecl_int_t(main_loop.get_statement(), 0));
 
-        if(loop_needs_unrolling(n, ivs_list))
-            blocks_pairs = apply_overlap_blocked_unrolling(n);
-        else
-            blocks_pairs.append(
-                    pair_nodecl_int_t(n.get_statement(), 0));
+        objlist_blocks_pairs_t if_epilog_blocks_pairs;
 
+        // UNROLL
+        if(loop_needs_unrolling(main_loop, ivs_list))
+        {
+            // Main Loop
+            TL::HLT::LoopUnroll loop_unroller;
+            loop_unroller.set_loop(main_loop)
+                .set_unroll_factor(16)
+                .unroll();
+
+            Nodecl::NodeclBase whole_main_transformation =
+                loop_unroller.get_whole_transformation();
+
+            main_loop = loop_unroller.get_unrolled_loop()
+                .as<Nodecl::ForStatement>();
+
+            last_epilog = loop_unroller.get_epilog_loop()
+                .as<Nodecl::ForStatement>();
+
+            VectorizationAnalysisInterface::
+                _vectorizer_analysis->register_copy(
+                        n, main_loop);
+                
+            // If Epilog
+            loop_unroller.set_unroll_factor(4).
+                set_create_epilog(false).unroll();
+
+            if_epilog = loop_unroller.get_unrolled_loop()
+                .as<Nodecl::ForStatement>();
+
+            VectorizationAnalysisInterface::
+                _vectorizer_analysis->register_copy(
+                        n, if_epilog);
+ 
+            if_epilog_blocks_pairs = 
+                apply_overlap_blocked_unrolling(if_epilog);
+
+            last_epilog.prepend_sibling(if_epilog);
+            n.replace(whole_main_transformation);
+        }
+
+        // TODO:
+        TL::Scope scope = main_loop.get_parent().get_parent().get_parent().
+            retrieve_context();
+
+        // OVERLAP
         for(map_tl_sym_int_t::iterator it = _overlap_symbols.begin();
                 it != _overlap_symbols.end();
                 it++)
         {
             TL::Symbol sym = it->first;
 
-            objlist_nodecl_t vector_loads =
-                get_adjacent_vector_loads_nested_in_one_for(n, sym);
+            // MAIN LOOP
+            objlist_nodecl_t main_loop_vector_loads =
+                get_adjacent_vector_loads_not_nested_in_for(
+                        main_loop.get_statement(), sym);
 
-            if (!vector_loads.empty())
+            if (!main_loop_vector_loads.empty())
             {
                 objlist_ogroup_t overlap_groups = 
-                    get_overlap_groups(vector_loads,
-                            blocks_pairs,
+                    get_overlap_groups(
+                            main_loop_vector_loads,
+                            main_loop_blocks_pairs,
                             ivs_list);
 
+                objlist_nodecl_t if_epilog_vector_loads;
                 for(objlist_ogroup_t::iterator ogroup =
                         overlap_groups.begin();
                         ogroup != overlap_groups.end();
                         ogroup++)
                 {
-                    compute_group_properties(*ogroup, n);
-                    enable_overlap_cache(*ogroup, n,
-                            ivs_list);
+                    // MAIN LOOP
+                    compute_group_properties(*ogroup, scope,
+                            /* epilog */ false);
+                    insert_group_update_stmts(*ogroup, main_loop,
+                            ivs_list, /* group epilog */ false);
                     replace_overlapped_loads(*ogroup);
+                }
+            }
+
+            // IF EPILOG
+            if (!if_epilog.is_null())
+            {
+                objlist_nodecl_t if_epilog_vector_loads =
+                    get_adjacent_vector_loads_not_nested_in_for(
+                            if_epilog.get_statement(), sym);
+
+                if (!if_epilog_vector_loads.empty())
+                {
+                    objlist_ogroup_t if_epilog_overlap_groups = 
+                        get_overlap_groups(if_epilog_vector_loads,
+                                if_epilog_blocks_pairs,
+                                ivs_list);
+
+                    for(objlist_ogroup_t::iterator ogroup =
+                            if_epilog_overlap_groups.begin();
+                            ogroup != if_epilog_overlap_groups.end();
+                            ogroup++)
+                    {
+                        compute_group_properties(*ogroup, scope,
+                                /* group epilog */ true);
+                        insert_group_update_stmts(*ogroup,
+                                if_epilog, ivs_list,
+                                /* group epilog */ true);
+                        replace_overlapped_loads(*ogroup);
+                    }
                 }
             }
         }
 
-        walk(n.get_statement());
+        // Transform if epilogue loop into IfStatement
+        if (!if_epilog.is_null())
+        {
+            Nodecl::NodeclBase cond = 
+                TL::LoopControlAdapter(
+                        if_epilog.get_loop_header()).get_cond();
+
+            Nodecl::IfElseStatement if_stmt =
+                Nodecl::IfElseStatement::make(
+                        cond,
+                        if_epilog.get_statement(),
+                        Nodecl::NodeclBase::null());
+
+            if_epilog.replace(if_stmt);
+        }
+ 
+        walk(main_loop.get_statement());
+        walk(if_epilog);
     }
 
     bool OverlappedAccessesOptimizer::loop_needs_unrolling(
@@ -488,7 +585,8 @@ namespace Vectorization
             TL::Symbol sym = it->first;
 
             objlist_nodecl_t vector_loads =
-                get_adjacent_vector_loads_nested_in_one_for(n, sym);
+                get_adjacent_vector_loads_not_nested_in_for(
+                        n.get_statement(), sym);
 
             //TODO
             if (!vector_loads.empty())
@@ -498,43 +596,44 @@ namespace Vectorization
         return false;
     }
 
-    objlist_blocks_pairs OverlappedAccessesOptimizer::
+    objlist_blocks_pairs_t OverlappedAccessesOptimizer::
         apply_overlap_blocked_unrolling(
             const Nodecl::ForStatement& n)
     {
-        //TODO Unroll Loop
+        objlist_blocks_pairs_t blocks_pairs;
 
-        objlist_blocks_pairs blocks_pairs;
+        Nodecl::NodeclBase loop_header =
+            n.get_loop_header();
 
-        Nodecl::LoopControl loop_control =
-            n.get_loop_header().as<Nodecl::LoopControl>();
+        TL::LoopControlAdapter lc = TL::LoopControlAdapter(
+                loop_header);
 
-        Nodecl::NodeclBase cond_node =
-            loop_control.get_cond();
+        Nodecl::NodeclBase cond_node = lc.get_cond();
+        Nodecl::NodeclBase next_node = lc.get_next();
 
         Nodecl::ExpressionStatement next_update_stmt =
             Nodecl::ExpressionStatement::make(
-                    loop_control.get_next());
+                    next_node.shallow_copy());
 
         Nodecl::List outer_stmt = 
             n.get_statement().as<Nodecl::List>();
+        // Add next update
+        Nodecl::Utils::append_items_in_outermost_compound_statement(
+                outer_stmt, next_update_stmt);
 
         blocks_pairs.append(pair_nodecl_int_t(outer_stmt, 0));
 
-        for (int i=1; i<16/4; i++)
+        for (int i=1; i<(16/4)-1; i++)
         {
             Nodecl::List stmts_copy =
                 outer_stmt.shallow_copy().as<Nodecl::List>();
 
             Nodecl::IfElseStatement if_else_stmt =
                 Nodecl::IfElseStatement::make(
-                        cond_node.shallow_copy(),
+                        cond_node,
                         stmts_copy,
                         Nodecl::NodeclBase::null());
 
-            // Add next update
-            Nodecl::Utils::append_items_in_outermost_compound_statement(
-                    outer_stmt, next_update_stmt.shallow_copy());
             // Add IfStatement
             Nodecl::Utils::append_items_in_outermost_compound_statement(
                     outer_stmt, if_else_stmt);
@@ -548,8 +647,8 @@ namespace Vectorization
     }
 
     objlist_nodecl_t OverlappedAccessesOptimizer::
-        get_adjacent_vector_loads_nested_in_one_for(
-                const Nodecl::ForStatement& n,
+        get_adjacent_vector_loads_not_nested_in_for(
+                const Nodecl::NodeclBase& n,
                 const TL::Symbol& sym)
     {
         objlist_nodecl_t result;
@@ -558,8 +657,7 @@ namespace Vectorization
             nodecl_get_all_nodecls_of_kind<Nodecl::VectorLoad>(n);
 
         objlist_nodecl_t nested_for_stmts = Nodecl::Utils::
-            nodecl_get_all_nodecls_of_kind<Nodecl::ForStatement>(
-                    n.get_statement());
+            nodecl_get_all_nodecls_of_kind<Nodecl::ForStatement>(n);
 
         std::cerr << "Adjacent Vector Loads:" << std::endl;
 
@@ -701,7 +799,7 @@ namespace Vectorization
 
     objlist_ogroup_t OverlappedAccessesOptimizer::
         get_overlap_groups(const objlist_nodecl_t& vector_loads,
-                const objlist_blocks_pairs& blocks_pairs,
+                const objlist_blocks_pairs_t& blocks_pairs,
                 const objlist_nodecl_t& ivs_list)
     {
         objlist_ogroup_t result;
@@ -724,7 +822,7 @@ namespace Vectorization
 
             // Apply unrolling blocks offset in index
             // Reverse iterator. Blocks are inclusive
-            for(objlist_blocks_pairs::const_reverse_iterator block_it =
+            for(objlist_blocks_pairs_t::const_reverse_iterator block_it =
                     blocks_pairs.rbegin();
                     block_it != blocks_pairs.rend();
                     block_it++)
@@ -776,7 +874,7 @@ namespace Vectorization
             {
                 std::cerr << target_load_copy.prettyprint() << " DOESN'T overlap!"<< std::endl;
                 //Nodecl::Utils::print_ast(target_load_copy);
-                running_error("");
+                internal_error("not yet implemented", 0);
             }
                 
             target_load++;
@@ -792,7 +890,8 @@ namespace Vectorization
 
     void OverlappedAccessesOptimizer::compute_group_properties(
             OverlapGroup& ogroup,
-            const Nodecl::ForStatement& for_stmt)
+            TL::Scope& scope,
+            const bool is_group_epilog)
     {
         ogroup._vector_type = ogroup._group_loads.front().get_type().no_ref();
         ogroup._basic_type = ogroup._group_loads.front().get_type().no_ref().basic_type();
@@ -807,27 +906,45 @@ namespace Vectorization
 
         // TODO # registers
         // Declare group registers
-        TL::Scope scope = for_stmt.get_parent().get_parent().get_parent().
-            retrieve_context();
-
         for (int i=0; i<2; i++)
         {
             std::stringstream new_sym_name;
             new_sym_name << "__overlap_" << i;//it->first.get_name() << "_" << i;
 
-            TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
-            new_sym.get_internal_symbol()->kind = SK_VARIABLE;
-            new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-            new_sym.set_type(ogroup._vector_type);
+            if (is_group_epilog)
+            {
+                // Use previous symbols
+                TL::Symbol sym = 
+                    scope.get_symbol_from_name(new_sym_name.str());
 
-            ogroup._group_registers.push_back(new_sym);
-            ogroup._group_registers_indexes.push_back(
-                    (i == 0) ? first_index : 
-                    Nodecl::Add::make(
-                        first_index.shallow_copy(),
-                        const_value_to_nodecl(const_value_get_signed_int(
-                                vectorization_factor)),
-                        first_index.get_type()));
+                ERROR_CONDITION(!sym.is_valid(), "cache symbol is invalid.", 0);
+
+                ogroup._group_registers.push_back(sym);
+                ogroup._group_registers_indexes.push_back(
+                        (i == 0) ? first_index : 
+                        Nodecl::Add::make(
+                            first_index.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_signed_int(
+                                    vectorization_factor)),
+                            first_index.get_type()));
+            }
+            else
+            {
+                // Create new symbols
+                TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
+                new_sym.get_internal_symbol()->kind = SK_VARIABLE;
+                new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
+                new_sym.set_type(ogroup._vector_type);
+
+                ogroup._group_registers.push_back(new_sym);
+                ogroup._group_registers_indexes.push_back(
+                        (i == 0) ? first_index : 
+                        Nodecl::Add::make(
+                            first_index.shallow_copy(),
+                            const_value_to_nodecl(const_value_get_signed_int(
+                                    vectorization_factor)),
+                            first_index.get_type()));
+            }
         }
 
         // Group subscript
@@ -836,27 +953,31 @@ namespace Vectorization
     }
 
 
-    void OverlappedAccessesOptimizer::enable_overlap_cache(
-            const OverlapGroup& ogroup,
+    void OverlappedAccessesOptimizer::insert_group_update_stmts(
+            OverlapGroup& ogroup,
             const Nodecl::ForStatement& n,
-            const objlist_nodecl_t& ivs_list)
+            const objlist_nodecl_t& ivs_list,
+            const bool is_group_epilog)
     {
         // Init Statements
-        Nodecl::List init_stmts = 
-            ogroup.get_init_statements(n, ivs_list);
-        n.prepend_sibling(init_stmts);
-        
+        if (!is_group_epilog)
+        {
+            Nodecl::List init_stmts = 
+                ogroup.get_init_statements(n, ivs_list);
+            n.prepend_sibling(init_stmts);
+
+            // Update Post
+            Nodecl::List post_stmts = 
+                ogroup.get_iteration_update_post();
+            Nodecl::Utils::append_items_in_outermost_compound_statement(
+                    n.get_statement(), post_stmts);
+        }
+
         // Update Pre
         Nodecl::List pre_stmts = 
             ogroup.get_iteration_update_pre();
         Nodecl::Utils::prepend_items_in_outermost_compound_statement(
                 n.get_statement(), pre_stmts);
-
-        // Update Post
-        Nodecl::List post_stmts = 
-            ogroup.get_iteration_update_post();
-        Nodecl::Utils::append_items_in_outermost_compound_statement(
-                n.get_statement(), post_stmts);
     }
 
     void OverlappedAccessesOptimizer::replace_overlapped_loads(
