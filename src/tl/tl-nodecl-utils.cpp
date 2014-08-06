@@ -2056,4 +2056,56 @@ namespace TL
 
     template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
     template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
+
+
+    LoopControlAdapter::LoopControlAdapter(
+        Nodecl::RangeLoopControl rlc) : _rlc(rlc)
+    {
+    }   
+
+    Nodecl::NodeclBase LoopControlAdapter::get_cond()
+    {
+        ERROR_CONDITION(!_rlc.get_step().is_constant(),
+                "We need a constant step", 0);
+
+        Nodecl::NodeclBase cond_node;
+
+        if (const_value_is_positive(_rlc.get_step().get_constant()))
+        {
+            cond_node = Nodecl::LowerOrEqualThan::make(
+                    _rlc.get_induction_variable().get_symbol()
+                    .make_nodecl(/* lvalue_ref */ true),
+                    _rlc.get_upper().shallow_copy(),
+                    TL::Type::get_bool_type());
+
+        }
+        else if (const_value_is_negative(_rlc.get_step().get_constant()))
+        {
+            cond_node = Nodecl::GreaterOrEqualThan::make(
+                    _rlc.get_induction_variable().get_symbol()
+                    .make_nodecl(/* lvalue_ref */ true),
+                    _rlc.get_upper().shallow_copy(),
+                    TL::Type::get_bool_type());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        return cond_node;
+    } 
+
+    Nodecl::NodeclBase LoopControlAdapter::get_next()
+    {
+        return Nodecl::Assignment::make(
+                _rlc.get_induction_variable().get_symbol()
+                .make_nodecl(/* lvalue_ref */ true),
+                Nodecl::Add::make(
+                    _rlc.get_step().shallow_copy(),
+                    _rlc.get_induction_variable().get_symbol()
+                    .make_nodecl(/* lvalue_ref */ true),
+                    _rlc.get_induction_variable().get_symbol().get_type()),
+                _rlc.get_induction_variable().get_symbol()
+                .get_type().no_ref().get_lvalue_reference_to());
+    }
 }

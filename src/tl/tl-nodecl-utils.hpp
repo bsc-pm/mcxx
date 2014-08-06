@@ -489,6 +489,17 @@ namespace TL
     };
 
     typedef ForStatementHelper<TL::UsualCopyPolicy> ForStatement;
+
+    class LoopControlAdapter : public Nodecl::LoopControl
+    {
+        Nodecl::RangeLoopControl _rlc;
+
+        public:
+            LoopControlAdapter(Nodecl::RangeLoopControl rlc);
+            
+            Nodecl::NodeclBase get_cond();
+            Nodecl::NodeclBase get_next();
+    };
 }
 
 #endif // TL_NODECL_UTILS_HPP
