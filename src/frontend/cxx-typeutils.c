@@ -12044,15 +12044,7 @@ type_t* get_variant_type_zero(type_t* t)
 
     if (result == NULL)
     {
-        result = counted_xcalloc(1, sizeof(*result), &_bytes_due_to_type_system);
-        *result = *t;
-
-        // The unqualified type must point to itself
-        result->unqualified_type = result;
-
-        result->info = counted_xcalloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
-        *result->info = *t->info;
-
+        result = copy_type_for_variant(t);
         result->info->is_zero_type = 1;
 
         dhash_ptr_insert(_zero_types_hash, (const char*)t, result);
