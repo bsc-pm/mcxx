@@ -14901,7 +14901,7 @@ char type_is_reference_compatible_to(type_t* t1, type_t* t2)
     ERROR_CONDITION(is_any_reference_type(t1) || is_any_reference_type(t2),
             "Do not pass reference types to this function", 0);
     return type_is_reference_related_to(t1, t2)
-        && is_more_or_equal_cv_qualified(get_cv_qualifier(t1), get_cv_qualifier(t2));
+        && is_more_or_equal_cv_qualified_type(t1, t2);
 }
 
 static type_t* rewrite_redundant_typedefs(type_t* orig)
