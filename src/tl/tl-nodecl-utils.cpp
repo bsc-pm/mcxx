@@ -2059,53 +2059,79 @@ namespace TL
 
 
     LoopControlAdapter::LoopControlAdapter(
-        Nodecl::RangeLoopControl rlc) : _rlc(rlc)
+        Nodecl::NodeclBase lc) : _lc(lc)
     {
     }   
 
     Nodecl::NodeclBase LoopControlAdapter::get_cond()
     {
-        ERROR_CONDITION(!_rlc.get_step().is_constant(),
-                "We need a constant step", 0);
-
-        Nodecl::NodeclBase cond_node;
-
-        if (const_value_is_positive(_rlc.get_step().get_constant()))
+        if (_lc.is<Nodecl::LoopControl>())
         {
-            cond_node = Nodecl::LowerOrEqualThan::make(
-                    _rlc.get_induction_variable().get_symbol()
-                    .make_nodecl(/* lvalue_ref */ true),
-                    _rlc.get_upper().shallow_copy(),
-                    TL::Type::get_bool_type());
-
+            return _lc.as<Nodecl::LoopControl>().get_cond();
         }
-        else if (const_value_is_negative(_rlc.get_step().get_constant()))
+        else if (_lc.is<Nodecl::RangeLoopControl>())
         {
-            cond_node = Nodecl::GreaterOrEqualThan::make(
-                    _rlc.get_induction_variable().get_symbol()
-                    .make_nodecl(/* lvalue_ref */ true),
-                    _rlc.get_upper().shallow_copy(),
-                    TL::Type::get_bool_type());
+            Nodecl::RangeLoopControl rlc =
+                _lc.as<Nodecl::RangeLoopControl>();
+
+            ERROR_CONDITION(!rlc.get_step().is_constant(),
+                    "We need a constant step", 0);
+
+            Nodecl::NodeclBase cond_node;
+
+            if (const_value_is_positive(rlc.get_step().get_constant()))
+            {
+                return Nodecl::LowerOrEqualThan::make(
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_upper().shallow_copy(),
+                        TL::Type::get_bool_type());
+
+            }
+            else if (const_value_is_negative(rlc.get_step().get_constant()))
+            {
+                return Nodecl::GreaterOrEqualThan::make(
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_upper().shallow_copy(),
+                        TL::Type::get_bool_type());
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
         }
         else
         {
             internal_error("Code unreachable", 0);
         }
-
-        return cond_node;
     } 
 
     Nodecl::NodeclBase LoopControlAdapter::get_next()
     {
-        return Nodecl::Assignment::make(
-                _rlc.get_induction_variable().get_symbol()
-                .make_nodecl(/* lvalue_ref */ true),
-                Nodecl::Add::make(
-                    _rlc.get_step().shallow_copy(),
-                    _rlc.get_induction_variable().get_symbol()
+        if (_lc.is<Nodecl::LoopControl>())
+        {
+            return _lc.as<Nodecl::LoopControl>().get_next();
+        }
+        else if (_lc.is<Nodecl::RangeLoopControl>())
+        {
+            Nodecl::RangeLoopControl rlc =
+                _lc.as<Nodecl::RangeLoopControl>();
+
+            return Nodecl::Assignment::make(
+                    rlc.get_induction_variable().get_symbol()
                     .make_nodecl(/* lvalue_ref */ true),
-                    _rlc.get_induction_variable().get_symbol().get_type()),
-                _rlc.get_induction_variable().get_symbol()
-                .get_type().no_ref().get_lvalue_reference_to());
+                    Nodecl::Add::make(
+                        rlc.get_step().shallow_copy(),
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_induction_variable().get_symbol().get_type()),
+                    rlc.get_induction_variable().get_symbol()
+                    .get_type().no_ref().get_lvalue_reference_to());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
     }
 }

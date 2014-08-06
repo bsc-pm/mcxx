@@ -490,12 +490,12 @@ namespace TL
 
     typedef ForStatementHelper<TL::UsualCopyPolicy> ForStatement;
 
-    class LoopControlAdapter : public Nodecl::LoopControl
+    class LoopControlAdapter 
     {
-        Nodecl::RangeLoopControl _rlc;
+        Nodecl::NodeclBase _lc;
 
         public:
-            LoopControlAdapter(Nodecl::RangeLoopControl rlc);
+            LoopControlAdapter(Nodecl::NodeclBase lc);
             
             Nodecl::NodeclBase get_cond();
             Nodecl::NodeclBase get_next();
