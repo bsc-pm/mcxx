@@ -28,7 +28,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-omp-core.hpp" 
+#include "tl-omp-core.hpp"
 
 #include <set>
 #include <stdio.h>
@@ -58,6 +58,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
         virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
     private:

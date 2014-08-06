@@ -494,6 +494,7 @@ parallel-statements : parallel-execution
                     | synchronization
 
 parallel-execution : task-construct
+                   | taskyield-construct
                    | single-construct
                    | critical-construct
                    | parallel-construct
@@ -617,6 +618,8 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
                 | NODECL_OPEN_M_P*BARRIER_SIGNAL()
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
+
+taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
 
 ##############################
 # SIMD                       #
