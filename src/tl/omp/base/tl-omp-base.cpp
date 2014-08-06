@@ -273,8 +273,6 @@ namespace TL { namespace OpenMP {
 
         EMPTY_HANDLERS_DIRECTIVE(section)
 
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
-
     void Base::set_simd(const std::string &simd_enabled_str)
     {
         parse_boolean_option("simd_enabled",
@@ -626,6 +624,25 @@ namespace TL { namespace OpenMP {
     }
 
 
+    void Base::taskyield_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::taskyield_handler_post(TL::PragmaCustomDirective directive)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "TASKYIELD construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        directive.replace(
+                Nodecl::OpenMP::Taskyield::make(
+                    directive.get_locus())
+                );
+    }
     Nodecl::NodeclBase Base::wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context, Scope sc)
     {
         ERROR_CONDITION(!context.is<Nodecl::List>(), "This is not a list", 0);
