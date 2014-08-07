@@ -120,7 +120,8 @@ namespace {
             
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
             
-            if (CURRENT_CONFIGURATION->debug_options.print_pcfg)
+            if (CURRENT_CONFIGURATION->debug_options.print_pcfg || 
+                CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
                 graph->print_graph_to_dot(/*use_def_computed*/true, /*liveness_computed*/true);
             
             // Create the log file that will store the logs
@@ -736,7 +737,7 @@ namespace {
             {
                 wv.walk( *it );
                 ObjectList<Nodecl::NodeclBase> defined_syms = wv.get_defined_symbols( );
-                if( Nodecl::Utils::list_contains_nodecl( defined_syms, n ) )
+                if( Nodecl::Utils::list_contains_nodecl_by_structure( defined_syms, n ) )
                     it2 = it;
                 wv.clear( );
             }
@@ -748,7 +749,7 @@ namespace {
             for( ; it != stmts.end( ) && !result; ++it )
             {
                 TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
                     result = true;
             }
             }
@@ -776,7 +777,7 @@ namespace {
                     for( TL::ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ) && !result; ++it )
                     {
                         TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                        if( Nodecl::Utils::list_contains_nodecl( mem_accesses, n ) )
+                        if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
                         {
                             result = true;
                             break;
@@ -831,8 +832,7 @@ namespace {
             bool result = false;
             for(Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
             {
-                if(Nodecl::Utils::structurally_equal_nodecls(n, *it, /*skip_conversion_nodes*/true) || 
-                   Nodecl::Utils::find_nodecl_by_structure(*it, n))
+                if(Nodecl::Utils::nodecl_contains_nodecl_by_structure(*it, n))
                 {
                     result = true;
                     break;
