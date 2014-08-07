@@ -53,6 +53,83 @@ const char* strprepend(const char* orig, const char* prepended)
     return strappend(prepended, orig);
 }
 
+const char *strconcat_n(unsigned int n, const char** c)
+{
+    if (n == 0)
+        return NULL;
+    if (n == 1)
+        return c[0];
+
+    if (n == 2)
+        return strappend(c[0], c[1]);
+
+    unsigned int size = 0;
+    unsigned int i;
+    for (i = 0; i < n; i++)
+    {
+        if (c[i] != NULL)
+            size += strlen(c[i]);
+    }
+
+    if (size == 0)
+        return NULL;
+
+    char result[size + 1];
+    result[0] = '\0';
+
+    for (i = 0; i < n; i++)
+    {
+        if (c[i] != NULL)
+        {
+            strcat(result, c[i]);
+        }
+    }
+    result[size - 1] = '\0';
+
+    return uniquestr(result);
+}
+
+struct strbuilder_tag
+{
+    char* str;
+    unsigned int capacity;
+    unsigned int position;
+};
+
+strbuilder_t* strbuilder_new(void)
+{
+    strbuilder_t* strb = xcalloc(1, sizeof(*strb));
+
+    strb->capacity = 8;
+    strb->str = xmalloc(sizeof(*strb->str)* strb->capacity);
+    strb->str[0] = '\0';
+
+    return strb;
+}
+
+const char* strbuilder_str(strbuilder_t* strb)
+{
+    return strb->str;
+}
+
+void strbuilder_append(strbuilder_t* strb, const char* str)
+{
+    unsigned int len = strlen(str);
+    while ((strb->position + len) >= strb->capacity)
+    {
+        strb->capacity *= 2;
+        strb->str = xrealloc(strb->str, strb->capacity * sizeof(*strb->str));
+    }
+
+    strcat(strb->str, str);
+    strb->position += len;
+}
+
+void strbuilder_free(strbuilder_t* strb)
+{
+    xfree(strb->str);
+}
+
 const char* get_unique_name(void)
 {
     static int num_var = 100;

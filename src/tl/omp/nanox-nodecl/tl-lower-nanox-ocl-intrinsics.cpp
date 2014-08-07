@@ -122,10 +122,10 @@ namespace TL { namespace Nanox {
                 TL::Symbol sym = function_call.get_called().as<Nodecl::Symbol>().get_symbol();
 
                 // We are only interested in intrinsic symbols
-                if (sym.get_name() == "nanox_opencl_allocate")
+                if (sym.get_name() == "ompss_opencl_allocate")
                 {
                     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
-                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in nanox_opencl_allocate\n", 0);
+                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in 'ompss_opencl_allocate' call\n", 0);
 
                     Nodecl::NodeclBase actual_argument = arguments[0];
                     ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree\n", 0);
@@ -147,7 +147,7 @@ namespace TL { namespace Nanox {
                             &&
                             !(subscripted_symbol.get_type().is_pointer()
                                 && subscripted_symbol.get_type().points_to().is_fortran_array()),
-                            "The argument of 'nanox_opencl_allocate' intrinsic must be "
+                            "The argument of 'ompss_opencl_allocate' intrinsic must be "
                             "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
 
                     TL::Type array_type;
@@ -241,10 +241,10 @@ namespace TL { namespace Nanox {
 
                     expr_stmt.replace(new_function_call.parse_statement(expr_stmt));
                 }
-                else if (sym.get_name() == "nanox_opencl_deallocate")
+                else if (sym.get_name() == "ompss_opencl_deallocate")
                 {
                     Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
-                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in nanox_opencl_deallocate call", 0);
+                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in ompss_opencl_deallocate call", 0);
 
                     Nodecl::NodeclBase actual_argument = arguments[0];
                     ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree", 0);
@@ -254,7 +254,7 @@ namespace TL { namespace Nanox {
                         arg = arg.as<Nodecl::Dereference>().get_rhs();
 
                     ERROR_CONDITION(!arg.is<Nodecl::Symbol>(),
-                            "The argument of 'nanox_opencl_deallocate' intrinsic should be a symbol", 0);
+                            "The argument of 'ompss_opencl_deallocate' intrinsic should be a symbol", 0);
 
                     TL::Symbol array_sym = arg.as<Nodecl::Symbol>().get_symbol();
 
@@ -264,7 +264,7 @@ namespace TL { namespace Nanox {
                             &&
                             !(array_sym.get_type().is_pointer()
                                 && array_sym.get_type().points_to().is_fortran_array()),
-                            "The argument of 'nanox_opencl_deallocate' intrinsic must be "
+                            "The argument of 'ompss_opencl_deallocate' intrinsic must be "
                             "an allocatable array or a pointer to an array\n", 0);
 
                     TL::Symbol ptr_of_arr_sym = get_function_ptr_of(array_sym, expr_stmt.retrieve_context());

@@ -949,7 +949,9 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     if (left_symbol != NULL
             && right_symbol != NULL)
     {
-        if (left_symbol == right_symbol)
+        if (left_symbol == right_symbol
+                && left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER
+                && left_symbol->kind != SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
         {
             DEBUG_CODE()
             {
