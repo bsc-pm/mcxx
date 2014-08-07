@@ -235,10 +235,14 @@ namespace {
         return res;
     }
     
-    void SCC::find_path_and_direction(const CGNode* const source, const CGNode* const target, 
-                                      Utils::CycleDirection& dir, NBase& value)
+    void SCC::find_path_and_direction(
+            const CGNode* const source, 
+            const CGNode* target, 
+            Utils::CycleDirection& dir, 
+            NBase& value, 
+            std::set<const CGNode*>& visited)
     {
-        if(target==source)
+        if((target==source) || (visited.find(target)!=visited.end()))
             return;
         
         const ObjectList<CGEdge*> exits = target->get_exits();
@@ -340,7 +344,18 @@ namespace {
             }
             
             // Keep iterating 
-            find_path_and_direction(source, new_target, new_dir, new_value);
+            if(exits.empty())
+            {   // Avoid copying the set of visited nodes one a unique branch exits the current target
+                // because we do not need to keep track of different paths here
+                find_path_and_direction(source, new_target, new_dir, new_value, visited);
+            }
+            else
+            {
+                std::set<const CGNode*> new_visited(visited);
+                new_visited.insert(target);
+                find_path_and_direction(source, new_target, new_dir, new_value, new_visited);
+            }
+            
             new_values.append(new_value);
             dir = dir | new_dir;
         }
@@ -352,8 +367,9 @@ namespace {
         CGNode* source = edge->get_source();
         CGNode* target = edge->get_target();
         NBase n;
+        std::set<const CGNode*> visited;
         
-        find_path_and_direction(source, target, dir, n);
+        find_path_and_direction(source, target, dir, n, visited);
         
         return dir;
     }

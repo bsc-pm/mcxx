@@ -1473,6 +1473,16 @@ namespace Analysis {
         return ranges;
     }
     
+    NBase Node::get_range(const NBase& var)
+    {
+        NBase res;
+        Utils::RangeValuesMap ranges = get_ranges();
+        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        if(it != ranges.end())
+            res = it->second;
+        return res;
+    }
+    
     void Node::set_range(const NBase& var, const NBase& value)
     {
         Utils::RangeValuesMap ranges = get_ranges();
