@@ -1330,8 +1330,9 @@ root_done:  ;
         propagate_constraints_from_back_edges(entry, constr_map, propagated_constr_map);
         ExtensibleGraph::clear_visits(entry);
         
-        if(VERBOSE)
-            print_constraints();
+#ifdef RANGES_DEBUG
+        print_constraints();
+#endif
     }
     
     void RangeAnalysis::build_constraint_graph()

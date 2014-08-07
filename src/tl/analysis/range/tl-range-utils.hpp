@@ -125,8 +125,12 @@ namespace Analysis {
         std::map<CGNode*, SCC*>* const _node_to_scc_map;
         
         // *** Private members *** //
-        void find_path_and_direction(const CGNode* const source, const CGNode* const target, 
-                                     Utils::CycleDirection& dir, NBase& value);
+        void find_path_and_direction(
+                const CGNode* const source, 
+                const CGNode* target, 
+                Utils::CycleDirection& dir, 
+                NBase& value, 
+                std::set<const CGNode*>& visited);
         
     public:
         // *** Constructor *** //
