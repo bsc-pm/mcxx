@@ -124,6 +124,9 @@ namespace Vectorization
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
  
+            objlist_nodecl_t get_linear_nodecls(
+                    const Nodecl::NodeclBase& n );
+
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
@@ -138,8 +141,8 @@ namespace Vectorization
 //            DEPRECATED Nodecl::NodeclBase get_induction_variable_increment(
 //                    const Nodecl::NodeclBase& scope,
 //                    const Nodecl::NodeclBase& n );
-            DEPRECATED objlist_nodecl_t get_ivs_nodecls(
-                    const Nodecl::NodeclBase& n );
+//            DEPRECATED objlist_nodecl_t get_ivs_nodecls(
+//                    const Nodecl::NodeclBase& n );
 
             //
             // SIMD-specific methods

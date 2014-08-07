@@ -410,14 +410,11 @@ namespace Vectorization
 
 #endif
 
-
-
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment)
-        : _overlap_symbols(environment._overlap_symbols_map)
+        : _environment(environment) 
     {
     }
-
 
     void OverlappedAccessesOptimizer::visit(const Nodecl::ForStatement& n)
     {
@@ -426,7 +423,7 @@ namespace Vectorization
         Nodecl::ForStatement last_epilog;
 
         objlist_nodecl_t ivs_list = VectorizationAnalysisInterface::
-            _vectorizer_analysis->get_ivs_nodecls(main_loop);
+            _vectorizer_analysis->get_linear_nodecls(main_loop);
 
         objlist_blocks_pairs_t main_loop_blocks_pairs;
         main_loop_blocks_pairs.append(
@@ -437,9 +434,13 @@ namespace Vectorization
         int min_unroll_factor = get_loop_min_unroll_factor(
                 main_loop, ivs_list);
 
+        std::cerr << "MIN UNROLL FACTOR: " << min_unroll_factor << std::endl;
         // UNROLL
-        if (min_unroll_factor > 1)
+        if (min_unroll_factor > 0)
         {
+            if_epilog = main_loop.shallow_copy()
+                .as<Nodecl::ForStatement>();
+
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
             loop_unroller.set_loop(main_loop)
@@ -460,11 +461,14 @@ namespace Vectorization
                         n, main_loop);
                 
             // If Epilog
-            loop_unroller.set_unroll_factor(min_unroll_factor).
-                set_create_epilog(false).unroll();
+            if (min_unroll_factor > 1 )
+            {
+                loop_unroller.set_unroll_factor(min_unroll_factor).
+                    set_create_epilog(false).unroll();
 
-            if_epilog = loop_unroller.get_unrolled_loop()
-                .as<Nodecl::ForStatement>();
+                if_epilog = loop_unroller.get_unrolled_loop()
+                    .as<Nodecl::ForStatement>();
+            }
 
             VectorizationAnalysisInterface::
                 _vectorizer_analysis->register_copy(
@@ -483,8 +487,9 @@ namespace Vectorization
             retrieve_context();
 
         // OVERLAP
-        for(map_tl_sym_int_t::iterator it = _overlap_symbols.begin();
-                it != _overlap_symbols.end();
+        for(map_tl_sym_int_t::const_iterator it = 
+                _environment._overlap_symbols_map.begin();
+                it != _environment._overlap_symbols_map.end();
                 it++)
         {
             TL::Symbol sym = it->first;
@@ -560,7 +565,7 @@ namespace Vectorization
 
             Nodecl::IfElseStatement if_stmt =
                 Nodecl::IfElseStatement::make(
-                        cond,
+                        cond.shallow_copy(),
                         if_epilog.get_statement(),
                         Nodecl::NodeclBase::null());
 
@@ -585,6 +590,11 @@ namespace Vectorization
             Nodecl::ForStatement n,
             const objlist_nodecl_t& ivs_list)
     {
+        // We do not unroll the SIMD loop
+        if (_environment._analysis_simd_scope
+                == n)
+            return 0;
+
         unsigned int unroll_factor = 1;
 
         Nodecl::NodeclBase iv = ivs_list.front();
@@ -595,8 +605,9 @@ namespace Vectorization
                         n, iv), true))
                 return false;
 
-        for(map_tl_sym_int_t::iterator it = _overlap_symbols.begin();
-                it != _overlap_symbols.end();
+        for(map_tl_sym_int_t::const_iterator it = 
+                _environment._overlap_symbols_map.begin();
+                it != _environment._overlap_symbols_map.end();
                 it++)
         {
             TL::Symbol sym = it->first;
@@ -655,7 +666,7 @@ namespace Vectorization
 
             Nodecl::IfElseStatement if_else_stmt =
                 Nodecl::IfElseStatement::make(
-                        cond_node,
+                        cond_node.shallow_copy(),
                         stmts_copy,
                         Nodecl::NodeclBase::null());
 

@@ -382,8 +382,9 @@ namespace Vectorization
             Nodecl::NodeclBase& net_epilog_node)
     {
         Nodecl::CompoundStatement comp_statement =
-            Nodecl::Utils::skip_contexts_and_lists(loop_statement.as<Nodecl::ForStatement>().
-            get_statement()).as<Nodecl::CompoundStatement>();
+            Nodecl::Utils::skip_contexts_and_lists(
+                    loop_statement.as<Nodecl::ForStatement>().
+                    get_statement()).as<Nodecl::CompoundStatement>();
 
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
@@ -403,7 +404,9 @@ namespace Vectorization
         if (_is_parallel_loop || _only_epilog)
         {
             // TODO:: get_updated_iv_init_for_epilog does not support WhileStatement
-            get_updated_iv_init_for_epilog(loop_statement.as<Nodecl::ForStatement>(), iv, iv_init);
+            get_updated_iv_init_for_epilog(
+                    loop_statement.as<Nodecl::ForStatement>(),
+                    iv, iv_init);
 
             new_iv_init = Nodecl::ExpressionStatement::make(
                     Nodecl::Assignment::make(
@@ -488,8 +491,7 @@ namespace Vectorization
         // Same as comp_statement
         Nodecl::NodeclBase loop_inner_statement = 
             loop_statement.as<Nodecl::ForStatement>().
-            get_statement().as<Nodecl::List>().front();//.shallow_copy();
-
+                    get_statement();//.as<Nodecl::List>().front());
 
         // Add IF check to skip epilog if mask is not zero
         Nodecl::NodeclBase if_mask_is_not_zero;

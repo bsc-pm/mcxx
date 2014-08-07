@@ -107,7 +107,7 @@ namespace TL
             public Nodecl::ExhaustiveVisitor<void>
         {
             private:
-                map_tl_sym_int_t _overlap_symbols;
+                const VectorizerEnvironment& _environment;
                 
                 objlist_nodecl_t get_adjacent_vector_loads_not_nested_in_for(
                         const Nodecl::NodeclBase& n,

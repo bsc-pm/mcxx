@@ -433,6 +433,26 @@ namespace Vectorization
 
         return translate_output(iv_step);
     }
+
+    objlist_nodecl_t VectorizationAnalysisInterface::get_linear_nodecls(
+                const Nodecl::NodeclBase& scope )
+    {
+        Analysis::Utils::InductionVarList linear_data_list =
+            Analysis::AnalysisInterface::get_linear_variables(
+                    translate_input(scope));
+
+        objlist_nodecl_t result;
+
+        for(Analysis::Utils::InductionVarList::const_iterator it =
+                linear_data_list.begin();
+                it != linear_data_list.end();
+                it ++)
+        {
+            result.append((*it)->get_variable());
+        }
+
+        return translate_output(result);
+    }
     
     bool VectorizationAnalysisInterface::has_been_defined(
             const Nodecl::NodeclBase& n) 
@@ -517,6 +537,7 @@ namespace Vectorization
     }
     */
 
+    /*
     objlist_nodecl_t VectorizationAnalysisInterface::get_ivs_nodecls(
                 const Nodecl::NodeclBase& scope )
     {
@@ -535,6 +556,7 @@ namespace Vectorization
 
         return translate_output(result);
     }
+    */
  
     bool VectorizationAnalysisInterface::is_simd_aligned_access(
             const Nodecl::NodeclBase& scope,

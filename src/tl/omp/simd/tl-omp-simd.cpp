@@ -671,9 +671,10 @@ namespace TL {
             // Process epilog
             if (epilog_iterations != 0)
             {
-                epilog_for_statement = simd_node_epilog.get_openmp_for().as<Nodecl::OpenMP::For>().
-                        get_loop().as<Nodecl::Context>().get_in_context().as<Nodecl::List>().
-                        front().as<Nodecl::ForStatement>();
+                epilog_for_statement = 
+                    Nodecl::Utils::skip_contexts_and_lists(
+                            simd_node_epilog.get_openmp_for().as<Nodecl::OpenMP::For>().
+                            get_loop()).as<Nodecl::ForStatement>();
                 // Add scopes, default masks, etc.
                 for_environment.load_environment(epilog_for_statement);
 
