@@ -438,7 +438,6 @@ namespace Vectorization
         // UNROLL
         if (min_unroll_factor > 0)
         {
-            running_error("Grrrr");
             if_epilog = main_loop.shallow_copy()
                 .as<Nodecl::ForStatement>();
 
