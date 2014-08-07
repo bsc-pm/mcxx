@@ -47,6 +47,7 @@ namespace Analysis {
         ControlStructureType _type;
         NBase _condition;
         Node* _pcfg_node;
+        ControlStructure* _enclosing;
         
         // *** Constructor *** //
         ControlStructure(int id, ControlStructureType type, 
@@ -58,6 +59,8 @@ namespace Analysis {
         std::string get_type_as_string() const;
         Nodecl::NodeclBase get_condition() const;
         Node* get_pcfg_node() const;
+        ControlStructure* get_enclosing_cs() const;
+        void set_enclosing_cs(ControlStructure* cs);
     };
     
     typedef std::vector<std::pair<ControlStructure*, ObjectList<std::string> > > ControlStList;
@@ -132,6 +135,8 @@ namespace Analysis {
     // ********************** Task Dependency Graph ********************** //
     
     typedef std::map<Node*, ControlStructure*> PCFG_to_CS;
+    typedef std::map<NBase, std::string, Nodecl::Utils::Nodecl_structural_less> VarToValueMap;
+    typedef std::map<NBase, unsigned int, Nodecl::Utils::Nodecl_structural_less> VarToIdMap;
     
     class LIBTL_CLASS TaskDependencyGraph
     {
