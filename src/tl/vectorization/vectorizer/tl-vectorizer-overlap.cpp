@@ -438,6 +438,7 @@ namespace Vectorization
         // UNROLL
         if (min_unroll_factor > 0)
         {
+            running_error("Grrrr");
             if_epilog = main_loop.shallow_copy()
                 .as<Nodecl::ForStatement>();
 
@@ -595,15 +596,15 @@ namespace Vectorization
                 == n)
             return 0;
 
-        unsigned int unroll_factor = 1;
-
         Nodecl::NodeclBase iv = ivs_list.front();
         
         if (Nodecl::Utils::structurally_equal_nodecls(iv,
                     VectorizationAnalysisInterface::
                     _vectorizer_analysis->get_induction_variable_lower_bound(
                         n, iv), true))
-                return false;
+                return 0;
+
+        unsigned int unroll_factor = 0;
 
         for(map_tl_sym_int_t::const_iterator it = 
                 _environment._overlap_symbols_map.begin();
@@ -619,7 +620,7 @@ namespace Vectorization
 
             unsigned int vector_loads_size = vector_loads.size();
             if (vector_loads_size > 0 &&
-                    vector_loads_size < min_group_length &&
+                    vector_loads_size <= min_group_length &&
                     (unroll_factor * vector_loads_size)
                     < min_group_length)
             {

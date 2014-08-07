@@ -696,7 +696,7 @@ namespace TL {
                 // Create single node
                 Nodecl::OpenMP::Single single_epilog =
                     Nodecl::OpenMP::Single::make(single_environment,
-                            Nodecl::List::make(net_epilog_node.shallow_copy()),
+                            net_epilog_node.shallow_copy(),
                             net_epilog_node.get_locus());
 
                 net_epilog_node.replace(single_epilog);
