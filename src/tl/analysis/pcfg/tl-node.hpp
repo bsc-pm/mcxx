@@ -688,6 +688,9 @@ namespace Analysis {
             //! at the exit point of the node
             Utils::RangeValuesMap get_ranges();
             
+            //! Returns the range values \p var if there is any in the node
+            NBase get_range(const NBase& var);
+            
             //! Set a pair of variable and range value to the RangeValue map 
             //! related to the entry point of the node
             void set_range(const NBase& var, const NBase& value);
