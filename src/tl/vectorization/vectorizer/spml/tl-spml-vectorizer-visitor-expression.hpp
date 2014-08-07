@@ -36,8 +36,8 @@ namespace TL
         class SPMLVectorizerVisitorExpression : public VectorizerVisitorExpression
         {
             public:
-                SPMLVectorizerVisitorExpression(VectorizerEnvironment& environment,
-                        const bool cache_enabled);
+                SPMLVectorizerVisitorExpression(
+                        VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::FunctionCall& n);
         };

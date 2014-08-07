@@ -15210,9 +15210,11 @@ char is_narrowing_conversion_type(type_t* orig_type,
             max_dest = const_value_cast_to_floating_type_value(max_dest, orig_type);
             min_dest = const_value_cast_to_floating_type_value(min_dest, orig_type);
 
-            if (const_value_lte(min_dest, orig_value)
-                    && const_value_lte(orig_value, max_dest))
+            if (const_value_is_nonzero(const_value_lte(min_dest, orig_value))
+                    && const_value_is_nonzero(const_value_lte(orig_value, max_dest)))
             {
+                // min_dest <= orig_value && orig_value <= max_dest
+                // No narrowing
                 return 0;
             }
         }
@@ -15236,7 +15238,7 @@ char is_narrowing_conversion_type(type_t* orig_type,
             cvalue_uint_t v = 0;
             if (const_value_is_zero(orig_value))
             {
-                // Trivial case
+                // Trivial case. No narrowing
                 return 0;
             }
             else if (const_value_is_positive(orig_value))
@@ -15263,7 +15265,10 @@ char is_narrowing_conversion_type(type_t* orig_type,
 
             // Note that finfo->p contains the explicitly stored bits
             if (num_significative_bits <= (finfo->p + 1))
+            {
+                // No narrowing
                 return 0;
+            }
         }
 
         return 1;
@@ -15279,73 +15284,112 @@ char is_narrowing_conversion_type(type_t* orig_type,
         // that cannot represent all the values of the original type, except
         // where the source is a constant expression whose value after integral
         // promotions will fit into the target type.
-
-        if (orig_value == NULL)
+        if ((is_signed_integral_type(orig_type)
+                    == is_signed_integral_type(dest_type))
+                && (type_get_size(dest_type) >= type_get_size(orig_type)))
         {
-            if ((is_signed_integral_type(orig_type)
-                        == is_signed_integral_type(dest_type))
-                    && (type_get_size(orig_type) >= type_get_size(dest_type)))
-            {
-                // Their signedness match and the size of the dest is greater or equal
-                // than the orig
-                return 0;
-            }
-
-            return 1;
+            // Their signedness match and the dest is wider or equal than
+            // orig. No narrowing
+            return 0;
         }
-        else // orig_value != NULL
+        else if (is_signed_integral_type(dest_type)
+                && is_unsigned_integral_type(orig_type)
+                && (type_get_size(dest_type) > type_get_size(orig_type)))
+        {
+            // A signed that is strictly wider than its unsigned equivalent
+            // is able to represent all the values of the unsigned.
+            // No narrowing
+            return 0;
+        }
+
+        if (orig_value != NULL)
         {
             if (const_value_is_zero(orig_value))
-                // A zero fits everywhere
+                // A zero fits everywhere. No narrowing
                 return 0;
 
             if (is_signed_integral_type(orig_type)
-                        != is_signed_integral_type(dest_type))
+                        == is_signed_integral_type(dest_type))
             {
-                // Different signedness
-                if (const_value_is_positive(orig_value)
-                        && is_signed_integral_type(dest_type))
-                {
-                    const_value_t* max_dest = integer_type_get_maximum(dest_type);
-                    // A positive, may or may not fit in a signed integral
-                    ERROR_CONDITION(is_signed_integral_type(orig_type), "Signedness must be different here", 0);
-                    max_dest = const_value_cast_to_bytes(max_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
-
-                    if (const_value_lte(orig_value, max_dest))
-                        return 0;
-                }
-
-                // Only a negative value converted to an unsigned integral type
-                // should remain here
-                ERROR_CONDITION(!(const_value_is_negative(orig_value)
-                            && is_unsigned_integral_type(dest_type)), "Invalid value or type", 0);
-                return 1;
-            }
-            else if (type_get_size(orig_type) < type_get_size(dest_type))
-            {
-                // Same signedness, but the orig is wider than the dest
-
-                const_value_t* min_dest = integer_type_get_minimum(dest_type);
+                // Same signedness
                 const_value_t* max_dest = integer_type_get_maximum(dest_type);
-                // Check the value
-                min_dest = const_value_cast_to_bytes(min_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
-                max_dest = const_value_cast_to_bytes(max_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
+                const_value_t* min_dest = integer_type_get_maximum(dest_type);
 
-                if (const_value_lte(min_dest, orig_value)
-                        && const_value_lte(orig_value, max_dest))
+                if (const_value_is_nonzero(
+                            const_value_lte(min_dest, orig_value))
+                        && const_value_is_negative(
+                            const_value_lte(orig_value, max_dest)))
                 {
+                    // The const value lies between the minimum and maximum of
+                    // the dest type
+                    // No narrowing
                     return 0;
                 }
             }
-            else if (type_get_size(orig_type) >= type_get_size(dest_type))
+            else if (is_unsigned_integral_type(dest_type))
             {
-                // Same signedness but the orig is narrower or equal than the
-                // dest. Will fit for sure
-                return 0;
-            }
+                ERROR_CONDITION(!is_signed_integral_type(orig_type), "Must be signed!", 0);
+                if (const_value_is_positive(orig_value))
+                {
+                    if (type_get_size(dest_type) >= type_get_size(orig_type))
+                    {
+                        // unsigned long x { 1 };
+                        // A positive constant of a narrower (or equal) signed
+                        // type will always fit
+                        // No narrowing
+                        return 0;
+                    }
+                    else
+                    {
+                        // unsigned int x { 1L };
+                        // orig_type is wider, check if the constant is still in the range
+                        const_value_t* max_dest = integer_type_get_maximum(dest_type);
+                        // cast the maximum to the type of the signed integral (this is safe)
+                        max_dest = const_value_cast_to_bytes(
+                                max_dest,
+                                type_get_size(orig_type),
+                                /* signed */ 1);
 
-            return 1;
+                        if (const_value_is_nonzero(
+                                    const_value_lte(orig_value, max_dest)))
+                        {
+                            // It fits. No narrowing
+                            return 0;
+                        }
+                    }
+                }
+            }
+            else if (is_signed_integral_type(dest_type))
+            {
+                ERROR_CONDITION(!is_unsigned_integral_type(orig_type), "Must be unsigned!", 0);
+
+                if (type_get_size(dest_type) <= type_get_size(orig_type))
+                {
+                    // signed int i { 1LU };
+                    // signed int i { 1U };
+                    const_value_t* max_dest = integer_type_get_maximum(dest_type);
+                    max_dest = const_value_cast_to_bytes(
+                            max_dest,
+                            type_get_size(orig_type),
+                            /* signed */ 0);
+
+                    if (const_value_is_nonzero(
+                                const_value_lte(orig_value, max_dest)))
+                    {
+                        // It fits. No narrowing
+                        return 0;
+                    }
+                }
+                else
+                {
+                    // This case was already handled at the beginning
+                    internal_error("Code unreachable", 0);
+                }
+            }
         }
+
+        // There is narrowing
+        return 1;
     }
 
     return 0;

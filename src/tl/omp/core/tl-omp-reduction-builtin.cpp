@@ -58,6 +58,19 @@ namespace TL { namespace OpenMP {
                 name + ":" + typenames + ":" + combiner + ":" + initializer);
     }
 
+    static std::string as_constant_expression(std::string symbol_name)
+    {
+        TL::Scope sc(CURRENT_COMPILED_FILE->global_decl_context);
+        TL::Symbol sym = sc.get_symbol_from_name(symbol_name);
+
+        ERROR_CONDITION(!sym.is_valid(), "Symbol is not valid", 0);
+
+        Nodecl::NodeclBase value = sym.get_value();
+        ERROR_CONDITION(value.is_null(), "The value of the symbol '%s' is null", sym.get_name().c_str(), 0);
+
+        return as_expression(value.shallow_copy());
+    }
+
     void Core::initialize_builtin_reductions(Scope sc)
     {
         if (_reductions_already_registered)
@@ -74,12 +87,14 @@ namespace TL { namespace OpenMP {
                 "short, unsigned short,"
                 "long, unsigned long,"
                 "long long, unsigned long long";
-            std::string unsigned_integers = 
+
+            std::string unsigned_integers =
                 "unsigned int,"
                 "unsigned char, "
                 "unsigned short,"
                 "unsigned long,"
                 "unsigned long long";
+
             std::string arithmetic_types =
                 "int, unsigned int,"
                 "char, signed char, unsigned char, "
@@ -150,42 +165,42 @@ namespace TL { namespace OpenMP {
             parse_builtin_reduction(sc,
                     "max",
                     "signed char",
-                    "omp_priv = mercurium_schar_min",
+                    "omp_priv = " + as_constant_expression("mercurium_schar_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "signed short",
-                    "omp_priv = mercurium_shrt_min",
+                    "omp_priv = " + as_constant_expression("mercurium_shrt_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "signed int",
-                    "omp_priv = mercurium_int_min",
+                    "omp_priv = " + as_constant_expression("mercurium_int_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "signed long",
-                    "omp_priv = mercurium_long_min",
+                    "omp_priv = " + as_constant_expression("mercurium_long_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "signed long long",
-                    "omp_priv = mercurium_long_long_min",
+                    "omp_priv = " + as_constant_expression("mercurium_long_long_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "float",
-                    "omp_priv = mercurium_flt_min",
+                    "omp_priv = " + as_constant_expression("mercurium_flt_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "double",
-                    "omp_priv = mercurium_dbl_min",
+                    "omp_priv = " + as_constant_expression("mercurium_dbl_min"),
                     max_combiner);
             parse_builtin_reduction(sc,
                     "max",
                     "long double",
-                    "omp_priv = mercurium_ldbl_min",
+                    "omp_priv = " + as_constant_expression("mercurium_ldbl_min"),
                     max_combiner);
 
             // min
@@ -193,71 +208,68 @@ namespace TL { namespace OpenMP {
             parse_builtin_reduction(sc,
                     "min",
                     "unsigned char",
-                    "omp_priv = mercurium_uchar_max",
+                    "omp_priv = " + as_constant_expression("mercurium_uchar_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "unsigned short",
-                    "omp_priv = mercurium_ushrt_max",
+                    "omp_priv = " + as_constant_expression("mercurium_ushrt_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "unsigned int",
-                    "omp_priv = mercurium_uint_max",
+                    "omp_priv = " + as_constant_expression("mercurium_uint_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "unsigned long",
-                    "omp_priv = mercurium_ulong_max",
+                    "omp_priv = " + as_constant_expression("mercurium_ulong_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "unsigned long long",
-                    "omp_priv = mercurium_ulong_long_max",
+                    "omp_priv = " + as_constant_expression("mercurium_ulong_long_max"),
                     min_combiner);
-
             parse_builtin_reduction(sc,
                     "min",
                     "signed char",
-                    "omp_priv = mercurium_schar_max",
+                    "omp_priv = " + as_constant_expression("mercurium_schar_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "signed short",
-                    "omp_priv = mercurium_shrt_max",
+                    "omp_priv = " + as_constant_expression("mercurium_shrt_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "signed int",
-                    "omp_priv = mercurium_int_max",
+                    "omp_priv = " + as_constant_expression("mercurium_int_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "signed long",
-                    "omp_priv = mercurium_long_max",
+                    "omp_priv = " + as_constant_expression("mercurium_long_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "signed long long",
-                    "omp_priv = mercurium_long_long_max",
+                    "omp_priv = " + as_constant_expression("mercurium_long_long_max"),
                     min_combiner);
-
             parse_builtin_reduction(sc,
                     "min",
                     "float",
-                    "omp_priv = mercurium_flt_max",
+                    "omp_priv = " + as_constant_expression("mercurium_flt_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "double",
-                    "omp_priv = mercurium_dbl_max",
+                    "omp_priv = " + as_constant_expression("mercurium_dbl_max"),
                     min_combiner);
             parse_builtin_reduction(sc,
                     "min",
                     "long double",
-                    "omp_priv = mercurium_ldbl_max",
+                    "omp_priv = " + as_constant_expression("mercurium_ldbl_max"),
                     min_combiner);
-
         }
         else if (IS_FORTRAN_LANGUAGE)
         {

@@ -713,7 +713,6 @@ namespace Analysis {
     CLAUSE(assert_upper_exposed) \
     CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
@@ -738,6 +737,7 @@ namespace Analysis {
     CLAUSE(nontemporal) \
     CLAUSE(nowait) \
     CLAUSE(out) \
+    CLAUSE(overlap) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \

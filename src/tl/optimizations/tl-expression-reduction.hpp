@@ -49,6 +49,11 @@ namespace Optimizations {
     *         -    c2     =>    c1-c2     t            c1    -     =>  c1-c2     t
     *       /   \                                          /  \
     *     c1    t                                        c2   t
+    * R6i :      +                     +      
+    *          /   \                 /   \
+    *         +    c     =>         +    t1
+    *       /   \                  /  \
+    *     t1    t2                c   t2
     *
     * R7 :   *                                     R8 :    *                 *
     *      /   \          =>     c1 * c2                 /   \     =>      /   \
@@ -87,7 +92,22 @@ namespace Optimizations {
     *   /  \   /  \                / \
     *  c1  t1 c2  t2              t2 t1
     * 
-    * 
+    * R30a :  -                      R30b:   -
+    *      /    \                          /   \
+    *     +     +         => t3           +     +    => t3
+    *   /  \   /  \                      / \   /  \ 
+    *  t1  t2 +   t3                    +  t3 t1  t2
+    *        / \                       / \
+    *       t1  t2                    t1 t2
+    * R30c :  -                      R30d:   -
+    *      /    \                          /   \
+    *     +     +         => t3 - t4      +     +    => t3 - t4
+    *   /  \   /  \                      / \   /  \ 
+    *  +   t3 +   t4                    +  t3 +   t4
+    * / \    / \                       / \   / \
+    *t1 t2 t1  t2                    t1 t2  t1 t2
+ 
+    *
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -125,7 +145,48 @@ namespace Optimizations {
         Ret visit_post( const Nodecl::VectorMod& n );
         Ret visit_post( const Nodecl::VectorMul& n );
     };
-    
+
+   
+    class UnitaryReductor : public Nodecl::NodeclVisitor<void>
+    {
+        private:
+            TL::ObjectList<Nodecl::NodeclBase> _unitary_rhss;
+            
+            bool is_leaf_node(const Nodecl::NodeclBase& n);
+
+        public:
+            UnitaryReductor();
+
+            void reduce(const Nodecl::Minus& n);
+
+            Ret unhandled_node(const Nodecl::NodeclBase& n);
+            Ret visit(const Nodecl::Conversion& n);
+            Ret visit(const Nodecl::Add& n);
+            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Symbol& n);
+            Ret visit(const Nodecl::IntegerLiteral& n);
+            Ret visit(const Nodecl::Mul& n);
+            Ret visit(const Nodecl::Div& n);
+            Ret visit(const Nodecl::Mod& n);
+    };
+
+    class UnitaryDecomposer : public Nodecl::NodeclVisitor<TL::ObjectList<Nodecl::NodeclBase> >
+    {
+        public:
+            UnitaryDecomposer();
+
+            Ret unhandled_node(const Nodecl::NodeclBase& n);
+            Ret visit(const Nodecl::Conversion& n);
+            Ret visit(const Nodecl::Symbol& n);
+            Ret visit(const Nodecl::Add& n);
+            Ret visit(const Nodecl::Minus& n);
+            Ret visit(const Nodecl::Mul& n);
+            Ret visit(const Nodecl::Div& n);
+            Ret visit(const Nodecl::Mod& n);
+            Ret visit(const Nodecl::IntegerLiteral& n);
+    };
+
+
 }
 }
 

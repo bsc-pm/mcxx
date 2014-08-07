@@ -24,22 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_SPML_VECTORIZER_VISITOR_STATEMENT_HPP
-#define TL_SPML_VECTORIZER_VISITOR_STATEMENT_HPP
+#ifndef TL_VECTORIZER_OVERLAP_FWD_HPP
+#define TL_VECTORIZER_OVERLAP_FWD_HPP
 
-#include "tl-vectorizer-visitor-statement.hpp"
+namespace TL { namespace Vectorization { class VectorizerOverlap; } }
 
-namespace TL
-{
-    namespace Vectorization
-    {
-        class SPMLVectorizerVisitorStatement : public VectorizerVisitorStatement
-        {
-            public:
-                SPMLVectorizerVisitorStatement(
-                        VectorizerEnvironment& environment);
-        };
-    }
-}
-
-#endif //TL_SPML_VECTORIZER_VISITOR_STATEMENT_HPP
+#endif // TL_VECTORIZER_OVERLAP_FWD_HPP

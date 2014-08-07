@@ -89,9 +89,7 @@ namespace Analysis {
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes);
 
-#ifndef DEBUG_PROPERTY
 //#define DEBUG_PROPERTY
-#endif
     template <typename PropertyFunctor>
     TL::tribool nodecl_has_property_in_scope(
             Node* const scope_node,
