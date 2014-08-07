@@ -24,6 +24,7 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <queue>
@@ -256,87 +257,165 @@ namespace{
         return condition;
     }
     
-    typedef std::map<NBase, std::string, Nodecl::Utils::Nodecl_structural_less> VarToValueMap;
+    static std::string transform_expression_to_json_expression(
+        ControlStructure* cs_node,
+        const NBase& expression,
+        VarToValueMap& var_to_value_map,
+        VarToIdMap& var_to_id_map,
+        ObjectList<NBase>& ordered_vars,
+        unsigned int& last_var_id);
     
-    // FIXME This replacement does not take into account that input values of the variables
-    // may be different on the left and right hand of the condition (for example, variables within a loop)
-    std::string transform_node_condition_into_json_expr(ControlStructure* cs_node, const NBase& condition, 
-                                                        VarToValueMap& var_to_value_map)
+    static void get_variable_values(
+            ControlStructure* cs_node,
+            const NBase& var,
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id)
     {
-        std::string result = condition.prettyprint();
-        
-        // Get the name of each symbol and 
-        // store a map that represents the position of the last replacement
-        ObjectList<std::string> sym_names;
-        std::map<std::string, int> symbol_position_map;
-        NodeclList vars = Nodecl::Utils::get_all_memory_accesses(condition);
-        for(NodeclList::iterator it = vars.begin(); it != vars.end(); ++it)
+        std::string range_str = "";
+        ControlStructure* current_cs_node = cs_node;
+check_ivs:
+        // 1.- Check whether the variable is an Induction Variable
+        if(current_cs_node->get_type() == Loop)
         {
-            std::string s_name = it->prettyprint();
-            sym_names.append(s_name);
-            symbol_position_map[s_name] = 0;
+            Utils::InductionVarList ivs = current_cs_node->get_pcfg_node()->get_induction_variables();
+            if(Utils::induction_variable_list_contains_variable(ivs, var))
+            {   // The variable is an IV: 
+                // If we are parsing the original Control Structure, get the values of the Induction Variable
+                if(cs_node == current_cs_node)
+                {
+                    Utils::InductionVar* iv = get_induction_variable_from_list(ivs, var);
+                    //             range_str = iv->print_iv_as_range();
+                    range_str = "[" + transform_expression_to_json_expression(
+                                            current_cs_node, iv->get_lb(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
+                              + ":" + transform_expression_to_json_expression(
+                                            current_cs_node, iv->get_ub(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
+                              + ":" + transform_expression_to_json_expression(
+                                            current_cs_node, iv->get_increment(), var_to_value_map, var_to_id_map, ordered_vars, last_var_id)
+                              + "]";
+                }
+                else
+                {   // TODO We should compute the offset here
+                    WARNING_MESSAGE("Retrieving values for variable %s in node %d which is the IV of loop %d." 
+                                    "This is not yet implemented. We set the offset '0' by default.\n", 
+                                    var.prettyprint().c_str(), cs_node->get_pcfg_node()->get_id(), current_cs_node->get_pcfg_node()->get_id());
+                    range_str = "0";
+                }
+                goto end_get_vars;
+            }
         }
         
-        // Transform the condition expression into the json expression
-        int i = 1;
-        for(ObjectList<std::string>::iterator it = sym_names.begin(); it != sym_names.end(); ++it, ++i)
+        // 2.- The variable is not an IV: 
+        // 2.1.- it may be an IV from an outer loop => get the proper offset
+        current_cs_node = current_cs_node->get_enclosing_cs();
+        while(current_cs_node!=NULL && current_cs_node->get_type()!=Loop)
+            current_cs_node = current_cs_node->get_enclosing_cs();
+        if(current_cs_node != NULL)
         {
-            // Find the position to be replaced
-            size_t pos = result.find(*it, symbol_position_map[*it]);
-            if(pos != std::string::npos)
+            goto check_ivs;
+        }
+        // 2.2.- it is not an IV from an outer loop => get its values from Range Analysis
+        {
+            NBase range = cs_node->get_pcfg_node()->get_range(var);
+            ERROR_CONDITION(range.is_null(), 
+                            "No range found for non-induction_variable %s involved in loop condition.\n", 
+                            var.prettyprint().c_str());
+            range_str = transform_expression_to_json_expression(
+                                cs_node, range, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
+        }
+        
+end_get_vars:
+        ;
+        
+        var_to_value_map[var] = range_str;
+    }
+    
+namespace {
+    struct StructuralCompareBind1 : Predicate<NBase>
+    {
+        NBase n1;
+        
+        StructuralCompareBind1(const NBase n1_) : n1(n1_) { }
+        
+        virtual bool do_(const NBase& n2) const
+        {
+            return Nodecl::Utils::structurally_equal_nodecls(n1, n2);
+        }
+    };   
+}
+    
+    static std::string transform_expression_to_json_expression(
+            ControlStructure* cs_node, 
+            const NBase& expression, 
+            VarToValueMap& var_to_value_map,
+            VarToIdMap& var_to_id_map,
+            ObjectList<NBase>& ordered_vars,
+            unsigned int& last_var_id)
+    {
+        // This may happen when calling recursively (i.e. boundaries of an IV)
+        if(expression.is_null())
+            return "";
+        
+        std::string json_expr = expression.prettyprint();
+        
+        NodeclList new_vars;
+        NodeclList vars_accesses = Nodecl::Utils::get_all_memory_accesses(expression);
+        for (NodeclList::iterator it = vars_accesses.begin(); it != vars_accesses.end(); ++it)
+        {
+            // Check whether the variable has not been replaced yet
+            unsigned int current_var_id;
+            if(ordered_vars.filter(StructuralCompareBind1(*it)).empty())
             {
-                // Replace it
-                std::stringstream id_str; id_str << "$" << i;
-                result.replace(pos, it->size(), id_str.str());
-                // Modify the base position
-                symbol_position_map[*it] = pos + (id_str.str().size() - 1);
-                pos = result.find(*it, symbol_position_map[*it]);
+                new_vars.append(*it);
+                
+                // Get the identifier corresponding to this variable
+                current_var_id = ++last_var_id;
+                ordered_vars.append(*it);
+                var_to_id_map[*it] = current_var_id;
+            }
+            else
+            {
+                current_var_id = var_to_id_map[*it];
+            }
+            
+            std::stringstream id_ss; id_ss << "$" << current_var_id;
+            
+            // Replace all occurrences of that variable with the corresponding identifier
+            size_t pos = 0;
+            std::string var_name = it->prettyprint();   // We don't access the symbol here 
+            // because we may have accesses to arrays or structs
+            while((pos=json_expr.find(var_name, pos)) != std::string::npos)
+            {
+                std::string id_str = id_ss.str();
+                json_expr.replace(pos, var_name.length(), id_str);
+                pos += id_str.length();
             }
         }
         
         // Get the values of the involved variables
-        for(NodeclList::iterator it = vars.begin(); it != vars.end(); ++it)
+        for (NodeclList::iterator it = new_vars.begin(); it != new_vars.end(); ++it)
         {
-            Node* cs_pcfg_node = cs_node->get_pcfg_node();
-            if(cs_node->get_type() == Loop)
-            {
-                Utils::InductionVarList ivs = cs_pcfg_node->get_induction_variables();
-                if(Utils::induction_variable_list_contains_variable(ivs, *it))
-                {
-                    Utils::InductionVar* iv = get_induction_variable_from_list(ivs, *it);
-                    var_to_value_map[*it] = iv->print_iv_as_range();
-                }
-                else
-                {
-                    WARNING_MESSAGE("Variable %s is used in a Loop Control Structure %d and it is not an induction variable.\n"
-                                    "This case is not yet supported.\n", it->prettyprint().c_str(), cs_pcfg_node->get_id());
-                }
-            }
-            else
-            {
-                NodeclMap reach_def_in = cs_pcfg_node->get_reaching_definitions_in();
-                if(reach_def_in.find(*it) != reach_def_in.end())
-                {
-                    std::pair<NodeclMap::iterator, NodeclMap::iterator> bounds = reach_def_in.equal_range(*it);
-                    NodeclMap::iterator itt = bounds.first;
-                    std::string values = itt->second.first.prettyprint();
-                    ++itt;
-                    while(itt != bounds.second)
-                    {
-                        values += ", " + itt->second.first.prettyprint();
-                        ++itt;
-                    }
-                    var_to_value_map[*it] = values;
-                }
-                else
-                {
-                    WARNING_MESSAGE("Variable %s is used in a Conditional Control Structure %d and no reaching definition arrives here for it.\n"
-                                    "This case is not yet supported.\n", it->prettyprint().c_str(), cs_pcfg_node->get_id());
-                }
-            }
+            get_variable_values(cs_node, *it, var_to_value_map, var_to_id_map, ordered_vars, last_var_id);
         }
         
-        return result;
+        return json_expr;
+    }
+    
+    // FIXME This replacement does not take into account that input values of the variables
+    // may be different on the left and right hand of the condition (for example, variables within a loop)
+    static std::string transform_node_condition_into_json_expr(
+            ControlStructure* cs_node, 
+            const NBase& condition, 
+            VarToValueMap& var_to_value_map,
+            ObjectList<NBase>& ordered_vars)
+    {
+        unsigned int last_var_id = 0;
+        VarToIdMap var_to_id_map;
+        return transform_expression_to_json_expression(
+                    cs_node, condition, 
+                    var_to_value_map, var_to_id_map, 
+                    ordered_vars, last_var_id);
     }
     
     struct ConditionVisitor : public Nodecl::NodeclVisitor<std::string> 
@@ -413,7 +492,7 @@ namespace{
                     {
                         // Add the first reaching definition as a value for the current variable
                         rd = it->second.first;
-                        values = Nodecl::LogicalOr::make(values.shallow_copy(), rd, rd.get_type());
+                        values = Nodecl::LogicalOr::make(values.shallow_copy(), rd.shallow_copy(), rd.get_type());
                         
                         // Add all the symbols involved in the reaching definition that has not yet been treated
                         tmp = Nodecl::Utils::get_all_memory_accesses(rd);
@@ -578,7 +657,7 @@ namespace{
     
     ControlStructure::ControlStructure(int cs_id, ControlStructureType type, 
                                        const NBase& condition, Node* pcfg_node)
-        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node)
+        : _id(cs_id), _type(type), _condition(condition), _pcfg_node(pcfg_node), _enclosing(NULL)
     {}
     
     int ControlStructure::get_id() const
@@ -613,6 +692,16 @@ namespace{
     Node* ControlStructure::get_pcfg_node() const
     {
         return _pcfg_node;
+    }
+    
+    ControlStructure* ControlStructure::get_enclosing_cs() const
+    {
+        return _enclosing;
+    }
+    
+    void ControlStructure::set_enclosing_cs(ControlStructure* cs)
+    {
+        _enclosing = cs;
     }
     
     // ************ Task Dependency Graph Control Structures ************* //
@@ -783,6 +872,7 @@ namespace{
         {
             TDG_Node* tdg_node = it->second;
             Node* node = tdg_node->_pcfg_node;
+            ControlStructure* last_cs = NULL;
             
             // 1.- Add the implicit control structure: 
             //     this is necessary to set the values of the variables reaching a task
@@ -791,6 +881,7 @@ namespace{
                 ControlStructure* cs = new ControlStructure(++control_id, Implicit, NBase::null(), NULL);
                 _pcfg_to_cs_map[node] = cs;
                 tdg_node->add_control_structure(cs, taken_branches);
+                last_cs = cs;
             }
             
             // 2.- Add the real control structures
@@ -870,9 +961,11 @@ namespace{
                     cs = new ControlStructure(++control_id, cs_t, condition, real_control_structure);
                     _pcfg_to_cs_map[real_control_structure] = cs;
                 }
+                last_cs->set_enclosing_cs(cs);
                 tdg_node->add_control_structure(cs, taken_branches);
                 
                 // Prepare next iteration
+                last_cs = cs;
                 control_structure = ExtensibleGraph::get_enclosing_control_structure(control_structure);
             }
         }
@@ -1227,6 +1320,7 @@ namespace{
         }
     }
     
+    // FIXME Try to homogenize printing condition from nodes and edges
     void TaskDependencyGraph::print_condition(TDG_Edge* edge, ControlStructure* node_cs, 
                                               std::ofstream& json_tdg, std::string indent, 
                                               NBase& dependency_size) const
@@ -1235,40 +1329,67 @@ namespace{
         assert(edge!=NULL || node_cs!=NULL);
         if((edge != NULL && !edge->_condition.is_null()) || (node_cs != NULL))
         {   
-            // Get the condition
             NBase condition;
             VarToValueMap var_to_value_map;
+            ObjectList<NBase> ordered_vars;
             if(node_cs != NULL)
             {
+                // Get the condition
                 condition = node_cs->get_condition();
-                json_tdg << "\"" << transform_node_condition_into_json_expr(node_cs, condition, var_to_value_map) << "\",\n";
+                json_tdg << "\"" << transform_node_condition_into_json_expr(
+                                            node_cs, condition, 
+                                            var_to_value_map, ordered_vars) << "\",\n";
+                // Generate the list of involved variables
+                json_tdg << indent << "\"vars\" : [\n";
+                for(ObjectList<NBase>::iterator itt = ordered_vars.begin(); itt != ordered_vars.end(); )
+                {
+                    VarToValueMap::iterator it = var_to_value_map.find(*itt);
+                    std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
+                    if(its == _syms.end())
+                    {
+                        internal_error ("Variable %s, found in condition %s, "
+                                        "has not been found during the phase of gathering the variables", 
+                                        it->first.prettyprint().c_str(), condition.prettyprint().c_str());
+                    }
+                    json_tdg << indent << "\t{\n";
+                        json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
+                        json_tdg << indent << "\t\t\"values\" : \""<< it->second << "\"\n";
+                    ++itt;
+                    if(itt != ordered_vars.end())
+                        json_tdg << indent << "\t},\n";
+                    else
+                        json_tdg << indent << "\t}\n";
+                }
             }
             else
             {
+                // Get the condition
                 condition = edge->_condition;
-                json_tdg << "\"" << transform_edge_condition_into_json_expr(edge, condition, var_to_value_map, dependency_size) << "\",\n";
+                json_tdg << "\"" << transform_edge_condition_into_json_expr(
+                                            edge, condition, 
+                                            var_to_value_map, dependency_size) << "\",\n";
+                // Generate the list of involved variables
+                json_tdg << indent << "\"vars\" : [\n";
+                for(VarToValueMap::iterator it = var_to_value_map.begin(); it != var_to_value_map.end(); )
+                {
+                    std::map<NBase, unsigned int>::const_iterator its = _syms.find(it->first);
+                    if(its == _syms.end())
+                    {
+                        internal_error ("Variable %s, found in condition %s, "
+                                        "has not been found during the phase of gathering the variables", 
+                                        it->first.prettyprint().c_str(), condition.prettyprint().c_str());
+                    }
+                    json_tdg << indent << "\t{\n";
+                        json_tdg << indent << "\t\t\"id\" : " << its->second << ",\n";
+                        json_tdg << indent << "\t\t\"values\" : \""<< it->second << "\"\n";
+                    ++it;
+                    if(it != var_to_value_map.end())
+                        json_tdg << indent << "\t},\n";
+                    else
+                        json_tdg << indent << "\t}\n";
+                }
             }
             
-            // Generate the list of involved variables
-            json_tdg << indent << "\"vars\" : [\n";
-            for(VarToValueMap::const_iterator its = var_to_value_map.begin(); its != var_to_value_map.end(); )
-            {
-                std::map<NBase, unsigned int>::const_iterator it = _syms.find(its->first);
-                if(it == _syms.end())
-                {
-                    internal_error("Variable %s, found in condition %s, "
-                                   "has not been found during the phase of gathering the variables", 
-                                   its->first.prettyprint().c_str(), condition.prettyprint().c_str());
-                }
-                json_tdg << indent << "\t{\n";
-                    json_tdg << indent << "\t\t\"id\" : " << it->second << ",\n";
-                    json_tdg << indent << "\t\t\"values\" : \""<< its->second << "\"\n";
-                ++its;
-                if(its != var_to_value_map.end())
-                    json_tdg << indent << "\t},\n";
-                else
-                    json_tdg << indent << "\t}\n";
-            }
             json_tdg << indent << "]\n";
         }
         else    // There is no condition => TRUE
