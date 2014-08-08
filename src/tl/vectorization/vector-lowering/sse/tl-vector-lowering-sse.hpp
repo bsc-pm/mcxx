@@ -39,6 +39,15 @@ namespace TL
             private:
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
+                
+                void visit_aligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_unaligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_aligned_vector_store(
+                        const Nodecl::VectorStore& node);
+                void visit_unaligned_vector_store(
+                        const Nodecl::VectorStore& node);
 
             public:
 
@@ -72,9 +81,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLiteral& node);
                 virtual void visit(const Nodecl::VectorAssignment& node);
                 virtual void visit(const Nodecl::VectorLoad& node);
-                virtual void visit(const Nodecl::UnalignedVectorLoad& node);
                 virtual void visit(const Nodecl::VectorStore& node);
-                virtual void visit(const Nodecl::UnalignedVectorStore& node);
                 virtual void visit(const Nodecl::VectorGather& node);
                 virtual void visit(const Nodecl::VectorScatter& node);
 

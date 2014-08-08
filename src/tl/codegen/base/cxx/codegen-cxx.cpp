@@ -243,7 +243,7 @@ void CxxBase::emit_line_marker(const locus_t* locus)
         return;
 
     // Avoid 0-th line
-    int line = locus_get_line(locus);
+    unsigned int line = locus_get_line(locus);
     if (line == 0)
         return;
 
@@ -2556,26 +2556,14 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     if (!symbol.get_class_type().is_valid()
             || !is_friend_of_class(symbol, symbol.get_class_type().get_symbol()))
     {
-        if (symbol.is_member())
+        if (!symbol.is_member()
+                && is_template_specialized)
         {
-            TL::Symbol class_symbol = symbol.get_class_type().get_symbol();
-            do_define_symbol(class_symbol,
-                    &CxxBase::declare_symbol_always,
-                    &CxxBase::define_symbol_always);
-        }
-        else
-        {
-            if (is_template_specialized)
-            {
-                TL::Type template_type = symbol_type.get_related_template_type();
-                TL::Type primary_type = template_type.get_primary_template();
-                TL::Symbol primary_symbol = primary_type.get_symbol();
-                do_declare_symbol(primary_symbol,
-                        &CxxBase::declare_symbol_always,
-                        &CxxBase::define_symbol_always);
+            TL::Type template_type = symbol_type.get_related_template_type();
+            TL::Type primary_type = template_type.get_primary_template();
+            TL::Symbol primary_symbol = primary_type.get_symbol();
 
-                is_primary = (primary_symbol == symbol);
-            }
+            is_primary = (primary_symbol == symbol);
         }
     }
 
@@ -2612,8 +2600,7 @@ CxxBase::Ret CxxBase::visit(const Nodecl::FunctionCode& node)
     TL::TemplateParameters tpl = symbol_scope.get_template_parameters();
     while (tpl.is_valid())
     {
-        // We should ignore some 'fake' empty template headers
-        if (tpl.get_num_parameters() > 0
+        if (!tpl.get_is_explicit_instantiation()
                 && tpl.get_is_explicit_specialization())
         {
              indent();
@@ -4342,6 +4329,24 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VirtualFunctionCall& node)
     visit_function_call(node, /* is_virtual_call */ true);
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorAlignRight& node)
+{
+    indent();
+    *(file) << "{(";
+
+    walk(node.get_left_vector());
+
+    *(file) << ", ";
+
+    walk(node.get_right_vector());
+
+    *(file) << ") >> ";
+
+    walk(node.get_num_elements());
+
+    *(file) << "}";
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorConversion& node)
 {
     // Do nothing
@@ -4372,6 +4377,15 @@ CxxBase::Ret CxxBase::visit(const Nodecl::VectorLiteral& node)
 
     *(file) << "}";
 }
+
+CxxBase::Ret CxxBase::visit(const Nodecl::VectorLoad& node)
+{
+    indent();
+    *(file) << "VL{";
+    walk(node.get_rhs());
+    *(file) << "}";
+}
+
 
 CxxBase::Ret CxxBase::visit(const Nodecl::VectorPromotion& node)
 {
@@ -5066,8 +5080,9 @@ void CxxBase::old_define_class_symbol_aux(TL::Symbol symbol,
                 }
                 else
                 {
-                    while (template_parameters.is_valid() &&
-                            template_parameters.get_is_explicit_specialization())
+                    while (template_parameters.is_valid()
+                            && !template_parameters.get_is_explicit_instantiation()
+                            && template_parameters.get_is_explicit_specialization())
                     {
                         indent();
                         *(file) << "template <>\n";
@@ -5692,8 +5707,9 @@ void CxxBase::define_class_symbol_using_member_declarations_aux(TL::Symbol symbo
                 }
                 else
                 {
-                    while (template_parameters.is_valid() &&
-                            template_parameters.get_is_explicit_specialization())
+                    while (template_parameters.is_valid()
+                            && !template_parameters.get_is_explicit_instantiation()
+                            && template_parameters.get_is_explicit_specialization())
                     {
                         indent();
                         *(file) << "template <>\n";
@@ -7654,8 +7670,7 @@ void CxxBase::do_declare_symbol(TL::Symbol symbol,
                     TL::TemplateParameters tpl = template_parameters;
                     while (tpl.is_valid())
                     {
-                        // We should ignore some 'fake' empty template headers
-                        if (tpl.get_num_parameters() > 0
+                        if (!tpl.get_is_explicit_instantiation()
                                 && tpl.get_is_explicit_specialization())
                         {
                             indent();
@@ -9129,8 +9144,11 @@ void CxxBase::codegen_template_header(
         return;
 
     indent();
-    if (template_parameters.get_num_parameters() > 0 
-            && template_parameters.get_is_explicit_specialization())
+    if (template_parameters.get_is_explicit_instantiation())
+    {
+        return;
+    }
+    else if (template_parameters.get_is_explicit_specialization())
     {
         *(file) << "template <>";
         if (endline)
@@ -9439,11 +9457,10 @@ const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_cont
     if (IS_CXX_LANGUAGE
             && _this->get_codegen_status(sym) == CODEGEN_STATUS_NONE
             && !_this->symbol_is_nested_in_defined_classes(sym)
-            && ((sym->kind == SK_CLASS && !is_template_specialized_type(sym->type_information))
+            && ((sym->kind == SK_CLASS
+                    && !is_template_specialized_type(sym->type_information))
                 || sym->kind == SK_ENUM)
-            && !(sym->entity_specs.is_member
-                && is_template_specialized_type(get_actual_class_type(sym->entity_specs.class_type))
-                && class_type_is_complete_independent(get_actual_class_type(sym->entity_specs.class_type))))
+            && !sym->entity_specs.is_member)
     {
         result = sym->symbol_name;
 

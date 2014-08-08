@@ -28,7 +28,7 @@
 #include "tl-nodecl-visitor.hpp"
 #include "tl-outline-info.hpp"
 #include "tl-nodecl-utils.hpp"
-#include "tl-omp-core.hpp" 
+#include "tl-omp-core.hpp"
 
 #include <set>
 #include <stdio.h>
@@ -45,6 +45,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::Atomic& construct);
         virtual void visit(const Nodecl::OpenMP::BarrierFull& construct);
         virtual void visit(const Nodecl::OpenMP::Critical& construct);
+        virtual void visit(const Nodecl::ExpressionStatement& expr_stmt);
         virtual void visit(const Nodecl::OpenMP::FlushMemory& construct);
         virtual void visit(const Nodecl::OpenMP::For& construct);
         virtual void visit(const Nodecl::OpenMP::Master& construct);
@@ -57,6 +58,7 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         virtual void visit(const Nodecl::OpenMP::TaskCall& construct);
         virtual void visit(const Nodecl::OpenMP::TaskExpression& task_expr);
         virtual void visit(const Nodecl::OpenMP::TaskwaitShallow& construct);
+        virtual void visit(const Nodecl::OpenMP::Taskyield& construct);
         virtual void visit(const Nodecl::OpenMP::WaitOnDependences& construct);
 
     private:
@@ -67,6 +69,8 @@ class LoweringVisitor : public Nodecl::ExhaustiveVisitor<void>
         // this map is used to avoid repeating the definitions of the structure
         // 'nanos_const_wd_definition_t'
         std::map<int, Symbol> _declared_const_wd_type_map;
+
+        std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol> _declared_ocl_allocate_functions;
 
         TL::Symbol declare_argument_structure(OutlineInfo& outline_info, Nodecl::NodeclBase construct);
         bool c_type_needs_vla_handling(TL::Type t);

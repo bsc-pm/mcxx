@@ -50,6 +50,7 @@ struct tl_type_array_tag
 typedef 
 union tl_type_data_tag
 {
+    unsigned int _unsigned_integer;
     int _integer;
     char _boolean;
     tl_type_array_t _array;
@@ -65,6 +66,7 @@ typedef
 enum tl_type_kind_tag
 {
     TL_UNDEFINED = 0,
+    TL_UNSIGNED_INTEGER, // unsigned int
     TL_INTEGER, // int
     TL_BOOL, // char
     TL_STRING, // char*
@@ -83,6 +85,7 @@ struct tl_type_tag
 } tl_type_t;
 
 LIBMCXX_EXTERN tl_type_t tl_bool(char c);
+LIBMCXX_EXTERN tl_type_t tl_unsigned_integer(unsigned int i);
 LIBMCXX_EXTERN tl_type_t tl_integer(int i);
 LIBMCXX_EXTERN tl_type_t tl_string(const char* str);
 LIBMCXX_EXTERN tl_type_t tl_symbol(scope_entry_t* entry);

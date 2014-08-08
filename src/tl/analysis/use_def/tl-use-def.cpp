@@ -991,21 +991,6 @@ namespace {
             _node->add_used_address(n);
     }
     
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorLoad& n)
-    {
-        visit_vector_load(n.get_rhs(), n.get_mask());
-    }
-    
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorStreamStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-    
     void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
         visit_assignment(n.get_lhs(), n.get_rhs());
@@ -1117,11 +1102,6 @@ namespace {
     }
 
     void UsageVisitor::visit(const Nodecl::VectorStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    void UsageVisitor::visit(const Nodecl::VectorStreamStore& n)
     {
         visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
     }

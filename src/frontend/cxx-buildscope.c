@@ -5537,7 +5537,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
             }
 
             // If the entity (being an independent one) has not been completed, then instantiate it
-            instantiate_template_class_if_needed(base_class_symbol, decl_context, ast_get_locus(base_specifier));
+            class_type_complete_if_needed(base_class_symbol, decl_context, ast_get_locus(base_specifier));
 
             result = base_class_symbol;
         }
@@ -5794,42 +5794,8 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
 
             if (entry->entity_specs.is_member)
             {
-                template_parameter_list_t* current_template_args = template_specialized_type_get_template_arguments(
-                        entry->type_information);
-
-                if (entry->kind == SK_CLASS
-                        && current_template_args->num_parameters == 0)
-                {
-                    // This is a non-template member class, which looks like a
-                    // specialized template type with zero template arguments.
-                    // Handle it as if this were not an explicit specialization
-                    //
-                    // In the example below, when B is instantiated it will be like a template
-                    // but with "zero" parameters. We do this because C++ standard makes these
-                    // classes behave much in this way.
-                    //
-                    // template <typename T>
-                    // struct A
-                    // {
-                    //   struct B
-                    //   {
-                    //      template <typename Q>
-                    //      void f(T, Q);
-                    //   };
-                    // };
-                    //
-                    // template <>
-                    // template <>
-                    // void A<int>::B::f(int, float) { }
-                    //
-                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
-                            template_parameters);
-                }
-                else
-                {
-                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
-                            template_parameters->enclosing);
-                }
+                return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
+                        template_parameters->enclosing);
             }
             else
             {
@@ -6724,6 +6690,84 @@ static char is_union_type_or_thereof_with_one_initializer(type_t* t)
     return (num_initializers == 1);
 }
 
+static void register_symbol_this(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid class", 0);
+
+    // Early registration of 'this' to be used in the declarator Its exact type
+    // will be updated prior analyzing the body of the function (e.g. when the
+    // function is const)
+    type_t* pointed_this = get_user_defined_type(class_symbol);
+    type_t* this_type = get_pointer_type(pointed_this);
+
+    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
+
+    this_symbol->locus = locus;
+
+    this_symbol->kind = SK_VARIABLE;
+    this_symbol->type_information = this_type;
+    this_symbol->defined = 1;
+    this_symbol->do_not_print = 1;
+}
+
+static void update_symbol_this(scope_entry_t* entry,
+        decl_context_t block_context)
+{
+    // The class we belong to
+    type_t* pointed_this = entry->entity_specs.class_type;
+    // Qualify likewise the function unless it is a destructor
+    if (!entry->entity_specs.is_destructor)
+    {
+        pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+    }
+    type_t* this_type = get_pointer_type(pointed_this);
+
+    scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
+    // If the function is defined inside the class specifier, build_scope_function_definition_declarator
+    ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
+    scope_entry_t *this_symbol = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    this_symbol->type_information = this_type;
+}
+
+static void make_empty_body_for_default_function(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // Create an empty body for the defaulted function
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+    ptr_nodecl_make_func_code = is_dependent_function(entry)
+        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
+
+    decl_context_t block_context = new_block_context(decl_context);
+
+    register_symbol_this(block_context,
+            named_type_get_symbol(entry->entity_specs.class_type),
+            locus);
+    update_symbol_this(entry, block_context);
+    register_mercurium_pretty_print(entry, block_context);
+
+    nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    // Empty body
+                    nodecl_make_compound_statement(
+                        nodecl_null(),
+                        nodecl_null(),
+                        locus)),
+                block_context,
+                locus),
+            nodecl_null(),
+            entry,
+            locus);
+
+    entry->entity_specs.function_code = nodecl_function_def;
+}
+
 static void default_constructor_determine_if_constexpr(
         scope_entry_t* default_constructor,
         scope_entry_list_t* nonstatic_data_members,
@@ -6771,7 +6815,16 @@ static void default_constructor_determine_if_constexpr(
             }
             else
             {
-                has_nonstatic_data_member_without_initializer = nodecl_is_null(data_member->value);
+                // scope_entry_t* constructor = NULL;
+                // diagnostic_context_push_buffered();
+                // char valid = check_default_initialization(data_member, data_member->decl_context, locus, &constructor);
+                // diagnostic_context_pop_and_discard();
+
+                // if (!valid)
+                    has_nonstatic_data_member_without_initializer = 1;
+                // else
+                //     has_nonstatic_data_member_without_initializer = !(constructor == NULL
+                //             || constructor->entity_specs.is_constexpr);
             }
         }
     }
@@ -6803,8 +6856,16 @@ static void default_constructor_determine_if_constexpr(
     if (has_base_without_constexpr_constructor)
         return;
 
+    default_constructor->defined = 1;
     default_constructor->entity_specs.is_constexpr = 1;
+    default_constructor->entity_specs.is_instantiable = 0;
+    default_constructor->entity_specs.emission_template = NULL;
+
+    make_empty_body_for_default_function(default_constructor,
+            default_constructor->decl_context,
+            locus);
 }
+
 
 static void copy_constructor_determine_if_trivial(
         scope_entry_t* copy_constructor,
@@ -7173,8 +7234,8 @@ static char exists_constructor_with_same_characteristics(
     return 0;
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context);
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type);
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type);
 
 static void declare_constructors_for_candidate_constructor(
         type_t* candidate_constructor_type,
@@ -7204,17 +7265,15 @@ static void declare_constructors_for_candidate_constructor(
 
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)
+                        inherited_constructor->entity_specs.class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        inherited_constructor->entity_specs.class_type,
-                        inherited_constructor->decl_context)))
+                        inherited_constructor->entity_specs.class_type)))
             return;
         if (num_parameters == 1
                 && (function_is_move_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)
+                        class_type)
                     || function_is_copy_constructor_types(candidate_constructor_type,
-                        class_type, inherited_constructor->decl_context)))
+                        class_type)))
             return;
     }
     // Similarly, for each constructor template in the candidate set of
@@ -7496,7 +7555,7 @@ static void finish_class_type_cxx(type_t* class_type,
             {
                 scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
 
-                instantiate_template_class_if_needed(named_type_sym, decl_context, locus);
+                class_type_complete_if_needed(named_type_sym, decl_context, locus);
             }
             DEBUG_CODE()
             {
@@ -7949,13 +8008,16 @@ static void finish_class_type_cxx(type_t* class_type,
                     has_virtual_functions);
         }
 
-        default_constructor_determine_if_constexpr(
-            implicit_default_constructor,
-            nonstatic_data_members,
-            direct_base_classes,
-            has_virtual_bases,
-            has_virtual_functions,
-            locus);
+        CXX11_LANGUAGE()
+        {
+            default_constructor_determine_if_constexpr(
+                    implicit_default_constructor,
+                    nonstatic_data_members,
+                    direct_base_classes,
+                    has_virtual_bases,
+                    has_virtual_functions,
+                    locus);
+        }
     }
     else
     {
@@ -7977,13 +8039,16 @@ static void finish_class_type_cxx(type_t* class_type,
                         has_virtual_bases,
                         has_virtual_functions);
 
-                default_constructor_determine_if_constexpr(
-                        current_constructor,
-                        nonstatic_data_members,
-                        direct_base_classes,
-                        has_virtual_bases,
-                        has_virtual_functions,
-                        locus);
+                CXX11_LANGUAGE()
+                {
+                    default_constructor_determine_if_constexpr(
+                            current_constructor,
+                            nonstatic_data_members,
+                            direct_base_classes,
+                            has_virtual_bases,
+                            has_virtual_functions,
+                            locus);
+                }
             }
         }
         entry_list_iterator_free(it);
@@ -10012,54 +10077,6 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
             /* prototype_context */ NULL, nodecl_output);
 }
 
-static void register_this_symbol(decl_context_t decl_context,
-        scope_entry_t* class_symbol,
-        const locus_t* locus)
-{
-    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid class", 0);
-
-    // Early registration of 'this' to be used in the declarator Its exact type
-    // will be updated prior analyzing the body of the function (e.g. when the
-    // function is const)
-    type_t* pointed_this = get_user_defined_type(class_symbol);
-    type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
-
-    this_symbol->locus = locus;
-
-    this_symbol->kind = SK_VARIABLE;
-    this_symbol->type_information = this_type;
-    this_symbol->defined = 1;
-    this_symbol->do_not_print = 1;
-}
-
-static void update_this_symbol(scope_entry_t* entry,
-        decl_context_t block_context)
-{
-    // The class we belong to
-    type_t* pointed_this = entry->entity_specs.class_type;
-    // Qualify likewise the function unless it is a destructor
-    if (!entry->entity_specs.is_destructor)
-    {
-        pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
-    }
-
-    type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-    scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
-    // If the function is defined inside the class specifier, build_scope_function_definition_declarator
-    ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
-    scope_entry_t *this_symbol = entry_list_head(entry_list);
-    entry_list_free(entry_list);
-
-    this_symbol->type_information = this_type;
-}
-
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -10189,7 +10206,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         {
             if (entity_context.current_scope->kind == CLASS_SCOPE)
             {
-                register_this_symbol(*prototype_context,
+                register_symbol_this(*prototype_context,
                         entity_context.current_scope->related_entry,
                         ast_get_locus(a));
             }
@@ -12592,10 +12609,9 @@ static char same_template_parameter_list(
         if (template_parameter_list_1->parameters[i]->kind == TPK_NONTYPE)
         {
             // Check both types
-            if (!equivalent_types_in_context(
+            if (!equivalent_types(
                         template_parameter_list_1->parameters[i]->entry->type_information,
-                        template_parameter_list_2->parameters[i]->entry->type_information,
-                        decl_context))
+                        template_parameter_list_2->parameters[i]->entry->type_information))
             {
                 return 0;
             }
@@ -12890,6 +12906,66 @@ static char find_function_declaration(AST declarator_id,
                 internal_error("Code unreachable", 0);
             }
 
+            type_t* considered_type = considered_symbol->type_information;
+            type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
+
+            if (IS_CXX_LANGUAGE
+                    && considered_symbol->entity_specs.is_member)
+            {
+                /*
+                   Make sure the two types look like the same
+
+                   template <typename T>
+                   struct B { };
+                   template <typename T>
+                   struct A
+                   {
+                      typename B<T>::S foo(); // (1)
+                      typedef B<T>::S Q;
+                   };
+
+                   template <typename T>
+                   typename A<T>::Q A<T>::foo() { } // (2)
+
+                   Note that in (2), 'typename A<T>::Q' is actually 'typename
+                   B<T>::S', but the syntactic nature of a dependent typename
+                   hinders us from claiming that they are the same.
+
+                   We can only discover that this is so if we contextually
+                   advance the types of the two declarations (note that it is
+                   not always that (2) must be advanced, sometimes (1) must be
+                   advanced too). This means that we can examine uninstantiated
+                   templates only if they belong to the class of the member
+                   function being declared (i.e. we can examine inside A<T>
+                   because we are declaring A<T>::foo).
+
+                   This process is performed in fix_dependent_typenames_in_context,
+                   this way we avoid passing a context to equivalent_types
+               */
+
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+                considered_type =
+                    fix_dependent_typenames_in_context(considered_type,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+                function_type_being_declared_advanced_to_context =
+                    fix_dependent_typenames_in_context(function_type_being_declared,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+            }
+
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
@@ -12900,8 +12976,6 @@ static char find_function_declaration(AST declarator_id,
                         print_declarator(considered_symbol->type_information)
                        );
             }
-
-            type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
             if (entry->kind == SK_TEMPLATE)
             {
@@ -12919,7 +12993,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
 
@@ -12984,13 +13058,12 @@ static char find_function_declaration(AST declarator_id,
             {
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
-                        function_type_being_declared,
-                        considered_type,
-                        entry->decl_context);
+                        function_type_being_declared_advanced_to_context,
+                        considered_type);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         function_matches = 0;
@@ -13332,34 +13405,7 @@ static void set_defaulted_inside_class_specifier(
         entry->entity_specs.is_defaulted = 1;
         entry->entity_specs.is_defined_inside_class_specifier = 1;
 
-        // Create an empty body for the defaulted function
-        nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
-        ptr_nodecl_make_func_code = is_dependent_function(entry)
-            ? &nodecl_make_template_function_code : &nodecl_make_function_code;
-
-        decl_context_t block_context = new_block_context(decl_context);
-
-        register_this_symbol(block_context,
-                named_type_get_symbol(entry->entity_specs.class_type),
-                locus);
-        update_this_symbol(entry, block_context);
-        register_mercurium_pretty_print(entry, block_context);
-
-        nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        // Empty body
-                        nodecl_make_compound_statement(
-                            nodecl_null(),
-                            nodecl_null(),
-                            locus)),
-                    block_context,
-                    locus),
-                nodecl_null(),
-                entry,
-                locus);
-
-        entry->entity_specs.function_code = nodecl_function_def;
+        make_empty_body_for_default_function(entry, decl_context, locus);
     }
 }
 
@@ -14160,7 +14206,7 @@ static void build_scope_type_template_parameter(AST a,
     AST name = ASTSon0(a);
     AST type_id = ASTSon1(a);
 
-    int line;
+    unsigned int line;
     const char *file;
 
 
@@ -15616,7 +15662,7 @@ static void build_scope_function_definition_body(
         // If is a member function sign up additional information
         if (!entry->entity_specs.is_static)
         {
-            update_this_symbol(entry, block_context);
+            update_symbol_this(entry, block_context);
         }
     }
 
@@ -15810,6 +15856,13 @@ static void build_scope_function_definition_body(
         check_constexpr_function_body(entry, body_nodecl, /* diagnose */ 1, /* emit_error */ 1);
     }
 
+    if (is_dependent_function(entry))
+    {
+        entry->entity_specs.is_instantiable = 1;
+        // The emission template is itself
+        entry->entity_specs.emission_template = entry;
+    }
+
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
 
     ptr_nodecl_make_func_code = is_dependent_function(entry)
@@ -15872,6 +15925,9 @@ static scope_entry_t* build_scope_function_definition(
             block_context,
             &gather_info,
             nodecl_output);
+
+    // This field may have been set during instantiation
+    entry->entity_specs.is_defined_inside_class_specifier = 0;
 
     return entry;
 }
@@ -16140,10 +16196,9 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //  operator=(cv T&)
         //  operator=(T)
         if ((is_lvalue_reference_type(first_parameter)
-                    && equivalent_types_in_context(class_type,
-                        get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                        entry->decl_context))
-                || (equivalent_types_in_context(class_type, first_parameter, entry->decl_context)))
+                    && equivalent_types(class_type,
+                        get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
+                || equivalent_types(class_type, first_parameter))
         {
             return 1;
         }
@@ -16151,7 +16206,7 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
     return 0;
 }
 
-static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type)
+char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_type)
 {
     // Remember copy assignment operators
     if ((strcmp(entry->symbol_name, STR_OPERATOR_ASSIGNMENT) == 0)
@@ -16163,9 +16218,8 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
         //
         //  operator=(cv T&&)
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16173,7 +16227,7 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
     return 0;
 }
 
-static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16194,9 +16248,8 @@ static char function_is_copy_constructor_types(type_t* function_type, type_t* cl
         // A(A&, X = x);
 
         if (is_lvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16208,10 +16261,10 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_copy_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_copy_constructor_types(entry->type_information, class_type));
 }
 
-static char function_is_move_constructor_types(type_t* function_type, type_t* class_type, decl_context_t decl_context)
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type)
 {
     // The caller should have checked that this function can be called with one parameter
     // If the function is not to have default arguments, it should have checked the number
@@ -16232,9 +16285,8 @@ static char function_is_move_constructor_types(type_t* function_type, type_t* cl
         // A(A&&, X = x);
 
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -16242,11 +16294,11 @@ static char function_is_move_constructor_types(type_t* function_type, type_t* cl
     return 0;
 }
 
-static char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
+char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
 {
     return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            && function_is_move_constructor_types(entry->type_information, class_type, entry->decl_context));
+            && function_is_move_constructor_types(entry->type_information, class_type));
 }
 
 static char is_virtual_destructor(type_t* class_type)
@@ -16349,7 +16401,7 @@ static void update_member_function_info(AST declarator_name,
 
                 CXX11_LANGUAGE()
                 {
-                    if (is_move_assignment_operator(entry, class_type))
+                    if (function_is_move_assignment_operator(entry, class_type))
                     {
                         entry->entity_specs.is_move_assignment_operator = 1;
                     }
@@ -17556,7 +17608,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             && !entry->entity_specs.is_static
             && !entry->entity_specs.is_extern)
     {
-        instantiate_template_class_if_needed(named_type_get_symbol(entry->type_information), 
+        class_type_complete_if_needed(named_type_get_symbol(entry->type_information), 
                 entry->decl_context, destructor_data->locus);
 
         nodecl_t sym_ref = nodecl_make_symbol(entry, make_locus("", 0, 0));
@@ -19444,7 +19496,9 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
             {
                 error_printf("%s: error: invalid nesting of #pragma\n",
                         ast_location(pragma_stmt));
-                *nodecl_output = nodecl_make_err_statement(ast_get_locus(pragma_stmt));
+
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(pragma_stmt)));
                 return;
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
@@ -20278,6 +20332,12 @@ static void instantiate_stmt_not_implemented_yet(nodecl_instantiate_stmt_visitor
     internal_error("Instantiation of statement '%s' at '%s' not yet implemented\n",
             ast_print_node_type(nodecl_get_kind(nodecl_stmt)),
             nodecl_locus_to_str(nodecl_stmt));
+}
+
+static void instantiate_unknown_pragma(nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t nodecl_stmt)
+{
+    v->nodecl_result = nodecl_make_list_1(nodecl_shallow_copy(nodecl_stmt));
 }
 
 // This function does not return a NODECL_TEMPLATE_FUNCTION_CODE but a NODECL_FUNCTION_CODE
@@ -21157,6 +21217,7 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 
     NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context); // --
 
+    NODECL_VISITOR(v)->visit_unknown_pragma = instantiate_stmt_visitor_fun(instantiate_unknown_pragma);
     NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
     NODECL_VISITOR(v)->visit_pragma_custom_directive = instantiate_stmt_visitor_fun(instantiate_pragma_custom_directive);
     NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);

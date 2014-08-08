@@ -1,5 +1,5 @@
 #!/bin/bash
-USER_FLAGS=" $*"
+USER_FLAGS=" $* "
 ORIGINAL_MCC_COMPILER=mpimcc
 ORIGINAL_MPI_COMPILER=@MPICC@
 ORIGINAL_CXX_MPI_COMPILER=@MPICXX@
@@ -58,32 +58,34 @@ fi
 
 #Call the native mercurim compiler and recompile Offload plugin whenever needed
 OLDPPWD=$PWD
-if [[ "$USER_FLAGS" == *\ -c* ]]
+if [[ "$USER_FLAGS" == *\ -c\ * ]]
 then
 	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
+elif [[ "$USER_FLAGS" == *\ -v\ * ]]
+then
+	${ORIGINAL_MPI_COMPILER} $USER_FLAGS
 elif [ $# -eq 0 ]
 then
 	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
-   echo "This Offload compiler is a wrapper for $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_CC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
+   echo "This Offload compiler uses internally $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_CC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
          or remove $ORIGINAL_MPI_COMPILER from your PATH"
-elif [[ "$USER_FLAGS" == *-help* ]]
+elif [[ "$USER_FLAGS" == *-help\ * ]]
 then
 	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
-   echo "This Offload compiler is a wrapper for $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_CC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
+   echo "This Offload compiler uses internally $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_CC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
          or remove $ORIGINAL_MPI_COMPILER from your PATH"
-elif [[ "$USER_FLAGS" == *-show* ]]
+elif [[ "$USER_FLAGS" == *-show\ * ]]
 then
-   echo "This Offload compiler is a wrapper for $ORIGINAL_MPI_COMPILER from your current PATH, if you want to change compiler, use OFFL_CC and OFFL_CXX env variables (both have to be pointing to the same MPI implementation)
-         or remove $ORIGINAL_MPI_COMPILER from your PATH"
+	${ORIGINAL_MPI_COMPILER} $EXTRA_MCC_FLAGS $USER_FLAGS
 else
    #remove possible remainders from previous compilations
    rm -f $OLDPPWD/temporaloffloadplugin*.o > /dev/null 2>&1
 	type=performance
-	if [[ "$USER_FLAGS" == *--instrument* ]]
+	if [[ "$USER_FLAGS" == *--instrument\ * ]]
 	then
 		type=instrumentation
 	fi
-	if [[ "$USER_FLAGS" == *--debug* ]]
+	if [[ "$USER_FLAGS" == *--debug\ * ]]
 	then
 		type=debug
 	fi

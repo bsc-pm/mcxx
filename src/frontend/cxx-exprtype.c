@@ -259,6 +259,21 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
+scope_entry_t* expand_template_function_given_template_arguments(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        template_parameter_list_t* explicit_template_parameters)
+{
+    return expand_template_given_arguments(
+            entry,
+            NULL, 0,
+            decl_context,
+            locus,
+            explicit_template_parameters);
+}
+
+
 type_t* compute_type_for_type_id_tree(AST type_id,
         decl_context_t decl_context,
         // Out
@@ -533,7 +548,7 @@ char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_
 {
     // Save the value of 'is_non_executable' of the last expression expression
     char was_non_executable = check_expr_flags.is_non_executable;
-    
+
     // The current expression is non executable
     check_expr_flags.is_non_executable = 1;
 
@@ -557,11 +572,8 @@ void ensure_function_is_emitted(scope_entry_t* entry,
             fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n",
                     get_qualified_symbol_name(entry, entry->decl_context));
         }
-        if (is_template_specialized_type(entry->type_information)
-                || (entry->entity_specs.is_member
-                    && is_template_specialized_type(
-                        named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
 
+        if (function_may_be_instantiated(entry))
         {
             instantiation_add_symbol_to_instantiate(entry, locus);
         }
@@ -6394,22 +6406,14 @@ static void compute_operator_reference_type(nodecl_t* op,
         // This one is special
         if (is_unresolved_overloaded_type(nodecl_get_type(*op)))
         {
-            scope_entry_t* entry = unresolved_overloaded_type_simplify(
+            *nodecl_output = nodecl_make_reference(*op,
                     nodecl_get_type(*op),
-                    decl_context,
                     locus);
-            if (entry != NULL)
-            {
-                if (!update_simplified_unresolved_overloaded_type(
-                            entry,
-                            decl_context,
-                            locus,
-                            op))
-                {
-                    *nodecl_output = nodecl_make_err_expr(locus);
-                    return;
-                }
-            }
+            nodecl_expr_set_is_type_dependent(*nodecl_output,
+                    nodecl_expr_is_type_dependent(*op));
+            nodecl_expr_set_is_value_dependent(*nodecl_output,
+                    nodecl_expr_is_value_dependent(*op));
+            return;
         }
 
         compute_unary_operator_generic(op, 
@@ -8995,7 +8999,7 @@ static void check_new_expression_impl(
         if (is_named_class_type(new_type))
         {
             scope_entry_t* symbol = named_type_get_symbol(new_type);
-            instantiate_template_class_if_needed(symbol, decl_context, locus);
+            class_type_complete_if_needed(symbol, decl_context, locus);
         }
 
         op_new_context = class_type_get_inner_context(new_type);
@@ -9320,7 +9324,7 @@ static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
         if (is_named_class_type(no_ref(full_type)))
         {
             scope_entry_t* symbol = named_type_get_symbol(no_ref(full_type));
-            instantiate_template_class_if_possible(symbol, decl_context, locus);
+            class_type_complete_if_possible(symbol, decl_context, locus);
         }
 
         if (!is_complete_type(full_type))
@@ -10165,6 +10169,13 @@ static void check_nodecl_cast_expr(
                 return;
             }
         }
+    }
+
+    if (!is_any_reference_type(declarator_type)
+            && !is_array_type(declarator_type) // This should never happen
+            && !is_class_type(declarator_type))
+    {
+        declarator_type = get_unqualified_type(declarator_type);
     }
 
 #define CONVERSION_ERROR \
@@ -11637,7 +11648,7 @@ static void check_nodecl_function_call_cxx(
             if (is_named_class_type(class_type))
             {
                 scope_entry_t* symbol = named_type_get_symbol(class_type);
-                instantiate_template_class_if_needed(symbol, decl_context, locus);
+                class_type_complete_if_needed(symbol, decl_context, locus);
             }
 
             scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
@@ -15199,9 +15210,11 @@ char is_narrowing_conversion_type(type_t* orig_type,
             max_dest = const_value_cast_to_floating_type_value(max_dest, orig_type);
             min_dest = const_value_cast_to_floating_type_value(min_dest, orig_type);
 
-            if (const_value_lte(min_dest, orig_value)
-                    && const_value_lte(orig_value, max_dest))
+            if (const_value_is_nonzero(const_value_lte(min_dest, orig_value))
+                    && const_value_is_nonzero(const_value_lte(orig_value, max_dest)))
             {
+                // min_dest <= orig_value && orig_value <= max_dest
+                // No narrowing
                 return 0;
             }
         }
@@ -15225,7 +15238,7 @@ char is_narrowing_conversion_type(type_t* orig_type,
             cvalue_uint_t v = 0;
             if (const_value_is_zero(orig_value))
             {
-                // Trivial case
+                // Trivial case. No narrowing
                 return 0;
             }
             else if (const_value_is_positive(orig_value))
@@ -15252,7 +15265,10 @@ char is_narrowing_conversion_type(type_t* orig_type,
 
             // Note that finfo->p contains the explicitly stored bits
             if (num_significative_bits <= (finfo->p + 1))
+            {
+                // No narrowing
                 return 0;
+            }
         }
 
         return 1;
@@ -15268,73 +15284,112 @@ char is_narrowing_conversion_type(type_t* orig_type,
         // that cannot represent all the values of the original type, except
         // where the source is a constant expression whose value after integral
         // promotions will fit into the target type.
-
-        if (orig_value == NULL)
+        if ((is_signed_integral_type(orig_type)
+                    == is_signed_integral_type(dest_type))
+                && (type_get_size(dest_type) >= type_get_size(orig_type)))
         {
-            if ((is_signed_integral_type(orig_type)
-                        == is_signed_integral_type(dest_type))
-                    && (type_get_size(orig_type) >= type_get_size(dest_type)))
-            {
-                // Their signedness match and the size of the dest is greater or equal
-                // than the orig
-                return 0;
-            }
-
-            return 1;
+            // Their signedness match and the dest is wider or equal than
+            // orig. No narrowing
+            return 0;
         }
-        else // orig_value != NULL
+        else if (is_signed_integral_type(dest_type)
+                && is_unsigned_integral_type(orig_type)
+                && (type_get_size(dest_type) > type_get_size(orig_type)))
+        {
+            // A signed that is strictly wider than its unsigned equivalent
+            // is able to represent all the values of the unsigned.
+            // No narrowing
+            return 0;
+        }
+
+        if (orig_value != NULL)
         {
             if (const_value_is_zero(orig_value))
-                // A zero fits everywhere
+                // A zero fits everywhere. No narrowing
                 return 0;
 
             if (is_signed_integral_type(orig_type)
-                        != is_signed_integral_type(dest_type))
+                        == is_signed_integral_type(dest_type))
             {
-                // Different signedness
-                if (const_value_is_positive(orig_value)
-                        && is_signed_integral_type(dest_type))
-                {
-                    const_value_t* max_dest = integer_type_get_maximum(dest_type);
-                    // A positive, may or may not fit in a signed integral
-                    ERROR_CONDITION(is_signed_integral_type(orig_type), "Signedness must be different here", 0);
-                    max_dest = const_value_cast_to_bytes(max_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
-
-                    if (const_value_lte(orig_value, max_dest))
-                        return 0;
-                }
-
-                // Only a negative value converted to an unsigned integral type
-                // should remain here
-                ERROR_CONDITION(!(const_value_is_negative(orig_value)
-                            && is_unsigned_integral_type(dest_type)), "Invalid value or type", 0);
-                return 1;
-            }
-            else if (type_get_size(orig_type) < type_get_size(dest_type))
-            {
-                // Same signedness, but the orig is wider than the dest
-
-                const_value_t* min_dest = integer_type_get_minimum(dest_type);
+                // Same signedness
                 const_value_t* max_dest = integer_type_get_maximum(dest_type);
-                // Check the value
-                min_dest = const_value_cast_to_bytes(min_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
-                max_dest = const_value_cast_to_bytes(max_dest, type_get_size(orig_type), is_signed_integral_type(orig_type));
+                const_value_t* min_dest = integer_type_get_maximum(dest_type);
 
-                if (const_value_lte(min_dest, orig_value)
-                        && const_value_lte(orig_value, max_dest))
+                if (const_value_is_nonzero(
+                            const_value_lte(min_dest, orig_value))
+                        && const_value_is_negative(
+                            const_value_lte(orig_value, max_dest)))
                 {
+                    // The const value lies between the minimum and maximum of
+                    // the dest type
+                    // No narrowing
                     return 0;
                 }
             }
-            else if (type_get_size(orig_type) >= type_get_size(dest_type))
+            else if (is_unsigned_integral_type(dest_type))
             {
-                // Same signedness but the orig is narrower or equal than the
-                // dest. Will fit for sure
-                return 0;
-            }
+                ERROR_CONDITION(!is_signed_integral_type(orig_type), "Must be signed!", 0);
+                if (const_value_is_positive(orig_value))
+                {
+                    if (type_get_size(dest_type) >= type_get_size(orig_type))
+                    {
+                        // unsigned long x { 1 };
+                        // A positive constant of a narrower (or equal) signed
+                        // type will always fit
+                        // No narrowing
+                        return 0;
+                    }
+                    else
+                    {
+                        // unsigned int x { 1L };
+                        // orig_type is wider, check if the constant is still in the range
+                        const_value_t* max_dest = integer_type_get_maximum(dest_type);
+                        // cast the maximum to the type of the signed integral (this is safe)
+                        max_dest = const_value_cast_to_bytes(
+                                max_dest,
+                                type_get_size(orig_type),
+                                /* signed */ 1);
 
-            return 1;
+                        if (const_value_is_nonzero(
+                                    const_value_lte(orig_value, max_dest)))
+                        {
+                            // It fits. No narrowing
+                            return 0;
+                        }
+                    }
+                }
+            }
+            else if (is_signed_integral_type(dest_type))
+            {
+                ERROR_CONDITION(!is_unsigned_integral_type(orig_type), "Must be unsigned!", 0);
+
+                if (type_get_size(dest_type) <= type_get_size(orig_type))
+                {
+                    // signed int i { 1LU };
+                    // signed int i { 1U };
+                    const_value_t* max_dest = integer_type_get_maximum(dest_type);
+                    max_dest = const_value_cast_to_bytes(
+                            max_dest,
+                            type_get_size(orig_type),
+                            /* signed */ 0);
+
+                    if (const_value_is_nonzero(
+                                const_value_lte(orig_value, max_dest)))
+                    {
+                        // It fits. No narrowing
+                        return 0;
+                    }
+                }
+                else
+                {
+                    // This case was already handled at the beginning
+                    internal_error("Code unreachable", 0);
+                }
+            }
         }
+
+        // There is narrowing
+        return 1;
     }
 
     return 0;
@@ -15391,7 +15446,7 @@ void check_nodecl_braced_initializer(
     if (is_named_class_type(no_ref(declared_type)))
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(declared_type));
-        instantiate_template_class_if_possible(symbol, decl_context, locus);
+        class_type_complete_if_possible(symbol, decl_context, locus);
     }
 
     if ((is_rvalue_reference_type(declared_type)
@@ -17850,7 +17905,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
         if (is_named_class_type(t))
         {
             scope_entry_t* symbol = named_type_get_symbol(t);
-            instantiate_template_class_if_needed(symbol, decl_context, 
+            class_type_complete_if_needed(symbol, decl_context, 
                     locus);
         }
 
@@ -18239,7 +18294,7 @@ static void check_sizeof_type(type_t* t,
             if (is_named_class_type(t))
             {
                 scope_entry_t* symbol = named_type_get_symbol(t);
-                instantiate_template_class_if_needed(symbol, decl_context, 
+                class_type_complete_if_needed(symbol, decl_context, 
                        locus);
             }
         }
@@ -18446,7 +18501,7 @@ static void check_gcc_offset_designation(nodecl_t nodecl_designator,
         if (is_named_class_type(accessed_type))
         {
             scope_entry_t* named_type = named_type_get_symbol(accessed_type);
-            instantiate_template_class_if_needed(named_type, decl_context, locus);
+            class_type_complete_if_needed(named_type, decl_context, locus);
         }
     }
 
@@ -18749,7 +18804,7 @@ static void check_gcc_alignof_type(type_t* t,
         if (is_named_class_type(t))
         {
             scope_entry_t* named_type = named_type_get_symbol(t);
-            instantiate_template_class_if_needed(named_type, decl_context, locus);
+            class_type_complete_if_needed(named_type, decl_context, locus);
         }
     }
 
@@ -20225,6 +20280,18 @@ static nodecl_t constexpr_function_get_returned_expression(nodecl_t nodecl_funct
     return nodecl_returned_expression;
 }
 
+static void argument_list_remove_default_arguments(nodecl_t* list_of_arguments, int n)
+{
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        if (nodecl_get_kind(list_of_arguments[i]) == NODECL_DEFAULT_ARGUMENT)
+        {
+            list_of_arguments[i] = nodecl_get_child(list_of_arguments[i], 0);
+        }
+    }
+}
+
 typedef
 struct map_of_parameters_with_their_arguments_tag
 {
@@ -20242,6 +20309,7 @@ constexpr_function_get_constants_of_arguments(
 {
     int num_arguments = 0;
     nodecl_t* list_of_arguments = nodecl_unpack_list(converted_arg_list, &num_arguments);
+    argument_list_remove_default_arguments(list_of_arguments, num_arguments);
 
     char has_ellipsis = 0;
     int num_parameters = function_type_get_num_parameters(entry->type_information);
@@ -20360,6 +20428,16 @@ constexpr_function_get_constants_of_arguments(
     return result;
 }
 
+static void free_map_of_parameters_and_values(map_of_parameters_with_their_arguments_t* map,
+        int num_map_items)
+{
+    int i;
+    for (i = 0; i < num_map_items; i++)
+    {
+        xfree(map[i].value_list);
+    }
+}
+
 static const_value_t* lookup_single_value_in_map(
         map_of_parameters_with_their_arguments_t* map_of_parameters_and_values,
         int num_map_items,
@@ -20452,10 +20530,59 @@ static nodecl_t constexpr_replace_parameters_with_values(nodecl_t n,
 
 static const_value_t* evaluate_constexpr_constructor(
         scope_entry_t* entry,
-        nodecl_t nodecl_function_code,
-        int num_map_items,
-        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+        nodecl_t converted_arg_list,
+        const locus_t* locus)
 {
+    if (function_may_be_instantiated(entry))
+    {
+        instantiate_template_function(entry, locus);
+
+        nodecl_t nodecl_initializer_list = nodecl_null();
+        if (!nodecl_is_null(entry->entity_specs.function_code))
+        {
+            nodecl_initializer_list = nodecl_get_child(entry->entity_specs.function_code, 1);
+        }
+
+        entry->entity_specs.is_constexpr = check_constexpr_constructor(entry, entry->locus,
+                nodecl_initializer_list,
+                /* diagnose */ 0, /* emit_error */ 0);
+        if (!entry->entity_specs.is_constexpr)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
+                        get_qualified_symbol_name(entry, entry->decl_context));
+            }
+            return NULL;
+        }
+    }
+
+    if (!entry->defined)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr constructor fails because the function has not been defined\n");
+        }
+        return NULL;
+    }
+
+    int num_map_items = -1;
+    map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
+
+    if (num_map_items < 0)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
+                    "one of the arguments did not yield a constant value\n");
+        }
+        return NULL;
+    }
+
+    nodecl_t nodecl_function_code = entry->entity_specs.function_code;
+    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Function lacks function code", 0);
+
     nodecl_t nodecl_initializers = nodecl_null();
     if (!nodecl_is_null(nodecl_function_code))
         nodecl_initializers = nodecl_get_child(nodecl_function_code, 1);
@@ -20485,6 +20612,7 @@ static const_value_t* evaluate_constexpr_constructor(
                     entry->entity_specs.instantiation_symbol_map,
                     /* pack_index */ -1);
 
+            free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
             return nodecl_get_constant(nodecl_evaluated_expr);
         }
     }
@@ -20544,8 +20672,15 @@ static const_value_t* evaluate_constexpr_constructor(
         values[member_pos] = nodecl_get_constant(nodecl_evaluated_expr);
         if (values[member_pos] == NULL)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Data-member '%s' has an initializer but it does not have a constant value\n",
+                        get_qualified_symbol_name(current_member, current_member->decl_context));
+            }
+
             xfree(all_members);
             xfree(values);
+            free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
             return NULL;
         }
     }
@@ -20571,8 +20706,8 @@ static const_value_t* evaluate_constexpr_constructor(
                 {
                     values[i] = evaluate_constexpr_constructor(
                             default_constructor,
-                            default_constructor->entity_specs.function_code,
-                            /* No mapping */ 0, NULL);
+                            /* no args */ nodecl_null(),
+                            locus);
                 }
             }
             else if (current_member->kind == SK_VARIABLE)
@@ -20592,8 +20727,8 @@ static const_value_t* evaluate_constexpr_constructor(
                     {
                         values[i] = evaluate_constexpr_constructor(
                                 default_constructor,
-                                default_constructor->entity_specs.function_code,
-                                /* No mapping */ 0, NULL);
+                                /* no args */ nodecl_null(),
+                                locus);
                     }
                 }
             }
@@ -20605,9 +20740,15 @@ static const_value_t* evaluate_constexpr_constructor(
             // If still not constant, give up
             if (values[i] == NULL)
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Data-member '%s' cannot be default initialized as a constant value\n",
+                            get_qualified_symbol_name(current_member, current_member->decl_context));
+                }
 
                 xfree(all_members);
                 xfree(values);
+                free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
                 return NULL;
             }
         }
@@ -20618,16 +20759,60 @@ static const_value_t* evaluate_constexpr_constructor(
 
     xfree(all_members);
     xfree(values);
+    free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
 
     return structured_value;
 }
 
 static const_value_t* evaluate_constexpr_regular_function_call(
         scope_entry_t* entry,
-        nodecl_t nodecl_function_code,
-        int num_map_items,
-        map_of_parameters_with_their_arguments_t* map_of_parameters_and_values)
+        nodecl_t converted_arg_list,
+        const locus_t* locus)
 {
+    if (function_may_be_instantiated(entry))
+    {
+        instantiate_template_function(entry, locus);
+
+        entry->entity_specs.is_constexpr = check_constexpr_function(entry, entry->locus,
+                /* diagnose */ 0, /* emit_error */ 0);
+
+        if (!entry->entity_specs.is_constexpr)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
+                        get_qualified_symbol_name(entry, entry->decl_context));
+            }
+            return NULL;
+        }
+    }
+
+    if (!entry->defined)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined\n");
+        }
+        return NULL;
+    }
+
+    int num_map_items = -1;
+    map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
+        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
+
+    if (num_map_items < 0)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
+                    "one of the arguments did not yield a constant value\n");
+        }
+        return NULL;
+    }
+
+    nodecl_t nodecl_function_code = entry->entity_specs.function_code;
+    ERROR_CONDITION(nodecl_is_null(nodecl_function_code), "Function lacks function code", 0);
+
     nodecl_t nodecl_returned_expression =
         constexpr_function_get_returned_expression(nodecl_function_code);
 
@@ -20647,17 +20832,17 @@ static const_value_t* evaluate_constexpr_regular_function_call(
             nodecl_retrieve_context(nodecl_function_code),
             instantiation_symbol_map, /* pack_index */ -1);
 
-    return nodecl_get_constant(nodecl_evaluated_expr);
-}
+    free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
 
-static void free_map_of_parameters_and_values(map_of_parameters_with_their_arguments_t* map,
-        int num_map_items)
-{
-    int i;
-    for (i = 0; i < num_map_items; i++)
+    if (!nodecl_is_constant(nodecl_evaluated_expr))
     {
-        xfree(map[i].value_list);
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Evaluation of regular constexpr call did not give a constant value\n");
+        }
     }
+
+    return nodecl_get_constant(nodecl_evaluated_expr);
 }
 
 static const_value_t* evaluate_constexpr_function_call(
@@ -20671,117 +20856,21 @@ static const_value_t* evaluate_constexpr_function_call(
                 get_qualified_symbol_name(entry, entry->decl_context));
     }
 
-    if (is_template_specialized_type(entry->type_information)
-            || (entry->entity_specs.is_member
-                && is_template_specialized_type(
-                    named_type_get_symbol(entry->entity_specs.class_type)->type_information)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "EXPRTYPE: Called constexpr function is a specialized template\n");
-        }
-
-        ERROR_CONDITION(is_dependent_type(entry->type_information), "We attempt to call something that is dependent", 0);
-
-        if (!entry->defined)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: We have to instantiate the constexpr function '%s'\n",
-                        get_qualified_symbol_name(entry, entry->decl_context));
-            }
-
-            instantiate_template_function(entry, locus);
-
-            char is_constexpr = 0;
-            if (entry->defined)
-            {
-                // Verify the instantiation (though it is not an error if the function fails to be constexpr)
-                if (entry->entity_specs.is_constructor)
-                {
-                    nodecl_t nodecl_initializer_list = nodecl_null();
-                    if (!nodecl_is_null(entry->entity_specs.function_code))
-                    {
-                        nodecl_initializer_list = nodecl_get_child(entry->entity_specs.function_code, 1);
-                    }
-
-                    is_constexpr = check_constexpr_constructor(entry, entry->locus,
-                            nodecl_initializer_list,
-                            /* diagnose */ 0, /* emit_error */ 0);
-                }
-                else
-                {
-                    is_constexpr = check_constexpr_function(entry, entry->locus,
-                            /* diagnose */ 0, /* emit_error */ 0);
-                }
-
-                is_constexpr = is_constexpr
-                    && check_constexpr_function_code(entry, entry->entity_specs.function_code,
-                            /* diagnose */ 0, /* emit_error */ 0);
-            }
-
-            entry->entity_specs.is_constexpr = is_constexpr;
-
-            if (!is_constexpr)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: After instantiation of '%s' it has become non constexpr\n",
-                            get_qualified_symbol_name(entry, entry->decl_context));
-                }
-                return NULL;
-            }
-        }
-    }
-
-    int num_map_items = -1;
-    map_of_parameters_with_their_arguments_t* map_of_parameters_and_values =
-        constexpr_function_get_constants_of_arguments(converted_arg_list, entry, &num_map_items);
-
-    if (num_map_items < 0)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "EXPRTYPE: When creating the map of parameters to symbols, "
-                    "one of the arguments did not yield a constant value\n");
-        }
-        return NULL;
-    }
-
-    ERROR_CONDITION(num_map_items < 0, "Invalid number of map items", 0);
-
-    if (!entry->defined)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "EXPRTYPE: Evaluation of constexpr fails because the function has not been defined\n");
-        }
-        return NULL;
-    }
-
-    nodecl_t nodecl_function_code = entry->entity_specs.function_code;
-
     const_value_t* value = NULL;
     if (entry->entity_specs.is_constructor)
     {
         value = evaluate_constexpr_constructor(
                 entry,
-                nodecl_function_code,
-                num_map_items,
-                map_of_parameters_and_values);
+                converted_arg_list,
+                locus);
     }
     else
     {
-        ERROR_CONDITION(nodecl_is_null(nodecl_function_code),
-                "A defined function must have a body", 0);
         value = evaluate_constexpr_regular_function_call(
                 entry,
-                nodecl_function_code,
-                num_map_items,
-                map_of_parameters_and_values);
+                converted_arg_list,
+                locus);
     }
-
-    free_map_of_parameters_and_values(map_of_parameters_and_values, num_map_items);
 
     return value;
 }
@@ -20889,13 +20978,36 @@ static void define_inherited_constructor(
                         nodecl_member_init_list,
                         new_inherited_constructor,
                         locus);
+
+            new_inherited_constructor->defined = 1;
+            new_inherited_constructor->entity_specs.alias_to = NULL;
+            new_inherited_constructor->entity_specs.is_instantiable = 0;
+            new_inherited_constructor->entity_specs.emission_template = NULL;
         }
     }
-
-    new_inherited_constructor->defined = 1;
-    new_inherited_constructor->entity_specs.alias_to = NULL;
 }
 
+struct instantiate_default_argument_header_message_fun_data_tag
+{
+    scope_entry_t* called_symbol;
+    int arg_i;
+    const locus_t* locus;
+};
+
+static const char* instantiate_default_argument_header_message_fun(void* v)
+{
+    struct instantiate_default_argument_header_message_fun_data_tag* p =
+        (struct instantiate_default_argument_header_message_fun_data_tag*)v;
+
+    const char* default_argument_context_str;
+    uniquestr_sprintf(&default_argument_context_str,
+            "%s: info: during instantiation of default argument '%s'\n",
+            locus_to_str(p->locus),
+            codegen_to_str(p->called_symbol->entity_specs.default_argument_info[p->arg_i]->argument,
+                p->called_symbol->decl_context));
+
+    return default_argument_context_str;
+}
 
 nodecl_t cxx_nodecl_make_function_call(
         nodecl_t orig_called,
@@ -20908,6 +21020,15 @@ nodecl_t cxx_nodecl_make_function_call(
 {
     ERROR_CONDITION(!nodecl_is_null(arg_list)
             && !nodecl_is_list(arg_list), "Argument nodecl is not a list", 0);
+
+    // Adjust the return type
+    if (t != NULL
+            && !is_any_reference_type(t)
+            && !is_array_type(t) // This should never happen
+            && !is_class_type(t))
+    {
+        t = get_unqualified_type(t);
+    }
 
     bool preserve_orig_name = false;
 
@@ -20949,10 +21070,10 @@ nodecl_t cxx_nodecl_make_function_call(
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
 
     // If this is an inheriting constructor being odr-used, define it now
-    // FIXME: odr-used
     if (called_symbol != NULL
             && called_symbol->entity_specs.is_constructor
-            && called_symbol->entity_specs.alias_to != NULL)
+            && called_symbol->entity_specs.alias_to != NULL
+            && !check_expr_flags.is_non_executable)
     {
         define_inherited_constructor(
                 called_symbol,
@@ -21168,14 +21289,18 @@ nodecl_t cxx_nodecl_make_function_call(
                             ->entity_specs.instantiation_symbol_map;
                     }
 
-                    const char* default_argument_context_str;
-                    uniquestr_sprintf(&default_argument_context_str,
-                            "%s: info: during instantiation of default argument '%s'\n",
-                            locus_to_str(locus),
-                            codegen_to_str(called_symbol->entity_specs.default_argument_info[arg_i]->argument,
-                                called_symbol->decl_context));
 
-                    diagnostic_context_push_instantiation(default_argument_context_str);
+                    header_message_fun_t instantiation_header;
+                    instantiation_header.message_fun = instantiate_default_argument_header_message_fun;
+                    {
+                        struct instantiate_default_argument_header_message_fun_data_tag* p = xcalloc(1, sizeof(*p));
+                        p->called_symbol = called_symbol;
+                        p->arg_i = arg_i;
+                        p->locus = locus;
+                        instantiation_header.data = p;
+                    }
+                    diagnostic_context_push_instantiation(instantiation_header);
+
                     // We need to update the default argument
                     nodecl_t new_default_argument = instantiate_expression(
                             called_symbol->entity_specs.default_argument_info[arg_i]->argument,
@@ -21203,7 +21328,9 @@ nodecl_t cxx_nodecl_make_function_call(
 
                     if (!called_symbol->entity_specs.default_argument_info[arg_i]->is_hidden)
                     {
-                        new_default_argument = nodecl_make_default_argument(new_default_argument, locus);
+                        // Wrap the expression in a default argumet node
+                        new_default_argument = nodecl_make_default_argument(new_default_argument,
+                                locus);
                     }
 
                     converted_arg_list = nodecl_append_to_list(
@@ -21235,7 +21362,7 @@ nodecl_t cxx_nodecl_make_function_call(
                         && is_named_class_type(t))
                 {
                     scope_entry_t* class_sym_ret = named_type_get_symbol(t);
-                    instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                    class_type_complete_if_needed(class_sym_ret, decl_context, locus);
                 }
 
                 return result;
@@ -21328,7 +21455,7 @@ nodecl_t cxx_nodecl_make_function_call(
                         && is_named_class_type(t))
                 {
                     scope_entry_t* class_sym_ret = named_type_get_symbol(t);
-                    instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                    class_type_complete_if_needed(class_sym_ret, decl_context, locus);
                 }
 
                 return result;
@@ -21353,7 +21480,7 @@ nodecl_t cxx_nodecl_make_function_call(
                     && is_named_class_type(t))
             {
                 scope_entry_t* class_sym_ret = named_type_get_symbol(t);
-                instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                class_type_complete_if_needed(class_sym_ret, decl_context, locus);
             }
 
             return result;
@@ -21371,7 +21498,7 @@ nodecl_t cxx_nodecl_make_function_call(
                     && is_named_class_type(t))
             {
                 scope_entry_t* class_sym_ret = named_type_get_symbol(t);
-                instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+                class_type_complete_if_needed(class_sym_ret, decl_context, locus);
             }
 
             return result;
@@ -21389,7 +21516,7 @@ nodecl_t cxx_nodecl_make_function_call(
                 && is_named_class_type(t))
         {
             scope_entry_t* class_sym_ret = named_type_get_symbol(t);
-            instantiate_template_class_if_needed(class_sym_ret, decl_context, locus);
+            class_type_complete_if_needed(class_sym_ret, decl_context, locus);
         }
 
         return result;

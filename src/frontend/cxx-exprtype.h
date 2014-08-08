@@ -206,6 +206,12 @@ nodecl_t update_cxx_dep_qualified_name(nodecl_t cxx_dep_name,
         instantiation_symbol_map_t* instantiation_symbol_map,
         int pack_index);
 
+scope_entry_t* expand_template_function_given_template_arguments(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        template_parameter_list_t* explicit_template_parameters);
+
 MCXX_END_DECLS
 
 #endif

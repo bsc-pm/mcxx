@@ -50,6 +50,7 @@ typedef struct type_trie_element_tag
 
 struct type_trie_tag
 {
+    int capacity;
     int num_elements;
     type_trie_element_t* elements;
 };
@@ -155,8 +156,11 @@ static type_trie_element_t *lookup_element(const type_trie_t* type_trie, const t
 static const type_t* create_elements(type_trie_t* type_trie, const type_t** type_seq, const type_t* function_type, int length)
 {
     type_trie->num_elements++;
-    type_trie->elements = xrealloc(type_trie->elements, 
-            type_trie->num_elements * sizeof(*(type_trie->elements)));
+    if (type_trie->capacity == type_trie->num_elements)
+    {
+        type_trie->capacity *= 2;
+        type_trie->elements = xrealloc(type_trie->elements, type_trie->capacity * sizeof(*(type_trie->elements)));
+    }
 
     // Locate place where the element would go
     int lower = 0;
@@ -209,7 +213,7 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
     else
     {
         type_trie->elements[lower].elem = *type_seq;
-        type_trie->elements[lower].next = xcalloc(1, sizeof(type_trie_t));
+        type_trie->elements[lower].next = allocate_type_trie();
         _bytes_used_type_trie += sizeof(type_trie_t);
 
         const type_t* result =
@@ -224,6 +228,8 @@ static const type_t* create_elements(type_trie_t* type_trie, const type_t** type
 type_trie_t* allocate_type_trie(void)
 {
     type_trie_t* t = xcalloc(1, sizeof(*t));
+    t->capacity = 1;
+    t->elements = xcalloc(t->capacity, sizeof(*(t->elements)));
     return t;
 }
 

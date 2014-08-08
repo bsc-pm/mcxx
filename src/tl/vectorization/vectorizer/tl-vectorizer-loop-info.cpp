@@ -40,7 +40,7 @@ namespace Vectorization
             const VectorizerEnvironment& environment)
         : _environment(environment), _loop(loop_stmt),
         _ivs(VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_ivs_nodecls(loop_stmt))
+                get_linear_nodecls(loop_stmt))
     {
         if(loop_stmt.is<Nodecl::ForStatement>())
         {

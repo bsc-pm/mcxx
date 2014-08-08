@@ -44,6 +44,7 @@ namespace TL
         public:
             ModuleWriter(TL::Symbol module, const std::string domain);
 
+            void builtin_write(unsigned int);
             void builtin_write(int);
             void builtin_write(bool);
             void builtin_write(const std::string& str);
@@ -105,6 +106,9 @@ namespace TL
             }
         };
 
+    template <>
+    struct ModuleWriterTrait<unsigned int> : public BuiltinModuleWriterTrait<unsigned int> { };
+        
     template <>
     struct ModuleWriterTrait<int> : public BuiltinModuleWriterTrait<int> { };
 
@@ -177,8 +181,8 @@ namespace TL
             static void write(ModuleWriter& mw, const locus_t* &d)
             {
                 std::string filename = locus_get_filename(d);
-                int line = locus_get_line(d);
-                int column = locus_get_col(d);
+                unsigned int line = locus_get_line(d);
+                unsigned int column = locus_get_col(d);
 
                 mw.write(filename);
                 mw.write(line);
@@ -192,6 +196,7 @@ namespace TL
         public:
             ModuleReader(TL::Symbol module, const std::string& domain);
 
+            void builtin_read(unsigned int&);
             void builtin_read(int&);
             void builtin_read(TL::Symbol&);
             void builtin_read(TL::Type&);
@@ -304,6 +309,9 @@ namespace TL
         };
 
     template <>
+    struct ModuleReaderTrait<unsigned int> : public BuiltinModuleReaderTrait<unsigned int> { };
+    
+    template <>
     struct ModuleReaderTrait<int> : public BuiltinModuleReaderTrait<int> { };
 
     template <>
@@ -330,8 +338,8 @@ namespace TL
             static void read(ModuleReader& mr, const locus_t* &d)
             {
                 std::string filename;
-                int line = 0;
-                int column = 0;
+                unsigned int line = 0;
+                unsigned int column = 0;
 
                 mr.read(filename);
                 mr.read(line);

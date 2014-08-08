@@ -646,6 +646,12 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Dead& n )
+    {
+        _utils->_assert_nodes.top()->set_assert_correctness_dead_var(n.get_correctness_variables().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Dead& n )
     {
         _utils->_assert_nodes.top()->add_assert_dead_var(n.get_dead_exprs().as<Nodecl::List>());
@@ -1979,9 +1985,9 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Cache& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Overlap& n )
     {
-        PCFGClause current_clause( __cache, n );
+        PCFGClause current_clause( __overlap, n.get_overlap_expressions( ) );
         _utils->_pragma_nodes.top( )._clauses.append( current_clause );
         return ObjectList<Node*>( );
     }
@@ -3087,16 +3093,6 @@ namespace Analysis {
         return visit_unary_node( n, n.get_arg( ) );
     }
 
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorLoad& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = load*/ '1' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnknownPragma& n )
     {
         if( VERBOSE )
@@ -3401,16 +3397,6 @@ namespace Analysis {
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::VectorStreamStore& n )
-    {
-        return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::UnalignedVectorStreamStore& n )
     {
         return visit_vector_memory_func( n, /*mem_access_type = store*/ '3' );
     }

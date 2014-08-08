@@ -61,7 +61,6 @@ HANDLER_PROTOTYPE(indented_simple_parameter_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(parenthesized_son_handler);
 HANDLER_PROTOTYPE(list_parenthesized_son_handler);
-HANDLER_PROTOTYPE(nested_name_handler);
 HANDLER_PROTOTYPE(simple_text_handler);
 HANDLER_PROTOTYPE(template_id_handler);
 HANDLER_PROTOTYPE(abstract_array_declarator_handler);
@@ -240,7 +239,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ID_PACK, prefix_with_parameter_then_son_handler, "... "),
     NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
-    NODE_HANDLER(AST_NESTED_NAME_SPECIFIER, nested_name_handler, NULL),
     NODE_HANDLER(AST_SYMBOL, simple_text_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_ID, template_id_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
@@ -870,19 +868,6 @@ static void list_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t
     token_fprintf(f, a, pt_ctx, ")");
 }
 
-static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-
-    double_colon_handler(f, a, pt_ctx);
-
-    if (ASTSon1(a) != NULL)
-    {
-
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-}
-
 static void simple_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
 {
     token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
@@ -1339,7 +1324,8 @@ static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
     if (ASTSon1(a) != NULL)
     {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
+        character_separated_sequence_handler(f, ASTSon1(a), pt_ctx, "::", NULL);
+        token_fprintf(f, a, pt_ctx, "::");
     }
 
     prettyprint_level(f, ASTSon2(a), pt_ctx);

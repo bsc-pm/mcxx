@@ -29,6 +29,7 @@
 #include "tl-vectorization-analysis-interface.hpp"
 #include "tl-source.hpp"
 #include "tl-nodecl-utils.hpp"
+#include "tl-optimizations.hpp"
 #include "cxx-cexpr.h"
 
 #define KNC_VECTOR_BIT_SIZE 512
@@ -221,7 +222,10 @@ namespace Vectorization
         if (contains_vector_nodes)
         {
             // Initialize analisys
-            VectorizationAnalysisInterface::initialize_analysis(n);
+            TL::Optimizations::canonicalize_and_fold(n,
+                    /*_fast_math_enabled*/ false);
+            VectorizationAnalysisInterface::initialize_analysis(n,
+                    Analysis::WhichAnalysis::REACHING_DEFS_ANALYSIS);
 
             walk(n.get_statements());
 
@@ -486,7 +490,7 @@ namespace Vectorization
     void KNCVectorBackend::common_comparison_op_lowering(
             const Nodecl::NodeclBase& n,
             const int float_cmp_flavor,
-            const _MM_CMPINT_ENUM int_cmp_flavor)
+            const std::string int_cmp_flavor)
     {
         Nodecl::VectorLowerThan cmp_node = n.as<Nodecl::VectorLowerThan>();
 
@@ -550,32 +554,32 @@ namespace Vectorization
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LT_OS, _MM_CMPINT_LT);
+        common_comparison_op_lowering(n, _CMP_LT_OS, "_MM_CMPINT_LT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorLowerOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_LE_OS, _MM_CMPINT_LE);
+        common_comparison_op_lowering(n, _CMP_LE_OS, "_MM_CMPINT_LE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GT_OS, _MM_CMPINT_NLE);
+        common_comparison_op_lowering(n, _CMP_GT_OS, "_MM_CMPINT_NLE");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGreaterOrEqualThan& n)
     {
-        common_comparison_op_lowering(n, _CMP_GE_OS, _MM_CMPINT_NLT);
+        common_comparison_op_lowering(n, _CMP_GE_OS, "_MM_CMPINT_NLT");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorEqual& n)
     {
-        common_comparison_op_lowering(n, _CMP_EQ_OQ, _MM_CMPINT_EQ);
+        common_comparison_op_lowering(n, _CMP_EQ_OQ, "_MM_CMPINT_EQ");
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorDifferent& n)
     {
-        common_comparison_op_lowering(n, _CMP_NEQ_UQ, _MM_CMPINT_NE);
+        common_comparison_op_lowering(n, _CMP_NEQ_UQ, "_MM_CMPINT_NE");
     }
 
     void KNCVectorBackend::bitwise_binary_op_lowering(const Nodecl::NodeclBase& n,
@@ -884,7 +888,7 @@ namespace Vectorization
         TL::Type type = n.get_type().basic_type();
 
         TL::Source intrin_src, intrin_name, intrin_type_suffix, intrin_op_name,
-            mask_prefix, args, mask_args, rhs_expression;
+            mask_prefix, args, mask_args;
 
         intrin_src << get_casting_intrinsic(TL::Type::get_int_type(), type)
             << "("
@@ -905,7 +909,7 @@ namespace Vectorization
         intrin_op_name << "alignr";
         intrin_type_suffix << "epi32";
 
-        process_mask_component(mask, mask_prefix, mask_args, type);
+        process_mask_component(mask, mask_prefix, mask_args, TL::Type::get_int_type());
 
         walk(left_vector);
         walk(right_vector);
@@ -1472,7 +1476,26 @@ namespace Vectorization
         n.replace(function_call);
     }
 
+
     void KNCVectorBackend::visit(const Nodecl::VectorLoad& n)
+    {
+        Nodecl::List flags = n.get_flags().as<Nodecl::List>();
+
+        bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+            is_null();
+
+        if (aligned)
+        {
+            visit_aligned_vector_load(n);
+        }
+        else
+        {
+            visit_unaligned_vector_load(n);
+        }
+    }
+
+    void KNCVectorBackend::visit_aligned_vector_load(
+            const Nodecl::VectorLoad& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
@@ -1532,7 +1555,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorLoad& n)
+    void KNCVectorBackend::visit_unaligned_vector_load(
+            const Nodecl::VectorLoad& n)
     {
         Nodecl::NodeclBase rhs = n.get_rhs();
         Nodecl::NodeclBase mask = n.get_mask();
@@ -1620,7 +1644,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit_vector_store(const Nodecl::VectorStore& n,
+    void KNCVectorBackend::visit_aligned_vector_store(
+            const Nodecl::VectorStore& n,
             const int hint)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
@@ -1698,12 +1723,8 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
-    {
-        visit_vector_store(n, _MM_HINT_NONE);
-    }
-
-    void KNCVectorBackend::visit(const Nodecl::VectorStreamStore& n)
+    void KNCVectorBackend::visit_aligned_vector_stream_store(
+            const Nodecl::VectorStore& n)
     {
         Nodecl::NodeclBase mask = n.get_mask();
 
@@ -1711,7 +1732,8 @@ namespace Vectorization
         // Emit store with hint instead
         if(!mask.is_null())
         {
-            visit_vector_store(n.as<Nodecl::VectorStore>(), _MM_HINT_NT);
+            visit_aligned_vector_store(n.as<Nodecl::VectorStore>(),
+                    _MM_HINT_NT);
             return;
         }
 
@@ -1720,13 +1742,12 @@ namespace Vectorization
 
         TL::Type type = n.get_lhs().get_type().basic_type();
 
-        TL::ObjectList<Nodecl::NodeclBase> ss_flags =
-            n.get_flags().as<Nodecl::List>().to_object_list();
+        Nodecl::List ss_flags = n.get_flags().as<Nodecl::List>();
 
-        bool relaxed_store = Nodecl::Utils::list_contains_nodecl(
-                ss_flags, Nodecl::RelaxedFlag::make());
-        bool cache_eviction = Nodecl::Utils::list_contains_nodecl(
-                ss_flags, Nodecl::EvictFlag::make());
+        bool relaxed_store = !ss_flags.find_first<Nodecl::RelaxedFlag>().
+           is_null();
+        bool cache_eviction = !ss_flags.find_first<Nodecl::EvictFlag>().
+            is_null();
 
         TL::Source stream_store_src, cache_evict_src, intrin_src, intrin_name,
             intrin_op_name, args,intrin_type_suffix, mask_prefix, mask_args;
@@ -1807,8 +1828,9 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit_unaligned_vector_store(const Nodecl::UnalignedVectorStore&
-            n, const int hint)
+    void KNCVectorBackend::visit_unaligned_vector_store(
+            const Nodecl::VectorStore& n,
+            const int hint)
     {
         Nodecl::NodeclBase lhs = n.get_lhs();
         Nodecl::NodeclBase rhs = n.get_rhs();
@@ -1915,14 +1937,29 @@ namespace Vectorization
         n.replace(function_call);
     }
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStore& n)
+    void KNCVectorBackend::visit(const Nodecl::VectorStore& n)
     {
-        visit_unaligned_vector_store(n, _MM_HINT_NONE);
-    }
+        Nodecl::List flags = n.get_flags().as<Nodecl::List>();
 
-    void KNCVectorBackend::visit(const Nodecl::UnalignedVectorStreamStore& n)
-    {
-        visit_unaligned_vector_store(n.as<Nodecl::UnalignedVectorStore>(), _MM_HINT_NT);
+        bool aligned = !flags.find_first<Nodecl::AlignedFlag>().
+            is_null();
+        bool stream = !flags.find_first<Nodecl::NontemporalFlag>().
+            is_null();
+
+        if (aligned)
+        {
+            if (stream)
+                visit_aligned_vector_stream_store(n);
+            else
+                visit_aligned_vector_store(n, _MM_HINT_NONE);
+        }
+        else
+        {
+            if (stream)
+                visit_unaligned_vector_store(n, _MM_HINT_NT);
+            else
+                visit_unaligned_vector_store(n, _MM_HINT_NONE);
+        }
     }
 
     void KNCVectorBackend::visit(const Nodecl::VectorGather& n)

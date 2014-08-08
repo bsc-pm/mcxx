@@ -36,8 +36,8 @@ namespace TL
         class SPMLVectorizerVisitorStatement : public VectorizerVisitorStatement
         {
             public:
-                SPMLVectorizerVisitorStatement(VectorizerEnvironment& environment,
-                        const bool cache_enabled);
+                SPMLVectorizerVisitorStatement(
+                        VectorizerEnvironment& environment);
         };
     }
 }

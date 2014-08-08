@@ -26,33 +26,35 @@
 
 
 
-#ifndef TL_OMP_BASE_INSTANTIATE_HPP
-#define TL_OMP_BASE_INSTANTIATE_HPP
+#ifndef HLT_NORMALIZE_LOOP_HPP
+#define HLT_NORMALIZE_LOOP_HPP
 
-#include "tl-compilerphase.hpp"
-#include "tl-nodecl.hpp"
-#include "tl-nodecl-visitor.hpp"
+#include "hlt-transform.hpp"
 
-namespace TL { namespace OpenMP {
+namespace TL { namespace HLT {
 
-    struct InstantiateVisitorOmp : public Nodecl::ExhaustiveVisitor<void>
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Transforms a loop into a one with a step of one
+    class LIBHLT_CLASS LoopNormalize
     {
         private:
-            TL::DTO &_dto;
-
-            void walk_function_code(
-                    TL::Symbol function_symbol,
-                    const Nodecl::NodeclBase& related_function_code);
-            void instantiate_single_function(TL::Symbol symbol);
-            void keep_for_instantiation(TL::Symbol symbol);
-
+            Nodecl::NodeclBase _transformation;
+            Nodecl::NodeclBase _loop;
         public:
-            InstantiateVisitorOmp(TL::DTO& dto);
-            virtual void visit(const Nodecl::Symbol& node);
-            virtual void visit(const Nodecl::ObjectInit& node);
-            void instantiate();
+            LoopNormalize();
+
+            // Properties
+            LoopNormalize& set_loop(Nodecl::NodeclBase loop);
+
+            // Action
+            void normalize();
+
+            // Results
+            Nodecl::NodeclBase get_whole_transformation() const { return _transformation; }
     };
 
 } }
 
-#endif // TL_OMP_BASE_INSTANTIATE_HPP
+#endif //  HLT_NORMALIZE_LOOP_HPP

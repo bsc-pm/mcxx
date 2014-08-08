@@ -155,7 +155,12 @@ namespace Analysis {
                  has_key(_ASSERT_AUTOSC_SHARED));
     }
     
-    bool Node::is_visited() const
+    bool Node::has_correctness_dead_assertion() const
+    {
+        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    bool Node::is_visited( ) const
     {
         return _visited;
     }
@@ -1832,6 +1837,29 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
+
+    // ****************************************************************************** //
+    // **************** Getters and setters for correctness analysis **************** //
+
+    Nodecl::List Node::get_correctness_dead_vars()
+    {
+        Nodecl::List dead_vars;
+        if(has_key(_CORRECTNESS_DEAD_VARS))
+            dead_vars = get_data<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
+        return dead_vars;
+    }
+    
+    void Node::add_correctness_dead_var(const Nodecl::NodeclBase& n)
+    {
+        Nodecl::List dead_vars = get_correctness_dead_vars();
+        dead_vars.append(n);
+        set_data(_CORRECTNESS_DEAD_VARS, dead_vars);
+    }
+    
+    // **************** Getters and setters for correctness analysis **************** //
+    // ****************************************************************************** //
+
+
     
     // ****************************************************************************** //
     // **************** Getters and setters for vectorization analysis ************** //
@@ -2000,7 +2028,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_undefined_vars.begin(), new_assert_undefined_vars.end()), 
                                          _ASSERT_UNDEFINED);
     }
@@ -2022,7 +2050,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_live_out_var(const Nodecl::List& new_assert_live_out_vars)
-            {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_live_out_vars.begin(), new_assert_live_out_vars.end()), 
                                          _ASSERT_LIVE_OUT);
     }
@@ -2033,7 +2061,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_dead_var(const Nodecl::List& new_assert_dead_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_dead_vars.begin(), new_assert_dead_vars.end()), 
                                          _ASSERT_DEAD);
     }    
@@ -2125,9 +2153,35 @@ namespace Analysis {
     }
     
     void Node::add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s)
-        {
+    {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_s.begin(), new_assert_auto_sc_s.end()), 
                               _ASSERT_AUTOSC_SHARED);
+    }
+
+    Nodecl::List Node::get_assert_correctness_dead_vars()
+    {
+        Nodecl::List assert_dead_vars;
+        if(has_key(_ASSERT_CORRECTNESS_DEAD_VARS))
+        {
+            assert_dead_vars = get_data<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
+        }
+        return assert_dead_vars;
+    }
+    
+    void Node::set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars)
+    {
+        Nodecl::List assert_correct_dead_vars = get_assert_correctness_dead_vars();
+        for(Nodecl::List::const_iterator it = new_assert_correct_dead_vars.begin( ); 
+            it != new_assert_correct_dead_vars.end( ); ++it)
+        {
+            // FIXME When we delete ExtendedSymbol and transform this methods to nodecl instead of extended symbol
+//             Utils::ExtendedSymbol new_assert_correct_dead_var(*it);
+//             if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, assert_correct_dead_vars).is_null())
+            {
+                assert_correct_dead_vars.append(*it);
+            }
+        }
+        set_data(_ASSERT_CORRECTNESS_DEAD_VARS, assert_correct_dead_vars);
     }
     
     // **************** END getters and setters for analysis checking *************** //

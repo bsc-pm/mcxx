@@ -38,9 +38,8 @@ namespace TL
 namespace Vectorization
 {
     SPMLVectorizerVisitorExpression::SPMLVectorizerVisitorExpression(
-            VectorizerEnvironment& environment,
-            const bool cache_enabled) :
-        VectorizerVisitorExpression(environment, cache_enabled)
+            VectorizerEnvironment& environment)
+        : VectorizerVisitorExpression(environment)
     {
     }
 

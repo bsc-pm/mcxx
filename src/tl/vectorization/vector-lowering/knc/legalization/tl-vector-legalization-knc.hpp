@@ -56,8 +56,8 @@ namespace TL
 
                 virtual void visit(const Nodecl::VectorConversion& n);
 
-                virtual void visit(const Nodecl::UnalignedVectorLoad& n);
-                virtual void visit(const Nodecl::UnalignedVectorStore& n);
+                virtual void visit(const Nodecl::VectorLoad& n);
+                virtual void visit(const Nodecl::VectorStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
                 virtual void visit(const Nodecl::VectorScatter& n);
 

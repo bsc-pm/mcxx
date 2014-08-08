@@ -246,6 +246,7 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Dead& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
         Ret visit( const Nodecl::Analysis::InductionVariable& n );
@@ -339,7 +340,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
-        Ret visit( const Nodecl::OpenMP::Cache& n );
+        Ret visit( const Nodecl::OpenMP::Overlap& n );
         Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
         Ret visit( const Nodecl::OpenMP::Commutative& n );
         Ret visit( const Nodecl::OpenMP::Concurrent& n );
@@ -427,9 +428,6 @@ namespace Analysis {
         Ret visit( const Nodecl::TryBlock& n );
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
-        Ret visit( const Nodecl::UnalignedVectorLoad& n );
-        Ret visit( const Nodecl::UnalignedVectorStore& n );
-        Ret visit( const Nodecl::UnalignedVectorStreamStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
@@ -482,7 +480,6 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorSincos& n );
         Ret visit( const Nodecl::VectorSqrt& n );
         Ret visit( const Nodecl::VectorStore& n );
-        Ret visit( const Nodecl::VectorStreamStore& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
         Ret visit( const Nodecl::DefaultArgument& n );
         Ret visit( const Nodecl::FortranActualArgument& n );

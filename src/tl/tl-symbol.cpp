@@ -702,7 +702,7 @@ namespace TL
         return locus_get_filename(_symbol->locus);
     }
 
-    int Symbol::get_line() const
+    unsigned int Symbol::get_line() const
     {
         return locus_get_line(_symbol->locus);
     }
