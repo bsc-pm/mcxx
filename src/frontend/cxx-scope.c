@@ -923,6 +923,85 @@ char class_is_in_lexical_scope(decl_context_t decl_context,
     return 0;
 }
 
+char compute_type_of_dependent_conversion_type_id(
+        nodecl_t nodecl_name,
+        decl_context_t decl_context)
+{
+    // This is weird, the left hand side of this class-member access is
+    // dependent, so technically we cannot check anything in its scope
+    // (maybe it is a class), so we will go with the current one.
+    //
+    // In C++2003 technically this would lead to an ambiguous case once the
+    // function is instantiated, since we still have to do a double lookup and
+    // verify that it matches, but there could exist a T::C<T*> and a ::C<T*>.
+    //
+    // In C++2011 we have to prioritize the class lookup before the lookup in the
+    // postfix-expression, so C<T*> will always be solved by the postfix context.
+    //
+    // template <typename T>
+    // void f()
+    // {
+    //   T t;
+    //   t.operator C<T*>(); // C<T*> or T::C<T*> ??? We will try the first one
+    //   // Note that if the former is desired we can always write 'typename T::C<T*>'
+    //   // so this problem can always be worked around
+    // }
+    nodecl_t nodecl_type = nodecl_get_child(nodecl_name, 1);
+    AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 2));
+    ERROR_CONDITION((type_id == NULL)
+            == nodecl_is_null(nodecl_type),
+            "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
+
+    if (!nodecl_is_null(nodecl_type))
+        return 1;
+
+    // Nullify tree so it won't bee freed afterwards if we discard this tree.
+    nodecl_set_child(nodecl_name, 2, nodecl_null());
+
+    AST type_specifier_seq = ASTSon0(type_id);
+    AST type_spec = ASTSon1(type_specifier_seq);
+
+    // Build the type tree
+    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+    {
+        AST id_expression = ASTSon0(type_spec);
+
+        decl_context_t expression_context =
+            nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
+
+        nodecl_t nodecl_id_expression = nodecl_null();
+        compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+
+        ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+    }
+
+    type_t* t = get_error_type();
+
+    diagnostic_context_push_buffered();
+    t = compute_type_for_type_id_tree(type_id, decl_context,
+            /* out_simple_type */ NULL, /* out_gather_info */ NULL);
+    diagnostic_context_pop_and_discard();
+
+    // If not found, error
+    if (is_error_type(t))
+    {
+        error_printf("%s: error: type-id %s of conversion-id not found\n",
+                nodecl_locus_to_str(nodecl_name),
+                prettyprint_in_buffer(type_id));
+        return 0;
+    }
+
+    // Do not let these nodes outlive the FE
+    ast_free(type_id);
+
+    // Keep the type
+    nodecl_set_child(
+            nodecl_name, 1,
+            nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
+
+    return 1;
+}
+
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
@@ -969,7 +1048,16 @@ static scope_entry_t* create_new_dependent_entity(
     int i;
     for (i = nested_name_index + 1; i < nested_name_size; i++)
     {
-        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_shallow_copy(parts[i]));
+        nodecl_t current_part = nodecl_shallow_copy(parts[i]);
+        nodecl_list = nodecl_append_to_list(nodecl_list, current_part);
+        if (nodecl_get_kind(current_part) == NODECL_CXX_DEP_NAME_CONVERSION)
+        {
+            char ok = compute_type_of_dependent_conversion_type_id(
+                    current_part,
+                    decl_context);
+            if (!ok)
+                return NULL;
+        }
     }
 
     nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, make_locus("", 0, 0));
@@ -6716,59 +6804,64 @@ static scope_entry_list_t* query_nodecl_conversion_name(
         return NULL;
     }
 
+    decl_context_t class_context = decl_context;
+    // Lookup in class scope if available
+    class_context.current_scope = class_context.class_scope;
+
+    nodecl_t nodecl_conversion_type = nodecl_get_child(nodecl_name, 1);
+
     // We kept this tree because of the complicated lookup required for conversion-id
     AST type_id = nodecl_get_ast(nodecl_get_child(nodecl_name, 2));
-    ERROR_CONDITION(type_id == NULL, "Invalid node created by compute_nodecl_name_from_unqualified_id\n", 0);
+    ERROR_CONDITION((type_id == NULL) == /* Both cannot be NULL or non-NULL at the same time */
+            nodecl_is_null(nodecl_get_child(nodecl_name, 1)),
+            "This NODECL_CXX_DEP_NAME_CONVERSION has wrong type information", 0);
 
-    // Nullify tree so it won't bee freed afterwards if we discard this tree
-    nodecl_set_child(nodecl_name, 2, nodecl_null());
-
-    AST type_specifier_seq = ASTSon0(type_id);
-    AST type_spec = ASTSon1(type_specifier_seq);
-
-    // Build the type tree
-    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+    type_t* conversion_type = NULL;
+    if (type_id != NULL)
     {
-        AST id_expression = ASTSon0(type_spec);
+        // The type has not yet been synthesized at this point
 
-        decl_context_t expression_context =
-            nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
+        // Nullify tree so it won't bee freed afterwards if we discard this tree
+        nodecl_set_child(nodecl_name, 2, nodecl_null());
 
-        nodecl_t nodecl_id_expression = nodecl_null();
-        compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+        AST type_specifier_seq = ASTSon0(type_id);
+        AST type_spec = ASTSon1(type_specifier_seq);
 
-        ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
-    }
+        // Build the type tree
+        if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+        {
+            AST id_expression = ASTSon0(type_spec);
 
-    type_t* type_looked_up_in_class = get_error_type();
-    type_t* type_looked_up_in_enclosing = get_error_type();
+            decl_context_t expression_context =
+                nodecl_get_decl_context(nodecl_get_child(nodecl_name, 0));
 
-    decl_context_t class_context = decl_context;
-    if (decl_context.class_scope != NULL)
-    {
-        // Lookup in class scope if available
-        class_context.current_scope = class_context.class_scope;
+            nodecl_t nodecl_id_expression = nodecl_null();
+            compute_nodecl_name_from_id_expression(id_expression, expression_context, &nodecl_id_expression);
+
+            ast_set_child(type_specifier_seq, 1, nodecl_get_ast(nodecl_id_expression));
+        }
+
+        type_t* type_looked_up_in_class = get_error_type();
+        type_t* type_looked_up_in_enclosing = get_error_type();
 
         diagnostic_context_push_buffered();
         type_looked_up_in_class = compute_type_for_type_id_tree(type_id, class_context,
                 /* out_simple_type */ NULL, /* out_gather_info */ NULL);
         diagnostic_context_pop_and_discard();
-    }
 
-    diagnostic_context_push_buffered();
-    type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
-            /* out_simple_type */ NULL, /* out_gather_info */ NULL
-            );
-    diagnostic_context_pop_and_discard();
+        diagnostic_context_push_buffered();
+        type_looked_up_in_enclosing = compute_type_for_type_id_tree(type_id, top_level_decl_context,
+                /* out_simple_type */ NULL, /* out_gather_info */ NULL
+                );
+        diagnostic_context_pop_and_discard();
 
-    type_t* t = type_looked_up_in_class;
-    if (is_error_type(t))
-    {
-        t = type_looked_up_in_enclosing;
-    }
-    else
-    {
-        if (!is_error_type(type_looked_up_in_enclosing))
+        type_t* t = type_looked_up_in_class;
+        if (is_error_type(t))
+        {
+            t = type_looked_up_in_enclosing;
+        }
+        else if (IS_CXX03_LANGUAGE
+                && !is_error_type(type_looked_up_in_enclosing))
         {
             if (!equivalent_types(t, type_looked_up_in_enclosing))
             {
@@ -6781,32 +6874,41 @@ static scope_entry_list_t* query_nodecl_conversion_name(
                 return NULL;
             }
         }
-    }
 
-    // If still not found, error
-    if (is_error_type(t))
+        // If still not found, error
+        if (is_error_type(t))
+        {
+            error_printf("%s: error: type-id %s of conversion-id not found\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    prettyprint_in_buffer(type_id));
+            return NULL;
+        }
+
+        if (class_context.class_scope == NULL)
+        {
+            error_printf("%s: error: 'operator %s' requires a class scope\n", 
+                    nodecl_locus_to_str(nodecl_name),
+                    prettyprint_in_buffer(type_id));
+            return NULL;
+        }
+
+        ast_free(type_id);
+
+        // Keep the type
+        nodecl_set_child(
+                nodecl_name, 1,
+                nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
+
+        conversion_type = t;
+    }
+    else
     {
-        error_printf("%s: error: type-id %s of conversion-id not found\n",
-                nodecl_locus_to_str(nodecl_name),
-                prettyprint_in_buffer(type_id));
-        return NULL;
+        // We already synthesized the type for this conversion id
+        conversion_type = nodecl_get_type(nodecl_conversion_type);
     }
+    ERROR_CONDITION(conversion_type == NULL, "No type was computed!", 0);
 
-    if (class_context.class_scope == NULL)
-    {
-        error_printf("%s: error: 'operator %s' requires a class scope\n", 
-                nodecl_locus_to_str(nodecl_name),
-                prettyprint_in_buffer(type_id));
-        return NULL;
-    }
-
-    // Keep the type
-    nodecl_set_child(
-            nodecl_name, 1,
-            nodecl_make_type(t, nodecl_get_locus(nodecl_name)));
-
-    scope_entry_list_t* result = query_conversion_function_info(class_context, t, nodecl_get_locus(nodecl_name));
-
+    scope_entry_list_t* result = query_conversion_function_info(class_context, conversion_type, nodecl_get_locus(nodecl_name));
     return result;
 }
 
@@ -6967,8 +7069,10 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                             i, num_items,
                             nodecl_get_locus(current_name),
                             list);
-
                     xfree(list);
+
+                    if (dependent_symbol == NULL)
+                        return NULL;
 
                     return entry_list_new(dependent_symbol);
                 }
@@ -7026,6 +7130,10 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                                 nodecl_get_locus(current_name),
                                 list);
                         xfree(list);
+
+                        if (dependent_symbol == NULL)
+                            return NULL;
+
                         return entry_list_new(dependent_symbol);
                     }
 
@@ -7047,6 +7155,10 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
                         nodecl_get_locus(current_name),
                         list);
                 xfree(list);
+
+                if (dependent_symbol == NULL)
+                    return NULL;
+
                 return entry_list_new(dependent_symbol);
             }
             else
@@ -7834,23 +7946,13 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
             }
         case AST_CONVERSION_FUNCTION_ID:
             {
-                *nodecl_output = nodecl_make_cxx_dep_name_conversion(
-                        nodecl_make_context(
-                            /* optional statement sequence */ nodecl_null(),
-                            decl_context,
-                            ast_get_locus(unqualified_id)),
-                        nodecl_null(),
-                        ast_get_locus(unqualified_id));
 
                 // This is ugly but we need to keep the original tree around before lowering it into nodecl
-                AST conversion_type_id = ASTSon0(unqualified_id);
-                AST parent = ast_get_parent(conversion_type_id);
-
-                ast_set_child(nodecl_get_ast(*nodecl_output), 2, conversion_type_id);
+                // So we copy the AST_CONVERSION_TYPE_ID
+                AST conversion_type_id =
+                        ASTSon0(unqualified_id);
 
                 // Make some work to prevent that ambiguities slip in
-                // That ast_set_child actually botched the original AST, fix it
-                ast_set_parent(conversion_type_id, parent);
                 AST type_specifier_seq = ASTSon0(conversion_type_id);
                 AST type_spec = ASTSon1(type_specifier_seq);
 
@@ -7863,6 +7965,18 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                     // This will fix the tree as a side effect
                     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_id_expression);
                 }
+
+                conversion_type_id = ast_copy(conversion_type_id);
+
+                *nodecl_output = nodecl_make_cxx_dep_name_conversion(
+                        nodecl_make_context(
+                            /* optional statement sequence */ nodecl_null(),
+                            decl_context,
+                            ast_get_locus(unqualified_id)),
+                        nodecl_null(),
+                        /* literal type id */ _nodecl_wrap(conversion_type_id),
+                        ast_get_locus(unqualified_id));
+
 
                 break;
             }
