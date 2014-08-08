@@ -28,6 +28,7 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-omp-lint.hpp"
 
 #include <algorithm>
 
@@ -256,6 +257,61 @@ namespace {
         }
     }
 
+    static Nodecl::List nodecl_list_difference(const Nodecl::List& assert_list, const Nodecl::List& analysis_list)
+    {
+        Nodecl::List res;
+        for(Nodecl::List::const_iterator it = assert_list.begin(); it != assert_list.end(); ++it)
+        {
+            if(!Nodecl::Utils::nodecl_is_in_nodecl_list(*it, analysis_list))
+                res.append(*it);
+        }
+        return res;
+    }
+    
+    void compare_assert_list_with_analysis_list(
+            const Nodecl::List& assert_list, const Nodecl::List& analysis_list,
+            std::string locus_str, int node_id,
+            std::string clause_name, std::string analysis_name)
+    {
+        if(!assert_list.empty())
+        {
+            if((assert_list.size() == 1) && 
+               (assert_list.begin()->is<Nodecl::Symbol>()) && 
+               (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
+            {
+                if(!analysis_list.empty())
+                {
+                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                   "There are %s variables associated to node %d\n",
+                                   locus_str.c_str( ),
+                                   clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                   analysis_name.c_str( ), node_id );
+                }
+            }
+            else if(analysis_list.empty())
+            {
+                internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                "There are no %s variables associated to node %d\n",
+                                locus_str.c_str( ),
+                                clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                analysis_name.c_str( ), node_id );
+            }
+            else
+            {
+                Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+                if( !diff.empty( ) )
+                {
+                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                    "Expressions '%s' are no %s variables associated to node %d\n",
+                                    locus_str.c_str( ),
+                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                    diff.prettyprint().c_str(),
+                                    analysis_name.c_str( ), node_id );
+                }
+            }
+        }
+    }
+    
     void check_assertions_rec( Node* current )
     {
         if( !current->is_visited( ) )
@@ -418,7 +474,7 @@ namespace {
                 // Autoscope is particular because the computed auto-scope is not in the current node (the task creation node),
                 // but in his task child node, which is the actual task
                 ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least 1 child, the created task, "\
+                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least, 1 child, the created task, "\
                                  "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
                                  "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
                 Node* task = ( children[0]->is_omp_task_node( ) ? children[0] : children[1] );
@@ -429,7 +485,6 @@ namespace {
                 NodeclSet autosc_private = task->get_sc_private_vars();
                 NodeclSet autosc_shared = task->get_sc_shared_vars();
 
-                // TODO
                 compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate,
                                                       locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
                 compare_assert_set_with_analysis_set( assert_autosc_private, autosc_private,
@@ -439,7 +494,22 @@ namespace {
 
             }
 
-
+            // Correctness
+            if(current->has_correctness_dead_assertion())
+            {
+                ObjectList<Node*> children = current->get_children();
+                ERROR_CONDITION(children.size() > 2, "A task creation node should have, at least, 1 child, the created task, "\
+                                "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
+                                "Nonetheless task %d has %d children.", current->get_id(), children.size());
+                Node* task = (children[0]->is_omp_task_node() ? children[0] : children[1]);
+                
+                Nodecl::List assert_correctness_dead = current->get_assert_correctness_dead_vars();
+                Nodecl::List correctness_dead = task->get_correctness_dead_vars();
+                
+                compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead, 
+                                                       locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
+            }
+            
             // Recursively visit inner nodes
             if( current->is_graph_node( ) )
             {
@@ -570,6 +640,16 @@ namespace {
                 Nodecl::Analysis::AutoScope::Shared::make(
                     Nodecl::List::make( auto_sc_s_vars_clause.get_arguments_as_expressions( ) ), loc ) );
         }
+        
+        // Correctness clauses
+        if(pragma_line.get_clause("correctness_dead").is_defined())
+        {
+            PragmaCustomClause correctness_dead_clause = pragma_line.get_clause("correctness_dead");
+            
+            environment.append(
+                Nodecl::Analysis::Correctness::Dead::make(
+                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions( ) ), loc ));
+        }
     }
 }
 
@@ -653,8 +733,11 @@ namespace {
         PCFGAnalysis_memento memento;
         analysis.all_analyses(memento, ast);
 
-        // Check PCFG consistency
         ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
+        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            TL::OpenMP::execute_correctness_checks(*it);
+        
+        // Check PCFG consistency
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
             if( VERBOSE )
@@ -671,7 +754,7 @@ namespace {
             check_analysis_assertions( *it );
         }
 
-        // Remove the nodes included in this
+        // Remove the nodes added in this phase
         AnalysisCheckVisitor v;
         v.walk( ast );
     }

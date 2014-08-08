@@ -1325,6 +1325,7 @@ static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     if (ASTSon1(a) != NULL)
     {
         character_separated_sequence_handler(f, ASTSon1(a), pt_ctx, "::", NULL);
+        token_fprintf(f, a, pt_ctx, "::");
     }
 
     prettyprint_level(f, ASTSon2(a), pt_ctx);

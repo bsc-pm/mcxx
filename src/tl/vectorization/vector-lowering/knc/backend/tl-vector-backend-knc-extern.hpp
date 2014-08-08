@@ -60,16 +60,22 @@
 #define _CMP_GT_OQ     0x1E
 #define _CMP_TRUE_US   0x1F
 
+/*
 typedef enum {
-    _MM_CMPINT_EQ,      /* Equal */
-    _MM_CMPINT_LT,      /* Less than */
-    _MM_CMPINT_LE,      /* Less than or Equal */
-    _MM_CMPINT_UNUSED,
-    _MM_CMPINT_NE,      /* Not Equal */
-    _MM_CMPINT_NLT,     /* Not Less than */
-#define _MM_CMPINT_GE   _MM_CMPINT_NLT  /* Greater than or Equal */
-    _MM_CMPINT_NLE      /* Not Less than or Equal */
-#define _MM_CMPINT_GT   _MM_CMPINT_NLE  /* Greater than */
+    _MM_CMPINT_EQ = 0,      // Equal 
+    _MM_CMPINT_LT = 1,      // Less than 
+    _MM_CMPINT_LE = 2,      // Less than or Equal 
+    _MM_CMPINT_UNUSED = 3,
+    _MM_CMPINT_NE = 4,      // Not Equal 
+    _MM_CMPINT_NLT = 5,     // Not Less than 
+#define _MM_CMPINT_GE   _MM_CMPINT_NLT  // Greater than or Equal 
+    _MM_CMPINT_NLE = 6      // Not Less than or Equal 
+#define _MM_CMPINT_GT   _MM_CMPINT_NLE  // Greater than 
 } _MM_CMPINT_ENUM;
+
+
+const char* cmpint_enum_to_string[] = {"_MM_CMPINT_EQ", "_MM_CMPINT_LT", "_MM_CMPINT_LE", "_MM_CMPINT_UNUSED",
+                              "_MM_CMPINT_NE", "_MM_CMPINT_NLT", "_MM_CMPINT_NLE"};
+*/
 
 #endif // KNC_VECTOR_MACROS_HPP

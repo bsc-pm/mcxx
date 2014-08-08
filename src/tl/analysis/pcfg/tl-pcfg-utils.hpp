@@ -537,6 +537,16 @@ namespace Analysis {
     #define _DEPS_UNDEF                     "deps_undef"
     
     
+    // Correctness analysis attributes
+    //////////////////////////////////
+    
+    /*! \def _CORRECTNESS_DEAD_VARS
+     * Set of variables detected as dead variables during OMP/OMPSS correctness phase
+     * Available only in task nodes
+     */
+    #define _CORRECTNESS_DEAD_VARS          "correctness_dead"
+    
+    
     // Analysis checking attributes
     ///////////////////////////////
     
@@ -599,6 +609,12 @@ namespace Analysis {
      * Set of variables autoscoped as shared in a given point of the program
      */
     #define _ASSERT_AUTOSC_SHARED           "assert_autosc_shared"
+    
+    
+    /*! \def _ASSERT_CORRECTNESS_DEAD_VARS
+     * Set of dead variables at the out point of a given task
+     */
+    #define _ASSERT_CORRECTNESS_DEAD_VARS   "assert_correctness_dead"
     
     // ************************** END PCFG enumerations and defines ************************* //
     // ************************************************************************************** //
@@ -686,6 +702,7 @@ namespace Analysis {
     CLAUSE(assert_autosc_firstprivate) \
     CLAUSE(assert_autosc_private) \
     CLAUSE(assert_autosc_shared) \
+    CLAUSE(assert_correctness_dead) \
     CLAUSE(assert_dead) \
     CLAUSE(assert_defined) \
     CLAUSE(assert_induction_var) \
@@ -696,7 +713,6 @@ namespace Analysis {
     CLAUSE(assert_upper_exposed) \
     CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
@@ -720,6 +736,7 @@ namespace Analysis {
     CLAUSE(nontemporal) \
     CLAUSE(nowait) \
     CLAUSE(out) \
+    CLAUSE(overlap) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \
@@ -867,6 +884,8 @@ namespace Analysis {
     friend class PCFGVisitor;
     };
 
+    std::string print_node_list(const ObjectList<Node*>& list);
+    
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
     

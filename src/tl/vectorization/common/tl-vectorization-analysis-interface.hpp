@@ -40,7 +40,7 @@ namespace TL
 {
 namespace Vectorization
 {
-    class VectorizationAnalysisMaps
+    class VectorizationAnalysisCopyMaps
     {
         protected:
             Nodecl::Utils::NodeclDeepCopyMap _orig_to_copy_nodes;
@@ -52,22 +52,29 @@ namespace Vectorization
             std::list<Nodecl::NodeclBase> _registered_nodes;
     };
 
+    typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
+    typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
+    struct VectorizationAnalysisInfo
+    {
+        map_node_bool_t uniform_nodes;
+        map_node_bool_t linear_nodes;
+        map_node_bool_t non_red_iv_nodes;
+        map_node_bool_t adjacent_nodes;
+        map_node_bool_t simd_aligned_nodes;
+    };
 
-    class VectorizationAnalysisInterface : public VectorizationAnalysisMaps,
+    typedef std::map<Nodecl::NodeclBase,
+            VectorizationAnalysisInfo> map_scope_analysis_info_t;
+    typedef std::pair<Nodecl::NodeclBase,
+            VectorizationAnalysisInfo> pair_scope_analysis_info_t;
+    class VectorizationAnalysisInterface : public VectorizationAnalysisCopyMaps,
                                            public Analysis::AnalysisInterface
     {
         private:
+   
             Nodecl::NodeclBase _original_node;
-
-            typedef std::map<Nodecl::NodeclBase, bool> map_node_bool_t;
-            typedef std::pair<Nodecl::NodeclBase, bool> pair_node_bool_t;
-            map_node_bool_t uniform_nodes;
-            map_node_bool_t linear_nodes;
-            map_node_bool_t iv_nodes;
-            map_node_bool_t non_red_iv_nodes;
-            map_node_bool_t adjacent_nodes;
-            map_node_bool_t simd_aligned_nodes;
-
+            map_scope_analysis_info_t _scope_analysis_info;
+ 
             Nodecl::FunctionCode copy_function_code(const Nodecl::NodeclBase& n);
 
             Nodecl::NodeclBase translate_input(
@@ -93,7 +100,9 @@ namespace Vectorization
             static VectorizationAnalysisInterface *_vectorizer_analysis;
 
             static void initialize_analysis(
-                    const Nodecl::NodeclBase& enclosing_function);
+                    const Nodecl::NodeclBase& enclosing_function,
+                    const Analysis::WhichAnalysis which_analysis =
+                    Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS);
 
             static void finalize_analysis();
 
@@ -115,22 +124,25 @@ namespace Vectorization
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n);
  
+            objlist_nodecl_t get_linear_nodecls(
+                    const Nodecl::NodeclBase& n );
+
             virtual bool has_been_defined(const Nodecl::NodeclBase& n);
  
             // IVS 
-            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n );
-            DEPRECATED bool is_non_reduction_basic_induction_variable(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n );
+//            virtual bool is_induction_variable( const Nodecl::NodeclBase& scope,
+//                    const Nodecl::NodeclBase& n );
+//            DEPRECATED bool is_non_reduction_basic_induction_variable(
+//                    const Nodecl::NodeclBase& scope,
+//                    const Nodecl::NodeclBase& n );
             virtual Nodecl::NodeclBase get_induction_variable_lower_bound(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n );
-            DEPRECATED Nodecl::NodeclBase get_induction_variable_increment(
-                    const Nodecl::NodeclBase& scope,
-                    const Nodecl::NodeclBase& n );
-            DEPRECATED objlist_nodecl_t get_ivs_nodecls(
-                    const Nodecl::NodeclBase& n );
+//            DEPRECATED Nodecl::NodeclBase get_induction_variable_increment(
+//                    const Nodecl::NodeclBase& scope,
+//                    const Nodecl::NodeclBase& n );
+//            DEPRECATED objlist_nodecl_t get_ivs_nodecls(
+//                    const Nodecl::NodeclBase& n );
 
             //
             // SIMD-specific methods
@@ -140,7 +152,7 @@ namespace Vectorization
             virtual bool is_simd_aligned_access(
                     const Nodecl::NodeclBase& scope,
                     const Nodecl::NodeclBase& n,
-                    const tl_sym_int_map_t& aligned_expressions,
+                    const map_tl_sym_int_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment);
             virtual bool is_suitable_expression(
@@ -148,6 +160,10 @@ namespace Vectorization
                     const objlist_nodecl_t& suitable_expressions,
                     int unroll_factor, int alignment, int& vector_size_module);
 
+            virtual void register_copy(
+                    const Nodecl::NodeclBase& n,
+                    const Nodecl::NodeclBase& n_copy);
+ 
             virtual Nodecl::NodeclBase shallow_copy(
                     const Nodecl::NodeclBase& n);
 

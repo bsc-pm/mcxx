@@ -149,6 +149,7 @@ namespace Analysis {
             bool has_reach_defs_assertion( ) const;
             bool has_induction_vars_assertion( ) const;
             bool has_autoscope_assertion( ) const;
+            bool has_correctness_dead_assertion() const;
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -833,6 +834,17 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
+            // **************** Getters and setters for correctness analysis **************** //
+
+            Nodecl::List get_correctness_dead_vars();
+            void add_correctness_dead_var(const Nodecl::NodeclBase& n);
+
+            // **************** Getters and setters for correctness analysis **************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
             // **************** Getters and setters for vectorization analysis ************** //
             
             ObjectList<Symbol> get_reductions();
@@ -884,6 +896,9 @@ namespace Analysis {
             
             NodeclSet get_assert_auto_sc_shared_vars();
             void add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s);
+            
+            Nodecl::List get_assert_correctness_dead_vars();
+            void set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars);
             
             // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //

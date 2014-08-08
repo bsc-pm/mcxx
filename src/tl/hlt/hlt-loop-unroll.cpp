@@ -93,8 +93,8 @@ namespace TL { namespace HLT {
                             _step.get_constant()));
 
                 Nodecl::NodeclBase new_value = Nodecl::Add::make(
-                        node.shallow_copy(),
                         offset_value,
+                        node.shallow_copy(),
                         _induction_var.get_type().no_ref());
 
                 node.replace(new_value);
@@ -217,9 +217,9 @@ namespace TL { namespace HLT {
             {
                 unrolled_upper_bound =
                     Nodecl::Add::make(
-                            orig_loop_upper_bound.shallow_copy(),
                             const_value_to_nodecl(
                                 const_value_get_signed_int(this->_unroll_factor - 1)),
+                            orig_loop_upper_bound.shallow_copy(),
                             orig_loop_upper_bound.get_type().no_ref());
             }
         }
