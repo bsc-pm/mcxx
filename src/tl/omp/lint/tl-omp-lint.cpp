@@ -210,48 +210,6 @@ namespace {
         return result;
     }
     
-    Nodecl::List collect_all_shared_variables(TL::Analysis::Node* n)
-    {
-        TL::Analysis::PCFGPragmaInfo task_pragma_info = n->get_pragma_node_info();
-        Nodecl::List shared_vars;
-        if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__in ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__out ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__concurrent ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__concurrent).get_nodecl().as<Nodecl::OpenMP::Concurrent>().get_inout_deps());
-        }
-        if( task_pragma_info.has_clause( TL::Analysis::__commutative ) )
-        {
-            shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__commutative).get_nodecl().as<Nodecl::OpenMP::Commutative>().get_inout_deps());
-        }
-        return shared_vars;
-    }
-    
     tribool task_is_locally_bound( TL::Analysis::Node *n, Nodecl::List& local_vars )
     {
         ERROR_CONDITION( !n->is_omp_task_node( ), "Expecting a Task node, but found a '%s' node.", 
@@ -260,7 +218,7 @@ namespace {
         Nodecl::NodeclBase task = n->get_graph_related_ast( );
         ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
         
-        Nodecl::List shared_vars = collect_all_shared_variables(n);
+        Nodecl::List shared_vars = n->get_all_shared_variables();
         return any_symbol_is_local(shared_vars, local_vars);
     }
     
@@ -389,7 +347,7 @@ namespace {
         ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
         
         // 2.- Collect all symbols/data references that may cause a race condition
-        Nodecl::List task_shared_variables = collect_all_shared_variables(n);
+        Nodecl::List task_shared_variables = n->get_all_shared_variables();
         
         // 3.- Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
         

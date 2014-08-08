@@ -83,6 +83,48 @@ namespace Analysis {
         return (_id == node._id);
     }
 
+    Nodecl::List Node::get_all_shared_variables()
+    {
+        TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
+        Nodecl::List shared_vars;
+        if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__in ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__out ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__concurrent ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__concurrent).get_nodecl().as<Nodecl::OpenMP::Concurrent>().get_inout_deps());
+        }
+        if( task_pragma_info.has_clause( TL::Analysis::__commutative ) )
+        {
+            shared_vars.append(
+                task_pragma_info.get_clause(TL::Analysis::__commutative).get_nodecl().as<Nodecl::OpenMP::Commutative>().get_inout_deps());
+        }
+        return shared_vars;
+    }
+    
     void Node::erase_entry_edge(Node* source)
     {
         EdgeList::iterator it;
