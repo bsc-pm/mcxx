@@ -39,9 +39,8 @@ namespace TL
 namespace Vectorization
 {
     VectorizerVisitorExpression::VectorizerVisitorExpression(
-            VectorizerEnvironment& environment,
-            const bool cache_enabled) :
-        _environment(environment), _cache_enabled(cache_enabled)
+            VectorizerEnvironment& environment) :
+        _environment(environment)
     {
     }
 
@@ -686,6 +685,16 @@ namespace Vectorization
                         bool nontemporal_store = (nontemporal_it !=
                                 _environment._nontemporal_exprs_map.end());
 
+                        Nodecl::List store_flags;
+                        store_flags.append(vector_scatter);
+
+                        VECTORIZATION_DEBUG()
+                        {
+                            fprintf(stderr, "VECTORIZER: Store '%s'",
+                                    lhs.prettyprint().c_str());
+                        }
+
+
                         // Aligned
                         if(VectorizationAnalysisInterface::_vectorizer_analysis->
                                 is_simd_aligned_access(
@@ -696,100 +705,42 @@ namespace Vectorization
                                     _environment._vectorization_factor,
                                     _environment._vectorization_factor * assignment_type.get_size()))
                         {
-                            if (nontemporal_store)
+                            store_flags.append(Nodecl::AlignedFlag::make());
+
+                            VECTORIZATION_DEBUG()
                             {
-                                VECTORIZATION_DEBUG()
-                                {
-                                    fprintf(stderr, "VECTORIZER: Aligned stream store '%s'\n",
-                                            lhs.prettyprint().c_str());
-                                }
-
-                                const Nodecl::VectorStreamStore vector_stream_store =
-                                    Nodecl::VectorStreamStore::make(
-                                            Nodecl::Reference::make(
-                                                lhs.shallow_copy(),
-                                                basic_type.get_pointer_to(),
-                                                n.get_locus()),
-                                            rhs.shallow_copy(),
-                                            mask.shallow_copy(),
-                                            Nodecl::List::make(
-                                                nontemporal_it->second).shallow_copy(),
-                                            vector_type,
-                                            n.get_locus());
-
-                                n.replace(vector_stream_store);
-                            }
-                            else
-                            {
-                                VECTORIZATION_DEBUG()
-                                {
-                                    fprintf(stderr, "VECTORIZER: Aligned store  '%s'\n",
-                                            lhs.prettyprint().c_str());
-                                }
-
-                                const Nodecl::VectorStore vector_store =
-                                    Nodecl::VectorStore::make(
-                                            Nodecl::Reference::make(
-                                                lhs.shallow_copy(),
-                                                basic_type.get_pointer_to(),
-                                                n.get_locus()),
-                                            rhs.shallow_copy(),
-                                            mask.shallow_copy(),
-                                            Nodecl::List::make(vector_scatter),
-                                            vector_type,
-                                            n.get_locus());
-
-                                n.replace(vector_store);
+                                fprintf(stderr, " (aligned)");
                             }
                         }
-                        else // Unaligned
+
+                        if (nontemporal_store)
                         {
-                            if (nontemporal_store)
+                            VECTORIZATION_DEBUG()
                             {
-                                VECTORIZATION_DEBUG()
-                                {
-                                    fprintf(stderr, "VECTORIZER: Unaligned stream store '%s'\n",
-                                            lhs.prettyprint().c_str());
-                                }
-
-                                const Nodecl::UnalignedVectorStreamStore vector_stream_store =
-                                    Nodecl::UnalignedVectorStreamStore::make(
-                                            Nodecl::Reference::make(
-                                                lhs.shallow_copy(),
-                                                basic_type.get_pointer_to(),
-                                                n.get_locus()),
-                                            rhs.shallow_copy(),
-                                            mask.shallow_copy(),
-                                            Nodecl::List::make(
-                                                nontemporal_it->second).shallow_copy(),
-                                            vector_type,
-                                            n.get_locus());
-
-                                n.replace(vector_stream_store);
+                                fprintf(stderr, " (nontemporal)");
                             }
-                            else
-                            {
-                                VECTORIZATION_DEBUG()
-                                {
-                                    fprintf(stderr, "VECTORIZER: Unaligned store '%s'\n",
-                                            lhs.prettyprint().c_str());
-                                }
 
-                                const Nodecl::UnalignedVectorStore vector_store =
-                                    Nodecl::UnalignedVectorStore::make(
-                                            Nodecl::Reference::make(
-                                                lhs.shallow_copy(),
-                                                basic_type.get_pointer_to(),
-                                                n.get_locus()),
-                                            rhs.shallow_copy(),
-                                            mask.shallow_copy(),
-                                            Nodecl::List::make(vector_scatter),
-                                            vector_type,
-                                            n.get_locus());
-
-                                n.replace(vector_store);
-                            }
+                            store_flags.append(Nodecl::NontemporalFlag::make());
                         }
+                        
+                        VECTORIZATION_DEBUG()
+                        {
+                            fprintf(stderr, "\n");
+                        }
+
+                        const Nodecl::VectorStore vector_store =
+                            Nodecl::VectorStore::make(
+                                    Nodecl::Reference::make(
+                                        lhs.shallow_copy(),
+                                        basic_type.get_pointer_to(),
+                                        n.get_locus()),
+                                    rhs.shallow_copy(),
+                                    mask.shallow_copy(),
+                                    store_flags,
+                                    vector_type,
+                                    n.get_locus());
+
+                        n.replace(vector_store);
                     }
                     else // Vector Scatter
                     {
@@ -878,8 +829,7 @@ namespace Vectorization
                 // Update lhs
                 lhs = n.get_lhs();
 
-                if(lhs.is<Nodecl::VectorStore>() ||
-                        lhs.is<Nodecl::UnalignedVectorStore>())
+                if(lhs.is<Nodecl::VectorStore>())
                 {
                     Nodecl::VectorStore vstore = lhs.as<Nodecl::VectorStore>();
 
@@ -1086,6 +1036,7 @@ namespace Vectorization
         }
         */
         // Cached access
+/*
         else if (_cache_enabled &&
                 _environment._vectorizer_cache.is_cached_access(n))
         {
@@ -1093,6 +1044,7 @@ namespace Vectorization
             n.replace(_environment._vectorizer_cache.get_load_access(n));
             std::cerr << n.prettyprint() << std::endl;
         }
+*/
         // Vector Load
         else
         {
@@ -1129,6 +1081,15 @@ namespace Vectorization
                         _environment._analysis_simd_scope,
                         n))
             {
+                Nodecl::List load_flags;
+                load_flags.append(vector_gather);
+                
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "VECTORIZER: Load   '%s'",
+                            n.prettyprint().c_str());
+                }
+
                 // Aligned
                 if(VectorizationAnalysisInterface::_vectorizer_analysis->
                         is_simd_aligned_access(
@@ -1139,50 +1100,35 @@ namespace Vectorization
                             _environment._vectorization_factor,
                             _environment._vector_length))
                 {
+                    load_flags.append(Nodecl::AlignedFlag::make());
+
                     VECTORIZATION_DEBUG()
                     {
-                        fprintf(stderr, "VECTORIZER: Aligned load   '%s'\n",
-                                n.prettyprint().c_str());
+                        fprintf(stderr, " (aligned)");
                     }
 
-                    Nodecl::VectorLoad vector_load =
-                        Nodecl::VectorLoad::make(
-                                Nodecl::Reference::make(
-                                    n.shallow_copy(),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                mask,
-                                Nodecl::List::make(vector_gather),
-                                vector_type,
-                                n.get_locus());
-
-                    vector_load.set_constant(const_value);
-
-                    n.replace(vector_load);
                 }
-                else // Unaligned
+               
+                VECTORIZATION_DEBUG()
                 {
-                    VECTORIZATION_DEBUG()
-                    {
-                        fprintf(stderr, "VECTORIZER: Unaligned load '%s'\n",
-                                n.prettyprint().c_str());
-                    }
-
-                    Nodecl::UnalignedVectorLoad vector_load =
-                        Nodecl::UnalignedVectorLoad::make(
-                                Nodecl::Reference::make(
-                                    n.shallow_copy(),
-                                    basic_type.get_pointer_to(),
-                                    n.get_locus()),
-                                mask,
-                                Nodecl::List::make(vector_gather),
-                                vector_type,
-                                n.get_locus());
-
-                    vector_load.set_constant(const_value);
-
-                    n.replace(vector_load);
+                    fprintf(stderr, "\n");
                 }
+
+                Nodecl::VectorLoad vector_load =
+                    Nodecl::VectorLoad::make(
+                            Nodecl::Reference::make(
+                                n.shallow_copy(),
+                                basic_type.get_pointer_to(),
+                                n.get_locus()),
+                            mask,
+                            load_flags,
+                            vector_type,
+                            n.get_locus());
+
+                vector_load.set_constant(const_value);
+
+                n.replace(vector_load);
+
             }
             else // Vector Gather
             {
@@ -1216,6 +1162,17 @@ namespace Vectorization
             VECTORIZATION_DEBUG()
             {
                 std::cerr << "Warning: preventing prefetch function call "\
+                    "from being vectorized: " << n.get_locus() << std::endl;
+            }
+
+            return;
+        }
+
+        if (func_name == "_mm_clevict")
+        {
+            VECTORIZATION_DEBUG()
+            {
+                std::cerr << "Warning: preventing eviction function call "\
                     "from being vectorized: " << n.get_locus() << std::endl;
             }
 
@@ -1600,8 +1557,7 @@ namespace Vectorization
         walk(class_object);
 
         // Gather
-        if(class_object.is<Nodecl::VectorLoad>() ||
-                class_object.is<Nodecl::UnalignedVectorLoad>())
+        if(class_object.is<Nodecl::VectorLoad>())
         {
             Nodecl::VectorLoad vload = class_object.as<Nodecl::VectorLoad>();
 

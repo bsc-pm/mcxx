@@ -661,7 +661,7 @@ namespace TL { namespace Nanox {
                                     <<            as_symbol(vla_private_sym) << ";"
                                     <<    "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
                                     <<    "{"
-                                    <<    "(*__dest).~" << class_type.get_symbol().get_name() << "();"
+                                    <<    "(*__dest).~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();"
                                     <<    "__dest++;"
                                     <<    "}"
                                     << "}"
@@ -696,7 +696,9 @@ namespace TL { namespace Nanox {
                                         <<           as_symbol(private_sym) << ";"
                                         <<     "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
                                         <<     "{"
-                                        <<     "(*__dest).~" << base_type.points_to().get_symbol().get_name() << "();"
+                                        <<     "(*__dest).~"
+                                        <<          base_type.points_to().advance_over_typedefs().get_symbol().get_name()
+                                        <<      "();"
                                         <<     "__dest++;"
                                         <<     "}"
                                         << "}"
@@ -704,7 +706,8 @@ namespace TL { namespace Nanox {
                                 }
                                 else if (class_type.is_named_class())
                                 {
-                                    final_statements << as_symbol(private_sym) << ".~" << class_type.get_symbol().get_name() << "();";
+                                    final_statements << as_symbol(private_sym)
+                                        << ".~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();";
                                 }
                             }
                         }

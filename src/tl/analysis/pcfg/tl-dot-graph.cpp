@@ -565,6 +565,8 @@ connect_node:
             case __OmpTaskCreation:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASK_CREATION\", shape=ellipse];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __Break:

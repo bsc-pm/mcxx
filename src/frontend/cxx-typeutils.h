@@ -170,6 +170,12 @@ LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 // This is a type for a bool 'false'
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
 
+// States that this type is based on another but some attributes or properties
+// have been changed
+LIBMCXX_EXTERN char is_variant_type(type_t* t);
+// Returns the type from which 't' was created
+LIBMCXX_EXTERN type_t* variant_type_get_nonvariant(type_t* t);
+
 // This is a zero type based on any integer/boolean type
 LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_variant_type_zero
 LIBMCXX_EXTERN type_t* get_variant_type_zero(type_t* t);

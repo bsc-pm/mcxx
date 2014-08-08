@@ -173,6 +173,20 @@ namespace Analysis {
           _environ_entry_exit(), _is_vector(false), _is_simd(false), _nid(-1)
     {}
 
+    std::string print_node_list(const ObjectList<Node*>& list)
+    {
+        std::string result;
+        for(ObjectList<Node*>::const_iterator it = list.begin(); it != list.end(); )
+        {
+            std::stringstream ss; ss << (*it)->get_id();
+            result +=  ss.str();
+            ++it;
+            if(it != list.end())
+                result += ", ";
+        }
+        return result;
+    }
+    
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
 

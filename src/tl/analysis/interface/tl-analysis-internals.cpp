@@ -126,8 +126,8 @@ namespace Analysis {
                     it != scope_ivs.end();
                     it++)
             {
-                if(Nodecl::Utils::find_nodecl_by_structure(n,
-                            (*it)->get_variable()))
+                if(Nodecl::Utils::nodecl_contains_nodecl_by_structure(
+                            n, (*it)->get_variable()))
                     return false;
             }
         }

@@ -45,6 +45,7 @@ config.log
 config.status
 config/00.config.plain
 config/10.config.analysis-base
+config/10.config.hlt
 config/10.config.omp-base
 config/40.config.cuda
 config/50.config.cuda
@@ -138,6 +139,7 @@ tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
 tests/config/mercurium-extensions
 tests/config/mercurium-fortran
+tests/config/mercurium-hlt
 tests/config/mercurium-libraries
 tests/config/mercurium-nanox
 tests/config/mercurium-omp

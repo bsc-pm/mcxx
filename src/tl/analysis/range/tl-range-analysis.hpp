@@ -106,8 +106,10 @@ namespace Analysis {
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::Equal& n);
+        Ret visit(const Nodecl::GreaterThan& n);
         Ret visit(const Nodecl::GreaterOrEqualThan& n);
         Ret visit(const Nodecl::LogicalAnd& n);
+        Ret visit(const Nodecl::LowerOrEqualThan& n);
         Ret visit(const Nodecl::LowerThan& n);
         Ret visit(const Nodecl::Mod& n);
         Ret visit(const Nodecl::ObjectInit& n);

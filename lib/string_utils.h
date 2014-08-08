@@ -40,6 +40,16 @@ extern "C" {
 LIBUTILS_EXTERN const char* strappend(const char* orig, const char* appended);
 LIBUTILS_EXTERN const char* strprepend(const char* orig, const char* prepended);
 
+// This is more efficient than a sequence of strappend
+LIBUTILS_EXTERN const char *strconcat_n(unsigned int n, const char** c);
+
+// For scenarios where a sequence of strappend is inefficient
+typedef struct strbuilder_tag strbuilder_t;
+LIBUTILS_EXTERN strbuilder_t* strbuilder_new(void);
+LIBUTILS_EXTERN const char* strbuilder_str(strbuilder_t* strb);
+LIBUTILS_EXTERN void strbuilder_append(strbuilder_t*, const char*);
+LIBUTILS_EXTERN void strbuilder_free(strbuilder_t*);
+
 // States whether the string is blank
 LIBUTILS_EXTERN char is_blank_string(const char* c);
 
