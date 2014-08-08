@@ -76,6 +76,7 @@ namespace {
     // *** Convenient global constants to create the ranges *** //
     const_value_t* zero = const_value_get_zero(/*num_bytes*/ 4, /*sign*/1);
     const_value_t* one = const_value_get_one(/*num_bytes*/ 4, /*sign*/1);
+    const_value_t* minus_one = const_value_get_minus_one(/*num_bytes*/ 4, /*sign*/1);
     
     Optimizations::Calculator calc;
 }
@@ -400,6 +401,72 @@ namespace {
         _output_false_constraints_map[lhs] = c_false;
     }
     
+    // x > c;   ---TRUE-->    X1 = X0 ∩ [ c+1, +∞ ]
+    //          --FALSE-->    X1 = X0 ∩ [-∞, c]
+    void ConstraintBuilderVisitor::visit(const Nodecl::GreaterThan& n)
+    {
+        NBase lhs = n.get_lhs().no_conv();
+        NBase rhs = n.get_rhs().no_conv();
+        
+        // Check the input is something we expect: LHS has a constraint or is a parameter
+        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
+                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
+        
+        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
+        Type t = orig_s.get_type();
+        std::string orig_s_str = orig_s.get_name();
+        
+        // 1.- Compute the conditions associated with the current node
+        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, "GreaterThan");
+        
+        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
+        NBase val = rhs.shallow_copy();
+        if(!rhs.is_constant())
+        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
+            ConstraintReplacement cr(_input_constraints_map);
+            cr.walk(val);
+        }
+        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
+        // x < x;       --TRUE-->       X1 = X0 ∩ [ c+1, +∞ ]
+        // 2.1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(lhs);
+        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = lhs;
+        // 2.1.2.- Build the TRUE constraint value
+        NBase lb = (rhs.is_constant() ? const_value_to_nodecl(const_value_add(rhs.get_constant(), one)) 
+                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+        NBase val_true = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false), 
+                Nodecl::Range::make(lb,
+                                    Nodecl::Analysis::PlusInfinity::make(t), 
+                                    const_value_to_nodecl(one), t),
+                t);
+        // 2.1.3.- Build the TRUE constraint and store it
+        Utils::Constraint c_true = build_constraint(s_true, val_true, t, "GreaterThan TRUE");
+        _output_true_constraints_map[lhs] = c_true;
+        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
+        // x < c;       --FALSE-->      X1 = X0 ∩ [-∞, c]
+        // 2.2.1.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(lhs);
+        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = lhs;
+        // 2.2.2.- Build the FALSE constraint value
+        NBase val_false = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                    val.shallow_copy(), 
+                                    const_value_to_nodecl(one), t),
+                t);
+        // 2.2.3.- Build the FALSE constraint and store it
+        Utils::Constraint c_false = build_constraint(s_false, val_false, t, "GreaterThan FALSE");
+        _output_false_constraints_map[lhs] = c_false;
+    }
+    
     // x >= c;   ---TRUE-->    X1 = X0 ∩ [ c, +∞ ]
     //           --FALSE-->    X1 = X0 ∩ [-∞, c-1]
     void ConstraintBuilderVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
@@ -457,7 +524,9 @@ namespace {
         NBase val_false = 
             Nodecl::Analysis::RangeIntersection::make(
                 s.make_nodecl(/*set_ref_type*/false),
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub, const_value_to_nodecl(one), t),
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                    ub, 
+                                    const_value_to_nodecl(one), t),
                 t);
         // 2.2.3.- Build the FALSE constraint and store it
         Utils::Constraint c_false = build_constraint(s_false, val_false, t, "GreaterOrEqualThan FALSE");
@@ -468,6 +537,73 @@ namespace {
     {
         walk(n.get_lhs());
         walk(n.get_rhs());
+    }
+    
+    // x <= c;    ---TRUE-->    X1 = X0 ∩ [-∞, c]
+    //            --FALSE-->    X1 = X0 ∩ [ c+1,  +∞]
+    void ConstraintBuilderVisitor::visit(const Nodecl::LowerOrEqualThan& n)
+    {
+        NBase lhs = n.get_lhs().no_conv();
+        NBase rhs = n.get_rhs().no_conv();
+        
+        // Check the input is something we expect: LHS has a constraint or is a parameter
+        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
+                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
+        
+        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
+        Type t = orig_s.get_type();
+        std::string orig_s_str = orig_s.get_name();
+        
+        // 1.- Compute the conditions associated with the current node
+        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, "LowerOrEqualThan");
+        
+        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
+        NBase val = rhs.shallow_copy();
+        if(!rhs.is_constant())
+        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
+            ConstraintReplacement cr(_input_constraints_map);
+            cr.walk(val);
+        }
+        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
+        // x < c;       --TRUE-->       X1 = X0 ∩ [-∞, c]
+        // 2.1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(lhs);
+        Symbol s_true(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = lhs;
+        // 2.1.2.- Build the TRUE constraint value
+        NBase val_true = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false), 
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                    val.shallow_copy(), 
+                                    const_value_to_nodecl(zero), t),
+                t);
+        // 2.1.3.- Build the TRUE constraint and store it
+        Utils::Constraint c_true = build_constraint(s_true, val_true, t, "LowerOrEqualThan TRUE");
+        _output_true_constraints_map[lhs] = c_true;
+        
+        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
+        // x < c;       --FALSE-->      X1 = X0 ∩ [c+1, +∞]
+        // 2.2.1.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(lhs);
+        Symbol s_false(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = lhs;
+        // 2.2.2.- Build the FALSE constraint value
+        NBase lb = (rhs.is_constant() ? const_value_to_nodecl(const_value_add(rhs.get_constant(), one)) 
+                                      : Nodecl::Add::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+        NBase val_false = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false), 
+                Nodecl::Range::make(lb,
+                                    Nodecl::Analysis::PlusInfinity::make(t), 
+                                    const_value_to_nodecl(zero), t), 
+                t);
+        // 2.2.3.- Build the FALSE constraint and store it
+        Utils::Constraint c_false = build_constraint(s_false, val_false, t, "LowerOrEqualThan FALSE");
+        _output_false_constraints_map[lhs] = c_false;
     }
     
     // x < c;    ---TRUE-->    X1 = X0 ∩ [-∞, c-1]
@@ -497,7 +633,7 @@ namespace {
             cr.walk(val);
         }
         // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
-        // x < x;       --TRUE-->       X1 = X0 ∩ [-∞, x-1]
+        // x < c;       --TRUE-->       X1 = X0 ∩ [-∞, c-1]
         // 2.1.1.- Build the TRUE constraint symbol
         std::stringstream ss_true; ss_true << get_next_id(lhs);
         Symbol s_true(n.retrieve_context().new_symbol(orig_s.get_name() + "_" + ss_true.str()));
@@ -505,11 +641,13 @@ namespace {
         ssa_to_original_var[s_true] = lhs;
         // 2.1.2.- Build the TRUE constraint value
         NBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
-                                                   : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
         NBase val_true = 
             Nodecl::Analysis::RangeIntersection::make(
                 s.make_nodecl(/*set_ref_type*/false), 
-                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), ub, const_value_to_nodecl(zero), t),
+                Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                    ub, 
+                                    const_value_to_nodecl(zero), t),
                 t);
         // 2.1.3.- Build the TRUE constraint and store it
         Utils::Constraint c_true = build_constraint(s_true, val_true, t, "LowerThan TRUE");
@@ -535,27 +673,76 @@ namespace {
         _output_false_constraints_map[lhs] = c_false;
     }
     
+    // x % c;   ---TRUE-->    X1 = X0 ∩ [0, c-1]
+    //          --FALSE-->    X1 = X0 ∩ ([-∞, -1] U [c, -∞])
     void ConstraintBuilderVisitor::visit(const Nodecl::Mod& n)
     {
-        // Build the constraint symbol
-        std::stringstream ss; ss << get_next_id(NBase::null());
-        std::string sym_name = "_x_" + ss.str();
-        Symbol s(n.retrieve_context().new_symbol(sym_name));
-        Type t = n.get_lhs().get_type();
-        s.set_type(t);
+        NBase lhs = n.get_lhs().no_conv();
+        NBase rhs = n.get_rhs().no_conv();
         
-        // Build the constraint value
-        NBase rhs = n.get_rhs();
-        NBase ub = 
-                (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
-                                   : Nodecl::Minus::make(rhs.shallow_copy(), const_value_to_nodecl(one), rhs.get_type()));
-        NBase val = Nodecl::Range::make(const_value_to_nodecl(zero), ub, const_value_to_nodecl(zero), t);
+        // Check the input is something we expect: LHS has a constraint or is a parameter
+        ERROR_CONDITION(_input_constraints_map.find(lhs) == _input_constraints_map.end(),
+                        "Some input constraint required for the LHS when parsing a %s nodecl", 
+                        ast_print_node_type(n.get_kind()));
         
-        // Build the constraint
-        Utils::Constraint c = build_constraint(s, val, t, "Mod");
-        Nodecl::Symbol var = Nodecl::Symbol::make(TL::Symbol(n.retrieve_context().new_symbol("_x")));
-        var.set_type(t);
-        _output_constraints_map[var] = c;
+        Symbol orig_s(Utils::get_nodecl_base(lhs).get_symbol());
+        Type t = orig_s.get_type();
+        std::string orig_s_str = orig_s.get_name();
+        
+        // 1.- Compute the conditions associated with the current node
+        Symbol s = get_condition_node_constraints(lhs, t, orig_s_str, "Mod");
+        
+        // 2.- Compute the constraints generated from the condition to the possible TRUE and FALSE exit edges
+        NBase val = rhs.shallow_copy();
+        if(!rhs.is_constant())
+        {   // Replace all the memory accesses by the symbols of the constraints arriving to the current node
+            ConstraintReplacement cr(_input_constraints_map);
+            cr.walk(val);
+        }
+        
+        // 2.1.- Compute the constraint that corresponds to the true branch taken from this node
+        // x < x;       --TRUE-->       X1 = X0 ∩ [0, c-1]
+        // 2.1.1.- Build the TRUE constraint symbol
+        std::stringstream ss_true; ss_true << get_next_id(lhs);
+        Symbol s_true(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_true.str()));
+        s_true.set_type(t);
+        ssa_to_original_var[s_true] = lhs;
+        // 2.1.2.- Build the TRUE constraint value
+        NBase ub = (rhs.is_constant() ? const_value_to_nodecl(const_value_sub(rhs.get_constant(), one)) 
+                                      : Nodecl::Minus::make(val.shallow_copy(), const_value_to_nodecl(one), t));
+        NBase val_true = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false), 
+                Nodecl::Range::make(const_value_to_nodecl(zero),
+                                    ub, 
+                                    const_value_to_nodecl(one), t),
+                t);
+        // 2.1.3.- Build the TRUE constraint and store it
+        Utils::Constraint c_true = build_constraint(s_true, val_true, t, "Mod TRUE");
+        _output_true_constraints_map[lhs] = c_true;
+        // 2.2.- Compute the constraint that corresponds to the false branch taken from this node
+        // x < c;       --FALSE-->      X1 = X0 ∩ ([-∞, -1] U [c, -∞])
+        // 2.2.1.- Build the FALSE constraint symbol
+        std::stringstream ss_false; ss_false << get_next_id(lhs);
+        Symbol s_false(n.retrieve_context().new_symbol(orig_s_str + "_" + ss_false.str()));
+        s_false.set_type(t);
+        ssa_to_original_var[s_false] = lhs;
+        // 2.2.2.- Build the FALSE constraint value
+        NBase val_false = 
+            Nodecl::Analysis::RangeIntersection::make(
+                s.make_nodecl(/*set_ref_type*/false),
+                Nodecl::Analysis::RangeUnion::make(
+                    Nodecl::Range::make(Nodecl::Analysis::MinusInfinity::make(t), 
+                                        const_value_to_nodecl(minus_one), 
+                                        const_value_to_nodecl(one), t), 
+                    Nodecl::Range::make(val.shallow_copy(), 
+                                        Nodecl::Analysis::PlusInfinity::make(t), 
+                                        const_value_to_nodecl(one), t), 
+                    t),
+                t);
+        // 2.2.3.- Build the FALSE constraint and store it
+        Utils::Constraint c_false = build_constraint(s_false, val_false, t, "Mod FALSE");
+        _output_false_constraints_map[lhs] = c_false;
     }
     
     void ConstraintBuilderVisitor::visit(const Nodecl::ObjectInit& n)
