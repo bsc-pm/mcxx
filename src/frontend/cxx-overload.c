@@ -2354,6 +2354,17 @@ static char better_ics(implicit_conversion_sequence_t ics1,
         return 1;
     }
 
+    if (ics1.kind == ICSK_USER_DEFINED
+            && ics2.kind == ICSK_ELLIPSIS)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "ICS: ICS1 is better than ICS2 because it is a "
+                    "user-defined conversion against an ellipsis one\n");
+        }
+        return 1;
+    }
+
     if (ics1.kind == ICSK_STANDARD
             && ics2.kind == ICSK_STANDARD)
     {
