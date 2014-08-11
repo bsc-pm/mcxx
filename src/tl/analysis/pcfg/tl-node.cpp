@@ -87,40 +87,40 @@ namespace Analysis {
     {
         TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
         Nodecl::List shared_vars;
-        if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__in ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__out ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__concurrent ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__concurrent).get_nodecl().as<Nodecl::OpenMP::Concurrent>().get_inout_deps());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy());
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__commutative ) )
+        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE) )
         {
             shared_vars.append(
-                task_pragma_info.get_clause(TL::Analysis::__commutative).get_nodecl().as<Nodecl::OpenMP::Commutative>().get_inout_deps());
+                task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy());
         }
         return shared_vars;
     }
@@ -1971,21 +1971,13 @@ namespace Analysis {
     ObjectList<Symbol> Node::get_reductions()
     {
         ObjectList<Symbol> result;
-        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
-        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        const ObjectList<NBase> clauses = this->get_pragma_node_info().get_clauses();
+        for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
         {
-            if(it->get_type() == __reduction)
+            if(it->get_kind() == NODECL_OPEN_M_P_REDUCTION_ITEM)
             {
-                Nodecl::List reductions = 
-                    it->get_nodecl().as<Nodecl::OpenMP::Reduction>().get_reductions().as<Nodecl::List>();
-                for(Nodecl::List::iterator itr = reductions.begin(); itr != reductions.end(); ++itr)
-                {
-                    Symbol reduc(itr->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
-                    ERROR_CONDITION(!reduc.is_valid(), "Invalid symbol stored for Reduction argument '%s'", 
-                                     itr->prettyprint().c_str());
-                    result.insert(reduc);
-                }
-                break;
+                Symbol reduced_sym(it->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
+                result.insert(reduced_sym);
             }
         }
         return result;
@@ -2037,27 +2029,27 @@ namespace Analysis {
         check_for_simd_node(n);
         if(n != NULL)
         {
-            const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase>& clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_type() == __linear)
+                if(it->get_kind() == NODECL_OPEN_M_P_LINEAR)
                 {
-                    Nodecl::List linear_exprs = 
-                        it->get_nodecl().as<Nodecl::OpenMP::Linear>().get_linear_expressions().as<Nodecl::List>();
+                    const Nodecl::List& linear_exprs = it->as<Nodecl::OpenMP::Linear>().get_linear_expressions().as<Nodecl::List>();
                     ObjectList<Symbol> syms;
                     NBase step;
-                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    for(Nodecl::List::const_iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
                     {
-                        if(!itl->is<Nodecl::IntegerLiteral>())
-                        {   // This is not the step of the linear clause
-                            Symbol lin(itl->get_symbol());
-                            ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
-                                            itl->prettyprint().c_str());
-                            syms.insert(lin);
-                        }
-                        else
+                        if(itl->is<Nodecl::IntegerLiteral>())
                         {
                             step = *itl;
+                        }
+                        else
+                        {   // This is not the step of the linear clause
+                            Symbol lin(itl->get_symbol());
+                            ERROR_CONDITION(!lin.is_valid(), 
+                                            "Invalid symbol stored for Linear argument '%s'", 
+                                            itl->prettyprint().c_str());
+                            syms.insert(lin);
                         }
                     }
                    
@@ -2075,14 +2067,13 @@ namespace Analysis {
         check_for_simd_node(n);
         if(n != NULL)
         {
-            const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase> clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_type() == __uniform)
+                if(it->get_kind() == NODECL_OPEN_M_P_UNIFORM)
                 {
-                    Nodecl::List uniform_exprs = 
-                        it->get_nodecl().as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
-                    for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
+                    const Nodecl::List& uniform_exprs = it->as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
+                    for(Nodecl::List::const_iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
                     {
                         Symbol lin(itl->get_symbol());
                         ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Uniform argument '%s'", 

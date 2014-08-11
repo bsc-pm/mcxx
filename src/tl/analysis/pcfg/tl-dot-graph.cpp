@@ -646,7 +646,7 @@ connect_node:
         if(current->is_graph_node() && current->is_omp_node())
         {
             PCFGPragmaInfo pragma_info = current->get_pragma_node_info();
-            ObjectList<PCFGClause> clauses = pragma_info.get_clauses();
+            ObjectList<NBase> clauses = pragma_info.get_clauses();
             int n_clauses = clauses.size();
             if(n_clauses > 0)
             {
@@ -656,9 +656,9 @@ connect_node:
                 std::string current_entry_id = entry_node_id.str();
                 int i = 0;
                 std::string clauses_str = "";
-                for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it, ++i)
+                for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it, ++i)
                 {
-                    clauses_str += it->get_nodecl().prettyprint();
+                    clauses_str += it->prettyprint();
                     if(i < n_clauses-1)
                         clauses_str += "\\n ";
                 }

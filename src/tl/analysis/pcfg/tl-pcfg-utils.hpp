@@ -697,99 +697,15 @@ namespace Analysis {
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
-    #define CLAUSE_LIST \
-    CLAUSE(aligned) \
-    CLAUSE(assert_autosc_firstprivate) \
-    CLAUSE(assert_autosc_private) \
-    CLAUSE(assert_autosc_shared) \
-    CLAUSE(assert_correctness_dead) \
-    CLAUSE(assert_dead) \
-    CLAUSE(assert_defined) \
-    CLAUSE(assert_induction_var) \
-    CLAUSE(assert_live_in) \
-    CLAUSE(assert_live_out) \
-    CLAUSE(assert_reach_in) \
-    CLAUSE(assert_reach_out) \
-    CLAUSE(assert_upper_exposed) \
-    CLAUSE(assert_undefined_behaviour) \
-    CLAUSE(auto) \
-    CLAUSE(concurrent) \
-    CLAUSE(commutative) \
-    CLAUSE(copy_in) \
-    CLAUSE(copy_out) \
-    CLAUSE(copy_inout) \
-    CLAUSE(device) \
-    CLAUSE(final) \
-    CLAUSE(firstprivate) \
-    CLAUSE(firstlastprivate) \
-    CLAUSE(flushed_vars) \
-    CLAUSE(if) \
-    CLAUSE(in) \
-    CLAUSE(in_value) \
-    CLAUSE(inout) \
-    CLAUSE(lastprivate) \
-    CLAUSE(length_for) \
-    CLAUSE(linear) \
-    CLAUSE(mask) \
-    CLAUSE(name) \
-    CLAUSE(no_mask) \
-    CLAUSE(nontemporal) \
-    CLAUSE(nowait) \
-    CLAUSE(out) \
-    CLAUSE(overlap) \
-    CLAUSE(priority) \
-    CLAUSE(private) \
-    CLAUSE(reduction) \
-    CLAUSE(schedule) \
-    CLAUSE(shared) \
-    CLAUSE(shared_alloca) \
-    CLAUSE(simd_reduction) \
-    CLAUSE(suitable) \
-    CLAUSE(task_label) \
-    CLAUSE(target) \
-    CLAUSE(undefined_clause) \
-    CLAUSE(uniform) \
-    CLAUSE(unroll) \
-    CLAUSE(untied) \
-    CLAUSE(wait_on)
-    
-    enum ClauseType {
-#undef CLAUSE
-#define CLAUSE(X) __##X,
-        CLAUSE_LIST
-#undef CLAUSE
-    };
-    
-    class PCFGClause {
-    private:
-        ClauseType _clause_type;
-        NBase _clause;
-        
-    public:
-        //! Constructor
-        PCFGClause(ClauseType ct, const NBase& c);
-
-        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
-        PCFGClause(const PCFGClause& clause);
-        
-        //! Getters
-        ClauseType get_type() const;
-        std::string get_type_as_string() const;
-        NBase get_nodecl() const;
-        
-    friend class PCFGVisitor;   // FIXME Friendship is propagated. We can delete this
-    friend class PCFGPragmaInfo;
-    };
-
     //! Class storing information about pragma clauses
     class PCFGPragmaInfo
     {
     private:
-        ObjectList<PCFGClause> _clauses;
+        ObjectList<NBase> _clauses;
         
     public:
         //! Constructor
-        PCFGPragmaInfo(const PCFGClause& clause);
+        PCFGPragmaInfo(const NBase& clause);
         
         //! Deafault constructor (needed to use this object in LinkData)
         PCFGPragmaInfo();
@@ -797,11 +713,11 @@ namespace Analysis {
         //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
         PCFGPragmaInfo(const PCFGPragmaInfo& p);
         
-        bool has_clause(ClauseType clause) const;
-        PCFGClause get_clause(ClauseType clause) const;
-        void add_clause(const PCFGClause& clause);
+        bool has_clause(node_t kind) const;
+        NBase get_clause(node_t kind) const;
+        void add_clause(const NBase& clause);
         
-        ObjectList<PCFGClause> get_clauses() const;
+        ObjectList<NBase> get_clauses() const;
 
     friend class PCFGVisitor;
     };
@@ -865,9 +781,6 @@ namespace Analysis {
 
         //! Boolean indicating whether we are building vector nodes or not
         bool _is_vector;
-
-        //! Boolean indicating whether we are building simd nodes or not
-        bool _is_simd;
         
         //! Counter used to create a unique key for each new node
         unsigned int _nid;

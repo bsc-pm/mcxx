@@ -611,26 +611,26 @@ namespace {
         // Collect all symbols/data references appearing in data-sharing clauses
         Nodecl::List firstprivate_vars, private_vars, all_private_vars, task_scoped_vars;
         TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
-        if( task_pragma_info.has_clause( TL::Analysis::__firstprivate ) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
         {
-            firstprivate_vars = task_pragma_info.get_clause(TL::Analysis::__firstprivate).get_nodecl().as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
+            firstprivate_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().shallow_copy().as<Nodecl::List>();
             all_private_vars.append( firstprivate_vars );
             task_scoped_vars.append( firstprivate_vars );
         } 
-        if( task_pragma_info.has_clause( TL::Analysis::__private ) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_PRIVATE))
         {
-            private_vars = task_pragma_info.get_clause(TL::Analysis::__private).get_nodecl().as<Nodecl::OpenMP::Private>().get_symbols().as<Nodecl::List>();
+            private_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_PRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().shallow_copy().as<Nodecl::List>();
             all_private_vars.append( private_vars );
             task_scoped_vars.append( private_vars );
         } 
-        if( task_pragma_info.has_clause( TL::Analysis::__shared ) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED))
         {
-            Nodecl::List shared_vars = task_pragma_info.get_clause(TL::Analysis::__shared).get_nodecl().as<Nodecl::OpenMP::Shared>().get_symbols().as<Nodecl::List>();
+            Nodecl::List shared_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
             task_scoped_vars.append( shared_vars );
         }
-        if( task_pragma_info.has_clause( TL::Analysis::__shared_alloca ) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA))
         {
-            Nodecl::List shared_alloca_vars = task_pragma_info.get_clause(TL::Analysis::__shared_alloca).get_nodecl().as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().as<Nodecl::List>();
+            Nodecl::List shared_alloca_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
             task_scoped_vars.append( shared_alloca_vars );
         }
         
@@ -652,12 +652,12 @@ namespace {
         
         // Collect dependency clauses, for these may use variables that need to be scoped (shape expressions, array subscripts)
         Nodecl::List dependency_vars;
-        if( task_pragma_info.has_clause( TL::Analysis::__in ) )
-            dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__in).get_nodecl().as<Nodecl::OpenMP::DepIn>().get_in_deps());
-        if( task_pragma_info.has_clause( TL::Analysis::__out ) )
-            dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__out).get_nodecl().as<Nodecl::OpenMP::DepOut>().get_out_deps());
-        if( task_pragma_info.has_clause( TL::Analysis::__inout ) )
-            dependency_vars.append(task_pragma_info.get_clause(TL::Analysis::__inout).get_nodecl().as<Nodecl::OpenMP::DepInout>().get_inout_deps());
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
+            dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy());
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
+            dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy());
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
+            dependency_vars.append(task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy());
         
         // Collect the addresses used within the task
         TL::Analysis::NodeclSet used_addresses = task->get_used_addresses( );

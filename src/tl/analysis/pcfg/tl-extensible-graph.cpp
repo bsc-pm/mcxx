@@ -243,9 +243,7 @@ namespace Analysis {
     {
         Node* flush_node = new Node(_utils->_nid, __OmpFlush, outer_node);
 
-        PCFGClause current_clause(__flushed_vars, n);
-        PCFGPragmaInfo current_info(current_clause);
-        flush_node->set_pragma_node_info(current_info);
+        flush_node->set_pragma_node_info(PCFGPragmaInfo(n));
 
         connect_nodes(_utils->_last_nodes, flush_node);
         _utils->_last_nodes = ObjectList<Node*>(1, flush_node);
