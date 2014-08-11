@@ -380,7 +380,7 @@ namespace Analysis {
 
             //! Returns a list of all variables that are shared within the node (shared, dep_in|out|inout, concurrent, commutative)
             //! This only makes sense for OpenMP nodes
-            Nodecl::List get_all_shared_variables();
+            NodeclSet get_all_shared_variables();
             
 
             // ****************************************************************************** //

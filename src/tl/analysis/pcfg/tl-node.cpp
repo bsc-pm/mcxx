@@ -83,44 +83,44 @@ namespace Analysis {
         return (_id == node._id);
     }
 
-    Nodecl::List Node::get_all_shared_variables()
+    NodeclSet Node::get_all_shared_variables()
     {
         TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
-        Nodecl::List shared_vars;
+        NodeclSet shared_vars;
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE) )
         {
-            shared_vars.append(
-                task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy());
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
         }
         return shared_vars;
     }
