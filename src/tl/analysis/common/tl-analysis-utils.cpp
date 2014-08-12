@@ -261,7 +261,8 @@ namespace Utils {
         Nodecl::List result;
         
         // Symbols which are pointers are not considered to contain any access to the pointed object
-        if(!n.no_conv().is<Nodecl::Symbol>() || !n.no_conv().get_symbol().get_type().is_pointer())
+        if (!n.no_conv().is<Nodecl::Symbol>() || 
+            (!n.no_conv().get_symbol().get_type().is_pointer() && n.no_conv().get_symbol().get_type().is_array()))
         {
             NodeclSet fake_set;
             fake_set.insert(n);
@@ -277,6 +278,26 @@ namespace Utils {
             if(nodecl_set_contains_nodecl(n, set))
                 result.append(n.shallow_copy());
         }
+        return result;
+    }
+    
+    Nodecl::List nodecl_set_contains_pointed_nodecl(const NBase& n, const NodeclSet& set)
+    {
+        Nodecl::List result;
+        // Only a symbol with pointer/array type may point to some object
+        if (n.no_conv().is<Nodecl::Symbol>() && 
+            (n.no_conv().get_symbol().get_type().is_pointer() || n.no_conv().get_symbol().get_type().is_array()))
+        {
+            for(NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
+            {
+                const NBase& it_base = get_nodecl_base(*it);
+                if(Nodecl::Utils::structurally_equal_nodecls(n, it_base))
+                {
+                    result.append(it->shallow_copy());
+                }
+            }
+        }
+        
         return result;
     }
     

@@ -75,6 +75,7 @@ namespace Utils {
     bool nodecl_set_contains_nodecl_pointer(const NBase& nodecl, const NodeclSet& set);
     NBase nodecl_set_contains_enclosing_nodecl(const NBase& n, const NodeclSet& set);
     Nodecl::List nodecl_set_contains_enclosed_nodecl(const NBase& n, const NodeclSet& set);
+    Nodecl::List nodecl_set_contains_pointed_nodecl(const NBase& n, const NodeclSet& set);
     
     NodeclMap nodecl_map_union(const NodeclMap& m1, const NodeclMap& m2);
     NodeclSet nodecl_set_union(const NodeclSet& s1, const NodeclSet& s2);

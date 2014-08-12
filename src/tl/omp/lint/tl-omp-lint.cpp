@@ -53,6 +53,8 @@ namespace {
     CORRECTNESS_WARN_TYPE(P_Dead) \
     CORRECTNESS_WARN_TYPE(FP_Incoherent) \
     CORRECTNESS_WARN_TYPE(P_Incoherent) \
+    CORRECTNESS_WARN_TYPE(IN_Incoherent) \
+    CORRECTNESS_WARN_TYPE(OUT_Incoherent) \
     CORRECTNESS_WARN_TYPE(Race) \
     CORRECTNESS_WARN_TYPE(SharedAutoStorage) \
     CORRECTNESS_WARN_TYPE(Unused)
@@ -184,32 +186,102 @@ namespace {
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + ": omp-warning: Variables '%s' are not used within the task but they have been scoped.\n" 
-                   "%sThis may slow down your application. Consider removing the data-sharing attributes.\n";
+            return task_locus + task_label + ": omp-warning: Variables '%s' are not used within the task but they have been scoped.\n" +
+                   tabulation + "This may slow down your application. Consider removing the data-sharing attributes.\n";
         }
         else
         {
-            return task_locus + task_label + ": omp-warning: Variable '%s' is not used within the task but it has been scoped.\n" 
-                   "%sThis may slow down your application. Consider removing the data-sharing attribute.\n";
+            return task_locus + task_label + ": omp-warning: Variable '%s' is not used within the task but it has been scoped.\n" +
+                   tabulation + "This may slow down your application. Consider removing the data-sharing attribute.\n";
         }
     }
     
-    std::string get_incoherent_scope_message(bool use_plural, std::string data_sharing_atr, TL::Analysis::Node* task)
+    std::string get_incoherent_private_message(bool use_plural, TL::Analysis::Node* task)
     {
         std::string task_locus, task_label, tabulation;
         get_message_common_info(task, task_locus, task_label, tabulation);
         // Build the message
         if(use_plural)
         {
-            return task_locus + task_label + "%s: omp-warning: Variables '%s' are " + data_sharing_atr + " in the task, "
-                   "but their input value would have been used in a serial execution.\n"
-                   "%sConsider defining them as firstprivate instead, to capture the initial values.\n";
+            return task_locus + task_label + ": omp-warning: Variables '%s' are private in the task, " +
+                   "but their input value would have been used in a serial execution.\n" +
+                   tabulation + "Consider defining them as firstprivate instead, to capture the initial value.\n";
         }
         else
         {
-            return task_locus + task_label + "%s: omp-warning: Variable '%s' is " + data_sharing_atr + " in the task, "
-                   "but its input value would have been used in a serial execution.\n"
-                   "%sConsider defining it as firstprivate instead, to capture the initial value.\n";
+            return task_locus + task_label + ": omp-warning: Variable '%s' is private in the task, " +
+                   "but its input value would have been used in a serial execution.\n" +
+                   tabulation + "Consider defining it as firstprivate instead, to capture the initial value.\n";
+        }
+    }
+    
+    std::string get_incoherent_firstprivate_message(bool use_plural, TL::Analysis::Node* task)
+    {
+        std::string task_locus, task_label, tabulation;
+        get_message_common_info(task, task_locus, task_label, tabulation);
+        // Build the message
+        if(use_plural)
+        {
+            return task_locus + task_label + ": omp-warning: Variables '%s' are firstprivate in the task, " +
+                   "but their input value is never read.\n" +
+                   tabulation + "Consider defining them as private instead.\n";
+        }
+        else
+        {
+            return task_locus + task_label + ": omp-warning: Variable '%s' is firstprivate in the task, " +
+                   "but its input value is never read.\n" +
+                   tabulation + "Consider defining it as private instead\n";
+        }
+    }
+    
+    std::string get_incoherent_in_deps_message(
+            bool use_plural,
+            bool is_pointer_var, 
+            TL::Analysis::Node* task)
+    {
+        std::string task_locus, task_label, tabulation;
+        get_message_common_info(task, task_locus, task_label, tabulation);
+        // Build the part of the message that depends on whether the variables are pointers or not
+        std::string tmp = (is_pointer_var ? "and the input value" + std::string(use_plural ? "s" : "") + " of " 
+                                                + std::string(use_plural ? "their" : "its") + " pointed object are" 
+                                          : "is");
+        // Build the message
+        if(use_plural)
+        {
+            return task_locus + task_label + ": omp-warning: Variables '%s' are IN dependences, " +
+                   "but their input values " + tmp + " not read in the task.\n" +
+                   tabulation + "Consider removing this dependency.\n";
+        }
+        else
+        {
+            return task_locus + task_label + ": omp-warning: Variable '%s' is an IN dependency, " +
+                   "but its input value " + tmp + " not read in the task.\n" +
+                   tabulation + "Consider removing this dependency.\n";
+        }
+    }
+    
+    std::string get_incoherent_out_deps_message(
+            bool use_plural,
+            bool is_pointer_var, 
+            TL::Analysis::Node* task)
+    {
+        std::string task_locus, task_label, tabulation;
+        get_message_common_info(task, task_locus, task_label, tabulation);
+        // Build the part of the message that depends on whether the variables are pointers or not
+        std::string tmp = (is_pointer_var ? "and " + std::string(use_plural ? "their" : "its") + " pointed object are" 
+                                          : "is");
+        // Build the message
+        if(use_plural)
+        {
+            return task_locus + task_label + ": omp-warning: Variables '%s' are OUT dependences, " +
+                   "but they " + tmp + " not written in the task.\n" +
+                   tabulation + "Consider removing this dependency.\n";
+        }
+        else
+        {
+            return task_locus + task_label + ": omp-warning: Variable '%s' is an OUT dependency, " +
+                   "but the variable " + tmp + " not written in the task.\n" +
+                   tabulation + "Consider removing this dependency.\n";
         }
     }
     
@@ -772,7 +844,7 @@ next_iteration: ;
     
     void check_task_incoherent_data_sharing(TL::Analysis::Node* task)
     {
-        // Collect all symbols/data references appearing in data-sharing clauses
+        // Collect all Symbols/DataReferences appearing in data-sharing clauses
         Nodecl::List firstprivate_vars, private_vars, task_scoped_vars;
         TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
@@ -860,7 +932,7 @@ next_iteration: ;
         if( !incoherent_private_vars.empty( ) )
         {
             incoherent_private_vars = incoherent_private_vars.substr(0, incoherent_private_vars.size()-2);
-            warn_printf (get_incoherent_scope_message(n_incoherent_private_vars>1, "private", task).c_str(),
+            warn_printf (get_incoherent_private_message(n_incoherent_private_vars>1, task).c_str(),
                          incoherent_private_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __P_Incoherent, incoherent_private_vars);
         }
@@ -882,7 +954,7 @@ next_iteration: ;
         if (!incoherent_firstprivate_vars.empty( ) )
         {
             incoherent_firstprivate_vars = incoherent_firstprivate_vars.substr(0, incoherent_firstprivate_vars.size()-2);
-            warn_printf (get_incoherent_scope_message(n_incoherent_firstprivate_vars>1, "firstprivate", task).c_str(),
+            warn_printf (get_incoherent_firstprivate_message(n_incoherent_firstprivate_vars>1, task).c_str(),
                          incoherent_firstprivate_vars.c_str());
             print_warn_to_file(task->get_graph_related_ast(), __FP_Incoherent, incoherent_firstprivate_vars);
         }
@@ -894,8 +966,6 @@ next_iteration: ;
         std::string firstprivate_dead_vars = get_dead_vars(firstprivate_vars, n_fp_dead_vars, all_killed_vars, task);
         if (!firstprivate_dead_vars.empty())
         {
-            Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
-            std::string task_locus = task_nodecl.get_locus_str();
             firstprivate_dead_vars = firstprivate_dead_vars.substr(0, firstprivate_dead_vars.size()-2);
             warn_printf (get_dead_vars_message(/*use_plural*/ (n_fp_dead_vars>1), "firstprivate", task).c_str(), 
                          firstprivate_dead_vars.c_str());
@@ -904,12 +974,129 @@ next_iteration: ;
         std::string private_dead_vars = get_dead_vars(private_vars, n_p_dead_vars, all_killed_vars, task);
         if (!private_dead_vars.empty())
         {
-            Nodecl::NodeclBase task_nodecl = task->get_graph_related_ast();
-            std::string task_locus = task_nodecl.get_locus_str();
             private_dead_vars = private_dead_vars.substr(0, private_dead_vars.size()-2);
             warn_printf (get_dead_vars_message(/*use_plural*/ (n_p_dead_vars>1), "private", task).c_str(), 
                          private_dead_vars.c_str());
-            print_warn_to_file(task_nodecl, __P_Dead, private_dead_vars);
+            print_warn_to_file(task->get_graph_related_ast(), __P_Dead, private_dead_vars);
+        }
+    }
+    
+    void check_task_incoherent_dependencies(TL::Analysis::Node* task)
+    {
+        // 1.- Collect all Symbols/DataReferences appearing in dependency clauses
+        Nodecl::List dep_in_vars, dep_out_vars;
+        TL::Analysis::PCFGPragmaInfo task_pragma_info = task->get_pragma_node_info( );
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
+        {
+            dep_in_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
+        {
+            dep_out_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
+        {
+            Nodecl::List dep_inout_vars = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            dep_in_vars.append(dep_inout_vars);
+            dep_out_vars.append(dep_inout_vars);
+        }
+        
+        // 2.- Collect the use-definition information of the task
+        TL::Analysis::NodeclSet ue_vars = task->get_ue_vars();
+        TL::Analysis::NodeclSet killed_vars = task->get_killed_vars();
+        
+        // 3.1.- Check whether all input dependencies are read within the task
+        std::string incoherent_depin_vars;
+        std::string incoherent_depin_pointed_vars;
+        unsigned int n_incoherent_depin_vars = 0;
+        unsigned int n_incoherent_depin_pointed_vars = 0;
+        for(Nodecl::List::iterator it = dep_in_vars.begin(); it != dep_in_vars.end(); ++it)
+        {
+            const Nodecl::NodeclBase& var = *it;
+            
+            // Check the object or any sub-object are upwards exposed within the task
+            if (var.no_conv().is<Nodecl::Symbol>() && 
+                (var.no_conv().get_symbol().get_type().is_pointer() || var.no_conv().get_symbol().get_type().is_array()))
+            {   // If the variable is a symbol and it has pointer or array type
+                // we check for uses of the variable, its sub-parts and its pointed object
+                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars).is_null() && 
+                    TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
+                {
+                    incoherent_depin_pointed_vars += it->prettyprint() + ", ";
+                    n_incoherent_depin_pointed_vars++;
+                }
+            }
+            else
+            {   // Otherwise, we only check whether the variable or a sub-part
+                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars).is_null())
+                {
+                    incoherent_depin_vars += it->prettyprint() + ", ";
+                    n_incoherent_depin_vars++;
+                }
+            }
+        }
+        
+        if (!incoherent_depin_vars.empty())
+        {
+            incoherent_depin_vars = incoherent_depin_vars.substr(0, incoherent_depin_vars.size()-2);
+            warn_printf (get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_vars>1), /*pointer_var*/ false, task).c_str(), 
+                         incoherent_depin_vars.c_str());
+            print_warn_to_file(task->get_graph_related_ast(), __IN_Incoherent, incoherent_depin_vars);
+        }
+        if (!incoherent_depin_pointed_vars.empty())
+        {
+            incoherent_depin_pointed_vars = incoherent_depin_pointed_vars.substr(0, incoherent_depin_pointed_vars.size()-2);
+            warn_printf (get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_pointed_vars>1), /*pointer_var*/ true, task).c_str(), 
+                         incoherent_depin_pointed_vars.c_str());
+            print_warn_to_file(task->get_graph_related_ast(), __IN_Incoherent, incoherent_depin_pointed_vars);
+        }
+        
+        // 3.2.- Check whether all output dependencies are written within the task
+        std::string incoherent_depout_vars;
+        std::string incoherent_depout_pointed_vars;
+        unsigned int n_incoherent_depout_vars = 0;
+        unsigned int n_incoherent_depout_pointed_vars = 0;
+        for(Nodecl::List::iterator it = dep_out_vars.begin(); it != dep_out_vars.end(); ++it)
+        {
+            const Nodecl::NodeclBase& var = *it;
+            // Check the object or any sub-object are upwards exposed within the task
+            if (var.no_conv().is<Nodecl::Symbol>() && 
+                (var.no_conv().get_symbol().get_type().is_pointer() || var.no_conv().get_symbol().get_type().is_array()))
+            {   // If the variable is a symbol and it has pointer or array type
+                // we check for uses of the variable, its sub-parts and its pointed object
+                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, killed_vars) &&
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars).is_null() && 
+                    TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
+                {
+                    incoherent_depout_pointed_vars += it->prettyprint() + ", ";
+                    n_incoherent_depout_pointed_vars++;
+                }
+            }
+            else
+            {   // Otherwise, we only check whether the variable or a sub-part
+                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, killed_vars) &&
+                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars).is_null())
+                {
+                    incoherent_depout_vars += it->prettyprint() + ", ";
+                    n_incoherent_depout_vars++;
+                }
+            }
+        }
+        if (!incoherent_depout_vars.empty())
+        {
+            incoherent_depout_vars = incoherent_depout_vars.substr(0, incoherent_depout_vars.size()-2);
+            warn_printf (get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_vars>1), /*pointer_var*/ false, task).c_str(), 
+                         incoherent_depout_vars.c_str());
+            print_warn_to_file(task->get_graph_related_ast(), __OUT_Incoherent, incoherent_depout_vars);
+        }
+        if (!incoherent_depout_pointed_vars.empty())
+        {
+            incoherent_depout_pointed_vars = incoherent_depout_pointed_vars.substr(0, incoherent_depout_pointed_vars.size()-2);
+            warn_printf (get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_pointed_vars>1), /*pointer_var*/ true, task).c_str(), 
+                         incoherent_depout_pointed_vars.c_str());
+            print_warn_to_file(task->get_graph_related_ast(), __OUT_Incoherent, incoherent_depout_pointed_vars);
         }
     }
 }
@@ -966,6 +1153,14 @@ next_iteration: ;
             //    x++;
             {
                 check_task_incoherent_data_sharing(task);
+            }
+            
+            // Incoherent dependency clauses
+            // Example:
+            // #pragma omp task inout(a)
+            //     t = a;
+            {
+                check_task_incoherent_dependencies(task);
             }
         }
     }
