@@ -429,7 +429,7 @@ namespace {
     tribool compute_task_sync_relationship(Node* source, Node* target)
     {
 #ifdef TASK_SYNC_DEBUG
-        std::cerr << "CHECKING DEPENDENCES STATICALLY " << source << " -> " << target << std::endl;
+        std::cerr << "CHECKING DEPENDENCES STATICALLY " << source->get_id() << " -> " << target->get_id() << std::endl;
 #endif
 
         // TL::NodeclList source_statements = source->get_statements();
@@ -961,6 +961,7 @@ namespace {
     // *************************** Class implementing task concurrency analysis *************************** //
 
 namespace {
+    
     void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result )
     {
         if( !current->is_visited_aux( ) && ( current != last ) )
@@ -1106,35 +1107,46 @@ task_synchronized:      break;
         return res;
     }
 
-    // FIXME: A task may have more than one exit (synchronizations)
-    //        Also we should check whether the synchronization is in a conditional structure and, 
-    //        in such case, whether it synchronizes in all branches.
-    bool task_in_loop_is_synchronized_within_loop( Node* task )
+    //! Check whether a task is concurrent with itself
+    //! This happens when the task does not have a explicit synchronization with itself and,
+    //! in case the task is within a loop, it does not synchronize among iterations
+    bool task_is_concurrent_across_iterations(Node* task)
     {
-        bool res = false;
-
-        Node* task_sync = task->get_children( )[0];
-        if( !task_sync->is_omp_virtual_tasksync( ) )
+        const ObjectList<Node*>& task_syncs = task->get_children();
+        for(ObjectList<Node*>::const_iterator it = task_syncs.begin(); it != task_syncs.end(); ++it)
         {
-            Node* task_outer = ExtensibleGraph::get_task_creation_node(task)->get_outer_node( );
-
-            while( ( task_outer != NULL ) && !res )
+            Node* task_sync = ((*it)->is_omp_task_node() ? ExtensibleGraph::get_task_creation_node(*it) 
+                                                         : *it);
+            
+            // The task synchronizes with itself, so to instances of the task cannot be concurrent
+            if(task_sync == task)
+                return true;
+            
+            // Keep looking for a synchronization within the loop
+            if(task_sync->is_omp_virtual_tasksync())
+                continue;
+            
+            // Iterate over all loops the task is enclosed in checking whether it synchronizes there
+            Node* task_outer = ExtensibleGraph::get_task_creation_node(task)->get_outer_node();
+            while(task_outer != NULL)
             {
                 // Get the next loop were the task is nested
-                while( ( task_outer != NULL ) && !task_outer->is_loop_node( ) )
-                    task_outer = task_outer->get_outer_node( );
-
-                if( task_outer != NULL )
+                while((task_outer != NULL) && !task_outer->is_loop_node())
+                    task_outer = task_outer->get_outer_node();
+                
+                if(task_outer != NULL)
                 {
-                    if(ExtensibleGraph::node_contains_node( task_outer, task_sync ))
-                        res = true;
-                    else
-                        task_outer = task_outer->get_outer_node();
+                    // Check whether the synchronization is within the loop we just found
+                    if(ExtensibleGraph::node_contains_node(task_outer, task_sync))
+                        return true;
+                    
+                    // Keep looking for more external loops
+                    task_outer = task_outer->get_outer_node();
                 }
             }
         }
-
-        return res;
+        
+        return false;
     }
     
     
@@ -1457,6 +1469,7 @@ task_synchronized:      break;
         for( ObjectList<Node*>::iterator itl = _last_sync_for_tasks.begin( ); itl != _last_sync_for_tasks.end( ); ++itl )
         {
             // Collect the tasks that are between the last and the next synchronization points
+            // FIXME We must remove here those task that synchronize with the task
             for( ObjectList<Node*>::iterator itn = _next_sync.begin( ); itn != _next_sync.end( ); ++itn )
             {
                 collect_tasks_between_nodes( *itl, *itn, task, concurrent_tasks );
@@ -1472,9 +1485,9 @@ task_synchronized:      break;
         for( ObjectList<Node*>::iterator it = _last_sync_for_tasks.begin( ); it != _last_sync_for_tasks.end( ); ++it )
             ExtensibleGraph::clear_visits( *it );
         
-        // When the task is in a loop and it is not synchronized inside the loop and
-        // it is not synchronized between iterations, it is be concurrent with itself
-        if(ExtensibleGraph::node_is_in_loop(task_creation) && !task_in_loop_is_synchronized_within_loop(task))
+        // When the task is in a loop and it is not synchronized between iterations, it is be concurrent with itself
+        if (ExtensibleGraph::node_is_in_loop(task_creation) && 
+            !task_is_concurrent_across_iterations(task))
             concurrent_tasks.insert(task);
 
         if(VERBOSE)

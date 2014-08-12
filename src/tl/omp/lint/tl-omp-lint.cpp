@@ -344,50 +344,71 @@ namespace {
     
     // Returns false when task may synchronize at some point 
     // which is not enclosed in the scope where the task is created
-    tribool task_only_synchronizes_in_enclosing_scopes( TL::Analysis::Node *n )
+    tribool task_only_synchronizes_in_enclosing_scopes(
+            TL::Analysis::Node *task, 
+            const Nodecl::List& local_vars)
     {
-        TL::ObjectList<TL::Analysis::Node*> children = n->get_children( );
-        ERROR_CONDITION( children.empty( ), 
-                         "We should have computed at least some exit edge for this task", 0 );
+        // Get the task creation node of the task and its children (synchronization points)
+        TL::Analysis::Node* task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_node(task);
+        ERROR_CONDITION (task_creation==NULL, 
+                         "Task creation of node %d not found in its list of parents.\n", 
+                         task->get_id());
+        const TL::ObjectList<TL::Analysis::Node*>& children = task->get_children();
         
-        tribool result = true;
-        
-        // The parent of a task may be a TASK_CREATION node, or any other TASK node that may synchronize with the task
-        ObjectList<TL::Analysis::Node*> task_parents = n->get_parents( );
-        TL::Analysis::Node* task_creation = NULL;
-        for(ObjectList<TL::Analysis::Node*>::iterator it = task_parents.begin(); it != task_parents.end(); ++it)
+        for(Nodecl::List::const_iterator itv = local_vars.begin(); itv != local_vars.end(); ++itv)
         {
-            if((*it)->is_omp_task_creation_node())
+            // 1.- Find the context node of the PCFG where the variable was declared
+            // FIXME Maybe we can use itv->retrieve_context insted, but I don't know whether they return the same value
+            Scope var_sc(TL::Analysis::Utils::get_nodecl_base(*itv).get_symbol().get_scope());
+            TL::Analysis::Node* var_ctx_node = NULL;
+            TL::Analysis::Node* task_outer = task_creation->get_outer_node();
+            while(task_outer != NULL)
             {
-                task_creation = *it;
-                break;
+                if(task_outer->is_context_node())
+                {
+                    const Nodecl::NodeclBase& ctx = task_outer->get_graph_related_ast();
+                    Scope ctx_sc(ctx.retrieve_context());
+                    if((ctx_sc == var_sc) || var_sc.scope_is_enclosed_by(ctx_sc))
+                    {   // We have found the scope where the local variable was declared
+                        var_ctx_node = task_outer;
+                        goto check_sync;
+                    }
+                }
+                task_outer = task_outer->get_outer_node();
+            }
+            // We have not found the context in the PCFG where the variable was declared
+            internal_error ("PCFG context of local variable %s has not been found.", 
+                            itv->prettyprint().c_str());
+            
+check_sync:
+            // 2.- Check whether the context of the variable contains all synchronizations of the task
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin(); 
+                 it != children.end(); ++it)
+            {
+                if((*it)->is_omp_virtual_tasksync())
+                    return false;
+                
+                TL::Analysis::Node* sync = ((*it)->is_omp_task_node() ? TL::Analysis::ExtensibleGraph::get_task_creation_node(*it) 
+                                                                      : *it);
+                if(!TL::Analysis::ExtensibleGraph::node_contains_node(var_ctx_node, sync))
+                    return false;
             }
         }
-        ERROR_CONDITION(task_creation==NULL, "Task creation of node %d not found in its list of parents.\n", n->get_id());
-        TL::Analysis::Node* task_creation_sc = TL::Analysis::ExtensibleGraph::get_enclosing_context( task_creation );
-        ERROR_CONDITION( task_creation_sc == NULL, 
-                         "The context of a task creation node cannot be NULL, but task's %d is NULL.", 
-                         n->get_id( ) );
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
-        {
-            TL::Analysis::Node* sync_sc = TL::Analysis::ExtensibleGraph::get_enclosing_context( *it );
-            if( ( sync_sc == NULL ) ||                                  // This a Post_Sync
-                ( !enclosing_context_contains_node(task_creation_sc, sync_sc) ) )
-            {
-                result = false;
-                break;
-            }
-        }
         
-        return result;
+        return true;
     }
+    
+    typedef std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*>, Nodecl::Utils::Nodecl_structural_less> VarToNodesMap;
     
     // This method returns in #used_vars a relation of variables and 
     // the nodes where these variables have an access (use|definition|undefined)
-    void compute_usage_between_nodes (TL::Analysis::Node* current, TL::Analysis::Node* source, TL::Analysis::Node* target, 
-                                      TL::Analysis::Node* ommited_node,
-                                      std::map<Nodecl::NodeclBase, ObjectList<TL::Analysis::Node*> >& used_vars, 
-                                      const TL::Analysis::NodeclSet& variables)
+    void compute_usage_between_nodes(
+            TL::Analysis::Node* current,
+            TL::Analysis::Node* source,
+            TL::Analysis::Node* target,
+            TL::Analysis::Node* ommited_node,
+            VarToNodesMap& used_vars,
+            const TL::Analysis::NodeclSet& variables)
     {
         if( current->is_visited( ) || current == target )
             return;
@@ -444,7 +465,7 @@ namespace {
         for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
             compute_usage_between_nodes( *it, source, target, ommited_node, used_vars, variables );
     }
-        
+    
     tribool task_may_cause_race_condition (TL::Analysis::ExtensibleGraph* pcfg, 
                                            TL::Analysis::Node *n, Nodecl::List& race_cond_vars)
     {
@@ -473,13 +494,13 @@ namespace {
         tribool result = false;
         
         // 3.2.- Get shared variables used within the task
-        std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > task_used_vars;
+        VarToNodesMap task_used_vars;
         TL::Analysis::Node* task_entry = n->get_graph_entry_node( );
-        compute_usage_between_nodes(task_entry, task_entry, n->get_graph_exit_node( ), NULL, task_used_vars, task_shared_variables);
+        compute_usage_between_nodes(task_entry, task_entry, n->get_graph_exit_node(), NULL, task_used_vars, task_shared_variables);
         TL::Analysis::ExtensibleGraph::clear_visits_in_level( task_entry, n );
         
         // 3.3.- Get shared variables used in sequential code concurrent with the task
-        std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> > concurrently_used_vars;
+        VarToNodesMap concurrently_used_vars;
         for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
             for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
                 compute_usage_between_nodes( *itl, *itl, *itn, n, concurrently_used_vars, task_shared_variables );
@@ -488,7 +509,7 @@ namespace {
         
         // 3.4.- Get shared variables used in tasks concurrent with the task
         TL::ObjectList<TL::Analysis::Node*> concurrent_tasks = pcfg->get_task_concurrent_tasks(n);
-        for(ObjectList<TL::Analysis::Node*>::iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
+        for (ObjectList<TL::Analysis::Node*>::iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
         {
             TL::Analysis::Node* concurrent_task_entry = (*it)->get_graph_entry_node();
             compute_usage_between_nodes(concurrent_task_entry, concurrent_task_entry, (*it)->get_graph_exit_node(), n, concurrently_used_vars, task_shared_variables);
@@ -503,7 +524,7 @@ namespace {
             task_defs.insert( task_undef.begin( ), task_undef.end( ) );
             
         std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> warned_vars;
-        for( std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator it = concurrently_used_vars.begin( ); 
+        for (VarToNodesMap::iterator it = concurrently_used_vars.begin( ); 
                 it != concurrently_used_vars.end( ); ++it )
         {
             const Nodecl::NodeclBase& var = it->first;
@@ -536,7 +557,7 @@ namespace {
             {   // If all accesses are protected in a critical/atomic construct, then there is no race condition
                 // 3.5.4.- Check whether variables scoped in the task are really use it within the task
                 //         Otherwise we will report the warning __Unused in the adequate method
-                std::map<Nodecl::NodeclBase, TL::ObjectList<TL::Analysis::Node*> >::iterator task_nodes_using_var_it = task_used_vars.find(var);
+                VarToNodesMap::iterator task_nodes_using_var_it = task_used_vars.find(var);
                 if (task_nodes_using_var_it == task_used_vars.end())
                     goto next_iteration;
                 
@@ -914,7 +935,7 @@ next_iteration: ;
             {
                 Nodecl::List local_vars;
                 if (task_is_locally_bound(task, local_vars).is_true() && 
-                    task_only_synchronizes_in_enclosing_scopes(task).is_false())
+                    task_only_synchronizes_in_enclosing_scopes(task, local_vars).is_false())
                 {
                     std::string local_vars_str = get_nodecl_list_str(local_vars);
                     warn_printf (get_auto_storage_message(/*use_plural*/ local_vars.size()>1, task).c_str(), 
