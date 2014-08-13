@@ -309,14 +309,17 @@ namespace {
 
         ObjectList<Node*> children = task_creation->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-        {
-            child_ue_vars = (*it)->get_ue_vars();
-            child_killed_vars = (*it)->get_killed_vars();
-            child_undef_vars = (*it)->get_undefined_behaviour_vars();
-            
-            ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
-            killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
-            undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
+        {            
+            if((*it)->is_omp_task_node())
+            {
+                child_ue_vars = (*it)->get_ue_vars();
+                child_killed_vars = (*it)->get_killed_vars();
+                child_undef_vars = (*it)->get_undefined_behaviour_vars();
+                
+                ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
+                killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
+                undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
+            }
         }
 
         // Purge the sets:

@@ -408,6 +408,7 @@ namespace Analysis {
         void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
         ObjectList<Node*> get_task_next_synchronization(Node* task);
         void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
+        void remove_next_synchronization(Node* task, Node* next_sync);
         
         
         // *** Consultants *** //

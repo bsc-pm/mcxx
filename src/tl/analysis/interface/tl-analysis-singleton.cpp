@@ -636,7 +636,7 @@ namespace Analysis {
             const NBase& ast)
     {
         // Required previous analysis
-        liveness(memento, ast);
+        reaching_definitions(memento, ast);
 
         if(!memento.is_task_synchronizations_tuned())
         {

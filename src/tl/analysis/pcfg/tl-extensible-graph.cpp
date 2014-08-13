@@ -991,7 +991,7 @@ namespace Analysis {
 
         _concurrent_tasks[task] = concurrent_tasks;
     }
-
+    
     ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization(Node* task)
     {
         ObjectList<Node*> result;
@@ -1046,13 +1046,27 @@ namespace Analysis {
     {
         if(_next_sync.find(task) != _next_sync.end())
         {
-            WARNING_MESSAGE("You are trying to insert a task that already exists in the map of "\
+            WARNING_MESSAGE ("You are trying to insert a task that already exists in the map of "\
                              "next synchronization points of a task. This should never happen so we skip it", 0);
             return;
         }
         _next_sync[task] = next_sync;
     }
 
+    void ExtensibleGraph::remove_next_synchronization(Node* task, Node* next_sync)
+    {
+        if(_next_sync.find(task) == _next_sync.end())
+        {
+            WARNING_MESSAGE ("Task %d is not in the map of next synchronizations. "
+                             "We are unable to remove %d from its list of next synchronization points.\n", 
+                             task->get_id(), next_sync->get_id());
+            return;
+        }
+        
+        ObjectList<Node*>& next_syncs = _next_sync[task];
+        next_syncs = next_syncs.not_find(next_sync);
+    }
+    
     //! This method returns the most outer node of a node before finding a loop node
     static Node* advance_over_outer_nodes_until_loop(Node* node)
     {

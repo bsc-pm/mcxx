@@ -962,6 +962,33 @@ namespace {
 
 namespace {
     
+    bool task_domains_task(Node* t1, Node* t2, std::set<Node*>& visited_tasks)
+    {
+        if(t1 == t2)
+            return true;
+        
+        visited_tasks.insert(t1);
+        
+        const ObjectList<Node*>& children = t1->get_children();
+        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            if ((*it)->is_omp_task_node() && 
+                visited_tasks.find(*it)==visited_tasks.end())   // Avoid cycles
+            {
+                if(task_domains_task(*it, t2, visited_tasks))
+                    return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    bool tasks_are_synchronized(Node* t1, Node* t2)
+    {
+        std::set<Node*> visited_tasks1, visited_tasks2;
+        return task_domains_task(t1, t2, visited_tasks1) || task_domains_task(t2, t1, visited_tasks2);
+    }
+    
     void collect_tasks_between_nodes( Node* current, Node* last, Node* skip, ObjectList<Node*>& result )
     {
         if( !current->is_visited_aux( ) && ( current != last ) )
@@ -977,7 +1004,7 @@ namespace {
                 collect_tasks_between_nodes( current->get_graph_entry_node( ), last, skip, result );
 
                 // Add current node if it is a task
-                if( current->is_omp_task_node( ) && ( current != skip ) )
+                if (current->is_omp_task_node() && (current != skip) && !tasks_are_synchronized(current, skip))
                 {
                     result.insert( current );
                 }
@@ -1473,7 +1500,6 @@ task_synchronized:      break;
         for( ObjectList<Node*>::iterator itl = _last_sync_for_tasks.begin( ); itl != _last_sync_for_tasks.end( ); ++itl )
         {
             // Collect the tasks that are between the last and the next synchronization points
-            // FIXME We must remove here those tasks that synchronize with the task
             for( ObjectList<Node*>::iterator itn = _next_sync.begin( ); itn != _next_sync.end( ); ++itn )
             {
                 collect_tasks_between_nodes( *itl, *itn, task, concurrent_tasks );
