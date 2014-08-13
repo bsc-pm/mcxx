@@ -1278,6 +1278,7 @@ task_synchronized:      break;
         //
         //             find_last_synchronization_point_in_children( task, task_outer );
         //         }
+        
         ExtensibleGraph::clear_visits_backwards( task );
     }
 
@@ -1296,7 +1297,7 @@ task_synchronized:      break;
                     Node* parent = (*it)->get_source();
                     keep_looking_for_syncs = true;
                     
-                    // Check for synchronization in current parent
+                    // Check for synchronizations in current parent
                     if( parent->is_omp_barrier_graph_node( ) || parent->is_omp_taskwait_node( ) )
                     {
                         _last_sync_for_tasks.insert( parent );
@@ -1320,19 +1321,17 @@ task_synchronized:      break;
                         else
                             keep_looking_for_syncs = false;
                     }
-                    else if( parent->is_graph_node( ) )
-                    {
-                        find_last_synchronization_point_in_parents( parent->get_graph_exit_node( ) );
-                    }
                     
                     // Keep iterating, if necessary
                     if( keep_looking_for_syncs )
                     {
                         if( parent->is_entry_node( ) )
                         {
+                            parent->set_visited(true);
                             Node* parent_outer = parent->get_outer_node( );
                             if( parent_outer != NULL )
                             {
+                                parent_outer->set_visited(true);
                                 ObjectList<Node*> outer_parents = parent_outer->get_parents( );
                                 for( ObjectList<Node*>::iterator itp = outer_parents.begin( );
                                     itp != outer_parents.end( ) && _last_sync_for_tasks.empty( ); ++itp )
@@ -1340,6 +1339,11 @@ task_synchronized:      break;
                                         find_last_synchronization_point_in_parents( *itp );
                                     }
                             }
+                        }
+                        else if(parent->is_graph_node())
+                        {
+                            parent->set_visited(true);
+                            find_last_synchronization_point_in_parents(parent->get_graph_exit_node());
                         }
                         else
                         {
@@ -1469,7 +1473,7 @@ task_synchronized:      break;
         for( ObjectList<Node*>::iterator itl = _last_sync_for_tasks.begin( ); itl != _last_sync_for_tasks.end( ); ++itl )
         {
             // Collect the tasks that are between the last and the next synchronization points
-            // FIXME We must remove here those task that synchronize with the task
+            // FIXME We must remove here those tasks that synchronize with the task
             for( ObjectList<Node*>::iterator itn = _next_sync.begin( ); itn != _next_sync.end( ); ++itn )
             {
                 collect_tasks_between_nodes( *itl, *itn, task, concurrent_tasks );

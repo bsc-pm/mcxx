@@ -318,19 +318,42 @@ namespace Analysis {
         */
         void concat_nodes(ObjectList<Node*> node_l);
 
-        //!
-        void replace_node(Node* old_node, Node* new_node);
-
-        //! This function clears the attribute #visited from nodes bellow @actual node.
-        //! It works properly if there isn't any unreachable node in the graph bellow @actual.
+        //! Set to false the attribute #_visited of those nodes whose dominator is node @node
         static void clear_visits(Node* node);
+
+        //! Set to false the attribute #_visited_aux of those nodes whose dominator is node @node
         static void clear_visits_aux(Node* node);
+
+        //! Set to false the attribute #_visited_extgraph of those nodes whose dominator is node @node
         static void clear_visits_extgraph(Node* node);
+
+        //! Set to false the attribute #_visited_extgraph_aux of those nodes whose dominator is node @node
         static void clear_visits_extgraph_aux(Node* node);
+
+        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are enclosed in the graph node @outer_node
         static void clear_visits_in_level(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are immediately enclosed in the graph node @outer_node => no other graph node is in between them and @outer_node
+        static void clear_visits_in_level_no_nest(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited_aux of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are enclosed in the graph node @outer_node
         static void clear_visits_aux_in_level(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
         static void clear_visits_backwards(Node* node);
+
+        //! Set to false the attribute #_visited_aux of those nodes whose post-dominator is node @node
         static void clear_visits_aux_backwards(Node* node);
+
+        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
+        //! - their post-dominator is node @node
+        //! - they are enclosed in the graph node @outer_node
         static void clear_visits_backwards_in_level(Node* current, Node* outer_node);
         
         

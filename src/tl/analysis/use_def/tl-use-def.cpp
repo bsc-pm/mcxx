@@ -278,7 +278,7 @@ namespace {
 
                 // Propagate usage info from inner to outer nodes
                 current->set_visited(false);
-                ExtensibleGraph::clear_visits_in_level(current->get_graph_entry_node(), current);
+                ExtensibleGraph::clear_visits_in_level_no_nest(current->get_graph_entry_node(), current);
                 set_graph_node_use_def(current);
             }
             else
@@ -313,7 +313,7 @@ namespace {
             child_ue_vars = (*it)->get_ue_vars();
             child_killed_vars = (*it)->get_killed_vars();
             child_undef_vars = (*it)->get_undefined_behaviour_vars();
-
+            
             ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
             killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
             undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
