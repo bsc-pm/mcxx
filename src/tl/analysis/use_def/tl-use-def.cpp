@@ -309,8 +309,11 @@ namespace {
 
         ObjectList<Node*> children = task_creation->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-        {            
-            if((*it)->is_omp_task_node())
+        {      
+            // FIXME Temporarily commented: We need all children information in order
+            //       to propagate correctly the UseDef information to the outer node
+            //       Nonetheless, propagating all children's info broke something in Lint phase
+//             if((*it)->is_omp_task_node())
             {
                 child_ue_vars = (*it)->get_ue_vars();
                 child_killed_vars = (*it)->get_killed_vars();
