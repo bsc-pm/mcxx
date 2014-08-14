@@ -209,9 +209,15 @@ namespace {
         if(!source->is_visited_aux())
         {
             source->set_visited_aux(true);
+            
+            //Call recursively first, so we ensure we find the node where it is modified before we know it is modified
+            if(source->is_graph_node())
+                target_found = variable_is_modified_between_nodes_rec(source->get_graph_entry_node(), target, var, is_modified);
+            
             // Just check whether the @source node defines the variable if
             // we have not found before another node that defines it
-            if(!is_modified)
+            // and if we are not in a graph node, because we already checked it inner nodes
+            if(!is_modified && !source->is_graph_node())
             {
                 NodeclSet killed_vars = source->get_killed_vars();
                 if(killed_vars.find(var) != killed_vars.end())
@@ -229,13 +235,8 @@ namespace {
             }
             
             // Keep traversing the graph to check that this path drives to @target
-            ObjectList<Node*> children;
-            if(source->is_exit_node())
-                children = source->get_outer_node()->get_children();
-            else if(source->is_graph_node())
-                children = ObjectList<Node*>(1, source->get_graph_entry_node());
-            else
-                children = source->get_children();
+            const ObjectList<Node*>& children = (source->is_exit_node() ? source->get_outer_node()->get_children() 
+                                                                        : source->get_children());
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
             {
                 if(!(*it)->is_omp_task_node())
@@ -248,7 +249,7 @@ namespace {
     bool variable_is_modified_between_nodes(Node* source, Node* target, const NBase& var)
     {
         bool is_modified = false;
-        bool target_found;
+        bool target_found = false;
         if(source == target)
         {   // This may happen when a task has dependencies with itself because it is enclosed in an iterative construct
             // In this case we have to call recursively with the children of @source
@@ -256,17 +257,23 @@ namespace {
             for(ObjectList<Node*>::const_iterator it = source_children.begin(); it != source_children.end(); ++it)
             {
                 if(!(*it)->is_omp_task_node())
+                {
                     target_found = target_found || variable_is_modified_between_nodes_rec(*it, target, var, is_modified);
+                    ExtensibleGraph::clear_visits_aux(*it);
+                    ERROR_CONDITION(!target_found,
+                                    "Unable to find path between %d and %d.\n",
+                                    (*it)->get_id(), target->get_id());
+                }
             }
         }
         else
         {
             target_found = variable_is_modified_between_nodes_rec(source, target, var, is_modified);
+            ExtensibleGraph::clear_visits_aux(source);
+            ERROR_CONDITION(!target_found,
+                            "Unable to find path between %d and %d.\n",
+                            source->get_id(), target->get_id());
         }
-        ExtensibleGraph::clear_visits_aux(source);
-        ERROR_CONDITION(!target_found,
-                        "Unable to find path between %d and %d.\n",
-                        source->get_id(), target->get_id());
         return is_modified;
     }
 

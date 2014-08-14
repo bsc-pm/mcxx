@@ -85,6 +85,7 @@ namespace Analysis {
 
     NodeclSet Node::get_all_shared_variables()
     {
+        // 1.- Collect the shared variables appearing in the data-sharing or dependency clauses
         TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
         NodeclSet shared_vars;
         if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED) )
@@ -122,6 +123,25 @@ namespace Analysis {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
+        
+        // 2.- Collect those objects which, although are not in the data-sharing or dependency, have dynamic storage duration
+        const NodeclSet& killed_vars = get_killed_vars();
+        const NodeclSet& undef_vars = get_undefined_behaviour_vars();
+        NodeclSet inner_vars = get_ue_vars();
+        inner_vars.insert(killed_vars.begin(), killed_vars.end());
+        inner_vars.insert(undef_vars.begin(), undef_vars.end());
+        for(NodeclSet::const_iterator it = inner_vars.begin(); it != inner_vars.end(); ++it)
+        {
+            if(it->no_conv().is<Nodecl::ArraySubscript>())
+            {
+                const NBase& base = Utils::get_nodecl_base(it->no_conv());
+                if(base.get_type().no_ref().is_pointer())
+                {   // An array has been dynamically allocated => the object pointed by #base is shared
+                    shared_vars.insert(it->shallow_copy());
+                }
+            }
+        }
+        
         return shared_vars;
     }
     

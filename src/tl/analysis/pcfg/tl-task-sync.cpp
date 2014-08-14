@@ -349,11 +349,12 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
-        // TODO - Concurrent and commutative are not handled yet
+        // TODO - Concurrent is not handled yet
         // TODO - OpenMP::Base may create more than ONE dep_xxx tree (here we would overwrite them)
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
+        Nodecl::NodeclBase source_dep_commutative;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -364,6 +365,8 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
+            else if (it->is<Nodecl::OpenMP::Commutative>())
+                source_dep_commutative = *it;
         }
 
         // Target (taskwait)
@@ -462,9 +465,11 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
+        // FIXME: Extend support for concurrent dependencies
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
         Nodecl::NodeclBase source_dep_inout;
+        Nodecl::NodeclBase source_dep_commutative;
         for (Nodecl::List::iterator it = task_source_env.begin();
                 it != task_source_env.end();
                 it++)
@@ -475,6 +480,8 @@ namespace {
                 source_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 source_dep_inout = *it;
+            else if (it->is<Nodecl::OpenMP::Commutative>())
+                source_dep_commutative = *it;
         }
 
         // TL::NodeclList target_statements = target->get_statements();
@@ -510,6 +517,7 @@ namespace {
         NBase target_dep_in;
         NBase target_dep_out;
         NBase target_dep_inout;
+        NBase target_dep_commutative;
         for (Nodecl::List::iterator it = task_target_env.begin();
                 it != task_target_env.end();
                 it++)
@@ -520,14 +528,16 @@ namespace {
                 target_dep_out = *it;
             else if (it->is<Nodecl::OpenMP::DepInout>())
                 target_dep_inout = *it;
+            else if (it->is<Nodecl::OpenMP::Commutative>())
+                target_dep_commutative = *it;
         }
 
         tribool may_have_dep = tribool::no;
 
         // DRY
-        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_inout, source_dep_out };
+        Nodecl::NodeclBase sources[] = { source_dep_in, source_dep_inout, source_dep_out, source_dep_commutative };
         int num_sources = sizeof(sources)/sizeof(sources[0]);
-        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out };
+        Nodecl::NodeclBase targets[] = { target_dep_in, target_dep_inout, target_dep_out, target_dep_commutative };
         int num_targets = sizeof(targets)/sizeof(targets[0]);
 
         for (int n_source = 0; n_source < num_sources; n_source++)

@@ -47,7 +47,7 @@ namespace Analysis {
         gather_reaching_definitions_initial_information(graph);
         ExtensibleGraph::clear_visits(graph);
 
-        // Common Liveness analysis
+        // Common Reaching Definitions analysis
         solve_reaching_definition_equations(graph);
         ExtensibleGraph::clear_visits(graph);
     }
@@ -185,13 +185,13 @@ namespace Analysis {
                 }
                 else if(!current->is_entry_node())
                 {
-                    NodeclMap old_rd_in = current->get_reaching_definitions_in();
-                    NodeclMap old_rd_out = current->get_reaching_definitions_out();
+                    const NodeclMap& old_rd_in = current->get_reaching_definitions_in();
+                    const NodeclMap& old_rd_out = current->get_reaching_definitions_out();
                     NodeclMap rd_out, rd_in, pred_rd_out;
 
                     // Computing Reach Defs In
-                    ObjectList<Node*> parents = current->get_parents();
-                    for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                    const ObjectList<Node*>& parents = current->get_parents();
+                    for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
                     {
                         bool parent_is_entry = (*it)->is_entry_node();
                         if(parent_is_entry)
@@ -222,8 +222,35 @@ namespace Analysis {
                     }
 
                     // Computing Reach Defs Out
-                    NodeclMap gen = current->get_generated_stmts();
-                    NodeclSet killed = current->get_killed_vars();
+                    const NodeclMap& gen = current->get_generated_stmts();
+                    NodeclSet killed;
+                    if(current->is_omp_task_creation_node())
+                    {   // Variables removed in non-task children nodes do not count here
+                        const ObjectList<Node*>& children = current->get_children();
+                        Node* created_task = NULL;
+                        for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+                        {
+                            if((*it)->is_omp_task_node())
+                            {
+                                created_task = *it;
+                                break;
+                            }
+                        }
+                        ERROR_CONDITION(created_task==NULL, 
+                                        "Task created by task creation node %d not found.\n", 
+                                        current->get_id());
+                        const NodeclSet& task_killed = created_task->get_killed_vars();
+                        const NodeclSet& shared_vars = created_task->get_all_shared_variables();
+                        for(NodeclSet::const_iterator it = task_killed.begin(); it != task_killed.end(); ++it)
+                        {
+                            if(shared_vars.find(*it) != shared_vars.end())
+                                killed.insert(*it);
+                        }
+                    }
+                    else
+                    {
+                        killed = current->get_killed_vars();
+                    }
                     NodeclMap diff = Utils::nodecl_map_minus_nodecl_set(rd_in, killed);
 
                     rd_out = Utils::nodecl_map_union(gen, diff);

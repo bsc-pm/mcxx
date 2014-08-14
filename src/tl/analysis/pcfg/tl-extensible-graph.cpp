@@ -644,13 +644,11 @@ namespace Analysis {
         {
             current->set_visited(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
                 clear_visits(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits(*it);
         }
@@ -662,13 +660,11 @@ namespace Analysis {
         {
             current->set_visited_aux(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
                 clear_visits_aux(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_aux(*it);
         }
@@ -680,13 +676,11 @@ namespace Analysis {
         {
             current->set_visited_extgraph(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
                 clear_visits_extgraph(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph(*it);
         }
@@ -698,13 +692,11 @@ namespace Analysis {
         {
             current->set_visited_extgraph_aux(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
                 clear_visits_extgraph_aux(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph_aux(*it);
         }
