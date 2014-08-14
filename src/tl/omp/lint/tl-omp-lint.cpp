@@ -601,11 +601,9 @@ check_sync:
         {
             const Nodecl::NodeclBase& var = it->first;
             const TL::ObjectList<TL::Analysis::Node*>& concurrent_nodes_using_var = it->second;
-            
             // Do not warn the same variable twice
             if(warned_vars.find(var) != warned_vars.end())
                 continue;
-            
             // 3.5.2.- Get the variables that are defined in the concurrent node (at least one of the accesses must be a write)
             TL::Analysis::NodeclSet node_defs;
             for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it2 = concurrent_nodes_using_var.begin(); 
@@ -1182,10 +1180,7 @@ next_iteration: ;
             ERROR_CONDITION( extensible_graphs.size() != 1, "I expected 1 graph per FunctionCode", 0 );
             
             TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
-            
-            if (CURRENT_CONFIGURATION->debug_options.print_pcfg || 
-                CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
-                graph->print_graph_to_dot(/*use_def_computed*/true, /*liveness_computed*/true);
+            singleton.print_pcfg(memento, graph->get_name());
             
             // Create the log file that will store the logs
             if(!log_file_path.empty())

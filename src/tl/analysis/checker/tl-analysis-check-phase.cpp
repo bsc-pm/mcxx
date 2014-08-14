@@ -747,10 +747,11 @@ namespace {
         // Check user assertions
         for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
         {
-            analysis.print_pcfg( memento, (*it)->get_name( ) );
-
             if( VERBOSE )
+            {
+                analysis.print_pcfg( memento, (*it)->get_name( ) );
                 printf( "Check analysis assertions of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+            }
             check_analysis_assertions( *it );
         }
 

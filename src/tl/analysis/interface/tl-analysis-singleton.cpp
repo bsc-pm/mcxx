@@ -781,25 +781,19 @@ namespace Analysis {
         if(VERBOSE)
             printf("Printing PCFG '%s' to DOT\n", pcfg_name.c_str());
         ExtensibleGraph* pcfg = memento.get_pcfg(pcfg_name);
-        pcfg->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
-                                  memento.is_reaching_definitions_computed(),
-                                  memento.is_induction_variables_computed(),
-                                  memento.is_range_analysis_computed(),
-                                  memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
-    }
-
-    void AnalysisSingleton::print_all_pcfg(PCFGAnalysis_memento& memento)
-    {
-        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-        {
-            if(VERBOSE)
-                printf("Printing PCFG '%s' to DOT\n", (*it)->get_name().c_str());
-            (*it)->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
-                                         memento.is_reaching_definitions_computed(),
-                                         memento.is_induction_variables_computed(),
-                                         memento.is_range_analysis_computed(),
-                                         memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
+        if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        {   // Print analysis information
+            pcfg->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
+                                    memento.is_reaching_definitions_computed(),
+                                    memento.is_induction_variables_computed(),
+                                    memento.is_range_analysis_computed(),
+                                    memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
+        }
+        else if(CURRENT_CONFIGURATION->debug_options.print_pcfg ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        {   // Do not print analysis information
+            pcfg->print_graph_to_dot();
         }
     }
 
