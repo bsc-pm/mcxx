@@ -185,71 +185,43 @@ namespace {
                                                std::string locus_str, int node_id,
                                                std::string clause_name, std::string analysis_name )
     {
-        if( !assert_map.empty( ) )
+        if (!assert_map.empty())
         {
-            if( analysis_map.empty( ) )
+            Nodecl::List rd_visited;
+            for (NodeclMap::const_iterator it = assert_map.begin(); it != assert_map.end(); ++it)
             {
-                internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                "There are no Input Reaching Definitions associated to node %d\n",
-                                locus_str.c_str( ),
-                                Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                node_id );
-            }
-            else
-            {
-                Nodecl::List rd_visited;
-                for(NodeclMap::const_iterator it = assert_map.begin(); it != assert_map.end(); ++it)
+                NBase expr = it->first;
+                if (!Nodecl::Utils::nodecl_is_in_nodecl_list(expr, rd_visited))
                 {
-                    NBase expr = it->first;
-                    if( !Nodecl::Utils::nodecl_is_in_nodecl_list( expr, rd_visited ) )
+                    rd_visited.append(expr);
+
+                    // Get all values possible for the current expression
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> assert_rd;
+                    assert_rd = assert_map.equal_range(expr);
+
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> rd;
+                    rd = analysis_map.equal_range(expr);
+
+                    // Check whether the values are the same (or contain the RD UNKNOWN) or
+                    // check for UNDEFINED reaching definitions
+                    for (NodeclMap::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r)
                     {
-                        rd_visited.append( expr );
-
-                        // Get all values possible for the current expression
-                        std::pair<NodeclMap::iterator, NodeclMap::iterator> assert_rd;
-                        assert_rd = assert_map.equal_range( expr );
-                        int assert_rd_size = assert_map.count( expr );
-
-                        std::pair<NodeclMap::iterator, NodeclMap::iterator> rd;
-                        rd = analysis_map.equal_range( expr );
-                        int rd_size = analysis_map.count( expr );
-
-                        if( assert_rd_size == rd_size )
-                        {   // Check whether the values are the same
-                            for(NodeclMap::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r)
-                            {
-                                NBase value = it_r->second.first;
-                                bool found = false;
-                                for(NodeclMap::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s)
-                                {
-                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second.first ) )
-                                        found = true;
-                                }
-                                if( !found )
-                                {
-                                    internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                                    "Variable '%s' do not have the value '%s' in the set of reaching definitions "\
-                                                    "computed during the analysis for node %d\n",
-                                                    locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                                    expr.prettyprint( ).c_str( ), value.prettyprint( ).c_str( ), node_id );
-                                }
-                            }
-                        }
-                        else
+                        NBase value = it_r->second.first;
+                        bool found = false;
+                        for (NodeclMap::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s)
                         {
-                            int i = 0;
-                            std::string rd_str = "";
-                            for(NodeclMap::iterator it_r = rd.first; it_r != rd.second; ++it_r, ++i)
-                            {
-                                rd_str += it_r->second.first.prettyprint( );
-                                if( i < rd_size-1 )
-                                    rd_str += ", ";
-                            }
-
-                            internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                            "The values for variable '%s' computed during the analysis for node %d are '%s'\n",
+                            if (Nodecl::Utils::structurally_equal_nodecls(value, it_s->second.first) || 
+                                ((value.prettyprint()=="UNKNOWN" || value.prettyprint()=="::UNKNOWN") && it_s->second.first.prettyprint()=="UNKNOWN"))
+                                found = true;
+                        }
+                        if(!found)
+                        {   // Check whether the assert value for this expression is "UNDEFINED"
+                            ERROR_CONDITION(value.get_symbol().get_name() != "UNDEFINED", 
+                                            "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
+                                            "Variable '%s' do not have the value '%s' in the set of reaching definitions "\
+                                            "computed during the analysis for node %d\n",
                                             locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                            expr.prettyprint( ).c_str( ), node_id, rd_str.c_str( ) );
+                                            expr.prettyprint().c_str(), value.prettyprint().c_str(), node_id)
                         }
                     }
                 }
