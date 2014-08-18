@@ -1348,14 +1348,14 @@ namespace Analysis {
         return get_enclosing_control_structure_rec(node->get_outer_node());
     }
     
-    Node* ExtensibleGraph::get_task_creation_node(Node* task)
+    Node* ExtensibleGraph::get_task_creation_from_task(Node* task)
     {
         if(!task->is_omp_task_node())
             return NULL;
         
-        ObjectList<Node*> parents = task->get_parents();
+        const ObjectList<Node*>& parents = task->get_parents();
         Node* creation_node = NULL;
-        for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+        for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
         {
             if((*it)->is_omp_task_creation_node())
             {
@@ -1371,6 +1371,30 @@ namespace Analysis {
         }
         
         return creation_node;
+    }
+    
+    Node* ExtensibleGraph::get_task_from_task_creation(Node* task_creation)
+    {
+        if(!task_creation->is_omp_task_creation_node())
+            return NULL;
+        
+        const ObjectList<Node*>& children = task_creation->get_children();
+        Node* task = NULL;
+        for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        {
+            if((*it)->is_omp_task_node())
+            {
+                task = *it;
+                break;
+            }
+        }
+        
+        if(VERBOSE && (task == NULL))
+        {
+            WARNING_MESSAGE("The task created in node %d could not be found.\n", task->get_id());
+        }
+        
+        return task;
     }
     
     bool ExtensibleGraph::is_first_statement_node(Node* node)

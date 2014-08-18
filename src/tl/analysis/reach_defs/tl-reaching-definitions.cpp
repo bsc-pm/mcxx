@@ -170,17 +170,8 @@ namespace Analysis {
                     const NodeclMap& gen = current->get_generated_stmts();
                     NodeclSet killed;
                     if(current->is_omp_task_creation_node())
-                    {   // Variables removed in non-task children nodes do not count here
-                        const ObjectList<Node*>& children = current->get_children();
-                        Node* created_task = NULL;
-                        for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-                        {
-                            if((*it)->is_omp_task_node())
-                            {
-                                created_task = *it;
-                                break;
-                            }
-                        }
+                    {   // Variables from non-task children nodes do not count here
+                        Node* created_task = ExtensibleGraph::get_task_from_task_creation(current);
                         ERROR_CONDITION(created_task==NULL, 
                                         "Task created by task creation node %d not found.\n", 
                                         current->get_id());

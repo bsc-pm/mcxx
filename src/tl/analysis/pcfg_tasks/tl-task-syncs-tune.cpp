@@ -219,7 +219,19 @@ namespace {
             // and if we are not in a graph node, because we already checked it inner nodes
             if(!is_modified && !source->is_graph_node())
             {
-                NodeclSet killed_vars = source->get_killed_vars();
+                NodeclSet killed_vars;
+                if(source->is_omp_task_creation_node())
+                {   // Variables from non-task children nodes do not count here
+                    Node* created_task = ExtensibleGraph::get_task_from_task_creation(source);
+                    ERROR_CONDITION(created_task==NULL,
+                                    "Task created by task creation node %d not found.\n",
+                                    source->get_id());
+                    killed_vars = created_task->get_killed_vars();
+                }
+                else
+                {
+                    killed_vars = source->get_killed_vars();
+                }
                 if(killed_vars.find(var) != killed_vars.end())
                 {
                     NodeclMap reach_defs_out = source->get_reaching_definitions_out();
@@ -331,14 +343,14 @@ namespace {
                             if ((source_fp_vars_set.find(var)!=source_fp_vars_set.end()) &&
                                 (target_fp_vars_set.find(var)!=target_fp_vars_set.end()))
                             {
-                                Node* source_tc = ExtensibleGraph::get_task_creation_node(source);
-                                Node* target_tc = ExtensibleGraph::get_task_creation_node(target);
+                                Node* source_tc = ExtensibleGraph::get_task_creation_from_task(source);
+                                Node* target_tc = ExtensibleGraph::get_task_creation_from_task(target);
                                 if(!variable_is_modified_between_nodes(source_tc, target_tc, var))
                                 {   // The variable hasn't changed => we are sure there is a dependency
                                     modification_type = MaybeToStatic;
                                 }
                                 else
-                                {   // The variable has changes => we are sure there is no dependency
+                                {   // The variable has changed => we are sure there is no dependency
                                     modification_type = Remove;
                                 }
                                 goto match_array_subscripts_end;
@@ -489,7 +501,15 @@ match_array_subscripts_end:
         // 1.- Collect the variables in the dependency clauses
         Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
-        // 1.1.- For the source task we are interested only in out or inout dependencies
+        // 1.1.- Get in dependencies on one side and out and inout dependencies on the other side
+        //       - out|inout will be matched with in|out|inout in the target
+        //       - in will be matched with out|inout dependencies
+        ObjectList<NBase> source_in_deps = source_environ.find_all<Nodecl::OpenMP::DepIn>()
+                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
+                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
+                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
+                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
+                ;
         ObjectList<NBase> source_out_deps = source_environ.find_all<Nodecl::OpenMP::DepOut>()
                 .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
                 .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
@@ -502,8 +522,8 @@ match_array_subscripts_end:
                 .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
                 .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
                 ;
-        ObjectList<NBase> source_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
-        // 1.2.- For the target task we need to check all kind of dependencies
+        ObjectList<NBase> source_all_out_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
+        // 1.2.- Get all in, out and inout dependencies
         ObjectList<NBase> target_in_deps = target_environ.find_all<Nodecl::OpenMP::DepIn>()
                 .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
                 .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
@@ -524,14 +544,20 @@ match_array_subscripts_end:
                 ;
         ObjectList<NBase> target_deps =
                 append_two_lists(nodecl_object_list_pair(target_inout_deps,
-                                                           append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
+                                                          append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
+        ObjectList<NBase> target_all_out_deps = append_two_lists(nodecl_object_list_pair(target_out_deps, target_inout_deps));
 
         // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
         SyncModification modification_type = None;
-        for(ObjectList<NBase>::iterator its = source_deps.begin(); its != source_deps.end(); ++its)
+        // 2.1.- Match source(out, inout) with target(in, out, inout)
+        for(ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_deps.begin(); itt != target_deps.end(); ++itt)
                 modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
-        
+        // 2.1.- Match source(in) with target(out, inout)
+        for(ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
+            for(ObjectList<NBase>::iterator itt = target_all_out_deps.begin(); itt != target_all_out_deps.end(); ++itt)
+                modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
+
         // 3.- Perform the modifications according to the previous results
         //     The order of these condition is important because for each pair of variables in the dependency clauses
         //     we compute a modification that is joined to the previous ones. So these conditions go from 

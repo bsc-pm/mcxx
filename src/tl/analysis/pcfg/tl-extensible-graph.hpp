@@ -427,7 +427,8 @@ namespace Analysis {
         static bool task_encloses_task(Node* container, Node* contained);
         static bool node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks);
         static Node* get_enclosing_control_structure(Node* node);
-        static Node* get_task_creation_node(Node* task);
+        static Node* get_task_creation_from_task(Node* task);
+        static Node* get_task_from_task_creation(Node* task_creation);
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //

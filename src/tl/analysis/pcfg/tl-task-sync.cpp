@@ -979,13 +979,15 @@ namespace {
         
         visited_tasks.insert(t1);
         
-        const ObjectList<Node*>& children = t1->get_children();
-        for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+        const ObjectList<Edge*>& exits = t1->get_exit_edges();
+        for (ObjectList<Edge*>::const_iterator it = exits.begin(); it != exits.end(); ++it)
         {
-            if ((*it)->is_omp_task_node() && 
-                visited_tasks.find(*it)==visited_tasks.end())   // Avoid cycles
+            Node* child = (*it)->get_target();
+            if (child->is_omp_task_node() &&
+                (visited_tasks.find(child)==visited_tasks.end()) &&     // Avoid cycles
+                ((*it)->get_label_as_string() != "maybe"))              // This path will be taken for sure
             {
-                if(task_domains_task(*it, t2, visited_tasks))
+                if(task_domains_task(child, t2, visited_tasks))
                     return true;
             }
         }
@@ -1033,7 +1035,7 @@ namespace {
             const ObjectList<Node*>& all_tasks,
             ObjectList<Node*>& concurrent_tasks)
     {
-        Node* task_creation = ExtensibleGraph::get_task_creation_node(task);
+        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
         ObjectList<Node*> children = task->get_children();
         for(ObjectList<Node*>::const_iterator it = all_tasks.begin(); it != all_tasks.end(); ++it)
         {
@@ -1047,7 +1049,7 @@ namespace {
                         concurrent_tasks.insert(*it);
                 }
                 // If current task is an ancestor of the task and it synchronizes after the task, then it is concurrent
-                Node* it_creation = ExtensibleGraph::get_task_creation_node((*it));
+                Node* it_creation = ExtensibleGraph::get_task_creation_from_task((*it));
                 while(it_creation != NULL)
                 {
                     if(ExtensibleGraph::node_is_ancestor_of_node(it_creation, task_creation))
@@ -1081,7 +1083,7 @@ task_synchronized:      break;
                     {
                         Node* enclosing_task = ExtensibleGraph::get_enclosing_task(it_creation);
                         if(enclosing_task != NULL)
-                            it_creation = ExtensibleGraph::get_task_creation_node(enclosing_task);
+                            it_creation = ExtensibleGraph::get_task_creation_from_task(enclosing_task);
                         else
                             it_creation = NULL;
                     }
@@ -1152,7 +1154,7 @@ task_synchronized:      break;
         const ObjectList<Node*>& task_syncs = task->get_children();
         for(ObjectList<Node*>::const_iterator it = task_syncs.begin(); it != task_syncs.end(); ++it)
         {
-            Node* task_sync = ((*it)->is_omp_task_node() ? ExtensibleGraph::get_task_creation_node(*it) 
+            Node* task_sync = ((*it)->is_omp_task_node() ? ExtensibleGraph::get_task_creation_from_task(*it) 
                                                          : *it);
             
             // The task synchronizes with itself, so to instances of the task cannot be concurrent
@@ -1164,7 +1166,7 @@ task_synchronized:      break;
                 continue;
             
             // Iterate over all loops the task is enclosed in checking whether it synchronizes there
-            Node* task_outer = ExtensibleGraph::get_task_creation_node(task)->get_outer_node();
+            Node* task_outer = ExtensibleGraph::get_task_creation_from_task(task)->get_outer_node();
             while(task_outer != NULL)
             {
                 // Get the next loop were the task is nested
@@ -1458,7 +1460,7 @@ task_synchronized:      break;
         //       If last_sync has already been defined at this point, both last_sync_for_seq_code and _last_sync_for_tasks are the same
         //       Otherwise, they may differ
         Node* pcfg = ExtensibleGraph::get_extensible_graph_from_node(task);
-        Node* task_creation = ExtensibleGraph::get_task_creation_node(task);
+        Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);
         Node* parallel;
         ObjectList<Node*> last_sync_for_seq_code;
         // Case A: We are dealing with OpenMP

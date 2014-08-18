@@ -436,7 +436,7 @@ namespace {
             const Nodecl::List& local_vars)
     {
         // Get the task creation node of the task and its children (synchronization points)
-        TL::Analysis::Node* task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_node(task);
+        TL::Analysis::Node* task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_from_task(task);
         ERROR_CONDITION (task_creation==NULL, 
                          "Task creation of node %d not found in its list of parents.\n", 
                          task->get_id());
@@ -475,7 +475,7 @@ check_sync:
                 if((*it)->is_omp_virtual_tasksync())
                     return false;
                 
-                TL::Analysis::Node* sync = ((*it)->is_omp_task_node() ? TL::Analysis::ExtensibleGraph::get_task_creation_node(*it) 
+                TL::Analysis::Node* sync = ((*it)->is_omp_task_node() ? TL::Analysis::ExtensibleGraph::get_task_creation_from_task(*it) 
                                                                       : *it);
                 if(!TL::Analysis::ExtensibleGraph::node_contains_node(var_ctx_node, sync))
                     return false;
