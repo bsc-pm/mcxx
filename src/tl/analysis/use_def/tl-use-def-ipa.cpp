@@ -27,6 +27,7 @@ Cambridge, MA 02139, USA.
 #include <iostream>
 #include <fstream>
 
+#include "cxx-diagnostic.h"
 #include "tl-use-def.hpp"
 
 namespace TL {
@@ -437,12 +438,21 @@ namespace Analysis {
                 std::string func_name = func_sym.get_name();
                 if(_warned_unreach_funcs.find(func_name)==_warned_unreach_funcs.end())
                 {   // Each function is warned only once
+                    if(_warned_unreach_funcs.empty())
+                    {   // Long message for the first time only
+                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
+                                     "reference parameters is limited. \nIf you know the side effects of this function, "\
+                                     "add it to the file '%s' and recompile your code. \n"
+                                     "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).\n",
+                                     __FILE__, __LINE__, func_name.c_str(), cLibFuncsPath.c_str());
+                    }
+                    else
+                    {
+                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and "\
+                                     "reference parameters is limited.\n",
+                                     __FILE__, __LINE__, func_name.c_str());
+                    }
                     _warned_unreach_funcs.insert(func_name);
-                    WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
-                                    "reference parameters will be limited. \nIf you know the side effects of this function, "\
-                                    "add it to the file and recompile your code. \n(If you recompile the compiler, "\
-                                    "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-                                    func_sym.get_name().c_str(), cLibFuncsPath.c_str());
                 }
             }
             cLibFuncs.close();

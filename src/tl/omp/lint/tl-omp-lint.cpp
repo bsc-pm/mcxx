@@ -1215,7 +1215,15 @@ next_iteration: ;
             TL::Analysis::PCFGAnalysis_memento memento;
             // We compute liveness analysis (that includes PCFG and use-def) because 
             // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
+            if(VERBOSE)
+            {
+                std::cerr << "===========================================" << std::endl;
+                std::cerr << "OMP-LINT_ Executing analysis required for OpenMP/OmpSs correctness checking in function '" 
+                          << function_code.get_symbol().get_name() << "'" << std::endl;
+            }
             singleton.tune_task_synchronizations(memento, function_code);
+            if(VERBOSE)
+                std::cerr << "===========================================" << std::endl;
             TL::ObjectList<TL::Analysis::ExtensibleGraph*> extensible_graphs = memento.get_pcfgs();
             ERROR_CONDITION( extensible_graphs.size() != 1, "I expected 1 graph per FunctionCode", 0 );
             
