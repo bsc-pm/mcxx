@@ -45,6 +45,8 @@ namespace Analysis {
             const sym_to_nodecl_map& ptr_param_to_arg_map, 
             Utils::UsageKind usage_kind)
     {
+        Symbol s;
+
         for(NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
         {
             NBase n = it->no_conv();
@@ -53,17 +55,31 @@ namespace Analysis {
                n.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Symbol>() && 
                (ptr_param_to_arg_map.find(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end()))
             {   // The value pointed by a pointer parameter has some usage
-                Symbol s(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()); // parameter
-                NBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
-                NBase new_n = n.shallow_copy();
-                rv.walk(new_n);
-                if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
-                else
-                    _node->add_undefined_behaviour_var(new_n);
+                s = n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol(); // parameter
             }
+            // Current usage variable is and array subscript of a parameter symbol
+            else if(n.is<Nodecl::ArraySubscript>() &&
+                n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv().is<Nodecl::Symbol>() &&
+                 (ptr_param_to_arg_map.find(n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv().as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end()))
+            {   // The sup-parts of a pointer parameter have some usage
+                s = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv().as<Nodecl::Symbol>().get_symbol(); // parameter
+                goto propagate_usage;
+            }
+            else
+            {   // Nothing to do here
+                continue;
+            }
+
+propagate_usage:
+            NBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
+            sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+            RenameVisitor rv(rename_map);
+            NBase new_n = n.shallow_copy();
+            rv.walk(new_n);
+            if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
+                _node->add_killed_var(new_n);
+            else
+                _node->add_undefined_behaviour_var(new_n);
         }
     }
     
@@ -167,7 +183,7 @@ namespace Analysis {
         NodeclSet called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
         // 2.3.- Propagate pointer parameters usage to the current node
         if(!ptr_param_to_arg_map.empty())
-        {                        
+        {
             propagate_called_func_pointed_values_usage_to_func_call(
                     called_killed_vars, ptr_param_to_arg_map, Utils::UsageKind::DEFINED);
             propagate_called_func_pointed_values_usage_to_func_call(
@@ -739,7 +755,8 @@ namespace Analysis {
                                 _node->add_ue_var(*it);
                             }
                             
-                            if(arg.get_type().is_pointer())
+                            if (!mem_accesses.empty() && // Avoid including expressions such as "(void*)NULL" to the Use-Def lists
+                                arg.get_type().is_pointer())
                             {   // The pointed value has an undefined behavior
                                 _node->add_undefined_behaviour_var(Nodecl::Dereference::make(arg.shallow_copy(), arg.get_type().points_to()));
                             }
