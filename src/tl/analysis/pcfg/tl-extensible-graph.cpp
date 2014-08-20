@@ -953,7 +953,7 @@ namespace Analysis {
         return _func_calls;
     }
 
-    ObjectList<Node*> ExtensibleGraph::get_task_concurrent_tasks(Node* task)
+    ObjectList<Node*> ExtensibleGraph::get_task_concurrent_tasks(Node* task) const
     {
         ObjectList<Node*> result;
         if(!task->is_omp_task_node())
@@ -962,12 +962,15 @@ namespace Analysis {
         }
         else
         {
-            if(_concurrent_tasks.find(task) == _concurrent_tasks.end())
+            std::map<Node*, ObjectList<Node*> >::const_iterator it = _concurrent_tasks.find(task);
+            if(it == _concurrent_tasks.end())
             {
                 WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
             }
             else
-                result = _concurrent_tasks[task];
+            {
+                result = it->second;
+            }
         }
         return result;
     }
@@ -984,7 +987,7 @@ namespace Analysis {
         _concurrent_tasks[task] = concurrent_tasks;
     }
     
-    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization(Node* task)
+    ObjectList<Node*> ExtensibleGraph::get_task_last_synchronization(Node* task) const
     {
         ObjectList<Node*> result;
         if(!task->is_omp_task_node())
@@ -993,12 +996,15 @@ namespace Analysis {
         }
         else
         {
-            if(_last_sync.find(task) == _last_sync.end())
+            std::map<Node*, ObjectList<Node*> >::const_iterator it = _last_sync.find(task);
+            if(it == _last_sync.end())
             {
                 WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
             }
             else
-                result = _last_sync[task];
+            {
+                result = it->second;
+            }
         }
         return result;
     }
@@ -1015,7 +1021,7 @@ namespace Analysis {
         _last_sync[task] = last_sync;
     }
 
-    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization(Node* task)
+    ObjectList<Node*> ExtensibleGraph::get_task_next_synchronization(Node* task) const
     {
         ObjectList<Node*> result;
         if(!task->is_omp_task_node())
@@ -1024,12 +1030,15 @@ namespace Analysis {
         }
         else
         {
-            if(_next_sync.find(task) == _next_sync.end())
+            std::map<Node*, ObjectList<Node*> >::const_iterator it = _next_sync.find(task);
+            if(it == _next_sync.end())
             {
                 WARNING_MESSAGE("Simultaneous tasks of task '%d' have not been computed", task->get_id());
             }
             else
-                result.insert(_next_sync[task]);
+            {
+                result = it->second;
+            }
         }
         return result;
     }

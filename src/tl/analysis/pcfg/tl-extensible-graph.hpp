@@ -402,11 +402,11 @@ namespace Analysis {
         
         // Task synchronization analysis
         // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
-        ObjectList<Node*> get_task_concurrent_tasks(Node* task);
+        ObjectList<Node*> get_task_concurrent_tasks(Node* task) const;
         void add_concurrent_task_group(Node* task, ObjectList<Node*> concurrent_tasks);
-        ObjectList<Node*> get_task_last_synchronization(Node* task);
+        ObjectList<Node*> get_task_last_synchronization(Node* task) const;
         void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
-        ObjectList<Node*> get_task_next_synchronization(Node* task);
+        ObjectList<Node*> get_task_next_synchronization(Node* task) const;
         void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
         void remove_next_synchronization(Node* task, Node* next_sync);
         void remove_concurrent_task(Node* task, Node* old_concurrent_task);

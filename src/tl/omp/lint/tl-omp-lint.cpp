@@ -608,7 +608,7 @@ check_sync:
                 {
                     // 3.5.5.- Check whether the dependency is inter-iteration (in case the tasks are in a loop)
                     //         - in case they are, check whether the object has changed
-                    if(var.is<Nodecl::ArraySubscript>())
+                    if((concurrent_task != NULL) && var.is<Nodecl::ArraySubscript>())
                     {   // For Symbols and ClassMemberAccess, the object accesses is the same
                         const Nodecl::List& subscripts = var.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
                         TL::Analysis::Node* source = (task_is_source ? task : concurrent_task);
@@ -659,7 +659,7 @@ next_iteration: ;
         return result;
     }
 
-    tribool task_may_cause_race_condition (TL::Analysis::ExtensibleGraph* pcfg,
+    tribool task_may_cause_race_condition (const TL::Analysis::ExtensibleGraph* pcfg,
                                            TL::Analysis::Node *task, Nodecl::List& race_cond_vars)
     {
         // 1.- Collect all symbols/data references that may cause a race condition
@@ -1195,7 +1195,7 @@ next_iteration: ;
     // *************************************************************************** //
     // ************************* Correctness as a service ************************ //
     
-    void execute_correctness_checks(TL::Analysis::ExtensibleGraph* graph)
+    void execute_correctness_checks(const TL::Analysis::ExtensibleGraph* graph)
     {
         // Get all task nodes
         ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();
@@ -1258,99 +1258,6 @@ next_iteration: ;
 
     // *********************** END Correctness as a service ********************** //
     // *************************************************************************** //
-    
-    
-    struct FunctionCodeVisitor : Nodecl::ExhaustiveVisitor<void>
-    {
-        void visit( const Nodecl::FunctionCode& function_code )
-        {
-            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
-            TL::Analysis::PCFGAnalysis_memento memento;
-            // We compute liveness analysis (that includes PCFG and use-def) because 
-            // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
-            if(VERBOSE)
-            {
-                std::cerr << "===========================================" << std::endl;
-                std::cerr << "OMP-LINT_ Executing analysis required for OpenMP/OmpSs correctness checking in function '" 
-                          << function_code.get_symbol().get_name() << "'" << std::endl;
-            }
-            singleton.tune_task_synchronizations(memento, function_code);
-            if(VERBOSE)
-                std::cerr << "===========================================" << std::endl;
-            TL::ObjectList<TL::Analysis::ExtensibleGraph*> extensible_graphs = memento.get_pcfgs();
-            ERROR_CONDITION( extensible_graphs.size() != 1, "I expected 1 graph per FunctionCode", 0 );
-            
-            TL::Analysis::ExtensibleGraph* graph = extensible_graphs[0];
-            singleton.print_pcfg(memento, graph->get_name());
-            
-            // Create the log file that will store the logs
-            if(!log_file_path.empty())
-            {
-            	// Make sure the logs directory exists
-                struct stat st;
-                if(stat(log_file_path.c_str(), &st) != 0)
-                {   // the directory does not exist
-                    int old_mask = umask(0000);
-                    int dot_directory = mkdir(log_file_path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
-                    umask(old_mask);
-                    if(dot_directory != 0)
-                        internal_error("An error occurred while creating the dot files directory in '%s'", log_file_path.c_str());
-                }
-
-                // 1.- Get user name
-                char* tmp_usr_name = getenv("USER");
-                usr_name = std::string(tmp_usr_name);
-                if(usr_name.empty())
-                    usr_name = "undefined";
-                
-                // 2.- Get time
-                std::string date_str;
-                {
-                    time_t t = time(NULL);
-                    struct tm* tmp = localtime(&t);
-                    if(tmp == NULL)
-                    {
-                        internal_error("localtime failed", 0);
-                    }
-                    char outstr[200];
-                    if(strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
-                    {
-                        internal_error("strftime failed", 0);
-                    }
-                    outstr[199] = '\0';
-                    date_str = outstr;
-                }
-                
-                // 3.- Build the name of the file
-                char absolute_path[PATH_MAX+1];
-                char* path_ptr = realpath(log_file_path.c_str(), absolute_path);
-                ERROR_CONDITION(path_ptr == NULL, "Error retrieving the real path of path %s.\n", log_file_path.c_str());
-                snprintf(log_file_name, PATH_MAX, "%s/__correctness_%s_%lu_%s.log",
-                         absolute_path,
-                         usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
-                log_file_name[PATH_MAX-1] = '\0';
-                
-                // 4.- Create and open the file
-                DEBUG_CODE()
-                {
-                    std::cerr << "OMP-LINT_ The correctness log files for this compilation will be stored in file: '" << log_file_name << "'" << std::endl;
-                }
-                int old_mask = umask(0022);
-                log_file = fopen(log_file_name, "a+");
-                umask(old_mask);
-                if(log_file == NULL)
-                    internal_error("Unable to open the file '%s' to store the correctness logs.", log_file_name);
-            }
-            
-            execute_correctness_checks(graph);
-            
-            // Close the logs file
-            if(!log_file_path.empty())
-            {
-                fclose(log_file);
-            }
-        }
-    };
     
 
     
@@ -1546,12 +1453,102 @@ next_iteration: ;
 
         if (_disable_phase == "0")
         {
-            // Get the path to the file where we will store the logs (in addition to showing them in the stdout)
+            // 1.- Get the environment variables to depict the analysis
+            //     - path to the file where we will store the logs (in addition to showing them in the stdout)
+            //     - boolean specifying whether we are in OmpSs or OpenMP
             log_file_path = _correctness_log_path;
-            
             ompss_mode_enabled = _ompss_mode_enabled;
-            FunctionCodeVisitor function_codes;
-            function_codes.walk(top_level);
+            
+            // 2.- Compute the necessary analyses for reporting correctness logs
+            TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(ompss_mode_enabled);
+            TL::Analysis::PCFGAnalysis_memento memento;
+            // We compute liveness analysis (that includes PCFG and use-def) because 
+            // we need the information computed by TaskConcurrency (last and next synchronization points of a task)
+            if(VERBOSE)
+            {
+                std::cerr << "===========================================" << std::endl;
+                std::cerr << "OMP-LINT_ Executing analysis required for OpenMP/OmpSs correctness checking in file '" 
+                          << top_level.get_filename() << "'" << std::endl;
+            }
+            singleton.tune_task_synchronizations(memento, top_level);
+            if(VERBOSE)
+            {
+                std::cerr << "===========================================" << std::endl;
+                singleton.print_all_pcfg(memento);
+            }
+            
+            // 3.- Create the log file that will store the logs
+            if(!log_file_path.empty())
+            {
+                // Make sure the logs directory exists
+                struct stat st;
+                if(stat(log_file_path.c_str(), &st) != 0)
+                {   // the directory does not exist
+                    int old_mask = umask(0000);
+                    int dot_directory = mkdir(log_file_path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
+                    umask(old_mask);
+                    if(dot_directory != 0)
+                        internal_error("An error occurred while creating the dot files directory in '%s'", log_file_path.c_str());
+                }
+                
+                // 1.- Get user name
+                char* tmp_usr_name = getenv("USER");
+                usr_name = std::string(tmp_usr_name);
+                if(usr_name.empty())
+                    usr_name = "undefined";
+                
+                // 2.- Get time
+                std::string date_str;
+                {
+                    time_t t = time(NULL);
+                    struct tm* tmp = localtime(&t);
+                    if(tmp == NULL)
+                    {
+                        internal_error("localtime failed", 0);
+                    }
+                    char outstr[200];
+                    if(strftime(outstr, sizeof(outstr), "%s", tmp) == 0)
+                    {
+                        internal_error("strftime failed", 0);
+                    }
+                    outstr[199] = '\0';
+                    date_str = outstr;
+                }
+                
+                // 3.- Build the name of the file
+                char absolute_path[PATH_MAX+1];
+                char* path_ptr = realpath(log_file_path.c_str(), absolute_path);
+                ERROR_CONDITION(path_ptr == NULL, "Error retrieving the real path of path %s.\n", log_file_path.c_str());
+                snprintf(log_file_name, PATH_MAX, "%s/__correctness_%s_%lu_%s.log",
+                         absolute_path,
+                         usr_name.c_str(), (unsigned long)getppid(), date_str.c_str());
+                log_file_name[PATH_MAX-1] = '\0';
+                
+                // 4.- Create and open the file
+                DEBUG_CODE()
+                {
+                    std::cerr << "OMP-LINT_ The correctness log files for this compilation will be stored in file: '" << log_file_name << "'" << std::endl;
+                }
+                int old_mask = umask(0022);
+                log_file = fopen(log_file_name, "a+");
+                umask(old_mask);
+                if(log_file == NULL)
+                    internal_error("Unable to open the file '%s' to store the correctness logs.", log_file_name);
+            }
+            
+            // 4.- Execute all correctness logs in each file we have analyzed previously
+            const TL::ObjectList<TL::Analysis::ExtensibleGraph*>& extensible_graphs = memento.get_pcfgs();
+            for (TL::ObjectList<TL::Analysis::ExtensibleGraph*>::const_iterator it = extensible_graphs.begin();
+                 it != extensible_graphs.end(); ++it)
+            {
+                execute_correctness_checks(*it);
+            }
+            
+            // 5.- Close the logs file
+            if(!log_file_path.empty())
+            {
+                fclose(log_file);
+            }
         }
     }
 
