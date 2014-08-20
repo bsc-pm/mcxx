@@ -1505,6 +1505,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, if_else_graph_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IndexDesignator& n )
+    {   
+        // Nothing to do with the index (n.get_index())
+        return walk(n.get_next());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return visit_literal_node( n );
