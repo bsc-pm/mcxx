@@ -1254,6 +1254,8 @@ src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
 							$(ANALYSIS_LIBADD)
 
 src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.cpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp \
                                $(END)
@@ -1997,6 +1999,7 @@ phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg_tasks \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/interface\
                           $(END)
@@ -2004,6 +2007,7 @@ src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
 		          $(END)

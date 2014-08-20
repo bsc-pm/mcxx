@@ -27,6 +27,7 @@
 #include "cxx-diagnostic.h"
 #include "tl-datareference.hpp"
 #include "tl-omp-lint.hpp"
+#include "tl-task-syncs-utils.hpp"
 #include "tl-tribool.hpp"
 
 #include <limits.h>
@@ -557,74 +558,19 @@ check_sync:
         }
     }
     
-    tribool task_may_cause_race_condition (TL::Analysis::ExtensibleGraph* pcfg, 
-                                           TL::Analysis::Node *task, Nodecl::List& race_cond_vars)
+    bool check_concurrent_accesses(
+            TL::Analysis::Node* task,
+            TL::Analysis::Node* concurrent_task,
+            bool task_is_source,
+            const VarToNodesMap& task_used_vars,
+            const VarToNodesMap& concurrent_vars,
+            const TL::Analysis::NodeclSet& task_defs,
+            std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less>& warned_vars,
+            Nodecl::List& race_cond_vars)
     {
-        // 1.- Collect all symbols/data references that may cause a race condition
-        TL::Analysis::NodeclSet task_shared_variables = task->get_all_shared_variables();
-        
-        // 2.- Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
-        // 2.1.- Get the previous and next synchronization points (computed during Liveness analysis)
-        TL::ObjectList<TL::Analysis::Node*> last_sync = pcfg->get_task_last_synchronization(task);
-        TL::ObjectList<TL::Analysis::Node*> next_sync = pcfg->get_task_next_synchronization(task);
-        TL::ObjectList<TL::Analysis::Node*> concurrent_tasks = pcfg->get_task_concurrent_tasks(task);
-        if(VERBOSE)
-        {
-            std::cerr << "OMP-LINT_ Task " << task->get_id()
-                      << "  |  last_syncs:" << print_node_list(last_sync)
-                      << "  |  next_syncs:" << print_node_list(next_sync)
-                      << "  |  concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
-#if 0
-            std::cerr << "Shared variables:";
-            for (TL::Analysis::NodeclSet::iterator it = task_shared_variables.begin();
-                 it != task_shared_variables.end(); )
-            {
-                std::cerr << it->prettyprint();
-                ++it;
-                if(it != task_shared_variables.end())
-                    std::cerr << ", ";
-            }
-            std::cerr << std::endl;
-#endif
-        }
-        
-        tribool result = false;
-        
-        // 3.2.- Get shared variables used within the task
-        VarToNodesMap task_used_vars;
-        TL::Analysis::Node* task_entry = task->get_graph_entry_node();
-        compute_usage_between_nodes(task_entry, task_entry, task->get_graph_exit_node(), NULL, 
-                                    task_used_vars, task_shared_variables, /*skip_other_tasks*/ true);
-        TL::Analysis::ExtensibleGraph::clear_visits_in_level(task_entry, task);
-
-        // 3.3.- Get shared variables used in sequential code concurrent with the task
-        VarToNodesMap concurrently_used_vars;
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
-            for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
-                compute_usage_between_nodes(*itl, *itl, *itn, task, 
-                                            concurrently_used_vars, task_shared_variables, /*skip_other_tasks*/ true);
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
-            TL::Analysis::ExtensibleGraph::clear_visits( *itl );
-        
-        // 3.4.- Get shared variables used in tasks concurrent with the task
-        for (ObjectList<TL::Analysis::Node*>::iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
-        {
-            TL::Analysis::Node* concurrent_task_entry = (*it)->get_graph_entry_node();
-            compute_usage_between_nodes(concurrent_task_entry, concurrent_task_entry, (*it)->get_graph_exit_node(), task, 
-                                        concurrently_used_vars, task_shared_variables, /*skip_other_tasks*/ false);
-            TL::Analysis::ExtensibleGraph::clear_visits_in_level(concurrent_task_entry, (*it));
-        }
-        
-        // 3.5.- Detect data races on the variables that appear in both the task and concurrent code with the task
-        // 3.5.1.- Get the variables that are defined in the task node (at least one of the accesses must be a write)
-        TL::Analysis::NodeclSet task_defs = task->get_killed_vars( );
-            // To be conservative, the undef. variables count as definitions
-            TL::Analysis::NodeclSet task_undef = task->get_undefined_behaviour_vars( );
-            task_defs.insert( task_undef.begin( ), task_undef.end( ) );
-            
-        std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> warned_vars;
-        for (VarToNodesMap::iterator it = concurrently_used_vars.begin( ); 
-                it != concurrently_used_vars.end( ); ++it )
+        bool result = false;
+        for (VarToNodesMap::const_iterator it = concurrent_vars.begin();
+             it != concurrent_vars.end(); ++it)
         {
             const Nodecl::NodeclBase& var = it->first;
             const TL::ObjectList<TL::Analysis::Node*>& concurrent_nodes_using_var = it->second;
@@ -655,11 +601,29 @@ check_sync:
             {   // If all accesses are protected in a critical/atomic construct, then there is no race condition
                 // 3.5.4.- Check whether variables scoped in the task are really used within the task
                 //         Otherwise we will report the warning __Unused in the adequate method
-                VarToNodesMap::iterator task_nodes_using_var_it = task_used_vars.find(var);
+                VarToNodesMap::const_iterator task_nodes_using_var_it = task_used_vars.find(var);
                 if (task_nodes_using_var_it == task_used_vars.end())
                     goto next_iteration;
                 
                 {
+                    // 3.5.5.- Check whether the dependency is inter-iteration (in case the tasks are in a loop)
+                    //         - in case they are, check whether the object has changed
+                    if(var.is<Nodecl::ArraySubscript>())
+                    {   // For Symbols and ClassMemberAccess, the object accesses is the same
+                        const Nodecl::List& subscripts = var.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                        TL::Analysis::Node* source = (task_is_source ? task : concurrent_task);
+                        TL::Analysis::Node* target = (task_is_source ? concurrent_task : task);
+                        for(Nodecl::List::const_iterator it2 = subscripts.begin(); it2 != subscripts.end(); ++it2)
+                        {
+                            // If only one subscript has changed between @source and @target tasks,
+                            // then the accessed object is not the same and the variables cannot be in a race condition
+                            if(TL::Analysis::TaskAnalysis::data_reference_is_modified_between_tasks(source, target, *it2))
+                            {
+                                goto next_iteration;
+                            }
+                        }
+                    }
+
                     // 3.5.5.- Check whether accesses in task are protected
                     TL::ObjectList<TL::Analysis::Node*> task_nodes_using_var = task_nodes_using_var_it->second;
                     for (TL::ObjectList<TL::Analysis::Node*>::iterator it2 = task_nodes_using_var.begin();
@@ -691,6 +655,85 @@ check_sync:
                 
 next_iteration: ;
             }
+        }
+        return result;
+    }
+
+    tribool task_may_cause_race_condition (TL::Analysis::ExtensibleGraph* pcfg,
+                                           TL::Analysis::Node *task, Nodecl::List& race_cond_vars)
+    {
+        // 1.- Collect all symbols/data references that may cause a race condition
+        TL::Analysis::NodeclSet task_shared_variables = task->get_all_shared_variables();
+
+        // 2.- Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
+        // 2.1.- Get the previous and next synchronization points (computed during Liveness analysis)
+        TL::ObjectList<TL::Analysis::Node*> last_sync = pcfg->get_task_last_synchronization(task);
+        TL::ObjectList<TL::Analysis::Node*> next_sync = pcfg->get_task_next_synchronization(task);
+        TL::ObjectList<TL::Analysis::Node*> concurrent_tasks = pcfg->get_task_concurrent_tasks(task);
+        if(VERBOSE)
+        {
+            std::cerr << "OMP-LINT_ Task " << task->get_id()
+                      << "  |  last_syncs:" << print_node_list(last_sync)
+                      << "  |  next_syncs:" << print_node_list(next_sync)
+                      << "  |  concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
+#if 0
+            std::cerr << "Shared variables:";
+            for (TL::Analysis::NodeclSet::iterator it = task_shared_variables.begin();
+                 it != task_shared_variables.end(); )
+            {
+                std::cerr << it->prettyprint();
+                ++it;
+                if(it != task_shared_variables.end())
+                    std::cerr << ", ";
+            }
+            std::cerr << std::endl;
+#endif
+        }
+
+        tribool result = false;
+
+        // 3.2.- Get shared variables used within the task
+        VarToNodesMap task_used_vars;
+        TL::Analysis::Node* task_entry = task->get_graph_entry_node();
+        compute_usage_between_nodes(task_entry, task_entry, task->get_graph_exit_node(), NULL,
+                                    task_used_vars, task_shared_variables, /*skip_other_tasks*/ true);
+        TL::Analysis::ExtensibleGraph::clear_visits_in_level(task_entry, task);
+
+        // 3.3.- Get the variables that are defined in the task node (at least one of the accesses must be a write)
+        //     To be conservative, the undef. variables count as definitions
+        TL::Analysis::NodeclSet task_defs = task->get_killed_vars();
+        TL::Analysis::NodeclSet task_undef = task->get_undefined_behaviour_vars();
+        task_defs.insert(task_undef.begin(), task_undef.end());
+
+        // 3.4.- Check concurrent accesses between the task and the sequential code executing concurrently with the task
+        VarToNodesMap sequential_concurrent_vars;
+        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
+            for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
+                compute_usage_between_nodes(
+                        *itl, *itl, *itn, task,
+                        sequential_concurrent_vars, task_shared_variables, /*skip_other_tasks*/ true);
+        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
+            TL::Analysis::ExtensibleGraph::clear_visits( *itl );
+        std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> warned_vars;
+        result = result || check_concurrent_accesses(task, /*concurrent_task*/NULL, /*task_is_source*/false,
+                                                     task_used_vars, sequential_concurrent_vars,
+                                                     task_defs, warned_vars, race_cond_vars);
+
+        // 3.5.- Check concurrent accesses between the task and other concurrent tasks
+        TL::Analysis::Node* task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_from_task(task);
+        for (ObjectList<TL::Analysis::Node*>::iterator it = concurrent_tasks.begin(); it != concurrent_tasks.end(); ++it)
+        {
+            TL::Analysis::Node* concurrent_task = *it;
+            VarToNodesMap task_concurrent_vars;
+            TL::Analysis::Node* concurrent_task_entry = concurrent_task->get_graph_entry_node();
+            compute_usage_between_nodes(concurrent_task_entry, concurrent_task_entry, concurrent_task->get_graph_exit_node(), task,
+                                        task_concurrent_vars, task_shared_variables, /*skip_other_tasks*/ false);
+            TL::Analysis::ExtensibleGraph::clear_visits_in_level(concurrent_task_entry, concurrent_task);
+            TL::Analysis::Node* concurrent_task_creation = TL::Analysis::ExtensibleGraph::get_task_creation_from_task(concurrent_task);
+            bool task_is_source = TL::Analysis::ExtensibleGraph::node_is_ancestor_of_node(task_creation, concurrent_task_creation);
+            result = result || check_concurrent_accesses(task, *it, task_is_source,
+                                                         task_used_vars, task_concurrent_vars,
+                                                         task_defs, warned_vars, race_cond_vars);
         }
         
         return result;

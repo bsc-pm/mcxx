@@ -1059,6 +1059,20 @@ namespace Analysis {
         next_syncs = next_syncs.not_find(next_sync);
     }
     
+    void ExtensibleGraph::remove_concurrent_task(Node* task, Node* old_concurrent_task)
+    {
+        if(_concurrent_tasks.find(task) == _concurrent_tasks.end())
+        {
+            WARNING_MESSAGE ("Task %d is not in the map of tasks concurrency. "
+                             "We are unable to remove %d from its list of concurrent tasks.\n", 
+                             task->get_id(), old_concurrent_task->get_id());
+            return;
+        }
+
+        ObjectList<Node*>& concurrent_tasks = _concurrent_tasks[task];
+        concurrent_tasks = concurrent_tasks.not_find(old_concurrent_task);
+    }
+
     //! This method returns the most outer node of a node before finding a loop node
     static Node* advance_over_outer_nodes_until_loop(Node* node)
     {

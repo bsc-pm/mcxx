@@ -26,6 +26,7 @@
 
 #include "cxx-cexpr.h"
 #include "tl-task-syncs-tune.hpp"
+#include "tl-task-syncs-utils.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -200,95 +201,6 @@ namespace {
         return modification_type;
     }
 
-    bool variable_is_modified_between_nodes_rec(Node* source, Node* target, const NBase& var, bool& is_modified)
-    {
-        if(source == target)
-            return true;
-        
-        bool target_found = false;
-        if(!source->is_visited_aux())
-        {
-            source->set_visited_aux(true);
-            
-            //Call recursively first, so we ensure we find the node where it is modified before we know it is modified
-            if(source->is_graph_node())
-                target_found = variable_is_modified_between_nodes_rec(source->get_graph_entry_node(), target, var, is_modified);
-            
-            // Just check whether the @source node defines the variable if
-            // we have not found before another node that defines it
-            // and if we are not in a graph node, because we already checked it inner nodes
-            if(!is_modified && !source->is_graph_node())
-            {
-                NodeclSet killed_vars;
-                if(source->is_omp_task_creation_node())
-                {   // Variables from non-task children nodes do not count here
-                    Node* created_task = ExtensibleGraph::get_task_from_task_creation(source);
-                    ERROR_CONDITION(created_task==NULL,
-                                    "Task created by task creation node %d not found.\n",
-                                    source->get_id());
-                    killed_vars = created_task->get_killed_vars();
-                }
-                else
-                {
-                    killed_vars = source->get_killed_vars();
-                }
-                if(killed_vars.find(var) != killed_vars.end())
-                {
-                    NodeclMap reach_defs_out = source->get_reaching_definitions_out();
-                    NodeclMap::iterator var_out_definition = reach_defs_out.find(var);
-                    ERROR_CONDITION(var_out_definition==reach_defs_out.end(),
-                                    "No RD_OUT found in node %d for variable %s, but it is in the list of KILLED variables.\n",
-                                    source->get_id(), var.prettyprint().c_str());
-                    if(!Nodecl::Utils::structurally_equal_nodecls(var, var_out_definition->second.first))
-                    {   // Avoid reporting a modification for expressions like var = var;
-                        is_modified = true;
-                    }
-                }
-            }
-            
-            // Keep traversing the graph to check that this path drives to @target
-            const ObjectList<Node*>& children = (source->is_exit_node() ? source->get_outer_node()->get_children() 
-                                                                        : source->get_children());
-            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            {
-                if(!(*it)->is_omp_task_node())
-                    target_found = target_found || variable_is_modified_between_nodes_rec(*it, target, var, is_modified);
-            }
-        }
-        return target_found;
-    }
-    
-    bool variable_is_modified_between_nodes(Node* source, Node* target, const NBase& var)
-    {
-        bool is_modified = false;
-        bool target_found = false;
-        if(source == target)
-        {   // This may happen when a task has dependencies with itself because it is enclosed in an iterative construct
-            // In this case we have to call recursively with the children of @source
-            const ObjectList<Node*>& source_children = source->get_children();
-            for(ObjectList<Node*>::const_iterator it = source_children.begin(); it != source_children.end(); ++it)
-            {
-                if(!(*it)->is_omp_task_node())
-                {
-                    target_found = target_found || variable_is_modified_between_nodes_rec(*it, target, var, is_modified);
-                    ExtensibleGraph::clear_visits_aux(*it);
-                    ERROR_CONDITION(!target_found,
-                                    "Unable to find path between %d and %d.\n",
-                                    (*it)->get_id(), target->get_id());
-                }
-            }
-        }
-        else
-        {
-            target_found = variable_is_modified_between_nodes_rec(source, target, var, is_modified);
-            ExtensibleGraph::clear_visits_aux(source);
-            ERROR_CONDITION(!target_found,
-                            "Unable to find path between %d and %d.\n",
-                            source->get_id(), target->get_id());
-        }
-        return is_modified;
-    }
-
     SyncModification match_array_subscripts(Node* source, Node* target,
                                              const Nodecl::ArraySubscript& a, const Nodecl::ArraySubscript& b,
                                              NBase& condition)
@@ -298,70 +210,54 @@ namespace {
         Nodecl::List target_subscripts = b.get_subscripts().as<Nodecl::List>();
         Nodecl::List::iterator its = source_subscripts.begin();
         Nodecl::List::iterator itt = target_subscripts.begin();
+        bool cannot_match = false;
         for(; (its != source_subscripts.end()) && (modification_type != Remove); ++its, ++itt)
         {
-            if(its->is_constant())
+            const Nodecl::NodeclBase& s_subs = *its;
+            const Nodecl::NodeclBase& t_subs = *itt;
+            if(cannot_match)
+            {
+                compute_condition_for_unmatched_values(t_subs, s_subs, condition);
+            }
+            else if(its->is_constant())
             {   // source[c1]
                 if(itt->is_constant())
                 {   // target[c2]
-                    modification_type = match_constant_values(*its, *itt, condition);
+                    modification_type = match_constant_values(s_subs, t_subs, condition);
                 }
                 else
                 {   // target[v2]
-                    modification_type = match_const_and_var_values(*its, *itt, target, condition);
+                    modification_type = match_const_and_var_values(s_subs, t_subs, target, condition);
                 }
             }
             else
             {   // source[v1]
                 if(itt->is_constant())
                 {   // target[c2]
-                    modification_type = match_const_and_var_values(*itt, *its, source, condition);
+                    modification_type = match_const_and_var_values(t_subs, s_subs, source, condition);
                 }
                 else
                 {   // targt_v2
-                    // TODO Can we do something here?
-                    if(Nodecl::Utils::structurally_equal_nodecls(*its, *itt, /*skip_conversions*/ true))
-                    {
-                        const NBase& var = *its;
-                        // Case 1: the two variables are the same
-                        //         the two variables are firstprivate for each task
-                        //         => check the values captured between the two task creations
-                        TL::Analysis::PCFGPragmaInfo source_pragma_info = source->get_pragma_node_info();
-                        TL::Analysis::PCFGPragmaInfo target_pragma_info = target->get_pragma_node_info();
-                        if (source_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE) &&
-                            target_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
-                        {
-                            // Get the list of Firstprivate variables of both source and target
-                            Nodecl::List source_fp_vars_list =
-                                    source_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
-                            Nodecl::List target_fp_vars_list =
-                                    target_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
-                            // Transform it into a set to use the nodecl structural comparator
-                            NodeclSet source_fp_vars_set(source_fp_vars_list.begin(), source_fp_vars_list.end());
-                            NodeclSet target_fp_vars_set(target_fp_vars_list.begin(), target_fp_vars_list.end());
-                            // Check whether the variable is in both sets
-                            if ((source_fp_vars_set.find(var)!=source_fp_vars_set.end()) &&
-                                (target_fp_vars_set.find(var)!=target_fp_vars_set.end()))
-                            {
-                                Node* source_tc = ExtensibleGraph::get_task_creation_from_task(source);
-                                Node* target_tc = ExtensibleGraph::get_task_creation_from_task(target);
-                                if(!variable_is_modified_between_nodes(source_tc, target_tc, var))
-                                {   // The variable hasn't changed => we are sure there is a dependency
-                                    modification_type = MaybeToStatic;
-                                }
-                                else
-                                {   // The variable has changed => we are sure there is no dependency
-                                    modification_type = Remove;
-                                }
-                                goto match_array_subscripts_end;
-                            }
+                    if(Nodecl::Utils::structurally_equal_nodecls(s_subs, t_subs, /*skip_conversions*/ true))
+                    {   // Case 1: the two variables are the same
+                        if(data_reference_is_modified_between_tasks(source, target, s_subs))
+                        {   // The variable has changed => we are sure there is no dependency
+                            modification_type = Remove;
+                            goto match_array_subscripts_end;
                         }
                     }
-                    
-                    compute_condition_for_unmatched_values(*itt, *its, condition);
+                    else
+                    {   // Case 2: We cannot match the variables => compute the condition
+                        compute_condition_for_unmatched_values(t_subs, s_subs, condition);
+                        cannot_match = true;
+                    }
                 }
             }
         }
+        
+        // The variable hasn't changed => we are sure there is a dependency
+        if(!cannot_match)
+            modification_type = MaybeToStatic;
 
 match_array_subscripts_end:
         return modification_type;
@@ -482,7 +378,7 @@ match_array_subscripts_end:
             }
         }
     }
-
+    
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -575,6 +471,8 @@ match_array_subscripts_end:
             const char* s = "static";
             e->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
                                                      const_value_make_string(s, strlen(s))));
+            // Remove the target task from the source's list of concurrent tasks
+            _pcfg->remove_concurrent_task(source, target);
             // Remove any other "strict" synchronization, since now it is synchronized here for sure
             ObjectList<Edge*> sexits = source->get_exit_edges();
             for(ObjectList<Edge*>::iterator it = sexits.begin(); it != sexits.end(); ++it)
@@ -584,9 +482,8 @@ match_array_subscripts_end:
                     ((*it)->get_label_as_string() == "strict"))
                 {
                     if(VERBOSE)
-                        DEBUG_MESSAGE("Removing unnecessary strict edge between %d and %d", source->get_id(), target->get_id());
-                    _pcfg->disconnect_nodes(source, tmp_target);
-                    _pcfg->remove_next_synchronization(source, tmp_target);
+                        DEBUG_MESSAGE("Removing unnecessary strict edge between %d and %d", source->get_id(), tmp_target->get_id());
+                    disconnect_tasks_and_fix_concurrency_info(source, tmp_target);
                 }
             }
         }
@@ -594,14 +491,24 @@ match_array_subscripts_end:
         {   // 3.3.- Case 3: We can remove the dependency edge
             if(VERBOSE)
                 DEBUG_MESSAGE("Dependency between %d and %d is being removed", source->get_id(), target->get_id());
-            _pcfg->disconnect_nodes(source, target);
-            _pcfg->remove_next_synchronization(source, target);
-            
+            disconnect_tasks_and_fix_concurrency_info(source, target);
         }
 
         return condition;
     }
 
+    void TaskSyncTunning::disconnect_tasks_and_fix_concurrency_info(Node* source, Node* target)
+    {
+        // Disconnect the two tasks
+        _pcfg->disconnect_nodes(source, target);
+        
+        // Remove the target from the list of "next_synchronizations" of the source
+        _pcfg->remove_next_synchronization(source, target);
+        
+        // Remove the target form the list of concurrent tasks
+        _pcfg->remove_concurrent_task(source, target);
+    }
+    
 }
 }
 }

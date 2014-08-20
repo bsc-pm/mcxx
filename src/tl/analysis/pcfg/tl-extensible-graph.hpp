@@ -409,7 +409,7 @@ namespace Analysis {
         ObjectList<Node*> get_task_next_synchronization(Node* task);
         void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
         void remove_next_synchronization(Node* task, Node* next_sync);
-        
+        void remove_concurrent_task(Node* task, Node* old_concurrent_task);
         
         // *** Consultants *** //
         static Node* is_for_loop_increment(Node* node);
