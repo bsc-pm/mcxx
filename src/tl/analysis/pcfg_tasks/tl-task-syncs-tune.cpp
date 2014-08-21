@@ -267,20 +267,20 @@ match_array_subscripts_end:
                                        const NBase& src_dep, const NBase& tgt_dep,
                                        NBase& condition)
     {
-        SyncModification modification_type = Keep;
-        
         // Skip Conversion nodes
         if(src_dep.is<Nodecl::Conversion>())
-            match_dependence(source, target, src_dep.as<Nodecl::Conversion>().get_nest(), tgt_dep, condition);
+            return match_dependence(source, target, src_dep.as<Nodecl::Conversion>().get_nest(), tgt_dep, condition);
         if(tgt_dep.is<Nodecl::Conversion>())
-            match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Conversion>().get_nest(), condition);
+            return match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Conversion>().get_nest(), condition);
 
         // Skip shaping nodes
         if(src_dep.is<Nodecl::Shaping>())
-            match_dependence(source, target, src_dep.as<Nodecl::Shaping>().get_postfix(), tgt_dep, condition);
+            return match_dependence(source, target, src_dep.as<Nodecl::Shaping>().get_postfix(), tgt_dep, condition);
         if(tgt_dep.is<Nodecl::Shaping>())
-            match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Shaping>().get_postfix(), condition);
+            return match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Shaping>().get_postfix(), condition);
 
+        SyncModification modification_type = Keep;
+        
         // Compare the two dependencies
         if(src_dep.is<Nodecl::Symbol>())
         {
@@ -304,7 +304,7 @@ match_array_subscripts_end:
                 Nodecl::ClassMemberAccess src_dep_ = src_dep.as<Nodecl::ClassMemberAccess>();
                 Nodecl::ClassMemberAccess tgt_dep_ = tgt_dep.as<Nodecl::ClassMemberAccess>();
                 if(Nodecl::Utils::structurally_equal_nodecls(src_dep_.get_lhs(), tgt_dep_.get_lhs()))
-                    modification_type = match_dependence(source, target,
+                    modification_type = match_dependence (source, target,
                                                           src_dep_.get_member(), src_dep_.get_member(),
                                                           condition);
                 else
@@ -317,7 +317,7 @@ match_array_subscripts_end:
         {
             if(tgt_dep.is<Nodecl::ArraySubscript>())
             {
-                modification_type = match_array_subscripts(source, target, src_dep.as<Nodecl::ArraySubscript>(),
+                modification_type = match_array_subscripts (source, target, src_dep.as<Nodecl::ArraySubscript>(),
                                                             tgt_dep.as<Nodecl::ArraySubscript>(), condition);
             }
             else

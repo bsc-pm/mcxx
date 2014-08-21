@@ -37,7 +37,7 @@
 #include <time.h>
 #include <unistd.h>
 
-namespace TL { 
+namespace TL {
 namespace OpenMP {
     
 namespace {
@@ -499,24 +499,24 @@ check_sync:
             const TL::Analysis::NodeclSet& variables, 
             bool skip_other_tasks)
     {
-        if( current->is_visited( ) || current == target )
+        if (current->is_visited() || current == target)
             return;
         
-        current->set_visited( true );
+        current->set_visited(true);
         
         // Treat the current node
-        if( current != ommited_node )
+        if (current != ommited_node)
         {
-            if( current->is_graph_node( ) )
+            if (current->is_graph_node())
             {
                 compute_usage_between_nodes(current->get_graph_entry_node(), source, target, ommited_node, 
                                             used_vars, variables, skip_other_tasks);
             }
-            else if( current->has_statements( ) )
+            else if(current->has_statements())
             {
-                TL::Analysis::NodeclSet ue = current->get_ue_vars( );
-                TL::Analysis::NodeclSet kill = current->get_killed_vars( );
-                TL::Analysis::NodeclSet undef = current->get_undefined_behaviour_vars( );
+                TL::Analysis::NodeclSet ue = current->get_ue_vars();
+                TL::Analysis::NodeclSet kill = current->get_killed_vars();
+                TL::Analysis::NodeclSet undef = current->get_undefined_behaviour_vars();
                 
                 TL::Analysis::NodeclSet accessed_vars;
                 accessed_vars.insert( ue.begin( ), ue.end( ) );
@@ -543,17 +543,17 @@ check_sync:
         
         // Treat the children
         TL::ObjectList<TL::Analysis::Node*> children;
-        if( current->is_exit_node( ) )
+        if (current->is_exit_node())
         {   // Check we are not exiting the scope of the task scheduling point
             TL::Analysis::Node* outer = current->get_outer_node();
-            if((outer != NULL) && TL::Analysis::ExtensibleGraph::node_contains_node(outer, source))
+            if(outer != NULL /*&& TL::Analysis::ExtensibleGraph::node_contains_node(outer, source)*/)
                 children = current->get_outer_node()->get_children();
         }
         else
-            children = current->get_children( );
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ); ++it )
+            children = current->get_children();
+        for (TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin(); it != children.end(); ++it)
         {
-            if(!skip_other_tasks || !(*it)->is_omp_task_node())
+            if (!skip_other_tasks || !(*it)->is_omp_task_node())
                 compute_usage_between_nodes(*it, source, target, ommited_node, used_vars, variables, skip_other_tasks);
         }
     }
@@ -707,11 +707,58 @@ next_iteration: ;
 
         // 3.4.- Check concurrent accesses between the task and the sequential code executing concurrently with the task
         VarToNodesMap sequential_concurrent_vars;
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
-            for( TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin( ); itn != next_sync.end( ); ++itn )
-                compute_usage_between_nodes(
-                        *itl, *itl, *itn, task,
-                        sequential_concurrent_vars, task_shared_variables, /*skip_other_tasks*/ true);
+        std::set<TL::Analysis::Node*> seq_next_sync_treated;
+        for (TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin(); itl != last_sync.end(); ++itl)
+        {
+            for (TL::ObjectList<TL::Analysis::Node*>::iterator itn = next_sync.begin(); itn != next_sync.end(); ++itn)
+            {
+                TL::ObjectList<TL::Analysis::Node*> seq_next_sync;
+                if ((*itn)->is_omp_task_node())
+                {   // Sequential code will never end up in a task, we have to find the point where sequential code can reach:
+                    // taskwait, barrier or post_sync (in the last case, the end of the function)
+                    // FIXME It might be worth to do this in the Task Synchronization process, when "next_syncs" are calculated
+                    //       We could store a list of "next_syncs" for sequential code and another for concurrent tasks
+                    TL::ObjectList<TL::Analysis::Node*> children = (*itn)->get_children();
+                    std::set<TL::Analysis::Node*> treated_children;
+                    while (!children.empty())
+                    {
+                        TL::Analysis::Node* n = children.back();
+                        children.pop_back();
+                        if(treated_children.find(n) != treated_children.end())
+                            continue;
+                        treated_children.insert(n);
+
+                        if (!n->is_omp_task_node())
+                        {
+                            seq_next_sync.append(n);
+                        }
+                        else if (n->is_omp_virtual_tasksync())
+                        {
+                            seq_next_sync.insert(pcfg->get_graph()->get_graph_exit_node());
+                        }
+                        else
+                        {
+                            TL::ObjectList<TL::Analysis::Node*> n_children = n->get_children();
+                            for (TL::ObjectList<TL::Analysis::Node*>::iterator itc = n_children.begin(); itc != n_children.end(); ++itc)
+                            {
+                                children.prepend(*itc);
+                            }
+                        }
+                    }
+                }
+
+                for(TL::ObjectList<TL::Analysis::Node*>::iterator its = seq_next_sync.begin(); its != seq_next_sync.end(); ++its)
+                {
+                    if(seq_next_sync_treated.find(*its) == seq_next_sync_treated.end())
+                    {
+                        seq_next_sync_treated.insert(*its);
+                        compute_usage_between_nodes(
+                                *itl, *itl, *its, task,
+                                sequential_concurrent_vars, task_shared_variables, /*skip_other_tasks*/ true);
+                    }
+                }
+            }
+        }
         for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
             TL::Analysis::ExtensibleGraph::clear_visits( *itl );
         std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> warned_vars;
