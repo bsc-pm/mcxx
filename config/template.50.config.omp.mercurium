@@ -91,5 +91,7 @@ target_options[mpimfc_mcc_base] = no_sublink embed
 # mixed compilation with C/C++
 target_options[mcc] = no_sublink embed
 target_options[mcxx] = no_sublink embed
+target_options[smpcc] = no_sublink embed
+target_options[smpcxx] = no_sublink embed
 target_options[imcc] = no_sublink embed
 target_options[imcxx] = no_sublink embed
