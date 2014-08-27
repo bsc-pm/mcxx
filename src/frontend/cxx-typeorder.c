@@ -45,8 +45,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         decl_context_t decl_context, 
         template_parameter_list_t** deduced_template_arguments,
         template_parameter_list_t* explicit_template_parameters,
-        const locus_t* locus, char is_conversion,
-        char is_template_class)
+        const locus_t* locus, char is_conversion)
 {
     if (is_conversion)
     {
@@ -85,6 +84,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
 
     type_t * arguments[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
     type_t * parameters[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
+    type_t * original_parameters[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -92,7 +92,9 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         ERROR_CONDITION(i >= MCXX_MAX_ARGUMENTS_FOR_DEDUCTION, 
                 "Too many types for deduction", 0);
         arguments[i] = function_type_get_parameter_type_num(f2, i);
-        parameters[i] = function_type_get_parameter_type_num(f1, i);
+        original_parameters[i]
+            = parameters[i]
+            = function_type_get_parameter_type_num(f1, i);
     }
 
     // Try to deduce types of template type F1 using F2
@@ -101,22 +103,16 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_arguments(f1);
 
-    deduction_flags_t deduction_flags = deduction_flags_empty();
-
-    if (is_template_class)
-    {
-        deduction_flags.do_not_allow_conversions = 1;
-    }
-
     if (!deduce_template_arguments_common(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, num_parameters,
+                original_parameters,
                 decl_context,
-                deduced_template_arguments, 
+                deduced_template_arguments,
                 locus,
                 explicit_template_parameters,
-                deduction_flags))
+                /* is_function_call */ 0))
     {
         DEBUG_CODE()
         {
@@ -221,8 +217,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             deduced_template_arguments, 
             /* explicit_template_parameters */ NULL,
             locus,
-            /* is_conversion */ 0,
-            /* is_template_class */ 1);
+            /* is_conversion */ 0);
 
     free_temporary_template_type(faked_template_type_1);
     return result;
@@ -259,12 +254,15 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
     type_t* arguments[1];
     type_t* parameters[1];
+    type_t* original_parameters[1];
 
     num_arguments = 1;
     arguments[0] = function_type_get_parameter_type_num(f2, 0);
 
     num_parameters = 1;
-    parameters[0] = function_type_get_parameter_type_num(f1, 0);
+    original_parameters[0] =
+        parameters[0] =
+        function_type_get_parameter_type_num(f1, 0);
 
     // Try to deduce types of template type F1 using F2
 
@@ -277,11 +275,12 @@ static char is_less_or_equal_specialized_template_conversion_function(
                 template_parameters, type_template_parameters,
                 arguments, num_arguments,
                 parameters, num_parameters,
+                original_parameters,
                 decl_context,
                 deduced_template_arguments,
                 locus,
                 /* explicit_template_parameters */ NULL,
-                deduction_flags_empty()))
+                /* is_function_call */ 0))
     {
         DEBUG_CODE()
         {
@@ -344,5 +343,5 @@ char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
     return is_less_or_equal_specialized_template_function_common_(
             f1, f2, decl_context, deduction_set, 
             explicit_template_parameters, 
-            locus, is_conversion, /* is_template_class */ 0);
+            locus, is_conversion);
 }

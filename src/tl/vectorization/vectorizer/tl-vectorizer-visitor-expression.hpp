@@ -36,9 +36,8 @@ namespace TL
     {
         class VectorizerVisitorExpression : public Nodecl::NodeclVisitor<void>
         {
-            private:
+            protected:
                 VectorizerEnvironment& _environment;
-                const bool _cache_enabled;
 
                 bool process_fmul_op(const Nodecl::NodeclBase&  n);
                 void symbol_type_promotion(const Nodecl::Symbol& n);
@@ -48,8 +47,8 @@ namespace TL
                     void visit_binary_op(const ScalarNode& n);
 
             public:
-                VectorizerVisitorExpression(VectorizerEnvironment& environment,
-                        const bool cache_enabled);
+                VectorizerVisitorExpression(
+                        VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::Add& n);
                 virtual void visit(const Nodecl::Minus& n);

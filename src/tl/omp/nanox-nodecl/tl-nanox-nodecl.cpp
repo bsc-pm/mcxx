@@ -39,6 +39,7 @@ namespace TL { namespace Nanox {
     Lowering::Lowering()
         : _ancillary_file(NULL),
         _static_weak_symbols(false),
+        _ompss_mode(false),
         _instrumentation_enabled(false),
         _final_clause_transformation_disabled(false)
     {

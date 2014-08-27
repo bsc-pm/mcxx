@@ -69,7 +69,7 @@ namespace Nodecl {
             std::string get_text() const { const char* c = ::nodecl_get_text(_n); if (c == NULL) c = ""; return c; }
             void set_text(const std::string& str) { nodecl_set_text(_n, uniquestr(str.c_str())); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
-            int get_line() const { return nodecl_get_line(_n); }
+            unsigned int get_line() const { return nodecl_get_line(_n); }
             std::string get_locus_str() const { return ::nodecl_locus_to_str(_n); }
             const locus_t* get_locus() const { return ::nodecl_get_locus(_n); }
             void set_locus(const locus_t*l ) { nodecl_set_locus(_n, l); }
@@ -744,6 +744,9 @@ namespace Nodecl {
             {
                 nodecl_t parent = nodecl_get_parent(it._current);
 
+                nodecl_t prev = nodecl_get_child(it._current, 0);
+                bool is_first = nodecl_is_null(prev);
+
                 if (!nodecl_is_null(parent))
                 {
                     bool is_last = (it == this->last());
@@ -768,13 +771,29 @@ namespace Nodecl {
                     }
                     else
                     {
-                        // We removed the last, then we should return end
+                        // Make sure the Nodecl::List now represents the "empty" list
+                        if (is_first)
+                        {
+                            // The list became empty
+                            this->operator=(Nodecl::List());
+                        }
+                        // We removed the last, return end
                         return this->end();
                     }
                 }
                 else
                 {
-                    internal_error("Impossible to remove a list without parent", 0);
+                    if (is_first)
+                    {
+                        // The list became empty
+                        this->operator=(Nodecl::List());
+                    }
+                    else
+                    {
+                        nodecl_set_child(it._current, 0, nodecl_get_child(prev, 0));
+                        nodecl_set_child(it._current, 1, nodecl_get_child(prev, 1));
+                    }
+                    return this->end();
                 }
             }
 

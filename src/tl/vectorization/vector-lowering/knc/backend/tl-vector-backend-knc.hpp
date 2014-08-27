@@ -83,7 +83,7 @@ namespace TL
                 virtual void common_comparison_op_lowering(
                         const Nodecl::NodeclBase& node,
                         const int float_cmp_flavor,
-                        const _MM_CMPINT_ENUM int_cmp_flavor);
+                        const std::string int_cmp_flavor);
 
                 std::string get_casting_intrinsic(const TL::Type& type_from,
                         const TL::Type& type_to);
@@ -94,6 +94,19 @@ namespace TL
                         TL::Source& mask_prefix, TL::Source& mask_params,
                         const TL::Type& type,
                         KNCConfigMaskProcessing conf = KNCConfigMaskProcessing::MASK_DEFAULT );
+
+                void visit_aligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_unaligned_vector_load(
+                        const Nodecl::VectorLoad& node);
+                void visit_aligned_vector_store(
+                        const Nodecl::VectorStore& node,
+                        const int hint);
+                 void visit_aligned_vector_stream_store(
+                        const Nodecl::VectorStore& node);
+                void visit_unaligned_vector_store(
+                        const Nodecl::VectorStore& node,
+                        const int hint);
 
             public:
 
@@ -137,16 +150,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLiteral& n);
                 virtual void visit(const Nodecl::VectorAssignment& n);
                 virtual void visit(const Nodecl::VectorLoad& n);
-                virtual void visit(const Nodecl::UnalignedVectorLoad& n);
-                virtual void visit_vector_store(const Nodecl::VectorStore& node,
-                        const int hint);
                 virtual void visit(const Nodecl::VectorStore& n);
-                virtual void visit(const Nodecl::VectorStreamStore& n);
-                virtual void visit_unaligned_vector_store(
-                        const Nodecl::UnalignedVectorStore& node,
-                        const int hint);
-                virtual void visit(const Nodecl::UnalignedVectorStore& n);
-                virtual void visit(const Nodecl::UnalignedVectorStreamStore& n);
                 virtual void visit(const Nodecl::VectorGather& n);
                 virtual void visit(const Nodecl::VectorScatter& n);
 

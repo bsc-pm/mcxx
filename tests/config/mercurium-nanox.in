@@ -1,7 +1,19 @@
 #!@BASH@
 
-PROGRAMMING_MODEL=$1
+PROGRAMMING_MODEL=${1:=openmp}
+CPLUSPLUS_2011=0
 
+if [ "$2" = "c++11" ];
+then
+  CPLUSPLUS_2011=1
+fi
+
+function detect_gcc_version() {
+
+    A=$(g++ -v 2>&1 | tail -n 1 | sed -e 's,^.*version\s*\([0-9]\)\.\([0-9]\+\)\(\.[0-9]\+\)*.*$,export GCC_VERSION_MAJOR=\1\nexport GCC_VERSION_MINOR=\2,')
+    eval $A
+
+}
 
 if [ ! "$PROGRAMMING_MODEL" = "" ];
 then
@@ -30,6 +42,27 @@ exit
 
 fi
 
+
+if [ $CPLUSPLUS_2011 = 1 ];
+then
+
+detect_gcc_version
+
+# Only for GCC 4.8
+if [ $GCC_VERSION_MAJOR -lt 3 -o $GCC_VERSION_MINOR -lt 8 ];
+then
+
+cat <<EOF
+test_ignore=yes
+test_ignore_reason="requires g++ 4.8 or better"
+EOF
+
+exit
+
+fi
+
+fi
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
@@ -37,6 +70,13 @@ MCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/test
 MCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
 MFC="@abs_top_builddir@/src/driver/plaincxx --output-dir=@abs_top_builddir@/tests --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose"
 EOF
+
+if [ $CPLUSPLUS_2011 = 1 ];
+then
+cat <<EOF
+MCXX="\${MCXX} -std=c++11"
+EOF
+fi
 
 COMMON_NANOX_CFLAGS=-DNANOX
 

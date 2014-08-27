@@ -94,7 +94,7 @@ namespace Analysis {
         // ************* Getters and Setters ************* //
 
         ExtensibleGraph* get_pcfg( std::string name );
-        void set_pcfg( std::string name, ExtensibleGraph* pcfg );
+        void add_pcfg( std::string name, ExtensibleGraph* pcfg );
         ObjectList<ExtensibleGraph*> get_pcfgs( );
 
         TaskDependencyGraph* get_tdg( std::string name );
@@ -159,6 +159,7 @@ namespace Analysis {
 
         static AnalysisSingleton* _analysis;
 
+        ObjectList<ExtensibleGraph*> _pcfgs;
 
         // *************** Private methods **************** //
 
@@ -190,10 +191,10 @@ namespace Analysis {
          * The memento is modified containing the PCFGs and a flag is set indicating the PCFG analysis has been performed
          * \param memento in/out object where the analysis is stored
          * \param ast Tree containing the code to construct the PCFG(s)
-         * \return A list of pointer to the created PCFGs
          */
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                  const NBase& ast);
+        void parallel_control_flow_graph(
+                PCFGAnalysis_memento& memento,
+                const NBase& ast);
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -204,29 +205,49 @@ namespace Analysis {
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
 //         void conditional_constant_propagation( );
 
-        ObjectList<ExtensibleGraph*> use_def(PCFGAnalysis_memento& memento, const NBase& ast);
+        void use_def(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> liveness(PCFGAnalysis_memento& memento, const NBase& ast);
+        void liveness(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> reaching_definitions(PCFGAnalysis_memento& memento, const NBase& ast);
+        void reaching_definitions(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        ObjectList<ExtensibleGraph*> induction_variables(PCFGAnalysis_memento& memento, const NBase& ast);
+        void induction_variables(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> tune_task_synchronizations(PCFGAnalysis_memento& memento, const NBase& ast);
+        void tune_task_synchronizations(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> range_analysis(PCFGAnalysis_memento& memento, const NBase& ast);
+        void range_analysis(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> cyclomatic_complexity(PCFGAnalysis_memento& memento, const NBase& ast);
+        void cyclomatic_complexity(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> auto_scoping(PCFGAnalysis_memento& memento, const NBase& ast);
+        void auto_scoping(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<TaskDependencyGraph*> task_dependency_graph(PCFGAnalysis_memento& memento, const NBase& ast);
+        ObjectList<TaskDependencyGraph*> task_dependency_graph(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> all_analyses(PCFGAnalysis_memento& memento, const NBase& ast);
+        void all_analyses(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
 
         // ********************* Utils ******************** //

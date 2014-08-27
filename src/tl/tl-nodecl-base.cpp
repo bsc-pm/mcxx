@@ -107,14 +107,29 @@ namespace Nodecl
     {
         if (first == last)
         {
-            return nodecl_make_list_1(first->get_internal_nodecl());
+            if (first->is<Nodecl::List>())
+            {
+                return first->get_internal_nodecl();
+            }
+            else
+            {
+                return nodecl_make_list_1(first->get_internal_nodecl());
+            }
         }
         else
         {
             nodecl_t previous_list =  make_list_helper(first, last - 1);
 
-            return nodecl_append_to_list(previous_list, 
-                    last->get_internal_nodecl());
+            if (last->is<Nodecl::List>())
+            {
+                return nodecl_concat_lists(previous_list, 
+                        last->get_internal_nodecl());
+            }
+            else
+            {
+                return nodecl_append_to_list(previous_list, 
+                        last->get_internal_nodecl());
+            }
         }
     }
 

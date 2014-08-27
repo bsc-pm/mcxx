@@ -26,7 +26,14 @@
 # There is a special rule 'nodecl' which is the root of the whole hierarchy and,
 # while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
-# constructing a given hierarchy)
+# constructing a given hierarchy).
+#
+# There is a special rule 'any' intended only for the frontends that allows
+# to root any parse tree as a child of a nodecl node. Such uses are limited
+# in the frontend itself since the parse trees are freed after the frontend
+# is run. Do not let outlive such children after the FE has run. Currently
+# the only user of this rule is NODECL_CXX_DEP_NAME_CONVERSION due to some
+# oddities in the C++ syntax of conversion-function-id.
 #
 
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
@@ -115,9 +122,11 @@ pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [c
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text type-opt
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
-
-catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]statement-seq-opt, [any]statement-seq-opt)
+# C++2011: for(T symbol : range)
+    | NODECL_CXX_FOR_RANGED([range]expression, [statement]statement-seq) symbol
+# This one should only appear inside a NODECL_TRY_BLOCK
+    | NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 literal : NODECL_INTEGER_LITERAL() type const-value
     | NODECL_FLOATING_LITERAL() type const-value
@@ -131,7 +140,7 @@ string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 vector-flags: NODECL_ALIGNED_FLAG()
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
-    | NODECL_STREAM_FLAG()
+    | NODECL_NONTEMPORAL_FLAG()
     | expression
 
 expression : literal
@@ -206,12 +215,8 @@ expression : literal
            | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt
@@ -272,7 +277,7 @@ alt-return: NODECL_FORTRAN_ALTERNATE_RETURN_ARGUMENT() symbol type const-value-o
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_REFERENCE([rhs]expression) type const-value-opt
-                  | NODECL_COMMA([rhs]expression, [lhs]expression) type const-value-opt
+                  | NODECL_COMMA([lhs]expression, [rhs]expression) type const-value-opt
                   | NODECL_THROW([rhs]expression-opt) type const-value-opt
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq, [function_form] function-form-opt) type const-value-opt
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type const-value-opt
@@ -306,6 +311,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
+                  | NODECL_VALUE_INITIALIZATION() symbol
                   | cxx-expr-dependent-nodecls
                   | cuda-expressions
                   | mask-expressions
@@ -326,9 +332,9 @@ cxx-expr-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-expressions
 
 cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
+         # This one materializes a subvalue of a pack. const-value should be an integer
          # Here we materialize the expansion, used for nontype template-arguments packs
          | NODECL_CXX_VALUE_PACK_EXPANDED([values]expression-seq-opt) type
-         # | NODECL_CXX_TYPE_PACK_EXPANSION()
 
 # nodecl was created entirely to avoid this kind of "declaration nodes" but we
 # will not be able to get rid of them until we instantiate template functions
@@ -348,7 +354,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
@@ -393,7 +399,6 @@ cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expr
 
 function-form: NODECL_CXX_FUNCTION_FORM_TEMPLATE_ID() template-parameters-opt
     | NODECL_CXX_FUNCTION_FORM_IMPLICIT()
-    | NODECL_CXX_FUNCTION_FORM_IMPLICIT_BRACED_ARGUMENTS()
     | NODECL_CXX_FUNCTION_FORM_BINARY_INFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_PREFIX()
     | NODECL_CXX_FUNCTION_FORM_UNARY_POSTFIX()
@@ -492,6 +497,7 @@ parallel-statements : parallel-execution
                     | synchronization
 
 parallel-execution : task-construct
+                   | taskyield-construct
                    | single-construct
                    | critical-construct
                    | parallel-construct
@@ -566,7 +572,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq)
+                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [overlap_factor] expression-opt)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
@@ -617,6 +623,8 @@ synchronization : NODECL_OPEN_M_P*WAIT_ON_DEPENDENCES([environment]exec-environm
 # Second half of a barrier (waiting phase)
                 | NODECL_OPEN_M_P*BARRIER_WAIT()
 
+taskyield-construct: NODECL_OPEN_M_P*TASKYIELD()
+
 ##############################
 # SIMD                       #
 ##############################
@@ -642,23 +650,20 @@ cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [func
 ##############################
 
 # Used for range analysis
-interval_expression : NODECL_ANALYSIS*MINUS_INFINITY()
-                    | NODECL_ANALYSIS*PLUS_INFINITY()
-                    | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
-                    | NODECL_ANALYSIS*EMPTY_RANGE()
-                    | expression
 
-constraint_expression : NODECL_ANALYSIS*RANGE([lower] interval_expression, [upper] interval_expression-opt) type
-                      | interval_expression
-                      | NODECL_ANALYSIS*RANGE_UNION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] constraint_expression, [rhs] constraint_expression) type
-                      | NODECL_ANALYSIS*RANGE_SUB([lhs] constraint_expression, [rhs] constraint_expression) type
+constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
+                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
+                      | NODECL_ANALYSIS*EMPTY_RANGE()
+                      | NODECL_ANALYSIS*MINUS_INFINITY()
+                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
+                      | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
-constraint : NODECL_ANALYSIS*PHI([expressions] constraint_expression-seq) type
-           | constraint_expression
-
-expression : NODECL_UNKNOWN()
+expression : constraint_expression
+           | NODECL_UNKNOWN()
 
 # Used for analysis checking
 reach_def_expression : NODECL_ANALYSIS*REACH_DEF_EXPR([expression] expression, [value] expression)
@@ -677,6 +682,7 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_variables] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

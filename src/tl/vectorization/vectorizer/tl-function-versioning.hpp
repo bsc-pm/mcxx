@@ -69,14 +69,20 @@ namespace TL
 
         class FunctionVersioning
         {
-            private:
-                typedef std::multimap<const std::string, const VectorFunctionVersion> versions_map_t;
-                versions_map_t _versions;
+            typedef std::multimap<const std::string, const VectorFunctionVersion> versions_map_t;
+            versions_map_t _versions;
 
+            private:
                 const VectorFunctionVersion get_best_function_version(const std::string& func_name, 
                         const std::string& device,
                         const unsigned int vector_length,
                         const TL::Type& _target_type,
+                        const bool masked) const;
+
+                versions_map_t::const_iterator find_best_function(const std::string& func_name,
+                        const std::string& device,
+                        const unsigned int vector_length,
+                        const Type& target_type,
                         const bool masked) const;
  
             public:

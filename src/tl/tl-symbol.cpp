@@ -199,6 +199,11 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
+    bool Symbol::is_friend_function() const
+    {
+        return (this->_symbol->kind == SK_FRIEND_FUNCTION);
+    }
+
     bool Symbol::is_dependent_friend_function() const
     {
         return (this->_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION);
@@ -336,6 +341,11 @@ namespace TL
     bool Symbol::is_namespace() const
     {
         return this->_symbol->kind == SK_NAMESPACE;
+    }
+
+    bool Symbol::is_friend_class() const
+    {
+        return this->_symbol->kind == SK_FRIEND_CLASS;
     }
 
     bool Symbol::is_dependent_friend_class() const
@@ -692,7 +702,7 @@ namespace TL
         return locus_get_filename(_symbol->locus);
     }
 
-    int Symbol::get_line() const
+    unsigned int Symbol::get_line() const
     {
         return locus_get_line(_symbol->locus);
     }
@@ -898,6 +908,10 @@ namespace TL
 
             sym.set_type(t);
         }
+        else
+        {
+            sym.set_type(this->get_type());
+        }
         return sym;
     }
 
@@ -934,8 +948,15 @@ namespace TL
     bool Symbol::has_default_argument_num(int i) const
     {
         return (_symbol->entity_specs.default_argument_info != NULL
+                && i < _symbol->entity_specs.num_parameters
                 && _symbol->entity_specs.default_argument_info[i] != NULL
                 && !nodecl_is_null(_symbol->entity_specs.default_argument_info[i]->argument));
+    }
+
+    bool Symbol::has_hidden_default_argument_num(int i) const
+    {
+        return this->has_default_argument_num(i)
+            && _symbol->entity_specs.default_argument_info[i]->is_hidden;
     }
 
     Nodecl::NodeclBase Symbol::get_default_argument_num(int i) const

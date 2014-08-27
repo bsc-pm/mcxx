@@ -865,6 +865,7 @@ static const char* safe_asttext(AST a)
 %token<token_atrib> TOKEN_ALLOCATABLE "ALLOCATABLE"
 %token<token_atrib> TOKEN_ACCESS "ACCESS"
 %token<token_atrib> TOKEN_CALL "CALL"
+%token<token_atrib> TOKEN_CONVERT "CONVERT"
 %token<token_atrib> TOKEN_PURE "PURE"
 %token<token_atrib> TOKEN_MEMORY "MEMORY"
 %token<token_atrib> TOKEN_POINTER "POINTER"
@@ -3935,6 +3936,10 @@ connect_spec : TOKEN_UNIT '=' file_unit_number
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
+| TOKEN_CONVERT '=' default_char_expr
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
 ;
 file_name_expr : default_char_expr
 ;
@@ -4404,6 +4409,10 @@ inquire_spec : TOKEN_UNIT '=' file_unit_number
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
 | TOKEN_WRITE '=' default_char_variable
+{
+    $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
+}
+| TOKEN_CONVERT '=' default_char_variable
 {
     $$ = ASTMake1(AST_OPT_VALUE, $3, make_locus($1.token_file, $1.token_line, 0), $1.token_text);
 }
@@ -6246,6 +6255,7 @@ keyword : TOKEN_FORMAT
 | TOKEN_ALLOCATABLE
 | TOKEN_ACCESS
 | TOKEN_CALL
+| TOKEN_CONVERT
 | TOKEN_PURE
 | TOKEN_MEMORY
 | TOKEN_POINTER

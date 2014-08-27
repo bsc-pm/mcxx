@@ -169,6 +169,7 @@ typedef struct debug_options_tag
     // Analysis flags. Those are not handled by the driver, but by the analysis phase.
     char analysis_verbose;
     char print_pcfg;
+    char print_pcfg_w_context;
     char print_tdg;
     char tdg_to_json;
     char do_not_codegen;
@@ -464,6 +465,9 @@ typedef struct compilation_configuration_tag
     // Enable MS builtin types
     // __int8, __int16, __int32 and __int64
     char enable_ms_builtin_types;
+
+    // Enable Intel C/C++ builtins
+    char enable_intel_builtins;
 
     // Enable special vector types for Intel SSE/AVX
     // struct __m128, struct __m256

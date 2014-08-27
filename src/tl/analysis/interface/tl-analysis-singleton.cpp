@@ -67,7 +67,7 @@ namespace Analysis {
         return pcfg;
     }
 
-    void PCFGAnalysis_memento::set_pcfg(std::string name, ExtensibleGraph* pcfg)
+    void PCFGAnalysis_memento::add_pcfg(std::string name, ExtensibleGraph* pcfg)
     {
         _pcfgs[name] = pcfg;
     }
@@ -422,10 +422,10 @@ namespace Analysis {
         return analysis;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::parallel_control_flow_graph(PCFGAnalysis_memento& memento,
-                                                                                 const NBase& ast)
+    void AnalysisSingleton::parallel_control_flow_graph(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs;
         if(!memento.is_pcfg_computed())
         {
             memento.set_pcfg_computed();
@@ -469,21 +469,10 @@ namespace Analysis {
                     task_sync_analysis.compute_task_synchronizations();
 
                     // Store the pcfg in the singleton
-                    memento.set_pcfg(pcfg_name, pcfg);
-                    pcfgs.append(pcfg);
-                }
-                else
-                {
-                    pcfgs.append(memento.get_pcfg(pcfg_name));
+                    memento.add_pcfg(pcfg_name, pcfg);
                 }
             }
         }
-        else
-        {
-            pcfgs = memento.get_pcfgs();
-        }
-
-        return pcfgs;
     }
 
     // TODO
@@ -507,7 +496,10 @@ namespace Analysis {
 //         }
 //     }
 
-    static void use_def_rec(Symbol func_sym, std::set<Symbol>& visited_funcs, const ObjectList<ExtensibleGraph*>& pcfgs)
+    static void use_def_rec(
+            Symbol func_sym, 
+            std::set<Symbol>& visited_funcs, 
+            ObjectList<ExtensibleGraph*>& pcfgs)
     {
         // Nothing to do if the we are analyzing something that:
         // - is not a function
@@ -538,16 +530,19 @@ namespace Analysis {
         }
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::use_def(PCFGAnalysis_memento& memento,
-                                                             const NBase& ast)
+    void AnalysisSingleton::use_def(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph(memento, ast);
+        // Required previous analysis
+        parallel_control_flow_graph(memento, ast);
 
         if(!memento.is_usage_computed())
         {
             memento.set_usage_computed();
 
             std::set<Symbol> visited_funcs;
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(!(*it)->usage_is_computed())
@@ -558,19 +553,20 @@ namespace Analysis {
                 }
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::liveness(PCFGAnalysis_memento& memento,
-                                                              const NBase& ast)
+    void AnalysisSingleton::liveness(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = use_def(memento, ast);
+        // Required previous analysis
+        use_def(memento, ast);
 
         if(!memento.is_liveness_computed())
         {
             memento.set_liveness_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -579,19 +575,20 @@ namespace Analysis {
                 l.compute_liveness();
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::reaching_definitions(PCFGAnalysis_memento& memento,
-                                                                          const NBase& ast)
+    void AnalysisSingleton::reaching_definitions(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = liveness(memento, ast);
+        // Required previous analysis
+        liveness(memento, ast);
 
         if(!memento.is_reaching_definitions_computed())
         {
             memento.set_reaching_definitions_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -600,19 +597,20 @@ namespace Analysis {
                 rd.compute_reaching_definitions();
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::induction_variables(PCFGAnalysis_memento& memento,
-                                                                         const NBase& ast)
+    void AnalysisSingleton::induction_variables(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = reaching_definitions(memento, ast);
+        // Required previous analysis
+        reaching_definitions(memento, ast);
 
         if(!memento.is_induction_variables_computed())
         {
             memento.set_induction_variables_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -631,19 +629,20 @@ namespace Analysis {
                     Utils::print_induction_vars(ivs);
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::tune_task_synchronizations(PCFGAnalysis_memento& memento,
-                                                                                const NBase& ast)
+    void AnalysisSingleton::tune_task_synchronizations(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = liveness(memento, ast);
+        // Required previous analysis
+        liveness(memento, ast);
 
         if(!memento.is_task_synchronizations_tuned())
         {
             memento.set_tune_task_synchronizations();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -653,19 +652,20 @@ namespace Analysis {
                 tst.tune_task_synchronizations();
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::range_analysis(PCFGAnalysis_memento& memento,
-                                                                    const NBase& ast)
+    void AnalysisSingleton::range_analysis(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph(memento, ast);
+        // Required previous analysis
+        parallel_control_flow_graph(memento, ast);
         
         if(!memento.is_range_analysis_computed())
         {
             memento.set_range_analysis_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -676,19 +676,20 @@ namespace Analysis {
                 ra.compute_range_analysis();
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::cyclomatic_complexity(PCFGAnalysis_memento& memento, 
-                                                                          const NBase& ast)
+    void AnalysisSingleton::cyclomatic_complexity(
+            PCFGAnalysis_memento& memento, 
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = parallel_control_flow_graph(memento, ast);
+        // Required previous analysis
+        parallel_control_flow_graph(memento, ast);
         
         if(!memento.is_cyclomatic_complexity_computed())
         {
             memento.set_cyclomatic_complexity_computed();
             
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -701,19 +702,20 @@ namespace Analysis {
                     printf(" = %d\n", res);
             }
         }
-        
-        return pcfgs;
     }
     
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::auto_scoping(PCFGAnalysis_memento& memento,
-                                                                  const NBase& ast)
+    void AnalysisSingleton::auto_scoping(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = tune_task_synchronizations(memento, ast);
+        // Required previous analysis
+        tune_task_synchronizations(memento, ast);
 
         if(!memento.is_auto_scoping_computed())
         {
             memento.set_auto_scoping_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -723,22 +725,24 @@ namespace Analysis {
                 as.compute_auto_scoping();
             }
         }
-
-        return pcfgs;
     }
 
-    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph(PCFGAnalysis_memento& memento,
-                                                                               const NBase& ast)
+    ObjectList<TaskDependencyGraph*> AnalysisSingleton::task_dependency_graph(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
         ObjectList<TaskDependencyGraph*> tdgs;
-
+        
+        // Required previous analyses
+        induction_variables(memento, ast);
+        range_analysis(memento, ast);
         tune_task_synchronizations(memento, ast);
-        ObjectList<ExtensibleGraph*> pcfgs = induction_variables(memento, ast);
-
+        
         if(!memento.is_tdg_computed())
         {
             memento.set_tdg_computed();
 
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
@@ -753,13 +757,15 @@ namespace Analysis {
         return tdgs;
     }
 
-    ObjectList<ExtensibleGraph*> AnalysisSingleton::all_analyses(PCFGAnalysis_memento& memento,
-                                                                  const NBase& ast)
+    void AnalysisSingleton::all_analyses(
+            PCFGAnalysis_memento& memento,
+            const NBase& ast)
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
-        ObjectList<ExtensibleGraph*> pcfgs = induction_variables(memento, ast);
+        induction_variables(memento, ast);
 
         // Now we apply auto-scope
+        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
         for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
             if(VERBOSE)
@@ -768,8 +774,6 @@ namespace Analysis {
             AutoScoping as(*it);
             as.compute_auto_scoping();
         }
-
-        return pcfgs;
     }
 
     void AnalysisSingleton::print_pcfg(PCFGAnalysis_memento& memento, std::string pcfg_name)

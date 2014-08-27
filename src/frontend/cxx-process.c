@@ -102,7 +102,7 @@ unsigned long long dynamic_lists_used_memory(void)
     return _bytes_dynamic_lists;
 }
 
-void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
+void debug_message(const char* message, const char* kind, const char* source_file, unsigned int line, const char* function_name, ...)
 {
     va_list ap;
     char* sanitized_message = xstrdup(message);
@@ -140,13 +140,13 @@ void debug_message(const char* message, const char* kind, const char* source_fil
             && (end = strchr(start, '\n')) != NULL)
     {
         *end = '\0';
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
         start = end + 1;
     }
 
     if (*start != '\0')
     {
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
     start = long_message;
@@ -155,13 +155,13 @@ void debug_message(const char* message, const char* kind, const char* source_fil
             && (end = strchr(start, '\n')) != NULL)
     {
         *end = '\0';
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
         start = end + 1;
     }
 
     if (*start != '\0')
     {
-        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        fprintf(stderr, "%s:%u(%s): %s\n", give_basename(source_file), line, function_name, start);
     }
 
     xfree(kind_copy);

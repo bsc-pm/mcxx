@@ -45,6 +45,7 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN standard_conversion_t get_identity_scs(type_t* t_orig, type_t* t_dest);
+LIBMCXX_EXTERN standard_conversion_t get_invalid_scs(void);
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
 LIBMCXX_EXTERN type_t* standard_conversion_get_orig_type(standard_conversion_t scs);
@@ -130,7 +131,7 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dep
         nodecl_t dependent_parts);
 LIBMCXX_EXTERN char is_valid_symbol_for_dependent_typename(scope_entry_t* entry);
 LIBMCXX_EXTERN enum type_tag_t get_dependent_entry_kind(type_t* t);
-LIBMCXX_EXTERN void set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
+LIBMCXX_EXTERN type_t* set_dependent_entry_kind(type_t* t, enum type_tag_t kind);
 
 LIBMCXX_EXTERN char is_transparent_union(type_t* t);
 LIBMCXX_EXTERN void set_is_transparent_union(type_t* t, char is_transparent_union);
@@ -168,6 +169,12 @@ LIBMCXX_EXTERN char is_variably_modified_type(type_t* t);
 
 // This is a type for a bool 'false'
 LIBMCXX_EXTERN type_t* get_bool_false_type(void);
+
+// States that this type is based on another but some attributes or properties
+// have been changed
+LIBMCXX_EXTERN char is_variant_type(type_t* t);
+// Returns the type from which 't' was created
+LIBMCXX_EXTERN type_t* variant_type_get_nonvariant(type_t* t);
 
 // This is a zero type based on any integer/boolean type
 LIBMCXX_EXTERN type_t* get_zero_type(type_t* t); // A synonim of get_variant_type_zero
@@ -260,16 +267,16 @@ LIBMCXX_EXTERN type_t* get_mask_type(unsigned int mask_size_bits);
 
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
+/* Fixes dependent typenames in types so they can be compared without context */
+LIBMCXX_EXTERN type_t* fix_dependent_typenames_in_context(type_t* t, decl_context_t decl_context, const locus_t* locus);
+
 /* Type comparison functions */
-LIBMCXX_EXTERN char equivalent_types_in_context(type_t* t1, type_t* t2, decl_context_t decl_context);
-// This one uses the global context of the current compiled file
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 // Compares two function types ignoring ref qualifiers
 LIBMCXX_EXTERN char equivalent_function_types_may_differ_ref_qualifier(
-        type_t* ft1, type_t* ft2,
-        decl_context_t decl_context);
+        type_t* ft1, type_t* ft2);
 
 /* Modifiers used when the type is still being built */
 
@@ -286,12 +293,16 @@ LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t*
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
 LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
+LIBMCXX_EXTERN void class_type_add_inherited_constructor(type_t* t, scope_entry_t* entry);
 
 LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member, char is_definition);
 LIBMCXX_EXTERN void class_type_add_member_after(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
         char is_definition);
 LIBMCXX_EXTERN void class_type_add_member_before(type_t* class_type, scope_entry_t* position, scope_entry_t* entry,
         char is_definition);
+
+LIBMCXX_EXTERN void class_type_complete_if_needed(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN char class_type_complete_if_possible(scope_entry_t* entry, decl_context_t decl_context, const locus_t* locus);
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void enum_type_set_underlying_type(type_t* t, type_t* underlying_type);
@@ -477,6 +488,7 @@ LIBMCXX_EXTERN char is_less_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 
+LIBMCXX_EXTERN char is_unqualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_const_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_volatile_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_restrict_qualified_type(type_t* t1);
@@ -548,6 +560,7 @@ LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 LIBMCXX_EXTERN char enum_type_get_underlying_type_is_fixed(type_t* t);
 
 LIBMCXX_EXTERN enum type_tag_t class_type_get_class_kind(type_t* t);
+LIBMCXX_EXTERN void class_type_set_class_kind(type_t* t, enum type_tag_t class_kind);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
         char *is_virtual, 
@@ -592,6 +605,8 @@ LIBMCXX_EXTERN decl_context_t class_or_enum_type_get_inner_context(type_t* class
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_friends(type_t* class_type);
+
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_inherited_constructors(type_t* t);
 
 LIBMCXX_EXTERN decl_context_t enum_type_get_context(type_t* t);
 
@@ -845,6 +860,7 @@ LIBMCXX_EXTERN char is_function_or_template_function_name_or_extern_variable(sco
 
 // C++ auto
 LIBMCXX_EXTERN type_t* get_auto_type(void);
+LIBMCXX_EXTERN type_t* get_nondependent_auto_type(void);
 LIBMCXX_EXTERN char is_auto_type(type_t* t);
 
 // C genericity stuff. 

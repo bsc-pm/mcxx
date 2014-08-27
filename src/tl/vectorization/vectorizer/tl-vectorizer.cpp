@@ -37,6 +37,7 @@
 #include "tl-vectorizer-visitor-postprocessor.hpp"
 #include "tl-vectorizer-visitor-loop.hpp"
 #include "tl-vectorizer-visitor-statement.hpp"
+#include "tl-spml-vectorizer-visitor-statement.hpp"
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 
@@ -56,9 +57,10 @@ namespace Vectorization
     }
 
     void Vectorizer::initialize_analysis(
-            const Nodecl::FunctionCode& enclosing_function)
+            const Nodecl::NodeclBase& enclosing_function)
     {
-        VectorizationAnalysisInterface::initialize_analysis(enclosing_function);
+        VectorizationAnalysisInterface::
+            initialize_analysis(enclosing_function);
     }
 
     void Vectorizer::finalize_analysis()
@@ -92,7 +94,7 @@ namespace Vectorization
         vectorizer_preproc.walk(n);
 
         TL::Optimizations::canonicalize_and_fold(n, _fast_math_enabled);
-        TL::Optimizations::canonicalize_and_fold(environment._suitable_expr_list,
+        TL::Optimizations::canonicalize_and_fold(environment._suitable_exprs_list,
                 _fast_math_enabled);
     }
 
@@ -181,9 +183,25 @@ namespace Vectorization
                     environment._vectorization_factor);
         }
 
-        VectorizerVisitorStatement visitor_stmt(environment, 
-                /* cache enabled */ true);
-        visitor_stmt.walk(statements);
+        SPMLVectorizerVisitorStatement spml_visitor_stmt(environment);
+        spml_visitor_stmt.walk(statements);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
+    void Vectorizer::opt_overlapped_accesses(Nodecl::NodeclBase& statements,
+            VectorizerEnvironment& environment)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Optimizing Overlapped Accesses -----\n");
+        }
+
+        OverlappedAccessesOptimizer overlap_visitor(environment);
+        overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
         {
@@ -270,12 +288,11 @@ namespace Vectorization
         VECTORIZATION_DEBUG()
         {
             fprintf(stderr, "VECTORIZER: Adding '%s' function version "\
-                    "(device=%s, vector_length=%u, target_type=%s, SVML=%d,"\
-                    " masked=%d priority=%d)\n",
+                    "(device=%s, vector_length=%u, target_type=%s, masked=%d,"\
+                    " SVML=%d priority=%d)\n",
                     func_name.c_str(), device.c_str(), vector_length,
                     target_type.get_simple_declaration(TL::Scope::get_global_scope(), "").c_str(),
-                    masked, is_svml,
-                    priority);
+                    masked, is_svml, priority);
         }
 
         _function_versioning.add_version(func_name,

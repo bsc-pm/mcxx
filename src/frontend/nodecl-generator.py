@@ -49,6 +49,7 @@ def parse_rules(f):
     
     regex_name = re.compile("\[([_A-Za-z][_*A-Za-z0-9]*)\]\s*([-_A-Za-z0-9]+)")
     rule_map = { }
+    rule_map["any"] = []
     for r in rule_set:
         (rule_name, rule_rhs) = r
         if rule_name not in rule_map:
@@ -1084,11 +1085,12 @@ def generate_routines_impl(rule_map):
              print "for_each_element(list, it)"
              print "{"
              print "  checked_tree = _nodecl_wrap(ASTSon1(it));"
-          checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
-          print "if (%s)" % (string.join(checks, "\n&& "))
-          print "{"
-          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), locus_to_str(location));" % (i, key)
-          print "}"
+          if first_set :
+              checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
+              print "if (%s)" % (string.join(checks, "\n&& "))
+              print "{"
+              print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), locus_to_str(location));" % (i, key)
+              print "}"
           if subrule_ref.is_seq():
              print "}"
           if subrule_ref.is_nullable():
@@ -1268,7 +1270,14 @@ nodecl_t nodecl_shallow_copy(nodecl_t n)
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_shallow_copy(nodecl_get_child(n, %d));" % (i, i)
+            (rule_label, rule_ref) = subtree
+            current_rule = RuleRef(rule_ref)
+
+            if current_rule.canonical_rule() != "any":
+                print "nodecl_t child_%d = nodecl_shallow_copy(nodecl_get_child(n, %d));" % (i, i)
+            else:
+                print "nodecl_t child_%d = _nodecl_wrap(ast_copy(nodecl_get_ast(nodecl_get_child(n, %d))));" % (i, i)
+
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 
@@ -1427,7 +1436,14 @@ nodecl_t nodecl_deep_copy_rec(nodecl_t n, decl_context_t new_decl_context,
         factory_arguments = []
         i = 0
         for subtree in nodecl_class.subtrees:
-            print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (i, i)
+            (rule_label, rule_ref) = subtree
+            current_rule = RuleRef(rule_ref)
+
+            if current_rule.canonical_rule() != "any":
+                print "nodecl_t child_%d = nodecl_deep_copy_rec(nodecl_get_child(n, %d), new_decl_context, (*synth_symbol_map), synth_symbol_map, nodecl_deep_copy_map, symbol_deep_copy_map);" % (i, i)
+            else:
+                print "nodecl_t child_%d = _nodecl_wrap(ast_copy(nodecl_get_ast(nodecl_get_child(n, %d))));" % (i, i);
+
             factory_arguments.append("child_%d" % (i))
             i = i + 1
 

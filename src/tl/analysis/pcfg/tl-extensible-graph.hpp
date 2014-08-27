@@ -112,6 +112,8 @@ namespace Analysis {
         //! It also joins those nodes that are always consecutively executed and non of them
         //! are the target of a jump.
         void clear_unnecessary_nodes();
+        
+        void remove_unnecessary_connections_rec(Node* n);
 
         //! This method concatenates all those nodes that form a Basic Block in one only node.
         //! It creates a new node containing all the statements and deleted the previous nodes.
@@ -133,6 +135,12 @@ namespace Analysis {
         
         // *************************************************************************************** //
         // ********************************* DOT printing methods ******************************** //
+        
+        void create_and_connect_node(Node* source, Node* target, 
+                Node* real_source, Node* real_target, 
+                std::string& dot_graph, std::string& dot_analysis_info,
+                std::vector<std::vector<std::string> >& outer_edges, 
+                std::vector<std::vector<Node*> >& outer_nodes, std::string indent);
         
         //! Prints nodes and relations between them in a string in a recursive way.
         /*!
@@ -290,6 +298,10 @@ namespace Analysis {
         //! during the construction of the graph but do not represent any statement of the code, and also
         //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
         void dress_up_graph();
+        
+        //! Return nodes may cause unconnected parts of the code to be connected
+        //! This method removes this dead connections
+        void remove_unnecessary_connections();
 
         //! This method concatenates a list of nodes into only one
         /*!

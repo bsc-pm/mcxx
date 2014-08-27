@@ -145,7 +145,7 @@ namespace TL
             std::string get_filename() const;
 
             //! Returns the line where the symbol was declared
-            int get_line() const;
+            unsigned int get_line() const;
 
             virtual ~Symbol()
             {
@@ -180,6 +180,7 @@ namespace TL
             //! States whether this symbol is a namespace
             bool is_namespace() const;
             //! States whether this symbol is a dependent friend class
+            bool is_friend_class() const;
             bool is_dependent_friend_class() const;
             //! States whether this symbol is an enum name
             bool is_enum() const;
@@ -192,6 +193,7 @@ namespace TL
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a dependent friend function
+            bool is_friend_function() const;
             bool is_dependent_friend_function() const;
             //! States whether this symbol is a lambda
             bool is_lambda() const;
@@ -728,6 +730,11 @@ namespace TL
              * States whether this symbol has a parameter i with a default argument
              */
             bool has_default_argument_num(int i) const;
+
+            /*!
+             * States whether this symbol has a parameter i with a hidden default argument
+             */
+            bool has_hidden_default_argument_num(int i) const;
 
             /*!
              * Returns the default argument of parameter i

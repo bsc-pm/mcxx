@@ -663,7 +663,7 @@ namespace TL { namespace Nanox {
                                     <<            as_symbol(vla_private_sym) << ";"
                                     <<    "while (__dest < (" << as_type(base_type) << ")(__orig+1))"
                                     <<    "{"
-                                    <<    "(*__dest).~" << class_type.get_symbol().get_name() << "();"
+                                    <<    "(*__dest).~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();"
                                     <<    "__dest++;"
                                     <<    "}"
                                     << "}"
@@ -698,7 +698,9 @@ namespace TL { namespace Nanox {
                                         <<           as_symbol(private_sym) << ";"
                                         <<     "while (__dest < (" << as_type(base_type) << ")(&" << as_symbol(private_sym) << "+1))"
                                         <<     "{"
-                                        <<     "(*__dest).~" << base_type.points_to().get_symbol().get_name() << "();"
+                                        <<     "(*__dest).~"
+                                        <<          base_type.points_to().advance_over_typedefs().get_symbol().get_name()
+                                        <<      "();"
                                         <<     "__dest++;"
                                         <<     "}"
                                         << "}"
@@ -706,7 +708,8 @@ namespace TL { namespace Nanox {
                                 }
                                 else if (class_type.is_named_class())
                                 {
-                                    final_statements << as_symbol(private_sym) << ".~" << class_type.get_symbol().get_name() << "();";
+                                    final_statements << as_symbol(private_sym)
+                                        << ".~" << class_type.advance_over_typedefs().get_symbol().get_name() << "();";
                                 }
                             }
                         }
@@ -899,6 +902,8 @@ namespace TL { namespace Nanox {
                         function_context.current_scope,
                         uniquestr(sym.get_name().c_str()));
 
+                private_sym->kind = SK_VARIABLE;
+                private_sym->type_information = sym.get_type().get_internal_type();
                 private_sym->value = v.get_internal_nodecl();
                 private_sym->entity_specs.is_saved_expression = 1;
 
@@ -1045,9 +1050,19 @@ namespace TL { namespace Nanox {
 
         // Now everything is set to register the function
         scope_entry_t* new_function_sym = NULL;
-        if (!current_function.get_type().is_template_specialized_type())
+        if (!current_function.get_type().is_template_specialized_type()
+                || current_function.get_scope().get_template_parameters()->is_explicit_specialization)
         {
-            new_function_sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(function_name.c_str()));
+            decl_context_t new_decl_context = decl_context;
+            if (current_function.get_scope().get_template_parameters() != NULL
+                && current_function.get_scope().get_template_parameters()->is_explicit_specialization)
+            {
+                new_decl_context.template_parameters = new_decl_context.template_parameters->enclosing;
+            }
+
+            new_function_sym = new_symbol(new_decl_context,
+                    new_decl_context.current_scope,
+                    uniquestr(function_name.c_str()));
             new_function_sym->entity_specs.is_user_declared = 1;
             new_function_sym->kind = SK_FUNCTION;
             new_function_sym->locus = make_locus("", 0, 0);

@@ -66,9 +66,9 @@
 typedef struct line_node
 {
     char* line;
-    int line_number;
+    unsigned int line_number;
     struct line_node* next;
-    int joined_lines;
+    unsigned int joined_lines;
 } line_t;
 
 static line_t* file_lines;
@@ -85,7 +85,7 @@ static void convert_whole_line_comments(void);
 #if 0
 static void remove_inlined_comments(void);
 #endif
-static void normalize_line(prescanner_t*, char** line, int line_num);
+static void normalize_line(prescanner_t*, char** line, unsigned int line_num);
 static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
 static void xfree_line_t(line_t* l);
@@ -582,7 +582,7 @@ static void print_lines(prescanner_t* prescanner)
     line_t* iter = file_lines;
     while (iter != NULL)
     {
-        int i = 0;
+        unsigned int i = 0;
         if (prescanner->line_marks)
         {
             fprintf(prescanner->output_file, "#line %d \"%s\"\n",
@@ -662,7 +662,7 @@ static void cut_lines(prescanner_t* prescanner)
 
 static void read_lines(prescanner_t* prescanner)
 {
-    int line_number = 1;
+    unsigned int line_number = 1;
     while (!feof(prescanner->input_file))
     {
         // We will start with a width + 10 buffer size
@@ -850,7 +850,7 @@ static const char* create_new_include_filename(const char* c)
 12345CLALA
 */
 
-static void normalize_line(prescanner_t* prescanner, char** line, int line_num)
+static void normalize_line(prescanner_t* prescanner, char** line, unsigned int line_num)
 {
     char* normalized_string;
     // The new string has to be at least "width" long
@@ -912,7 +912,7 @@ static void normalize_line(prescanner_t* prescanner, char** line, int line_num)
 
         if (some_was_nonblank)
         {
-            fprintf(stderr, "%s:%d: warning: continuation line contains nonblank characters before continuation column\n",
+            fprintf(stderr, "%s:%u: warning: continuation line contains nonblank characters before continuation column\n",
                     prescanner->input_filename,
                     line_num);
         }

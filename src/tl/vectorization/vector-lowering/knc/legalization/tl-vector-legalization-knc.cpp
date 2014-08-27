@@ -30,6 +30,8 @@
 #include "tl-vectorization-utils.hpp"
 #include "tl-vector-legalization-knc.hpp"
 
+#include "tl-nodecl-utils.hpp"
+
 #define NUM_8B_ELEMENTS 8
 #define NUM_4B_ELEMENTS 16
 
@@ -65,56 +67,65 @@ namespace Vectorization
 
     void KNCVectorLegalization::visit(const Nodecl::VectorConversion& n)
     {
+        walk(n.get_nest());
+
         const TL::Type& src_vector_type = n.get_nest().get_type().get_unqualified_type().no_ref();
         const TL::Type& dst_vector_type = n.get_type().get_unqualified_type().no_ref();
         const TL::Type& src_type = src_vector_type.basic_type().get_unqualified_type();
         const TL::Type& dst_type = dst_vector_type.basic_type().get_unqualified_type();
-        //            const int src_type_size = src_type.get_size();
-        //            const int dst_type_size = dst_type.get_size();
-        /*
-           printf("Conversion from %s(%s) to %s(%s)\n",
-           src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
-           dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
-         */
-        const unsigned int src_num_elements = src_vector_type.vector_num_elements();
-        const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
-
-        walk(n.get_nest());
-
-        // 4-byte element vector type
-        if ((src_type.is_float() ||
-                    src_type.is_signed_int() ||
-                    src_type.is_unsigned_int())
-                && (src_num_elements < NUM_4B_ELEMENTS))
+       
+        // If mask type, conversion is not needed
+        if (dst_vector_type.is_mask() && src_type.is_integral_type())
         {
-            // If src type is float8, int8, ... then it will be converted to float16, int16
-            if(src_num_elements == 8)
-            {
-                n.get_nest().set_type(
-                        src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-            }
+            n.replace(n.get_nest());
+        }
+        else
+        {
+            /*
+               printf("Conversion from %s(%s) to %s(%s)\n",
+               src_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               src_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               dst_vector_type.get_simple_declaration(n.retrieve_context(), "").c_str(),
+               dst_type.get_simple_declaration(n.retrieve_context(), "").c_str());
+             */
+            const unsigned int src_num_elements = src_vector_type.vector_num_elements();
+            const unsigned int dst_num_elements = dst_vector_type.vector_num_elements();
 
-            // If dst type is float8, int8, ... then it will be converted to float16, int16
-            if ((dst_type.is_float() ||
-                        dst_type.is_signed_int() ||
-                        dst_type.is_unsigned_int())
-                    && (dst_num_elements < NUM_4B_ELEMENTS))
+            // 4-byte element vector type
+            if ((src_type.is_float() ||
+                        src_type.is_signed_int() ||
+                        src_type.is_unsigned_int())
+                    && (src_num_elements < NUM_4B_ELEMENTS))
             {
-                if(dst_num_elements == 8)
+                // If src type is float8, int8, ... then it will be converted to float16, int16
+                if(src_num_elements == 8)
                 {
-                    Nodecl::NodeclBase new_n = n.shallow_copy();
-                    new_n.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
-                    n.replace(new_n);
+                    n.get_nest().set_type(
+                            src_type.get_vector_of_elements(NUM_4B_ELEMENTS));
                 }
 
+                // If dst type is float8, int8, ... then it will be converted to float16, int16
+                if ((dst_type.is_float() ||
+                            dst_type.is_signed_int() ||
+                            dst_type.is_unsigned_int())
+                        && (dst_num_elements < NUM_4B_ELEMENTS))
+                {
+                    if(dst_num_elements == 8)
+                    {
+                        Nodecl::NodeclBase new_n = n.shallow_copy();
+                        new_n.set_type(dst_type.get_vector_of_elements(NUM_4B_ELEMENTS));
+                        n.replace(new_n);
+                    }
+
+                }
             }
         }
     }
 
-    void KNCVectorLegalization::visit(const Nodecl::UnalignedVectorLoad& n)
+    void KNCVectorLegalization::visit(const Nodecl::VectorLoad& n)
     {
+
+
         const Nodecl::NodeclBase rhs = n.get_rhs();
         const Nodecl::NodeclBase mask = n.get_mask();
 
@@ -152,46 +163,57 @@ namespace Vectorization
         }
     }
 
-    void KNCVectorLegalization::visit(const Nodecl::UnalignedVectorStore& n)
+    void KNCVectorLegalization::visit(
+            const Nodecl::VectorStore& n)
     {
-        const Nodecl::NodeclBase lhs = n.get_lhs();
-        const Nodecl::NodeclBase rhs = n.get_rhs();
-        const Nodecl::NodeclBase mask = n.get_mask();
+        TL::ObjectList<Nodecl::NodeclBase> flags = 
+            n.get_flags().as<Nodecl::List>().to_object_list();
 
-        walk(lhs);
-        walk(rhs);
-        walk(mask);
+        bool aligned =
+            Nodecl::Utils::list_contains_nodecl_by_structure(
+                flags, Nodecl::AlignedFlag());
 
-        // Turn unaligned store into scatter
-        if (_prefer_gather_scatter ||
-                (_prefer_mask_gather_scatter && !mask.is_null()))
+        if (!aligned)
         {
-            VECTORIZATION_DEBUG()
+            const Nodecl::NodeclBase lhs = n.get_lhs();
+            const Nodecl::NodeclBase rhs = n.get_rhs();
+            const Nodecl::NodeclBase mask = n.get_mask();
+
+            walk(lhs);
+            walk(rhs);
+            walk(mask);
+
+            // Turn unaligned store into scatter
+            if (_prefer_gather_scatter ||
+                    (_prefer_mask_gather_scatter && !mask.is_null()))
             {
-                fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
-                        "into adjacent scatter\n",
-                        lhs.prettyprint().c_str());
+                VECTORIZATION_DEBUG()
+                {
+                    fprintf(stderr, "KNC Legalization: Turn unaligned store '%s'"\
+                            "into adjacent scatter\n",
+                            lhs.prettyprint().c_str());
+                }
+
+                Nodecl::VectorScatter vector_scatter = n.get_flags().
+                    as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
+
+                ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
+                        "legalization of unaligned load with mask", 0);
+
+                // Visit Scatter
+                walk(vector_scatter);
+
+                VECTORIZATION_DEBUG()
+                {
+                    /*                fprintf(stderr, "    Scatter '%s' "\
+                                      "(base: %s strides: %s\n",
+                                      lhs.prettyprint().c_str(),
+                                      vector_scatter.get_base().prettyprint().c_str(),
+                                      vector_scatter.get_strides().prettyprint().c_str());
+                     */          }
+
+                n.replace(vector_scatter);
             }
-
-            Nodecl::VectorScatter vector_scatter = n.get_flags().
-                as<Nodecl::List>().find_first<Nodecl::VectorScatter>();
-
-            ERROR_CONDITION(vector_scatter.is_null(), "Scatter is null in "\
-                    "legalization of unaligned load with mask", 0);
-
-            // Visit Scatter
-            walk(vector_scatter);
-
-            VECTORIZATION_DEBUG()
-            {
-/*                fprintf(stderr, "    Scatter '%s' "\
-                        "(base: %s strides: %s\n",
-                        lhs.prettyprint().c_str(),
-                        vector_scatter.get_base().prettyprint().c_str(),
-                        vector_scatter.get_strides().prettyprint().c_str());
-*/          }
-
-            n.replace(vector_scatter);
         }
     }
 

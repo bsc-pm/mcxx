@@ -34,7 +34,7 @@
 
 #include "tl-vectorization-common.hpp"
 #include "tl-function-versioning.hpp"
-#include "tl-vectorizer-cache.hpp"
+#include "tl-vectorizer-overlap.hpp"
 
 namespace TL
 {
@@ -60,7 +60,7 @@ namespace TL
             public:
                 static Vectorizer& get_vectorizer();
                 static void initialize_analysis(
-                        const Nodecl::FunctionCode& function_code);
+                        const Nodecl::NodeclBase& function_code);
                 static void finalize_analysis();
 
                 ~Vectorizer();
@@ -76,7 +76,9 @@ namespace TL
                         const bool masked_version);
                 void vectorize_parallel(Nodecl::NodeclBase& statements,
                         VectorizerEnvironment& environment);
- 
+                void opt_overlapped_accesses(Nodecl::NodeclBase& statements,
+                        VectorizerEnvironment& environment);
+
                 void process_epilog(Nodecl::NodeclBase& loop_statement,
                         VectorizerEnvironment& environment,
                         Nodecl::NodeclBase& net_epilog_node,

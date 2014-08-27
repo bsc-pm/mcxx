@@ -54,7 +54,9 @@ namespace TL { namespace Intel {
         void LoweringVisitor::lower_for(const Nodecl::OpenMP::For& construct,
                 const Nodecl::NodeclBase &appendix)
         {
-            TL::ForStatement for_statement(construct.get_loop().as<Nodecl::ForStatement>());
+            TL::ForStatement for_statement(construct.get_loop().as<Nodecl::Context>().
+                    get_in_context().as<Nodecl::List>().front().as<Nodecl::ForStatement>());
+
             ERROR_CONDITION(!for_statement.is_omp_valid_loop(), "Invalid loop at this point", 0);
 
             Nodecl::List environment = construct.get_environment().as<Nodecl::List>();
@@ -208,6 +210,14 @@ namespace TL { namespace Intel {
                         Nodecl::NodeclBase init_array_tree = init_array.parse_statement(stmt_placeholder);
                         stmt_placeholder.prepend_sibling(init_array_tree);
                     }
+                }
+
+                CXX_LANGUAGE()
+                {
+                    stmt_placeholder.prepend_sibling(
+                            Nodecl::CxxDef::make(
+                                /* context */ Nodecl::NodeclBase::null(),
+                                new_private_sym));
                 }
             }
 

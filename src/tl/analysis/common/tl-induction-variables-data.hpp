@@ -50,7 +50,7 @@ namespace Utils {
         NBase _ub;         /*!< Upper bound within a loop (included) */
         NBase _incr;       /*!< Stride within a loop */
 
-        NodeclList _incrs;  /*!< List of modifications to an Induction Variable */
+        ObjectList<NBase> _incrs;  /*!< List of modifications to an Induction Variable */
                                                 // Example: loop { iv = iv + 100; iv = iv + 200 }
                                                 // _incrs = { 100, 200 } 
         
@@ -80,8 +80,8 @@ namespace Utils {
         void set_increment(NBase incr);
         bool is_increment_one() const;
 
-        NodeclList get_increment_list() const;
-        void set_increment_list(NodeclList incr_list);
+        ObjectList<NBase> get_increment_list() const;
+        void set_increment_list(ObjectList<NBase> incr_list);
         
         std::string get_type_as_string() const;
 
@@ -93,6 +93,19 @@ namespace Utils {
     };
 
     typedef ObjectList<InductionVar*> InductionVarList;
+    
+    struct LinearVars {
+        ObjectList<Symbol> _syms;
+        NBase _step;
+        
+        LinearVars(ObjectList<Symbol> syms, NBase step)
+            : _syms(syms), _step(step)
+        {}
+        
+        ObjectList<Symbol> get_symbols() const { return _syms; }
+        
+        NBase get_step() const { return _step; }
+    };
     
     // *********************** END class representing and induction variable *********************** //
     // ********************************************************************************************* //

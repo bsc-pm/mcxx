@@ -44,25 +44,19 @@ MCXX_BEGIN_DECLS
 LIBMCXX_EXTERN void unificate_two_types(
         type_t* t1,
         type_t* t2,
-        deduction_set_t** unif_set,
+        deduction_set_t* unif_set,
         decl_context_t decl_context, 
-        const locus_t* locus,
-        deduction_flags_t flags);
+        const locus_t* locus);
+        
 LIBMCXX_EXTERN void unificate_two_expressions(
-        deduction_set_t **unif_set, 
+        deduction_set_t* unif_set, 
         nodecl_t left_tree, 
-        nodecl_t right_tree, 
-        deduction_flags_t flags);
+        nodecl_t right_tree);
 LIBMCXX_EXTERN char same_functional_expression(
         nodecl_t left_tree,
-        nodecl_t right_tree, 
-        deduction_flags_t flags);
-
-LIBMCXX_EXTERN deduction_t* get_unification_item_for_template_parameter(deduction_set_t** deduction_set, scope_entry_t* s1);
+        nodecl_t right_tree);
 
 LIBMCXX_EXTERN long long int typeunif_used_memory(void);
-
-LIBMCXX_EXTERN deduction_flags_t deduction_flags_empty(void);
 
 MCXX_END_DECLS
 

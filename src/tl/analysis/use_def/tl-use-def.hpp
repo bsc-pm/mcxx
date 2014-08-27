@@ -245,9 +245,6 @@ namespace Analysis {
         Ret visit(const Nodecl::Range& n);
         Ret visit(const Nodecl::Reference& n);
         Ret visit(const Nodecl::Symbol& n);
-        Ret visit(const Nodecl::UnalignedVectorLoad& n);
-        Ret visit(const Nodecl::UnalignedVectorStore& n);
-        Ret visit(const Nodecl::UnalignedVectorStreamStore& n);
         Ret visit(const Nodecl::VectorAssignment& n);
         Ret visit(const Nodecl::VectorGather& n);
         Ret visit(const Nodecl::VectorLoad& n);
@@ -255,7 +252,6 @@ namespace Analysis {
         Ret visit(const Nodecl::VectorScatter& n);
         Ret visit(const Nodecl::VectorSincos& n);
         Ret visit(const Nodecl::VectorStore& n);
-        Ret visit(const Nodecl::VectorStreamStore& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
     };
     

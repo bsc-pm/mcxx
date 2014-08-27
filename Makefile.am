@@ -529,14 +529,11 @@ BUILT_SOURCES += src/frontend/cxx-asttype-str-internal.h
 CLEANFILES += src/frontend/cxx-asttype-str-internal.h
 endif
 
-src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf
 if GPERF_BUILDING
+src/frontend/cxx-asttype-str-internal.h: src/frontend/cxx-asttype-str.gperf
 	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=ast_node_kind_hash --struct-type \
       --lookup-function-name=ast_node_name_to_kind_ --output=src/frontend/cxx-asttype-str-internal.h \
       --initializer-suffix=,AST_INVALID_NODE src/frontend/cxx-asttype-str.gperf
-else
-	@echo "*** ERROR: file cxx-asttype-str.gperf was modified but no suitable gperf was found during configure ***"
-	@exit 1
 endif
 
 if FLEX_BUILDING
@@ -544,12 +541,9 @@ CLEANFILES += src/frontend/cxx-scanner.c
 CLEANFILES += src/frontend/cxx03.l
 endif
 
-src/frontend/cxx-scanner.c : src/frontend/cxx03.l src/frontend/cxx-parser.h
 if FLEX_BUILDING
+src/frontend/cxx-scanner.c : src/frontend/cxx03.l src/frontend/cxx-parser.h
 	$(FLEX_verbose)$(FLEX) -Pmcxx -d -osrc/frontend/cxx-scanner.c -8 src/frontend/cxx03.l
-else
-	@echo "*** ERROR: file cxx03.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 src/frontend/cxx03.l : $(TPP) src/frontend/cxx-lexer.l
@@ -566,12 +560,9 @@ src/frontend/cxx03.y : $(TPP) $(top_srcdir)/src/frontend/cxx03.y.in $(addprefix 
 	$(TPP_verbose)(rm -f src/frontend/cxx03.y && $(TPP) -o src/frontend/cxx03.y -D CPLUSPLUS -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/cxx03.y.in && chmod -w src/frontend/cxx03.y)
 
 src/frontend/cxx-parser-internal.h : src/frontend/cxx-parser.c
-src/frontend/cxx-parser.c : src/frontend/cxx03.y
 if BISON_BUILDING
+src/frontend/cxx-parser.c : src/frontend/cxx03.y
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h --report=all --output=src/frontend/cxx-parser.c src/frontend/cxx03.y
-else
-	@echo "*** ERROR: file cxx03.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -584,12 +575,9 @@ CLEANFILES += src/frontend/c99-scanner.c
 CLEANFILES += src/frontend/c99.l
 endif
 
-src/frontend/c99-scanner.c : src/frontend/c99.l src/frontend/c99-parser.h
 if FLEX_BUILDING
+src/frontend/c99-scanner.c : src/frontend/c99.l src/frontend/c99-parser.h
 	$(FLEX_verbose)$(FLEX) -Pmc99 -d -osrc/frontend/c99-scanner.c -8 src/frontend/c99.l
-else
-	@echo "*** ERROR: file c99.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 src/frontend/c99.l : $(TPP) $(top_srcdir)/src/frontend/cxx-lexer.l
@@ -606,12 +594,9 @@ src/frontend/c99.y : $(TPP) $(top_srcdir)/src/frontend/c99.y.in $(addprefix $(to
 	$(TPP_verbose)(rm -f src/frontend/c99.y && $(TPP) -o src/frontend/c99.y -D C99 -I$(top_srcdir)/src/frontend $(top_srcdir)/src/frontend/c99.y.in)
 
 src/frontend/c99-parser-internal.h : src/frontend/c99-parser.c
-src/frontend/c99-parser.c : src/frontend/c99.y
 if BISON_BUILDING
+src/frontend/c99-parser.c : src/frontend/c99.y
 	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=src/frontend/c99-parser-internal.h --report=all --output=src/frontend/c99-parser.c src/frontend/c99.y
-else
-	@echo "*** ERROR: file c99.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -813,12 +798,9 @@ endif
 EXTRA_DIST += src/frontend/fortran/fortran03-parser.c
 
 src/frontend/fortran/fortran03-parser-internal.h : src/frontend/fortran/fortran03-parser.c
-src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 if BISON_BUILDING
+src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
 	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h --report=all --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
-else
-	@echo "*** ERROR: file fortran03.y was modified but no suitable bison was found during configure ***"
-	@exit 1
 endif
 
 EXTRA_DIST += src/frontend/fortran/fortran03.l
@@ -829,24 +811,18 @@ endif
 
 EXTRA_DIST += src/frontend/fortran/fortran03-scanner.c
 
-src/frontend/fortran/fortran03-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
 if FLEX_BUILDING
+src/frontend/fortran/fortran03-scanner.c : src/frontend/fortran/fortran03.l src/frontend/fortran/fortran03-parser-internal.h
 	$(FLEX_verbose)$(FLEX) -Pmf03 -d -i -o src/frontend/fortran/fortran03-scanner.c -8 $(top_srcdir)/src/frontend/fortran/fortran03.l
-else
-	@echo "*** ERROR: file fortran03.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 if FLEX_BUILDING
 CLEANFILES += src/frontend/fortran/prescanner-scanner.h
 endif
 
-src/frontend/fortran/prescanner-scanner.h : $(top_srcdir)/src/frontend/fortran/prescanner-identifier.h $(top_srcdir)/src/frontend/fortran/prescanner.l
 if FLEX_BUILDING
+src/frontend/fortran/prescanner-scanner.h : $(top_srcdir)/src/frontend/fortran/prescanner-identifier.h $(top_srcdir)/src/frontend/fortran/prescanner.l
 	$(FLEX_verbose)$(FLEX) -Pprescanner -d -i -o src/frontend/fortran/prescanner-scanner.h -8 $(top_srcdir)/src/frontend/fortran/prescanner.l
-else
-	@echo "*** ERROR: file prescanner.l was modified but no suitable flex was found during configure ***"
-	@exit 1
 endif
 
 CLEANFILES += src/frontend/fortran/fortran03-modules-bits.h
@@ -1446,29 +1422,7 @@ src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               src/tl/analysis/test_phase/tl-test-analysis-phase.cpp \
                               $(END)
 
-##########################################################################
-# src/tl/analysis/checker
-##########################################################################
-
-phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
-
-src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
-						$(ANALYSIS_CFLAGS) \
-						-I$(srcdir)/src/tl/analysis/interface \
-						-I$(srcdir)/src/tl/analysis/tdg
-
-src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
-src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
-						$(ANALYSIS_LIBADD) \
-						src/tl/analysis/interface/libanalysis_interface.la \
-						src/tl/analysis/tdg/libtdg.la
-
-src_tl_analysis_libanalysis_check_la_SOURCES = \
-			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
-						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
-						$(END)
-endif
+endif		# BUILD_ANALYSIS
 
 ##########################################################################
 # src/tl/complexity
@@ -1494,6 +1448,61 @@ src_tl_complexity_libtlcomplexity_la_SOURCES = \
 					src/tl/complexity/tl-complexity.hpp \
 					src/tl/complexity/tl-complexity.cpp \
 					$(END)
+endif
+
+##########################################################################
+# src/tl/hlt
+##########################################################################
+if BUILD_HLT
+
+lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
+
+HLT_ANALYSIS_CFLAGS= \
+			  -I $(srcdir)/src/tl/analysis/common \
+			  -I $(srcdir)/src/tl/analysis/liveness \
+			  -I $(srcdir)/src/tl/analysis/loops \
+			  -I $(srcdir)/src/tl/analysis/pcfg \
+			  -I $(srcdir)/src/tl/analysis/reach_defs \
+			  -I $(srcdir)/src/tl/analysis/interface \
+			  -I $(srcdir)/src/tl/analysis/test_phase \
+			  -I $(srcdir)/src/tl/analysis/use_def \
+			  -I $(srcdir)/src/tl/analysis/tdg \
+			  $(END)
+
+HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
+
+HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
+			  -I $(srcdir)/src/tl/omp/core \
+			  $(HLT_ANALYSIS_CFLAGS) \
+			  $(END)
+
+src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
+src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+
+src_tl_hlt_libtl_hlt_la_SOURCES = \
+	  src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-transform.hpp \
+      src/tl/hlt/hlt-transform.cpp \
+      src/tl/hlt/hlt-loop-normalize.hpp \
+      src/tl/hlt/hlt-loop-normalize.cpp \
+      src/tl/hlt/hlt-loop-unroll.hpp \
+      src/tl/hlt/hlt-loop-unroll.cpp \
+      $(END)
+
+phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
+
+src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
+src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
+
+src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
+      src/tl/hlt/hlt-pragma.cpp \
+      src/tl/hlt/hlt-pragma.hpp \
+      $(END)
+
 endif
 
 # ##########################################################################
@@ -1547,12 +1556,14 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CFLAGS = $(tl_cflags)
 src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/vectorization/vectorizer \
+                              -I $(top_srcdir)/src/tl/vectorization/vectorizer/spml \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
                               -I $(top_srcdir)/src/tl/analysis/pcfg \
                               -I $(top_srcdir)/src/tl/analysis/tdg \
                               -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/omp/core \
+                              -I $(top_srcdir)/src/tl/hlt \
                               $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
@@ -1560,6 +1571,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
                           $(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
+                          $(top_builddir)/src/tl/hlt/libtl-hlt.la \
                           $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
@@ -1569,9 +1581,9 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-fwd.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
@@ -1595,6 +1607,10 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-expression.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-vector-reduction.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-statement.cpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.hpp \
+                           src/tl/vectorization/vectorizer/spml/tl-spml-vectorizer-visitor-expression.cpp \
                            $(END)
 endif
 
@@ -1689,7 +1705,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
-                          -I$(srcdir)/src/tl/omp/core \
+                          -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
@@ -1697,7 +1713,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
-                          -I$(srcdir)/src/tl/omp/core \
+                          -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)
@@ -1816,6 +1832,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-expression.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-task-call.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-taskwait.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-taskyield.cpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.hpp \
 								 src/tl/omp/nanox-nodecl/tl-outline-info.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-single.cpp \
@@ -1831,6 +1848,7 @@ src_tl_omp_nanox_nodecl_libtlnanox_lowering_la_SOURCES = \
 								 src/tl/omp/nanox-nodecl/tl-lower-flush.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-atomic.cpp \
 								 src/tl/omp/nanox-nodecl/tl-lower-target.cpp \
+								 src/tl/omp/nanox-nodecl/tl-lower-nanox-ocl-intrinsics.cpp \
 								 src/tl/omp/nanox-nodecl/tl-parallel-spawn.cpp \
 								 src/tl/omp/nanox-nodecl/tl-loop-spawn-worksharing.cpp \
 								 src/tl/omp/nanox-nodecl/tl-loop-spawn-slicer.cpp \
@@ -2053,6 +2071,53 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
    $(END)
 endif
 
+
+##########################################################################
+# src/tl/analysis/checker
+##########################################################################
+
+if BUILD_ANALYSIS
+phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
+
+src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
+src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
+						$(ANALYSIS_CFLAGS) \
+						-I$(srcdir)/src/tl/analysis/interface \
+						-I$(srcdir)/src/tl/analysis/tdg \
+						-I$(srcdir)/src/tl/omp/core \
+						-I$(srcdir)/src/tl/omp/lint
+
+src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
+src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
+						$(ANALYSIS_LIBADD) \
+						src/tl/analysis/interface/libanalysis_interface.la \
+						src/tl/analysis/tdg/libtdg.la \
+						src/tl/omp/lint/libtlomp-lint.la
+
+src_tl_analysis_libanalysis_check_la_SOURCES = \
+			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
+						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
+						$(END)
+endif
+
+##########################################################################
+# src/tl/omp/example
+##########################################################################
+
+if BUILD_TL_EXAMPLES
+
+phases_LTLIBRARIES += src/tl/omp/example/libtlomp-example.la
+
+src_tl_omp_example_libtlomp_example_la_CXXFLAGS = $(phases_cflags)
+src_tl_omp_example_libtlomp_example_la_SOURCES = \
+						src/tl/omp/example/tl-omp-example.hpp \
+						src/tl/omp/example/tl-omp-example.cpp
+
+src_tl_omp_example_libtlomp_example_la_LIBADD = $(phases_libadd)
+src_tl_omp_example_libtlomp_example_la_LDFLAGS = $(phases_ldflags)
+
+endif
+
 ##########################################################################
 # src/tl/examples
 ##########################################################################
@@ -2123,59 +2188,6 @@ src_tl_examples_03_visitor_libtl_example_visitor_la_LDFLAGS = $(phases_ldflags)
 endif
 
 ##########################################################################
-# src/tl/hlt
-##########################################################################
-if BUILD_HLT
-
-lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
-
-HLT_ANALYSIS_CFLAGS= \
-			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/liveness \
-			  -I $(srcdir)/src/tl/analysis/loops \
-			  -I $(srcdir)/src/tl/analysis/pcfg \
-			  -I $(srcdir)/src/tl/analysis/reach_defs \
-			  -I $(srcdir)/src/tl/analysis/interface \
-			  -I $(srcdir)/src/tl/analysis/test_phase \
-			  -I $(srcdir)/src/tl/analysis/use_def \
-			  -I $(srcdir)/src/tl/analysis/tdg \
-			  $(END)
-
-HLT_ANALYSIS_LIBADD = src/tl/analysis/interface/libanalysis_interface.la
-
-HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
-			  -I $(srcdir)/src/tl/omp/core \
-			  $(HLT_ANALYSIS_CFLAGS) \
-			  $(END)
-
-src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
-src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
-
-src_tl_hlt_libtl_hlt_la_SOURCES = \
-	  src/tl/hlt/hlt-common.hpp \
-      src/tl/hlt/hlt-transform.hpp \
-      src/tl/hlt/hlt-transform.cpp \
-      src/tl/hlt/hlt-unroll.hpp \
-      src/tl/hlt/hlt-unroll.cpp \
-      $(END)
-
-phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
-
-src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
-src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
-
-src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
-      src/tl/hlt/hlt-pragma.cpp \
-      src/tl/hlt/hlt-pragma.hpp \
-      $(END)
-
-endif
-
-##########################################################################
 # src/tl/vectorization/vector-lowering/sse
 ##########################################################################
 
@@ -2240,6 +2252,7 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
+                              -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \
@@ -2759,6 +2772,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config/00.config.plain \
        config/10.config.analysis-base \
+       config/10.config.hlt \
        config/10.config.omp-base \
        config/10.config.intel-omp-base \
        config/40.config.cuda \

@@ -38,22 +38,24 @@ namespace Vectorization
             const unsigned int mask_size,
             const bool fast_math,
             const TL::Type& target_type,
-            const aligned_expr_map_t& aligned_expr_map,
-            const objlist_nodecl_t& uniform_expr_list,
-            const objlist_nodecl_t& suitable_expr_list,
-            const nontmp_expr_map_t& nontemporal_expr_list,
-            const VectorizerCache& vectorizer_cache,
+            const map_tl_sym_int_t& aligned_symbols_map,
+            const map_tl_sym_int_t& linear_symbols_map,
+            const objlist_tlsymbol_t& uniform_symbols_list,
+            const objlist_nodecl_t& suitable_exprs_list,
+            const nontmp_expr_map_t& nontemporal_exprs_list,
+            const map_tl_sym_int_t& overlap_symbols_map,
             const objlist_tlsymbol_t * reduction_list,
             std::map<TL::Symbol, TL::Symbol> * new_external_vector_symbol_map) :
         _device(device), _vector_length(vector_length),
         _support_masking(support_masking),
         _mask_size(mask_size),
         _fast_math(fast_math),
-        _aligned_expr_map(aligned_expr_map),
-        _uniform_expr_list(uniform_expr_list),
-        _suitable_expr_list(suitable_expr_list),
-        _nontemporal_expr_map(nontemporal_expr_list),
-        _vectorizer_cache(vectorizer_cache),
+        _aligned_symbols_map(aligned_symbols_map),
+        _linear_symbols_map(linear_symbols_map),
+        _uniform_symbols_list(uniform_symbols_list),
+        _suitable_exprs_list(suitable_exprs_list),
+        _nontemporal_exprs_map(nontemporal_exprs_list),
+        _overlap_symbols_map(overlap_symbols_map),
         _reduction_list(reduction_list),
         _new_external_vector_symbol_map(new_external_vector_symbol_map)
     {
@@ -99,6 +101,7 @@ namespace Vectorization
 
     void VectorizerEnvironment::unload_environment()
     {
+        _function_return = TL::Symbol();
         _analysis_simd_scope = Nodecl::NodeclBase::null();
 
         _mask_list.clear();

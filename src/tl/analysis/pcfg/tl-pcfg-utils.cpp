@@ -80,99 +80,76 @@ namespace Analysis {
 
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
-
-    PCFGClause::PCFGClause()
-        : _clause(__undefined_clause), _args()
+    
+    PCFGClause::PCFGClause(ClauseType ct, const NBase& c)
+        : _clause_type(ct), _clause(c)
     {}
 
-    PCFGClause::PCFGClause(Clause c)
-        : _clause(c), _args()
-    {}
-
-    PCFGClause::PCFGClause(Clause c, NBase arg)
-        : _clause(c), _args()
+    PCFGClause::PCFGClause(const PCFGClause& clause)
     {
-        _args.append(arg.shallow_copy());
+        _clause_type = clause._clause_type;
+        _clause = clause._clause;
     }
-
-    PCFGClause::PCFGClause(const PCFGClause& c)
+    
+    ClauseType PCFGClause::get_type() const
     {
-        _clause = c._clause;
-        _args = c._args;
-    }
-
-    Clause PCFGClause::get_clause() const
-    {
-        return _clause;
+        return _clause_type;
     }
     
     //! Returns a string with the graph type of the node.
-    inline std::string clause_to_str(Clause c)
+    std::string PCFGClause::get_type_as_string() const
     {
-        switch(c)
+        switch(_clause_type)
         {
             #undef CLAUSE
             #define CLAUSE(X) case __##X : return #X;
             CLAUSE_LIST
             #undef CLAUSE
-            default: WARNING_MESSAGE("Unexpected clause type '%d'", c);
+            default: WARNING_MESSAGE("Unexpected clause type '%d'", _clause_type);
         }
         return "";
     }
     
-    std::string PCFGClause::get_clause_as_string() const
+    NBase PCFGClause::get_nodecl() const
     {
-        return clause_to_str(_clause);
-    }
-    
-    Nodecl::List PCFGClause::get_args() const
-    {
-        return _args;
+        return _clause;
     }
     
     PCFGPragmaInfo::PCFGPragmaInfo()
         : _clauses()
     {}
 
-    PCFGPragmaInfo::PCFGPragmaInfo(PCFGClause clause)
-        : _clauses(ObjectList<PCFGClause>(1, clause))
-    {}
-
     PCFGPragmaInfo::PCFGPragmaInfo(const PCFGPragmaInfo& p)
     {
         _clauses = p._clauses;
     }
-
-    PCFGPragmaInfo::~PCFGPragmaInfo()
+    
+    PCFGPragmaInfo::PCFGPragmaInfo(const PCFGClause& clause)
+        : _clauses(ObjectList<PCFGClause>(1, clause))
     {}
 
-    bool PCFGPragmaInfo::has_clause(Clause clause) const
+    bool PCFGPragmaInfo::has_clause(ClauseType clause) const
     {
         for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
         {
-            if (it->_clause == clause)
+            if (it->_clause_type == clause)
                 return true;
         }
         return false;
     }
 
-    PCFGClause PCFGPragmaInfo::get_clause(Clause clause) const
+    PCFGClause PCFGPragmaInfo::get_clause(ClauseType clause) const
     {
-        PCFGClause pcfg_clause;
         for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
-        {
-            if (it->_clause == clause)
-            {
-                pcfg_clause = *it;
-                break;
-            }
-        }
-        return pcfg_clause;
+            if (it->_clause_type == clause)
+                return *it;
+        
+        internal_error("No clause %d found in pragma info.\n", clause);
     }
     
-    void PCFGPragmaInfo::add_clause(PCFGClause pcfg_clause)
+    void PCFGPragmaInfo::add_clause(const PCFGClause& clause)
     {
-        _clauses.append(pcfg_clause);
+        _clauses.append(clause);
     }
 
     ObjectList<PCFGClause> PCFGPragmaInfo::get_clauses() const
@@ -196,6 +173,20 @@ namespace Analysis {
           _environ_entry_exit(), _is_vector(false), _is_simd(false), _nid(-1)
     {}
 
+    std::string print_node_list(const ObjectList<Node*>& list)
+    {
+        std::string result;
+        for(ObjectList<Node*>::const_iterator it = list.begin(); it != list.end(); )
+        {
+            std::stringstream ss; ss << (*it)->get_id();
+            result +=  ss.str();
+            ++it;
+            if(it != list.end())
+                result += ", ";
+        }
+        return result;
+    }
+    
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
 

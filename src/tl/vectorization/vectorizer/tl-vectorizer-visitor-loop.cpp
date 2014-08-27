@@ -51,8 +51,8 @@ namespace Vectorization
     void VectorizerVisitorLoop::visit(const Nodecl::ForStatement& for_statement)
     {
         // CACHE: Before vectorizing!
-        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
-        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
+//        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
+//        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
 
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
@@ -63,61 +63,19 @@ namespace Vectorization
         visitor_loop_header.walk(for_statement.get_loop_header().as<Nodecl::LoopControl>());
 
         // LOOP BODY
-        VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+        VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(for_statement.get_statement());
-
-        // Add cache it update to Compound Statement
-        if (!cache_it_update_pre.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .prepend(cache_it_update_pre);
-        }
-
-        if (!cache_it_update_post.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            for_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .append(cache_it_update_post);
-        }
     }
 
     void VectorizerVisitorLoop::visit(const Nodecl::WhileStatement& while_statement)
     {
-        // CACHE: Before vectorizing!
-        Nodecl::List cache_it_update_pre = _environment._vectorizer_cache.get_iteration_update_pre(_environment);
-        Nodecl::List cache_it_update_post = _environment._vectorizer_cache.get_iteration_update_post(_environment);
-
-        // Vectorize Local Symbols
-        VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
-        visitor_local_symbol.walk(while_statement);
-
         // Vectorize Loop Header
         VectorizerVisitorLoopCond visitor_loop_cond(_environment);
         visitor_loop_cond.walk(while_statement.get_condition());
 
         // LOOP BODY
-        VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+        VectorizerVisitorStatement visitor_stmt(_environment);
         visitor_stmt.walk(while_statement.get_statement());
-
-        // Add cache it update to Compound Statement
-        if (!cache_it_update_pre.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            while_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .prepend(cache_it_update_pre);
-        }
-
-        if (!cache_it_update_post.empty())
-        {
-            // TODO: Function to do this in Nodecl::Utils
-            while_statement.get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context()
-                .as<Nodecl::List>().front().as<Nodecl::CompoundStatement>().get_statements().as<Nodecl::List>()
-                .append(cache_it_update_post);
-        }
     }
 
 
@@ -249,14 +207,10 @@ namespace Vectorization
             Nodecl::NodeclBase new_step;
 
             if (VectorizationAnalysisInterface::_vectorizer_analysis->
-                    is_non_reduction_basic_induction_variable(
-                        _environment._analysis_simd_scope,
-                        lhs))
+                    is_linear(_environment._analysis_simd_scope, lhs))
             {
                 step = VectorizationAnalysisInterface::_vectorizer_analysis->
-                    get_induction_variable_increment(
-                        _environment._analysis_scopes.back(),
-                        lhs);
+                    get_linear_step(_environment._analysis_scopes.back(), lhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node
                     <Nodecl::Mul>(
@@ -303,9 +257,7 @@ namespace Vectorization
                         rhs))
             {
                 step = VectorizationAnalysisInterface::_vectorizer_analysis->
-                    get_induction_variable_increment(
-                        _environment._analysis_scopes.back(),
-                        rhs);
+                    get_linear_step(_environment._analysis_scopes.back(), rhs);
 
                 new_step = Vectorization::Utils::make_scalar_binary_node<Nodecl::Mul>(
                         step.shallow_copy(),
@@ -375,7 +327,7 @@ namespace Vectorization
 
     void VectorizerVisitorLoopNext::visit_increment(const Nodecl::NodeclBase& node, const Nodecl::NodeclBase& lhs)
     {
-        VectorizerVisitorExpression visitor_expression(_environment, true);
+        VectorizerVisitorExpression visitor_expression(_environment);
 
         visitor_expression.walk(node);
     }
@@ -429,9 +381,10 @@ namespace Vectorization
             const Nodecl::NodeclBase& loop_cond,
             Nodecl::NodeclBase& net_epilog_node)
     {
-        Nodecl::CompoundStatement comp_statement = loop_statement.as<Nodecl::ForStatement>().
-            get_statement().as<Nodecl::List>().front().as<Nodecl::Context>().get_in_context().
-            as<Nodecl::List>().front().as<Nodecl::CompoundStatement>();
+        Nodecl::CompoundStatement comp_statement =
+            Nodecl::Utils::skip_contexts_and_lists(
+                    loop_statement.as<Nodecl::ForStatement>().
+                    get_statement()).as<Nodecl::CompoundStatement>();
 
         // Vectorize Local Symbols
         VectorizerVisitorLocalSymbol visitor_local_symbol(_environment);
@@ -451,7 +404,9 @@ namespace Vectorization
         if (_is_parallel_loop || _only_epilog)
         {
             // TODO:: get_updated_iv_init_for_epilog does not support WhileStatement
-            get_updated_iv_init_for_epilog(loop_statement.as<Nodecl::ForStatement>(), iv, iv_init);
+            get_updated_iv_init_for_epilog(
+                    loop_statement.as<Nodecl::ForStatement>(),
+                    iv, iv_init);
 
             new_iv_init = Nodecl::ExpressionStatement::make(
                     Nodecl::Assignment::make(
@@ -489,7 +444,7 @@ namespace Vectorization
                 _environment._mask_list.push_back(all_one_mask);
 
                 // Vectorising mask
-                VectorizerVisitorExpression visitor_mask(_environment, /* cache enabled */ true);
+                VectorizerVisitorExpression visitor_mask(_environment);
                 visitor_mask.walk(mask_value);
 
                 _environment._mask_list.pop_back();
@@ -527,16 +482,16 @@ namespace Vectorization
         {
             _environment._mask_list.push_back(mask_nodecl_sym);
 
-            VectorizerVisitorStatement visitor_stmt(_environment, /* cache enabled */ true);
+            VectorizerVisitorStatement visitor_stmt(_environment);
             visitor_stmt.walk(comp_statement);
 
             _environment._mask_list.pop_back();
         }
 
         // Same as comp_statement
-        Nodecl::NodeclBase loop_inner_statement = loop_statement.as<Nodecl::ForStatement>().
-            get_statement().as<Nodecl::List>().front().shallow_copy();
-
+        Nodecl::NodeclBase loop_inner_statement = 
+            loop_statement.as<Nodecl::ForStatement>().
+                    get_statement();//.as<Nodecl::List>().front());
 
         // Add IF check to skip epilog if mask is not zero
         Nodecl::NodeclBase if_mask_is_not_zero;

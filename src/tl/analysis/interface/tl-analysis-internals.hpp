@@ -52,6 +52,18 @@ namespace Analysis {
             const Nodecl::NodeclBase& n, ExtensibleGraph* const pcfg,
             std::set<Nodecl::NodeclBase> visited_nodes = std::set<Nodecl::NodeclBase>());
 
+    bool is_linear_internal(
+            Node* const scope_node, 
+            const Nodecl::NodeclBase& n);
+    Utils::InductionVarList get_linear_variables_internal(
+            Node* const scope_node);
+    NBase get_linear_variable_lower_bound_internal(
+            Node* const scope_node,
+            const Nodecl::NodeclBase& n);
+    NBase get_linear_variable_increment_internal(
+            Node* const scope_node,
+            const Nodecl::NodeclBase& n);
+    
     bool has_been_defined_internal(Node* const n_node,
             const Nodecl::NodeclBase& n,
             const GlobalVarsSet& global_variables);
@@ -77,9 +89,7 @@ namespace Analysis {
             PropertyFunctor property_functor,
             std::set<Nodecl::NodeclBase> visited_nodes);
 
-#ifndef DEBUG_PROPERTY
 //#define DEBUG_PROPERTY
-#endif
     template <typename PropertyFunctor>
     TL::tribool nodecl_has_property_in_scope(
             Node* const scope_node,
@@ -261,7 +271,8 @@ namespace Analysis {
                                if(cond_node == NULL)
                                    internal_error("Conditional node is null", 0);
 
-                               // Look into the condition of the loop
+                               // Skip loop condition only if the
+                               // node is contained in the loop
                                skip_loop_condition = 
                                    (cond_node == original_stmt) ||
                                    ExtensibleGraph::node_contains_node(
@@ -277,7 +288,6 @@ namespace Analysis {
                                if (!skip_loop_condition)
                                {
                                    ObjectList<Edge*> entries = cond_node->get_entry_edges();
-
 
                                    ERROR_CONDITION(entries.size() != 2, 
                                            "Loop Condition with %d entry edges", entries.size());
@@ -366,6 +376,14 @@ namespace Analysis {
                            if (!control_is_loop_node || 
                                    (control_is_loop_node && !skip_loop_condition))
                            { 
+                               // If the loop contains BreakStatements, the property is false
+                               // TODO:: Move this to properties?
+                               // TODO:: ReturnStatement?
+                               if (Nodecl::Utils::nodecl_contains_nodecl_of_kind
+                                       <Nodecl::BreakStatement>(
+                                           control_structure->get_graph_related_ast()))
+                                   return false;
+
                                // If the original node (not any RD) is enclosed in the loop,
                                // the condition of the loop doesn't define the value of that
                                // node inside the loop
@@ -381,6 +399,7 @@ namespace Analysis {
                                // Sara? Will be there more than one statement here? If so, the previous condition
                                // will have to be more sophisticated
                                ERROR_CONDITION(cond_node_stmts.size() > 1, "More than one cond_statement", 0);
+
 
 #ifdef DEBUG_PROPERTY
                                std::cerr << "          Visiting condition'" << std::endl;

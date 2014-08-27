@@ -1,23 +1,23 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2013 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
-
+  
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
   See AUTHORS file in the top level directory for information
   regarding developers and contributors.
-
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-
+  
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
@@ -26,43 +26,59 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
-#include "hlt-unroll.hpp"
-#include "tl-analysis-interface.hpp"
-#include <sstream>
-#include <limits.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
 
-namespace TL { namespace HLT {
+void foo(int n)
+{
+    int v[n][n];
 
-    LoopUnroll::LoopUnroll(Nodecl::NodeclBase for_stmt, unsigned int factor)
-        : Transform(for_stmt), _tree(for_stmt), _factor(factor)
+    memset(v, 0, sizeof(v));
+
+    #pragma omp  parallel for firstprivate(v)
+    for (int i = 0; i < n; ++i)
     {
-    }
-
-    bool LoopUnroll::check(bool diagnostic)
-    {
-        if (!_tree.is<Nodecl::ForStatement>())
+        for (int j = 0; j < n; ++j)
         {
-            if (diagnostic)
-            {
-                std::cerr << _tree.get_locus_str() << ": error: only for-statement can be unrolled" << std::endl;
-            }
-            return false;
+//            printf("1. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 0);
+            v[i][j]++;
         }
-
-        // Now ask analysis to tell us the induction variables of this for statement
-        // First get the enclosing function
-        TL::Scope sc = ReferenceScope(_tree).get_scope();
-        TL::Symbol function_symbol = sc.get_related_symbol();
-
-        Nodecl::NodeclBase function_code = function_symbol.get_function_code();
-        ERROR_CONDITION(function_code.is_null(), "Invalid node", 0);
-
-        Analysis::AnalysisInterface analysis_static(function_code, Analysis::WhichAnalysis::INDUCTION_VARS_ANALYSIS, /*ompss_enabled*/ false);
-
-        // ObjectList<InductionVariableData*> induction_vars = analysis_static.get_induction_variables();
-
-        return true;
     }
-} }
 
+    #pragma omp parallel for shared(v)
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+//            printf("2. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 0);
+            v[i][j]++;
+        }
+    }
+
+    #pragma omp parallel for firstprivate(v)
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+//            printf("3. v[i][j]: %d\n", v[i][j]);
+            assert(v[i][j] == 1);
+            v[i][j]++;
+        }
+    }
+}
+
+
+int main()
+{
+    foo(10);
+    return 0;
+}

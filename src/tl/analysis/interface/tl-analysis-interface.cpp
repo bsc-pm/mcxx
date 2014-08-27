@@ -98,14 +98,23 @@ namespace Analysis {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
 
-//         if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
+        if( CURRENT_CONFIGURATION->debug_options.print_pcfg || 
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
             analysis.print_all_pcfg( analysis_state );
 
         // Fill nodecl to pcfg map
         ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();
         for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            _func_to_pcfg_map[(*it)->get_nodecl()] = *it;
+            Nodecl::NodeclBase func_nodecl = (*it)->get_nodecl();
+
+            // If SimdFunction, we better associate nested
+            // FunctionCode with PCFG
+            if (func_nodecl.is<Nodecl::OpenMP::SimdFunction>())
+                func_nodecl = func_nodecl.as<Nodecl::OpenMP::SimdFunction>().
+                    get_statement();
+
+            _func_to_pcfg_map[func_nodecl] = *it;
         }
     }
 
@@ -186,6 +195,18 @@ namespace Analysis {
                 pcfg, visited_nodes);
     }
 
+    bool AnalysisInterface::is_linear(
+            const Nodecl::NodeclBase& scope, 
+            const Nodecl::NodeclBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+        
+        return is_linear_internal(scope_node, n);
+    }
+    
     bool AnalysisInterface::is_induction_variable(
             const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n)
     {
@@ -245,6 +266,41 @@ namespace Analysis {
         return scope_node->get_induction_variables();
     }
 
+    Utils::InductionVarList AnalysisInterface::get_linear_variables(
+        const Nodecl::NodeclBase& scope)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+        
+        return get_linear_variables_internal(scope_node);
+    }
+    
+    NBase AnalysisInterface::get_linear_variable_lower_bound(
+            const NBase& scope, 
+            const NBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+        
+        return get_linear_variable_lower_bound_internal(scope_node, n);
+    }
+    
+    NBase AnalysisInterface::get_linear_variable_increment(
+            const NBase& scope, 
+            const NBase& n)
+    {
+        // Retrieve pcfg
+        ExtensibleGraph* pcfg = retrieve_pcfg_from_func(scope);
+        // Retrieve scope
+        Node* scope_node = retrieve_scope_node_from_nodecl(scope, pcfg);
+        
+        return get_linear_variable_increment_internal(scope_node, n);
+    }
+    
     static bool nodecl_calls_outline_task( const Nodecl::NodeclBase& n, RefPtr<OpenMP::FunctionTaskSet> function_tasks )
     {
         if( n.is_null( ) )

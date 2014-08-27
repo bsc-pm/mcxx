@@ -40,7 +40,7 @@ namespace Vectorization
             const VectorizerEnvironment& environment)
         : _environment(environment), _loop(loop_stmt),
         _ivs(VectorizationAnalysisInterface::_vectorizer_analysis->
-                get_ivs_nodecls(loop_stmt))
+                get_linear_nodecls(loop_stmt))
     {
         if(loop_stmt.is<Nodecl::ForStatement>())
         {
@@ -75,8 +75,7 @@ namespace Vectorization
             ivs_values_uniform = VectorizationAnalysisInterface::
                 _vectorizer_analysis->is_uniform(
                         _environment._analysis_simd_scope,
-                        statements,
-                        *it);
+                        statements, *it);
         }
 
         return ivs_values_uniform;
@@ -96,7 +95,6 @@ namespace Vectorization
 
     int VectorizerLoopInfo::get_epilog_info(bool& only_epilog)
     {
-
         int remain_its = -1;
         only_epilog = false;
 
@@ -151,7 +149,7 @@ namespace Vectorization
                     // Suitable LB
                     lb_is_suitable = VectorizationAnalysisInterface::
                         _vectorizer_analysis->is_suitable_expression(
-                                _loop, lb, _environment._suitable_expr_list,
+                                _loop, lb, _environment._suitable_exprs_list,
                                 _environment._vectorization_factor,
                                 _environment._vector_length, lb_vector_size_module);
 
@@ -194,8 +192,9 @@ namespace Vectorization
                     // ub is normalized to <= so +1 is needed
                     ub_is_suitable = VectorizationAnalysisInterface::
                         _vectorizer_analysis->is_suitable_expression(
-                                _loop, ub, _environment._suitable_expr_list,
-                                _environment._vectorization_factor, _environment._vector_length,
+                                _loop, ub, _environment._suitable_exprs_list,
+                                _environment._vectorization_factor, 
+                                _environment._vector_length,
                                 ub_vector_size_module);
 
                     _environment._analysis_scopes.pop_back();

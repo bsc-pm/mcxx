@@ -28,7 +28,8 @@
 
 /*
 <testinfo>
-test_generator=07_phases_hlt.dg/mercurium
+test_generator=config/mercurium-hlt
+test_compile_fail=yes
 </testinfo>
 */
 

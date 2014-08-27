@@ -99,14 +99,12 @@ namespace Analysis {
 
         Nodecl::NodeclBase ast = dto["nodecl"];
 
-        ObjectList<ExtensibleGraph*> pcfgs;
-
         // Test PCFG creation
         if( _pcfg_enabled )
         {
             if( VERBOSE )
                 std::cerr << "====================  Testing PCFG creation  =================" << std::endl;
-            pcfgs = analysis.parallel_control_flow_graph( memento, ast );
+            analysis.parallel_control_flow_graph(memento, ast);
             if( VERBOSE )
                 std::cerr << "=================  Testing PCFG creation done  ===============" << std::endl;
         }
@@ -115,7 +113,7 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "==============  Testing Use-Definition analysis  ==============" << std::endl;
-            pcfgs = analysis.use_def( memento, ast );
+            analysis.use_def(memento, ast);
             if( VERBOSE )
                 std::cerr << "============  Testing Use-Definition analysis done  ===========" << std::endl;
         }
@@ -124,7 +122,7 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "=================  Testing Liveness analysis  ==================" << std::endl;
-            pcfgs = analysis.liveness( memento, ast );
+            analysis.liveness( memento, ast);
             if( VERBOSE )
                 std::cerr << "===============  Testing Liveness analysis done  ===============" << std::endl;
         }
@@ -133,7 +131,7 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "===========  Testing Reaching Definitions analysis  ============" << std::endl;
-            pcfgs = analysis.reaching_definitions( memento, ast );
+            analysis.reaching_definitions( memento, ast);
             if( VERBOSE )
                 std::cerr << "=========  Testing Reaching Definitions analysis done  =========" << std::endl;
         }
@@ -142,7 +140,7 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "=============  Testing Induction Variables analysis  ==========" << std::endl;
-            pcfgs = analysis.induction_variables( memento, ast );
+            analysis.induction_variables( memento, ast);
             if( VERBOSE )
                 std::cerr << "==========  Testing Induction Variables analysis done  ========" << std::endl;
         }
@@ -151,9 +149,18 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "============  Testing Tasks synchronization tunning  ===========" << std::endl;
-            pcfgs = analysis.tune_task_synchronizations( memento, ast );
+            analysis.tune_task_synchronizations( memento, ast);
             if( VERBOSE )
                 std::cerr << "=========  Testing Tasks synchronization tunning done  =========" << std::endl;
+        }
+        
+        if( _range_analysis_enabled )
+        {
+            if( VERBOSE )
+                std::cerr << "====================  Testing Range analysis  ===================" << std::endl;
+            analysis.range_analysis( memento, ast);
+            if( VERBOSE )
+                std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
         }
         
         ObjectList<TaskDependencyGraph*> tdgs;
@@ -161,33 +168,26 @@ namespace Analysis {
         {
             if( VERBOSE )
                 std::cerr << "====================  Testing TDG creation  ====================" << std::endl;
-            tdgs = analysis.task_dependency_graph( memento, ast );
+            tdgs = analysis.task_dependency_graph(memento, ast);
             if( VERBOSE )
                 std::cerr << "==================  Testing TDG creation done  =================" << std::endl;
-        }
-        
-        if( _range_analysis_enabled )
-        {
-            if( VERBOSE )
-                std::cerr << "====================  Testing Range analysis  ===================" << std::endl;
-            pcfgs = analysis.range_analysis( memento, ast );
-            if( VERBOSE )
-                std::cerr << "==========  Testing Induction Variables analysis done  ==========" << std::endl;
         }
         
         if(_cyclomatic_complexity_enabled)
         {
             if( VERBOSE )
                 std::cerr << "============  Testing Cyclomatic Complexity analysis  ===========" << std::endl;
-            pcfgs = analysis.cyclomatic_complexity( memento, ast );
+            analysis.cyclomatic_complexity(memento, ast);
             if( VERBOSE )
                 std::cerr << "=========  Testing Cyclomatic Complexity analysis done  =========" << std::endl;
         }
         
-        if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
+        if( CURRENT_CONFIGURATION->debug_options.print_pcfg || 
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
         {
             if( VERBOSE )
                 std::cerr << "=================  Printing PCFG to dot file  ==================" << std::endl;
+            ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
                 analysis.print_pcfg( memento, (*it)->get_name( ) );
             if( VERBOSE )

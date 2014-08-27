@@ -38,11 +38,10 @@ namespace TL
         {
             private:
                 VectorizerEnvironment& _environment;
-                const bool _cache_enabled;
 
             public:
-                VectorizerVisitorStatement(VectorizerEnvironment& environment,
-                        const bool cache_enabled);
+                VectorizerVisitorStatement(
+                        VectorizerEnvironment& environment);
 
                 virtual void visit(const Nodecl::Context& n);
                 virtual void visit(const Nodecl::CompoundStatement& n);
@@ -52,6 +51,7 @@ namespace TL
                 virtual void visit(const Nodecl::ObjectInit& n);
                 virtual void visit(const Nodecl::ReturnStatement& n);
                 virtual void visit(const Nodecl::BreakStatement& n);
+                virtual void visit(const Nodecl::ContinueStatement& n);
 
                 Nodecl::NodeclVisitor<void>::Ret unhandled_node(const Nodecl::NodeclBase& n);
         };

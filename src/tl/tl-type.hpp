@@ -108,6 +108,7 @@ namespace TL
             TemplateParameters get_enclosing_parameters() const;
 
             bool get_is_explicit_specialization() const;
+            bool get_is_explicit_instantiation() const;
     };
 
     struct LIBTL_CLASS MemberDeclarationInfo
@@ -494,6 +495,9 @@ namespace TL
 
             //! Returns the friends of this class
             ObjectList<Symbol> class_get_friends();
+
+            //! Returns the list of classes the constructors of which are inherited
+            ObjectList<Symbol> class_get_inherited_constructors();
 
             //! States whether current type type is a function-type
             bool is_function() const;
@@ -928,7 +932,7 @@ namespace TL
              */
             static Type get_ptrdiff_t_type();
 
-            std::string print_declarator();
+            std::string print_declarator() const;
     };
 
     //! @}

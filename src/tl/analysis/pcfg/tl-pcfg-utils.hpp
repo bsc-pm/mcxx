@@ -89,6 +89,7 @@ namespace Analysis {
     GRAPH_TYPE(Context) \
     GRAPH_TYPE(ExtensibleGraph) \
     GRAPH_TYPE(FunctionCallGraph) \
+    GRAPH_TYPE(FunctionCode) \
     GRAPH_TYPE(IfElse) \
     GRAPH_TYPE(LoopDoWhile) \
     GRAPH_TYPE(LoopFor) \
@@ -536,6 +537,16 @@ namespace Analysis {
     #define _DEPS_UNDEF                     "deps_undef"
     
     
+    // Correctness analysis attributes
+    //////////////////////////////////
+    
+    /*! \def _CORRECTNESS_DEAD_VARS
+     * Set of variables detected as dead variables during OMP/OMPSS correctness phase
+     * Available only in task nodes
+     */
+    #define _CORRECTNESS_DEAD_VARS          "correctness_dead"
+    
+    
     // Analysis checking attributes
     ///////////////////////////////
     
@@ -598,6 +609,12 @@ namespace Analysis {
      * Set of variables autoscoped as shared in a given point of the program
      */
     #define _ASSERT_AUTOSC_SHARED           "assert_autosc_shared"
+    
+    
+    /*! \def _ASSERT_CORRECTNESS_DEAD_VARS
+     * Set of dead variables at the out point of a given task
+     */
+    #define _ASSERT_CORRECTNESS_DEAD_VARS   "assert_correctness_dead"
     
     // ************************** END PCFG enumerations and defines ************************* //
     // ************************************************************************************** //
@@ -685,6 +702,7 @@ namespace Analysis {
     CLAUSE(assert_autosc_firstprivate) \
     CLAUSE(assert_autosc_private) \
     CLAUSE(assert_autosc_shared) \
+    CLAUSE(assert_correctness_dead) \
     CLAUSE(assert_dead) \
     CLAUSE(assert_defined) \
     CLAUSE(assert_induction_var) \
@@ -695,7 +713,6 @@ namespace Analysis {
     CLAUSE(assert_upper_exposed) \
     CLAUSE(assert_undefined_behaviour) \
     CLAUSE(auto) \
-    CLAUSE(cache) \
     CLAUSE(concurrent) \
     CLAUSE(commutative) \
     CLAUSE(copy_in) \
@@ -708,32 +725,35 @@ namespace Analysis {
     CLAUSE(flushed_vars) \
     CLAUSE(if) \
     CLAUSE(in) \
-    CLAUSE(in_alloca) \
     CLAUSE(in_value) \
     CLAUSE(inout) \
     CLAUSE(lastprivate) \
     CLAUSE(length_for) \
+    CLAUSE(linear) \
     CLAUSE(mask) \
     CLAUSE(name) \
     CLAUSE(no_mask) \
     CLAUSE(nontemporal) \
     CLAUSE(nowait) \
     CLAUSE(out) \
+    CLAUSE(overlap) \
     CLAUSE(priority) \
     CLAUSE(private) \
     CLAUSE(reduction) \
     CLAUSE(schedule) \
     CLAUSE(shared) \
+    CLAUSE(shared_alloca) \
     CLAUSE(simd_reduction) \
     CLAUSE(suitable) \
     CLAUSE(task_label) \
     CLAUSE(target) \
     CLAUSE(undefined_clause) \
+    CLAUSE(uniform) \
     CLAUSE(unroll) \
     CLAUSE(untied) \
     CLAUSE(wait_on)
     
-    enum Clause {
+    enum ClauseType {
 #undef CLAUSE
 #define CLAUSE(X) __##X,
         CLAUSE_LIST
@@ -742,26 +762,22 @@ namespace Analysis {
     
     class PCFGClause {
     private:
-        Clause _clause;
-        Nodecl::List _args;
-
-    public:
-        //! Empty constructor
-        PCFGClause();
-
-        //! Constructor
-        PCFGClause(Clause c);
-        PCFGClause(Clause c, NBase arg);
-
-        //! Copy constructor
-        PCFGClause(const PCFGClause& clause);
-
-        //! Getters
-        Clause get_clause() const;
-        std::string get_clause_as_string() const;
-        Nodecl::List get_args() const;
+        ClauseType _clause_type;
+        NBase _clause;
         
-    friend class PCFGVisitor;
+    public:
+        //! Constructor
+        PCFGClause(ClauseType ct, const NBase& c);
+
+        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
+        PCFGClause(const PCFGClause& clause);
+        
+        //! Getters
+        ClauseType get_type() const;
+        std::string get_type_as_string() const;
+        NBase get_nodecl() const;
+        
+    friend class PCFGVisitor;   // FIXME Friendship is propagated. We can delete this
     friend class PCFGPragmaInfo;
     };
 
@@ -770,24 +786,20 @@ namespace Analysis {
     {
     private:
         ObjectList<PCFGClause> _clauses;
-
+        
     public:
-        //! Empty Constructor
-        PCFGPragmaInfo();
-
         //! Constructor
-        PCFGPragmaInfo(PCFGClause clause);
-
-        //! Copy constructor
-        PCFGPragmaInfo(const PCFGPragmaInfo& pragma);
-
-        //! Destructor
-        ~PCFGPragmaInfo();
-
-        bool has_clause(Clause clause) const;
-        PCFGClause get_clause(Clause clause) const;
-
-        void add_clause(PCFGClause pcfg_clause);
+        PCFGPragmaInfo(const PCFGClause& clause);
+        
+        //! Deafault constructor (needed to use this object in LinkData)
+        PCFGPragmaInfo();
+        
+        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
+        PCFGPragmaInfo(const PCFGPragmaInfo& p);
+        
+        bool has_clause(ClauseType clause) const;
+        PCFGClause get_clause(ClauseType clause) const;
+        void add_clause(const PCFGClause& clause);
         
         ObjectList<PCFGClause> get_clauses() const;
 
@@ -872,6 +884,8 @@ namespace Analysis {
     friend class PCFGVisitor;
     };
 
+    std::string print_node_list(const ObjectList<Node*>& list);
+    
     // ************************************************************************************** //
     // ******************************** END PCFG utils class ******************************** //
     

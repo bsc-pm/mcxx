@@ -533,9 +533,27 @@ void LoweringVisitor::emit_async_common(
     if (!_lowering->final_clause_transformation_disabled()
             && Nanos::Version::interface_is_at_least("master", 5024))
     {
-        dynamic_wd_info
-            << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
-            ;
+
+        if (IS_FORTRAN_LANGUAGE
+                && !final_condition.is_constant())
+        {
+            dynamic_wd_info
+                << "if (" << as_expression(final_condition) << ")"
+                << "{"
+                <<      "nanos_wd_dyn_props.flags.is_final = 1;"
+                << "}"
+                << "else"
+                << "{"
+                <<      "nanos_wd_dyn_props.flags.is_final = 0;"
+                << "}"
+                ;
+        }
+        else
+        {
+            dynamic_wd_info
+                << "nanos_wd_dyn_props.flags.is_final = " << as_expression(final_condition) << ";"
+                ;
+        }
     }
 
     Source dynamic_size;
@@ -2727,7 +2745,7 @@ Nodecl::NodeclBase LoweringVisitor::get_size_for_dimension(
             {
                 expr = expr.as<Nodecl::ArraySubscript>().get_subscripts();
 
-                expr = expr.as<Nodecl::List>()[fortran_dimension - 1];
+                expr = expr.as<Nodecl::List>()[0];
 
                 if (expr.is<Nodecl::Range>())
                 {

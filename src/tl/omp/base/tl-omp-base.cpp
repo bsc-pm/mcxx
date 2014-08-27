@@ -53,6 +53,7 @@ namespace TL { namespace OpenMP {
         _core(),
         _simd_enabled(false),
         _ompss_mode(false),
+        _omp_report(false),
         _copy_deps_by_default(true)
     {
         set_phase_name("OpenMP directive to parallel IR");
@@ -140,6 +141,11 @@ namespace TL { namespace OpenMP {
 
     void Base::run(TL::DTO& dto)
     {
+        if (CURRENT_CONFIGURATION->explicit_instantiation)
+        {
+            this->set_ignore_template_functions(true);
+        }
+
         _core.run(dto);
 
         if (diagnostics_get_error_count() != 0)
@@ -173,7 +179,8 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase translation_unit = dto["nodecl"];
 
         bool task_expr_optim_disabled = (_disable_task_expr_optim_str == "1");
-        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled);
+        TransformNonVoidFunctionCalls transform_nonvoid_task_calls(function_task_set, task_expr_optim_disabled,
+                /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
         transform_nonvoid_task_calls.walk(translation_unit);
         transform_nonvoid_task_calls.remove_nonvoid_function_tasks_from_function_task_set();
 
@@ -191,7 +198,8 @@ namespace TL { namespace OpenMP {
                 funct_call_to_enclosing_stmt_map,
                 enclosing_stmt_to_original_stmt_map,
                 enclosing_stmt_to_return_vars_map,
-                this);
+                this,
+                /* ignore_template_functions */ CURRENT_CONFIGURATION->explicit_instantiation);
 
         function_call_visitor.walk(translation_unit);
         function_call_visitor.build_all_needed_task_expressions();
@@ -264,8 +272,6 @@ namespace TL { namespace OpenMP {
         EMPTY_HANDLERS_CONSTRUCT(ordered)
 
         EMPTY_HANDLERS_DIRECTIVE(section)
-
-        EMPTY_HANDLERS_DIRECTIVE(taskyield)
 
     void Base::set_simd(const std::string &simd_enabled_str)
     {
@@ -570,7 +576,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This taskwait does not flush device caches due to 'noflush' clause\n"
+                    << "This taskwait does not flush device overlaps due to 'noflush' clause\n"
                     ;
             }
         }
@@ -580,7 +586,7 @@ namespace TL { namespace OpenMP {
             {
                 *_omp_report_file
                     << OpenMP::Report::indent
-                    << "This taskwait flushes device caches (if any device is used)\n"
+                    << "This taskwait flushes device overlaps (if any device is used)\n"
                     ;
             }
         }
@@ -618,6 +624,25 @@ namespace TL { namespace OpenMP {
     }
 
 
+    void Base::taskyield_handler_pre(TL::PragmaCustomDirective) { }
+    void Base::taskyield_handler_post(TL::PragmaCustomDirective directive)
+    {
+        PragmaCustomLine pragma_line = directive.get_pragma_line();
+
+        if (emit_omp_report())
+        {
+            *_omp_report_file
+                << "\n"
+                << directive.get_locus_str() << ": " << "TASKYIELD construct\n"
+                << directive.get_locus_str() << ": " << "------------------\n"
+                ;
+        }
+
+        directive.replace(
+                Nodecl::OpenMP::Taskyield::make(
+                    directive.get_locus())
+                );
+    }
     Nodecl::NodeclBase Base::wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context, Scope sc)
     {
         ERROR_CONDITION(!context.is<Nodecl::List>(), "This is not a list", 0);
@@ -934,7 +959,7 @@ namespace TL { namespace OpenMP {
                 {
                     *_omp_report_file
                         << OpenMP::Report::indent
-                        << "Label of this parallel construct '" << str_list[0] << "'\n";
+                        << "This parallel construct does not have any label\n";
                 }
             }
         }
@@ -1676,7 +1701,8 @@ namespace TL { namespace OpenMP {
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
             const Nodecl::NodeclBase& ref_scope,
-            Nodecl::List& environment)
+            Nodecl::List& environment,
+            const int default_int)
     {
         PragmaCustomClause clause_clause = pragma_line.get_clause(pragma_name);
 
@@ -1700,9 +1726,9 @@ namespace TL { namespace OpenMP {
                         "'%s' clause has a wrong format", 
                         pragma_name.c_str());
 
-                // Int value will be 0 by default
+                // Int value will be default_int
                 Nodecl::IntegerLiteral int_value = 
-                    const_value_to_nodecl(const_value_get_zero(4, 1));
+                    const_value_to_nodecl(const_value_get_signed_int(default_int));
 
                 if (colon_splited_list_size == 2)
                 {
@@ -1737,6 +1763,7 @@ namespace TL { namespace OpenMP {
     void Base::process_symbol_list_clause(
             const TL::PragmaCustomLine& pragma_line,
             const std::string& pragma_name,
+            const Nodecl::NodeclBase& ref_scope,
             Nodecl::List& environment)
     {
         PragmaCustomClause clause = pragma_line.get_clause(pragma_name);
@@ -1744,7 +1771,8 @@ namespace TL { namespace OpenMP {
         if (clause.is_defined())
         {
             environment.append(openmp_node::make(
-                        Nodecl::List::make(clause.get_arguments_as_expressions()),
+                        Nodecl::List::make(
+                            clause.get_arguments_as_expressions(ref_scope)),
                         pragma_line.get_locus()));
         }
     }
@@ -1756,23 +1784,23 @@ namespace TL { namespace OpenMP {
     {
         // Aligned
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Aligned>
-            (pragma_line, "aligned", ref_scope, environment);
+            (pragma_line, "aligned", ref_scope, environment, 0);
 
         // Linear
         process_symbol_list_colon_int_clause<Nodecl::OpenMP::Linear>
-            (pragma_line, "linear", ref_scope, environment);
+            (pragma_line, "linear", ref_scope, environment, 1);
 
         // Uniform
         process_symbol_list_clause<Nodecl::OpenMP::Uniform>
-            (pragma_line, "uniform", environment);
+            (pragma_line, "uniform", ref_scope, environment);
 
         // Suitable
         process_symbol_list_clause<Nodecl::OpenMP::Suitable>
-            (pragma_line, "suitable", environment);
+            (pragma_line, "suitable", ref_scope, environment);
 
-        // Cache
-        process_symbol_list_clause<Nodecl::OpenMP::Cache>
-            (pragma_line, "cache", environment);
+        // Overlap
+        process_symbol_list_colon_int_clause<Nodecl::OpenMP::Overlap>
+            (pragma_line, "overlap", ref_scope, environment, 4);
 
         // Unroll
         PragmaCustomClause unroll_clause = pragma_line.get_clause("unroll");
@@ -2006,34 +2034,34 @@ namespace TL { namespace OpenMP {
 
             // Skipping NODECL_CONTEXT
             Nodecl::NodeclBase context = ast_list_node.front();
-            ERROR_CONDITION(!context.is<Nodecl::Context>(),
-                    "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
+            //ERROR_CONDITION(!context.is<Nodecl::Context>(),
+            //        "'pragma omp simd' Expecting a NODECL_CONTEXT", 0);
 
             // Skipping AST_LIST_NODE
-            Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
-            ERROR_CONDITION(!in_context.is<Nodecl::List>(),
-                    "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
-            Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
-            ERROR_CONDITION(ast_list_node2.size() != 1,
-                    "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
+            //Nodecl::NodeclBase in_context = context.as<Nodecl::Context>().get_in_context();
+            // ERROR_CONDITION(!in_context.is<Nodecl::List>(),
+            //         "'pragma omp simd' Expecting a AST_LIST_NODE (2)", 0);
+            // Nodecl::List ast_list_node2 = in_context.as<Nodecl::List>();
+            // ERROR_CONDITION(ast_list_node2.size() != 1,
+            //         "AST_LIST_NODE after '#pragma omp simd' must be equal to 1 (2)", 0);
 
-            Nodecl::NodeclBase for_statement = ast_list_node2.front();
-            ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
-                    "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
-                    ast_print_node_type(for_statement.get_kind()));
+            // Nodecl::NodeclBase for_statement = ast_list_node2.front();
+            // ERROR_CONDITION(!for_statement.is<Nodecl::ForStatement>(),
+            //         "Unexpected node %s. Expecting a ForStatement after '#pragma omp simd'",
+            //         ast_print_node_type(for_statement.get_kind()));
 
             // for_handler_post
             bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
 
             Nodecl::OpenMP::For omp_for = loop_handler_post(
-                    stmt, for_statement, barrier_at_end, false).as<Nodecl::List>().front()
+                    stmt, context, barrier_at_end, false).as<Nodecl::List>().front()
                 .as<Nodecl::OpenMP::For>();
 
             Nodecl::OpenMP::SimdFor omp_simd_for_node =
                Nodecl::OpenMP::SimdFor::make(
                        omp_for,
                        environment,
-                       for_statement.get_locus());
+                       context.get_locus());
 
             // Removing #pragma
             pragma_line.diagnostic_unused_clauses();

@@ -17,6 +17,7 @@ then
 
 cat <<EOF
 test_ignore=yes
+test_ignore_reason="requires g++ 4.8 or better"
 EOF
 
 else

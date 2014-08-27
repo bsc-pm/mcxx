@@ -59,6 +59,7 @@
 #include "cxx-limits.h"
 #include "cxx-diagnostic.h"
 #include "cxx-pragma.h"
+#include "cxx-koenig.h"
 #include "cxx-codegen.h"
 #include "cxx-placeholders.h"
 #include "cxx-driver-utils.h"
@@ -373,6 +374,8 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
 static void call_destructors_of_classes(decl_context_t block_context, 
         const locus_t* locus,
         nodecl_t* nodecl_output);
+
+static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context);
 
 typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_stack_t;
 
@@ -1368,24 +1371,59 @@ void introduce_using_entities_in_class(
         scope_entry_t* entry = entry_list_iterator_current(it);
 
         entry = entry_advance_aliases(entry);
+        if (entry->entity_specs.is_injected_class_name)
+        {
+            entry = named_type_get_symbol(entry->entity_specs.class_type);
+        }
 
         symbol_name = entry->symbol_name;
 
         char is_hidden = 0;
 
-        if (entry->kind != SK_DEPENDENT_ENTITY)
+        if (entry->kind == SK_CLASS
+                && class_type_is_base_instantiating(
+                    get_user_defined_type(entry),
+                    get_user_defined_type(current_class),
+                    locus))
         {
-            if (!entry->entity_specs.is_member
-                    || !class_type_is_base_instantiating(entry->entity_specs.class_type,
-                        get_user_defined_type(current_class), locus))
+            // Inheriting constructors
+            CXX03_LANGUAGE()
             {
-                error_printf("%s: error: '%s' is not a member of a base class\n",
-                        locus_to_str(locus),
-                        get_qualified_symbol_name(entry, 
-                            decl_context));
-                return;
+                warn_printf("%s: warning: inheriting constructors is valid only in C++11\n",
+                        locus_to_str(locus));
+            }
+            class_type_add_inherited_constructor(current_class->type_information, entry);
+
+            // We are done since finish_class_type_cxx will do the rest
+            entry_list_iterator_free(it);
+            entry_list_free(already_using);
+            return;
+        }
+        else if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            // Dependent entity like _Base::f where _Base is a template parameter
+            if (nodecl_is_null(nodecl_name))
+            {
+                internal_error("Invalid dependent name found", 0);
             }
 
+            // The name of the symbol will be _Base but we do not want that one, we want f
+            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
+            symbol_name = nodecl_get_text(nodecl_last_part);
+        }
+        else if (!entry->entity_specs.is_member
+                || !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                    get_user_defined_type(current_class), locus))
+        {
+            error_printf("%s: error: '%s' is not a member of a base class\n",
+                    locus_to_str(locus),
+                    get_qualified_symbol_name(entry, 
+                        decl_context));
+            return;
+        }
+        else
+        {
+            // Usual case
             // If this entity is being hidden by another member of this class, do not add it
             scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
             scope_entry_list_iterator_t* it2 = NULL;
@@ -1407,18 +1445,6 @@ void introduce_using_entities_in_class(
             entry_list_iterator_free(it2);
             entry_list_free(member_functions);
         }
-        else
-        {
-            // Dependent entity like _Base::f where _Base is a template parameter
-            if (nodecl_is_null(nodecl_name))
-            {
-                internal_error("Invalid dependent name found", 0);
-            }
-
-            // The name of the symbol will be _Base but we do not want that one, we want f
-            nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
-            symbol_name = nodecl_get_text(nodecl_last_part);
-        }
 
         if (is_hidden)
             continue;
@@ -1439,7 +1465,6 @@ void introduce_using_entities_in_class(
         insert_entry(decl_context.current_scope, used_name);
     }
     entry_list_iterator_free(it);
-
     entry_list_free(already_using);
 
     scope_entry_t* used_hub_symbol = counted_xcalloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
@@ -1529,7 +1554,7 @@ static void introduce_using_entity_nodecl_name(nodecl_t nodecl_name,
 
     if (used_entities == NULL)
     {
-        error_printf("%s: error: entity '%s' in using-declaration is unknown",
+        error_printf("%s: error: entity '%s' in using-declaration is unknown\n",
                 nodecl_locus_to_str(nodecl_name),
                 codegen_to_str(nodecl_name, decl_context));
         return;
@@ -2316,19 +2341,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
 
 
-            // For typedefs we will emit a nodecl_cxx_decl if they involve
-            // variably modified types.
-            //
-            // External global variables are also represented with nodecl_cxx_decl
-            //
-            // (We could use an object init but we reserve those for real data
-            // entities)
+            // (C and C++) Always declare typedefs of variably modified types
             if ((entry->kind == SK_TYPEDEF
-                    && is_variably_modified_type(entry->type_information))
+                        && is_variably_modified_type(entry->type_information))
                     || (IS_C_LANGUAGE
-                        && entry->kind == SK_VARIABLE
-                        && entry->entity_specs.is_extern
-                        && entry->decl_context.current_scope == entry->decl_context.global_scope))
+                        // (Only C) Explicitly declare external variables in the global scope
+                        && ((entry->kind == SK_VARIABLE
+                                && entry->entity_specs.is_extern
+                                && entry->decl_context.current_scope == entry->decl_context.global_scope)
+                            // (Only C) Explicitly declare functions that are aliases of other functions
+                            || (entry->kind == SK_FUNCTION
+                                && symbol_get_gcc_attribute(entry, "alias") != NULL))))
             {
                 *nodecl_output = nodecl_concat_lists(
                         *nodecl_output,
@@ -2859,6 +2882,19 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // __declspec(X(Y0, Y1, ...))
             gather_ms_declspec(a, gather_info, decl_context);
             break;
+        case AST_ATTRIBUTE_SPECIFIER:
+            {
+                warn_printf("%s: warning: ignoring attribute-specifier\n",
+                        ast_location(a));
+                break;
+            }
+        case AST_ALIGNAS_TYPE:
+        case AST_ALIGNAS:
+            {
+                warn_printf("%s: warning: ignoring alignment-specifier\n",
+                        ast_location(a));
+                break;
+            }
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
             break;
@@ -3306,35 +3342,40 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
     }
 }
 
-/*
- * This function returns 1 if the class scope exists and it's dependent.
- * Otherwise returns 0.
- */
+static void register_dependent_friend_class(
+        scope_entry_t* class_symbol,
+        type_t* type_of_decl,
+        const char* symbol_name,
+        decl_context_t decl_context)
+{
+    scope_entry_t* dep_friend = xcalloc(1, sizeof(*dep_friend));
+    dep_friend->kind = SK_DEPENDENT_FRIEND_CLASS;
+    dep_friend->decl_context = decl_context;
+    dep_friend->type_information = type_of_decl;
+    dep_friend->symbol_name = symbol_name;
+
+    class_type_add_friend_symbol(class_symbol->type_information, dep_friend);
+}
+
 static char is_dependent_class_scope(decl_context_t decl_context)
 {
     return (decl_context.class_scope != NULL 
             && is_dependent_type(decl_context.class_scope->related_entry->type_information));  
 }
 
-static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
+static void gather_type_spec_from_friend_elaborated_class_specifier_common(
+        AST a,
         type_t** type_info,
+        const char** declared_name,
         gather_decl_spec_t *gather_info,
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        decl_context_t decl_context)
 {
-    /* FIXME
-     * This function should maintain strictly these two variables.
-     *
-     * class_entry will hold the symbol associated to a class specifier with name (or template-id)
-     *
-     * class_type will hold the class_type (NEVER a user defined type) to the class being declared
-     *
-     * *type_info must be computed as follows:
-     *
-     * *type_info = get_user_defined_type(class_entry);
-     */
-    scope_entry_t* class_entry = NULL;
-    type_t* class_type = NULL;
+    char is_dependent_context = is_dependent_class_scope(decl_context);
+
+    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+    *declared_name = NULL;
 
     AST class_key = ASTSon0(a);
 
@@ -3366,8 +3407,6 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
 
     AST id_expression = ASTSon1(a);
 
-    scope_entry_list_t* result_list = NULL;
-
     decl_flags_t decl_flags = DF_NONE;
 
     if (is_unqualified_id_expression(id_expression))
@@ -3375,316 +3414,415 @@ static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
         decl_flags |= class_kind_flag;
     }
 
-    // decl_context_query is a new decl_context_t created  for the queries
-    decl_context_t decl_context_query = decl_context;
-
-    // If a friend declaration appears in a local class and the specified name is not qualified,
-    // we only look up in the innermost enclosing non-class scope
-    //
-    //  class X {};
-    //  class Y {};
-    //  void foo()
-    //  {
-    //       class Y {};
-    //       class A
-    //       {
-    //           friend class X; // X is not found in ::Foo()
-    //           friend class Y; // Y is found  ::Foo()::Y
-    //       };
-    //
-    //       X x; // ::X;
-    //       Y y; // ::Foo()::Y
-    //  }
-    char is_local_class_friend_decl = 0;
-    if (gather_info->is_friend
-            && is_unqualified_id_expression(id_expression)
-            && decl_context.current_scope->kind == CLASS_SCOPE
-            && decl_context.current_scope->contained_in != NULL
-            && decl_context.current_scope->contained_in->kind == BLOCK_SCOPE)
-
+    scope_entry_t* entry = NULL;
+    if (is_qualified_id_expression(id_expression)
+            || ASTType(id_expression) == AST_TEMPLATE_ID)
     {
-        is_local_class_friend_decl = 1;
-        decl_flags |= DF_ONLY_CURRENT_SCOPE;
-        decl_context_query.current_scope = decl_context.current_scope->contained_in;
+        scope_entry_list_t* result_list = NULL;
+
+        if (is_dependent_context)
+        {
+            // In dependent contexts we do not examine uninstantiated templates
+            // because the template parameters (if any) are likely to be
+            // wrongly nested
+            decl_flags |= DF_DEPENDENT_TYPENAME;
+        }
+        
+        result_list = query_id_expression_flags(
+                decl_context,
+                id_expression, NULL, decl_flags);
+        enum cxx_symbol_kind filter_classes[] =
+        {
+            SK_CLASS,
+            SK_TEMPLATE,
+            SK_DEPENDENT_ENTITY,
+        };
+
+        scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
+                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+
+        if (entry_list == NULL)
+        {
+            error_printf("%s: error: class name '%s' not found\n",
+                    ast_location(id_expression),
+                    prettyprint_in_buffer(id_expression));
+            *type_info = get_error_type();
+            return;
+        }
+
+        entry = entry_list_head(entry_list);
     }
 
-    result_list = query_id_expression_flags(decl_context_query,
-            id_expression, NULL, decl_flags | DF_DEPENDENT_TYPENAME);
-
-    enum cxx_symbol_kind filter_classes[] =
+    if (entry == NULL)
     {
-        SK_CLASS,
-        SK_DEPENDENT_ENTITY,
-        SK_TEMPLATE,
-    };
+        // friend class X;
 
-    scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
-            STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+        // template <typename T>
+        //   friend class Y;
 
-    entry_list_free(result_list);
-    scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
-    entry_list_free(entry_list);
+        *declared_name = ASTText(id_expression);
+        type_t* type_of_decl = get_new_class_type(
+                decl_context,
+                class_kind);
 
-    if (entry == NULL
-            // In theses cases the name must exist
-            && (ASTType(id_expression) == AST_TEMPLATE_ID
-                || is_qualified_id_expression(id_expression)))
-    {
-        error_printf("%s: error: class name '%s' not found\n",
-                ast_location(id_expression),
-                prettyprint_in_buffer(id_expression));
-        *type_info = get_error_type();
-        return;
+        if (gather_info->is_template)
+        {
+            scope_entry_t* fake_template = xcalloc(1, sizeof(*fake_template));
+            fake_template->kind = SK_TEMPLATE;
+            fake_template->decl_context = decl_context;
+            fake_template->locus = ast_get_locus(id_expression);
+            fake_template->type_information = get_new_template_type(
+                    decl_context.template_parameters,
+                    type_of_decl,
+                    *declared_name,
+                    decl_context,
+                    ast_get_locus(id_expression));
+
+            template_type_set_related_symbol(fake_template->type_information, fake_template);
+
+            type_of_decl = fake_template->type_information;
+        }
+
+        *type_info = type_of_decl;
     }
-
-    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
-    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
-
-    const char* class_name = NULL;
-    switch (ASTType(id_expression))
+    else if (entry->kind == SK_DEPENDENT_ENTITY)
     {
-        case AST_SYMBOL:
-            {
-                class_name = ASTText(id_expression);
-                break;
-            }
-        case AST_TEMPLATE_ID:
-            {
-                class_name = ASTText(ASTSon0(id_expression));
-                break;
-            }
-        case AST_QUALIFIED_ID:
-            {
-                class_name = ASTText(ASTSon2(id_expression));
-                break;
-            }
-        default:
-            {
-                error_printf("%s: invalid class specifier '%s'\n",
-                        ast_location(id_expression),
-                        prettyprint_in_buffer(id_expression));
-                *type_info = get_error_type();
-                return;
-            }
-    }
+        // Let's copy this SK_DEPENDENT_ENTITY because we are
+        // going to change its type
+        scope_entry_t* new_dep = xcalloc(1, sizeof(*new_dep));
+        *new_dep = *entry;
+        new_dep->type_information = set_dependent_entry_kind(entry->type_information, class_kind);
+        new_dep->decl_context = decl_context;
 
-    class_entry = entry;
-    if (entry != NULL)
-    {
-        if (entry->entity_specs.is_injected_class_name)
-        {
-            if (gather_info->is_template
-                    && is_template_specialized_type(entry->type_information))
-            {
-                /*
-                   It may happen that we find the injected class name like in the following case
-
-                   template <typename T>
-                   struct A;
-
-                   template <typename T>
-                   struct A<T*>
-                   {
-                       template <typename S>
-                       friend struct A;
-                   };
-                 */
-                // Get the template-name instead
-                entry = template_type_get_related_symbol(
-                            template_specialized_type_get_related_template_type(entry->type_information)
-                            );
-            }
-            else
-            {
-                entry = named_type_get_symbol(entry->entity_specs.class_type);
-            }
-        }
-
-        if (gather_info->is_template
-                && entry->kind == SK_CLASS
-                && is_template_specialized_type(entry->type_information)
-                && is_dependent_type(entry->type_information)
-                && !equivalent_types(
-                    get_user_defined_type(entry),
-                    template_type_get_primary_type(
-                        template_specialized_type_get_related_template_type(entry->type_information)
-                        )))
-        {
-            // The user is attempting something like this
-            /*
-               struct B
-               {
-                   template <typename S>
-                   friend struct A<S*>;
-               };
-
-             */
-            // If this dependent specialized type is not the primary we are
-            // attempting to be friends with a partial specialization
-            error_printf("%s: error: cannot declare as friend a partial specialization\n",
-                    ast_location(id_expression));
-        }
-
-        scope_entry_t* alias_to_entry = class_entry;
-        if (gather_info->is_template
-                || ASTType(id_expression) == AST_TEMPLATE_ID
-                || ASTType(id_expression) == AST_QUALIFIED_ID)
-        {
-            // We create a fake symbol with the right context and an alias to
-            // the real friend (entry)
-            alias_to_entry =
-                counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
-            alias_to_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            alias_to_entry->locus = ast_get_locus(a);
-
-            alias_to_entry->symbol_name = class_name;
-            alias_to_entry->decl_context = decl_context;
-
-            alias_to_entry->entity_specs.is_friend_declared = 1;
-            alias_to_entry->entity_specs.is_user_declared = 0;
-
-            alias_to_entry->entity_specs.alias_to = entry;
-        }
-
-        // Promote a SK_DEPENDENT_ENTITY to SK_DEPENDENT_FRIEND_CLASS
-        if (class_entry->kind == SK_DEPENDENT_ENTITY)
-        {
-            class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            set_dependent_entry_kind(class_entry->type_information, class_kind);
-        }
-
-        *type_info = get_void_type();
-        class_type_add_friend_symbol(class_symbol->type_information, alias_to_entry);
+        *type_info = get_user_defined_type(new_dep);
     }
     else
     {
-        // Note that entry can be NULL only if the class-name is unqualified
-        if (is_dependent_type(class_symbol->type_information))
+        // friend class A<S>
+        // friend class N1::Class;
+        // friend class N2::Class<S>;
+        // friend class T::Foo; // T a template-parameter
+        *type_info = get_user_defined_type(entry);
+    }
+}
+
+#if 0
+static void gather_type_spec_from_friend_simple_type_specifier_common(
+        AST a,
+        type_t** type_info,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+    if (ASTType(a) == AST_SIMPLE_TYPE_SPEC)
+    {
+        gather_type_spec_from_simple_type_specifier(a, type_info, gather_info, decl_context);
+    }
+    else if (ASTType(a) == AST_ELABORATED_TYPENAME_SPEC)
+    {
+        gather_type_spec_from_dependent_typename(a, type_info, gather_info, decl_context);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+}
+#endif
+
+static decl_context_t get_innermost_enclosing_nonclass_context(decl_context_t decl_context)
+{
+    // This will be the innermost enclosing non-class scope
+    decl_context_t context_of_new_declared_class = decl_context;
+    while (context_of_new_declared_class.current_scope->kind == CLASS_SCOPE)
+    {
+        context_of_new_declared_class.current_scope =
+            context_of_new_declared_class.current_scope->contained_in;
+    }
+
+    if (context_of_new_declared_class.current_scope->kind == NAMESPACE_SCOPE)
+    {
+        context_of_new_declared_class =
+            context_of_new_declared_class.current_scope->related_entry->related_decl_context;
+    }
+    else if (context_of_new_declared_class.current_scope->kind == BLOCK_SCOPE)
+    {
+        context_of_new_declared_class.class_scope = 
+            context_of_new_declared_class.current_scope->related_entry->related_decl_context.class_scope;
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    return decl_context;
+}
+
+static scope_entry_t* new_friend_declared_class(
+        type_t* type_of_declaration,
+        decl_context_t decl_context,
+        const char* declared_name,
+        const locus_t* locus)
+{
+    decl_context_t context_of_new_declared_class =
+        get_innermost_enclosing_nonclass_context(decl_context);
+
+    scope_entry_t* new_class = NULL;
+    new_class = new_symbol(context_of_new_declared_class,
+            context_of_new_declared_class.current_scope,
+            declared_name);
+    new_class->kind = SK_CLASS;
+    enum type_tag_t class_kind = class_type_get_class_kind(type_of_declaration);
+    new_class->type_information = get_new_class_type(
+            context_of_new_declared_class,
+            class_kind);
+
+    new_class->locus = locus;
+    new_class->entity_specs.is_friend_declared = 1;
+    new_class->entity_specs.is_user_declared = 0;
+
+    scope_entry_t* new_friend_class = xcalloc(1, sizeof(*new_friend_class));
+    new_friend_class->kind = SK_FRIEND_CLASS;
+    // Keep the context of the declaration, not where we sign in the new class
+    new_friend_class->decl_context = decl_context;
+    new_friend_class->entity_specs.alias_to = new_class;
+
+    return new_friend_class;
+}
+
+static scope_entry_t* new_friend_declared_template_class(
+        type_t* type_of_declaration,
+        decl_context_t decl_context,
+        const char* declared_name,
+        const locus_t* locus)
+{
+    decl_context_t context_of_new_declared_class =
+        get_innermost_enclosing_nonclass_context(decl_context);
+
+    scope_entry_t* new_template = NULL;
+    new_template = new_symbol(context_of_new_declared_class,
+            context_of_new_declared_class.current_scope,
+            declared_name);
+    new_template->kind = SK_TEMPLATE;
+
+    enum type_tag_t class_kind = class_type_get_class_kind(
+            template_type_get_primary_type(type_of_declaration));
+    new_template->type_information = get_new_template_type(
+            decl_context.template_parameters,
+            get_new_class_type(decl_context, class_kind),
+            declared_name, context_of_new_declared_class,
+            locus);
+    template_type_set_related_symbol(new_template->type_information, new_template);
+
+    new_template->locus = locus;
+    new_template->entity_specs.is_friend_declared = 1;
+    new_template->entity_specs.is_user_declared = 0;
+
+    scope_entry_t* new_primary = named_type_get_symbol(
+            template_type_get_primary_type(new_template->type_information));
+
+    new_primary->entity_specs.is_friend_declared = 1;
+    new_primary->entity_specs.is_user_declared = 0;
+
+    scope_entry_t* new_friend_template = xcalloc(1, sizeof(*new_friend_template));
+    new_friend_template->kind = SK_FRIEND_CLASS;
+    // Keep the context of the declaration, not where we sign in the new class
+    new_friend_template->decl_context = decl_context;
+    new_friend_template->entity_specs.alias_to = new_template;
+
+    return new_friend_template;
+}
+
+static char is_local_class_context(decl_context_t decl_context)
+{
+    while (decl_context.current_scope->kind == CLASS_SCOPE)
+    {
+        decl_context.current_scope = decl_context.current_scope->contained_in;
+    }
+
+    return (decl_context.current_scope->kind == BLOCK_SCOPE);
+}
+
+void build_scope_friend_class_declaration(
+        type_t* type_of_declaration,
+        const char* declared_name,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(class_symbol == NULL
+            || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+    decl_context_t decl_context_query = decl_context;
+    decl_flags_t decl_flags = DF_NONE;
+    if (is_local_class_context(decl_context))
+    {
+        decl_context_query = get_innermost_enclosing_nonclass_context(decl_context_query);
+        decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    }
+
+    if (is_unnamed_class_type(type_of_declaration))
+    {
+        /*
+         * struct A
+         * {
+         *   friend class B;
+         * };
+         */
+        ERROR_CONDITION(declared_name == NULL, "Invalid name", 0);
+
+        scope_entry_list_t* result_list = query_name_str_flags(decl_context_query,
+                declared_name, NULL, decl_flags);
+
+        enum cxx_symbol_kind filter_classes[] =
         {
-            class_entry = counted_xcalloc(1, sizeof(*entry), &_bytes_used_buildscope);
-            class_entry->kind = SK_DEPENDENT_FRIEND_CLASS;
-            class_entry->locus = ast_get_locus(a);
+            SK_CLASS,
+        };
 
-            if (gather_info->is_template)
-            {
-                class_entry->kind = SK_TEMPLATE;
-                class_entry->type_information = get_new_template_type(decl_context.template_parameters,
-                        get_new_class_type(decl_context, class_kind),
-                        ASTText(id_expression), decl_context,
-                        ast_get_locus(id_expression));
-                template_type_set_related_symbol(class_entry->type_information, class_entry);
+        scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
+                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
 
-                // Get the primary class
-                scope_entry_t* primary_symbol =
-                    named_type_get_symbol(template_type_get_primary_type(class_entry->type_information));
+        entry_list_free(result_list);
+        scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
+        entry_list_free(entry_list);
 
-                // Update some fields
-                primary_symbol->kind = SK_DEPENDENT_FRIEND_CLASS;
-                primary_symbol->locus = ast_get_locus(a);
+        if (entry == NULL)
+        {
+            scope_entry_t* new_class =
+                new_friend_declared_class(
+                        type_of_declaration,
+                        decl_context,
+                        declared_name,
+                        locus);
 
-                primary_symbol->entity_specs.is_friend_declared = 1;
-                primary_symbol->entity_specs.is_user_declared = 0;
-
-                class_type = primary_symbol->type_information;
-
-                *type_info = get_void_type();
-                // The template symbol is added as a friend!
-                class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-                class_entry = primary_symbol;
-            }
-            else
-            {
-                *type_info = get_void_type();
-                class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-            }
+            class_type_add_friend_symbol(class_symbol->type_information,
+                    new_class);
         }
         else
         {
-            if (is_local_class_friend_decl)
-            {
-                // The new symbol will be created in a BLOCK_SCOPE
-                decl_context.current_scope = decl_context.current_scope->contained_in;
-            }
-            else
-            {
-                decl_context.current_scope = decl_context.namespace_scope;
-            }
+            scope_entry_t* new_friend_class = xcalloc(1, sizeof(*new_friend_class));
+            new_friend_class->kind = SK_FRIEND_CLASS;
+            new_friend_class->decl_context = decl_context;
+            new_friend_class->entity_specs.alias_to = entry;
 
-            scope_entry_t* new_class = NULL;
-            new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
-            new_class->locus = ast_get_locus(id_expression);
-            
-            new_class->entity_specs.is_friend_declared = 1;
-            new_class->entity_specs.is_user_declared = 0;
-
-            if(gather_info->is_template)
-            {
-                // A template class is declared inside a non-template class
-                new_class->kind = SK_TEMPLATE;
-                new_class->type_information = get_new_template_type(decl_context.template_parameters,
-                        get_new_class_type(decl_context, class_kind),
-                        ASTText(id_expression), decl_context,
-                        ast_get_locus(id_expression));
-                template_type_set_related_symbol(new_class->type_information, new_class);
-
-                if (decl_context.current_scope->kind == CLASS_SCOPE)
-                {
-                    new_class->entity_specs.is_member = 1;
-                    // FIXME!
-                    // new_class->entity_specs.access = current_access;
-                    new_class->entity_specs.class_type =
-                        get_user_defined_type(decl_context.current_scope->related_entry);
-                }
-
-                // Get the primary class
-                class_entry = named_type_get_symbol(template_type_get_primary_type(new_class->type_information));
-
-                // Update some fields
-                class_entry->locus = ast_get_locus(a);
-
-                class_entry->entity_specs.is_friend_declared = 1;
-                class_entry->entity_specs.is_user_declared = 0;
-
-                class_type = class_entry->type_information;
-            }
-            else
-            {
-                // A non-template class is declared inside an other non-template class
-                new_class->type_information = get_new_class_type(decl_context, class_kind);
-                new_class->kind = SK_CLASS;
-                class_entry = new_class;
-                class_type = class_entry->type_information;
-            }
-
-            // If the class is being declared in class-scope it means
-            // it is a nested class
-            if (decl_context.current_scope->kind == CLASS_SCOPE)
-            {
-                // If the enclosing class is dependent, so is this one
-                scope_entry_t* enclosing_class_symbol = decl_context.current_scope->related_entry;
-                type_t* enclosing_class_type = enclosing_class_symbol->type_information;
-
-                char c = is_dependent_type(class_entry->type_information);
-                c = c || is_dependent_type(enclosing_class_type);
-                set_is_dependent_type(class_entry->type_information, c);
-
-                class_type_set_enclosing_class_type(class_type, get_user_defined_type(enclosing_class_symbol));
-            }
-            else if (decl_context.current_scope->kind == BLOCK_SCOPE)
-            {
-                // This is a local class
-                scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
-                if (enclosing_function != NULL
-                        && is_dependent_type(enclosing_function->type_information))
-                {
-                    set_is_dependent_type(class_entry->type_information, 1);
-                }
-            }
-            class_type_add_friend_symbol(class_symbol->type_information, class_entry);
-            *type_info = get_user_defined_type(class_entry);
-
-            // Friend class declarations do not create a new cxx_decl nodecl
+            class_type_add_friend_symbol(class_symbol->type_information,
+                    new_friend_class);
         }
+    }
+    else if (is_template_type(type_of_declaration))
+    {
+        /*
+         * struct A
+         * {
+         *   template <typename T>
+         *   friend class B;
+         * };
+         */
+        ERROR_CONDITION(declared_name == NULL, "Invalid name", 0);
+
+        scope_entry_list_t* result_list = query_name_str_flags(decl_context_query,
+                declared_name, NULL, decl_flags);
+
+        enum cxx_symbol_kind filter_classes[] =
+        {
+            SK_TEMPLATE,
+        };
+
+        scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list,
+                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+
+        if (result_list != NULL
+                && entry_list == NULL)
+        {
+            scope_entry_t* entry = entry_list_head(result_list);
+            error_printf("%s: error: '%s' is not a template-name\n",
+                    locus_to_str(locus),
+                    get_qualified_symbol_name(entry, entry->decl_context));
+            entry_list_free(result_list);
+            return;
+        }
+
+        entry_list_free(result_list);
+        scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
+        entry_list_free(entry_list);
+
+        if (entry == NULL)
+        {
+            scope_entry_t* new_template = new_friend_declared_template_class(
+                    type_of_declaration,
+                    decl_context,
+                    declared_name,
+                    locus);
+
+            class_type_add_friend_symbol(class_symbol->type_information,
+                    new_template);
+        }
+        else
+        {
+            if (!is_class_type(template_type_get_primary_type(entry->type_information)))
+            {
+                error_printf("%s: error: template name '%s' is not a class template\n",
+                        get_qualified_symbol_name(entry, entry->decl_context),
+                        locus_to_str(locus));
+                return;
+            }
+
+            scope_entry_t* new_friend_class = xcalloc(1, sizeof(*new_friend_class));
+            new_friend_class->kind = SK_FRIEND_CLASS;
+            new_friend_class->decl_context = decl_context;
+            new_friend_class->entity_specs.alias_to = entry;
+
+            class_type_add_friend_symbol(class_symbol->type_information,
+                    new_friend_class);
+        }
+    }
+    else if (is_named_type(type_of_declaration))
+    {
+        scope_entry_t* new_friend_class = xcalloc(1, sizeof(*new_friend_class));
+        new_friend_class->kind = SK_FRIEND_CLASS;
+        new_friend_class->decl_context = decl_context;
+        new_friend_class->entity_specs.alias_to = named_type_get_symbol(type_of_declaration);
+
+        class_type_add_friend_symbol(class_symbol->type_information,
+                new_friend_class);
+    }
+}
+
+static void gather_type_spec_from_elaborated_friend_class_specifier(AST a,
+        type_t** type_info UNUSED_PARAMETER,
+        gather_decl_spec_t *gather_info,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    scope_entry_t* class_symbol = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(class_symbol == NULL
+            || class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+    const char* declared_name = NULL;
+    gather_type_spec_from_friend_elaborated_class_specifier_common(
+            a, type_info, &declared_name,
+            gather_info, decl_context);
+    if (is_error_type(*type_info))
+        return;
+
+    if (!is_dependent_class_scope(decl_context))
+    {
+        build_scope_friend_class_declaration(
+                *type_info,
+                declared_name,
+                decl_context,
+                ast_get_locus(a));
+    }
+    else
+    {
+        register_dependent_friend_class(
+                class_symbol,
+                *type_info,
+                declared_name,
+                decl_context);
     }
 }
 
@@ -4191,7 +4329,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
         {
-            error_printf("%s: specialization of '%s' in different namespace from definition\n",
+            error_printf("%s: error: specialization of '%s' in different namespace from definition\n",
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression));
             *type_info = get_error_type();
@@ -5399,7 +5537,7 @@ static void build_scope_base_clause(AST base_clause, scope_entry_t* class_entry,
             }
 
             // If the entity (being an independent one) has not been completed, then instantiate it
-            instantiate_template_class_if_needed(base_class_symbol, decl_context, ast_get_locus(base_specifier));
+            class_type_complete_if_needed(base_class_symbol, decl_context, ast_get_locus(base_specifier));
 
             result = base_class_symbol;
         }
@@ -5656,42 +5794,8 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
 
             if (entry->entity_specs.is_member)
             {
-                template_parameter_list_t* current_template_args = template_specialized_type_get_template_arguments(
-                        entry->type_information);
-
-                if (entry->kind == SK_CLASS
-                        && current_template_args->num_parameters == 0)
-                {
-                    // This is a non-template member class, which looks like a
-                    // specialized template type with zero template arguments.
-                    // Handle it as if this were not an explicit specialization
-                    //
-                    // In the example below, when B is instantiated it will be like a template
-                    // but with "zero" parameters. We do this because C++ standard makes these
-                    // classes behave much in this way.
-                    //
-                    // template <typename T>
-                    // struct A
-                    // {
-                    //   struct B
-                    //   {
-                    //      template <typename Q>
-                    //      void f(T, Q);
-                    //   };
-                    // };
-                    //
-                    // template <>
-                    // template <>
-                    // void A<int>::B::f(int, float) { }
-                    //
-                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
-                            template_parameters);
-                }
-                else
-                {
-                    return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
-                            template_parameters->enclosing);
-                }
+                return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type),
+                        template_parameters->enclosing);
             }
             else
             {
@@ -5734,190 +5838,207 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
     return NESTING_CHECK_OK;
 }
 
-static void build_scope_ctor_initializer(
-        AST ctor_initializer, 
+static void check_nodecl_member_initializer_list(
+        nodecl_t nodecl_cxx_member_init_list,
         scope_entry_t* function_entry,
         decl_context_t decl_context,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    decl_context.decl_flags = DF_NONE;
     scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
 
-    char is_dependent_context =  (is_dependent_type(class_sym->type_information)
-            || is_dependent_type(function_entry->type_information));
-
-    scope_entry_list_t* virtual_bases = NULL;
-    scope_entry_list_t* direct_base_classes = NULL;
-    scope_entry_list_t* nonstatic_data_members = NULL;
-
-    if (!is_dependent_context)
-    {
-        virtual_bases =
-            class_type_get_virtual_base_classes_canonical(class_sym->type_information);
-        direct_base_classes =
-            class_type_get_direct_base_classes_canonical(class_sym->type_information);
-        nonstatic_data_members =
-            class_type_get_nonstatic_data_members(class_sym->type_information);
-    }
+    scope_entry_list_t* virtual_bases =
+        class_type_get_virtual_base_classes_canonical(class_sym->type_information);
+    scope_entry_list_t* direct_base_classes =
+        class_type_get_direct_base_classes_canonical(class_sym->type_information);
+    scope_entry_list_t* nonstatic_data_members =
+        class_type_get_nonstatic_data_members(class_sym->type_information);
 
     scope_entry_list_t* already_initialized = NULL;
 
-    if (ctor_initializer != NULL)
+    int num_initializers = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_cxx_member_init_list, &num_initializers);
+
+    scope_entry_list_t* result_list = NULL;
+    decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
+    class_context.template_parameters = decl_context.template_parameters;
+
+    char is_delegating_constructor = 0;
+
+    int i;
+    for (i = 0; i < num_initializers; i++)
     {
-        ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
-                "Block scope is not valid", 0);
+        nodecl_t current_mem_initializer = list[i];
 
-        AST mem_initializer_list = ASTSon0(ctor_initializer);
-        AST iter;
+        ERROR_CONDITION(nodecl_get_kind(current_mem_initializer) != NODECL_CXX_MEMBER_INIT, "Invalid node", 0);
 
-        for_each_element(mem_initializer_list, iter)
+        nodecl_t nodecl_name = nodecl_get_child(current_mem_initializer, 0);
+        nodecl_t nodecl_init = nodecl_get_child(current_mem_initializer, 1);
+
+        result_list = query_nodecl_name(class_context, nodecl_name, NULL);
+
+        if (result_list == NULL)
         {
-            AST mem_initializer = ASTSon1(iter);
-
-            ERROR_CONDITION(ASTType(mem_initializer) != AST_MEM_INITIALIZER, "Invalid tree", 0);
-
-            AST mem_initializer_id = ASTSon0(mem_initializer);
-            AST id_expression = ASTSon0(mem_initializer_id);
-
-            AST initializer = ASTSon1(mem_initializer);
-
-            if (is_dependent_context)
-            {
-                nodecl_t nodecl_name = nodecl_null();
-                nodecl_t nodecl_init = nodecl_null();
-
-                compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
-                check_initialization(initializer,
-                        decl_context,
-                        NULL, /* We do not really know what is being initialized */
-                        get_unknown_dependent_type(),
-                        &nodecl_init,
-                        /* is_auto_type */ 0);
-
-                nodecl_t nodecl_cxx_init = nodecl_make_cxx_member_init(
-                        nodecl_name, nodecl_init,
-                        get_unknown_dependent_type(),
-                        ast_get_locus(mem_initializer_id));
-
-                *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_cxx_init);
-                continue;
-            }
-
-
-            scope_entry_list_t* result_list = NULL;
-            decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
-            class_context.template_parameters = decl_context.template_parameters;
-            result_list = query_id_expression(class_context, id_expression, NULL);
-
-            if (result_list == NULL)
-            {
-                error_printf("%s: initialized entity '%s' not found\n", 
-                        ast_location(id_expression),
-                        prettyprint_in_buffer(id_expression));
-                continue;
-            }
-
-            scope_entry_t* entry = entry_list_head(result_list);
-            entry_list_free(result_list);
-
-            nodecl_t nodecl_init = nodecl_null();
-
-            if (entry->kind == SK_TYPEDEF)
-            {
-                if (is_named_type(advance_over_typedefs(entry->type_information)))
-                {
-                    entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
-                }
-            }
-
-            // Chances are that through class-scope lookup we have found the injected name
-            if (entry->kind == SK_CLASS 
-                    && entry->entity_specs.is_injected_class_name)
-            {
-                // The injected class name is a member
-                entry = named_type_get_symbol(entry->entity_specs.class_type);
-            }
-
-            if (entry_list_contains(already_initialized, entry))
-            {
-                error_printf("%s: error: '%s' initialized twice in member initializer list\n",
-                        ast_location(id_expression),
-                        get_qualified_symbol_name(entry, entry->decl_context));
-                continue;
-            }
-
-            if (entry->kind == SK_VARIABLE)
-            {
-                if (!entry_list_contains(nonstatic_data_members, entry))
-                {
-                    if (!entry->entity_specs.is_member
-                            || !is_nested_in_class(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
-                    {
-                        error_printf("%s: symbol '%s' is not a member of class %s\n",
-                                ast_location(id_expression),
-                                get_qualified_symbol_name(entry, entry->decl_context),
-                                get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
-                                    function_entry->decl_context));
-                        continue;
-                    }
-                    if (entry->entity_specs.is_static)
-                    {
-                        error_printf("%s: static data member '%s' cannot be initialized here\n", 
-                                ast_location(id_expression),
-                                prettyprint_in_buffer(id_expression));
-                        continue;
-                    }
-                }
-
-                check_initialization(initializer,
-                        decl_context,
-                        entry,
-                        get_unqualified_type(entry->type_information),
-                        &nodecl_init,
-                        /* is_auto_type */ 0);
-
-                already_initialized = entry_list_add(already_initialized, entry);
-            }
-            else if (entry->kind == SK_CLASS)
-            {
-                if (!entry_list_contains(direct_base_classes, class_symbol_get_canonical_symbol(entry))
-                        && !entry_list_contains(virtual_bases, class_symbol_get_canonical_symbol(entry)))
-                {
-                    error_printf("%s: error: class '%s' is not a direct base or virtual base of class '%s'\n",
-                            ast_location(id_expression),
-                            get_qualified_symbol_name(entry, entry->decl_context),
-                            get_qualified_symbol_name(class_sym, class_sym->decl_context));
-                }
-
-                check_initialization(initializer,
-                        decl_context,
-                        entry,
-                        get_unqualified_type(get_user_defined_type(entry)),
-                        &nodecl_init,
-                        /* is_auto_type */ 0);
-
-                already_initialized = entry_list_add(already_initialized, class_symbol_get_canonical_symbol(entry));
-            }
-            else
-            {
-                error_printf("%s: symbol '%s' cannot be initialized here\n",
-                        ast_location(id_expression),
-                        get_qualified_symbol_name(entry, entry->decl_context));
-                break;
-            }
-
-            nodecl_t nodecl_object_init = nodecl_make_member_init(
-                    nodecl_init,
-                    entry,
-                    ast_get_locus(id_expression));
-
-            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+            error_printf("%s: initialized entity '%s' not found\n", 
+                    nodecl_locus_to_str(nodecl_name),
+                    codegen_to_str(nodecl_name, class_context));
+            continue;
         }
-    }
 
-    if (is_dependent_context)
-        return;
+        scope_entry_t* entry = entry_list_head(result_list);
+        entry_list_free(result_list);
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            if (is_named_type(advance_over_typedefs(entry->type_information)))
+            {
+                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+            }
+        }
+
+        // Chances are that through class-scope lookup we have found the injected name
+        if (entry->kind == SK_CLASS
+                && entry->entity_specs.is_injected_class_name)
+        {
+            // The injected class name is a member
+            entry = named_type_get_symbol(entry->entity_specs.class_type);
+        }
+
+        if (entry_list_contains(already_initialized, entry))
+        {
+            error_printf("%s: error: '%s' initialized twice in member initializer list\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    get_qualified_symbol_name(entry, entry->decl_context));
+            continue;
+        }
+
+        if (entry->kind == SK_CLASS
+                && entry == class_sym)
+        {
+            CXX03_LANGUAGE()
+            {
+                warn_printf("%s: warning: delegating constructors are only valid in C++11\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+            }
+
+            if (i != 0)
+            {
+                error_printf("%s: error: a delegating constructor must be the only initializer\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+                // Give up
+                continue;
+            }
+            is_delegating_constructor = 1;
+
+            check_nodecl_initialization(nodecl_init,
+                    decl_context,
+                    entry,
+                    get_unqualified_type(get_user_defined_type(entry)),
+                    &nodecl_init,
+                    /* is_auto_type */ 0);
+
+            if (nodecl_is_err_expr(nodecl_init))
+            {
+                continue;
+            }
+
+            // Now get the called symbol
+            ERROR_CONDITION(nodecl_get_kind(nodecl_init) != NODECL_FUNCTION_CALL, "Invalid node", 0);
+            nodecl_t nodecl_called = nodecl_get_child(nodecl_init, 0);
+            scope_entry_t* target_constructor = nodecl_get_symbol(nodecl_called);
+            ERROR_CONDITION(target_constructor == NULL
+                    || !target_constructor->entity_specs.is_constructor,
+                    "Invalid function called", 0);
+
+            if (function_entry == target_constructor)
+            {
+                error_printf("%s: error: the target constructor of a delegating constructor cannot be itself\n",
+                        nodecl_locus_to_str(current_mem_initializer));
+            }
+        }
+        // Stray initializer once we know this is a delegating constructor
+        else if (is_delegating_constructor)
+        {
+            error_printf("%s: invalid initializer in delegating constructor\n",
+                    nodecl_locus_to_str(current_mem_initializer));
+            // Give up
+            continue;
+        }
+        // Non-static member
+        else if (entry->kind == SK_VARIABLE)
+        {
+            if (!entry_list_contains(nonstatic_data_members, entry))
+            {
+                if (!entry->entity_specs.is_member
+                        || !is_nested_in_class(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
+                {
+                    error_printf("%s: symbol '%s' is not a member of class %s\n",
+                            nodecl_locus_to_str(nodecl_name),
+                            get_qualified_symbol_name(entry, entry->decl_context),
+                            get_qualified_symbol_name(class_sym,
+                                function_entry->decl_context));
+                    continue;
+                }
+                if (entry->entity_specs.is_static)
+                {
+                    error_printf("%s: static data member '%s' cannot be initialized here\n", 
+                            nodecl_locus_to_str(nodecl_name),
+                            get_qualified_symbol_name(entry, entry->decl_context));
+                    continue;
+                }
+            }
+
+            check_nodecl_initialization(
+                    nodecl_init,
+                    decl_context,
+                    entry,
+                    get_unqualified_type(entry->type_information),
+                    &nodecl_init,
+                    /* is_auto_type */ 0);
+        }
+        // Base class
+        else if (entry->kind == SK_CLASS)
+        {
+            if (!entry_list_contains(direct_base_classes, class_symbol_get_canonical_symbol(entry))
+                    && !entry_list_contains(virtual_bases, class_symbol_get_canonical_symbol(entry)))
+            {
+                error_printf("%s: error: class '%s' is not a direct base or virtual base of class '%s'\n",
+                        nodecl_locus_to_str(nodecl_name),
+                        get_qualified_symbol_name(entry, entry->decl_context),
+                        get_qualified_symbol_name(class_sym, class_sym->decl_context));
+            }
+
+            check_nodecl_initialization(nodecl_init,
+                    decl_context,
+                    entry,
+                    get_unqualified_type(get_user_defined_type(entry)),
+                    &nodecl_init,
+                    /* is_auto_type */ 0);
+
+        }
+        else
+        {
+            error_printf("%s: symbol '%s' cannot be initialized here\n",
+                    nodecl_locus_to_str(nodecl_name),
+                    get_qualified_symbol_name(entry, entry->decl_context));
+            continue;
+        }
+
+        already_initialized = entry_list_add(already_initialized, entry);
+
+        if (nodecl_is_err_expr(nodecl_init))
+        {
+            continue;
+        }
+
+        nodecl_t nodecl_member_init = nodecl_make_member_init(
+                nodecl_init,
+                entry,
+                nodecl_get_locus(nodecl_name));
+
+        *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_member_init);
+    }
+    xfree(list);
 
     // Now review the remaining objects not initialized yet
     scope_entry_list_iterator_t* it = NULL;
@@ -5999,6 +6120,18 @@ static void build_scope_ctor_initializer(
         if (entry_list_contains(already_initialized, entry))
             continue;
 
+        if (IS_CXX11_LANGUAGE
+                && !nodecl_is_null(entry->value))
+        {
+            nodecl_t nodecl_object_init = nodecl_make_implicit_member_init(
+                    // FIXME: We may have to fix the 'this' symbol used in the value
+                    nodecl_shallow_copy(entry->value),
+                    entry,
+                    locus);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+            continue;
+        }
+
         scope_entry_t* constructor = NULL;
         char valid = check_default_initialization(entry, entry->decl_context, locus, &constructor);
 
@@ -6037,6 +6170,86 @@ static void build_scope_ctor_initializer(
         }
     }
     entry_list_iterator_free(it);
+}
+
+static void build_scope_ctor_initializer_dependent(
+        AST ctor_initializer, 
+        scope_entry_t* function_entry UNUSED_PARAMETER,
+        decl_context_t decl_context,
+        const locus_t* locus UNUSED_PARAMETER,
+        nodecl_t* nodecl_output)
+{
+    if (ctor_initializer != NULL)
+    {
+        ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
+                "Block scope is not valid", 0);
+
+        AST mem_initializer_list = ASTSon0(ctor_initializer);
+        AST iter;
+
+        for_each_element(mem_initializer_list, iter)
+        {
+            AST mem_initializer = ASTSon1(iter);
+
+            ERROR_CONDITION(ASTType(mem_initializer) != AST_MEM_INITIALIZER, "Invalid tree", 0);
+
+            AST mem_initializer_id = ASTSon0(mem_initializer);
+            AST id_expression = ASTSon0(mem_initializer_id);
+
+            AST initializer = ASTSon1(mem_initializer);
+
+            nodecl_t nodecl_name = nodecl_null();
+            nodecl_t nodecl_init = nodecl_null();
+
+            compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+            check_initialization(initializer,
+                    decl_context,
+                    NULL, /* We do not really know what is being initialized */
+                    get_unknown_dependent_type(),
+                    &nodecl_init,
+                    /* is_auto_type */ 0);
+
+            nodecl_t nodecl_cxx_init = nodecl_make_cxx_member_init(
+                    nodecl_name, nodecl_init,
+                    get_unknown_dependent_type(),
+                    ast_get_locus(mem_initializer_id));
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_cxx_init);
+        }
+    }
+}
+
+static void build_scope_ctor_initializer(
+        AST ctor_initializer, 
+        scope_entry_t* function_entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    decl_context.decl_flags = DF_NONE;
+
+    nodecl_t nodecl_cxx_member_init_list = nodecl_null();
+    build_scope_ctor_initializer_dependent(
+            ctor_initializer,
+            function_entry,
+            decl_context,
+            locus,
+            &nodecl_cxx_member_init_list);
+
+    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
+    if (is_dependent_type(class_sym->type_information)
+            || is_dependent_type(function_entry->type_information))
+    {
+        *nodecl_output = nodecl_cxx_member_init_list;
+        return;
+    }
+
+    check_nodecl_member_initializer_list(
+            nodecl_cxx_member_init_list,
+            function_entry,
+            decl_context,
+            locus,
+            nodecl_output);
 }
 
 #if 0
@@ -6279,13 +6492,9 @@ static char one_function_is_usable(
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* augmented_conversors[num_arguments + 1];
-    memset(augmented_conversors, 0, sizeof(augmented_conversors));
-
     scope_entry_t* overload_resolution = solve_overload(candidate_set,
             decl_context,
-            locus, 
-            augmented_conversors);
+            locus);
 
     if (overload_resolution == NULL)
     {
@@ -6442,6 +6651,221 @@ static void default_constructor_determine_if_trivial(
         default_constructor->entity_specs.is_trivial = 1;
     }
 }
+
+static char is_union_type_or_thereof(type_t* t)
+{
+    if (is_array_type(t))
+        t = array_type_get_element_type(t);
+
+    if (!is_class_type(t))
+        return 0;
+
+    if (is_union_type(t))
+        return 1;
+
+    return 0;
+}
+
+static char is_union_type_or_thereof_with_one_initializer(type_t* t)
+{
+    ERROR_CONDITION(!is_union_type_or_thereof(t), "Invalid type", 0);
+
+    if (is_array_type(t))
+        t = array_type_get_element_type(t);
+
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(t);
+
+    int num_initializers = 0;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *data_member = entry_list_iterator_current(it);
+        num_initializers += !nodecl_is_null(data_member->value);
+    }
+    entry_list_iterator_free(it);
+
+    return (num_initializers == 1);
+}
+
+static void register_symbol_this(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid class", 0);
+
+    // Early registration of 'this' to be used in the declarator Its exact type
+    // will be updated prior analyzing the body of the function (e.g. when the
+    // function is const)
+    type_t* pointed_this = get_user_defined_type(class_symbol);
+    type_t* this_type = get_pointer_type(pointed_this);
+
+    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
+
+    this_symbol->locus = locus;
+
+    this_symbol->kind = SK_VARIABLE;
+    this_symbol->type_information = this_type;
+    this_symbol->defined = 1;
+    this_symbol->do_not_print = 1;
+}
+
+static void update_symbol_this(scope_entry_t* entry,
+        decl_context_t block_context)
+{
+    // The class we belong to
+    type_t* pointed_this = entry->entity_specs.class_type;
+    // Qualify likewise the function unless it is a destructor
+    if (!entry->entity_specs.is_destructor)
+    {
+        pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+    }
+    type_t* this_type = get_pointer_type(pointed_this);
+
+    scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
+    // If the function is defined inside the class specifier, build_scope_function_definition_declarator
+    ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
+    scope_entry_t *this_symbol = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    this_symbol->type_information = this_type;
+}
+
+static void make_empty_body_for_default_function(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // Create an empty body for the defaulted function
+    nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
+    ptr_nodecl_make_func_code = is_dependent_function(entry)
+        ? &nodecl_make_template_function_code : &nodecl_make_function_code;
+
+    decl_context_t block_context = new_block_context(decl_context);
+
+    register_symbol_this(block_context,
+            named_type_get_symbol(entry->entity_specs.class_type),
+            locus);
+    update_symbol_this(entry, block_context);
+    register_mercurium_pretty_print(entry, block_context);
+
+    nodecl_t nodecl_function_def = ptr_nodecl_make_func_code(
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    // Empty body
+                    nodecl_make_compound_statement(
+                        nodecl_null(),
+                        nodecl_null(),
+                        locus)),
+                block_context,
+                locus),
+            nodecl_null(),
+            entry,
+            locus);
+
+    entry->entity_specs.function_code = nodecl_function_def;
+}
+
+static void default_constructor_determine_if_constexpr(
+        scope_entry_t* default_constructor,
+        scope_entry_list_t* nonstatic_data_members,
+        scope_entry_list_t* direct_base_classes,
+        char has_virtual_bases,
+        char has_virtual_functions,
+        const locus_t* locus)
+{
+    if (has_virtual_bases
+            /* This is unclear to me but seems to follow from the definition of literal type */
+            || has_virtual_functions)
+        return;
+
+    scope_entry_list_iterator_t* it = NULL;
+    char has_nonstatic_data_member_without_initializer = 0;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it)
+            && !has_nonstatic_data_member_without_initializer;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *data_member = entry_list_iterator_current(it);
+
+        if (nodecl_is_null(data_member->value))
+        {
+            if (is_class_type_or_array_thereof(data_member->type_information))
+            {
+                if (is_union_type_or_thereof(data_member->type_information))
+                {
+                    has_nonstatic_data_member_without_initializer =
+                        !is_union_type_or_thereof_with_one_initializer(data_member->type_information);
+                }
+                else
+                {
+                    scope_entry_t* constructor = NULL;
+
+                    diagnostic_context_push_buffered();
+                    char valid = check_default_initialization(data_member, data_member->decl_context, locus, &constructor);
+                    diagnostic_context_pop_and_discard();
+
+                    if (!valid)
+                        has_nonstatic_data_member_without_initializer = 1;
+                    else
+                        has_nonstatic_data_member_without_initializer = !constructor->entity_specs.is_constexpr;
+                }
+            }
+            else
+            {
+                // scope_entry_t* constructor = NULL;
+                // diagnostic_context_push_buffered();
+                // char valid = check_default_initialization(data_member, data_member->decl_context, locus, &constructor);
+                // diagnostic_context_pop_and_discard();
+
+                // if (!valid)
+                    has_nonstatic_data_member_without_initializer = 1;
+                // else
+                //     has_nonstatic_data_member_without_initializer = !(constructor == NULL
+                //             || constructor->entity_specs.is_constexpr);
+            }
+        }
+    }
+    entry_list_iterator_free(it);
+
+    if (has_nonstatic_data_member_without_initializer)
+        return;
+
+    char has_base_without_constexpr_constructor = 0;
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it)
+            && !has_base_without_constexpr_constructor;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t *base_class = entry_list_iterator_current(it);
+
+        scope_entry_t* constructor = NULL;
+        diagnostic_context_push_buffered();
+        char valid = check_default_initialization(base_class, base_class->decl_context, locus, &constructor);
+        diagnostic_context_pop_and_discard();
+
+        if (!valid)
+            has_base_without_constexpr_constructor = 1;
+        else
+            has_base_without_constexpr_constructor = !constructor->entity_specs.is_constexpr;
+    }
+    entry_list_iterator_free(it);
+
+    if (has_base_without_constexpr_constructor)
+        return;
+
+    default_constructor->defined = 1;
+    default_constructor->entity_specs.is_constexpr = 1;
+    default_constructor->entity_specs.is_instantiable = 0;
+    default_constructor->entity_specs.emission_template = NULL;
+
+    make_empty_body_for_default_function(default_constructor,
+            default_constructor->decl_context,
+            locus);
+}
+
 
 static void copy_constructor_determine_if_trivial(
         scope_entry_t* copy_constructor,
@@ -6745,6 +7169,335 @@ static void set_defaulted_outside_class_specifier(
         const locus_t* locus);
 static void build_noexcept_spec_delayed(scope_entry_t* entry);
 
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2,
+        decl_context_t decl_context);
+
+static char constructors_have_same_characteristics_for_inheritance(
+        scope_entry_t* constructor1,
+        scope_entry_t* constructor2,
+        type_t* constructor2_type,
+        decl_context_t decl_context)
+{
+    if (is_template_specialized_type(constructor1->type_information)
+            != is_template_specialized_type(constructor2_type))
+        return 0;
+    else if (is_template_specialized_type(constructor1->type_information))
+    {
+        if (!same_template_parameter_list(
+                    template_specialized_type_get_template_parameters(constructor1->type_information),
+                    template_specialized_type_get_template_parameters(constructor2_type),
+                    decl_context))
+            return 0;
+    }
+
+    if (!equivalent_types(constructor1->type_information,
+                constructor2_type))
+        return 0;
+
+    if (constructor1->entity_specs.is_explicit !=
+            constructor2->entity_specs.is_explicit)
+        return 0;
+
+    if (constructor1->entity_specs.is_constexpr !=
+            constructor2->entity_specs.is_constexpr)
+        return 0;
+
+    return 1;
+}
+
+static char exists_constructor_with_same_characteristics(
+        scope_entry_list_t* constructor_set,
+        scope_entry_t* base_constructor,
+        type_t* base_constructor_type,
+        decl_context_t decl_context)
+{
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(constructor_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_constructor = entry_list_iterator_current(it);
+        if (constructors_have_same_characteristics_for_inheritance(
+                    current_constructor,
+                    base_constructor,
+                    base_constructor_type,
+                    decl_context))
+        {
+            entry_list_iterator_free(it);
+            return 1;
+        }
+    }
+
+    entry_list_iterator_free(it);
+    return 0;
+}
+
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type);
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type);
+
+static void declare_constructors_for_candidate_constructor(
+        type_t* candidate_constructor_type,
+        scope_entry_t* inherited_constructor,
+        /* out */ scope_entry_list_t** inherited_constructors,
+        scope_entry_list_t* current_class_constructors,
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // For each non-template constructor in the candidate set of inherited
+    // constructors other than a constructor having no parameters or a
+    // copy/move constructor having a single parameter, a constructor is
+    // implicitly declared with the same constructor characteristics unless
+    // there is a user-declared constructor with the same signature in the
+    // complete class where the using-declaration appears or the constructor
+    // would be a default, copy, or move constructor for that class.
+    int num_parameters = function_type_get_num_parameters(candidate_constructor_type);
+    if (function_type_get_has_ellipsis(candidate_constructor_type))
+        num_parameters--;
+
+    if (!is_template_specialized_type(inherited_constructor->type_information))
+    {
+        if (function_type_get_num_parameters(candidate_constructor_type) == 0)
+            return;
+
+        if (num_parameters == 1
+                && (function_is_move_constructor_types(candidate_constructor_type,
+                        inherited_constructor->entity_specs.class_type)
+                    || function_is_copy_constructor_types(candidate_constructor_type,
+                        inherited_constructor->entity_specs.class_type)))
+            return;
+        if (num_parameters == 1
+                && (function_is_move_constructor_types(candidate_constructor_type,
+                        class_type)
+                    || function_is_copy_constructor_types(candidate_constructor_type,
+                        class_type)))
+            return;
+    }
+    // Similarly, for each constructor template in the candidate set of
+    // inherited constructors, a constructor template is implicitly declared
+    // with the same constructor characteristics unless there is an equivalent
+    // user-declared constructor template (14.5.6.1) in the complete class
+    // where the using-declaration appears.
+    //
+    // (Checks both non-template and templates)
+    if (exists_constructor_with_same_characteristics(
+                current_class_constructors,
+                inherited_constructor,
+                candidate_constructor_type,
+                decl_context))
+        return;
+    // [ Note: Default arguments are not
+    // inherited. An exception-specification is implied as specified in 15.4. —
+    // end note ] A constructor so declared has the same access as the
+    // corresponding constructor in X. It is deleted if the corresponding
+    // constructor in X is deleted (8.4).
+    const char* constructor_name = NULL;
+    if (is_named_class_type(type_info))
+    {
+        uniquestr_sprintf(&constructor_name, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+    }
+    else
+    {
+        uniquestr_sprintf(&constructor_name, "%s", "constructor ");
+    }
+
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    scope_t* class_scope = class_context.current_scope;
+
+    scope_entry_t* new_inherited_constructor = NULL;
+    new_inherited_constructor = new_symbol(class_context, class_scope,
+            constructor_name);
+    if (is_template_specialized_type(inherited_constructor->type_information))
+    {
+        decl_context_t templated_class_context = class_context;
+        class_context.template_parameters =
+                template_specialized_type_get_template_parameters(inherited_constructor->type_information);
+        type_t* template_type = get_new_template_type(
+                template_specialized_type_get_template_parameters(inherited_constructor->type_information),
+                candidate_constructor_type,
+                constructor_name,
+                templated_class_context,
+                inherited_constructor->locus);
+
+        new_inherited_constructor->kind = SK_TEMPLATE;
+        new_inherited_constructor->type_information = template_type;
+        new_inherited_constructor->entity_specs.is_member = 1;
+        new_inherited_constructor->entity_specs.class_type = type_info;
+        new_inherited_constructor->entity_specs.is_user_declared = 0;
+
+        template_type_set_related_symbol(template_type, new_inherited_constructor);
+
+        // Now work only with the specialization
+        new_inherited_constructor = named_type_get_symbol(template_type_get_primary_type(template_type));
+    }
+    else
+    {
+        new_inherited_constructor->type_information = candidate_constructor_type;
+    }
+
+    new_inherited_constructor->kind = SK_FUNCTION;
+    new_inherited_constructor->locus = locus;
+    new_inherited_constructor->defined = 0;
+
+    new_inherited_constructor->entity_specs.is_member = 1;
+    new_inherited_constructor->entity_specs.num_parameters = num_parameters;
+
+    new_inherited_constructor->entity_specs.is_user_declared = 0;
+    new_inherited_constructor->entity_specs.is_explicit = inherited_constructor->entity_specs.is_explicit;
+    new_inherited_constructor->entity_specs.is_constructor = inherited_constructor->entity_specs.is_constructor;
+    new_inherited_constructor->entity_specs.is_constexpr = inherited_constructor->entity_specs.is_constexpr;
+    new_inherited_constructor->entity_specs.access = inherited_constructor->entity_specs.access;
+    new_inherited_constructor->entity_specs.class_type = type_info;
+    new_inherited_constructor->entity_specs.is_deleted = inherited_constructor->entity_specs.is_deleted;
+    new_inherited_constructor->entity_specs.any_exception = inherited_constructor->entity_specs.any_exception;
+    new_inherited_constructor->entity_specs.noexception = inherited_constructor->entity_specs.noexception;
+    new_inherited_constructor->entity_specs.exceptions = inherited_constructor->entity_specs.exceptions;
+    // Let's remember where we inherit from
+    new_inherited_constructor->entity_specs.alias_to = inherited_constructor;
+
+    new_inherited_constructor->entity_specs.num_related_symbols = 0;
+    new_inherited_constructor->entity_specs.related_symbols = NULL;
+
+    new_inherited_constructor->entity_specs.default_argument_info = xcalloc(
+            new_inherited_constructor->entity_specs.num_parameters,
+            sizeof(*(new_inherited_constructor->entity_specs.default_argument_info)));
+
+    class_type_add_member(class_type, new_inherited_constructor, /* is_definition */ 1);
+
+    if (exists_constructor_with_same_characteristics(
+                *inherited_constructors,
+                new_inherited_constructor,
+                new_inherited_constructor->type_information,
+                decl_context))
+    {
+        error_printf("%s: error: redeclaration of constructor '%s' due to inherited constructor '%s'\n",
+                locus_to_str(locus),
+                print_decl_type_str(new_inherited_constructor->type_information,
+                    new_inherited_constructor->decl_context,
+                    get_qualified_symbol_name(new_inherited_constructor,
+                        new_inherited_constructor->decl_context)),
+                print_decl_type_str(candidate_constructor_type,
+                    inherited_constructor->decl_context,
+                    get_qualified_symbol_name(inherited_constructor,
+                        inherited_constructor->decl_context)));
+    }
+
+    *inherited_constructors = entry_list_add(*inherited_constructors, new_inherited_constructor);
+}
+
+static void declare_constructors_for_inherited_constructor(
+        scope_entry_t* inherited_ctor,
+        /* out */ scope_entry_list_t** inherited_constructors,
+        scope_entry_list_t* current_class_constructors,
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    // The constructor itself is always a candidate
+    declare_constructors_for_candidate_constructor(
+            inherited_ctor->type_information,
+            inherited_ctor,
+            inherited_constructors,
+            current_class_constructors,
+            class_type,
+            type_info,
+            decl_context,
+            locus);
+
+    if (inherited_ctor->entity_specs.default_argument_info != NULL)
+    {
+        int num_parameters = function_type_get_num_parameters(inherited_ctor->type_information);
+        // Number of real parameters, ellipsis are counted as parameters
+        // but only in the type system
+        if (function_type_get_has_ellipsis(inherited_ctor->type_information))
+            num_parameters--;
+
+        int i;
+        for (i = num_parameters - 1; i >= 0; i--)
+        {
+            if (inherited_ctor->entity_specs.default_argument_info[i] != NULL)
+            {
+                // Found a default argument
+                // Change the type
+                int num_new_param_types = i;
+                parameter_info_t param_info[num_new_param_types + 1];
+                memset(param_info, 0, sizeof(param_info));
+                int j;
+                for (j = 0; j < i; j++)
+                {
+                    param_info[j].type_info = function_type_get_parameter_type_num(
+                            inherited_ctor->type_information,
+                            j);
+                }
+
+                type_t* candidate_constructor_type =
+                    get_new_function_type(
+                            /* return-type */ NULL,
+                            param_info,
+                            num_new_param_types,
+                            REF_QUALIFIER_NONE);
+
+                declare_constructors_for_candidate_constructor(
+                        candidate_constructor_type,
+                        inherited_ctor,
+                        inherited_constructors,
+                        current_class_constructors,
+                        class_type,
+                        type_info,
+                        decl_context,
+                        locus);
+            }
+        }
+    }
+}
+
+static void declare_inherited_constructors(
+        type_t* class_type,
+        type_t* type_info,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    scope_entry_list_t* current_class_constructors = class_type_get_constructors(class_type);
+    scope_entry_list_t* inheriting_bases = class_type_get_inherited_constructors(class_type);
+
+    scope_entry_list_t* inherited_constructors = NULL;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(inheriting_bases);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_base = entry_list_iterator_current(it);
+        scope_entry_list_t* base_constructors =
+            class_type_get_constructors(current_base->type_information);
+
+        scope_entry_list_iterator_t* it2 = NULL;
+        for (it2 = entry_list_iterator_begin(base_constructors);
+                !entry_list_iterator_end(it2);
+                entry_list_iterator_next(it2))
+        {
+            scope_entry_t* base_constructor = entry_list_iterator_current(it2);
+            declare_constructors_for_inherited_constructor(
+                    base_constructor,
+                    &inherited_constructors,
+                    current_class_constructors,
+                    class_type,
+                    type_info,
+                    decl_context,
+                    locus);
+        }
+        entry_list_iterator_free(it2);
+        entry_list_free(base_constructors);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(inheriting_bases);
+    entry_list_free(current_class_constructors);
+}
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
@@ -6802,7 +7555,7 @@ static void finish_class_type_cxx(type_t* class_type,
             {
                 scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
 
-                instantiate_template_class_if_needed(named_type_sym, decl_context, locus);
+                class_type_complete_if_needed(named_type_sym, decl_context, locus);
             }
             DEBUG_CODE()
             {
@@ -7254,6 +8007,17 @@ static void finish_class_type_cxx(type_t* class_type,
                     has_virtual_bases,
                     has_virtual_functions);
         }
+
+        CXX11_LANGUAGE()
+        {
+            default_constructor_determine_if_constexpr(
+                    implicit_default_constructor,
+                    nonstatic_data_members,
+                    direct_base_classes,
+                    has_virtual_bases,
+                    has_virtual_functions,
+                    locus);
+        }
     }
     else
     {
@@ -7274,6 +8038,17 @@ static void finish_class_type_cxx(type_t* class_type,
                         direct_base_classes,
                         has_virtual_bases,
                         has_virtual_functions);
+
+                CXX11_LANGUAGE()
+                {
+                    default_constructor_determine_if_constexpr(
+                            current_constructor,
+                            nonstatic_data_members,
+                            direct_base_classes,
+                            has_virtual_bases,
+                            has_virtual_functions,
+                            locus);
+                }
             }
         }
         entry_list_iterator_free(it);
@@ -8127,6 +8902,8 @@ static void finish_class_type_cxx(type_t* class_type,
     entry_list_free(user_declared_move_assignment_operators);
     entry_list_free(user_declared_copy_assignment_operators);
 
+    declare_inherited_constructors(class_type, type_info, decl_context, locus);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "BUILDSCOPE: Ended class finalization\n");
@@ -8705,7 +9482,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry = named_type_get_symbol(primary_type);
                 class_type = class_entry->type_information;
 
-
                 if (is_template_explicit_specialization(decl_context.template_parameters))
                 {
                     // We are declaring a template class nested in at least one class
@@ -8801,13 +9577,16 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 // Check the enclosing namespace scope
                 // This is only valid if the scope of the entry is an inlined namespace of the current one
                 if ((class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                        // The primary type can be defined anywhere since it is not a specialization per se
+                        && (named_type_get_symbol(
+                                template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(
+                                    class_entry->type_information))) != class_entry)
                         && !is_inline_namespace_of(class_entry->decl_context, decl_context))
                 {
-                    error_printf("%s: specialization of '%s' in different namespace from definition\n",
+                    error_printf("%s: error: specialization of '%s' in different namespace from definition\n",
                             ast_location(class_id_expression),
                             prettyprint_in_buffer(class_id_expression));
-                    *type_info = get_error_type();
-                    return;
                 }
 
                 if (!gather_info->is_explicit_specialization)
@@ -9016,6 +9795,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             set_is_transparent_union(class_type, /* is_transparent_union */ 1);
         }
     }
+
+    // This may overwrite the class kind, but this is OK
+    class_type_set_class_kind(class_type, class_kind);
 
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
@@ -9295,30 +10077,6 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
             /* prototype_context */ NULL, nodecl_output);
 }
 
-static void register_this_symbol(decl_context_t decl_context,
-        scope_entry_t* class_symbol,
-        const locus_t* locus)
-{
-    ERROR_CONDITION(class_symbol == NULL || class_symbol->kind != SK_CLASS, "Invalid class", 0);
-
-    // Early registration of 'this' to be used in the declarator Its exact type
-    // will be updated prior analyzing the body of the function (e.g. when the
-    // function is const)
-    type_t* pointed_this = get_user_defined_type(class_symbol);
-    type_t* this_type = get_pointer_type(pointed_this);
-    // It is a constant pointer, so qualify like it is
-    this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-    scope_entry_t* this_symbol = new_symbol(decl_context, decl_context.current_scope, UNIQUESTR_LITERAL("this"));
-
-    this_symbol->locus = locus;
-
-    this_symbol->kind = SK_VARIABLE;
-    this_symbol->type_information = this_type;
-    this_symbol->defined = 1;
-    this_symbol->do_not_print = 1;
-}
-
 /*
  * This is the actual implementation of 'compute_declarator_type'
  */
@@ -9448,7 +10206,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         {
             if (entity_context.current_scope->kind == CLASS_SCOPE)
             {
-                register_this_symbol(*prototype_context,
+                register_symbol_this(*prototype_context,
                         entity_context.current_scope->related_entry,
                         ast_get_locus(a));
             }
@@ -9850,7 +10608,7 @@ static void set_function_parameter_clause(type_t** function_type,
             {
                 if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
                 {
-                    error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                    error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                             ast_location(parameters),
                             num_parameters);
                 }
@@ -9895,7 +10653,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
             {
-                error_printf("%s: error: too many parameters (more than %d) in function declaration", 
+                error_printf("%s: error: too many parameters (more than %d) in function declaration\n", 
                         ast_location(parameters),
                         num_parameters);
             }
@@ -11851,10 +12609,9 @@ static char same_template_parameter_list(
         if (template_parameter_list_1->parameters[i]->kind == TPK_NONTYPE)
         {
             // Check both types
-            if (!equivalent_types_in_context(
+            if (!equivalent_types(
                         template_parameter_list_1->parameters[i]->entry->type_information,
-                        template_parameter_list_2->parameters[i]->entry->type_information,
-                        decl_context))
+                        template_parameter_list_2->parameters[i]->entry->type_information))
             {
                 return 0;
             }
@@ -11941,7 +12698,10 @@ static char find_function_declaration(AST declarator_id,
         // Restrict the lookup to the innermost enclosing namespace
         // if the declarator_id is unqualified and we are not naming a template
         // C++ Standard 7.3.1.2 Namespace member definitions
-        lookup_context.current_scope = lookup_context.namespace_scope;
+        if (ASTType(declarator_id) != AST_QUALIFIED_ID)
+        {
+            lookup_context.current_scope = lookup_context.namespace_scope;
+        }
 
         // The class or function is not a template class or template function
         if (!gather_info->is_template
@@ -12146,6 +12906,66 @@ static char find_function_declaration(AST declarator_id,
                 internal_error("Code unreachable", 0);
             }
 
+            type_t* considered_type = considered_symbol->type_information;
+            type_t* function_type_being_declared_advanced_to_context = function_type_being_declared;
+
+            if (IS_CXX_LANGUAGE
+                    && considered_symbol->entity_specs.is_member)
+            {
+                /*
+                   Make sure the two types look like the same
+
+                   template <typename T>
+                   struct B { };
+                   template <typename T>
+                   struct A
+                   {
+                      typename B<T>::S foo(); // (1)
+                      typedef B<T>::S Q;
+                   };
+
+                   template <typename T>
+                   typename A<T>::Q A<T>::foo() { } // (2)
+
+                   Note that in (2), 'typename A<T>::Q' is actually 'typename
+                   B<T>::S', but the syntactic nature of a dependent typename
+                   hinders us from claiming that they are the same.
+
+                   We can only discover that this is so if we contextually
+                   advance the types of the two declarations (note that it is
+                   not always that (2) must be advanced, sometimes (1) must be
+                   advanced too). This means that we can examine uninstantiated
+                   templates only if they belong to the class of the member
+                   function being declared (i.e. we can examine inside A<T>
+                   because we are declaring A<T>::foo).
+
+                   This process is performed in fix_dependent_typenames_in_context,
+                   this way we avoid passing a context to equivalent_types
+               */
+
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+                considered_type =
+                    fix_dependent_typenames_in_context(considered_type,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: CONSIDERED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(considered_type));
+
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [before] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+                function_type_being_declared_advanced_to_context =
+                    fix_dependent_typenames_in_context(function_type_being_declared,
+                            entry->decl_context,
+                            ast_get_locus(declarator_id));
+                // fprintf(stderr, "%s: DECLARED FUNCTION TYPE [after] -> %s\n",
+                //         ast_location(declarator_id),
+                //         print_declarator(function_type_being_declared_advanced_to_context));
+            }
+
             DEBUG_CODE()
             {
                 fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s' (%s)\n",
@@ -12156,8 +12976,6 @@ static char find_function_declaration(AST declarator_id,
                         print_declarator(considered_symbol->type_information)
                        );
             }
-
-            type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
             if (entry->kind == SK_TEMPLATE)
             {
@@ -12175,7 +12993,7 @@ static char find_function_declaration(AST declarator_id,
                 // {
                 // }
                 //
-                if (equivalent_types_in_context(function_type_being_declared, considered_type, entry->decl_context))
+                if (equivalent_types(function_type_being_declared_advanced_to_context, considered_type))
                 {
                     template_parameter_list_t* decl_template_parameters = decl_context.template_parameters;
 
@@ -12240,13 +13058,12 @@ static char find_function_declaration(AST declarator_id,
             {
                 // Just attempt a match by type
                 function_matches = equivalent_function_types_may_differ_ref_qualifier(
-                        function_type_being_declared,
-                        considered_type,
-                        entry->decl_context);
+                        function_type_being_declared_advanced_to_context,
+                        considered_type);
 
                 CXX11_LANGUAGE()
                 {
-                    if ((function_type_get_ref_qualifier(function_type_being_declared) != REF_QUALIFIER_NONE)
+                    if ((function_type_get_ref_qualifier(function_type_being_declared_advanced_to_context) != REF_QUALIFIER_NONE)
                             != (function_type_get_ref_qualifier(considered_type) != REF_QUALIFIER_NONE))
                     {
                         function_matches = 0;
@@ -12587,6 +13404,8 @@ static void set_defaulted_inside_class_specifier(
         entry->defined = 1;
         entry->entity_specs.is_defaulted = 1;
         entry->entity_specs.is_defined_inside_class_specifier = 1;
+
+        make_empty_body_for_default_function(entry, decl_context, locus);
     }
 }
 
@@ -13387,7 +14206,7 @@ static void build_scope_type_template_parameter(AST a,
     AST name = ASTSon0(a);
     AST type_id = ASTSon1(a);
 
-    int line;
+    unsigned int line;
     const char *file;
 
 
@@ -14128,14 +14947,18 @@ static char mercurium_pretty_function_has_been_used(scope_entry_t* mercurium_pre
 }
 
 char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
+        char diagnose,
         char emit_error)
 {
     if (entry->entity_specs.is_virtual)
     {
-        warn_or_error_printf(emit_error,
-                "%s: %s: a constexpr function cannot be virtual\n",
-                emit_error ? "error" : "warning",
-                locus_to_str(locus));
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: a constexpr function cannot be virtual\n",
+                    emit_error ? "error" : "warning",
+                    locus_to_str(locus));
+        }
         return 0;
     }
 
@@ -14150,12 +14973,15 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         if (!is_dependent_type(param_type)
                 && !is_literal_type(param_type))
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: parameter types of a constexpr function or constructor must be a literal type or "
-                    "reference to literal type\n",
-                    emit_error ? "error" : "warning",
-                    locus_to_str(locus));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: parameter types of a constexpr function must be a literal type or "
+                        "reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
             return 0;
         }
     }
@@ -14167,11 +14993,279 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
         if (!is_dependent_type(return_type)
                 && !is_literal_type(no_ref(return_type)))
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the return type of a constexpr function must be a literal type or reference to literal type\n",
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the return type of a constexpr function must be a literal type or reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static void check_constexpr_function_statement_list(nodecl_t statement_list,
+        int *num_seen_returns,
+        int *num_seen_other_statements)
+{
+    int num_items = 0;
+    nodecl_t* l = nodecl_unpack_list(statement_list, &num_items);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
+                || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
+                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
+                || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
+        {
+            // These are declarations, ignore them
+        }
+        else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
+        {
+            (*num_seen_returns)++;
+        }
+        else
+        {
+            (*num_seen_other_statements)++;
+        }
+    }
+}
+
+char check_constexpr_constructor(scope_entry_t* entry,
+        const locus_t* locus,
+        nodecl_t nodecl_initializer_list,
+        char diagnose,
+        char emit_error)
+{
+    scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+
+    // We assume it could be constexpr
+    if (is_dependent_type(class_symbol->type_information)
+            || is_dependent_type(entry->type_information))
+        return 1;
+
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_symbol->type_information);
+
+    if (virtual_base_classes != NULL)
+    {
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: a constructor of a class with virtual base classes cannot be constexpr\n",
                     emit_error ? "error" : "warning",
                     locus_to_str(locus));
+        }
+        entry_list_free(virtual_base_classes);
+        return 0;
+    }
+
+    int num_types = function_type_get_num_parameters(entry->type_information);
+    if (function_type_get_has_ellipsis(entry->type_information))
+        num_types--;
+
+    int i;
+    for (i = 0; i < num_types; i++)
+    {
+        type_t* param_type = no_ref(function_type_get_parameter_type_num(entry->type_information, i));
+        if (!is_dependent_type(param_type)
+                && !is_literal_type(param_type))
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: parameter types of a constexpr constructor must be a literal type or "
+                        "reference to literal type\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+    {
+        nodecl_t nodecl_function_code = entry->entity_specs.function_code;
+        nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
+
+        nodecl_t nodecl_list = nodecl_get_child(nodecl_context, 0);
+        ERROR_CONDITION(nodecl_list_length(nodecl_list) != 1, "Invalid function code", 0);
+
+        nodecl_t nodecl_body = nodecl_list_head(nodecl_list);
+
+        if (nodecl_get_kind(nodecl_body) == AST_TRY_BLOCK)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construct cannot be a try block\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+
+        ERROR_CONDITION(nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT, "Invalid node", 0);
+
+        nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
+
+        int num_seen_returns = 0;
+        int num_seen_other_statements = 0;
+
+        check_constexpr_function_statement_list(statement_list,
+                &num_seen_returns,
+                &num_seen_other_statements);
+    
+        if (num_seen_returns != 0
+                || num_seen_other_statements != 0)
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construct must be empty\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus));
+            }
+            return 0;
+        }
+    }
+
+    // Maybe this is a delegating constructor
+    if (nodecl_list_length(nodecl_initializer_list) == 1)
+    {
+        nodecl_t first = nodecl_list_head(nodecl_initializer_list);
+
+        ERROR_CONDITION(nodecl_get_kind(first) != NODECL_MEMBER_INIT
+                && nodecl_get_kind(first) != NODECL_IMPLICIT_MEMBER_INIT,
+                "Invalid node", 0);
+        scope_entry_t* sym = nodecl_get_symbol(first);
+
+        if (sym == class_symbol)
+        {
+            // This is a forwarding constructor, check that the target constructor
+            // is a constexpr constructor
+            nodecl_t initializer = nodecl_get_child(first, 0);
+            ERROR_CONDITION(nodecl_get_kind(initializer) != NODECL_FUNCTION_CALL,
+                    "Invalid node", 0);
+
+            nodecl_t called_function = nodecl_get_child(initializer, 0);
+            scope_entry_t* target_constructor = nodecl_get_symbol(called_function);
+
+            if (!target_constructor->entity_specs.is_constexpr)
+            {
+                error_printf("%s: error: a constexpr delegating constructor must target a constexpr constructor\n",
+                        nodecl_locus_to_str(initializer));
+                return 0;
+            }
+            else
+            {
+                // This is enough
+                return 1;
+            }
+        }
+    }
+
+    scope_entry_t** all_members = NULL;
+    int num_all_members = 0;
+    {
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_symbol->type_information);
+        scope_entry_list_t* base_classes = class_type_get_direct_base_classes_canonical(class_symbol->type_information);
+
+        scope_entry_list_t* all_members_list = entry_list_concat(base_classes, nonstatic_data_members);
+        entry_list_free(nonstatic_data_members);
+        entry_list_free(base_classes);
+
+        entry_list_to_symbol_array(all_members_list, &all_members, &num_all_members);
+        entry_list_free(all_members_list);
+    }
+
+    char initialized[num_all_members + 1];
+    memset(initialized, 0, sizeof(initialized));
+
+    char is_constexpr_initialized[num_all_members + 1];
+    memset(is_constexpr_initialized, 0, sizeof(is_constexpr_initialized));
+
+    int num_items_initializer_list = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_initializer_list, &num_items_initializer_list);
+    for (i = 0; i < num_items_initializer_list; i++)
+    {
+        ERROR_CONDITION(nodecl_get_kind(list[i]) != NODECL_MEMBER_INIT
+                && nodecl_get_kind(list[i]) != NODECL_IMPLICIT_MEMBER_INIT,
+                "Invalid node", 0);
+
+        scope_entry_t* sym = nodecl_get_symbol(list[i]);
+
+        int j;
+        for (j = 0; j < num_all_members; j++)
+        {
+            if (sym == all_members[j])
+            {
+                initialized[i] = 1;
+                is_constexpr_initialized[i] = 1;
+
+                if (sym->kind == SK_CLASS
+                        || (sym->kind == SK_VARIABLE
+                            && is_class_type(sym->type_information)))
+                {
+                    nodecl_t initializer = nodecl_get_child(list[i], 0);
+
+                    if (nodecl_get_kind(initializer) == NODECL_FUNCTION_CALL)
+                    {
+                        nodecl_t called = nodecl_get_child(initializer, 0);
+                        if (nodecl_get_symbol(called) != NULL)
+                        {
+                            scope_entry_t* called_func = nodecl_get_symbol(called);
+                            if (called_func->entity_specs.is_constructor)
+                            {
+                                is_constexpr_initialized[i] = called_func->entity_specs.is_constexpr;
+                            }
+                            else
+                            {
+                                internal_error("Expecting a call to a consructor here", 0);
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+    xfree(list);
+
+    for (i = 0; i < num_all_members; i++)
+    {
+        if (!initialized[i])
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: constructor cannot be constexpr because entity '%s' is not initialized\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
+            }
+            return 0;
+        }
+        else if (!is_constexpr_initialized[i])
+        {
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: constructor cannot be constexpr because entity '%s' is not "
+                        "initialized using a constexpr constructor\n",
+                        emit_error ? "error" : "warning",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(all_members[i], all_members[i]->decl_context));
+            }
             return 0;
         }
     }
@@ -14180,67 +15274,56 @@ char check_constexpr_function(scope_entry_t* entry, const locus_t* locus,
 }
 
 static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_body,
-        char emit_error)
+        char diagnose, char emit_error)
 {
     if (nodecl_get_kind(nodecl_body) != NODECL_COMPOUND_STATEMENT)
     {
-        warn_or_error_printf(emit_error,
-                "%s: %s: the body of a constexpr function or constructor must be a compound-statement\n",
-                emit_error ? "error" : "warning",
-                nodecl_locus_to_str(nodecl_body));
+        if (diagnose)
+        {
+            warn_or_error_printf(emit_error,
+                    "%s: %s: the body of a constexpr function or constructor must be a compound-statement\n",
+                    emit_error ? "error" : "warning",
+                    nodecl_locus_to_str(nodecl_body));
+        }
         return 0;
     }
 
-    nodecl_t compound_list = nodecl_get_child(nodecl_body, 0);
+    nodecl_t statement_list = nodecl_get_child(nodecl_body, 0);
 
-    if (entry->entity_specs.is_constructor)
+    int num_seen_other_statements = 0, num_seen_returns = 0;
+    check_constexpr_function_statement_list(statement_list,
+            &num_seen_returns,
+            &num_seen_other_statements);
+
+    if (!entry->entity_specs.is_constructor)
     {
-        if (nodecl_list_length(compound_list) != 0)
+        if (num_seen_other_statements != 0
+                || num_seen_returns != 1)
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the compound-statement of a constexpr constructor must contain no statements\n",
-                    emit_error ? "error" : "warning",
-                    nodecl_locus_to_str(nodecl_body));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr function must contain a single return-statement\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
             return 0;
         }
     }
     else
     {
-        int num_seen_returns = 0;
-        int num_seen_other_statements = 0;
-
-        int num_items = 0;
-        nodecl_t* l = nodecl_unpack_list(compound_list, &num_items);
-
-        int i;
-        for (i = 0; i < num_items; i++)
-        {
-            if (nodecl_get_kind(l[i]) == NODECL_CXX_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_DEF
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_DECL
-                    || nodecl_get_kind(l[i]) == NODECL_CXX_USING_NAMESPACE)
-            {
-                // These are declarations, ignore them
-            }
-            else if (nodecl_get_kind(l[i]) == NODECL_RETURN_STATEMENT)
-            {
-                num_seen_returns++;
-            }
-            else
-            {
-                num_seen_other_statements++;
-            }
-        }
-
         if (num_seen_other_statements != 0
-                || num_seen_returns != 1)
+                || num_seen_returns != 0)
         {
-            warn_or_error_printf(
-                    emit_error,
-                    "%s: %s: the body of a constexpr function must contain a single return-statement\n",
-                    emit_error ? "error" : "warning",
-                    nodecl_locus_to_str(nodecl_body));
+            if (diagnose)
+            {
+                warn_or_error_printf(
+                        emit_error,
+                        "%s: %s: the body of a constexpr construction must be empty\n",
+                        emit_error ? "error" : "warning",
+                        nodecl_locus_to_str(nodecl_body));
+            }
             return 0;
         }
     }
@@ -14249,6 +15332,7 @@ static char check_constexpr_function_body(scope_entry_t* entry, nodecl_t nodecl_
 }
 
 char check_constexpr_function_code(scope_entry_t* entry, nodecl_t nodecl_function_code,
+        char diagnose,
         char emit_error)
 {
     nodecl_t nodecl_context = nodecl_get_child(nodecl_function_code, 0);
@@ -14258,7 +15342,7 @@ char check_constexpr_function_code(scope_entry_t* entry, nodecl_t nodecl_functio
 
     nodecl_t nodecl_body = nodecl_list_head(nodecl_list);
 
-    return check_constexpr_function_body(entry, nodecl_body, emit_error);
+    return check_constexpr_function_body(entry, nodecl_body, diagnose, emit_error);
 }
 
 static scope_entry_t* build_scope_function_definition_declarator(
@@ -14494,6 +15578,73 @@ static scope_entry_t* build_scope_function_definition_declarator(
     return entry;
 }
 
+static scope_entry_t* register_mercurium_pretty_print(scope_entry_t* entry, decl_context_t block_context)
+{
+    const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+    const char* mercurium_pretty_function_str = UNIQUESTR_LITERAL("__MERCURIUM_PRETTY_FUNCTION__");
+
+    const char* nice_name =
+        print_decl_type_str(entry->type_information,
+                entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
+    const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
+    nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
+
+    // Adjust type to include room for the final \0
+    nodecl_set_type(nice_name_tree,
+            get_array_type(
+                get_char_type(),
+                nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get_signed_int(strlen(nice_name) + 1),
+                    make_locus("", 0, 0)),
+                block_context));
+
+    // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
+    // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
+    // to it
+    //
+    // Sign in __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = new_symbol(block_context,
+            block_context.current_scope,
+            mercurium_pretty_function_str);
+    mercurium_pretty_function->kind = SK_VARIABLE;
+    mercurium_pretty_function->type_information =
+        get_const_qualified_type(no_ref(nodecl_get_type(nice_name_tree)));
+    mercurium_pretty_function->value = nice_name_tree;
+    mercurium_pretty_function->entity_specs.is_user_declared = 1;
+    mercurium_pretty_function->entity_specs.is_static = 1;
+    mercurium_pretty_function->locus = entry->locus;
+
+    // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
+    insert_alias(block_context.current_scope, mercurium_pretty_function, pretty_function_str);
+
+    return mercurium_pretty_function;
+}
+
+static void emit_mercurium_pretty_function(nodecl_t* body_nodecl, scope_entry_t* mercurium_pretty_function)
+{
+    // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
+    if (mercurium_pretty_function != NULL
+            && mercurium_pretty_function_has_been_used(mercurium_pretty_function, *body_nodecl))
+    {
+        nodecl_t emit_mercurium_pretty_function_tree = nodecl_null();
+        CXX_LANGUAGE()
+        {
+            emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                    emit_mercurium_pretty_function_tree,
+                    nodecl_make_cxx_def(
+                        nodecl_null(),
+                        mercurium_pretty_function,
+                        mercurium_pretty_function->locus));
+        }
+        emit_mercurium_pretty_function_tree = nodecl_append_to_list(
+                emit_mercurium_pretty_function_tree,
+                nodecl_make_object_init(mercurium_pretty_function,
+                    mercurium_pretty_function->locus));
+
+        *body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function_tree, *body_nodecl);
+    }
+}
+
 static void build_scope_function_definition_body(
         AST function_definition,
         scope_entry_t* entry,
@@ -14511,25 +15662,7 @@ static void build_scope_function_definition_body(
         // If is a member function sign up additional information
         if (!entry->entity_specs.is_static)
         {
-            // The class we belong to
-            type_t* pointed_this = entry->entity_specs.class_type;
-            // Qualify likewise the function unless it is a destructor
-            if (!entry->entity_specs.is_destructor)
-            {
-                pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
-            }
-
-            type_t* this_type = get_pointer_type(pointed_this);
-            // It is a constant pointer, so qualify like it is
-            this_type = get_cv_qualified_type(this_type, CV_CONST);
-
-            scope_entry_list_t* entry_list = query_name_str(block_context, UNIQUESTR_LITERAL("this"), NULL);
-            // If the function is defined inside the class specifier, build_scope_function_definition_declarator
-            ERROR_CONDITION(entry_list == NULL, "Symbol 'this' somehow got lost in this context\n", 0);
-            scope_entry_t *this_symbol = entry_list_head(entry_list);
-            entry_list_free(entry_list);
-
-            this_symbol->type_information = this_type;
+            update_symbol_this(entry, block_context);
         }
     }
 
@@ -14593,10 +15726,12 @@ static void build_scope_function_definition_body(
                         make_locus("", 0, 0)),
                     block_context));
 
+        const char *special__func__ = UNIQUESTR_LITERAL("__func__");
+        const char *special__FUNCTION__ = UNIQUESTR_LITERAL("__FUNCTION__");
         const char* func_names[] =
         {
-            "__func__",
-            "__FUNCTION__",
+            special__func__,
+            special__FUNCTION__,
         };
 
         unsigned int j;
@@ -14609,49 +15744,21 @@ static void build_scope_function_definition_body(
             func_var->entity_specs.is_builtin = 1;
         }
 
-        // if (is_dependent_function(entry))
-        // {
-        //     // Insert a dependent __PRETTY_FUNCTION__
-        //     scope_entry_t* pretty_function = new_symbol(block_context,
-        //             block_context.current_scope,
-        //             "__PRETTY_FUNCTION__");
-        //     pretty_function->kind = SK_VARIABLE;
-        //     pretty_function->type_information = get_unknown_dependent_type();
-        //     pretty_function->entity_specs.is_builtin = 1;
-        // }
-        // else
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+
+        if (is_dependent_function(entry))
         {
-            const char* nice_name =
-                print_decl_type_str(entry->type_information,
-                        entry->decl_context, get_qualified_symbol_name(entry, entry->decl_context));
-            const_value_t* nice_name_value = const_value_make_string_null_ended(nice_name, strlen(nice_name));
-            nodecl_t nice_name_tree = const_value_to_nodecl(nice_name_value);
-
-            // Adjust type to include room for the final \0
-            nodecl_set_type(nice_name_tree,
-                    get_array_type(
-                        get_const_qualified_type(get_char_type()),
-                        nodecl_make_integer_literal(get_signed_int_type(),
-                            const_value_get_signed_int(strlen(nice_name) + 1),
-                            make_locus("", 0, 0)),
-                        block_context));
-
-            // __PRETTY_FUNCTION__ is very compiler specific, so we will sign in a
-            // __MERCURIUM_PRETTY_FUNCTION__ and make __PRETTY_FUNCTION__ an alias
-            // to it
-            //
-            // Sign in __MERCURIUM_PRETTY_FUNCTION__
-            mercurium_pretty_function = new_symbol(block_context,
+            // Insert a dependent __PRETTY_FUNCTION__
+            scope_entry_t* pretty_function = new_symbol(block_context,
                     block_context.current_scope,
-                    "__MERCURIUM_PRETTY_FUNCTION__");
-            mercurium_pretty_function->kind = SK_VARIABLE;
-            mercurium_pretty_function->type_information = no_ref(nodecl_get_type(nice_name_tree));
-            mercurium_pretty_function->value = nice_name_tree;
-            mercurium_pretty_function->entity_specs.is_user_declared = 1;
-            mercurium_pretty_function->entity_specs.is_static = 1;
-
-            // Register __PRETTY_FUNCTION__ as an alias to __MERCURIUM_PRETTY_FUNCTION__
-            insert_alias(block_context.current_scope, mercurium_pretty_function, "__PRETTY_FUNCTION__");
+                    pretty_function_str);
+            pretty_function->kind = SK_VARIABLE;
+            pretty_function->type_information = get_unknown_dependent_type();
+            pretty_function->entity_specs.is_builtin = 1;
+        }
+        else
+        {
+            mercurium_pretty_function = register_mercurium_pretty_print(entry, block_context);
         }
     }
 
@@ -14683,27 +15790,7 @@ static void build_scope_function_definition_body(
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
 
-        // Emit __MERCURIUM_PRETTY_FUNCTION__ if needed, otherwise do not emit it
-        if (mercurium_pretty_function != NULL
-                && mercurium_pretty_function_has_been_used(mercurium_pretty_function, body_nodecl))
-        {
-            nodecl_t emit_mercurium_pretty_function = nodecl_null();
-            CXX_LANGUAGE()
-            {
-                emit_mercurium_pretty_function = nodecl_append_to_list(
-                        emit_mercurium_pretty_function,
-                        nodecl_make_cxx_def(
-                            nodecl_null(),
-                            mercurium_pretty_function,
-                            ast_get_locus(statement)));
-            }
-            emit_mercurium_pretty_function = nodecl_append_to_list(
-                    emit_mercurium_pretty_function,
-                    nodecl_make_object_init(mercurium_pretty_function,
-                        ast_get_locus(statement)));
-
-            body_nodecl = nodecl_concat_lists(emit_mercurium_pretty_function, body_nodecl);
-        }
+        emit_mercurium_pretty_function(&body_nodecl, mercurium_pretty_function);
 
         // C99 VLA object-inits
         C_LANGUAGE()
@@ -14756,8 +15843,24 @@ static void build_scope_function_definition_body(
 
     if (entry->entity_specs.is_constexpr)
     {
-        check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* emit_error */ 1);
-        check_constexpr_function_body(entry, body_nodecl, /* emit_error */ 1);
+        if (entry->entity_specs.is_member
+                && entry->entity_specs.is_constructor)
+        {
+            check_constexpr_constructor(entry, nodecl_get_locus(body_nodecl), nodecl_initializers,
+                    /* diagnose */ 1, /* emit_error */ 1);
+        }
+        else
+        {
+            check_constexpr_function(entry, nodecl_get_locus(body_nodecl), /* diagnose */ 1, /* emit_error */ 1);
+        }
+        check_constexpr_function_body(entry, body_nodecl, /* diagnose */ 1, /* emit_error */ 1);
+    }
+
+    if (is_dependent_function(entry))
+    {
+        entry->entity_specs.is_instantiable = 1;
+        // The emission template is itself
+        entry->entity_specs.emission_template = entry;
     }
 
     nodecl_t (*ptr_nodecl_make_func_code)(nodecl_t, nodecl_t, scope_entry_t*, const locus_t* locus) = NULL;
@@ -14822,6 +15925,9 @@ static scope_entry_t* build_scope_function_definition(
             block_context,
             &gather_info,
             nodecl_output);
+
+    // This field may have been set during instantiation
+    entry->entity_specs.is_defined_inside_class_specifier = 0;
 
     return entry;
 }
@@ -15090,10 +16196,9 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
         //  operator=(cv T&)
         //  operator=(T)
         if ((is_lvalue_reference_type(first_parameter)
-                    && equivalent_types_in_context(class_type,
-                        get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                        entry->decl_context))
-                || (equivalent_types_in_context(class_type, first_parameter, entry->decl_context)))
+                    && equivalent_types(class_type,
+                        get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
+                || equivalent_types(class_type, first_parameter))
         {
             return 1;
         }
@@ -15101,7 +16206,7 @@ char function_is_copy_assignment_operator(scope_entry_t* entry, type_t* class_ty
     return 0;
 }
 
-static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type)
+char function_is_move_assignment_operator(scope_entry_t* entry, type_t* class_type)
 {
     // Remember copy assignment operators
     if ((strcmp(entry->symbol_name, STR_OPERATOR_ASSIGNMENT) == 0)
@@ -15113,9 +16218,38 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
         //
         //  operator=(cv T&&)
         if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static char function_is_copy_constructor_types(type_t* function_type, type_t* class_type)
+{
+    // The caller should have checked that this function can be called with one parameter
+    // If the function is not to have default arguments, it should have checked the number
+    // of parameters
+
+    // It might be callable with one parameter because of A(...) 
+    // [but note that A(const A&, ...) is a valid copy constructor]
+    int num_types = function_type_get_num_parameters(function_type);
+    if (function_type_get_has_ellipsis(function_type))
+        num_types--;
+
+    if (num_types > 0)
+    {
+        type_t* first_parameter = function_type_get_parameter_type_num(function_type, 0);
+        // Check that its form is either
+        //
+        // A(const A&, X = x);
+        // A(A&, X = x);
+
+        if (is_lvalue_reference_type(first_parameter)
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -15125,23 +16259,34 @@ static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type
 
 char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
-    if (entry->entity_specs.is_constructor
+    return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            // It might be callable with one parameter because of A(...) 
-            // [but note that A(const A&, ...) is a valid copy constructor]
-            && !(function_type_get_has_ellipsis(entry->type_information)
-                && function_type_get_num_parameters(entry->type_information) == 1))
+            && function_is_copy_constructor_types(entry->type_information, class_type));
+}
+
+static char function_is_move_constructor_types(type_t* function_type, type_t* class_type)
+{
+    // The caller should have checked that this function can be called with one parameter
+    // If the function is not to have default arguments, it should have checked the number
+    // of parameters
+
+    // It might be callable with one parameter because of A(...) 
+    // [but note that A(const A&, ...) is a valid copy constructor]
+    int num_types = function_type_get_num_parameters(function_type);
+    if (function_type_get_has_ellipsis(function_type))
+        num_types--;
+
+    if (num_types > 0)
     {
-        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
+        type_t* first_parameter = function_type_get_parameter_type_num(function_type, 0);
         // Check that its form is either
         //
-        // A(const A&, X = x);
-        // A(A&, X = x);
+        // A(const A&&, X = x);
+        // A(A&&, X = x);
 
-        if (is_lvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
+        if (is_rvalue_reference_type(first_parameter)
+                && equivalent_types(class_type,
+                    get_unqualified_type(reference_type_get_referenced_type(first_parameter))))
         {
             return 1;
         }
@@ -15149,30 +16294,11 @@ char function_is_copy_constructor(scope_entry_t* entry, type_t* class_type)
     return 0;
 }
 
-static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
+char function_is_move_constructor(scope_entry_t* entry, type_t* class_type)
 {
-    if (entry->entity_specs.is_constructor
+    return (entry->entity_specs.is_constructor
             && can_be_called_with_number_of_arguments(entry, 1)
-            // It might be callable with one parameter because of A(...) 
-            // [but note that A(const A&, ...) is a valid copy constructor]
-            && !(function_type_get_has_ellipsis(entry->type_information)
-                && function_type_get_num_parameters(entry->type_information) == 1))
-    {
-        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
-        // Check that its form is either
-        //
-        // A(const A&&, X = x);
-        // A(A&&, X = x);
-
-        if (is_rvalue_reference_type(first_parameter)
-                && equivalent_types_in_context(class_type,
-                    get_unqualified_type(reference_type_get_referenced_type(first_parameter)),
-                    entry->decl_context))
-        {
-            return 1;
-        }
-    }
-    return 0;
+            && function_is_move_constructor_types(entry->type_information, class_type));
 }
 
 static char is_virtual_destructor(type_t* class_type)
@@ -15248,7 +16374,7 @@ static void update_member_function_info(AST declarator_name,
                     CXX11_LANGUAGE()
                     {
                         entry->entity_specs.is_move_constructor =
-                            is_move_constructor(entry, class_type);
+                            function_is_move_constructor(entry, class_type);
                     }
                 }
                 break;
@@ -15275,7 +16401,7 @@ static void update_member_function_info(AST declarator_name,
 
                 CXX11_LANGUAGE()
                 {
-                    if (is_move_assignment_operator(entry, class_type))
+                    if (function_is_move_assignment_operator(entry, class_type))
                     {
                         entry->entity_specs.is_move_assignment_operator = 1;
                     }
@@ -15417,7 +16543,17 @@ static scope_entry_t* build_scope_member_function_definition(
     if (gather_info->is_friend)
     {
         // If it is a friend function definition then we add entry symbol as a friend of the class
-        class_type_add_friend_symbol(class_info, entry);
+        scope_entry_t* friend_function = entry;
+
+        if (friend_function->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+        {
+            friend_function = xcalloc(1, sizeof(*friend_function));
+            friend_function->kind = SK_FRIEND_FUNCTION;
+            friend_function->decl_context = decl_context;
+            friend_function->entity_specs.alias_to = entry;
+        }
+
+        class_type_add_friend_symbol(class_info, friend_function);
     }
     else
     {
@@ -15543,12 +16679,6 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type, 
         AST declarator)
 {
-    // if (gather_info->is_template)
-    // {
-    //     warn_printf("%s: warning: friend template functions are not fully supported yet\n",
-    //             ast_location(declarator));
-    // }
-
     nodecl_t nodecl_output = nodecl_null();
 
     type_t* declarator_type = NULL;
@@ -15578,7 +16708,17 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         internal_error("Not yet implemented", 0);
     }
-    class_type_add_friend_symbol(class_type, entry);
+
+    scope_entry_t* friend_function = entry;
+    if (entry->kind != SK_DEPENDENT_FRIEND_FUNCTION)
+    {
+        friend_function = xcalloc(1, sizeof(*friend_function));
+        friend_function->kind = SK_FRIEND_FUNCTION;
+        friend_function->decl_context = decl_context;
+        friend_function->entity_specs.alias_to = entry;
+    }
+
+    class_type_add_friend_symbol(class_type, friend_function);
 }
 
 static void gather_single_virt_specifier(AST item,
@@ -15748,7 +16888,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     if (member_init_declarator_list != NULL)
     {
-
         AST list = member_init_declarator_list;
         AST iter;
 
@@ -15852,9 +16991,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         break;
                     }
-                    // init declarator may appear here because of templates
-                case AST_INIT_DECLARATOR :
                 case AST_MEMBER_DECLARATOR :
+                case AST_INIT_DECLARATOR : // may appear here because of templates
                     {
                         AST attribute_list = ASTSon2(declarator);
                         gather_extra_attributes(attribute_list, &current_gather_info, decl_context);
@@ -16040,6 +17178,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     //    size_t x = sizeof(A);
                                     // };
                                     build_scope_add_delayed_member_declarator_initializer(entry, initializer);
+                                    // But some parts of the code check this tree, create a fake "parse later"
+                                    entry->value = nodecl_make_cxx_parse_later(ast_get_locus(initializer));
                                 }
                                 entry->entity_specs.is_defined_inside_class_specifier = 1;
                             }
@@ -16079,7 +17219,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             }
                             else
                             {
-                                error_printf("%s: error: no initializer allowed in current member declaration",
+                                error_printf("%s: error: no initializer allowed in current member declaration\n",
                                         ast_location(initializer));
                                 return;
                             }
@@ -16132,6 +17272,26 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             new_member->entity_specs.class_type = class_info;
 
             class_type_add_member(class_type, new_member, /* is_definition */ 1);
+        }
+        else if (gather_info.is_friend
+                && (ASTType(type_specifier) != AST_ELABORATED_TYPE_CLASS_SPEC))
+        {
+            if (!is_dependent_class_scope(decl_context))
+            {
+                build_scope_friend_class_declaration(
+                        original_member_type,
+                        /* declared_name */ NULL,
+                        decl_context,
+                        ast_get_locus(a));
+            }
+            else
+            {
+                register_dependent_friend_class(
+                        named_type_get_symbol(class_info),
+                        original_member_type,
+                        /* declared_name */ NULL,
+                        decl_context);
+            }
         }
     }
 }
@@ -16236,7 +17396,7 @@ static void build_dynamic_exception_spec(type_t* function_type UNUSED_PARAMETER,
     }
 }
 
-static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER, 
+static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
         AST a, decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
@@ -16253,7 +17413,6 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
     else
     {
         check_expression(const_expr, decl_context, nodecl_output);
-
         if (!nodecl_is_err_expr(*nodecl_output))
         {
             if (!nodecl_is_constant(*nodecl_output)
@@ -16265,18 +17424,11 @@ static void build_noexcept_spec(type_t* function_type UNUSED_PARAMETER,
             }
             if (!nodecl_expr_is_type_dependent(*nodecl_output))
             {
-                scope_entry_t* conversor = NULL;
-                char ambiguous_conversion = 0;
-                if (!type_can_be_implicitly_converted_to(nodecl_get_type(*nodecl_output),
-                            get_bool_type(), decl_context, 
-                            &ambiguous_conversion,
-                            &conversor,
-                            nodecl_get_locus(*nodecl_output))
-                        || ambiguous_conversion)
-                {
-                    error_printf("%s: error: noexcept expression must be convertible to bool\n",
-                            nodecl_locus_to_str(*nodecl_output));
-                }
+                check_contextual_conversion(
+                        *nodecl_output,
+                        get_bool_type(),
+                        decl_context,
+                        nodecl_output);
             }
         }
     }
@@ -16456,7 +17608,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             && !entry->entity_specs.is_static
             && !entry->entity_specs.is_extern)
     {
-        instantiate_template_class_if_needed(named_type_get_symbol(entry->type_information), 
+        class_type_complete_if_needed(named_type_get_symbol(entry->type_information), 
                 entry->decl_context, destructor_data->locus);
 
         nodecl_t sym_ref = nodecl_make_symbol(entry, make_locus("", 0, 0));
@@ -16510,6 +17662,27 @@ struct stmt_scope_handler_map_tag
     stmt_scope_handler_t handler;
 } stmt_scope_handler_map_t;
 
+static void build_scope_nodecl_compound_statement(
+        nodecl_t nodecl_statement_list,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_destructors = nodecl_null();
+    CXX_LANGUAGE()
+    {
+        call_destructors_of_classes(decl_context, locus, &nodecl_destructors);
+    }
+
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_compound_statement(
+                    nodecl_statement_list,
+                    nodecl_destructors,
+                    locus
+                    )
+                );
+}
 
 static void build_scope_compound_statement(AST a, 
         decl_context_t decl_context, 
@@ -16517,31 +17690,26 @@ static void build_scope_compound_statement(AST a,
 {
     decl_context_t block_context = new_block_context(decl_context);
 
-    nodecl_t nodecl_output_list = nodecl_null();
-
+    nodecl_t nodecl_statement_list = nodecl_null();
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-
-        nodecl_t current_nodecl_output = nodecl_null();
-        build_scope_statement_seq(list, block_context, &current_nodecl_output);
-
-        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
+        build_scope_statement_seq(list, block_context, &nodecl_statement_list);
     }
 
-
-    nodecl_t nodecl_destructors = nodecl_null();
-    CXX_LANGUAGE()
-    {
-        call_destructors_of_classes(block_context, ast_get_locus(a), &nodecl_destructors);
-    }
+    build_scope_nodecl_compound_statement(
+            nodecl_statement_list,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ast_get_locus(a))
-                    ),
-                block_context, ast_get_locus(a)));
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a)
+                )
+            );
 }
 
 static void build_scope_implicit_compound_statement(AST list, 
@@ -16559,6 +17727,86 @@ static void build_scope_implicit_compound_statement(AST list,
     }
 
    *nodecl_output = nodecl_output_list;
+}
+
+static void build_scope_nodecl_condition(nodecl_t nodecl_condition,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_expr = nodecl_null();
+    type_t* orig_type = NULL;
+
+    if (nodecl_is_null(nodecl_condition))
+    {
+        *nodecl_output = nodecl_null();
+        return;
+    }
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_condition;
+        return;
+    }
+    else if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        orig_type = lvalue_ref(
+                nodecl_get_symbol(nodecl_condition)->type_information
+                );
+        nodecl_expr = nodecl_get_symbol(nodecl_condition)->value;
+    }
+    else
+    {
+        orig_type = nodecl_get_type(nodecl_condition);
+        nodecl_expr = nodecl_condition;
+    }
+
+    C_LANGUAGE()
+    {
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs,
+                    orig_type,
+                    get_signed_int_type(),
+                    locus))
+        {
+            error_printf("%s: error: expression of type '%s' is not valid in this context\n",
+                    locus_to_str(locus),
+                    print_type_str(orig_type, decl_context));
+            *nodecl_output = nodecl_make_err_expr(locus);
+            return;
+        }
+
+        if (!equivalent_types(orig_type, get_signed_int_type()))
+        {
+            nodecl_expr = cxx_nodecl_make_conversion(
+                    nodecl_expr,
+                    get_signed_int_type(),
+                    locus);
+        }
+    }
+
+    CXX_LANGUAGE()
+    {
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+
+            if (nodecl_is_err_expr(nodecl_expr))
+                return;
+        }
+    }
+
+    if (nodecl_get_kind(nodecl_condition) == NODECL_OBJECT_INIT)
+    {
+        nodecl_get_symbol(nodecl_condition)->value = nodecl_expr;
+    }
+    else
+    {
+        *nodecl_output = nodecl_expr;
+    }
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -16610,63 +17858,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             return;
         }
 
-        // FIXME: Handle VLAs here
-        ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
-                "Unsupported extra declarations at the initialization expression", 0);
-
         entry->value = nodecl_expr;
 
-        C_LANGUAGE()
-        {
-            standard_conversion_t dummy;
-            if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type(), ast_get_locus(a)))
-            {
-                error_printf("%s: error: value of type '%s' where a scalar was expected\n",
-                        ast_location(a),
-                        print_type_str(entry->type_information, decl_context));
-                *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
-                return;
-            }
-
-            *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
-        }
-        CXX_LANGUAGE()
-        {
-            if (!nodecl_expr_is_type_dependent(nodecl_expr))
-            {
-                char ambiguous_conversion = 0;
-                scope_entry_t* conversor = NULL;
-                if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
-                            &ambiguous_conversion, &conversor, ast_get_locus(initializer))
-                        || ambiguous_conversion)
-                {
-                    error_printf("%s: error: value of type '%s' cannot be converted to 'bool' type\n",
-                            ast_location(a),
-                            print_type_str(entry->type_information, decl_context));
-                    *nodecl_output = nodecl_make_err_expr(ast_get_locus(a));
-                    return;
-                }
-
-                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
-                if (conversor != NULL)
-                {
-                    ERROR_CONDITION(!conversor->entity_specs.is_conversion,
-                            "I expected a conversion function!", 0);
-                    *nodecl_output = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversor, ast_get_locus(initializer)),
-                            /* called name */ nodecl_null(),
-                            nodecl_make_list_1(*nodecl_output),
-                            /* function_form */ nodecl_make_cxx_function_form_implicit(ast_get_locus(initializer)),
-                            function_type_get_return_type(conversor->type_information),
-                            decl_context,
-                            ast_get_locus(initializer));
-                }
-            }
-            else
-            {
-                *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
-            }
-        }
+        *nodecl_output = nodecl_make_object_init(entry, ast_get_locus(initializer));
 
         keep_gcc_attributes_in_symbol(entry, &gather_info);
         keep_ms_declspecs_in_symbol(entry, &gather_info);
@@ -16674,7 +17868,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     else
     {
         check_expression(ASTSon2(a), decl_context, nodecl_output);
-
         // FIXME: Handle VLAs here
         ERROR_CONDITION (pop_extra_declaration_symbol() != NULL,
                 "Unsupported extra declarations at the initialization expression", 0);
@@ -16684,7 +17877,9 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 static void build_scope_normalized_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (ASTType(a) == AST_COMPOUND_STATEMENT)
+    {
         build_scope_statement(a, decl_context, nodecl_output);
+    }
     else
     {
         // Mimick the behaviour of a compound statement
@@ -16712,6 +17907,33 @@ static void build_scope_normalized_statement(AST a, decl_context_t decl_context,
     }
 }
 
+static void build_scope_nodecl_while_statement(
+        nodecl_t nodecl_condition,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_while_statement(
+                nodecl_condition,
+                nodecl_statement,
+                /* loop_name */ nodecl_null(),
+                locus));
+}
+
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -16727,12 +17949,16 @@ static void build_scope_while_statement(AST a,
         build_scope_normalized_statement(ASTSon1(a), block_context, &nodecl_statement);
     }
 
+    build_scope_nodecl_while_statement(
+            nodecl_condition,
+            nodecl_statement,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
+
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_while_statement(nodecl_condition, nodecl_statement, 
-                        /* loop_name */ nodecl_null(),
-                        ast_get_locus(a))),
+                *nodecl_output,
                 block_context,
                 ast_get_locus(a)));
 }
@@ -16756,55 +17982,89 @@ static void build_scope_declaration_statement(AST a,
             /* declared_symbols */ NULL, /* gather_decl_spec_t */ NULL);
 }
 
-
-static void build_scope_expression_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_nodecl_expression_statement(nodecl_t nodecl_expr,
+        decl_context_t decl_context,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    AST expr = ASTSon0(a);
-    nodecl_t nodecl_expr = nodecl_null();
-    if (!check_expression(expr, decl_context, &nodecl_expr))
-    {
-        if (CURRENT_CONFIGURATION->strict_typecheck)
-        {
-            internal_error("Could not check expression '%s' at '%s'\n",
-                    prettyprint_in_buffer(ASTSon0(a)),
-                    ast_location(ASTSon0(a)));
-        }
-
-        *nodecl_output = nodecl_append_to_list(
-                *nodecl_output,
-                nodecl_make_err_statement(ast_get_locus(a)));
-        return;
-    }
-
-    if (nodecl_get_type(nodecl_expr) != NULL)
+    if (!nodecl_is_err_expr(nodecl_expr))
     {
         if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
         {
             const char* message = NULL;
             uniquestr_sprintf(&message,
                     "%s: error: invalid unresolved overloaded expression '%s'\n", 
-                    ast_location(expr),
-                    prettyprint_in_buffer(expr));
+                    locus_to_str(locus),
+                    codegen_to_str(nodecl_expr, decl_context));
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
-            diagnostic_candidates(candidates, &message, ast_get_locus(expr));
+            diagnostic_candidates(candidates, &message, locus);
             error_printf("%s", message);
-
-            return;
         }
     }
 
-    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(expr));
+    nodecl_t nodecl_expr_stmt = nodecl_make_expression_statement(
+            nodecl_expr, locus);
 
+    *nodecl_output = flush_extra_declared_symbols(locus);
     *nodecl_output = nodecl_append_to_list(
             *nodecl_output,
-            nodecl_make_expression_statement(nodecl_expr, ast_get_locus(expr)));
+            nodecl_expr_stmt);
 }
 
-static void build_scope_if_else_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_expression_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    AST expr = ASTSon0(a);
+    nodecl_t nodecl_expr = nodecl_null();
+    check_expression(expr, decl_context, &nodecl_expr);
+
+    if (CURRENT_CONFIGURATION->strict_typecheck
+            && nodecl_is_err_expr(nodecl_expr))
+    {
+        internal_error("Could not check expression '%s' at '%s'\n",
+                prettyprint_in_buffer(ASTSon0(a)),
+                ast_location(ASTSon0(a)));
+    }
+
+    build_scope_nodecl_expression_statement(nodecl_expr,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
+}
+
+static void build_scope_nodecl_if_else_statement(
+        nodecl_t nodecl_condition,
+        nodecl_t nodecl_then_statement,
+        nodecl_t nodecl_else_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_if_else_statement(
+                nodecl_condition,
+                nodecl_then_statement,
+                nodecl_else_statement,
+                locus)
+            );
+}
+
+static void build_scope_if_else_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -16817,8 +18077,6 @@ static void build_scope_if_else_statement(AST a,
     nodecl_t nodecl_then = nodecl_null();
     build_scope_normalized_statement(then_branch, block_context, &nodecl_then);
 
-    // Normalize multiple statements
-
     nodecl_t nodecl_else = nodecl_null();
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
@@ -16826,13 +18084,21 @@ static void build_scope_if_else_statement(AST a,
         build_scope_normalized_statement(else_branch, block_context, &nodecl_else);
     }
 
+    build_scope_nodecl_if_else_statement(
+            nodecl_condition,
+            nodecl_then,
+            nodecl_else,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
+
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, 
-                        ast_get_locus(a))),
+                *nodecl_output,
                 block_context,
-                ast_get_locus(a)));
+                ast_get_locus(a)
+                )
+            );
 }
 
 static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED_PARAMETER,
@@ -16852,6 +18118,45 @@ static void solve_literal_symbol_scope(AST a, decl_context_t decl_context UNUSED
     scope_entry_t* entry = (scope_entry_t*)p;
 
     *nodecl_output = nodecl_make_symbol(entry, ast_get_locus(a));
+}
+
+static void build_scope_nodecl_for_statement_nonrange(
+        nodecl_t nodecl_loop_init,
+        nodecl_t nodecl_loop_condition,
+        nodecl_t nodecl_loop_iter,
+        nodecl_t nodecl_loop_name,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_condition(
+            nodecl_loop_condition,
+            decl_context,
+            locus,
+            &nodecl_loop_condition);
+    if (!nodecl_is_null(nodecl_loop_condition)
+            && nodecl_is_err_expr(nodecl_loop_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    nodecl_t nodecl_loop_control =
+        nodecl_make_loop_control(
+                nodecl_loop_init,
+                nodecl_loop_condition,
+                nodecl_loop_iter,
+                locus);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_for_statement(
+                nodecl_loop_control,
+                nodecl_statement,
+                nodecl_loop_name,
+                locus)
+            );
 }
 
 static void build_scope_for_statement_nonrange(AST a,
@@ -16941,28 +18246,83 @@ static void build_scope_for_statement_nonrange(AST a,
         check_expression(expression, block_context, &nodecl_loop_iter);
     }
 
-
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
-    nodecl_t loop_name = nodecl_null();
+    nodecl_t nodecl_loop_name = nodecl_null();
     if (synthesized_loop_name != NULL)
     {
-        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &loop_name);
+        solve_literal_symbol_scope(synthesized_loop_name, decl_context, &nodecl_loop_name);
     }
 
-    nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
-            ast_get_locus(a));
+    build_scope_nodecl_for_statement_nonrange(
+            nodecl_loop_init,
+            nodecl_loop_condition,
+            nodecl_loop_iter,
+            nodecl_loop_name,
+            nodecl_statement,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
+
     *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            loop_name,
-                            ast_get_locus(a))),
+                    *nodecl_output,
                     block_context,
-                    ast_get_locus(a)
-                    ));
+                    ast_get_locus(a))
+                );
+
+}
+
+char class_lookup_begin_or_end(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        const locus_t* locus)
+{
+    nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
+            UNIQUESTR_LITERAL("begin"),
+            locus);
+    nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
+            UNIQUESTR_LITERAL("end"),
+            locus);
+
+    scope_entry_list_t* begin_query = query_nodecl_name_in_class(
+            decl_context,
+            class_symbol,
+            begin_name,
+            NULL);
+    scope_entry_list_t* end_query = query_nodecl_name_in_class(
+            decl_context,
+            class_symbol,
+            end_name,
+            NULL);
+
+    char result = (begin_query != NULL) || (end_query != NULL);
+
+    entry_list_free(begin_query);
+    entry_list_free(end_query);
+
+    nodecl_free(begin_name);
+    nodecl_free(end_name);
+
+    return result;
+}
+
+static void build_scope_nodecl_for_statement_range(
+        nodecl_t nodecl_loop_control,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_for_statement(
+                    nodecl_loop_control,
+                    nodecl_statement,
+                    /* loop_name */ nodecl_null(),
+                    locus)
+                );
 }
 
 static void build_scope_for_statement_range(AST a,
@@ -17003,6 +18363,19 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
+    if (is_auto_type(type_info))
+    {
+        // In general auto is a dependent type, because if it remains in a declaration
+        // it means that we could not deduce anything because the initialization was dependent
+        //
+        // In this case, though, we want an auto that does not change the dependency status
+        // of the type. So, make sure the auto type of the type-specifier is a nondependent
+        // auto.
+        type_info = get_cv_qualified_type(
+                get_nondependent_auto_type(),
+                get_cv_qualifier(type_info));
+    }
+
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
             block_context, nodecl_output);
@@ -17015,9 +18388,34 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
+
     scope_entry_t* iterator_symbol = build_scope_declarator_name(declarator, declarator_type, &gather_info, block_context);
 
     ERROR_CONDITION(gather_info.num_vla_dimension_symbols > 0, "Unsupported VLAs at the declaration", 0);
+
+    // Wrap this inside an equal initializer to verify the initialization
+    expr_or_init_braced = ASTMake1(AST_EQUAL_INITIALIZER,
+            expr_or_init_braced,
+            ast_get_locus(expr_or_init_braced), NULL);
+
+    nodecl_t nodecl_range_initializer = nodecl_null();
+    compute_nodecl_initialization(expr_or_init_braced, decl_context, &nodecl_range_initializer);
+
+    // The iterator type is dependent
+    if (is_dependent_type(iterator_symbol->type_information))
+    {
+        nodecl_t nodecl_statement = nodecl_null();
+        build_scope_normalized_statement(statement, block_context, &nodecl_statement);
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_cxx_for_ranged(
+                    nodecl_range_initializer,
+                    nodecl_statement,
+                    iterator_symbol,
+                    ast_get_locus(a))
+                );
+        return;
+    }
 
     // Create __range
     scope_entry_t* range_symbol = new_symbol(block_context, block_context.current_scope, ".__range");
@@ -17026,18 +18424,15 @@ static void build_scope_for_statement_range(AST a,
     range_symbol->type_information = get_rvalue_reference_type(get_auto_type());
     range_symbol->locus = ast_get_locus(a);
 
-    // Wrap this inside an equal initializer to verify the initialization
-    expr_or_init_braced = ASTMake1(AST_EQUAL_INITIALIZER,
-            expr_or_init_braced,
-            ast_get_locus(expr_or_init_braced), NULL);
-
-    nodecl_t nodecl_range_initializer = nodecl_null();
-    if (!check_initialization(expr_or_init_braced,
+    check_nodecl_initialization(
+            nodecl_shallow_copy(nodecl_range_initializer),
             block_context,
             range_symbol,
             range_symbol->type_information,
             &nodecl_range_initializer,
-            /* is_auto_type */ 1))
+            /* is_auto_type */ 1);
+
+    if (nodecl_is_err_expr(nodecl_range_initializer))
     {
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_err_statement(ast_get_locus(a))
@@ -17045,94 +18440,178 @@ static void build_scope_for_statement_range(AST a,
         return;
     }
 
-    nodecl_t nodecl_initializer_tmp = nodecl_null();;
+    // The initializer expression is dependent
+    if (is_dependent_type(range_symbol->type_information))
+    {
+        nodecl_t nodecl_statement = nodecl_null();
+        build_scope_normalized_statement(statement, block_context, &nodecl_statement);
+
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_cxx_for_ranged(
+                    nodecl_range_initializer,
+                    nodecl_statement,
+                    iterator_symbol,
+                    ast_get_locus(a))
+                );
+
+        return;
+    }
+
+    nodecl_t nodecl_initializer_tmp = nodecl_null();
 
     // Craft begin_expr and end_expr
     nodecl_t nodecl_begin_init = nodecl_null(),
              nodecl_end_init = nodecl_null();
 
-    if (!is_dependent_type(range_symbol->type_information))
+    if (is_array_type(no_ref(range_symbol->type_information)))
     {
-        if (is_array_type(no_ref(range_symbol->type_information)))
-        {
-            nodecl_t nodecl_begin_symbol = nodecl_make_symbol(range_symbol, ast_get_locus(a));
-            nodecl_set_type(nodecl_begin_symbol, lvalue_ref(range_symbol->type_information));
+        nodecl_t nodecl_begin_symbol = nodecl_make_symbol(range_symbol, ast_get_locus(a));
+        nodecl_set_type(nodecl_begin_symbol, lvalue_ref(range_symbol->type_information));
 
-            nodecl_begin_init = nodecl_make_cxx_equal_initializer(
-                    nodecl_make_cxx_initializer(
-                        nodecl_begin_symbol,
-                        nodecl_get_type(nodecl_begin_symbol),
-                        ast_get_locus(a)),
+        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
+                    nodecl_begin_symbol,
                     nodecl_get_type(nodecl_begin_symbol),
-                    ast_get_locus(a));
+                    ast_get_locus(a)),
+                nodecl_get_type(nodecl_begin_symbol),
+                ast_get_locus(a));
 
-            nodecl_t nodecl_array_size = nodecl_shallow_copy(
-                    array_type_get_array_size_expr(no_ref(range_symbol->type_information))
+        nodecl_t nodecl_array_size = nodecl_shallow_copy(
+                array_type_get_array_size_expr(no_ref(range_symbol->type_information))
+                );
+
+        type_t* pointer_type =
+            get_pointer_type(
+                    array_type_get_element_type(no_ref(range_symbol->type_information))
                     );
 
-            type_t* pointer_type =
-                get_pointer_type(
-                        array_type_get_element_type(no_ref(range_symbol->type_information))
-                        );
-
-            nodecl_end_init =
-                nodecl_make_cxx_equal_initializer(
-                        nodecl_make_cxx_initializer(
-                            nodecl_make_add(
-                                nodecl_make_conversion(
-                                    nodecl_shallow_copy(nodecl_begin_symbol),
-                                    pointer_type,
-                                    ast_get_locus(a)
-                                    ),
-                                nodecl_array_size,
+        nodecl_end_init =
+            nodecl_make_cxx_equal_initializer(
+                    nodecl_make_cxx_initializer(
+                        nodecl_make_add(
+                            nodecl_make_conversion(
+                                nodecl_shallow_copy(nodecl_begin_symbol),
                                 pointer_type,
-                                ast_get_locus(a)),
+                                ast_get_locus(a)
+                                ),
+                            nodecl_array_size,
                             pointer_type,
                             ast_get_locus(a)),
                         pointer_type,
-                        ast_get_locus(a));
-        }
-        else
+                        ast_get_locus(a)),
+                    pointer_type,
+                    ast_get_locus(a));
+    }
+    else
+    {
+        if (is_class_type(no_ref(range_symbol->type_information))
+                && class_lookup_begin_or_end(
+                    decl_context,
+                    named_type_get_symbol(
+                        advance_over_typedefs(
+                            no_ref(range_symbol->type_information))),
+                    ast_get_locus(a)))
         {
-            // For the purpose of this lookup, std is an associated namespace
-            decl_context_t global_context = decl_context;
-            global_context.current_scope = global_context.global_scope;
-            scope_entry_list_t* entry_list = query_in_scope_str(global_context, UNIQUESTR_LITERAL("std"), NULL);
-
-
-            scope_entry_t* std_namespace = NULL;
-            if (entry_list != NULL)
-            {
-                std_namespace = entry_list_head(entry_list);
-                entry_list_free(entry_list);
-            }
-
-            char must_remove_std = (std_namespace != NULL);
-            if (must_remove_std)
-            {
-                int i;
-                for (i = 0;
-                        i < block_context.current_scope->num_used_namespaces;
-                        i++)
-                {
-                    if (block_context.current_scope->use_namespace[i] == std_namespace)
-                    {
-                        must_remove_std = 0;
-                        break;
-                    }
-                }
-
-            }
-
             AST begin_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
-                    ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
-                        ),
+                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("begin")),
+                        ast_get_locus(a),
+                        NULL),
+                    NULL,
+                    ast_get_locus(a),
+                    NULL);
+
+            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
+                    ASTMake2(AST_CLASS_MEMBER_ACCESS,
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range")),
+                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
+                        ast_get_locus(a),
+                        NULL),
+                    NULL,
                     ast_get_locus(a),
                     NULL);
 
             check_expression(begin_init_tree, block_context, &nodecl_begin_init);
+            if (nodecl_is_err_expr(nodecl_begin_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(a))
+                        );
+                return;
+            }
+
+            check_expression(end_init_tree, block_context, &nodecl_end_init);
+            if (nodecl_is_err_expr(nodecl_end_init))
+            {
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(a))
+                        );
+                return;
+            }
+        }
+        else
+        {
+            scope_entry_list_t* begin_lookup = NULL;
+            scope_entry_list_t* end_lookup = NULL;
+            if (is_class_type(no_ref(range_symbol->type_information)))
+            {
+                nodecl_t begin_name = nodecl_make_cxx_dep_name_simple(
+                        UNIQUESTR_LITERAL("begin"),
+                        ast_get_locus(a));
+                nodecl_t end_name = nodecl_make_cxx_dep_name_simple(
+                        UNIQUESTR_LITERAL("end"),
+                        ast_get_locus(a));
+
+                type_t* t  = no_ref(range_symbol->type_information);
+                begin_lookup = koenig_lookup(1, &t,
+                        block_context,
+                        begin_name,
+                        ast_get_locus(a));
+                end_lookup = koenig_lookup(1, &t,
+                        block_context,
+                        end_name,
+                        ast_get_locus(a));
+
+
+                nodecl_free(begin_name);
+                nodecl_free(end_name);
+            }
+
+            if (begin_lookup == NULL)
+            {
+                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'begin' found\n",
+                        ast_location(a),
+                        print_declarator(range_symbol->type_information));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(a))
+                        );
+                return;
+            }
+
+            if (end_lookup == NULL)
+            {
+                error_printf("%s: error: invalid type '%s' in range-based for-statement, no suitable 'end' found\n",
+                        ast_location(a),
+                        print_declarator(range_symbol->type_information));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(a))
+                        );
+                return;
+            }
+
+            nodecl_t begin_set = nodecl_make_symbol(entry_list_head(begin_lookup), ast_get_locus(a));
+            nodecl_set_type(begin_set, get_unresolved_overloaded_type(begin_lookup, NULL));
+
+            nodecl_t nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
+            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
+
+            check_nodecl_function_call(begin_set, 
+                    nodecl_make_list_1(nodecl_range_sym),
+                    decl_context,
+                    &nodecl_begin_init);
+
+            entry_list_free(begin_lookup);
 
             if (nodecl_is_err_expr(nodecl_begin_init))
             {
@@ -17142,23 +18621,18 @@ static void build_scope_for_statement_range(AST a,
                 return;
             }
 
-            nodecl_begin_init = nodecl_make_cxx_equal_initializer(
-                    nodecl_make_cxx_initializer(
-                        nodecl_begin_init,
-                        nodecl_get_type(nodecl_begin_init),
-                        ast_get_locus(a)),
-                    nodecl_get_type(nodecl_begin_init),
-                    ast_get_locus(a));
+            nodecl_t end_set = nodecl_make_symbol(entry_list_head(end_lookup), ast_get_locus(a));
+            nodecl_set_type(end_set, get_unresolved_overloaded_type(end_lookup, NULL));
 
-            AST end_init_tree = ASTMake2(AST_FUNCTION_CALL,
-                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL("end")),
-                    ASTListLeaf(
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__range"))
-                        ),
-                    ast_get_locus(a),
-                    NULL);
+            nodecl_range_sym = nodecl_make_symbol(range_symbol, ast_get_locus(a));
+            nodecl_set_type(nodecl_range_sym, lvalue_ref(range_symbol->type_information));
 
-            check_expression(end_init_tree, block_context, &nodecl_end_init);
+            check_nodecl_function_call(end_set, 
+                    nodecl_make_list_1(nodecl_range_sym),
+                    decl_context,
+                    &nodecl_end_init);
+
+            entry_list_free(end_lookup);
 
             if (nodecl_is_err_expr(nodecl_end_init))
             {
@@ -17167,93 +18641,93 @@ static void build_scope_for_statement_range(AST a,
                         );
                 return;
             }
-
-            nodecl_end_init = nodecl_make_cxx_equal_initializer(
-                    nodecl_make_cxx_initializer(
-                        nodecl_end_init,
-                        nodecl_get_type(nodecl_end_init),
-                        ast_get_locus(a)),
-                    nodecl_get_type(nodecl_end_init),
-                    ast_get_locus(a));
-
-            if (must_remove_std)
-            {
-                P_LIST_REMOVE(block_context.current_scope->use_namespace,
-                        block_context.current_scope->num_used_namespaces,
-                        std_namespace);
-            }
         }
 
-        // Create __begin and __end
-        scope_entry_t* begin_symbol = new_symbol(block_context, block_context.current_scope, ".__begin");
-        begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
-        begin_symbol->kind = SK_VARIABLE;
-        begin_symbol->type_information = get_auto_type();
-        begin_symbol->locus = ast_get_locus(a);
-
-        nodecl_initializer_tmp = nodecl_null();
-        check_nodecl_initialization(
+        nodecl_begin_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
                     nodecl_begin_init,
-                    block_context,
-                    begin_symbol,
-                    begin_symbol->type_information,
-                    &nodecl_initializer_tmp,
-                    /* is_auto_type */ 1);
+                    nodecl_get_type(nodecl_begin_init),
+                    ast_get_locus(a)),
+                nodecl_get_type(nodecl_begin_init),
+                ast_get_locus(a));
 
-        if (nodecl_is_err_expr(nodecl_initializer_tmp))
-        {
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(ast_get_locus(a))
-                    );
-            return;
-        }
-
-        scope_entry_t* end_symbol = new_symbol(block_context, block_context.current_scope, ".__end");
-        end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
-        end_symbol->kind = SK_VARIABLE;
-        end_symbol->type_information = get_auto_type();
-        end_symbol->locus = ast_get_locus(a);
-
-        nodecl_initializer_tmp = nodecl_null();
-        check_nodecl_initialization(nodecl_end_init,
-                    block_context,
-                    end_symbol,
-                    end_symbol->type_information,
-                    &nodecl_initializer_tmp,
-                    /* is_auto_type */ 1);
-
-        if (nodecl_is_err_expr(nodecl_initializer_tmp))
-        {
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(ast_get_locus(a))
-                    );
-            return;
-        }
-
-        AST initialize_iterator =
-            ASTMake1(AST_EQUAL_INITIALIZER,
-                    ASTMake1(AST_DERREFERENCE,
-                        ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__begin")),
-                        ast_get_locus(a), NULL),
-                    ast_get_locus(a), NULL);
-
-        nodecl_initializer_tmp = nodecl_null();
-        check_initialization(initialize_iterator,
-                block_context,
-                iterator_symbol,
-                iterator_symbol->type_information,
-                &nodecl_initializer_tmp,
-                gather_info.is_auto_type);
-
-        if (nodecl_is_err_expr(nodecl_initializer_tmp))
-        {
-            *nodecl_output = nodecl_make_list_1(
-                    nodecl_make_err_statement(ast_get_locus(a))
-                    );
-            return;
-        }
+        nodecl_end_init = nodecl_make_cxx_equal_initializer(
+                nodecl_make_cxx_initializer(
+                    nodecl_end_init,
+                    nodecl_get_type(nodecl_end_init),
+                    ast_get_locus(a)),
+                nodecl_get_type(nodecl_end_init),
+                ast_get_locus(a));
     }
 
+    // Create __begin and __end
+    scope_entry_t* begin_symbol = new_symbol(block_context, block_context.current_scope, ".__begin");
+    begin_symbol->symbol_name = UNIQUESTR_LITERAL("__begin");
+    begin_symbol->kind = SK_VARIABLE;
+    begin_symbol->type_information = get_auto_type();
+    begin_symbol->locus = ast_get_locus(a);
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_nodecl_initialization(
+            nodecl_begin_init,
+            block_context,
+            begin_symbol,
+            begin_symbol->type_information,
+            &nodecl_initializer_tmp,
+            /* is_auto_type */ 1);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a))
+                );
+        return;
+    }
+
+    scope_entry_t* end_symbol = new_symbol(block_context, block_context.current_scope, ".__end");
+    end_symbol->symbol_name = UNIQUESTR_LITERAL("__end");
+    end_symbol->kind = SK_VARIABLE;
+    end_symbol->type_information = get_auto_type();
+    end_symbol->locus = ast_get_locus(a);
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_nodecl_initialization(nodecl_end_init,
+            block_context,
+            end_symbol,
+            end_symbol->type_information,
+            &nodecl_initializer_tmp,
+            /* is_auto_type */ 1);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a))
+                );
+        return;
+    }
+
+    AST initialize_iterator =
+        ASTMake1(AST_EQUAL_INITIALIZER,
+                ASTMake1(AST_DERREFERENCE,
+                    ASTLeaf(AST_SYMBOL, ast_get_locus(a), UNIQUESTR_LITERAL(".__begin")),
+                    ast_get_locus(a), NULL),
+                ast_get_locus(a), NULL);
+
+    nodecl_initializer_tmp = nodecl_null();
+    check_initialization(initialize_iterator,
+            block_context,
+            iterator_symbol,
+            iterator_symbol->type_information,
+            &nodecl_initializer_tmp,
+            gather_info.is_auto_type);
+
+    if (nodecl_is_err_expr(nodecl_initializer_tmp))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(ast_get_locus(a))
+                );
+        return;
+    }
 
     nodecl_t nodecl_loop_control = nodecl_make_iterator_loop_control(
             nodecl_make_symbol(iterator_symbol, ast_get_locus(a)),
@@ -17263,16 +18737,20 @@ static void build_scope_for_statement_range(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
-    *nodecl_output =
-        nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_make_list_1(
-                        nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                            /* loop_name */ nodecl_null(),
-                            ast_get_locus(a))),
-                    block_context,
-                    ast_get_locus(a)
-                    ));
+    build_scope_nodecl_for_statement_range(
+            nodecl_loop_control,
+            nodecl_statement,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_context(
+                *nodecl_output,
+                block_context,
+                ast_get_locus(a)
+                )
+            );
 }
 
 static void build_scope_for_statement(AST a,
@@ -17285,7 +18763,8 @@ static void build_scope_for_statement(AST a,
         return build_scope_for_statement_nonrange(a,
                 decl_context,
                 nodecl_output);
-    else if (IS_CXX_LANGUAGE && ASTType(loop_control) == AST_RANGE_LOOP_CONTROL)
+    else if (IS_CXX_LANGUAGE
+            && ASTType(loop_control) == AST_RANGE_LOOP_CONTROL)
         // C++2011
         // for (T t : e) S;
         return build_scope_for_statement_range(a,
@@ -17295,8 +18774,34 @@ static void build_scope_for_statement(AST a,
         internal_error("Code unreachable", 0);
 }
 
-static void build_scope_switch_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_nodecl_switch_statement(
+        nodecl_t nodecl_condition,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_condition(
+            nodecl_condition,
+            decl_context,
+            locus,
+            &nodecl_condition);
+    if (nodecl_is_err_expr(nodecl_condition))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus));
+        return;
+    }
+
+    *nodecl_output =  nodecl_make_list_1(
+            nodecl_make_switch_statement(nodecl_condition,
+                nodecl_statement,
+                locus)
+            );
+}
+
+static void build_scope_switch_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -17310,12 +18815,19 @@ static void build_scope_switch_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, block_context, &nodecl_statement);
 
+    build_scope_nodecl_switch_statement(
+            nodecl_condition,
+            nodecl_statement,
+            block_context,
+            ast_get_locus(a),
+            nodecl_output);
+
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_context(
-                nodecl_make_list_1(
-                    nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ast_get_locus(a))),
+                *nodecl_output,
                 block_context,
-                ast_get_locus(a)));
+                ast_get_locus(a))
+            );
 }
 
 scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus)
@@ -17338,19 +18850,47 @@ scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t dec
 
     return sym_label;
 }
-static void build_scope_goto_statement(AST a, 
-        decl_context_t decl_context, 
+
+static void build_scope_nodecl_goto_statement(scope_entry_t* sym_label,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t *nodecl_output)
+{
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_goto_statement(sym_label, locus));
+}
+
+static void build_scope_goto_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
     scope_entry_t* sym_label = add_label_if_not_found(ASTText(label), decl_context, ast_get_locus(label));
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_goto_statement(sym_label, ast_get_locus(a)));
+    build_scope_nodecl_goto_statement(
+            sym_label,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 }
 
-static void build_scope_labeled_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_nodecl_labeled_statement(
+        scope_entry_t* sym_label,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_labeled_statement(
+                    nodecl_statement,
+                    sym_label,
+                    locus));
+}
+
+static void build_scope_labeled_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
@@ -17367,19 +18907,20 @@ static void build_scope_labeled_statement(AST a,
         nodecl_statement = nodecl_make_list_1(nodecl_make_empty_statement(ast_get_locus(a)));
     }
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_labeled_statement(nodecl_statement, sym_label, ast_get_locus(a)));
+    build_scope_nodecl_labeled_statement(
+            sym_label,
+            nodecl_statement,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 }
 
-static void build_scope_default_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_nodecl_default_statement(
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
-    AST statement = ASTSon0(a);
-    nodecl_t nodecl_statement = nodecl_null();
-    build_scope_statement(statement, decl_context, &nodecl_statement);
-
     if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
     {
         // If we find 'default: case X: S;' we will generate 'default: ; case X: S;'
@@ -17387,34 +18928,38 @@ static void build_scope_default_statement(AST a,
                 nodecl_make_list_1(
                     nodecl_make_default_statement(
                         nodecl_make_list_1(
-                            nodecl_make_empty_statement(ast_get_locus(a))),
-                        ast_get_locus(a))),
+                            nodecl_make_empty_statement(locus)),
+                        locus)),
                 nodecl_statement);
     }
     else
     {
         *nodecl_output = nodecl_make_list_1(
-                nodecl_make_default_statement(nodecl_statement, ast_get_locus(a)));
+                nodecl_make_default_statement(nodecl_statement, locus));
     }
 }
 
-static void build_scope_case_statement(AST a, 
-        decl_context_t decl_context, 
+static void build_scope_default_statement(AST a,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    AST constant_expression = ASTSon0(a);
-    AST statement = ASTSon1(a);
-    nodecl_t nodecl_expr = nodecl_null();
-    if (!check_expression(constant_expression, decl_context, &nodecl_expr))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_err_statement(ast_get_locus(a)));
-        return;
-    }
-
+    AST statement = ASTSon0(a);
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
 
+    build_scope_nodecl_default_statement(
+            nodecl_statement,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
+}
+
+static void build_scope_nodecl_case_statement(nodecl_t nodecl_case_expression_list,
+        nodecl_t nodecl_statement,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
     if (nodecl_get_kind(nodecl_list_head(nodecl_statement)) == NODECL_CASE_STATEMENT)
     {
         // If we find a
@@ -17434,115 +18979,207 @@ static void build_scope_case_statement(AST a,
             nodecl_concat_lists(
                     nodecl_make_list_1(
                         nodecl_make_case_statement(
-                            nodecl_make_list_1(nodecl_expr),
+                            nodecl_case_expression_list,
                             nodecl_make_list_1(
-                                nodecl_make_empty_statement(ast_get_locus(a))),
-                            ast_get_locus(a))),
+                                nodecl_make_empty_statement(locus)),
+                            locus)),
                     nodecl_statement);
     }
     else
     {
         *nodecl_output = nodecl_make_list_1(
                 nodecl_make_case_statement(
-                    nodecl_make_list_1(nodecl_expr), 
-                    nodecl_statement, 
-                    ast_get_locus(a)));
+                    nodecl_case_expression_list,
+                    nodecl_statement,
+                    locus));
     }
 }
 
-static void build_scope_return_statement(AST a, 
+static void build_scope_case_statement(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
-    AST expression = ASTSon0(a);
+    AST constant_expression = ASTSon0(a);
+    AST statement = ASTSon1(a);
 
+    nodecl_t nodecl_expr_list = nodecl_null();
+    check_expression(constant_expression, decl_context, &nodecl_expr_list);
+    if (!nodecl_is_err_expr(nodecl_expr_list))
+    {
+        nodecl_expr_list = nodecl_make_list_1(nodecl_expr_list);
+    }
+
+    nodecl_t nodecl_statement = nodecl_null();
+    build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    build_scope_nodecl_case_statement(
+            nodecl_expr_list,
+            nodecl_statement,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
+}
+
+static void build_scope_nodecl_return_statement(
+        type_t* return_type,
+        nodecl_t nodecl_return_expression,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    if (!nodecl_is_null(nodecl_return_expression))
+    {
+        char valid_expr = !nodecl_is_err_expr(nodecl_return_expression);
+
+        if (is_void_type(return_type))
+        {
+            if ((!nodecl_expr_is_type_dependent(nodecl_return_expression)
+                        && !is_void_type(nodecl_get_type(nodecl_return_expression))))
+            {
+                error_printf("%s: error: return with non-void expression in a void function\n",
+                        nodecl_locus_to_str(nodecl_return_expression));
+            }
+        }
+
+        if (valid_expr)
+        {
+            if (!nodecl_expr_is_type_dependent(nodecl_return_expression))
+            {
+                nodecl_t nodecl_init = nodecl_null();
+                if (nodecl_get_kind(nodecl_return_expression) == NODECL_CXX_BRACED_INITIALIZER)
+                {
+                    check_nodecl_braced_initializer(
+                            nodecl_return_expression,
+                            decl_context,
+                            return_type,
+                            /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
+                            &nodecl_init);
+                }
+                else
+                {
+                    check_nodecl_expr_initializer(
+                            nodecl_return_expression,
+                            decl_context,
+                            return_type,
+                            /* disallow_narrowing */ 0,
+                            IK_COPY_INITIALIZATION,
+                            &nodecl_init);
+                }
+
+                if (nodecl_is_err_expr(nodecl_return_expression))
+                {
+                    error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n",
+                            nodecl_locus_to_str(nodecl_return_expression),
+                            print_type_str(nodecl_get_type(nodecl_return_expression), decl_context),
+                            print_type_str(return_type, decl_context));
+
+                    *nodecl_output = nodecl_make_list_1(
+                            nodecl_make_err_statement(
+                                locus));
+                    return;
+                }
+                else
+                {
+                    nodecl_return_expression = nodecl_init;
+                }
+            }
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_list_1(
+                    nodecl_make_err_statement(
+                        locus));
+        }
+    }
+    else
+    {
+        if (return_type != NULL
+                && !is_dependent_type(return_type)
+                && !is_error_type(return_type)
+                && !is_void_type(return_type))
+        {
+            error_printf("%s: error: return with no expression in a non-void function\n",
+                    locus_to_str(locus));
+        }
+    }
+
+    *nodecl_output = flush_extra_declared_symbols(locus);
+    *nodecl_output =
+        nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_return_statement(nodecl_return_expression, locus));
+}
+
+static void build_scope_return_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
     scope_entry_t* function = decl_context.current_scope->related_entry;
     ERROR_CONDITION(function->kind != SK_FUNCTION
             && function->kind != SK_DEPENDENT_FRIEND_FUNCTION
             && function->kind != SK_LAMBDA,
             "Invalid related entry!", 0);
 
+    AST expression = ASTSon0(a);
+
     type_t* return_type = function_type_get_return_type(function->type_information);
     if (return_type == NULL)
         return_type = get_void_type();
 
-    nodecl_t nodecl_return = nodecl_null();
-
+    nodecl_t nodecl_return_expression = nodecl_null();
     if (expression != NULL)
     {
-        nodecl_t nodecl_expr = nodecl_null();
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
-            check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
+            check_initializer_clause(expression,
+                    decl_context,
+                    return_type,
+                    &nodecl_return_expression);
         }
-        else 
+        else
         {
-            check_expression(expression, decl_context, &nodecl_expr);
-        }
-
-        char valid_expr = !nodecl_is_err_expr(nodecl_expr);
-
-        if (is_void_type(return_type))
-        {
-            if ((!nodecl_expr_is_type_dependent(nodecl_expr)
-                        && !is_void_type(nodecl_get_type(nodecl_expr))))
-            {
-                error_printf("%s: error: return with non-void expression in a void function\n", ast_location(a));
-            }
-        }
-
-        if (valid_expr)
-        {
-            if (!nodecl_expr_is_type_dependent(nodecl_expr))
-            {
-                if (nodecl_get_kind(nodecl_expr) == NODECL_CXX_BRACED_INITIALIZER)
-                {
-                    check_nodecl_braced_initializer(
-                            nodecl_expr,
-                            decl_context,
-                            return_type,
-                            /* disallow_narrowing */ 0,
-                            &nodecl_return);
-                }
-                else
-                {
-                    check_nodecl_expr_initializer(nodecl_expr, 
-                            decl_context,
-                            return_type,
-                            /* disallow_narrowing */ 0,
-                            &nodecl_return);
-                }
-
-                if (nodecl_is_err_expr(nodecl_return))
-                {
-                    error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
-                            ast_location(a),
-                            print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                            print_type_str(return_type, decl_context));
-                }
-            }
-            else
-            {
-                nodecl_return = nodecl_expr;
-            }
-        }
-    }
-    else
-    {
-        if (return_type != NULL
-                && !is_error_type(return_type)
-                && !is_void_type(return_type))
-        {
-            error_printf("%s: error: return with no expression in a non-void function\n", ast_location(a));
+            check_expression(expression,
+                    decl_context,
+                    &nodecl_return_expression);
         }
     }
 
-    *nodecl_output = flush_extra_declared_symbols(ast_get_locus(a));
+    build_scope_nodecl_return_statement(
+            return_type,
+            nodecl_return_expression,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 
-    *nodecl_output = 
-        nodecl_append_to_list(
-                *nodecl_output,
-                nodecl_make_return_statement(nodecl_return, ast_get_locus(a)));
+}
+
+static void build_scope_nodecl_try_block(
+        nodecl_t nodecl_statement,
+        nodecl_t nodecl_catch_list,
+        nodecl_t nodecl_catch_any,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any, locus));
+}
+
+static void build_scope_nodecl_catch_handler(
+        nodecl_t exception_name,
+        nodecl_t nodecl_catch_statement,
+        type_t* declarator_type,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_catch_handler(
+                exception_name,
+                nodecl_catch_statement,
+                declarator_type,
+                locus)
+            );
 }
 
 static void build_scope_try_block(AST a, 
@@ -17568,10 +19205,10 @@ static void build_scope_try_block(AST a,
         AST exception_declaration = ASTSon0(handler);
         AST handler_compound_statement = ASTSon1(handler);
 
-        decl_context_t block_context = new_block_context(decl_context);
+        decl_context_t catch_handler_context = new_block_context(decl_context);
         if (ASTType(exception_declaration) == AST_AMBIGUITY)
         {
-            solve_ambiguous_exception_decl(exception_declaration, block_context);
+            solve_ambiguous_exception_decl(exception_declaration, catch_handler_context);
         }
 
         if (ASTType(exception_declaration) != AST_ANY_EXCEPTION)
@@ -17586,7 +19223,7 @@ static void build_scope_try_block(AST a,
 
             nodecl_t dummy = nodecl_null();
             build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                    block_context, &dummy);
+                    catch_handler_context, &dummy);
 
             type_t* declarator_type = type_info;
 
@@ -17595,10 +19232,10 @@ static void build_scope_try_block(AST a,
             {
                 dummy = nodecl_null();
                 compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
-                        block_context, &dummy);
+                        catch_handler_context, &dummy);
 
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
-                        declarator_type, &gather_info, block_context);
+                        declarator_type, &gather_info, catch_handler_context);
 
                 if (entry != NULL)
                 {
@@ -17610,17 +19247,27 @@ static void build_scope_try_block(AST a,
             }
 
             nodecl_t nodecl_catch_statement = nodecl_null();
-            build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_statement);
+            build_scope_statement(handler_compound_statement,
+                    catch_handler_context,
+                    &nodecl_catch_statement);
 
-            nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
-                    nodecl_make_catch_handler(exception_name, 
-                        nodecl_make_list_1(
-                            nodecl_make_context(
-                                nodecl_catch_statement,
-                                block_context,
-                                ast_get_locus(exception_declaration))),
-                        declarator_type,
-                        ast_get_locus(exception_declaration)));
+            nodecl_t nodecl_current_catch = nodecl_null();
+            build_scope_nodecl_catch_handler(
+                    exception_name,
+                    nodecl_catch_statement,
+                    declarator_type,
+                    ast_get_locus(exception_declaration),
+                    &nodecl_current_catch);
+
+            nodecl_current_catch = 
+                nodecl_make_context(
+                        nodecl_current_catch,
+                        catch_handler_context,
+                        ast_get_locus(exception_declaration));
+
+            nodecl_catch_list = nodecl_append_to_list(
+                    nodecl_catch_list,
+                    nodecl_current_catch);
         }
         else
         {
@@ -17628,21 +19275,89 @@ static void build_scope_try_block(AST a,
             {
                 error_printf("%s: error: more than one 'catch(...)' handler in try-block\n",
                         ast_location(exception_declaration));
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(
+                            ast_get_locus(a)
+                            )
+                        );
                 return;
             }
             seen_any_case = 1;
-            build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_any);
+            build_scope_statement(handler_compound_statement, catch_handler_context, &nodecl_catch_any);
         }
     }
 
-
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any, ast_get_locus(a)));
+    build_scope_nodecl_try_block(
+            nodecl_statement,
+            nodecl_catch_list,
+            nodecl_catch_any,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 }
 
-static void build_scope_do_statement(AST a, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output) 
+static void build_scope_nodecl_do_statement(
+        nodecl_t nodecl_statement,
+        nodecl_t nodecl_expr,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
+        nodecl_t* nodecl_output)
+{
+    if (nodecl_is_err_expr(nodecl_expr))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_err_statement(locus)
+                );
+        return;
+    }
+
+    C_LANGUAGE()
+    {
+        type_t* t = nodecl_get_type(nodecl_expr);
+        standard_conversion_t dummy;
+        if (!standard_conversion_between_types(&dummy, t, get_bool_type(), locus))
+        {
+            error_printf("%s: error: expression of type '%s' is not valid in this context\n",
+                    locus_to_str(locus),
+                    print_type_str(t, decl_context));
+
+            *nodecl_output = nodecl_make_err_statement(locus);
+            return;
+        }
+
+        nodecl_expr =  nodecl_make_conversion(
+                nodecl_shallow_copy(nodecl_expr),
+                get_bool_type(),
+                locus);
+    }
+    CXX_LANGUAGE()
+    {
+        if (!nodecl_expr_is_type_dependent(nodecl_expr))
+        {
+            check_contextual_conversion(
+                    nodecl_expr,
+                    get_bool_type(),
+                    decl_context,
+                    &nodecl_expr);
+        }
+
+        if (nodecl_is_err_expr(nodecl_expr))
+        {
+            *nodecl_output = nodecl_make_err_statement(locus);
+            return;
+        }
+    }
+
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_do_statement(
+                nodecl_statement,
+                nodecl_expr,
+                locus));
+}
+
+static void build_scope_do_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     AST statement = ASTSon0(a);
     AST expression = ASTSon1(a);
@@ -17650,44 +19365,75 @@ static void build_scope_do_statement(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_normalized_statement(statement, decl_context, &nodecl_statement);
 
-    nodecl_t nodecl_expr = nodecl_null();
-    if (!check_expression(expression, decl_context, &nodecl_expr))
-    {
-        *nodecl_output = nodecl_make_list_1(
-            nodecl_make_err_statement(ast_get_locus(a)));
-        return;
-    }
+    nodecl_t nodecl_expression = nodecl_null();
+    check_expression(expression, decl_context, &nodecl_expression);
 
-    *nodecl_output = nodecl_make_list_1(nodecl_make_do_statement(nodecl_statement, 
-                nodecl_expr, ast_get_locus(a)));
+    build_scope_nodecl_do_statement(nodecl_statement,
+            nodecl_expression,
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 }
 
-static void build_scope_empty_statement(AST a, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_nodecl_empty_statement(
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_empty_statement(ast_get_locus(a)));
+            nodecl_make_empty_statement(locus));
 }
 
-static void build_scope_break(AST a, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_empty_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_empty_statement(
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
+}
+
+static void build_scope_nodecl_break_statement(
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_break_statement(
                 /* construct_name */ nodecl_null(),
-                ast_get_locus(a)));
+                locus));
 }
 
-static void build_scope_continue(AST a, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_break_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_break_statement(
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
+}
+
+static void build_scope_nodecl_continue_statement(
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_continue_statement(
                 /* construct_name */ nodecl_null(),
-                ast_get_locus(a)));
+                locus));
+}
+
+static void build_scope_continue_statement(AST a,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    build_scope_nodecl_continue_statement(
+            decl_context,
+            ast_get_locus(a),
+            nodecl_output);
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
@@ -17750,7 +19496,9 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
             {
                 error_printf("%s: error: invalid nesting of #pragma\n",
                         ast_location(pragma_stmt));
-                *nodecl_output = nodecl_make_err_statement(ast_get_locus(pragma_stmt));
+
+                *nodecl_output = nodecl_make_list_1(
+                        nodecl_make_err_statement(ast_get_locus(pragma_stmt)));
                 return;
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT:
@@ -18239,8 +19987,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
     STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),
     STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_empty_statement),
-    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_break),
-    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_continue),
+    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_break_statement),
+    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_continue_statement),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement),
     // Pragma custom support
     STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement),
@@ -18541,11 +20289,7 @@ static nodecl_t instantiate_stmt_walk(nodecl_instantiate_stmt_visitor_t* v, node
         {
             nodecl_t current_item = instantiate_stmt_walk(v, list[i]);
 
-            ERROR_CONDITION(!nodecl_is_null(current_item)
-                    && nodecl_is_list(current_item),
-                    "Instantiated single tree as a list", 0);
-
-            result_list = nodecl_append_to_list(
+            result_list = nodecl_concat_lists(
                     result_list,
                     current_item);
         }
@@ -18563,6 +20307,9 @@ static nodecl_t instantiate_stmt_walk(nodecl_instantiate_stmt_visitor_t* v, node
                     nodecl_locus_to_str(node));
         }
         NODECL_WALK(v, node);
+        ERROR_CONDITION(!nodecl_is_null(v->nodecl_result)
+                && !nodecl_is_list(v->nodecl_result),
+                "Instantiated tree must be a list", 0);
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Ended instantation of statement '%s' at %s\n",
@@ -18585,6 +20332,12 @@ static void instantiate_stmt_not_implemented_yet(nodecl_instantiate_stmt_visitor
     internal_error("Instantiation of statement '%s' at '%s' not yet implemented\n",
             ast_print_node_type(nodecl_get_kind(nodecl_stmt)),
             nodecl_locus_to_str(nodecl_stmt));
+}
+
+static void instantiate_unknown_pragma(nodecl_instantiate_stmt_visitor_t* v,
+        nodecl_t nodecl_stmt)
+{
+    v->nodecl_result = nodecl_make_list_1(nodecl_shallow_copy(nodecl_stmt));
 }
 
 // This function does not return a NODECL_TEMPLATE_FUNCTION_CODE but a NODECL_FUNCTION_CODE
@@ -18611,16 +20364,17 @@ static void instantiate_template_function_code(
     v->instantiation_symbol_map = instantiation_symbol_map_push(v->instantiation_symbol_map);
 
     // Register every parameter in this context
-    int i;
-    for (i = 0; i < v->orig_function_instantiated->entity_specs.num_related_symbols; i++)
+    int num_new_parameter = 0;
+    int num_parameter;
+    for (num_parameter = 0; num_parameter < v->orig_function_instantiated->entity_specs.num_related_symbols; num_parameter++)
     {
         scope_entry_t* orig_parameter =
-                v->orig_function_instantiated->entity_specs.related_symbols[i];
+                v->orig_function_instantiated->entity_specs.related_symbols[num_parameter];
         scope_entry_t* new_parameter = new_symbol(new_decl_context,
                 new_decl_context.current_scope,
                 orig_parameter->symbol_name);
 
-        new_parameter->kind = SK_VARIABLE;
+        new_parameter->kind = orig_parameter->kind;
         new_parameter->type_information = update_type_for_instantiation(
                 orig_parameter->type_information,
                 new_decl_context,
@@ -18628,25 +20382,80 @@ static void instantiate_template_function_code(
                 v->instantiation_symbol_map,
                 /* pack */ -1);
 
-        new_parameter->value = instantiate_expression(orig_parameter->value,
-                new_decl_context,
-                v->instantiation_symbol_map,
-                /* pack_index */ -1);
-
         // WARNING - This is a usual source of issues
         new_parameter->entity_specs = orig_parameter->entity_specs;
         // Clear these
         new_parameter->entity_specs.num_function_parameter_info = 0;
         new_parameter->entity_specs.function_parameter_info = 0;
 
-        P_LIST_ADD(
-                v->new_function_instantiated->entity_specs.related_symbols,
-                v->new_function_instantiated->entity_specs.num_related_symbols,
-                new_parameter);
+        if (orig_parameter->kind == SK_VARIABLE)
+        {
+            new_parameter->value = instantiate_expression(orig_parameter->value,
+                    new_decl_context,
+                    v->instantiation_symbol_map,
+                    /* pack_index */ -1);
 
-        symbol_set_as_parameter_of_function(new_parameter, 
-                v->new_function_instantiated,
-                /* nesting */ 0, /* position */ i);
+            P_LIST_ADD(
+                    v->new_function_instantiated->entity_specs.related_symbols,
+                    v->new_function_instantiated->entity_specs.num_related_symbols,
+                    new_parameter);
+
+            symbol_set_as_parameter_of_function(new_parameter, 
+                    v->new_function_instantiated,
+                    /* nesting */ 0, /* position */ num_new_parameter);
+            num_new_parameter++;
+        }
+        else if (orig_parameter->kind == SK_VARIABLE_PACK)
+        {
+            int num_types = sequence_of_types_get_num_types(new_parameter->type_information);
+
+            nodecl_t nodecl_sym_list = nodecl_null();
+
+            int num_sub_parameter;
+            for (num_sub_parameter = 0; num_sub_parameter < num_types; num_sub_parameter++)
+            {
+                type_t* t = sequence_of_types_get_type_num(new_parameter->type_information,
+                        num_sub_parameter);
+
+                const char* c = NULL;
+                uniquestr_sprintf(
+                        &c, "_%s__%d",
+                        orig_parameter->symbol_name,
+                        num_sub_parameter);
+
+                scope_entry_t* new_sub_parameter = new_symbol(new_decl_context,
+                        new_decl_context.current_scope,
+                        c);
+
+                new_sub_parameter->kind = SK_VARIABLE;
+                new_sub_parameter->type_information = t;
+
+                // WARNING - This is a usual source of issues
+                new_sub_parameter->entity_specs = orig_parameter->entity_specs;
+                // Clear these
+                new_sub_parameter->entity_specs.num_function_parameter_info = 0;
+                new_sub_parameter->entity_specs.function_parameter_info = 0;
+
+                P_LIST_ADD(
+                        v->new_function_instantiated->entity_specs.related_symbols,
+                        v->new_function_instantiated->entity_specs.num_related_symbols,
+                        new_sub_parameter);
+
+                symbol_set_as_parameter_of_function(new_sub_parameter, 
+                        v->new_function_instantiated,
+                        /* nesting */ 0, /* position */ num_new_parameter);
+                num_new_parameter++;
+
+                nodecl_t nodecl_sub_symbol = nodecl_make_symbol(
+                        new_sub_parameter,
+                        nodecl_get_locus(node));
+                nodecl_set_type(nodecl_sub_symbol, lvalue_ref(new_sub_parameter->type_information));
+                nodecl_sym_list = nodecl_append_to_list(nodecl_sym_list,
+                        nodecl_sub_symbol);
+            }
+
+            new_parameter->value = nodecl_sym_list;
+        }
 
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_parameter, new_parameter);
     }
@@ -18714,6 +20523,24 @@ static void instantiate_template_function_code(
         instantiation_symbol_map_add(v->instantiation_symbol_map, orig_this_symbol, this_symbol);
     }
 
+    // Register __MERCURIUM_PRETTY_FUNCTION__
+    scope_entry_t* mercurium_pretty_function = NULL;
+    {
+        const char* pretty_function_str = UNIQUESTR_LITERAL("__PRETTY_FUNCTION__");
+        mercurium_pretty_function = register_mercurium_pretty_print(v->new_function_instantiated, new_decl_context);
+
+        // Now map the orig __PRETTY_FUNCTION__ to __MERCURIUM_PRETTY_FUNCTION__
+        decl_context_t orig_decl_context = nodecl_get_decl_context(nodecl_context);
+
+        scope_entry_list_t* entry_list = query_in_scope_str(orig_decl_context, pretty_function_str, NULL);
+        ERROR_CONDITION(entry_list == NULL, "__PRETTY_FUNCTION__ not found", 0);
+
+        scope_entry_t* orig_pretty_function = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        instantiation_symbol_map_add(v->instantiation_symbol_map, orig_pretty_function, mercurium_pretty_function);
+    }
+
 
     decl_context_t previous_orig_decl_context = v->orig_decl_context;
     decl_context_t previous_new_decl_context = v->new_decl_context;
@@ -18726,17 +20553,37 @@ static void instantiate_template_function_code(
     nodecl_t nodecl_stmt_list = nodecl_get_child(nodecl_context, 0);
 
     nodecl_t new_nodecl_stmt_list = instantiate_stmt_walk(v, nodecl_stmt_list);
-    nodecl_t new_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
+
+    {
+        // Emit __MERCURIUM_PRETTY_FUNCTION__
+        nodecl_t new_compound_stmt = nodecl_list_head(new_nodecl_stmt_list);
+        nodecl_t new_list_of_stmts = nodecl_get_child(new_compound_stmt, 0);
+        emit_mercurium_pretty_function(&new_list_of_stmts, mercurium_pretty_function);
+        nodecl_set_child(new_compound_stmt, 0, new_list_of_stmts);
+    }
+
+    nodecl_t instantiated_nodecl_initializers = instantiate_stmt_walk(v, nodecl_initializers);
+    nodecl_t new_nodecl_initializers = nodecl_null();
+    if (v->new_function_instantiated->entity_specs.is_constructor)
+    {
+        check_nodecl_member_initializer_list(instantiated_nodecl_initializers,
+                v->new_function_instantiated,
+                new_decl_context,
+                v->new_function_instantiated->locus,
+                &new_nodecl_initializers);
+    }
 
     v->nodecl_result =
-        nodecl_make_function_code(
-                nodecl_make_context(
-                    new_nodecl_stmt_list,
-                    new_decl_context,
-                    v->new_function_instantiated->locus),
-                new_nodecl_initializers,
-                v->new_function_instantiated,
-                v->new_function_instantiated->locus
+        nodecl_make_list_1(
+                nodecl_make_function_code(
+                    nodecl_make_context(
+                        new_nodecl_stmt_list,
+                        new_decl_context,
+                        v->new_function_instantiated->locus),
+                    new_nodecl_initializers,
+                    v->new_function_instantiated,
+                    v->new_function_instantiated->locus
+                    )
                 );
 
     v->orig_decl_context = previous_orig_decl_context;
@@ -18753,15 +20600,11 @@ static void instantiate_compound_statement(
 
     nodecl_t new_stmt_list = instantiate_stmt_walk(v, orig_stmt_list);
 
-    nodecl_t new_nodecl_destructors = nodecl_null();
-    call_destructors_of_classes(v->new_decl_context, nodecl_get_locus(node), &new_nodecl_destructors);
-
-    v->nodecl_result =
-        nodecl_make_compound_statement(
-                new_stmt_list,
-                new_nodecl_destructors,
-                nodecl_get_locus(node)
-                );
+    build_scope_nodecl_compound_statement(
+            new_stmt_list,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_expression_statement(
@@ -18773,10 +20616,11 @@ static void instantiate_expression_statement(
     nodecl_t new_expression = instantiate_expression(expression, v->new_decl_context,
             v->instantiation_symbol_map, /* pack_index */ -1);
 
-    v->nodecl_result =
-        nodecl_make_expression_statement(
-                new_expression,
-                nodecl_get_locus(node));
+    build_scope_nodecl_expression_statement(
+            new_expression,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_return_statement(
@@ -18785,13 +20629,24 @@ static void instantiate_return_statement(
 {
     nodecl_t expression = nodecl_get_child(node, 0);
 
-    nodecl_t new_expression = instantiate_expression(expression, v->new_decl_context,
+    nodecl_t nodecl_return_expression = instantiate_expression(expression, v->new_decl_context,
             v->instantiation_symbol_map, /* pack_index */ -1);
 
-    v->nodecl_result =
-        nodecl_make_return_statement(
-                new_expression,
-                nodecl_get_locus(node));
+    scope_entry_t* function = v->new_decl_context.current_scope->related_entry;
+    ERROR_CONDITION(function->kind != SK_FUNCTION
+            && function->kind != SK_LAMBDA,
+            "Invalid related entry!", 0);
+
+    type_t* return_type = function_type_get_return_type(function->type_information);
+    if (return_type == NULL)
+        return_type = get_void_type();
+
+    build_scope_nodecl_return_statement(
+            return_type,
+            nodecl_return_expression,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static scope_entry_t* instantiate_declaration_common(
@@ -18828,6 +20683,7 @@ static scope_entry_t* instantiate_declaration_common(
                             /* pack_index */ -1);
 
                     nodecl_t nodecl_init = nodecl_null();
+
                     if (!nodecl_is_null(value))
                     {
                         if (nodecl_get_kind(value) == NODECL_CXX_EQUAL_INITIALIZER
@@ -18848,6 +20704,7 @@ static scope_entry_t* instantiate_declaration_common(
                                     v->new_decl_context,
                                     get_unqualified_type(new_entry->type_information),
                                     /* disallow_narrowing */ 0,
+                                    IK_DIRECT_INITIALIZATION,
                                     &nodecl_init);
                         }
                     }
@@ -18890,7 +20747,10 @@ static void instantiate_cxx_def_or_decl(
         new_nodecl_context = nodecl_make_context(nodecl_null(), v->new_decl_context, nodecl_get_locus(node));
     }
 
-    v->nodecl_result = fun(new_nodecl_context, new_entry, nodecl_get_locus(node));
+    v->nodecl_result =
+        nodecl_make_list_1(
+                fun(new_nodecl_context, new_entry, nodecl_get_locus(node))
+                );
 }
 
 static void instantiate_cxx_decl(
@@ -18920,7 +20780,10 @@ static void instantiate_object_init(
         nodecl_instantiate_stmt_visitor_t* v,
         nodecl_t node)
 {
-    v->nodecl_result = instantiate_object_init_node(v, node);
+    v->nodecl_result =
+        nodecl_make_list_1(
+                instantiate_object_init_node(v, node)
+                );
 }
 
 static void instantiate_cxx_member_init(
@@ -18928,7 +20791,6 @@ static void instantiate_cxx_member_init(
         nodecl_t node)
 {
     nodecl_t nodecl_cxx_dependent_name = nodecl_get_child(node, 0);
-
     nodecl_t nodecl_initialization_expression = nodecl_get_child(node, 1);
 
     nodecl_cxx_dependent_name = update_cxx_dep_qualified_name(nodecl_cxx_dependent_name,
@@ -18936,67 +20798,26 @@ static void instantiate_cxx_member_init(
             v->instantiation_symbol_map,
             /* FIXME - pack_index */ -1);
 
-    scope_entry_list_t *entry_list = query_nodecl_name_in_class(
+    nodecl_initialization_expression = instantiate_expression(
+            nodecl_initialization_expression,
             v->new_decl_context,
-            v->new_decl_context.class_scope->related_entry,
-            nodecl_cxx_dependent_name,
-            NULL);
+            v->instantiation_symbol_map,
+            /* FIXME: pack_index */ -1);
 
-    if (entry_list == NULL)
-    {
-        v->nodecl_result = nodecl_null();
-        return;
-    }
-
-    scope_entry_t* entry = entry_list_head(entry_list);
-    entry_list_free(entry_list);
-
-    if (entry->kind == SK_CLASS
-            || entry->kind == SK_VARIABLE)
-    {
-        nodecl_initialization_expression = instantiate_expression(
-                nodecl_initialization_expression,
-                v->new_decl_context,
-                v->instantiation_symbol_map,
-                /* FIXME: pack_index */ -1);
-
-        type_t* type_to_initialize = NULL;
-        if (entry->kind == SK_VARIABLE)
-            type_to_initialize = get_unqualified_type(entry->type_information);
-        else
-            type_to_initialize = get_user_defined_type(entry);
-
-        nodecl_t nodecl_init = nodecl_null();
-        check_nodecl_initialization(
-                nodecl_initialization_expression,
-                v->new_decl_context,
-                entry,
-                type_to_initialize,
-                &nodecl_init,
-                /* is_auto */ 0);
-
-        v->nodecl_result = nodecl_make_member_init(
-                nodecl_init,
-                entry,
-                nodecl_get_locus(node));
-    }
-    else
-    {
-        v->nodecl_result = nodecl_null();
-        return;
-    }
+    v->nodecl_result = 
+        nodecl_make_list_1(
+                nodecl_make_cxx_member_init(
+                    nodecl_cxx_dependent_name,
+                    nodecl_initialization_expression,
+                    get_unknown_dependent_type(),
+                    nodecl_get_locus(node))
+                );
 }
 
 static void instantiate_do_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_stmt = nodecl_get_child(node, 0);
     nodecl_stmt = instantiate_stmt_walk(v, nodecl_stmt);
-
-    if (nodecl_is_err_stmt(nodecl_stmt))
-    {
-        v->nodecl_result = nodecl_stmt;
-        return;
-    }
 
     nodecl_t nodecl_expr = nodecl_get_child(node, 1);
 
@@ -19005,10 +20826,12 @@ static void instantiate_do_statement(nodecl_instantiate_stmt_visitor_t* v, nodec
             v->instantiation_symbol_map,
             /* pack_index */ 1);
 
-    v->nodecl_result = nodecl_make_do_statement(
+    build_scope_nodecl_do_statement(
             nodecl_stmt,
             nodecl_expr,
-            nodecl_get_locus(node));
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_context(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19019,10 +20842,13 @@ static void instantiate_context(nodecl_instantiate_stmt_visitor_t* v, nodecl_t n
     nodecl_t nodecl_in_context = nodecl_get_child(node, 0);
     nodecl_in_context = instantiate_stmt_walk(v, nodecl_in_context);
 
-    v->nodecl_result = nodecl_make_context(
-            nodecl_in_context,
-            v->new_decl_context,
-            nodecl_get_locus(node));
+    v->nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_in_context,
+                    v->new_decl_context,
+                    nodecl_get_locus(node))
+                );
 
     v->new_decl_context = existing_context;
 }
@@ -19051,11 +20877,12 @@ static void instantiate_while_statement(nodecl_instantiate_stmt_visitor_t* v, no
     nodecl_condition = instantiate_condition(v, nodecl_condition);
     nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
-    v->nodecl_result = nodecl_make_while_statement(
+    build_scope_nodecl_while_statement(
             nodecl_condition,
             nodecl_statement,
-            /* loop_name */ nodecl_null(),
-            nodecl_get_locus(node));
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_if_else_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19068,68 +20895,43 @@ static void instantiate_if_else_statement(nodecl_instantiate_stmt_visitor_t* v, 
     nodecl_then = instantiate_stmt_walk(v, nodecl_then);
     nodecl_else = instantiate_stmt_walk(v, nodecl_else);
 
-    v->nodecl_result = nodecl_make_if_else_statement(
+    build_scope_nodecl_if_else_statement(
             nodecl_condition,
             nodecl_then,
             nodecl_else,
-            nodecl_get_locus(node));
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
-static nodecl_t instantiate_loop_control(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+static nodecl_t instantiate_loop_init(nodecl_instantiate_stmt_visitor_t* v, nodecl_t nodecl_init)
 {
-    if (nodecl_get_kind(node) == NODECL_LOOP_CONTROL)
+    nodecl_t new_expr_list = nodecl_null();
+    int i, n;
+    nodecl_t* expr_list = nodecl_unpack_list(nodecl_init, &n);
+    for (i = 0; i < n; i++)
     {
-        nodecl_t nodecl_init = nodecl_get_child(node, 0);
-        nodecl_t cond = nodecl_get_child(node, 1);
-        nodecl_t next = nodecl_get_child(node, 2);
+        // We can expect object-inits here, the name of the tree is misleading
+        nodecl_t expr = expr_list[i];
+        nodecl_t new_expr = nodecl_null();
 
-        nodecl_t new_expr_list = nodecl_null();
-        int i, n;
-        nodecl_t* expr_list = nodecl_unpack_list(nodecl_init, &n);
-        for (i = 0; i < n; i++)
+        if (nodecl_get_kind(expr) == NODECL_OBJECT_INIT)
         {
-            // We can expect object-inits here, the name of the tree is misleading
-            nodecl_t expr = expr_list[i];
-            nodecl_t new_expr = nodecl_null();
-
-            if (nodecl_get_kind(expr) == NODECL_OBJECT_INIT)
-            {
-                new_expr = instantiate_object_init_node(v, expr);
-            }
-            else
-            {
-                new_expr = instantiate_expression(expr,
-                        v->new_decl_context,
-                        v->instantiation_symbol_map,
-                        /* pack_index */ -1);
-            }
-
-            new_expr_list = nodecl_append_to_list(new_expr_list, new_expr);
+            new_expr = instantiate_object_init_node(v, expr);
         }
-        xfree(expr_list);
+        else
+        {
+            new_expr = instantiate_expression(expr,
+                    v->new_decl_context,
+                    v->instantiation_symbol_map,
+                    /* pack_index */ -1);
+        }
 
-        cond = instantiate_expression(cond,
-                v->new_decl_context,
-                v->instantiation_symbol_map,
-                /* pack_index */ -1);
-        
-        next = instantiate_expression(cond,
-                v->new_decl_context,
-                v->instantiation_symbol_map,
-                /* pack_index */ -1);
+        new_expr_list = nodecl_append_to_list(new_expr_list, new_expr);
+    }
+    xfree(expr_list);
 
-        return nodecl_make_loop_control(new_expr_list, cond, next, nodecl_get_locus(node));
-    }
-    else if (nodecl_get_kind(node) == NODECL_ITERATOR_LOOP_CONTROL)
-    {
-        instantiate_stmt_not_implemented_yet(v, node);
-    }
-    else
-    {
-        internal_error("Unexpected loop control '%s' at '%s'\n", ast_print_node_type(nodecl_get_kind(node)), nodecl_locus_to_str(node));
-    }
-
-    return nodecl_null();
+    return new_expr_list;
 }
 
 static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19137,14 +20939,39 @@ static void instantiate_for_statement(nodecl_instantiate_stmt_visitor_t* v, node
     nodecl_t nodecl_loop_control = nodecl_get_child(node, 0);
     nodecl_t nodecl_statement = nodecl_get_child(node, 1);
 
-    nodecl_loop_control = instantiate_loop_control(v, nodecl_loop_control);
     nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
-    v->nodecl_result = nodecl_make_for_statement(
-            nodecl_loop_control,
-            nodecl_statement,
-            /* loop_name */ nodecl_null(),
-            nodecl_get_locus(node));
+    if (nodecl_get_kind(nodecl_loop_control) == NODECL_LOOP_CONTROL)
+    {
+        nodecl_t nodecl_loop_init = nodecl_get_child(nodecl_loop_control, 0);
+        nodecl_t nodecl_loop_condition = nodecl_get_child(nodecl_loop_control, 1);
+        nodecl_t nodecl_loop_iter = nodecl_get_child(nodecl_loop_control, 2);
+
+        nodecl_loop_init = instantiate_loop_init(v, nodecl_loop_init);
+        nodecl_loop_condition = instantiate_condition(v, nodecl_loop_condition);
+        nodecl_loop_iter = instantiate_expression(nodecl_loop_iter,
+                v->new_decl_context,
+                v->instantiation_symbol_map,
+                /* pack_index */ -1);
+
+        build_scope_nodecl_for_statement_nonrange(
+                nodecl_loop_init,
+                nodecl_loop_condition,
+                nodecl_loop_iter,
+                /* nodecl_loop_name */ nodecl_null(),
+                nodecl_statement,
+                v->new_decl_context,
+                nodecl_get_locus(node),
+                &v->nodecl_result);
+    }
+    else if (nodecl_get_kind(nodecl_loop_control) == NODECL_ITERATOR_LOOP_CONTROL)
+    {
+        internal_error("range-based for not yet supported", 0);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
 }
 
 static void instantiate_labeled_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19157,7 +20984,12 @@ static void instantiate_labeled_statement(nodecl_instantiate_stmt_visitor_t* v, 
 
     nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
-    v->nodecl_result = nodecl_make_labeled_statement(nodecl_statement, new_label, nodecl_get_locus(node));
+    build_scope_nodecl_labeled_statement(
+            new_label,
+            nodecl_statement,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_default_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19165,7 +20997,11 @@ static void instantiate_default_statement(nodecl_instantiate_stmt_visitor_t* v, 
     nodecl_t nodecl_statement = nodecl_get_child(node, 1);
     nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
-    v->nodecl_result = nodecl_make_default_statement(nodecl_statement, nodecl_get_locus(node));
+    build_scope_nodecl_default_statement(
+            nodecl_statement,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_case_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19194,6 +21030,13 @@ static void instantiate_case_statement(nodecl_instantiate_stmt_visitor_t* v, nod
             new_expr_list,
             nodecl_statement,
             nodecl_get_locus(node));
+
+    build_scope_nodecl_case_statement(
+            new_expr_list,
+            nodecl_statement,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_catch_handler(nodecl_instantiate_stmt_visitor_t *v, nodecl_t node)
@@ -19202,27 +21045,8 @@ static void instantiate_catch_handler(nodecl_instantiate_stmt_visitor_t *v, node
     nodecl_t stmt_list = nodecl_get_child(node, 1);
     type_t* catch_type = nodecl_get_type(node);
 
-    {
-        // This is a bit silly because exception name is in the context of statement
-        // so we cannot use instantiate_context directly
-        decl_context_t existing_context = v->new_decl_context;
-        v->new_decl_context = new_block_context(existing_context);
-
-        exception_name = instantiate_stmt_walk(v, exception_name);
-
-        nodecl_t nodecl_statement = nodecl_list_head(stmt_list);
-        nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
-
-        stmt_list = nodecl_make_list_1(
-                nodecl_make_context(
-                    nodecl_statement,
-                    v->new_decl_context,
-                    nodecl_get_locus(stmt_list)));
-
-        v->new_decl_context = existing_context;
-
-    }
-
+    exception_name = instantiate_stmt_walk(v, exception_name);
+    stmt_list = instantiate_stmt_walk(v, stmt_list);
     catch_type = update_type_for_instantiation(
             catch_type,
             v->new_decl_context,
@@ -19230,11 +21054,12 @@ static void instantiate_catch_handler(nodecl_instantiate_stmt_visitor_t *v, node
             v->instantiation_symbol_map,
             /* pack */ -1);
 
-    v->nodecl_result = nodecl_make_catch_handler(
-        exception_name,
-        stmt_list,
-        catch_type,
-        nodecl_get_locus(node));
+    build_scope_nodecl_catch_handler(
+            exception_name,
+            stmt_list,
+            catch_type,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_try_block(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19247,11 +21072,13 @@ static void instantiate_try_block(nodecl_instantiate_stmt_visitor_t* v, nodecl_t
     nodecl_catch_list = instantiate_stmt_walk(v, nodecl_catch_list);
     nodecl_catch_any = instantiate_stmt_walk(v, nodecl_catch_any);
 
-    v->nodecl_result = nodecl_make_try_block(
+    build_scope_nodecl_try_block(
             nodecl_statement,
             nodecl_catch_list,
             nodecl_catch_any,
-            nodecl_get_locus(node));
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_switch_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
@@ -19262,44 +21089,79 @@ static void instantiate_switch_statement(nodecl_instantiate_stmt_visitor_t* v, n
     nodecl_condition = instantiate_condition(v, nodecl_condition);
     nodecl_statement = instantiate_stmt_walk(v, nodecl_statement);
 
-    v->nodecl_result = nodecl_make_switch_statement(
+    build_scope_nodecl_switch_statement(
             nodecl_condition,
             nodecl_statement,
-            nodecl_get_locus(node));
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_empty_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    v->nodecl_result = nodecl_make_empty_statement(nodecl_get_locus(node));
+    build_scope_nodecl_empty_statement(
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_break_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    v->nodecl_result = nodecl_make_break_statement(/* construct-name */ nodecl_null(), nodecl_get_locus(node));
+    build_scope_nodecl_break_statement(v->new_decl_context, nodecl_get_locus(node), &v->nodecl_result);
 }
 
 static void instantiate_continue_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    v->nodecl_result = nodecl_make_continue_statement(/* construct-name */ nodecl_null(), nodecl_get_locus(node));
+    build_scope_nodecl_continue_statement(v->new_decl_context, nodecl_get_locus(node), &v->nodecl_result);
 }
 
 static void instantiate_goto_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
     scope_entry_t* label = add_label_if_not_found(nodecl_get_symbol(node)->symbol_name, v->new_decl_context, nodecl_get_locus(node));
-    
-    v->nodecl_result = nodecl_make_goto_statement(label, nodecl_get_locus(node));
+
+    build_scope_nodecl_goto_statement(label,
+            v->new_decl_context,
+            nodecl_get_locus(node),
+            &v->nodecl_result);
 }
 
 static void instantiate_pragma_custom_statement(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
-    instantiate_stmt_not_implemented_yet(v, node);
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
+    nodecl_t statements = nodecl_get_child(node, 1);
+
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
+    statements = instantiate_stmt_walk(v, statements);
+
+    v->nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_pragma_custom_statement(
+                    nodecl_pragma_line,
+                    statements,
+                    nodecl_get_text(node),
+                    nodecl_get_locus(node)));
+}
+
+static void instantiate_pragma_custom_directive(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_pragma_line = nodecl_get_child(node, 0);
+
+    nodecl_pragma_line = nodecl_shallow_copy(nodecl_pragma_line);
+    nodecl_t nodecl_pragma_context = nodecl_make_pragma_context(v->new_decl_context, nodecl_get_locus(node));
+
+    v->nodecl_result =
+        nodecl_make_list_1(
+                nodecl_make_pragma_custom_directive(
+                    nodecl_pragma_line,
+                    nodecl_pragma_context,
+                    nodecl_get_text(node),
+                    nodecl_get_locus(node)));
 }
 
 static void instantiate_pragma_custom_declaration(nodecl_instantiate_stmt_visitor_t* v, nodecl_t node)
 {
     instantiate_stmt_not_implemented_yet(v, node);
 }
-
 
 // Initialization
 static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
@@ -19321,8 +21183,8 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
     v->orig_function_instantiated = orig_function_instantiated;
     v->new_function_instantiated = new_function_instantiated;
 
-    NODECL_VISITOR(v)->visit_cxx_def = instantiate_stmt_visitor_fun(instantiate_cxx_def);
-    NODECL_VISITOR(v)->visit_cxx_decl = instantiate_stmt_visitor_fun(instantiate_cxx_decl);
+    NODECL_VISITOR(v)->visit_cxx_def = instantiate_stmt_visitor_fun(instantiate_cxx_def); // --
+    NODECL_VISITOR(v)->visit_cxx_decl = instantiate_stmt_visitor_fun(instantiate_cxx_decl); // --
     NODECL_VISITOR(v)->visit_cxx_explicit_instantiation = NULL;
     NODECL_VISITOR(v)->visit_cxx_extern_explicit_instantiation = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_namespace = NULL;
@@ -19330,30 +21192,34 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 
     NODECL_VISITOR(v)->visit_cxx_member_init = instantiate_stmt_visitor_fun(instantiate_cxx_member_init);
 
-    NODECL_VISITOR(v)->visit_object_init = instantiate_stmt_visitor_fun(instantiate_object_init);
+    NODECL_VISITOR(v)->visit_object_init = instantiate_stmt_visitor_fun(instantiate_object_init); // --
 
-    NODECL_VISITOR(v)->visit_template_function_code = instantiate_stmt_visitor_fun(instantiate_template_function_code);
-    NODECL_VISITOR(v)->visit_compound_statement = instantiate_stmt_visitor_fun(instantiate_compound_statement);
-    NODECL_VISITOR(v)->visit_expression_statement = instantiate_stmt_visitor_fun(instantiate_expression_statement);
-    NODECL_VISITOR(v)->visit_return_statement = instantiate_stmt_visitor_fun(instantiate_return_statement);
-    NODECL_VISITOR(v)->visit_do_statement = instantiate_stmt_visitor_fun(instantiate_do_statement);
-    NODECL_VISITOR(v)->visit_while_statement = instantiate_stmt_visitor_fun(instantiate_while_statement);
-    NODECL_VISITOR(v)->visit_if_else_statement = instantiate_stmt_visitor_fun(instantiate_if_else_statement);
-    NODECL_VISITOR(v)->visit_for_statement = instantiate_stmt_visitor_fun(instantiate_for_statement);
-    NODECL_VISITOR(v)->visit_labeled_statement = instantiate_stmt_visitor_fun(instantiate_labeled_statement);
-    NODECL_VISITOR(v)->visit_default_statement = instantiate_stmt_visitor_fun(instantiate_default_statement);
-    NODECL_VISITOR(v)->visit_case_statement = instantiate_stmt_visitor_fun(instantiate_case_statement);
-    NODECL_VISITOR(v)->visit_try_block = instantiate_stmt_visitor_fun(instantiate_try_block);
-    NODECL_VISITOR(v)->visit_catch_handler = instantiate_stmt_visitor_fun(instantiate_catch_handler);
-    NODECL_VISITOR(v)->visit_switch_statement = instantiate_stmt_visitor_fun(instantiate_switch_statement);
-    NODECL_VISITOR(v)->visit_empty_statement = instantiate_stmt_visitor_fun(instantiate_empty_statement);
-    NODECL_VISITOR(v)->visit_break_statement = instantiate_stmt_visitor_fun(instantiate_break_statement);
-    NODECL_VISITOR(v)->visit_continue_statement = instantiate_stmt_visitor_fun(instantiate_continue_statement);
-    NODECL_VISITOR(v)->visit_goto_statement = instantiate_stmt_visitor_fun(instantiate_goto_statement);
+    NODECL_VISITOR(v)->visit_template_function_code = instantiate_stmt_visitor_fun(instantiate_template_function_code); // --
+    NODECL_VISITOR(v)->visit_compound_statement = instantiate_stmt_visitor_fun(instantiate_compound_statement); // --
+    NODECL_VISITOR(v)->visit_expression_statement = instantiate_stmt_visitor_fun(instantiate_expression_statement); // --
+    NODECL_VISITOR(v)->visit_return_statement = instantiate_stmt_visitor_fun(instantiate_return_statement); // --
+    NODECL_VISITOR(v)->visit_do_statement = instantiate_stmt_visitor_fun(instantiate_do_statement); // --
+    NODECL_VISITOR(v)->visit_while_statement = instantiate_stmt_visitor_fun(instantiate_while_statement); // --
+    NODECL_VISITOR(v)->visit_if_else_statement = instantiate_stmt_visitor_fun(instantiate_if_else_statement); // --
+    NODECL_VISITOR(v)->visit_for_statement = instantiate_stmt_visitor_fun(instantiate_for_statement); // --
+    NODECL_VISITOR(v)->visit_labeled_statement = instantiate_stmt_visitor_fun(instantiate_labeled_statement); // --
+    NODECL_VISITOR(v)->visit_default_statement = instantiate_stmt_visitor_fun(instantiate_default_statement); // --
+    NODECL_VISITOR(v)->visit_case_statement = instantiate_stmt_visitor_fun(instantiate_case_statement); // --
+    NODECL_VISITOR(v)->visit_try_block = instantiate_stmt_visitor_fun(instantiate_try_block); // --
+    NODECL_VISITOR(v)->visit_catch_handler = instantiate_stmt_visitor_fun(instantiate_catch_handler); // --
+    NODECL_VISITOR(v)->visit_switch_statement = instantiate_stmt_visitor_fun(instantiate_switch_statement); // --
+    NODECL_VISITOR(v)->visit_empty_statement = instantiate_stmt_visitor_fun(instantiate_empty_statement); // --
+    NODECL_VISITOR(v)->visit_break_statement = instantiate_stmt_visitor_fun(instantiate_break_statement); // --
+    NODECL_VISITOR(v)->visit_continue_statement = instantiate_stmt_visitor_fun(instantiate_continue_statement); // --
+    NODECL_VISITOR(v)->visit_goto_statement = instantiate_stmt_visitor_fun(instantiate_goto_statement); // --
 
-    NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context);
+    // NODECL_VISITOR(v)->visit_cxx_for_ranged = instantiate_stmt_visitor_fun(instantiate_cxx_for_ranged);
 
+    NODECL_VISITOR(v)->visit_context = instantiate_stmt_visitor_fun(instantiate_context); // --
+
+    NODECL_VISITOR(v)->visit_unknown_pragma = instantiate_stmt_visitor_fun(instantiate_unknown_pragma);
     NODECL_VISITOR(v)->visit_pragma_custom_statement = instantiate_stmt_visitor_fun(instantiate_pragma_custom_statement);
+    NODECL_VISITOR(v)->visit_pragma_custom_directive = instantiate_stmt_visitor_fun(instantiate_pragma_custom_directive);
     NODECL_VISITOR(v)->visit_pragma_custom_declaration = instantiate_stmt_visitor_fun(instantiate_pragma_custom_declaration);
 }
 
@@ -19371,7 +21237,11 @@ nodecl_t instantiate_statement(nodecl_t orig_tree,
 
     nodecl_t n = instantiate_stmt_walk(&v, orig_tree);
 
-    return n;
+    ERROR_CONDITION(!nodecl_is_list(n)
+            || nodecl_list_length(n) != 1,
+            "Invalid instantiated node", 0);
+
+    return nodecl_list_head(n);
 }
 
 nodecl_t instantiate_function_code(nodecl_t orig_tree,
@@ -19392,5 +21262,9 @@ nodecl_t instantiate_function_code(nodecl_t orig_tree,
 
     nodecl_t n = instantiate_stmt_walk(&v, orig_tree);
 
-    return n;
+    ERROR_CONDITION(!nodecl_is_list(n)
+            || nodecl_list_length(n) != 1,
+            "Invalid instantiated node", 0);
+
+    return nodecl_list_head(n);
 }

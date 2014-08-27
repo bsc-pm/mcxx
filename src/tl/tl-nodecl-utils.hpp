@@ -44,8 +44,6 @@ namespace Utils {
     TL::ObjectList<TL::Symbol> get_local_symbols(Nodecl::NodeclBase);
 
     TL::ObjectList<Nodecl::Symbol> get_all_symbols_occurrences(Nodecl::NodeclBase);
-    TL::ObjectList<Nodecl::NodeclBase> get_all_nodecl_occurrences(Nodecl::NodeclBase target_occurrence,
-            Nodecl::NodeclBase container);
     TL::ObjectList<Nodecl::Symbol> get_nonlocal_symbols_occurrences(Nodecl::NodeclBase);
     TL::ObjectList<Nodecl::Symbol> get_local_symbols_occurrences(Nodecl::NodeclBase);
 
@@ -63,7 +61,7 @@ namespace Utils {
     bool nodecl_is_logical_op( Nodecl::NodeclBase n );
     bool nodecl_is_modifiable_lvalue( Nodecl::NodeclBase n );
 
-    bool nodecl_contains_nodecl( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
+    bool dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained );
     bool nodecl_is_in_nodecl_list( Nodecl::NodeclBase n, Nodecl::List l );
     bool structurally_equal_nodecls(const Nodecl::NodeclBase& n1, const Nodecl::NodeclBase& n2,
                                     const bool skip_conversion_nodecls = false);
@@ -97,11 +95,21 @@ namespace Utils {
 
     Nodecl::List get_all_list_from_list_node(Nodecl::List);
 
+    Nodecl::NodeclBase skip_contexts_and_lists(
+            Nodecl::NodeclBase n);
+
     bool is_in_list(Nodecl::NodeclBase n);
     void remove_from_enclosing_list(Nodecl::NodeclBase n);
 
     void append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
     void prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items);
+
+    void append_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items);
+    void prepend_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items);
 
     TL::Symbol get_enclosing_function(Nodecl::NodeclBase n);
     //! Returns the first list node that encloses n
@@ -123,6 +131,18 @@ namespace Utils {
 
     std::string get_elemental_operator_of_binary_expression(Nodecl::NodeclBase n);
     std::string get_elemental_operator_of_binary_expression(node_t);
+
+    template <typename Kind>
+    Nodecl::NodeclBase get_enclosing_nodecl_of_kind(
+            Nodecl::NodeclBase n)
+    {
+        while (!n.is_null() && !n.is<Kind>())
+        {
+            n = n.get_parent();
+        }
+
+        return n;
+    }
 
     struct SymbolMap
     {
@@ -269,41 +289,61 @@ namespace Utils {
     // Returns the whole ArraySbuscript with a single subscript linearized
     Nodecl::ArraySubscript linearize_array_subscript(const Nodecl::ArraySubscript& n);
 
-    bool list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container,
-            const NodeclBase& containee);
+    bool list_contains_nodecl_by_structure(
+            const TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained);
+    TL::ObjectList<Nodecl::NodeclBase>::iterator list_get_nodecl_by_structure(
+            TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained);
 
     TL::ObjectList<Nodecl::NodeclBase> get_strings_as_expressions(
             const TL::ObjectList<std::string>& string_list,
             const Nodecl::NodeclBase& ref_scope);
 
     template <class Comparator>
-    class LIBTL_CLASS FinderVisitor : public Nodecl::NodeclVisitor<void>
+        struct SimpleNodeFinderVisitor : public Nodecl::NodeclVisitor<void>
     {
-        private:
-            Comparator _comparator;
-            Nodecl::NodeclBase _needle;
+        Comparator _comparator;
+        Nodecl::NodeclBase _needle;
+        Nodecl::NodeclBase _found_node;
 
-            void generic_finder(const Nodecl::NodeclBase& n);
+        SimpleNodeFinderVisitor( const Nodecl::NodeclBase& needle)
+            : _needle(needle) { }
+        void generic_finder(const Nodecl::NodeclBase& n);
 
-        public:
-            bool found;
-            // *** Constructor *** //
-            FinderVisitor( const Nodecl::NodeclBase& needle) : _needle(needle), found(false) { }
-
-            // *** Visitors *** //
-            void unhandled_node( const Nodecl::NodeclBase& n );
-            void visit( const Nodecl::ObjectInit& n );
+        void unhandled_node( const Nodecl::NodeclBase& n );
+        void visit( const Nodecl::ObjectInit& n );
     };
 
-    typedef FinderVisitor<std::equal_to<Nodecl::NodeclBase> > PointerFinderVisitor;
-    typedef FinderVisitor<Nodecl_structural_equal> StructuralFinderVisitor;
+    typedef SimpleNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > PointerSimpleNodeFinderVisitor;
+    typedef SimpleNodeFinderVisitor<Nodecl_structural_equal> StructuralSimpleNodeFinderVisitor;
+
+    template <class Comparator>
+    struct CollectNodeFinderVisitor : public Nodecl::NodeclVisitor<void>
+    {
+        Comparator _comparator;
+        Nodecl::NodeclBase _needle;
+        TL::ObjectList<Nodecl::NodeclBase> _found_nodes;
+
+        CollectNodeFinderVisitor( const Nodecl::NodeclBase& needle)
+            : _needle(needle) { }
+        void generic_finder(const Nodecl::NodeclBase& n);
+
+        void unhandled_node( const Nodecl::NodeclBase& n );
+        void visit( const Nodecl::ObjectInit& n );
+    };
+
+    typedef SimpleNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > SimplePointerNodeFinderVisitor;
+    typedef SimpleNodeFinderVisitor<Nodecl_structural_equal> SimpleStructuralNodeFinderVisitor;
+    typedef CollectNodeFinderVisitor<std::equal_to<Nodecl::NodeclBase> > CollectPointerNodeFinderVisitor;
+    typedef CollectNodeFinderVisitor<Nodecl_structural_equal> CollectStructuralNodeFinderVisitor;
+
 
     template <typename Kind>
-    struct SimpleFinderVisitorHelper : ExhaustiveVisitor<void>
+    struct SimpleKindFinderVisitor : ExhaustiveVisitor<void>
     {
-            bool found;
-            SimpleFinderVisitorHelper()
-                : found(false) {}
+            Nodecl::NodeclBase found_node;
+            SimpleKindFinderVisitor() {}
 
             virtual void visit(const Nodecl::ObjectInit& n)
             {
@@ -312,29 +352,17 @@ namespace Utils {
 
             virtual void visit(const Kind& k)
             {
-                found = true;
+                found_node = k;
             }
     };
 
     template <typename Kind>
-    bool nodecl_contains_nodecl_of_kind(const Nodecl::NodeclBase& n)
-    {
-        SimpleFinderVisitorHelper<Kind> finder;
-        finder.walk(n);
-        return finder.found;
-    }
-
-    bool find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
-    bool find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle);
-
-    template <typename Kind>
-    struct CollectFinderVisitorHelper : ExhaustiveVisitor<void>
+    struct CollectKindFinderVisitor : ExhaustiveVisitor<void>
     {
             TL::ObjectList<Nodecl::NodeclBase> found_nodes;
-            CollectFinderVisitorHelper()
-                : found_nodes() {}
+            CollectKindFinderVisitor() {}
 
-            virtual void visit(const Nodecl::ObjectInit& n)
+            virtual void visit_pre(const Nodecl::ObjectInit& n)
             {
                 walk(n.get_symbol().get_value());
             }
@@ -345,13 +373,49 @@ namespace Utils {
             }
     };
 
+    bool nodecl_contains_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle);
+    bool nodecl_contains_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle);
+
     template <typename Kind>
-    TL::ObjectList<Nodecl::NodeclBase> nodecl_get_all_nodecls_of_kind(const Nodecl::NodeclBase& n)
+    bool nodecl_contains_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
     {
-        CollectFinderVisitorHelper<Kind> finder;
+        SimpleKindFinderVisitor<Kind> finder;
+        finder.walk(n);
+        return !finder.found_node.is_null();
+    }
+
+    template <typename Kind>
+    Nodecl::NodeclBase nodecl_get_first_nodecl_of_kind(
+            const Nodecl::NodeclBase& n)
+    {
+        SimpleKindFinderVisitor<Kind> finder;
+        finder.walk(n);
+        return finder.found_node;
+    }
+
+    template <typename Kind>
+    TL::ObjectList<Nodecl::NodeclBase> nodecl_get_all_nodecls_of_kind(
+            const Nodecl::NodeclBase& n)
+    {
+        CollectKindFinderVisitor<Kind> finder;
         finder.walk(n);
         return finder.found_nodes;
     }
+
+    void nodecl_replace_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement);
+
+    void nodecl_replace_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement);
 
     void print_ast(Nodecl::NodeclBase n);
 }
@@ -425,6 +489,17 @@ namespace TL
     };
 
     typedef ForStatementHelper<TL::UsualCopyPolicy> ForStatement;
+
+    class LoopControlAdapter 
+    {
+        Nodecl::NodeclBase _lc;
+
+        public:
+            LoopControlAdapter(Nodecl::NodeclBase lc);
+            
+            Nodecl::NodeclBase get_cond();
+            Nodecl::NodeclBase get_next();
+    };
 }
 
 #endif // TL_NODECL_UTILS_HPP

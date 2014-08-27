@@ -88,6 +88,11 @@ namespace TL
                         const TL::Type& type,
                         AVX2ConfigMaskProcessing conf = AVX2ConfigMaskProcessing::MASK_DEFAULT );
 
+                void visit_aligned_vector_load(const Nodecl::VectorLoad& node);
+                void visit_unaligned_vector_load(const Nodecl::VectorLoad& node);
+                void visit_aligned_vector_store(const Nodecl::VectorStore& node);
+                void visit_unaligned_vector_store(const Nodecl::VectorStore& node);
+
             public:
 
                 AVX2VectorLowering();
@@ -129,9 +134,7 @@ namespace TL
                 virtual void visit(const Nodecl::VectorLiteral& node);
                 virtual void visit(const Nodecl::VectorAssignment& node);
                 virtual void visit(const Nodecl::VectorLoad& node);
-                virtual void visit(const Nodecl::UnalignedVectorLoad& node);
                 virtual void visit(const Nodecl::VectorStore& node);
-                virtual void visit(const Nodecl::UnalignedVectorStore& node);
                 virtual void visit(const Nodecl::VectorGather& node);
                 virtual void visit(const Nodecl::VectorScatter& node);
 

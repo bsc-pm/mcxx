@@ -149,6 +149,7 @@ namespace Analysis {
             bool has_reach_defs_assertion( ) const;
             bool has_induction_vars_assertion( ) const;
             bool has_autoscope_assertion( ) const;
+            bool has_correctness_dead_assertion() const;
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -231,6 +232,9 @@ namespace Analysis {
             //! Returns true when the node is a BREAK node
             bool is_break_node( );
 
+            //! Returns true when the node contains a CONDITIONAL EXPRESSION
+            bool is_conditional_expression();
+            
             //! Returns true when the node is a CONTINUE node
             bool is_continue_node( );
             
@@ -272,9 +276,6 @@ namespace Analysis {
 
             //! Returns true when the node is a composite node of FOR_DOWHILE type
             bool is_do_loop( );
-
-            //! Returns true when the node contains the stride of a FOR_LOOP node
-            bool is_loop_stride( Node* loop );
 
             //! Returns true when the node is a NORMAL node
             bool is_normal_node( );
@@ -329,6 +330,9 @@ namespace Analysis {
 
             //! Returns true when the node is any kind of OpenMP SIMD node
             bool is_omp_simd_node( );
+            
+            //! Returns true when the node is a SIMD FUNCTION CODE node
+            bool is_omp_simd_function_node();
             
             //! Returns true when the node is an OpenMP SINGLE node
             bool is_omp_single_node( );
@@ -420,7 +424,7 @@ namespace Analysis {
             PCFGPragmaInfo get_pragma_node_info( );
 
             //! Set info to an OmpSs node: pragma type and associated clauses
-            void set_pragma_node_info( PCFGPragmaInfo pragma );
+            void set_pragma_node_info( const PCFGPragmaInfo& pragma );
 
             //! Returns a pointer to the node which contains the actual node
             //! When the node don't have an outer node, NULL is returned
@@ -670,11 +674,8 @@ namespace Analysis {
             Node* get_condition_node( );
             void set_condition_node( Node* cond );
             
-            Node* get_stride_node( );
-            void set_stride_node( Node* stride );
-
-            bool is_stride_node( );
-            bool is_stride_node( Node* loop );
+            // Note: we do not have "stride_node" because there may be more than one and 
+            // sometimes we do not know how to compute it
 
             // ***************** END getters and setters for loops analysis ***************** //
             // ****************************************************************************** //
@@ -833,9 +834,24 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
+            // **************** Getters and setters for correctness analysis **************** //
+
+            Nodecl::List get_correctness_dead_vars();
+            void add_correctness_dead_var(const Nodecl::NodeclBase& n);
+
+            // **************** Getters and setters for correctness analysis **************** //
+            // ****************************************************************************** //
+
+
+
+            // ****************************************************************************** //
             // **************** Getters and setters for vectorization analysis ************** //
             
-            ObjectList<Symbol> get_reductions( );
+            ObjectList<Symbol> get_reductions();
+            
+            ObjectList<Utils::LinearVars> get_linear_symbols();
+            
+            ObjectList<Symbol> get_uniform_symbols();
             
             // ************** END getters and setters for vectorization analysis ************ //
             // ****************************************************************************** //
@@ -880,6 +896,9 @@ namespace Analysis {
             
             NodeclSet get_assert_auto_sc_shared_vars();
             void add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s);
+            
+            Nodecl::List get_assert_correctness_dead_vars();
+            void set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars);
             
             // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //

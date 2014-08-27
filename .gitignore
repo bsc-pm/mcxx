@@ -45,7 +45,9 @@ config.log
 config.status
 config/00.config.plain
 config/10.config.analysis-base
+config/10.config.hlt
 config/10.config.omp-base
+config/40.config.cuda
 config/50.config.cuda
 config/50.config.gpu
 config/50.config.ocl
@@ -55,6 +57,7 @@ config/55.config.omp.nvidia
 config/55.config.omp.intel
 config/55.config.omp.intel.fortran
 config/57.config.omp.smp
+config/57.config.omp.smp.intel
 config/config.mcxx
 doc/doxygen_tl
 doc/html/
@@ -136,6 +139,7 @@ tests/config/mercurium-cuda
 tests/config/mercurium-cxx11
 tests/config/mercurium-extensions
 tests/config/mercurium-fortran
+tests/config/mercurium-hlt
 tests/config/mercurium-libraries
 tests/config/mercurium-nanox
 tests/config/mercurium-omp
