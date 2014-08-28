@@ -22407,6 +22407,30 @@ static void instantiate_array_subscript(nodecl_instantiate_expr_visitor_t* v, no
             &v->nodecl_result);
 }
 
+static void instantiate_cxx_array_section_size(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_postfix = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_start = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    nodecl_t nodecl_num_items = instantiate_expr_walk(v, nodecl_get_child(node, 2));
+    nodecl_t nodecl_stride = instantiate_expr_walk(v, nodecl_get_child(node, 3));
+
+    check_nodecl_array_section_expression(nodecl_postfix,
+            nodecl_start, nodecl_num_items, nodecl_stride,
+            v->decl_context, /* is_array_section_size */ 1, nodecl_get_locus(node), &v->nodecl_result);
+}
+
+static void instantiate_cxx_array_section_range(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_postfix = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_lower   = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    nodecl_t nodecl_upper   = instantiate_expr_walk(v, nodecl_get_child(node, 2));
+    nodecl_t nodecl_stride  = instantiate_expr_walk(v, nodecl_get_child(node, 3));
+
+    check_nodecl_array_section_expression(nodecl_postfix,
+            nodecl_lower, nodecl_upper, nodecl_stride,
+            v->decl_context, /* is_array_section_size */ 0, nodecl_get_locus(node), &v->nodecl_result);
+}
+
 static void instantiate_throw(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_thrown = nodecl_get_child(node, 0);
@@ -23463,6 +23487,11 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
 
     // Array subscript
     NODECL_VISITOR(v)->visit_array_subscript = instantiate_expr_visitor_fun(instantiate_array_subscript);
+
+    // Cxx Array Sections
+    NODECL_VISITOR(v)->visit_cxx_array_section_size = instantiate_expr_visitor_fun(instantiate_cxx_array_section_size);
+    NODECL_VISITOR(v)->visit_cxx_array_section_range = instantiate_expr_visitor_fun(instantiate_cxx_array_section_range);
+
 
     // Throw
     NODECL_VISITOR(v)->visit_throw = instantiate_expr_visitor_fun(instantiate_throw);

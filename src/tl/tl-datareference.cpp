@@ -400,6 +400,20 @@ namespace TL
                 }
             }
 
+            virtual void visit(const Nodecl::CxxArraySectionSize & array)
+            {
+               // We need to define this visitor because we want to keep these
+               // kind of expressions but, as they are dependent, we don't
+               // compute anything
+            }
+
+            virtual void visit(const Nodecl::CxxArraySectionRange & array)
+            {
+               // We need to define this visitor because we want to keep these
+               // kind of expressions but, as they are dependent, we don't
+               // compute anything
+            }
+
             virtual void visit(const Nodecl::Shaping& shaping_expr)
             {
                 walk(shaping_expr.get_postfix());
