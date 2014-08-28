@@ -283,9 +283,6 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
-                Nodecl::List low_subscripts_list;
-
                 _data_ref._data_type = extend_array_type_to_regions(array);
 
                 Nodecl::NodeclBase subscripted = array.get_subscripted().no_conv();
