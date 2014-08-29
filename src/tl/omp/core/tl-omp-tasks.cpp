@@ -859,9 +859,10 @@ namespace TL
                     if (!expr.is_valid())
                     {
                         std::string dep_str = get_dependency_direction_name(_direction);
-
-                        std::cerr << nodecl.get_locus_str() << ": warning: ignoring invalid dependence " 
-                            << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
+                        warn_printf("%s: warning: invalid dependency expression '%s(%s)', skipping\n",
+                                nodecl.get_locus_str().c_str(),
+                                dep_str.c_str(),
+                                expr.prettyprint().c_str());
                     }
 
                     return FunctionTaskDependency(expr, _direction);
