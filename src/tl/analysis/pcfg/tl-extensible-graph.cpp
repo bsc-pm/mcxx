@@ -593,7 +593,7 @@ namespace Analysis {
                      itm != memory_accesses.end() && result; ++itm)
                 {
                     if(Utils::nodecl_set_contains_nodecl(*itm, context->get_killed_vars()) ||
-                       Utils::nodecl_set_contains_nodecl(*itm, context->get_undefined_behaviour_vars()))
+                        Utils::nodecl_set_contains_nodecl(*itm, context->get_undefined_behaviour_vars()))
                     {
                         result = false;
                     }

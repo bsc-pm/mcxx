@@ -42,7 +42,7 @@ int solve(int* g, int loc, int* allGuesses, int num_guesses)
     for (i = 0; i < num_guesses; i++) {
         if(loc<10)
         {
-            #pragma analysis_check assert correctness_dead(sol)
+            #pragma analysis_check assert correctness_dead(sol) correctness_race(g[loc]) correctness_incoherent_fp(sol)
             #pragma omp task
             {
                 g[loc] = allGuesses[i];

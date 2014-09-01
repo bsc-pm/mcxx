@@ -645,10 +645,52 @@ namespace Analysis {
         _utils->_assert_nodes.top()->add_assert_auto_sc_shared_var(n.get_scoped_variables().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
-
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::AutoStorage& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_auto_storage_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );        
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Dead& n )
     {
-        _utils->_assert_nodes.top()->set_assert_correctness_dead_var(n.get_correctness_variables().as<Nodecl::List>());
+        _utils->_assert_nodes.top()->add_assert_correctness_dead_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );        
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentFp& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_fp_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentIn& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_in_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentOut& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_out_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentP& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_p_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::PointerDep& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_pointer_dep_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Race& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_race_var(n.get_correctness_vars().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
     

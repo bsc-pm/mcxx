@@ -214,12 +214,19 @@ namespace Analysis {
     bool Node::has_autoscope_assertion() const
     {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
-                 has_key(_ASSERT_AUTOSC_SHARED));
+                has_key(_ASSERT_AUTOSC_SHARED));
     }
     
-    bool Node::has_correctness_dead_assertion() const
+    bool Node::has_correctness_assertion() const
     {
-        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+        return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_POINTER_DEP_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
     }
     
     bool Node::is_visited( ) const
@@ -1152,6 +1159,25 @@ namespace Analysis {
             add_var_to_container<T>(*it, data_name);
     }
     
+    void Node::add_var_to_list(const NBase& var, std::string data_name)
+    {
+        Nodecl::List list = get_data<Nodecl::List>(data_name);
+        for (Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
+        {
+            if (Nodecl::Utils::structurally_equal_nodecls(var, *it))
+                return;
+        }
+
+        list.append(var);
+        set_data(data_name, list);
+    }
+    
+    void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
+    {
+        for(Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
+            add_var_to_list(*it, data_name);
+    }
+    
     void Node::remove_var_from_set(const NBase& var, std::string data_name)
     {
         NodeclSet set = get_data<NodeclSet>(data_name);
@@ -1199,7 +1225,7 @@ namespace Analysis {
     }
 
     void Node::add_ue_var(const NodeclSet& new_ue_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(new_ue_vars, _UPPER_EXPOSED);
     }
 
@@ -1229,14 +1255,14 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_killed_vars()
-        {
+    {
         return get_vars<NodeclSet>(_KILLED);
     }
 
     void Node::add_killed_var(const NBase& new_killed_var)
-        {
+    {
         add_var_to_container<NodeclSet>(new_killed_var, _KILLED);
-        }
+    }
 
     void Node::add_killed_var(const NodeclSet& new_killed_vars)
     {
@@ -1261,7 +1287,7 @@ namespace Analysis {
     void Node::add_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_killed_vars, _PRIVATE_KILLED);
-        }
+    }
         
     void Node::set_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
@@ -1269,12 +1295,12 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_undefined_behaviour_vars()
-        {
+    {
         return get_vars<NodeclSet>(_UNDEF);
     }
 
     void Node::add_undefined_behaviour_var(const NBase& new_undef_var)
-            {
+    {
         add_var_to_container<NodeclSet>(new_undef_var, _UNDEF);
     }
 
@@ -1309,7 +1335,7 @@ namespace Analysis {
     void Node::add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_undef_vars, _PRIVATE_UNDEF);
-        }
+    }
     
     void Node::set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
@@ -1965,19 +1991,94 @@ namespace Analysis {
     // ****************************************************************************** //
     // **************** Getters and setters for correctness analysis **************** //
 
+    Nodecl::List Node::get_correctness_auto_storage_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    void Node::add_correctness_auto_storage_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_fp_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_in_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_pointer_dep_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_POINTER_DEP_VARS);
+    }
+    
+    void Node::add_correctness_pointer_dep_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_POINTER_DEP_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_RACE_VARS);
+    }
+    
     Nodecl::List Node::get_correctness_dead_vars()
     {
-        Nodecl::List dead_vars;
-        if(has_key(_CORRECTNESS_DEAD_VARS))
-            dead_vars = get_data<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
-        return dead_vars;
+        return get_vars<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
     }
     
     void Node::add_correctness_dead_var(const Nodecl::NodeclBase& n)
     {
-        Nodecl::List dead_vars = get_correctness_dead_vars();
-        dead_vars.append(n);
-        set_data(_CORRECTNESS_DEAD_VARS, dead_vars);
+        add_var_to_list(n, _CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_unnecessarily_scoped_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
+    }
+    
+    void Node::add_correctness_unnecessarily_scoped_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
     }
     
     // **************** Getters and setters for correctness analysis **************** //
@@ -2257,7 +2358,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p)
-            {
+    {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_p.begin(), new_assert_auto_sc_p.end()), 
                               _ASSERT_AUTOSC_PRIVATE);
     }
@@ -2273,30 +2374,84 @@ namespace Analysis {
                               _ASSERT_AUTOSC_SHARED);
     }
 
-    Nodecl::List Node::get_assert_correctness_dead_vars()
+    Nodecl::List Node::get_assert_correctness_auto_storage_vars()
     {
-        Nodecl::List assert_dead_vars;
-        if(has_key(_ASSERT_CORRECTNESS_DEAD_VARS))
-        {
-            assert_dead_vars = get_data<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
-        }
-        return assert_dead_vars;
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
     }
     
-    void Node::set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars)
+    void Node::add_assert_correctness_auto_storage_var(const Nodecl::List& vars)
     {
-        Nodecl::List assert_correct_dead_vars = get_assert_correctness_dead_vars();
-        for(Nodecl::List::const_iterator it = new_assert_correct_dead_vars.begin( ); 
-            it != new_assert_correct_dead_vars.end( ); ++it)
-        {
-            // FIXME When we delete ExtendedSymbol and transform this methods to nodecl instead of extended symbol
-//             Utils::ExtendedSymbol new_assert_correct_dead_var(*it);
-//             if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, assert_correct_dead_vars).is_null())
-            {
-                assert_correct_dead_vars.append(*it);
-            }
-        }
-        set_data(_ASSERT_CORRECTNESS_DEAD_VARS, assert_correct_dead_vars);
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_dead_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    void Node::add_assert_correctness_dead_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_fp_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_in_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_p_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_pointer_dep_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_POINTER_DEP_VARS);
+    }
+    
+    void Node::add_assert_correctness_pointer_dep_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_POINTER_DEP_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_assert_correctness_race_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_RACE_VARS);
     }
     
     // **************** END getters and setters for analysis checking *************** //

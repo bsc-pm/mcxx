@@ -67,7 +67,7 @@ namespace Analysis {
             Node( const Node& n );
             Node& operator=( const Node& );
 
-            // *** Private methods for NodeclSet/NodeclMap linked data *** //
+            // *** Private methods for NodeclSet/NodeclMap/ObjectList linked data *** //
             template <typename T>
             T get_vars(std::string data_name);
             
@@ -76,6 +76,9 @@ namespace Analysis {
             
             template <typename T>
             void add_vars_to_container(const T& vars, std::string data_name);
+            
+            void add_var_to_list(const NBase& var, std::string data_name);
+            void add_vars_to_list(const Nodecl::List& vars, std::string data_name);
             
             void remove_var_from_set(const NBase& var, std::string data_name);
             
@@ -149,7 +152,7 @@ namespace Analysis {
             bool has_reach_defs_assertion( ) const;
             bool has_induction_vars_assertion( ) const;
             bool has_autoscope_assertion( ) const;
-            bool has_correctness_dead_assertion() const;
+            bool has_correctness_assertion() const;
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
@@ -840,9 +843,33 @@ namespace Analysis {
             // ****************************************************************************** //
             // **************** Getters and setters for correctness analysis **************** //
 
+            Nodecl::List get_correctness_auto_storage_vars();
+            void add_correctness_auto_storage_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_incoherent_fp_vars();
+            void add_correctness_incoherent_fp_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_incoherent_in_vars();
+            void add_correctness_incoherent_in_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_incoherent_out_vars();
+            void add_correctness_incoherent_out_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_incoherent_p_vars();
+            void add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_pointer_dep_vars();
+            void add_correctness_pointer_dep_var(const Nodecl::NodeclBase& n);
+            
+            Nodecl::List get_correctness_race_vars();
+            void add_correctness_race_var(const Nodecl::NodeclBase& n);
+
             Nodecl::List get_correctness_dead_vars();
             void add_correctness_dead_var(const Nodecl::NodeclBase& n);
 
+            Nodecl::List get_correctness_unnecessarily_scoped_vars();
+            void add_correctness_unnecessarily_scoped_var(const Nodecl::NodeclBase& n);
+            
             // **************** Getters and setters for correctness analysis **************** //
             // ****************************************************************************** //
 
@@ -865,6 +892,7 @@ namespace Analysis {
             // ****************************************************************************** //
             // ****************** Getters and setters for analysis checking ***************** //
             
+            // *** UseDef *** //
             NodeclSet get_assert_ue_vars();
             void add_assert_ue_var(const Nodecl::List& new_assert_ue_vars);
             
@@ -874,6 +902,7 @@ namespace Analysis {
             NodeclSet get_assert_undefined_behaviour_vars();
             void add_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars);
             
+            // *** Liveness *** //
             NodeclSet get_assert_live_in_vars();
             void add_assert_live_in_var(const Nodecl::List& new_assert_live_in_vars);
             
@@ -883,6 +912,7 @@ namespace Analysis {
             NodeclSet get_assert_dead_vars();
             void add_assert_dead_var(const Nodecl::List& new_assert_dead_vars);
             
+            // *** Reaching Definitions *** //
             NodeclMap get_assert_reaching_definitions_in();
             void add_assert_reaching_definitions_in(const Nodecl::List& new_assert_reach_defs_in);
             
@@ -892,6 +922,7 @@ namespace Analysis {
             Utils::InductionVarList get_assert_induction_vars();
             void add_assert_induction_variables(const Nodecl::List& new_assert_induction_vars);
             
+            // *** Auto-Scoping *** //
             NodeclSet get_assert_auto_sc_firstprivate_vars();
             void add_assert_auto_sc_firstprivate_var(const Nodecl::List& new_assert_auto_sc_fp);
             
@@ -901,8 +932,30 @@ namespace Analysis {
             NodeclSet get_assert_auto_sc_shared_vars();
             void add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s);
             
+            // *** Correctness *** //
+            Nodecl::List get_assert_correctness_auto_storage_vars();
+            void add_assert_correctness_auto_storage_var(const Nodecl::List& vars);
+            
             Nodecl::List get_assert_correctness_dead_vars();
-            void set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars);
+            void add_assert_correctness_dead_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_incoherent_fp_vars();
+            void add_assert_correctness_incoherent_fp_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_incoherent_in_vars();
+            void add_assert_correctness_incoherent_in_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_incoherent_out_vars();
+            void add_assert_correctness_incoherent_out_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_incoherent_p_vars();
+            void add_assert_correctness_incoherent_p_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_pointer_dep_vars();
+            void add_assert_correctness_pointer_dep_var(const Nodecl::List& vars);
+            
+            Nodecl::List get_assert_correctness_race_vars();
+            void add_assert_correctness_race_var(const Nodecl::List& vars);
             
             // **************** END getters and setters for analysis checking *************** //
             // ****************************************************************************** //
