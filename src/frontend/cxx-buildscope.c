@@ -14424,16 +14424,15 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
                 ast_location(a));
         return;
     }
-
+    // namespace alias_ident = id_expression;
     AST alias_ident = ASTSon0(a);
     AST id_expression = ASTSon1(a);
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression, NULL);
-
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
     {
-        error_printf("%s: error: '%s' does not name any namespace\n", 
+        error_printf("%s: error: '%s' does not name any namespace\n",
                 ast_location(id_expression),
                 prettyprint_in_buffer(id_expression));
         return;
@@ -14442,15 +14441,39 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
     scope_entry_t* entry = entry_list_head(entry_list);
     entry_list_free(entry_list);
 
+    char create_new_alias = 1;
     const char* alias_name = ASTText(alias_ident);
+    entry_list = query_in_scope_str(decl_context, alias_name, NULL);
+    scope_entry_t* alias_entry = NULL;
+    if (entry_list != NULL)
+    {
+        alias_entry = entry_list_head(entry_list);
+        if (alias_entry->kind != SK_NAMESPACE)
+        {
+            error_printf("%s: error: '%s' does not name any namespace\n",
+                    ast_location(alias_ident),
+                    alias_name);
+            return;
+        }
 
-    scope_entry_t* alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
+        if (alias_entry->related_decl_context.current_scope->related_entry == entry)
+        {
+            // we don't need to create a new alias, reuse the current one
+            create_new_alias = 0;
+        }
+    }
+    entry_list_free(entry_list);
 
-    alias_entry->locus = ast_get_locus(alias_ident);
-    alias_entry->kind = SK_NAMESPACE;
-    alias_entry->related_decl_context = entry->related_decl_context;
-    alias_entry->defined = 1;
-    alias_entry->entity_specs.is_user_declared = 1;
+    if (create_new_alias)
+    {
+        alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
+
+        alias_entry->locus = ast_get_locus(alias_ident);
+        alias_entry->kind = SK_NAMESPACE;
+        alias_entry->related_decl_context = entry->related_decl_context;
+        alias_entry->defined = 1;
+        alias_entry->entity_specs.is_user_declared = 1;
+    }
 
     *nodecl_output =
         nodecl_make_list_1(
