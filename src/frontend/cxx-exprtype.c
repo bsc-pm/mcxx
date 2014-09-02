@@ -10364,13 +10364,20 @@ static void check_nodecl_cast_expr(
                 )
         {
             scope_entry_t* called_symbol = NULL;
-            ERROR_CONDITION((nodecl_get_kind(nodecl_casted_expr) != NODECL_FUNCTION_CALL)
-                    || (called_symbol = nodecl_get_symbol(nodecl_get_child(nodecl_casted_expr, 0))) == NULL
-                    || !(called_symbol->entity_specs.is_constructor)
-                    || !equivalent_types(
-                        get_actual_class_type(called_symbol->entity_specs.class_type),
-                        get_unqualified_type(get_actual_class_type(declarator_type))),
-                    "This should be a call to a constructor of the class", 0);
+            ERROR_CONDITION(
+                    !(
+                        nodecl_get_kind(nodecl_casted_expr) == NODECL_FUNCTION_CALL
+                        && (called_symbol = nodecl_get_symbol(nodecl_get_child(nodecl_casted_expr, 0))) != NULL
+                        && ((called_symbol->entity_specs.is_constructor
+                                && equivalent_types(
+                                    get_actual_class_type(called_symbol->entity_specs.class_type),
+                                    get_unqualified_type(get_actual_class_type(declarator_type))))
+                            || (called_symbol->entity_specs.is_conversion
+                                && equivalent_types(
+                                    get_actual_class_type(function_type_get_return_type(called_symbol->type_information)),
+                                    get_unqualified_type(get_actual_class_type(declarator_type)))))
+                     ),
+                    "This should be a call to a constructor or conversion", 0);
 
             // Use the call to the constructor rather than a cast node
             *nodecl_output = nodecl_casted_expr;
