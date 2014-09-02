@@ -2480,7 +2480,7 @@ namespace TL { namespace OpenMP {
 
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
-                return Nodecl::Symbol::make(arg, _locus);
+                return arg.make_nodecl(/*set_ref*/true, _locus);
             }
     };
 
@@ -2498,7 +2498,7 @@ namespace TL { namespace OpenMP {
 
             virtual Nodecl::NodeclBase do_(ArgType arg) const
             {
-                return Nodecl::Symbol::make(arg.first, _locus);
+                return arg.first.make_nodecl(/*set_ref*/true, _locus);
             }
     };
 
