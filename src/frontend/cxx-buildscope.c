@@ -11499,13 +11499,16 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 }
                 break;
             }
-            // It should not appear here
-            // case AST_DESTRUCTOR_TEMPLATE_ID : 
+        case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
                 // An unqualified destructor name "~name"
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
+                if (ASTType(declarator_id) == AST_DESTRUCTOR_TEMPLATE_ID)
+                {
+                    destructor_id = declarator_id;
+                }
                 // Adjust to 'function () returning void'
                 declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
@@ -16416,7 +16419,7 @@ static void update_member_function_info(AST declarator_name,
                 break;
             }
             // Special members
-        case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here
+        case AST_DESTRUCTOR_TEMPLATE_ID : // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
                 // This is the destructor
