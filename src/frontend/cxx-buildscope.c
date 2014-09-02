@@ -1411,18 +1411,31 @@ void introduce_using_entities_in_class(
             nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
             symbol_name = nodecl_get_text(nodecl_last_part);
         }
-        else if (!entry->entity_specs.is_member
-                || !class_type_is_base_instantiating(entry->entity_specs.class_type,
-                    get_user_defined_type(current_class), locus))
+        else if (!entry->entity_specs.is_member)
         {
             error_printf("%s: error: '%s' is not a member of a base class\n",
                     locus_to_str(locus),
                     get_qualified_symbol_name(entry, 
                         decl_context));
-            return;
         }
         else
         {
+            if (!is_dependent_type(get_user_defined_type(current_class))
+                && !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                    get_user_defined_type(current_class), locus))
+            {
+                error_printf("%s: error: '%s' is not a member of a base class\n",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(entry, 
+                            decl_context));
+            }
+            else
+            {
+                // FIXME - We could check that there is at least one dependent base
+                // If there are no dependent bases, then we should check with each
+                // But let this fail at instantiation time, instead
+            }
+
             // Usual case
             // If this entity is being hidden by another member of this class, do not add it
             scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
