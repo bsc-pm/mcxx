@@ -1454,8 +1454,14 @@ namespace TL
                 task_info.set_priority_clause_expression(expr_list[0]);
             }
 
+            PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
             PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
-            task_info.set_untied(untied_clause.is_defined());
+
+            bool is_untied_task = untied_clause.is_defined()
+                // The tasks are untied by default and the current task has not defined the 'tied' clause
+                || (_untied_tasks_by_default && !tied_clause.is_defined());
+
+            task_info.set_untied(is_untied_task);
 
             PragmaCustomClause label_clause = pragma_line.get_clause("label");
             if (label_clause.is_defined())

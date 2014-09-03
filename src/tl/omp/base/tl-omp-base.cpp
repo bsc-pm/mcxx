@@ -54,7 +54,8 @@ namespace TL { namespace OpenMP {
         _simd_enabled(false),
         _ompss_mode(false),
         _omp_report(false),
-        _copy_deps_by_default(true)
+        _copy_deps_by_default(true),
+        _untied_tasks_by_default(true)
     {
         set_phase_name("OpenMP directive to parallel IR");
         set_phase_description("This phase lowers the semantics of OpenMP into the parallel IR of Mercurium");
@@ -99,6 +100,11 @@ namespace TL { namespace OpenMP {
                 "Enables copy_deps by default",
                 _copy_deps_str,
                 "1").connect(functor(&Base::set_copy_deps_by_default, *this));
+
+        register_parameter("untied_tasks_by_default",
+                "If set to '1' tasks are untied by default, otherwise they are tied. This flag is only valid in OmpSs",
+                _untied_tasks_by_default_str,
+                "1").connect(functor(&Base::set_untied_tasks_by_default, *this));
 
         register_parameter("disable_task_expression_optimization",
                 "Disables some optimizations applied to task expressions",
@@ -311,6 +317,17 @@ namespace TL { namespace OpenMP {
     bool Base::copy_deps_by_default() const
     {
         return _copy_deps_by_default;
+    }
+
+    void Base::set_untied_tasks_by_default(const std::string& str)
+    {
+         parse_boolean_option("untied_tasks", str, _untied_tasks_by_default, "Assuming true.");
+        _core.set_untied_tasks_by_default(_untied_tasks_by_default);
+    }
+
+    bool Base::untied_tasks_by_default() const
+    {
+        return _untied_tasks_by_default;
     }
 
     void Base::set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str)
@@ -691,8 +708,11 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment(ds, pragma_line);
 
+        PragmaCustomClause tied = pragma_line.get_clause("tied");
         PragmaCustomClause untied = pragma_line.get_clause("untied");
-        if (untied.is_defined())
+        if (untied.is_defined()
+                // The tasks are untied by default and the current task has not defined the 'tied' clause
+                || (_untied_tasks_by_default && !tied.is_defined()))
         {
             execution_environment.append(
                     Nodecl::OpenMP::Untied::make(

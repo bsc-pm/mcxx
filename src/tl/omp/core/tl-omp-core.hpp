@@ -240,6 +240,7 @@ namespace TL
                 bool _allow_array_reductions;
                 bool _ompss_mode;
                 bool _copy_deps_by_default;
+                bool _untied_tasks_by_default;
             public:
                 Core();
 
@@ -272,6 +273,12 @@ namespace TL
                 bool copy_deps_by_default() const
                 {
                     return _copy_deps_by_default;
+                }
+
+                void set_untied_tasks_by_default(bool b) { _untied_tasks_by_default = b; }
+                bool untied_tasks_by_default() const
+                {
+                    return _untied_tasks_by_default;
                 }
         };
 
