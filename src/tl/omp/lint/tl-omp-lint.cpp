@@ -434,7 +434,7 @@ namespace {
         Nodecl::NodeclBase task = n->get_graph_related_ast( );
         ERROR_CONDITION( task.is_null( ), "Invalid target task tree related to node %d.", n->get_id( ) );
         
-        const TL::Analysis::NodeclSet& shared_vars = n->get_all_shared_variables();
+        const TL::Analysis::NodeclSet& shared_vars = n->get_all_shared_accesses();
         return any_symbol_is_local(shared_vars, local_vars);
     }
     
@@ -489,7 +489,7 @@ namespace {
             
 check_sync:
             // 2.- Check whether the context of the variable contains all synchronizations of the task
-            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin(); 
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
                  it != children.end(); ++it)
             {
                 if((*it)->is_omp_virtual_tasksync())
@@ -680,11 +680,11 @@ next_iteration: ;
         return result;
     }
 
-    tribool task_may_cause_race_condition (const TL::Analysis::ExtensibleGraph* pcfg,
+    tribool task_may_cause_race_condition (TL::Analysis::ExtensibleGraph* pcfg,
                                            TL::Analysis::Node *task, Nodecl::List& race_cond_vars)
     {
         // 1.- Collect all symbols/data references that may cause a race condition
-        TL::Analysis::NodeclSet task_shared_variables = task->get_all_shared_variables();
+        TL::Analysis::NodeclSet task_shared_variables = task->get_all_shared_accesses();
 
         // 2.- Traverse the graph from last_sync to next_sync looking for uses of the shared variables found in the task
         // 2.1.- Get the previous and next synchronization points (computed during Liveness analysis)
@@ -767,6 +767,10 @@ next_iteration: ;
                         }
                     }
                 }
+                else
+                {
+                    seq_next_sync.append(*itn);
+                }
 
                 for(TL::ObjectList<TL::Analysis::Node*>::iterator its = seq_next_sync.begin(); its != seq_next_sync.end(); ++its)
                 {
@@ -780,8 +784,9 @@ next_iteration: ;
                 }
             }
         }
-        for( TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin( ); itl != last_sync.end( ); ++itl )
-            TL::Analysis::ExtensibleGraph::clear_visits( *itl );
+        for (TL::ObjectList<TL::Analysis::Node*>::iterator itl = last_sync.begin(); itl != last_sync.end(); ++itl)
+            TL::Analysis::ExtensibleGraph::clear_visits(*itl);
+        
         std::set<Nodecl::NodeclBase, Nodecl::Utils::Nodecl_structural_less> warned_vars;
         result = result || check_concurrent_accesses(task, /*concurrent_task*/NULL, /*task_is_source*/false,
                                                      task_used_vars, sequential_concurrent_vars,
@@ -807,27 +812,27 @@ next_iteration: ;
         return result;
     } 
 
-    bool var_is_used_between_nodes( TL::Analysis::Node* source, TL::Analysis::Node* target, const Nodecl::NodeclBase& n )
+    bool var_is_used_between_nodes(TL::Analysis::Node* source, TL::Analysis::Node* target, const Nodecl::NodeclBase& n)
     {
-        if( ( source == target ) || source->is_exit_node( ) )
+        if((source == target) || source->is_exit_node())
             return false;
         
         bool result = false;
         
-        if( !source->is_visited( ) )
+        if(!source->is_visited())
         {
-            source->set_visited( true );
+            source->set_visited(true);
             
             // Treat the current node
-            if( source->is_graph_node( ) )
-                result = var_is_used_between_nodes( source->get_graph_entry_node( ), target, n );
-            else if( source->has_statements( ) )
+            if (source->is_graph_node())
+                result = var_is_used_between_nodes(source->get_graph_entry_node(), target, n);
+            else if(source->has_statements())
             {
-                TL::ObjectList<Nodecl::NodeclBase> stmts = source->get_statements( );
-                for( TL::ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin( ); it != stmts.end( ) && !result; ++it )
+                const TL::ObjectList<Nodecl::NodeclBase>& stmts = source->get_statements();
+                for (TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = stmts.begin(); it != stmts.end() && !result; ++it)
                 {
-                    TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                    if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
+                    const TL::ObjectList<Nodecl::NodeclBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses(*it);
+                    if (Nodecl::Utils::list_contains_nodecl_by_structure(mem_accesses, n))
                     {
                         result = true;
                         break;
@@ -836,12 +841,13 @@ next_iteration: ;
             }
             
             // Treat the children
-            if( !result )
+            if (!result)
             {
-                TL::ObjectList<TL::Analysis::Node*> children = source->get_children( );
-                for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); ( it != children.end( ) ) && !result; ++it )
+                const TL::ObjectList<TL::Analysis::Node*>& children = source->get_children();
+                for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
+                    (it != children.end()) && !result; ++it)
                 {
-                    result = var_is_used_between_nodes( *it, target, n );
+                    result = var_is_used_between_nodes(*it, target, n);
                 }
             }
         }
@@ -849,32 +855,32 @@ next_iteration: ;
         return result;
     }
     
-    bool var_is_used_in_node_after_definition( TL::Analysis::Node* node, const Nodecl::NodeclBase& n )
+    bool var_is_used_in_node_after_definition(TL::Analysis::Node* node, const Nodecl::NodeclBase& n)
     {
         bool result = false;
         
         // Get the last statement in the node that defines 'n'
-        TL::ObjectList<Nodecl::NodeclBase> stmts = node->get_statements( );
+        const TL::ObjectList<Nodecl::NodeclBase>& stmts = node->get_statements();
         WritesVisitor wv;
-        TL::ObjectList<Nodecl::NodeclBase>::iterator it;
-        TL::ObjectList<Nodecl::NodeclBase>::iterator it2 = stmts.end();
-        for( it = stmts.begin( ); it != stmts.end( ); ++it )
+        TL::ObjectList<Nodecl::NodeclBase>::const_iterator it;
+        TL::ObjectList<Nodecl::NodeclBase>::const_iterator it2 = stmts.end();
+        for (it = stmts.begin(); it != stmts.end(); ++it)
         {
-            wv.walk( *it );
-            ObjectList<Nodecl::NodeclBase> defined_syms = wv.get_defined_symbols( );
-            if( Nodecl::Utils::list_contains_nodecl_by_structure( defined_syms, n ) )
+            wv.walk(*it);
+            const ObjectList<Nodecl::NodeclBase>& defined_syms = wv.get_defined_symbols();
+            if( Nodecl::Utils::list_contains_nodecl_by_structure(defined_syms, n))
                 it2 = it;
-            wv.clear( );
+            wv.clear();
         }
         
         // Check the statements after the last definition to check for uses of the variable
         if(it2 != stmts.end())
         {
             it = it2; it++;
-            for( ; it != stmts.end( ) && !result; ++it )
+            for( ; it != stmts.end() && !result; ++it)
             {
-                TL::ObjectList<Nodecl::NodeclBase> mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
-                if( Nodecl::Utils::list_contains_nodecl_by_structure( mem_accesses, n ) )
+                const TL::ObjectList<Nodecl::NodeclBase>& mem_accesses = Nodecl::Utils::get_all_memory_accesses( *it );
+                if (Nodecl::Utils::list_contains_nodecl_by_structure(mem_accesses, n))
                     result = true;
             }
         }
@@ -918,25 +924,26 @@ next_iteration: ;
     {
         bool result = false;
         
-        TL::Analysis::Node* task_exit = task->get_graph_exit_node( );
-        TL::Analysis::Node* last_definition = get_var_last_definition( n, task_exit );
+        TL::Analysis::Node* task_exit = task->get_graph_exit_node();
+        TL::Analysis::Node* last_definition = get_var_last_definition(n, task_exit);
         ERROR_CONDITION( last_definition == NULL, 
                          "Variable '%s' is defined inside task %d, but the definition has not been found\n", 
-                         n.prettyprint( ).c_str( ), task->get_id( ) );
+                         n.prettyprint().c_str(), task->get_id());
         
         // Check is the variable is used in the same node it is defined, after the definition
-        result = var_is_used_in_node_after_definition( last_definition, n );
+        result = var_is_used_in_node_after_definition(last_definition, n);
         
         // Check is the variable is used between the node it is defined and the end of the task
-        if( !result )
+        if(!result)
         {
-            last_definition->set_visited( true );
-            ObjectList<TL::Analysis::Node*> children = last_definition->get_children( );
-            for( TL::ObjectList<TL::Analysis::Node*>::iterator it = children.begin( ); it != children.end( ) && !result; ++it )
+            last_definition->set_visited(true);
+            const ObjectList<TL::Analysis::Node*>& children = last_definition->get_children();
+            for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
+                 it != children.end() && !result; ++it)
             {
-                result = var_is_used_between_nodes( *it, task_exit, n );
+                result = var_is_used_between_nodes(*it, task_exit, n);
             }
-            TL::Analysis::ExtensibleGraph::clear_visits_backwards( last_definition );
+            TL::Analysis::ExtensibleGraph::clear_visits(last_definition);
         }
         
         return result;
@@ -1151,6 +1158,7 @@ next_iteration: ;
             firstprivate_dead_vars = firstprivate_dead_vars.substr(0, firstprivate_dead_vars.size()-2);
             warn_printf (get_dead_vars_message(/*use_plural*/ (n_fp_dead_vars>1), "firstprivate", task).c_str(), 
                          firstprivate_dead_vars.c_str());
+            print_warn_to_file(task->get_graph_related_ast(), __FP_Dead, firstprivate_dead_vars);
         }
         unsigned int n_p_dead_vars = 0;
         std::string private_dead_vars = get_dead_vars(private_vars, n_p_dead_vars, all_killed_vars, task);
@@ -1303,7 +1311,7 @@ next_iteration: ;
     // *************************************************************************** //
     // ************************* Correctness as a service ************************ //
     
-    void execute_correctness_checks(const TL::Analysis::ExtensibleGraph* graph)
+    void execute_correctness_checks(TL::Analysis::ExtensibleGraph* graph)
     {
         // Get all task nodes
         ObjectList<TL::Analysis::Node*> tasks = graph->get_tasks_list();

@@ -83,42 +83,42 @@ namespace Analysis {
         return (_id == node._id);
     }
 
-    NodeclSet Node::get_all_shared_variables()
+    NodeclSet Node::get_all_shared_accesses()
     {
         // 1.- Collect the shared variables appearing in the data-sharing or dependency clauses
         TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
         NodeclSet shared_vars;
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());
         }
-        if( task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE) )
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE))
         {
             Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
             shared_vars.insert(tmp.begin(), tmp.end());

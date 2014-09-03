@@ -36,7 +36,7 @@ namespace OpenMP {
     
     // We need this method to be visible so it can be used on demand
     // (Necessary for correctness analysis checker phase)
-    void execute_correctness_checks(const TL::Analysis::ExtensibleGraph* graph);
+    void execute_correctness_checks(TL::Analysis::ExtensibleGraph* graph);
     
     class WritesVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
