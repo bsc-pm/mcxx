@@ -348,15 +348,7 @@ namespace Analysis {
         //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
         static void clear_visits_backwards(Node* node);
 
-        //! Set to false the attribute #_visited_aux of those nodes whose post-dominator is node @node
-        static void clear_visits_aux_backwards(Node* node);
 
-        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
-        //! - their post-dominator is node @node
-        //! - they are enclosed in the graph node @outer_node
-        static void clear_visits_backwards_in_level(Node* current, Node* outer_node);
-        
-        
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG

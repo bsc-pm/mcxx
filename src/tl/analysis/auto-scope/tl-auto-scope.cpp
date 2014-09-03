@@ -116,49 +116,6 @@ namespace {
         }
     }
     
-    UNUSED_FUNCTION bool task_in_loop_is_synchronized_within_loop(Node* task)
-    {
-        bool res = false;
-        
-        Node* task_sync = task->get_children()[0];
-        if(!task_sync->is_omp_virtual_tasksync())
-        {
-            Node* task_outer = task->get_outer_node();
-            
-            while((task_outer != NULL) && !res)
-            {
-                // Get the next loop were the task is nested
-                while(!task_outer->is_loop_node() && (task_outer != NULL))
-                    task_outer = task_outer->get_outer_node();
-                
-                if((task_outer != NULL) && ExtensibleGraph::node_contains_node(task_outer, task_sync))
-                    res = true;
-            }
-        }
-        
-        return res;
-    }
-    
-    UNUSED_FUNCTION void collect_previous_tasks_synchronized_after_scheduling_point(Node* task, ObjectList<Node*> currents, ObjectList<Node*>& result)
-    {
-        for(ObjectList<Node*>::iterator it = currents.begin(); it != currents.end(); ++it)
-        {
-            if(!(*it)->is_visited_aux())
-            {
-                (*it)->set_visited_aux(true);
-                
-                if((*it)->is_omp_task_node())
-                {
-                    Node* it_sync = (*it)->get_children()[0];
-                    if(ExtensibleGraph::node_is_ancestor_of_node(task, it_sync))
-                    {
-                        result.insert(*it);
-                    }
-                }
-            }
-        }
-    }
-    
     Utils::UsageKind compute_usage_in_region_rec(Node* current, NBase n, Node* region)
     {
         Utils::UsageKind result(Utils::UsageKind::NONE);

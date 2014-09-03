@@ -160,7 +160,8 @@ namespace {
         return ranges;
     }
     
-    UNUSED_FUNCTION std::string print_node_ranges_propagated_str(Node* current)
+#if 0
+    std::string print_node_ranges_propagated_str(Node* current)
     {
         std::string propagated_ranges = "";
         if(_ranges)
@@ -175,6 +176,7 @@ namespace {
         }
         return propagated_ranges;
     }
+#endif
     
     std::string print_node_data_sharing(Node* current)
     {
@@ -701,7 +703,7 @@ connect_node:
         std::string liveness_str = print_node_liveness(current);
         std::string reach_defs_str = print_node_reaching_defs(current);
         std::string ranges_str = print_node_ranges(current);
-        std::string ranges_propagated_str/* = print_node_ranges_propagated_str(current)*/;
+//         std::string ranges_propagated_str = print_node_ranges_propagated_str(current);
         std::string induction_vars_str = print_node_induction_variables(current);
         std::string color;
         std::string common_attrs = "style=dashed";
@@ -765,6 +767,7 @@ connect_node:
                 dot_analysis_info += ";\n";
             }
         }
+#if 0
         if(!ranges_propagated_str.empty())
         {
             std::string id = "-000000" + node_id.str();
@@ -780,6 +783,7 @@ connect_node:
                 dot_analysis_info += ";\n";
             }
         }
+#endif
         if(!induction_vars_str.empty())
         {
             std::string id = "-0000000" + node_id.str();
