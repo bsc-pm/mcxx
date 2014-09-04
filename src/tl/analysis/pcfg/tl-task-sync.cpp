@@ -1560,11 +1560,11 @@ task_synchronized:      break;
 
         if(VERBOSE)
         {
-            std::cerr << "Task " << task->get_id() << " synchronizations information" << std::endl;
-            std::cerr << "   Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
-            std::cerr << "   Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
-            std::cerr << "   Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
-            std::cerr << "   Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
+            std::cerr << "    Task " << task->get_id() << " synchronizations information" << std::endl;
+            std::cerr << "        * Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
+            std::cerr << "        * Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
+            std::cerr << "        * Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
+            std::cerr << "        * Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
         }
         
         // Set the information computed to the graph

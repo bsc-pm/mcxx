@@ -248,31 +248,41 @@ namespace {
     {
         _simultaneous_tasks = _graph->get_task_concurrent_tasks(task);
         
-        ObjectList<Node*> last_sync = _graph->get_task_last_synchronization(task);
-        ObjectList<Node*> next_sync = _graph->get_task_next_synchronization(task);
-        if(VERBOSE)
+        const ObjectList<Node*>& last_sync = _graph->get_task_last_synchronization(task);
+        const ObjectList<Node*>& next_sync = _graph->get_task_next_synchronization(task);
+        if (VERBOSE)
         {
-            std::cerr << " Task concurrent regions limits: \n";
-            if(last_sync.empty())
-                std::cerr << "    - Last sync not fund" << std::endl;
+            std::cerr << "    Task concurrent regions limits: \n";
+            if (last_sync.empty())
+                std::cerr << "        * Last sync not fund" << std::endl;
             else
             {
-                std::cerr << "    - Last sync:  ";
-                for(ObjectList<Node*>::iterator it = last_sync.begin(); it != last_sync.end(); ++it)
-                    std::cerr << (*it)->get_id() << ", ";
+                std::cerr << "        * Last sync:  ";
+                for (ObjectList<Node*>::const_iterator it = last_sync.begin(); it != last_sync.end(); )
+                {
+                    std::cerr << (*it)->get_id();
+                    ++it;
+                    if (it != last_sync.end())
+                        std::cerr << ", ";
+                }
                 std::cerr << std::endl;
             }
-            if(next_sync.empty())
-                std::cerr << "    - Next sync not found" << std::endl;
+            if (next_sync.empty())
+                std::cerr << "        * Next sync not found" << std::endl;
             else
             {
-                std::cerr << "    - Next sync: ";
-                for(ObjectList<Node*>::iterator it = next_sync.begin(); it != next_sync.end(); ++it)
-                    std::cerr << (*it)->get_id() << ", ";
+                std::cerr << "        * Next sync: ";
+                for (ObjectList<Node*>::const_iterator it = next_sync.begin(); it != next_sync.end(); )
+                {
+                    std::cerr << (*it)->get_id();
+                    ++it;
+                    if (it != next_sync.end())
+                        std::cerr << ", ";
+                }
                 std::cerr << std::endl;
             }
         }
-        if(last_sync.empty() || (next_sync.empty()))
+        if (last_sync.empty() || (next_sync.empty()))
             _check_only_local = true;
         
         // Scope variables
@@ -294,19 +304,18 @@ namespace {
             }
             else if(current->has_statements())
             {
-                NodeclSet undef = task->get_undefined_behaviour_vars();
                 Scope sc(task->get_graph_related_ast().retrieve_context());
 
-                NodeclSet ue = current->get_ue_vars();
-                for(NodeclSet::iterator it = ue.begin(); it != ue.end(); ++it)
+                const NodeclSet& ue = current->get_ue_vars();
+                for(NodeclSet::const_iterator it = ue.begin(); it != ue.end(); ++it)
                 {
                     Symbol s(it->get_symbol());
                     if(s.is_valid() && !s.get_scope().scope_is_enclosed_by(sc))
                         scope_variable(task, Utils::UsageKind::USED, *it, scoped_vars);
                 }
 
-                NodeclSet killed = current->get_killed_vars();
-                for(NodeclSet::iterator it = killed.begin(); it != killed.end(); ++it)
+                const NodeclSet& killed = current->get_killed_vars();
+                for(NodeclSet::const_iterator it = killed.begin(); it != killed.end(); ++it)
                 {
                     Symbol s(it->get_symbol());
                     if(s.is_valid() && !s.get_scope().scope_is_enclosed_by(sc))
@@ -314,8 +323,8 @@ namespace {
                 }
             }
 
-            ObjectList<Node*> children = current->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            const ObjectList<Node*>& children = current->get_children();
+            for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 compute_task_auto_scoping_rec(task, *it, scoped_vars);
         }
     }
