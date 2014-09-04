@@ -58,12 +58,12 @@ namespace Analysis {
           _auto_scoping(false), _auto_deps(false), _tdg(false)
     {}
 
-    ExtensibleGraph* PCFGAnalysis_memento::get_pcfg(std::string name)
+    ExtensibleGraph* PCFGAnalysis_memento::get_pcfg(std::string name) const
     {
         ExtensibleGraph* pcfg = NULL;
-        Name_to_pcfg_map::iterator pcfgs_it = _pcfgs.find(name);
+        Name_to_pcfg_map::const_iterator pcfgs_it = _pcfgs.find(name);
         if(pcfgs_it != _pcfgs.end())
-            pcfg = _pcfgs[name];
+            pcfg = pcfgs_it->second;
         return pcfg;
     }
 
@@ -72,20 +72,20 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
-    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs()
+    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs() const
     {
         ObjectList<ExtensibleGraph*> result;
-        for(Name_to_pcfg_map::iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
+        for(Name_to_pcfg_map::const_iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
             result.insert(it->second);
         return result;
     }
 
-    TaskDependencyGraph* PCFGAnalysis_memento::get_tdg(std::string name)
+    TaskDependencyGraph* PCFGAnalysis_memento::get_tdg(std::string name) const
     {
         TaskDependencyGraph* tdg = NULL;
-        Name_to_tdg_map::iterator tdgs_it = _tdgs.find(name);
+        Name_to_tdg_map::const_iterator tdgs_it = _tdgs.find(name);
         if(tdgs_it != _tdgs.end())
-            tdg = _tdgs[name];
+            tdg = tdgs_it->second;
         return tdg;
     }
 

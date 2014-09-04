@@ -291,7 +291,7 @@ namespace {
             current->set_visited( true );
 
             // Treat current node
-            std::string locus_str;
+            std::string locus_str = "";
             if( current->is_graph_node( ) )
                 locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
@@ -708,7 +708,7 @@ namespace {
 }
 
     AnalysisCheckPhase::AnalysisCheckPhase( )
-        : PragmaCustomCompilerPhase("analysis_check")
+        : PragmaCustomCompilerPhase("analysis_check"), _correctness_log_path("")
     {
         set_phase_name( "Phase checking the correctness of different analysis" );
         set_phase_description( "This phase checks first the robustness of a PCFG and then "\
@@ -724,6 +724,11 @@ namespace {
         dispatcher( ).declaration.post["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_post, *this ) );
         
         // Register parameters
+        register_parameter("correctness_log_dir",
+                           "Sets the path where correctness logs will be stored, in addition to showing them in the standard output",
+                           _correctness_log_path,
+                           "");
+
         register_parameter("ompss_mode",
                            "Enables OmpSs semantics instead of OpenMP semantics",
                            _ompss_mode_str,
@@ -775,43 +780,45 @@ namespace {
         none_symbol.get_internal_symbol()->type_information = ::get_void_type();
     }
     
-    void AnalysisCheckPhase::run( TL::DTO& dto )
+    void AnalysisCheckPhase::run(TL::DTO& dto)
     {
         PragmaCustomCompilerPhase::run(dto);
 
         NBase ast = dto["nodecl"];
 
-        // Auto Scope analysis encloses all other analysis
-        // FIXME we should launch the analyses depending on the clauses in the assert directives
+        // 1.- Execute analyses
+        // 1.1.- Compute all data-flow analysis
+        // FIXME We should launch the analyses depending on the clauses in the assert directives
         AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
         PCFGAnalysis_memento memento;
         analysis.all_analyses(memento, ast);
-
-        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-            TL::OpenMP::execute_correctness_checks(*it);
+        // 1.2.- Execute correctness phase, which can also be checked
+        // FIXME We should only execute this is there are assert clauses checking this information
+        TL::OpenMP::launch_correctness(memento, _correctness_log_path);
         
-        // Check PCFG consistency
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        // 2.- Perform checks
+        const ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
+        // 2.1.- Check PCFG consistency
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            if( VERBOSE )
-                printf( "Check PCFG '%s' consistency\n", ( *it )->get_name( ).c_str( ) );
-            check_pcfg_consistency( *it );
+            if (VERBOSE)
+                printf("Check PCFG '%s' consistency\n", (*it)->get_name().c_str());
+            check_pcfg_consistency(*it);
         }
-        // Check user assertions
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        // 2.2.- Check user assertions
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            if( VERBOSE )
+            if (VERBOSE)
             {
-                analysis.print_pcfg( memento, (*it)->get_name( ) );
-                printf( "Check analysis assertions of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
+                analysis.print_pcfg(memento, (*it)->get_name());
+                printf("Check analysis assertions of PCFG '%s'\n", (*it)->get_name().c_str());
             }
-            check_analysis_assertions( *it );
+            check_analysis_assertions(*it);
         }
 
-        // Remove the nodes added in this phase
+        // 3.- Remove the nodes added in this phase
         AnalysisCheckVisitor v;
-        v.walk( ast );
+        v.walk(ast);
     }
 
     void AnalysisCheckPhase::check_pcfg_consistency( ExtensibleGraph* graph )
