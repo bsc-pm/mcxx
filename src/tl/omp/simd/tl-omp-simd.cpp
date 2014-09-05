@@ -1143,7 +1143,7 @@ namespace TL {
                 objlist_nodecl_t linear_symbols_list =
                     omp_linear.get_linear_expressions().as<Nodecl::List>().to_object_list();
 
-                int alignment = const_value_cast_to_signed_int(
+                int step = const_value_cast_to_signed_int(
                         omp_linear.get_step().as<Nodecl::IntegerLiteral>().get_constant());
 
                 for(objlist_nodecl_t::iterator it2 = linear_symbols_list.begin();
@@ -1152,9 +1152,10 @@ namespace TL {
                 {
 
                     if(!linear_symbols_map.insert(std::pair<TL::Symbol, int>(
-                                    it2->as<Nodecl::Symbol>().get_symbol(), alignment)).second)
+                                    it2->as<Nodecl::Symbol>().get_symbol(), step)).second)
                     {
-                        running_error("SIMD: multiple instances of the same variable in the 'linear' clause detected\n");
+                        running_error("SIMD: multiple instances of the same variable "\
+                                "in the 'linear' clause detected\n");
                     }
                 }
             }
