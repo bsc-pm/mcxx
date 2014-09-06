@@ -40,12 +40,15 @@ template < int N >
 struct Helper< N, empty, empty, empty,
                   empty, empty, empty >
 {
+    typedef void ElementType;
 };
 
 template < int N, typename T0, typename T1, typename T2,
                   typename T3, typename T4, typename T5 >
 struct Helper : Helper<N+1, T1, T2, T3, T4, T5>
 {
+    typedef T0 &ElementType;
+    T0 datum;
 };
 
 
@@ -58,12 +61,17 @@ struct MyTuple : Helper<0, T0, T1, T2, T3, T4, T5>
 template < int N,
            typename T0, typename T1, typename T2,
            typename T3, typename T4, typename T5 >
-void get(Helper<N, T0, T1, T2, T3, T4, T5> &h);
+typename Helper<N, T0, T1, T2, T3, T4, T5>::ElementType get(Helper<N, T0, T1, T2, T3, T4, T5> &h)
+{
+    return h.datum;
+}
 
 void foo()
 {
     MyTuple<int, float, double> m;
+    Helper<0, int, float, double> h1;
 
-    get<0>(m);
-    get<1>(m);
+    int& m0 = get<0>(m);
+    float& m2 = get<1>(m);
+    double& m3 = get<2>(m);
 }

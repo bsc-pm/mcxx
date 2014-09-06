@@ -1001,7 +1001,8 @@ static void instantiate_dependent_friend_function(
                         /* pack_index */ -1);
             }
 
-            scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+            scope_entry_list_t* new_friend_list = solve_template_function_in_declaration(
+                    candidates_list, updated_explicit_temp_params, new_type, locus);
 
             if (new_friend_list != NULL)
             {
@@ -1122,7 +1123,8 @@ static void instantiate_dependent_friend_function(
                             /* pack_index */ -1);
                 }
 
-                scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+                scope_entry_list_t* new_friend_list = solve_template_function_in_declaration(
+                        candidates_list, expl_templ_param, new_type, locus);
 
                 if (new_friend_list != NULL)
                 {
@@ -1758,7 +1760,6 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry,
                 print_type_str(get_user_defined_type(entry), entry->decl_context),
                 locus_to_str(entry->locus));
     }
-
 
     if (!is_template_specialized_type(template_specialized_type)
             || !is_class_type(template_specialized_type)

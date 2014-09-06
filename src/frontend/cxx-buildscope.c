@@ -6489,7 +6489,7 @@ static char one_function_is_usable(
             candidates,
             NULL, &second_arg_type, second_arg_type != NULL ? 1 : 0,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
 
     candidate_t* candidate_set = NULL;
 
@@ -12436,7 +12436,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     if (!is_template_function)
     {
-        if (is_template_id) //1.1
+        if (is_template_id) // 1.1
         {
             if (!found_candidate)
             {
@@ -13146,17 +13146,17 @@ static char find_function_declaration(AST declarator_id,
         //
         // We have to solve the template
 
-        template_parameter_list_t *explicit_template_parameters = NULL;
+        template_parameter_list_t *explicit_template_arguments = NULL;
         if (declarator_is_template_id)
         {
-            explicit_template_parameters =
+            explicit_template_arguments =
                 get_template_arguments_from_syntax(ASTSon1(considered_tree), decl_context);
         }
 
         // This function ignores non-templates
-        scope_entry_list_t* solved_templates = solve_template_function(
+        scope_entry_list_t* solved_templates = solve_template_function_in_declaration(
                 candidates,
-                explicit_template_parameters,
+                explicit_template_arguments,
                 function_type_being_declared,
                 ast_get_locus(declarator_id));
 
@@ -14127,6 +14127,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
             new_entry->locus);
+    set_is_dependent_type(new_entry->type_information, 1);
 
     template_type_set_related_symbol(new_entry->type_information, new_entry);
 
@@ -16359,6 +16360,9 @@ static char is_virtual_destructor(type_t* class_type)
         type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
         scope_entry_t* destructor = class_type_get_destructor(base_class_type);
+
+        ERROR_CONDITION(destructor == NULL, "Invalid class '%s' lacking destructor",
+                get_qualified_symbol_name(base_class, base_class->decl_context));
 
         if (destructor->entity_specs.is_virtual)
             return 1;

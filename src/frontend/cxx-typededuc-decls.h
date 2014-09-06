@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2012 Barcelona Supercomputing Center
+  (C) Copyright 2006-2014 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -25,38 +25,57 @@
 --------------------------------------------------------------------*/
 
 
+#ifndef CXX_TYPEDEDUC_DECLS_H
+#define CXX_TYPEDEDUC_DECLS_H
 
-
-#ifndef CXX_TYPEUNIF_H
-#define CXX_TYPEUNIF_H
-
-#include "libmcxx-common.h"
 #include "cxx-macros.h"
 
+#include "cxx-type-decls.h"
 #include "cxx-ast-decls.h"
-#include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif-decls.h"
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void unificate_two_types(
-        type_t* t1,
-        type_t* t2,
-        deduction_set_t* unif_set,
-        decl_context_t decl_context, 
-        const locus_t* locus);
-        
-LIBMCXX_EXTERN void unificate_two_expressions(
-        deduction_set_t* unif_set, 
-        nodecl_t left_tree, 
-        nodecl_t right_tree);
-LIBMCXX_EXTERN char same_functional_expression(
-        nodecl_t left_tree,
-        nodecl_t right_tree);
+typedef
+enum deduction_result_tag
+{
+    DEDUCTION_FAILURE = 0,
+    DEDUCTION_OK = 1,
+} deduction_result_t;
 
-LIBMCXX_EXTERN long long int typeunif_used_memory(void);
+typedef
+struct deduced_argument_tag
+{
+    type_t* type;
+
+    // This tree is owned by this structure
+    nodecl_t value;
+} deduced_argument_t;
+
+// Deprecated name
+typedef deduced_argument_t deduced_parameter_t;
+
+typedef 
+struct deduction_tag
+{
+    enum template_parameter_kind kind;
+    int parameter_position;
+    int parameter_nesting;
+    const char* parameter_name;
+    
+    // FIXME - Change field name: num_deduced_parameters -> num_deduced_arguments
+    // num_deduced_parameters is >1 only for template-packs
+    int num_deduced_parameters;
+    // FIXME - Change field name: deduced_parameters -> deduced_arguments
+    deduced_argument_t** deduced_parameters;
+} deduction_t;
+
+typedef struct deduction_set_tag
+{
+    int num_deductions;
+    deduction_t** deduction_list;
+} deduction_set_t;
+
 
 MCXX_END_DECLS
 

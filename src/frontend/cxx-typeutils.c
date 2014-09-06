@@ -32,7 +32,6 @@
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-typeenviron.h"
-#include "cxx-typeunif.h"
 #include "cxx-type-trie.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
@@ -2314,11 +2313,13 @@ static char same_template_argument_list(
                 }
             case TPK_NONTYPE:
                 {
-                    if (!same_functional_expression(targ_1->value,
+                    if (!same_functional_expression(
+                                targ_1->value,
                                 targ_2->value))
                     {
                         return 0;
                     }
+
                     break;
                 }
             default:
@@ -2353,7 +2354,19 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
             case TPK_TEMPLATE:
                 {
                     if (is_named_type(curr_argument->type)
-                            && named_type_get_symbol(curr_argument->type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                            && (named_type_get_symbol(curr_argument->type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                                || named_type_get_symbol(curr_argument->type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+                    {
+                        return 1;
+                    }
+                    else if (is_pack_type(curr_argument->type)
+                            && (named_type_get_symbol(
+                                    pack_type_get_packed_type(curr_argument->type)
+                                    )->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                                || named_type_get_symbol(
+                                    pack_type_get_packed_type(curr_argument->type)
+                                    )->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
+
                     {
                         return 1;
                     }
@@ -2361,9 +2374,21 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
                 }
             case TPK_NONTYPE:
                 {
-                    if (nodecl_expr_is_value_dependent(curr_argument->value))
+                    if (!nodecl_is_list(curr_argument->value))
                     {
-                        return 1;
+                        if (nodecl_expr_is_value_dependent(curr_argument->value))
+                            return 1;
+                    }
+                    else
+                    {
+                        int n;
+                        nodecl_t* list = nodecl_unpack_list(curr_argument->value, &n);
+                        for (i = 0; i < n; i++)
+                        {
+                            if (nodecl_expr_is_value_dependent(list[i]))
+                                return 1;
+                        }
+                        xfree(list);
                     }
                     break;
                 }
@@ -2817,7 +2842,8 @@ static type_t* template_type_get_specialized_type_(
             type_t* enclosing_class_type = class_type_get_enclosing_class_type(specialized_type);
             if (has_dependent_temp_args
                     || (template_type->type->related_template_symbol != NULL
-                        && template_type->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                        && (template_type->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                            || template_type->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK))
                     || (enclosing_class_type != NULL
                         && is_dependent_type(enclosing_class_type)))
             {
@@ -6035,7 +6061,8 @@ static char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             }
             CXX_LANGUAGE()
             {
-                result = same_functional_expression(t1->typeof_expr,
+                result = same_functional_expression(
+                        t1->typeof_expr,
                         t2->typeof_expr);
             }
             break;
@@ -6158,7 +6185,8 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     {
         CXX_LANGUAGE()
         {
-            if (!same_functional_expression(t1->whole_size, 
+            if (!same_functional_expression(
+                        t1->whole_size,
                         t2->whole_size))
                 return 0;
         }
@@ -6971,6 +6999,7 @@ static template_parameter_list_t* rebuild_template_arguments_advancing_dependent
     {
         template_parameter_value_t* new_value = counted_xcalloc(1, sizeof(*new_value), &_bytes_due_to_type_system);
         *new_value = *fixed_tpl->arguments[i];
+        new_value->value = nodecl_shallow_copy(fixed_tpl->arguments[i]->value);
 
         new_value->type = rebuild_type_advancing_dependent_typenames(
                 fixed_tpl->arguments[i]->type,
@@ -7071,7 +7100,6 @@ static type_t* rebuild_type_advancing_dependent_typenames(type_t* t,
                 fixed_tpl,
                 decl_context,
                 locus);
-
         free_template_parameter_list(fixed_tpl);
     }
     else if (is_lvalue_reference_type(t))
@@ -8581,12 +8609,24 @@ static char declarator_needs_parentheses(type_t* type_info)
     return result;
 }
 
+static char is_nonspecialized_function_pred(scope_entry_t* entry, void *p UNUSED_PARAMETER)
+{
+    entry = entry_advance_aliases(entry);
+    return (entry->kind == SK_FUNCTION);
+}
+
+static char is_template_function_pred(scope_entry_t* entry, void *p UNUSED_PARAMETER)
+{
+    entry = entry_advance_aliases(entry);
+    return (entry->kind == SK_TEMPLATE
+            && (named_type_get_symbol(
+                    template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION));
+}
+
 char is_function_or_template_function_name_or_extern_variable(scope_entry_t* entry, void* p UNUSED_PARAMETER)
 {
-    return (entry->kind == SK_FUNCTION
-            || (entry->kind == SK_TEMPLATE
-                && (named_type_get_symbol(
-                        template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION))
+    return (is_nonspecialized_function_pred(entry, NULL)
+            || is_template_function_pred(entry, NULL)
             || (entry->kind == SK_VARIABLE
                 && entry->entity_specs.is_extern));
 }
@@ -12060,89 +12100,131 @@ template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_argu
     return t->template_arguments;
 }
 
-scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const locus_t* locus)
+scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
+        scope_entry_list_t* overload_set,
+        template_parameter_list_t* explicit_template_arguments,
+        decl_context_t decl_context,
+        const locus_t* locus)
 {
-    ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
-
-    if (entry_list_size(t->overload_set) > 1)
-        return NULL;
-
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(t->overload_set));
-
-    if ((entry->entity_specs.is_member
-                && is_dependent_type(entry->entity_specs.class_type)))
-        return NULL;
-
-    if (entry->kind != SK_TEMPLATE)
+    // Fallback case not using the target type
+    if (explicit_template_arguments == NULL)
     {
-        return entry;
-    }
+        scope_entry_list_t* nonspecialized_functions = filter_symbol_using_predicate(
+                overload_set,
+                is_nonspecialized_function_pred,
+                NULL);
 
-    template_parameter_list_t *template_arguments = t->template_arguments;
-    if (template_arguments == NULL
-            || has_dependent_template_parameters(template_arguments))
-        return NULL;
-
-    return expand_template_function_given_template_arguments(
-            entry,
-            decl_context,
-            locus,
-            template_arguments);
-}
-
-scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,
-        decl_context_t decl_context, const locus_t* locus)
-{
-    ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
-
-    template_parameter_list_t *explicit_template_parameters = t->template_arguments;
-
-    if (explicit_template_parameters == NULL)
-        return unresolved_overloaded_type_get_overload_set(t);
-
-    scope_entry_list_t* result = NULL;
-
-    scope_entry_list_iterator_t *it;
-    for (it = entry_list_iterator_begin(t->overload_set);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
-        if (entry->kind != SK_TEMPLATE)
-            continue;
-
-        template_parameter_list_t* type_template_parameters
-            = template_type_get_template_parameters(entry->type_information);
-        type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-        scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-        type_t* specialized_function_type = specialization_symbol->type_information;
-
-        template_parameter_list_t* template_parameters =
-            template_specialized_type_get_template_arguments(specialized_function_type);
-
-        template_parameter_list_t* argument_list = NULL;
-
-        if (deduce_arguments_from_call_to_specific_template_function(
-                    NULL, 0, specialization_type,
-                    template_parameters, type_template_parameters,
-                    decl_context, &argument_list, locus,
-                    explicit_template_parameters))
+        scope_entry_t* result = NULL;
+        if (entry_list_size(nonspecialized_functions) == 1)
         {
-            type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                    argument_list, decl_context, locus);
+            result = entry_advance_aliases(
+                    entry_list_head(nonspecialized_functions)
+                    );
+        }
+        entry_list_free(nonspecialized_functions);
+
+        return result;
+    }
+    else // explicit_template_arguments != NULL
+    {
+        scope_entry_list_t* template_functions = filter_symbol_using_predicate(
+                overload_set,
+                is_template_function_pred,
+                NULL);
+
+        scope_entry_t* tested_fun = NULL;
+        if (entry_list_size(template_functions) == 1)
+        {
+            tested_fun = entry_advance_aliases(
+                    entry_list_head(template_functions)
+                    );
+        }
+        entry_list_free(template_functions);
+
+        if (tested_fun != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Attempt to come up with a single specialization as the named function\n");
+            }
+
+            // Try to come up with an instantiation
+            template_parameter_list_t* deduced_template_arguments = NULL;
+            deduction_result_t deduction_result = handle_explicit_template_arguments(
+                    template_specialized_type_get_template_parameters(
+                        named_type_get_symbol(
+                            template_type_get_primary_type(tested_fun->type_information)
+                            )->type_information),
+                    explicit_template_arguments,
+                    decl_context,
+                    locus,
+                    &deduced_template_arguments);
+
+            if (deduction_result == DEDUCTION_FAILURE)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Explicit template arguments failed\n");
+                }
+                return NULL;
+            }
+
+            deduction_set_t* deduction_set_empty = xcalloc(1, sizeof(*deduction_set_empty));
+            deduction_result = finish_deduced_template_arguments(
+                    template_type_get_template_parameters(tested_fun->type_information),
+                    deduction_set_empty,
+                    decl_context,
+                    locus,
+                    deduced_template_arguments);
+            deduction_set_free(deduction_set_empty);
+
+            if (deduction_result == DEDUCTION_FAILURE)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Final deduction failed\n");
+                }
+                free_template_parameter_list(deduced_template_arguments);
+                return NULL;
+            }
+
+            type_t* named_specialization_type = template_type_get_specialized_type(
+                    tested_fun->type_information,
+                    deduced_template_arguments,
+                    decl_context,
+                    locus);
+            free_template_parameter_list(deduced_template_arguments);
 
             if (named_specialization_type == NULL)
-                continue;
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Substitution failed\n");
+                }
+                free_template_parameter_list(deduced_template_arguments);
+                return NULL;
+            }
 
-            scope_entry_t* specialized_symbol = named_type_get_symbol(named_specialization_type);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Fallback template specialization chosen '%s'\n",
+                        print_declarator(named_specialization_type));
+            }
 
-            result = entry_list_add(result, specialized_symbol);
+            return named_type_get_symbol(named_specialization_type);
         }
     }
 
-    entry_list_iterator_free(it);
+    return NULL;
+}
 
-    return result;
+scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const locus_t* locus)
+{
+    return unresolved_overloaded_type_simplify_unpacked(
+            unresolved_overloaded_type_get_overload_set(t),
+            unresolved_overloaded_type_get_explicit_template_arguments(t),
+            decl_context,
+            locus);
 }
 
 static dhash_ptr_t *_zero_types_hash = NULL;
@@ -14382,7 +14464,7 @@ type_t* get_sequence_of_types(int num_types, type_t** types)
     for (i = 0; i < num_types; i++)
     {
         ERROR_CONDITION(is_sequence_of_types(types[i]), "Cannot have a sequence inside another sequence type", 0);
-        ERROR_CONDITION(types[i] == NULL, "Invalid NULL type", 0);
+        // ERROR_CONDITION(types[i] == NULL, "Invalid NULL type", 0);
 
         type_seq[i + 1] = types[i];
         any_is_dependent = any_is_dependent || is_dependent_type(types[i]);

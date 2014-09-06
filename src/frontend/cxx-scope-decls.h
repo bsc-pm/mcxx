@@ -234,6 +234,7 @@ struct template_parameter_value_tag
     struct type_tag* type;
 
     // Argument tree. Used only for nontype template parameters
+    // This tree is owned by this structure
     nodecl_t value;
 
     // Template, states that this is a default argument of a template parameter

@@ -4931,10 +4931,6 @@ static void print_memory_report(void)
     print_human(c, exprtype_used_memory());
     fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
 
-    accounted_memory += typeunif_used_memory();
-    print_human(c, typeunif_used_memory());
-    fprintf(stderr, " - Memory usage due to type unification: %s\n", c);
-
     accounted_memory += typededuc_used_memory();
     print_human(c, typededuc_used_memory());
     fprintf(stderr, " - Memory usage due to type deduction: %s\n", c);
