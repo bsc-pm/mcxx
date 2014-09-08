@@ -1215,11 +1215,21 @@ static deduction_result_t deduce_template_arguments_from_a_value(
             }
             return DEDUCTION_OK;
         }
+        else if (same_functional_expression(parameter, argument))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEDEDUC: Expression '%s' and '%s' are functionally equivalent\n",
+                        codegen_to_str(parameter, decl_context),
+                        codegen_to_str(argument, decl_context));
+            }
+            return DEDUCTION_OK;
+        }
         else
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEDEDUC: Deduction fails\n");
+                fprintf(stderr, "TYPEDEDUC: Deduction fails because the two expressions are not functionally equivalent\n");
             }
             return DEDUCTION_FAILURE;
         }
