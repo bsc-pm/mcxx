@@ -130,8 +130,19 @@ namespace Analysis {
         NodeclSet inner_vars = get_ue_vars();
         inner_vars.insert(killed_vars.begin(), killed_vars.end());
         inner_vars.insert(undef_vars.begin(), undef_vars.end());
+        const Nodecl::NodeclBase& ast = get_graph_related_ast();
+        ERROR_CONDITION(ast.is_null(),
+                        "Cannot retrieve the shared accesses of node %d, which does not relate to an AST",
+                        _id);
+        Scope task_sc(ast.retrieve_context());
         for(NodeclSet::const_iterator it = inner_vars.begin(); it != inner_vars.end(); ++it)
         {
+            // Discard all vars local to the task
+            Scope var_sc(Analysis::Utils::get_nodecl_base(*it).get_symbol().get_scope());
+            if(var_sc.scope_is_enclosed_by(task_sc))
+                continue;
+
+            // If the variables is an array ArraySubscript, check whether it is allocated dynamically
             if(it->no_conv().is<Nodecl::ArraySubscript>())
             {
                 const NBase& base = Utils::get_nodecl_base(it->no_conv());
@@ -222,9 +233,10 @@ namespace Analysis {
         return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS) ||
-                has_key(_ASSERT_CORRECTNESS_POINTER_DEP_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
                 has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
     }
@@ -2021,6 +2033,16 @@ namespace Analysis {
         add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_VARS);
     }
     
+    Nodecl::List Node::get_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_correctness_incoherent_in_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
     Nodecl::List Node::get_correctness_incoherent_out_vars()
     {
         return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_VARS);
@@ -2031,6 +2053,16 @@ namespace Analysis {
         add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_VARS);
     }
     
+    Nodecl::List Node::get_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
     Nodecl::List Node::get_correctness_incoherent_p_vars()
     {
         return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_P_VARS);
@@ -2039,16 +2071,6 @@ namespace Analysis {
     void Node::add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n)
     {
         add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
-    }
-    
-    Nodecl::List Node::get_correctness_pointer_dep_vars()
-    {
-        return get_vars<Nodecl::List>(_CORRECTNESS_POINTER_DEP_VARS);
-    }
-    
-    void Node::add_correctness_pointer_dep_var(const Nodecl::NodeclBase& n)
-    {
-        add_var_to_list(n, _CORRECTNESS_POINTER_DEP_VARS);
     }
     
     Nodecl::List Node::get_correctness_race_vars()
@@ -2414,6 +2436,16 @@ namespace Analysis {
         add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
     }
     
+    Nodecl::List Node::get_assert_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_assert_correctness_incoherent_in_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
     Nodecl::List Node::get_assert_correctness_incoherent_out_vars()
     {
         return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
@@ -2424,6 +2456,16 @@ namespace Analysis {
         add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
     }
     
+    Nodecl::List Node::get_assert_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
     Nodecl::List Node::get_assert_correctness_incoherent_p_vars()
     {
         return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
@@ -2432,16 +2474,6 @@ namespace Analysis {
     void Node::add_assert_correctness_incoherent_p_var(const Nodecl::List& vars)
     {
         add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
-    }
-    
-    Nodecl::List Node::get_assert_correctness_pointer_dep_vars()
-    {
-        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_POINTER_DEP_VARS);
-    }
-    
-    void Node::add_assert_correctness_pointer_dep_var(const Nodecl::List& vars)
-    {
-        add_vars_to_list(vars, _ASSERT_CORRECTNESS_POINTER_DEP_VARS);
     }
     
     Nodecl::List Node::get_assert_correctness_race_vars()

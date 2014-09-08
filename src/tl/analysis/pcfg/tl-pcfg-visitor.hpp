@@ -250,9 +250,10 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::Correctness::Dead& n );
         Ret visit( const Nodecl::Analysis::Correctness::IncoherentFp& n );
         Ret visit( const Nodecl::Analysis::Correctness::IncoherentIn& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n );
         Ret visit( const Nodecl::Analysis::Correctness::IncoherentOut& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n );
         Ret visit( const Nodecl::Analysis::Correctness::IncoherentP& n );
-        Ret visit( const Nodecl::Analysis::Correctness::PointerDep& n );
         Ret visit( const Nodecl::Analysis::Correctness::Race& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );

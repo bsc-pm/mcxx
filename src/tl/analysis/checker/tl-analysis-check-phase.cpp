@@ -245,40 +245,52 @@ namespace {
             std::string locus_str, int node_id,
             std::string clause_name, std::string analysis_name)
     {
-        if(!assert_list.empty())
+        if(assert_list.size() != analysis_list.size())
         {
-            if((assert_list.size() == 1) && 
-               (assert_list.begin()->is<Nodecl::Symbol>()) && 
-               (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
+            std::string assert_list_str = (assert_list.empty() ? "null" : assert_list.prettyprint());
+            internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                            "The number of %s variables associated to node %d is not the same as in the assert list\n",
+                            locus_str.c_str( ),
+                            clause_name.c_str( ), assert_list_str.c_str(),
+                            analysis_name.c_str( ), node_id );
+        }
+        else
+        {
+            if(!assert_list.empty())
             {
-                if(!analysis_list.empty())
+                if((assert_list.size() == 1) &&
+                (assert_list.begin()->is<Nodecl::Symbol>()) &&
+                (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
                 {
-                    internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                   "There are %s variables associated to node %d\n",
-                                   locus_str.c_str( ),
-                                   clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                   analysis_name.c_str( ), node_id );
-                }
-            }
-            else if(analysis_list.empty())
-            {
-                internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                "There are no %s variables associated to node %d\n",
-                                locus_str.c_str( ),
-                                clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                analysis_name.c_str( ), node_id );
-            }
-            else
-            {
-                Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
-                if( !diff.empty( ) )
-                {
-                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
-                                    "Expressions '%s' are no %s variables associated to node %d\n",
+                    if(!analysis_list.empty())
+                    {
+                        internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                    "There are %s variables associated to node %d\n",
                                     locus_str.c_str( ),
                                     clause_name.c_str( ), assert_list.prettyprint().c_str(),
-                                    diff.prettyprint().c_str(),
                                     analysis_name.c_str( ), node_id );
+                    }
+                }
+                else if(analysis_list.empty())
+                {
+                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                    "There are no %s variables associated to node %d\n",
+                                    locus_str.c_str( ),
+                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                    analysis_name.c_str( ), node_id );
+                }
+                else
+                {
+                    Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+                    if( !diff.empty( ) )
+                    {
+                        internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                        "Expressions '%s' are no %s variables associated to node %d\n",
+                                        locus_str.c_str( ),
+                                        clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                        diff.prettyprint().c_str(),
+                                        analysis_name.c_str( ), node_id );
+                    }
                 }
             }
         }
@@ -480,16 +492,18 @@ namespace {
                 const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
                 const Nodecl::List& assert_correctness_incoherent_p = current->get_assert_correctness_incoherent_p_vars();
                 const Nodecl::List& assert_correctness_incoherent_in = current->get_assert_correctness_incoherent_in_vars();
+                const Nodecl::List& assert_correctness_incoherent_in_pointed = current->get_assert_correctness_incoherent_in_pointed_vars();
                 const Nodecl::List& assert_correctness_incoherent_out = current->get_assert_correctness_incoherent_out_vars();
-                const Nodecl::List& assert_correctness_pointer_deps = current->get_assert_correctness_pointer_dep_vars();
+                const Nodecl::List& assert_correctness_incoherent_out_pointed = current->get_assert_correctness_incoherent_out_pointed_vars();
                 const Nodecl::List& assert_correctness_race = current->get_assert_correctness_race_vars();
                 const Nodecl::List& correctness_auto_storage = task->get_correctness_auto_storage_vars();
                 const Nodecl::List& correctness_dead = task->get_correctness_dead_vars();
                 const Nodecl::List& correctness_incoherent_fp = task->get_correctness_incoherent_fp_vars();
                 const Nodecl::List& correctness_incoherent_p = task->get_correctness_incoherent_p_vars();
                 const Nodecl::List& correctness_incoherent_in = task->get_correctness_incoherent_in_vars();
+                const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
                 const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
-                const Nodecl::List& correctness_pointer_deps = task->get_correctness_pointer_dep_vars();
+                const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
                 const Nodecl::List& correctness_race = task->get_correctness_race_vars();
                 compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
                                                        locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
@@ -501,10 +515,12 @@ namespace {
                                                        locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
                 compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
                                                        locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
+                                                       locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
                 compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
                                                        locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
-                compare_assert_list_with_analysis_list(assert_correctness_pointer_deps, correctness_pointer_deps,
-                                                       locus_str, task->get_id(), "correctness_pointer_deps", "Correctness Pointer Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
+                                                       locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
                 compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
                                                        locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
             }
@@ -683,6 +699,13 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentIn::make(
                     Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions( ) ), loc ));
         }
+        if(pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_in_pointed_clause = pragma_line.get_clause("correctness_incoherent_in_pointed");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentInPointed::make(
+                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions( ) ), loc ));
+        }
         if(pragma_line.get_clause("correctness_incoherent_out").is_defined())
         {
             PragmaCustomClause correctness_incoherent_out_clause = pragma_line.get_clause("correctness_incoherent_out");
@@ -690,12 +713,12 @@ namespace {
                 Nodecl::Analysis::Correctness::IncoherentOut::make(
                     Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions( ) ), loc ));
         }
-        if(pragma_line.get_clause("correctness_pointer_dep").is_defined())
+        if(pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
         {
-            PragmaCustomClause correctness_pointer_dep_clause = pragma_line.get_clause("correctness_pointer_dep");
+            PragmaCustomClause correctness_incoherent_out_pointed_clause = pragma_line.get_clause("correctness_incoherent_out_pointed");
             environment.append(
-                Nodecl::Analysis::Correctness::PointerDep::make(
-                    Nodecl::List::make(correctness_pointer_dep_clause.get_arguments_as_expressions( ) ), loc ));
+                Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
+                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions( ) ), loc ));
         }
         if(pragma_line.get_clause("correctness_race").is_defined())
         {

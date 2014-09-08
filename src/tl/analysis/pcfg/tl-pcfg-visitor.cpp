@@ -670,21 +670,27 @@ namespace Analysis {
         return ObjectList<Node*>( );
     }
     
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_in_pointed_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentOut& n )
     {
         _utils->_assert_nodes.top()->add_assert_correctness_incoherent_out_var(n.get_correctness_vars().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentP& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n )
     {
-        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_p_var(n.get_correctness_vars().as<Nodecl::List>());
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_out_pointed_var(n.get_correctness_vars().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
     
-    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::PointerDep& n )
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentP& n )
     {
-        _utils->_assert_nodes.top()->add_assert_correctness_pointer_dep_var(n.get_correctness_vars().as<Nodecl::List>());
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_p_var(n.get_correctness_vars().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
     

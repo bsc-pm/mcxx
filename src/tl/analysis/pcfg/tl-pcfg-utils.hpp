@@ -564,23 +564,27 @@ namespace Analysis {
      */
     #define _CORRECTNESS_INCOHERENT_IN_VARS         "correctness_incoherent_in"
     
+    /*! \def _CORRECTNESS_INCOHERENT_IN_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually reads the value pointed by the variable or some sub-object of the variable
+     */
+    #define _CORRECTNESS_INCOHERENT_IN_POINTED_VARS "correctness_incoherent_in_pointed"
+
     /*! \def _CORRECTNESS_INCOHERENT_OUT_VARS
      * Set of variables defined as an output dependence of a task that does not write the value of the variable
      * Available only in task nodes OMP/OMPSS correctness phase
      */
     #define _CORRECTNESS_INCOHERENT_OUT_VARS        "correctness_incoherent_out"
     
+    /*! \def _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually writes the value pointed by the variable or some sub-object of the variable
+     */
+    #define _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS    "correctness_incoherent_out_pointed"
+
     /*! \def _CORRECTNESS_INCOHERENT_P_VARS
      * Set of variables incoherently scoped as Private: the first use of the variable within the task is read
      * Available only in task nodes OMP/OMPSS correctness phase
      */
     #define _CORRECTNESS_INCOHERENT_P_VARS          "correctness_incoherent_p"
-    
-    /*! \def _CORRECTNESS_POINTER_DEP_VARS
-     * Set of variables that are defined as a dependency in a task that uses the object pointed by the variable instead of using the variable
-     * Available only in task nodes OMP/OMPSS correctness phase
-     */
-    #define _CORRECTNESS_POINTER_DEP_VARS           "correctness_pointer_dep"
     
     /*! \def _CORRECTNESS_RACE_VARS
      * Set of variables that are in a race condition in a given task
@@ -672,20 +676,25 @@ namespace Analysis {
      */
     #define _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS  "assert_correctness_incoherent_in"
     
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS
+     * Set of variables defined as an input dependence of a task that actually reads the value pointed by the variable or some sub-object of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS  "assert_correctness_incoherent_in_pointed"
+
     /*! \def _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS
      * Set of variables defined as an output dependence of a task that does not write the value of the variable
      */
     #define _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS "assert_correctness_incoherent_out"
     
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually writes the value pointed by the variable or some sub-object of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS "assert_correctness_incoherent_out_pointed"
+
     /*! \def _ASSERT_CORRECTNESS_INCOHERENT_P_VARS
      * Set of variables incoherently scoped as Private: the first use of the variable within the task is read
      */
     #define _ASSERT_CORRECTNESS_INCOHERENT_P_VARS   "assert_correctness_incoherent_p"
-    
-    /*! \def _ASSERT_CORRECTNESS_POINTER_DEP_VARS
-     * Set of variables that are defined as a dependency in a task that uses the object pointed by the variable instead of using the variable
-     */
-    #define _ASSERT_CORRECTNESS_POINTER_DEP_VARS    "assert_correctness_pointer_dep"
 
     /*! \def _ASSERT_CORRECTNESS_RACE_VARS
      * Set of variables that are in a race condition in a given task

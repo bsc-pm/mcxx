@@ -687,7 +687,8 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq)
                           | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq)
                           | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*POINTER_DEP([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq)
                           | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)

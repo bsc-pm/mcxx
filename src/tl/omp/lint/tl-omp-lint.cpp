@@ -55,7 +55,9 @@ namespace {
     CORRECTNESS_WARN_TYPE(FP_Incoherent) \
     CORRECTNESS_WARN_TYPE(P_Incoherent) \
     CORRECTNESS_WARN_TYPE(IN_Incoherent) \
+    CORRECTNESS_WARN_TYPE(IN_Pointed_Incoherent) \
     CORRECTNESS_WARN_TYPE(OUT_Incoherent) \
+    CORRECTNESS_WARN_TYPE(OUT_Pointed_Incoherent) \
     CORRECTNESS_WARN_TYPE(Race) \
     CORRECTNESS_WARN_TYPE(SharedAutoStorage) \
     CORRECTNESS_WARN_TYPE(Unused)
@@ -591,7 +593,7 @@ check_sync:
         for (VarToNodesMap::const_iterator it = concurrent_vars.begin();
              it != concurrent_vars.end(); ++it)
         {
-            const Nodecl::NodeclBase& var = it->first;
+            const Nodecl::NodeclBase& var = it->first.shallow_copy();
             const TL::ObjectList<TL::Analysis::Node*>& concurrent_nodes_using_var = it->second;
             // Do not warn the same variable twice
             if(warned_vars.find(var) != warned_vars.end())
@@ -1205,9 +1207,9 @@ next_iteration: ;
             if(it->is<Nodecl::Shaping>())
             {   // Check for uses of the variable, any sub-part or the object pointed by the variable
                 const Nodecl::NodeclBase& var = it->as<Nodecl::Shaping>().get_postfix();
-                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
-                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars).is_null() && 
-                    TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
+                const Nodecl::NodeclBase enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars);
+                if ((enclosed.is_null() || !Nodecl::Utils::structurally_equal_nodecls(var, enclosed, /*skip conversions*/true))
+                    && TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
                 {
                     incoherent_depin_vars += it->prettyprint() + ", ";
                     task->add_correctness_incoherent_in_var(*it);
@@ -1217,21 +1219,18 @@ next_iteration: ;
             else
             {   // Check only for uses of the variable or sub-parts of the variable
                 const Nodecl::NodeclBase& var = *it;
-                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
+                if (!TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
+                {
+                    incoherent_depin_pointed_vars += it->prettyprint() + ", ";
+                    task->add_correctness_incoherent_in_pointed_var(var);
+                    n_incoherent_depin_pointed_vars++;
+                }
+                else if(!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, ue_vars) &&
                     TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, ue_vars).is_null())
                 {
-                    if(TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, ue_vars).is_null())
-                    {
-                        incoherent_depin_vars += it->prettyprint() + ", ";
-                        task->add_correctness_incoherent_in_var(var);
-                        n_incoherent_depin_vars++;
-                    }
-                    else
-                    {
-                        incoherent_depin_pointed_vars += it->prettyprint() + ", ";
-                        task->add_correctness_incoherent_in_var(var);
-                        n_incoherent_depin_pointed_vars++;
-                    }
+                    incoherent_depin_vars += it->prettyprint() + ", ";
+                    task->add_correctness_incoherent_in_var(var);
+                    n_incoherent_depin_vars++;
                 }
             }
         }
@@ -1247,7 +1246,7 @@ next_iteration: ;
             incoherent_depin_pointed_vars = incoherent_depin_pointed_vars.substr(0, incoherent_depin_pointed_vars.size()-2);
             warn_printf (get_incoherent_in_deps_message(/*use_plural*/ (n_incoherent_depin_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
                          incoherent_depin_pointed_vars.c_str());
-            print_warn_to_file(task->get_graph_related_ast(), __IN_Incoherent, incoherent_depin_pointed_vars);
+            print_warn_to_file(task->get_graph_related_ast(), __IN_Pointed_Incoherent, incoherent_depin_pointed_vars);
         }
         
         // 3.2.- Check whether all output dependencies are written within the task
@@ -1260,9 +1259,9 @@ next_iteration: ;
             if(it->is<Nodecl::Shaping>())
             {   // Check for uses of the variable, any sub-part or the object pointed by the variable
                 const Nodecl::NodeclBase& var = it->as<Nodecl::Shaping>().get_postfix();
-                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, killed_vars) &&
-                    TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars).is_null() && 
-                    TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
+                const Nodecl::NodeclBase enclosed = TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars);
+                if ((enclosed.is_null() || !Nodecl::Utils::structurally_equal_nodecls(var, enclosed, /*skip conversions*/true))
+                    && TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
                 {
                     incoherent_depout_vars += it->prettyprint() + ", ";
                     task->add_correctness_incoherent_out_var(*it);
@@ -1272,21 +1271,18 @@ next_iteration: ;
             else
             {   // Check only for uses of the variable or sub-parts of the variable
                 const Nodecl::NodeclBase& var = *it;
-                if (!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, killed_vars) &&
+                if(!TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
+                {
+                    incoherent_depout_pointed_vars += it->prettyprint() + ", ";
+                    task->add_correctness_incoherent_out_pointed_var(var);
+                    n_incoherent_depout_pointed_vars++;
+                }
+                else if(!TL::Analysis::Utils::nodecl_set_contains_nodecl(var, killed_vars) &&
                     TL::Analysis::Utils::nodecl_set_contains_enclosed_nodecl(var, killed_vars).is_null())
                 {
-                    if(TL::Analysis::Utils::nodecl_set_contains_pointed_nodecl(var, killed_vars).is_null())
-                    {
-                        incoherent_depout_vars += it->prettyprint() + ", ";
-                        task->add_correctness_incoherent_out_var(var);
-                        n_incoherent_depout_vars++;
-                    }
-                    else
-                    {
-                        incoherent_depout_pointed_vars += it->prettyprint() + ", ";
-                        task->add_correctness_incoherent_out_var(var);
-                        n_incoherent_depout_pointed_vars++;
-                    }
+                    incoherent_depout_vars += it->prettyprint() + ", ";
+                    task->add_correctness_incoherent_out_var(var);
+                    n_incoherent_depout_vars++;
                 }
             }
             
@@ -1303,7 +1299,7 @@ next_iteration: ;
             incoherent_depout_pointed_vars = incoherent_depout_pointed_vars.substr(0, incoherent_depout_pointed_vars.size()-2);
             warn_printf (get_incoherent_out_deps_message(/*use_plural*/ (n_incoherent_depout_pointed_vars>1), /*pointed_obj_used*/ true, task).c_str(), 
                          incoherent_depout_pointed_vars.c_str());
-            print_warn_to_file(task->get_graph_related_ast(), __OUT_Incoherent, incoherent_depout_pointed_vars);
+            print_warn_to_file(task->get_graph_related_ast(), __OUT_Pointed_Incoherent, incoherent_depout_pointed_vars);
         }
     }
 }

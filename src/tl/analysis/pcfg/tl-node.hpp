@@ -852,14 +852,17 @@ namespace Analysis {
             Nodecl::List get_correctness_incoherent_in_vars();
             void add_correctness_incoherent_in_var(const Nodecl::NodeclBase& n);
             
+            Nodecl::List get_correctness_incoherent_in_pointed_vars();
+            void add_correctness_incoherent_in_pointed_var(const Nodecl::NodeclBase& n);
+
             Nodecl::List get_correctness_incoherent_out_vars();
             void add_correctness_incoherent_out_var(const Nodecl::NodeclBase& n);
             
+            Nodecl::List get_correctness_incoherent_out_pointed_vars();
+            void add_correctness_incoherent_out_pointed_var(const Nodecl::NodeclBase& n);
+
             Nodecl::List get_correctness_incoherent_p_vars();
             void add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n);
-            
-            Nodecl::List get_correctness_pointer_dep_vars();
-            void add_correctness_pointer_dep_var(const Nodecl::NodeclBase& n);
             
             Nodecl::List get_correctness_race_vars();
             void add_correctness_race_var(const Nodecl::NodeclBase& n);
@@ -951,8 +954,11 @@ namespace Analysis {
             Nodecl::List get_assert_correctness_incoherent_p_vars();
             void add_assert_correctness_incoherent_p_var(const Nodecl::List& vars);
             
-            Nodecl::List get_assert_correctness_pointer_dep_vars();
-            void add_assert_correctness_pointer_dep_var(const Nodecl::List& vars);
+            Nodecl::List get_assert_correctness_incoherent_in_pointed_vars();
+            void add_assert_correctness_incoherent_in_pointed_var(const Nodecl::List& vars);
+
+            Nodecl::List get_assert_correctness_incoherent_out_pointed_vars();
+            void add_assert_correctness_incoherent_out_pointed_var(const Nodecl::List& vars);
             
             Nodecl::List get_assert_correctness_race_vars();
             void add_assert_correctness_race_var(const Nodecl::List& vars);
