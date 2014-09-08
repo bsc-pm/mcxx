@@ -1378,7 +1378,7 @@ static scope_entry_list_t* conversion_function_candidates_initialization_of_clas
 static char solve_initialization_of_nonclass_nonreference_type_ics(
         type_t* orig,
         type_t* dest,
-        decl_context_t decl_context, 
+        decl_context_t decl_context,
         enum initialization_kind initialization_kind,
         scope_entry_t** conversor,
         scope_entry_list_t** candidates,
@@ -1458,11 +1458,11 @@ static char solve_initialization_of_nonclass_nonreference_type_ics(
 
             // Now we have all the candidates, perform an overload resolution on them
             char is_ambiguous = 0;
-            scope_entry_t* overload_resolution = solve_overload_(candidate_set, 
-                    decl_context, 
-                    /* initialization_kind */ initialization_kind,
+            scope_entry_t* overload_resolution = solve_overload_(candidate_set,
+                    decl_context,
+                    initialization_kind | IK_BY_USER_DEFINED_CONVERSION,
                     dest,
-                    locus, 
+                    locus,
                     // Out
                     &is_ambiguous);
             candidate_set_free(&candidate_set);
