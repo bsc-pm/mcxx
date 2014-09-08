@@ -1171,14 +1171,14 @@ namespace Analysis {
         return graph;
     }
 
-    bool ExtensibleGraph::node_is_ancestor_of_node(Node* ancestor, Node* descendant)
+    static bool node_is_ancestor_of_node_rec(Node* ancestor, Node* descendant)
     {
         bool res = false;
 
         if(!ancestor->is_visited_extgraph())
         {
             ancestor->set_visited_extgraph(true);
-
+            
             if(ancestor == descendant)
             {
                 res = true;
@@ -1188,11 +1188,18 @@ namespace Analysis {
                 ObjectList<Node*> children = ancestor->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && !res ; ++it)
                 {
-                    res = node_is_ancestor_of_node(*it, descendant);
+                    res = node_is_ancestor_of_node_rec(*it, descendant);
                 }
             }
         }
 
+        return res;
+    }
+
+    bool ExtensibleGraph::node_is_ancestor_of_node(Node* ancestor, Node* descendant)
+    {
+        bool res = node_is_ancestor_of_node_rec(ancestor, descendant);
+        ExtensibleGraph::clear_visits_extgraph(ancestor);
         return res;
     }
 

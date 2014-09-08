@@ -269,7 +269,7 @@ namespace {
             dot_pcfg << graph_analysis_info;
         dot_pcfg << "}\n";
 
-        ExtensibleGraph::clear_visits(_graph);
+        ExtensibleGraph::clear_visits_extgraph(_graph);
         dot_pcfg.close();
         if(!dot_pcfg.good())
             internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str());
@@ -325,9 +325,9 @@ namespace {
                                               std::vector<std::vector<std::string> >& outer_edges, 
                                               std::vector<std::vector<Node*> >& outer_nodes, std::string indent)
     {
-        if(!current->is_visited())
+        if(!current->is_visited_extgraph())
         {
-            current->set_visited(true);
+            current->set_visited_extgraph(true);
             
             // Generate the node
             if (!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context && 
@@ -336,7 +336,7 @@ namespace {
                 if(current->is_context_node())
                 {
                     Node* entry = current->get_graph_entry_node();
-                    entry->set_visited(true);
+                    entry->set_visited_extgraph(true);
                     Node* child = entry->get_children()[0];
                     get_nodes_dot_data(child, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
                     goto connect_node;
@@ -408,16 +408,16 @@ connect_node:
                         ObjectList<Node*> real_target_list;
                         if(real_target->is_context_node())
                         {
-                            real_target->set_visited(true);
+                            real_target->set_visited_extgraph(true);
                             // In case of Swith Statements, the entry node of the inner context may have more than one child
                             // That is why we need a list here, instead of a single node
                             Node* real_target_entry = real_target->get_graph_entry_node();
-                            real_target_entry->set_visited(true);
+                            real_target_entry->set_visited_extgraph(true);
                             real_target_list = real_target_entry->get_children();
                             while(real_target_list.size()==1 && real_target_list[0]->is_context_node())
                             {
                                 real_target_entry = real_target_list[0]->get_graph_entry_node();
-                                real_target_entry->set_visited(true);
+                                real_target_entry->set_visited_extgraph(true);
                                 real_target_list = real_target_entry->get_children();
                             }
                         }
@@ -431,12 +431,12 @@ connect_node:
                             // Skip context nodes (from inner to outer)
                             if(real_target->is_exit_node() && real_target->get_outer_node()->is_context_node())
                             {
-                                real_target->set_visited(true);
+                                real_target->set_visited_extgraph(true);
                                 real_target = real_target->get_outer_node()->get_children()[0];
                                 while((real_target->is_exit_node() && real_target->get_outer_node()->is_context_node()) || 
                                     real_target->is_context_node())
                                 {
-                                    real_target->set_visited(true);
+                                    real_target->set_visited_extgraph(true);
                                     if(real_target->is_exit_node())
                                     {
                                         real_target = real_target->get_outer_node()->get_children()[0];
@@ -444,7 +444,7 @@ connect_node:
                                     else // real_target is context node
                                     {
                                         Node* real_target_entry = real_target->get_graph_entry_node();
-                                        real_target_entry->set_visited(true);
+                                        real_target_entry->set_visited_extgraph(true);
                                         real_target = real_target->get_graph_entry_node()->get_children()[0];
                                     }
                                 }
