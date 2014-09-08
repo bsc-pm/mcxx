@@ -2177,22 +2177,20 @@ namespace Analysis {
             {
                 if(it->get_kind() == NODECL_OPEN_M_P_LINEAR)
                 {
-                    const Nodecl::List& linear_exprs = it->as<Nodecl::OpenMP::Linear>().get_linear_expressions().as<Nodecl::List>();
+                    Nodecl::OpenMP::Linear omp_linear = it->as<Nodecl::OpenMP::Linear>();
+                    const Nodecl::List& linear_exprs = 
+                        omp_linear.get_linear_expressions().as<Nodecl::List>();
+                    const NBase step = omp_linear.get_step();
                     ObjectList<Symbol> syms;
-                    NBase step;
                     for(Nodecl::List::const_iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
                     {
-                        if(itl->is<Nodecl::IntegerLiteral>())
+                        if(itl->is<Nodecl::Symbol>())
                         {
-                            step = *itl;
+                            syms.insert(itl->get_symbol());
                         }
                         else
-                        {   // This is not the step of the linear clause
-                            Symbol lin(itl->get_symbol());
-                            ERROR_CONDITION(!lin.is_valid(), 
-                                            "Invalid symbol stored for Linear argument '%s'", 
-                                            itl->prettyprint().c_str());
-                            syms.insert(lin);
+                        {
+                            internal_error("Linear expression is not a symbol", 0);
                         }
                     }
                    
