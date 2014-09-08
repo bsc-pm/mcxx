@@ -912,6 +912,17 @@ namespace TL
         {
             sym.set_type(this->get_type());
         }
+
+        // Set constant (currently only for variables)
+        if (this->is_variable()
+                && this->get_type().is_const()
+                && !this->is_parameter() // avoid 'void f(const int n = 3)'
+                && !this->get_value().is_null()
+                && this->get_value().is_constant())
+        {
+            sym.set_constant(this->get_value().get_constant());
+        }
+
         return sym;
     }
 

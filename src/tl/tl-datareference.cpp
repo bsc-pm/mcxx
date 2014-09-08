@@ -70,11 +70,23 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = t;
-                _data_ref._base_address = Nodecl::Reference::make(
+
+                Nodecl::NodeclBase reference = Nodecl::Reference::make(
                         n.shallow_copy(),
                         t.get_pointer_to(),
                         n.get_locus());
 
+                // We need to propagate some flags from the symbol to the new reference node
+                nodecl_expr_set_is_type_dependent(
+                        reference.get_internal_nodecl(),
+                        nodecl_expr_is_type_dependent(n.get_internal_nodecl()));
+
+                nodecl_expr_set_is_value_dependent(
+                        reference.get_internal_nodecl(),
+                        nodecl_expr_is_value_dependent(n.get_internal_nodecl()));
+
+
+                _data_ref._base_address = reference;
                 if (IS_FORTRAN_LANGUAGE
                         && _data_ref == n)
                 {
@@ -283,9 +295,6 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                Nodecl::List subscripts = array.get_subscripts().as<Nodecl::List>();
-                Nodecl::List low_subscripts_list;
-
                 _data_ref._data_type = extend_array_type_to_regions(array);
 
                 Nodecl::NodeclBase subscripted = array.get_subscripted().no_conv();
@@ -401,6 +410,20 @@ namespace TL
                                 t.get_pointer_to(),
                                 member.get_locus());
                 }
+            }
+
+            virtual void visit(const Nodecl::CxxArraySectionSize & array)
+            {
+               // We need to define this visitor because we want to keep these
+               // kind of expressions but, as they are dependent, we don't
+               // compute anything
+            }
+
+            virtual void visit(const Nodecl::CxxArraySectionRange & array)
+            {
+               // We need to define this visitor because we want to keep these
+               // kind of expressions but, as they are dependent, we don't
+               // compute anything
             }
 
             virtual void visit(const Nodecl::Shaping& shaping_expr)
@@ -662,10 +685,21 @@ namespace TL
                 if (t.is_any_reference())
                     t = t.references_to();
 
-                return Nodecl::Reference::make(
+                Nodecl::NodeclBase reference = Nodecl::Reference::make(
                         expr.shallow_copy(),
                         t.get_pointer_to(),
                         expr.get_locus());
+
+                // We need to propagate some flags from the expression to the new reference node
+                nodecl_expr_set_is_type_dependent(
+                        reference.get_internal_nodecl(),
+                        nodecl_expr_is_type_dependent(expr.get_internal_nodecl()));
+
+                nodecl_expr_set_is_value_dependent(
+                        reference.get_internal_nodecl(),
+                        nodecl_expr_is_value_dependent(expr.get_internal_nodecl()));
+
+                return reference;
             }
         }
         else if (expr.is<Nodecl::ArraySubscript>())

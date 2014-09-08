@@ -464,17 +464,13 @@ namespace TL { namespace OpenMP {
                 if (!IS_FORTRAN_LANGUAGE
                         || !it->get_type().is_any_reference())
                 {
-                    Nodecl::Symbol symbol_ref =
-                        Nodecl::Symbol::make(*it, locus);
-                    symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+                    Nodecl::Symbol symbol_ref = it->make_nodecl(/* set_ref_type */ true, locus);
 
                     assumed_firstprivates.append(symbol_ref);
                 }
                 else if (IS_FORTRAN_LANGUAGE)
                 {
-                    Nodecl::Symbol symbol_ref =
-                        Nodecl::Symbol::make(*it, locus);
-                    symbol_ref.set_type(lvalue_ref(it->get_type().get_internal_type()));
+                    Nodecl::Symbol symbol_ref = it->make_nodecl(/* set_ref_type */ true, locus);
 
                     if(!it->get_type().is_fortran_array())
                     {

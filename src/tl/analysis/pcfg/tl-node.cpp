@@ -83,6 +83,79 @@ namespace Analysis {
         return (_id == node._id);
     }
 
+    NodeclSet Node::get_all_shared_accesses()
+    {
+        // 1.- Collect the shared variables appearing in the data-sharing or dependency clauses
+        TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
+        NodeclSet shared_vars;
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        
+        // 2.- Collect those objects which, although are not in the data-sharing or dependency, have dynamic storage duration
+        const NodeclSet& killed_vars = get_killed_vars();
+        const NodeclSet& undef_vars = get_undefined_behaviour_vars();
+        NodeclSet inner_vars = get_ue_vars();
+        inner_vars.insert(killed_vars.begin(), killed_vars.end());
+        inner_vars.insert(undef_vars.begin(), undef_vars.end());
+        const Nodecl::NodeclBase& ast = get_graph_related_ast();
+        ERROR_CONDITION(ast.is_null(),
+                        "Cannot retrieve the shared accesses of node %d, which does not relate to an AST",
+                        _id);
+        Scope task_sc(ast.retrieve_context());
+        for(NodeclSet::const_iterator it = inner_vars.begin(); it != inner_vars.end(); ++it)
+        {
+            // Discard all vars local to the task
+            Scope var_sc(Analysis::Utils::get_nodecl_base(*it).get_symbol().get_scope());
+            if(var_sc.scope_is_enclosed_by(task_sc))
+                continue;
+
+            // If the variables is an array ArraySubscript, check whether it is allocated dynamically
+            if(it->no_conv().is<Nodecl::ArraySubscript>())
+            {
+                const NBase& base = Utils::get_nodecl_base(it->no_conv());
+                if(base.get_type().no_ref().is_pointer())
+                {   // An array has been dynamically allocated => the object pointed by #base is shared
+                    shared_vars.insert(it->shallow_copy());
+                }
+            }
+        }
+        
+        return shared_vars;
+    }
+    
     void Node::erase_entry_edge(Node* source)
     {
         EdgeList::iterator it;
@@ -152,12 +225,20 @@ namespace Analysis {
     bool Node::has_autoscope_assertion() const
     {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
-                 has_key(_ASSERT_AUTOSC_SHARED));
+                has_key(_ASSERT_AUTOSC_SHARED));
     }
     
-    bool Node::has_correctness_dead_assertion() const
+    bool Node::has_correctness_assertion() const
     {
-        return has_key(_ASSERT_CORRECTNESS_DEAD_VARS);
+        return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
     }
     
     bool Node::is_visited( ) const
@@ -1090,6 +1171,25 @@ namespace Analysis {
             add_var_to_container<T>(*it, data_name);
     }
     
+    void Node::add_var_to_list(const NBase& var, std::string data_name)
+    {
+        Nodecl::List list = get_data<Nodecl::List>(data_name);
+        for (Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
+        {
+            if (Nodecl::Utils::structurally_equal_nodecls(var, *it))
+                return;
+        }
+
+        list.append(var);
+        set_data(data_name, list);
+    }
+    
+    void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
+    {
+        for(Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
+            add_var_to_list(*it, data_name);
+    }
+    
     void Node::remove_var_from_set(const NBase& var, std::string data_name)
     {
         NodeclSet set = get_data<NodeclSet>(data_name);
@@ -1137,7 +1237,7 @@ namespace Analysis {
     }
 
     void Node::add_ue_var(const NodeclSet& new_ue_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(new_ue_vars, _UPPER_EXPOSED);
     }
 
@@ -1167,14 +1267,14 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_killed_vars()
-        {
+    {
         return get_vars<NodeclSet>(_KILLED);
     }
 
     void Node::add_killed_var(const NBase& new_killed_var)
-        {
+    {
         add_var_to_container<NodeclSet>(new_killed_var, _KILLED);
-        }
+    }
 
     void Node::add_killed_var(const NodeclSet& new_killed_vars)
     {
@@ -1199,7 +1299,7 @@ namespace Analysis {
     void Node::add_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_killed_vars, _PRIVATE_KILLED);
-        }
+    }
         
     void Node::set_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
@@ -1207,12 +1307,12 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_undefined_behaviour_vars()
-        {
+    {
         return get_vars<NodeclSet>(_UNDEF);
     }
 
     void Node::add_undefined_behaviour_var(const NBase& new_undef_var)
-            {
+    {
         add_var_to_container<NodeclSet>(new_undef_var, _UNDEF);
     }
 
@@ -1247,7 +1347,7 @@ namespace Analysis {
     void Node::add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_undef_vars, _PRIVATE_UNDEF);
-        }
+    }
     
     void Node::set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
@@ -1841,19 +1941,104 @@ namespace Analysis {
     // ****************************************************************************** //
     // **************** Getters and setters for correctness analysis **************** //
 
+    Nodecl::List Node::get_correctness_auto_storage_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    void Node::add_correctness_auto_storage_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_fp_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_in_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_correctness_incoherent_in_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    Nodecl::List Node::get_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_RACE_VARS);
+    }
+    
     Nodecl::List Node::get_correctness_dead_vars()
     {
-        Nodecl::List dead_vars;
-        if(has_key(_CORRECTNESS_DEAD_VARS))
-            dead_vars = get_data<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
-        return dead_vars;
+        return get_vars<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
     }
     
     void Node::add_correctness_dead_var(const Nodecl::NodeclBase& n)
     {
-        Nodecl::List dead_vars = get_correctness_dead_vars();
-        dead_vars.append(n);
-        set_data(_CORRECTNESS_DEAD_VARS, dead_vars);
+        add_var_to_list(n, _CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_unnecessarily_scoped_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
+    }
+    
+    void Node::add_correctness_unnecessarily_scoped_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
     }
     
     // **************** Getters and setters for correctness analysis **************** //
@@ -1867,21 +2052,13 @@ namespace Analysis {
     ObjectList<Symbol> Node::get_reductions()
     {
         ObjectList<Symbol> result;
-        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
-        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        const ObjectList<NBase> clauses = this->get_pragma_node_info().get_clauses();
+        for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
         {
-            if(it->get_type() == __reduction)
+            if(it->get_kind() == NODECL_OPEN_M_P_REDUCTION_ITEM)
             {
-                Nodecl::List reductions = 
-                    it->get_nodecl().as<Nodecl::OpenMP::Reduction>().get_reductions().as<Nodecl::List>();
-                for(Nodecl::List::iterator itr = reductions.begin(); itr != reductions.end(); ++itr)
-                {
-                    Symbol reduc(itr->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
-                    ERROR_CONDITION(!reduc.is_valid(), "Invalid symbol stored for Reduction argument '%s'", 
-                                     itr->prettyprint().c_str());
-                    result.insert(reduc);
-                }
-                break;
+                Symbol reduced_sym(it->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
+                result.insert(reduced_sym);
             }
         }
         return result;
@@ -1933,27 +2110,25 @@ namespace Analysis {
         check_for_simd_node(n);
         if(n != NULL)
         {
-            const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase>& clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_type() == __linear)
+                if(it->get_kind() == NODECL_OPEN_M_P_LINEAR)
                 {
-                    Nodecl::List linear_exprs = 
-                        it->get_nodecl().as<Nodecl::OpenMP::Linear>().get_linear_expressions().as<Nodecl::List>();
+                    Nodecl::OpenMP::Linear omp_linear = it->as<Nodecl::OpenMP::Linear>();
+                    const Nodecl::List& linear_exprs = 
+                        omp_linear.get_linear_expressions().as<Nodecl::List>();
+                    const NBase step = omp_linear.get_step();
                     ObjectList<Symbol> syms;
-                    NBase step;
-                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    for(Nodecl::List::const_iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
                     {
-                        if(!itl->is<Nodecl::IntegerLiteral>())
-                        {   // This is not the step of the linear clause
-                            Symbol lin(itl->get_symbol());
-                            ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
-                                            itl->prettyprint().c_str());
-                            syms.insert(lin);
+                        if(itl->is<Nodecl::Symbol>())
+                        {
+                            syms.insert(itl->get_symbol());
                         }
                         else
                         {
-                            step = *itl;
+                            internal_error("Linear expression is not a symbol", 0);
                         }
                     }
                    
@@ -1971,14 +2146,13 @@ namespace Analysis {
         check_for_simd_node(n);
         if(n != NULL)
         {
-            const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase> clauses = n->get_pragma_node_info().get_clauses();
+            for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_type() == __uniform)
+                if(it->get_kind() == NODECL_OPEN_M_P_UNIFORM)
                 {
-                    Nodecl::List uniform_exprs = 
-                        it->get_nodecl().as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
-                    for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
+                    const Nodecl::List& uniform_exprs = it->as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
+                    for(Nodecl::List::const_iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
                     {
                         Symbol lin(itl->get_symbol());
                         ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Uniform argument '%s'", 
@@ -2142,7 +2316,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p)
-            {
+    {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_p.begin(), new_assert_auto_sc_p.end()), 
                               _ASSERT_AUTOSC_PRIVATE);
     }
@@ -2158,30 +2332,94 @@ namespace Analysis {
                               _ASSERT_AUTOSC_SHARED);
     }
 
-    Nodecl::List Node::get_assert_correctness_dead_vars()
+    Nodecl::List Node::get_assert_correctness_auto_storage_vars()
     {
-        Nodecl::List assert_dead_vars;
-        if(has_key(_ASSERT_CORRECTNESS_DEAD_VARS))
-        {
-            assert_dead_vars = get_data<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
-        }
-        return assert_dead_vars;
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
     }
     
-    void Node::set_assert_correctness_dead_var(const Nodecl::List& new_assert_correct_dead_vars)
+    void Node::add_assert_correctness_auto_storage_var(const Nodecl::List& vars)
     {
-        Nodecl::List assert_correct_dead_vars = get_assert_correctness_dead_vars();
-        for(Nodecl::List::const_iterator it = new_assert_correct_dead_vars.begin( ); 
-            it != new_assert_correct_dead_vars.end( ); ++it)
-        {
-            // FIXME When we delete ExtendedSymbol and transform this methods to nodecl instead of extended symbol
-//             Utils::ExtendedSymbol new_assert_correct_dead_var(*it);
-//             if(Utils::ext_sym_set_contains_enclosing_nodecl(*it, assert_correct_dead_vars).is_null())
-            {
-                assert_correct_dead_vars.append(*it);
-            }
-        }
-        set_data(_ASSERT_CORRECTNESS_DEAD_VARS, assert_correct_dead_vars);
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_dead_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    void Node::add_assert_correctness_dead_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_fp_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_in_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_assert_correctness_incoherent_in_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    Nodecl::List Node::get_assert_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_p_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_assert_correctness_race_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_RACE_VARS);
     }
     
     // **************** END getters and setters for analysis checking *************** //

@@ -157,14 +157,14 @@ namespace Analysis {
      * Type of a node. This will be a value of the enumeration Node_type.
      * Mandatory in all nodes.
      */
-    #define _NODE_TYPE                      "node_type"
+    #define _NODE_TYPE                              "node_type"
     
     /*! \def _OUTER_NODE
      * Pointer to the node that contains a node.
      * __ExtensibleGraph node is the only on with this value equals to NULL
      * Mandatory in all nodes.
      */
-    #define _OUTER_NODE                     "outer_node"
+    #define _OUTER_NODE                             "outer_node"
     
     /*! \def _NODE_LABEL
      * String containing the label of a node.
@@ -173,79 +173,79 @@ namespace Analysis {
      *   - Goto / Label: label that identifies the source or target of the Statement contained.
      * Mandatory and only available in 'Composite', 'Labeled' or 'Goto' nodes.
      */
-    #define _NODE_LABEL                     "node_label"
+    #define _NODE_LABEL                             "node_label"
     
     /*! \def _NODE_STMTS
      * List of Statements within the Basic Block contained in a node.
      * Mandatory and only available in basic normal nodes.
      */
-    #define _NODE_STMTS                     "statements"
+    #define _NODE_STMTS                             "statements"
     
     /*!  \def _ENTRY_NODE
      * Node which is the entry point of a composite node.
      * Mandatory and only available in composite nodes.
      */
-    #define _ENTRY_NODE                     "entry"
+    #define _ENTRY_NODE                             "entry"
     
     /*! \def _EXIT_NODE
      * Node which is the exit point of a composite node.
      * Mandatory and only available in composite nodes.
      */
-    #define _EXIT_NODE                      "exit"
+    #define _EXIT_NODE                              "exit"
     
     /*! \def _CONDITION_NODE
      * Node containing the loop condition statement within a loop graph node.
      * Mandatory and only available in Loop Graph nodes.
      */
-    #define _CONDITION_NODE                 "loop_condition"    
+    #define _CONDITION_NODE                         "loop_condition"    
     
     /*! \def _STRIDE_NODE
      * Node containing the loop stride statement within a loop graph node.
      * Mandatory and only available in Loop Graph nodes.
      */
-    #define _STRIDE_NODE                    "stride"
+    #define _STRIDE_NODE                            "stride"
     
     /*! \def _GRAPH_TYPE
      * Type of the graph node. This will be a value of the enumeration Graph_type.
      * Mandatory in all graph nodes.
      */
-    #define _GRAPH_TYPE                     "graph_type"
+    #define _GRAPH_TYPE                             "graph_type"
     
     /*! \def _OMP_INFO
      * Data associated to an OmpSs pragma: pragma type and list of clauses withs its arguments
      * Mandatory in all OMP_PRAGMA graph nodes.
      */
-    #define _OMP_INFO                       "omp_info"
+    #define _OMP_INFO                               "omp_info"
     
     /*! \def _ASM_INFO
      * Data indicating which info of the ASM function is contained in the ASM node
      * Mandatory in all ASM_DEF and ASM_OP nodes.
      */
-    #define _ASM_INFO                       "asm_info"
+    #define _ASM_INFO                               "asm_info"
     
     /*! \def _TASK_CONTEXT
      * Nodecl containing the context associated to a task
      * Mandatory and only available in composite nodes with _GRAPH_TYPE "task"
      */
-    #define _TASK_CONTEXT                   "task_context"
+    #define _TASK_CONTEXT                           "task_context"
     
     /*! \def _TASK_FUNCTION
      * Nodecl containing the symbol of the function contained contained in task
      * Mandatory and only available in composite nodes with _GRAPH_TYPE "task" of declaration level tasks
      */
-    #define _TASK_FUNCTION                  "task_function"
+    #define _TASK_FUNCTION                          "task_function"
     
     /*! \def _CLAUSES
      * Set of clauses associated to a pragma
      * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat
      */
-    #define _CLAUSES                        "clauses"
+    #define _CLAUSES                                "clauses"
     
     /*! \def _ARGS
      * Empty clause associated to a pragma
      * Available in Graph nodes of type 'omp_pragma' and 'task'.
      */
-    #define _ARGS                           "args"
+    #define _ARGS                                   "args"
     
     
     // Edge attributes
@@ -256,31 +256,31 @@ namespace Analysis {
      * Type of the edge. This will be a value of the enumeration Edge_type.
      * Mandatory in all edges.
      */
-    #define _EDGE_TYPE                      "edge_type"
+    #define _EDGE_TYPE                              "edge_type"
     
     /*! \def _EDGE_LABEL
      * String containing the label of an edge.
      * Available and mandatory in all edges but those with 'Always' type.
      */
-    #define _EDGE_LABEL                     "edge_label"
+    #define _EDGE_LABEL                             "edge_label"
     
     /*! \def _CONDITION
      * Nodecl containing the condition that must fulfill to have a real dependency 
      * between the two tasks connected with the edge
      */
-    #define _CONDITION                      "condition"
+    #define _CONDITION                              "condition"
     
     /*! \def _IS_TASK_EDGE
      * Boolean indicating whether an edge connects a target being a Task
      * Available and mandatory in all edges.
      */
-    #define _IS_TASK_EDGE                   "is_task_edge"
+    #define _IS_TASK_EDGE                           "is_task_edge"
     
     /*! \def _IS_BACK_EDGE
      * Boolean indicating whether an edge connects a target which appears before in the source code
      * Available and mandatory in all edges.
      */
-    #define _IS_BACK_EDGE                   "is_back_edge"    
+    #define _IS_BACK_EDGE                           "is_back_edge"
     
     
     // Constant propagation attributes
@@ -290,19 +290,19 @@ namespace Analysis {
      * Values in the Lattice Cell of all Objects modified in a given node
      * Available and mandatory in all simple nodes after constant propagation optimization
      */
-    #define _LATTICE_VALS                   "lattice_vals"
+    #define _LATTICE_VALS                           "lattice_vals"
     
     /*! \def _IS_EXECUTABLE
      * Boolean value indicating whether an edge is executable or not
      * Available and mandatory in all edges after constant propagation optimization
      */
-    #define _IS_EXECUTABLE                  "is_executables"
+    #define _IS_EXECUTABLE                          "is_executables"
     
     /*! \def _IS_EXECUTABLE_EDGE
      * Boolean indicating whether an edge is executable or not
      * Available and mandatory in all edges after constant propagation optimization.
      */
-    #define _IS_EXECUTABLE_EDGE             "is_executable_edge"
+    #define _IS_EXECUTABLE_EDGE                     "is_executable_edge"
     
     // PCFG attributes
     //////////////////
@@ -312,14 +312,14 @@ namespace Analysis {
      * Available in all nodes during PCFG construction
      * FIXME Think about deleting this data after PCFG construction
      */
-    #define _LIVE_IN_TASKS                  "live_in_tasks"
+    #define _LIVE_IN_TASKS                          "live_in_tasks"
     
     /*! \def _LIVE_OUT_TASKS
      * Set of tasks that are alive at the Exit of a node
      * Available in all nodes during PCFG construction
      * FIXME Think about deleting this data after PCFG construction
      */
-    #define _LIVE_OUT_TASKS                 "live_out_tasks"
+    #define _LIVE_OUT_TASKS                         "live_out_tasks"
     
     
     // UseDef attributes
@@ -329,43 +329,43 @@ namespace Analysis {
      * Set of upper exposed variables within a node.
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _UPPER_EXPOSED                  "ue_vars"
+    #define _UPPER_EXPOSED                          "ue_vars"
     
     /*! \def _KILLED
      * Set of killed variables within a node.
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _KILLED                         "killed_vars"
+    #define _KILLED                                 "killed_vars"
     
     /*! \def _UNDEF
      * Set of variables within a node that we cannot define the behaviour.
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _UNDEF                          "undefined_behaviour_vars"
+    #define _UNDEF                                  "undefined_behaviour_vars"
     
     /*! \def _PRIVATE_UPPER_EXPOSED
      * Set of private upper exposed variables within a node (after purging based on OpenMP variables scope).
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _PRIVATE_UPPER_EXPOSED          "private_ue_vars"
+    #define _PRIVATE_UPPER_EXPOSED                  "private_ue_vars"
     
     /*! \def _PRIVATE_KILLED
      * Set of killed variables within a node (after purging based on OpenMP variables scope).
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _PRIVATE_KILLED                 "private_killed_vars"
+    #define _PRIVATE_KILLED                         "private_killed_vars"
     
     /*! \def _PRIVATE_UNDEF
      * Set of variables within a node that we cannot define the behaviour (after purging based on OpenMP variables scope).
      * Available in all nodes (Mandatory once the UseDef analysis is performed).
      */
-    #define _PRIVATE_UNDEF                  "private_undefined_behaviour_vars"
+    #define _PRIVATE_UNDEF                          "private_undefined_behaviour_vars"
     
     /*! \def _USED_ADDRESSES
      * Set of addresses being used within a node
      * Available in all nodes (Mandatory once the UseDef analysis is performed)
      */
-    #define _USED_ADDRESSES                 "used_addresses"
+    #define _USED_ADDRESSES                         "used_addresses"
     
     // Liveness attributes
     //////////////////////
@@ -374,13 +374,13 @@ namespace Analysis {
      * Set of variables that are alive at the entry point of a node.
      * Available in all nodes (Mandatory once the Liveness analysis is performed).
      */
-    #define _LIVE_IN                        "live_in_vars"
+    #define _LIVE_IN                                "live_in_vars"
     
     /*! \def _LIVE_OUT
      * Set of variables that are alive at the exit point of a node.
      * Available in all nodes (Mandatory once the Liveness analysis is performed).
      */
-    #define _LIVE_OUT                       "live_out_vars"
+    #define _LIVE_OUT                               "live_out_vars"
     
     
     // Reaching definitions attributes
@@ -390,19 +390,19 @@ namespace Analysis {
      * Map containing the statements that generate a definition of a given node
      * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
      */
-    #define _GEN                            "gen_stmts"
+    #define _GEN                                    "gen_stmts"
     
     /*! \def _REACH_DEFS_IN
      * Map containing the reaching definitions at the entry of a given node
      * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
      */
-    #define _REACH_DEFS_IN                  "reaching_defs_in"
+    #define _REACH_DEFS_IN                          "reaching_defs_in"
     
     /*! \def _REACH_DEFS_OUT
      * Map containing the reaching definitions at the exit of a given node
      * Available in all nodes (Mandatory once the Reaching Definitions analysis is performed).
      */
-    #define _REACH_DEFS_OUT                 "reaching_defs_out"
+    #define _REACH_DEFS_OUT                         "reaching_defs_out"
     
     /*! \def _AUX_REACH_DEFS
      * Map containing the propagated reaching definitions in a given point
@@ -412,7 +412,7 @@ namespace Analysis {
      * an this is deleted
      * Available in all nodes (Mandatory once the Liveness analysis is performed).
      */
-    #define _AUX_REACH_DEFS                 "aux_reaching_defs"
+    #define _AUX_REACH_DEFS                         "aux_reaching_defs"
     
     
     // Loop analysis attributes
@@ -422,7 +422,7 @@ namespace Analysis {
      * Map containing the induction variables associated with a Loop Node
      * Available only in Loop (Graph) nodes (Mandatory once the Loop analysis is performed).
      */
-    #define _INDUCTION_VARS                 "induction_vars"
+    #define _INDUCTION_VARS                         "induction_vars"
     
     
     // Range Analysis
@@ -441,37 +441,37 @@ namespace Analysis {
     /*! \def _SC_AUTO
      * This value is set when a task has the clause default(AUTO)
      */
-    #define _SC_AUTO                        "sc_auto"
+    #define _SC_AUTO                                "sc_auto"
     
     /*! \def _SHARED
      * Set of symbols with shared auto-scoping in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
      */
-    #define _SC_SHARED                      "sc_shared"
+    #define _SC_SHARED                              "sc_shared"
     
     /*! \def _PRIVATE
      * Set of symbols with private auto-scoping in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
      */
-    #define _SC_PRIVATE                     "sc_private"
+    #define _SC_PRIVATE                             "sc_private"
     
     /*! \def _FIRSTPRIVATE
      * Set of symbols with lastprivate auto-scoping in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
      */
-    #define _SC_FIRSTPRIVATE                "sc_firstprivate"
+    #define _SC_FIRSTPRIVATE                        "sc_firstprivate"
     
     /*! \def _UNDEF_SC
      * Set of symbols with non-computable auto-scoping in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
      */
-    #define _SC_UNDEF                       "sc_undef_scope"
+    #define _SC_UNDEF                               "sc_undef_scope"
     
     /*! \def _RACE
      * Set of symbols in a race situation in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once Auto-scoping is performed).
      */
-    #define _SC_RACE                        "sc_race"
+    #define _SC_RACE                                "sc_race"
     
 
     // Auto-deps attributes
@@ -481,54 +481,105 @@ namespace Analysis {
      * Set of symbols classified as PRIVATE during the auto-deps routine
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_PRIVATE                   "deps_private"
+    #define _DEPS_PRIVATE                           "deps_private"
     
     /*! \def _DEPS_FIRSTPRIVATE
      * Set of symbols classified as FIRSTPRIVATE during the auto-deps routine
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_FIRSTPRIVATE              "deps_firstprivate"
+    #define _DEPS_FIRSTPRIVATE                      "deps_firstprivate"
     
     /*! \def _DEPS_SHARED
      * Set of symbols classified as SHARED during the auto-deps routine
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_SHARED                    "deps_shared"
+    #define _DEPS_SHARED                            "deps_shared"
     
     /*! \def _IN_DEPS
      * Set of symbols with input dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_IN                        "deps_input"
+    #define _DEPS_IN                                "deps_input"
     
     /*! \def _OUT_DEPS
      * Set of symbols with output dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_OUT                       "deps_output"
+    #define _DEPS_OUT                               "deps_output"
     
     /*! \def _INOUT_DEPS
      * Set of symbols with inout dependence in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_INOUT                     "deps_inout"
+    #define _DEPS_INOUT                             "deps_inout"
     
     /*! \def _UNDEF_DEPS
      * Set of symbols with which we are unable to compute the proper dependencies in a task
      * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Auto-deps is performed).
      */
-    #define _DEPS_UNDEF                     "deps_undef"
+    #define _DEPS_UNDEF                             "deps_undef"
     
     
     // Correctness analysis attributes
     //////////////////////////////////
     
+    /*! \def _CORRECTNESS_AUTO_STORAGE_VARS
+     * Set of variables with automatic storage which and used in a task that is not synchronized before the variables are deallocated
+     * Available only in task nodes after OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_AUTO_STORAGE_VARS          "correctness_auto_storage"
+    
     /*! \def _CORRECTNESS_DEAD_VARS
      * Set of variables detected as dead variables during OMP/OMPSS correctness phase
-     * Available only in task nodes
+     * Available only in task nodes OMP/OMPSS correctness phase
      */
-    #define _CORRECTNESS_DEAD_VARS          "correctness_dead"
+    #define _CORRECTNESS_DEAD_VARS                  "correctness_dead"
     
+    /*! \def _CORRECTNESS_INCOHERENT_FP_VARS
+     * Set of variables incoherently scoped as Firstprivate: the first use of the variable within the task is a definition
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_INCOHERENT_FP_VARS         "correctness_incoherent_fp"
+    
+    /*! \def _CORRECTNESS_INCOHERENT_IN_VARS
+     * Set of variables defined as an input dependence of a task that does not read the value of the variable
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_INCOHERENT_IN_VARS         "correctness_incoherent_in"
+    
+    /*! \def _CORRECTNESS_INCOHERENT_IN_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually reads the value pointed by the variable or some sub-object of the variable
+     */
+    #define _CORRECTNESS_INCOHERENT_IN_POINTED_VARS "correctness_incoherent_in_pointed"
+
+    /*! \def _CORRECTNESS_INCOHERENT_OUT_VARS
+     * Set of variables defined as an output dependence of a task that does not write the value of the variable
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_INCOHERENT_OUT_VARS        "correctness_incoherent_out"
+    
+    /*! \def _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually writes the value pointed by the variable or some sub-object of the variable
+     */
+    #define _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS    "correctness_incoherent_out_pointed"
+
+    /*! \def _CORRECTNESS_INCOHERENT_P_VARS
+     * Set of variables incoherently scoped as Private: the first use of the variable within the task is read
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_INCOHERENT_P_VARS          "correctness_incoherent_p"
+    
+    /*! \def _CORRECTNESS_RACE_VARS
+     * Set of variables that are in a race condition in a given task
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_RACE_VARS                  "correctness_race"
+    
+    /*! \def _CORRECTNESS_UNNECESSARILY_SCOPED_VARS
+     * Set of variables that are unnecessarily scoped in a given task (they do not appear at all in the task)
+     * Available only in task nodes OMP/OMPSS correctness phase
+     */
+    #define _CORRECTNESS_UNNECESSARILY_SCOPED_VARS  "correctness_unnecessarily_scoped"
     
     // Analysis checking attributes
     ///////////////////////////////
@@ -536,68 +587,107 @@ namespace Analysis {
     /*! \def _ASSERT_UPPER_EXPOSED
      * Set of expressions marked by the user as upper exposed in a given point of the program
      */
-    #define _ASSERT_UPPER_EXPOSED           "assert_upper_exposed"
+    #define _ASSERT_UPPER_EXPOSED                   "assert_upper_exposed"
     
     /*! \def _ASSERT_KILLED
      * Set of expressions marked by the user as defined in a given point of the program
      */
-    #define _ASSERT_KILLED                  "assert_killed"
+    #define _ASSERT_KILLED                          "assert_killed"
 
     /*! \def _ASSERT_UNDEFINED
      * Set of expressions marked by the user as undefined behavior in a given point of the program
      */
-    #define _ASSERT_UNDEFINED               "assert_undefined"
+    #define _ASSERT_UNDEFINED                       "assert_undefined"
     
     /*! \def _ASSERT_LIVE_IN
      * Set of expressions marked by the user as live in in a given point of the program
      */
-    #define _ASSERT_LIVE_IN                 "assert_live_in"
+    #define _ASSERT_LIVE_IN                         "assert_live_in"
     
     /*! \def _ASSERT_LIVE_OUT
      * Set of expressions marked by the user as live_out in a given point of the program
      */
-    #define _ASSERT_LIVE_OUT                "assert_live_out"
+    #define _ASSERT_LIVE_OUT                        "assert_live_out"
     
     /*! \def _ASSERT_DEAD
      * Set of expressions marked by the user as dead in a given point of the program
      */
-    #define _ASSERT_DEAD                    "assert_dead"
+    #define _ASSERT_DEAD                            "assert_dead"
     
     /*! \def _ASSERT_REACH_DEFS_IN
      * Set of reaching definitions at the entry of a given point of the program
      */
-    #define _ASSERT_REACH_DEFS_IN           "assert_reach_defs_in"
+    #define _ASSERT_REACH_DEFS_IN                   "assert_reach_defs_in"
     
     /*! \def _ASSERT_REACH_DEFS_OUT
      * Set of reaching definitions at the exit of a given point of the program
      */
-    #define _ASSERT_REACH_DEFS_OUT          "assert_reach_defs_out"
+    #define _ASSERT_REACH_DEFS_OUT                  "assert_reach_defs_out"
     
     /*! \def _ASSERT_INDUCTION_VARS
      * Set of induction variables in a given point of the program
      */
-    #define _ASSERT_INDUCTION_VARS          "assert_induction_vars"
+    #define _ASSERT_INDUCTION_VARS                  "assert_induction_vars"
     
     /*! \def _ASSERT_AUTOSC_FIRSTPRIVATE
      * Set of variables autoscoped as firstprivate in a given point of the program
      */
-    #define _ASSERT_AUTOSC_FIRSTPRIVATE     "assert_autosc_firstprivate"
+    #define _ASSERT_AUTOSC_FIRSTPRIVATE             "assert_autosc_firstprivate"
     
     /*! \def _ASSERT_AUTOSC_PRIVATE
      * Set of variables autoscoped as private in a given point of the program
      */
-    #define _ASSERT_AUTOSC_PRIVATE          "assert_autosc_private"
+    #define _ASSERT_AUTOSC_PRIVATE                  "assert_autosc_private"
     
     /*! \def _ASSERT_AUTOSC_SHARED
      * Set of variables autoscoped as shared in a given point of the program
      */
-    #define _ASSERT_AUTOSC_SHARED           "assert_autosc_shared"
+    #define _ASSERT_AUTOSC_SHARED                   "assert_autosc_shared"
+        
+    /*! \def _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS
+     * Set of variables with automatic storage which are used in a task that is not synchronized before the variables are deallocated
+     */
+    #define _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS   "assert_correctness_auto_storage"
     
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_FP_VARS
+     * Set of variables incoherently scoped as Firstprivate: the first use of the variable within the task is a definition
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_FP_VARS  "assert_correctness_incoherent_fp"
+    
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS
+     * Set of variables defined as an input dependence of a task that does not read the value of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS  "assert_correctness_incoherent_in"
+    
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS
+     * Set of variables defined as an input dependence of a task that actually reads the value pointed by the variable or some sub-object of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS  "assert_correctness_incoherent_in_pointed"
+
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS
+     * Set of variables defined as an output dependence of a task that does not write the value of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS "assert_correctness_incoherent_out"
+    
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS
+     * Set of variables defined as an output dependence of a task that actually writes the value pointed by the variable or some sub-object of the variable
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS "assert_correctness_incoherent_out_pointed"
+
+    /*! \def _ASSERT_CORRECTNESS_INCOHERENT_P_VARS
+     * Set of variables incoherently scoped as Private: the first use of the variable within the task is read
+     */
+    #define _ASSERT_CORRECTNESS_INCOHERENT_P_VARS   "assert_correctness_incoherent_p"
+
+    /*! \def _ASSERT_CORRECTNESS_RACE_VARS
+     * Set of variables that are in a race condition in a given task
+     */
+    #define _ASSERT_CORRECTNESS_RACE_VARS           "assert_correctness_race"
     
     /*! \def _ASSERT_CORRECTNESS_DEAD_VARS
-     * Set of dead variables at the out point of a given task
+     * Set of variables modified within a task which values are not used within the task (instead, the value is used after the task synchronizes)
      */
-    #define _ASSERT_CORRECTNESS_DEAD_VARS   "assert_correctness_dead"
+    #define _ASSERT_CORRECTNESS_DEAD_VARS           "assert_correctness_dead"
     
     // ************************** END PCFG enumerations and defines ************************* //
     // ************************************************************************************** //
@@ -680,99 +770,15 @@ namespace Analysis {
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
 
-    #define CLAUSE_LIST \
-    CLAUSE(aligned) \
-    CLAUSE(assert_autosc_firstprivate) \
-    CLAUSE(assert_autosc_private) \
-    CLAUSE(assert_autosc_shared) \
-    CLAUSE(assert_correctness_dead) \
-    CLAUSE(assert_dead) \
-    CLAUSE(assert_defined) \
-    CLAUSE(assert_induction_var) \
-    CLAUSE(assert_live_in) \
-    CLAUSE(assert_live_out) \
-    CLAUSE(assert_reach_in) \
-    CLAUSE(assert_reach_out) \
-    CLAUSE(assert_upper_exposed) \
-    CLAUSE(assert_undefined_behaviour) \
-    CLAUSE(auto) \
-    CLAUSE(concurrent) \
-    CLAUSE(commutative) \
-    CLAUSE(copy_in) \
-    CLAUSE(copy_out) \
-    CLAUSE(copy_inout) \
-    CLAUSE(device) \
-    CLAUSE(final) \
-    CLAUSE(firstprivate) \
-    CLAUSE(firstlastprivate) \
-    CLAUSE(flushed_vars) \
-    CLAUSE(if) \
-    CLAUSE(in) \
-    CLAUSE(in_value) \
-    CLAUSE(inout) \
-    CLAUSE(lastprivate) \
-    CLAUSE(length_for) \
-    CLAUSE(linear) \
-    CLAUSE(mask) \
-    CLAUSE(name) \
-    CLAUSE(no_mask) \
-    CLAUSE(nontemporal) \
-    CLAUSE(nowait) \
-    CLAUSE(out) \
-    CLAUSE(overlap) \
-    CLAUSE(priority) \
-    CLAUSE(private) \
-    CLAUSE(reduction) \
-    CLAUSE(schedule) \
-    CLAUSE(shared) \
-    CLAUSE(shared_alloca) \
-    CLAUSE(simd_reduction) \
-    CLAUSE(suitable) \
-    CLAUSE(task_label) \
-    CLAUSE(target) \
-    CLAUSE(undefined_clause) \
-    CLAUSE(uniform) \
-    CLAUSE(unroll) \
-    CLAUSE(untied) \
-    CLAUSE(wait_on)
-    
-    enum ClauseType {
-#undef CLAUSE
-#define CLAUSE(X) __##X,
-        CLAUSE_LIST
-#undef CLAUSE
-    };
-    
-    class PCFGClause {
-    private:
-        ClauseType _clause_type;
-        NBase _clause;
-        
-    public:
-        //! Constructor
-        PCFGClause(ClauseType ct, const NBase& c);
-
-        //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
-        PCFGClause(const PCFGClause& clause);
-        
-        //! Getters
-        ClauseType get_type() const;
-        std::string get_type_as_string() const;
-        NBase get_nodecl() const;
-        
-    friend class PCFGVisitor;   // FIXME Friendship is propagated. We can delete this
-    friend class PCFGPragmaInfo;
-    };
-
     //! Class storing information about pragma clauses
     class PCFGPragmaInfo
     {
     private:
-        ObjectList<PCFGClause> _clauses;
+        ObjectList<NBase> _clauses;
         
     public:
         //! Constructor
-        PCFGPragmaInfo(const PCFGClause& clause);
+        PCFGPragmaInfo(const NBase& clause);
         
         //! Deafault constructor (needed to use this object in LinkData)
         PCFGPragmaInfo();
@@ -780,11 +786,11 @@ namespace Analysis {
         //! Copy constructor (needed to use this object in ObjectList, vector, etc.)
         PCFGPragmaInfo(const PCFGPragmaInfo& p);
         
-        bool has_clause(ClauseType clause) const;
-        PCFGClause get_clause(ClauseType clause) const;
-        void add_clause(const PCFGClause& clause);
+        bool has_clause(node_t kind) const;
+        NBase get_clause(node_t kind) const;
+        void add_clause(const NBase& clause);
         
-        ObjectList<PCFGClause> get_clauses() const;
+        ObjectList<NBase> get_clauses() const;
 
     friend class PCFGVisitor;
     };
@@ -848,9 +854,6 @@ namespace Analysis {
 
         //! Boolean indicating whether we are building vector nodes or not
         bool _is_vector;
-
-        //! Boolean indicating whether we are building simd nodes or not
-        bool _is_simd;
         
         //! Counter used to create a unique key for each new node
         unsigned int _nid;

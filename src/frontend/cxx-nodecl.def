@@ -26,7 +26,14 @@
 # There is a special rule 'nodecl' which is the root of the whole hierarchy and,
 # while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
-# constructing a given hierarchy)
+# constructing a given hierarchy).
+#
+# There is a special rule 'any' intended only for the frontends that allows
+# to root any parse tree as a child of a nodecl node. Such uses are limited
+# in the frontend itself since the parse trees are freed after the frontend
+# is run. Do not let outlive such children after the FE has run. Currently
+# the only user of this rule is NODECL_CXX_DEP_NAME_CONVERSION due to some
+# oddities in the C++ syntax of conversion-function-id.
 #
 
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
@@ -347,7 +354,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
@@ -673,7 +680,15 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_variables] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

@@ -58,12 +58,12 @@ namespace Analysis {
           _auto_scoping(false), _auto_deps(false), _tdg(false)
     {}
 
-    ExtensibleGraph* PCFGAnalysis_memento::get_pcfg(std::string name)
+    ExtensibleGraph* PCFGAnalysis_memento::get_pcfg(std::string name) const
     {
         ExtensibleGraph* pcfg = NULL;
-        Name_to_pcfg_map::iterator pcfgs_it = _pcfgs.find(name);
+        Name_to_pcfg_map::const_iterator pcfgs_it = _pcfgs.find(name);
         if(pcfgs_it != _pcfgs.end())
-            pcfg = _pcfgs[name];
+            pcfg = pcfgs_it->second;
         return pcfg;
     }
 
@@ -72,20 +72,20 @@ namespace Analysis {
         _pcfgs[name] = pcfg;
     }
 
-    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs()
+    ObjectList<ExtensibleGraph*> PCFGAnalysis_memento::get_pcfgs() const
     {
         ObjectList<ExtensibleGraph*> result;
-        for(Name_to_pcfg_map::iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
+        for(Name_to_pcfg_map::const_iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
             result.insert(it->second);
         return result;
     }
 
-    TaskDependencyGraph* PCFGAnalysis_memento::get_tdg(std::string name)
+    TaskDependencyGraph* PCFGAnalysis_memento::get_tdg(std::string name) const
     {
         TaskDependencyGraph* tdg = NULL;
-        Name_to_tdg_map::iterator tdgs_it = _tdgs.find(name);
+        Name_to_tdg_map::const_iterator tdgs_it = _tdgs.find(name);
         if(tdgs_it != _tdgs.end())
-            tdg = _tdgs[name];
+            tdg = tdgs_it->second;
         return tdg;
     }
 
@@ -458,13 +458,13 @@ namespace Analysis {
                 {
                     // Create the PCFG
                     if(VERBOSE)
-                        printf("Parallel Control Flow Graph '%s'\n", pcfg_name.c_str());
+                        std::cerr << "Parallel Control Flow Graph (PCFG) '" << pcfg_name << "'" << std::endl;
                     PCFGVisitor v(pcfg_name, *it);
                     ExtensibleGraph* pcfg = v.parallel_control_flow_graph(*it, asserted_funcs);
 
                     // Synchronize the tasks, if applies
                     if(VERBOSE)
-                        printf("Task sync of PCFG '%s'\n", pcfg_name.c_str());
+                        std::cerr << "Task Synchronization of PCFG '" << pcfg_name << "'" << std::endl;
                     TaskAnalysis::TaskSynchronizations task_sync_analysis(pcfg, IsOmpssEnabled);
                     task_sync_analysis.compute_task_synchronizations();
 
@@ -522,7 +522,7 @@ namespace Analysis {
 
                     // Analyze the current graph
                     if(VERBOSE)
-                        printf("Use-Definition of PCFG '%s'\n", (*it)->get_name().c_str());
+                        std::cerr << "Use-Definition of PCFG '" << (*it)->get_name() << "'" << std::endl;
                     UseDef ud(*it, pcfgs);
                     ud.compute_usage();
                 }
@@ -570,7 +570,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Liveness of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Liveness of PCFG '" << (*it)->get_name() << "'" << std::endl;
                 Liveness l(*it);
                 l.compute_liveness();
             }
@@ -592,7 +592,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Reaching Definitions of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Reaching Definitions of PCFG '" << (*it)->get_name() << "'" << std::endl;
                 ReachingDefinitions rd(*it);
                 rd.compute_reaching_definitions();
             }
@@ -614,7 +614,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Induction Variables of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Induction Variables of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
                 // Compute the induction variables of all loops of each PCFG
                 InductionVariableAnalysis iva(*it);
@@ -636,7 +636,7 @@ namespace Analysis {
             const NBase& ast)
     {
         // Required previous analysis
-        liveness(memento, ast);
+        reaching_definitions(memento, ast);
 
         if(!memento.is_task_synchronizations_tuned())
         {
@@ -646,7 +646,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Task synchronizations tunning of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Task Synchronizations Tunning of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
                 TaskAnalysis::TaskSyncTunning tst(*it);
                 tst.tune_task_synchronizations();
@@ -669,7 +669,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Range Analysis of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Range Analysis of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
                 // Compute the induction variables of all loops of each PCFG
                 RangeAnalysis ra(*it);
@@ -693,7 +693,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Cyclomatic Complexity of PCFG '%s'", (*it)->get_name().c_str());
+                    std::cerr << "Cyclomatic Complexity of PCFG '" << (*it)->get_name() << "'" << std::endl;
                 
                 // Compute the cyclomatic complexity of each PCFG
                 CyclomaticComplexity cc(*it);
@@ -719,7 +719,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Auto-Scoping of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Auto-Scoping of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
                 AutoScoping as(*it);
                 as.compute_auto_scoping();
@@ -746,7 +746,7 @@ namespace Analysis {
             for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 if(VERBOSE)
-                    printf("Task Dependency Graph of PCFG '%s'\n", (*it)->get_name().c_str());
+                    std::cerr << "Task Dependency Graph (TDG) of PCFG '" << (*it)->get_name() << "'" << std::endl;
 
                 TaskDependencyGraph* tdg = new TaskDependencyGraph(*it);
                 tdgs.insert(tdg);
@@ -763,50 +763,66 @@ namespace Analysis {
     {
         // This launches PCFG, UseDef, Liveness, ReachingDefs and InductionVars analysis
         induction_variables(memento, ast);
-
-        // Now we apply auto-scope
-        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-        {
-            if(VERBOSE)
-                printf("Auto-Scoping of PCFG '%s'\n", (*it)->get_name().c_str());
-
-            AutoScoping as(*it);
-            as.compute_auto_scoping();
-        }
+        // This launches Auto-Scoping
+        auto_scoping(memento, ast);
     }
 
     void AnalysisSingleton::print_pcfg(PCFGAnalysis_memento& memento, std::string pcfg_name)
     {
-        if(VERBOSE)
-            printf("Printing PCFG '%s' to DOT\n", pcfg_name.c_str());
         ExtensibleGraph* pcfg = memento.get_pcfg(pcfg_name);
-        pcfg->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
-                                  memento.is_reaching_definitions_computed(),
-                                  memento.is_induction_variables_computed(),
-                                  memento.is_range_analysis_computed(),
-                                  memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
+        if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        {   // Print analysis information
+            if(VERBOSE)
+                std::cerr << "Printing PCFG '" << pcfg_name << "' to DOT" << std::endl;
+            pcfg->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
+                                    memento.is_reaching_definitions_computed(),
+                                    memento.is_induction_variables_computed(),
+                                    memento.is_range_analysis_computed(),
+                                    memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
+        }
+        else if(CURRENT_CONFIGURATION->debug_options.print_pcfg ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        {   // Do not print analysis information
+            if(VERBOSE)
+                std::cerr << "Printing PCFG '" << pcfg_name << "' to DOT" << std::endl;
+            pcfg->print_graph_to_dot();
+        }
     }
 
     void AnalysisSingleton::print_all_pcfg(PCFGAnalysis_memento& memento)
     {
-        ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
-        for(ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
-        {
-            if(VERBOSE)
-                printf("Printing PCFG '%s' to DOT\n", (*it)->get_name().c_str());
-            (*it)->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
+        const ObjectList<ExtensibleGraph*>& pcfgs = memento.get_pcfgs();
+        if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+        {   // Print analysis information
+            for(ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            {
+                if(VERBOSE)
+                    std::cerr << "Printing PCFG '" << (*it)->get_name() << "' to DOT" << std::endl;
+                (*it)->print_graph_to_dot(memento.is_usage_computed(), memento.is_liveness_computed(),
                                          memento.is_reaching_definitions_computed(),
                                          memento.is_induction_variables_computed(),
                                          memento.is_range_analysis_computed(),
                                          memento.is_auto_scoping_computed(), memento.is_auto_deps_computed());
+            }
+        }
+        else if(CURRENT_CONFIGURATION->debug_options.print_pcfg ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        {   // Do not print analysis information
+            for(ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+            {
+                if(VERBOSE)
+                    std::cerr << "Printing PCFG '" << (*it)->get_name() << "' to DOT" << std::endl;
+                (*it)->print_graph_to_dot();
+            }
         }
     }
-
+    
     void AnalysisSingleton::print_tdg(PCFGAnalysis_memento& memento, std::string tdg_name)
     {
         if(VERBOSE)
-            printf("Printing TDG '%s' to DOT\n", tdg_name.c_str());
+            std::cerr << "Printing TDG '" << tdg_name << "' to DOT" << std::endl;
         TaskDependencyGraph* tdg = memento.get_tdg(tdg_name);
         tdg->print_tdg_to_dot();
     }
@@ -814,7 +830,7 @@ namespace Analysis {
     void AnalysisSingleton::tdg_to_json(PCFGAnalysis_memento& memento, std::string tdg_name)
     {
         if(VERBOSE)
-            printf("Printing TDG '%s' to JSON\n", tdg_name.c_str());
+            std::cerr << "Printing TDG '" << tdg_name << "' to JSON" << std::endl;
         TaskDependencyGraph* tdg = memento.get_tdg(tdg_name);
         tdg->print_tdg_to_json();
     }

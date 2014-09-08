@@ -178,10 +178,10 @@ namespace Utils {
 
     void print_induction_vars(InductionVarsPerNode iv_list)
     {
-        std::cerr << "INDUCTION VARIABLES: " << std::endl;
+        std::cerr << "    Induction Variables: " << std::endl;
         for(InductionVarsPerNode::iterator it = iv_list.begin(); it != iv_list.end(); ++it)
         {
-            std::cerr << "  - " << it->first << ": " << prettyprint_induction_var(it->second) << std::endl;
+            std::cerr << "        * " << it->first << ": " << prettyprint_induction_var(it->second) << std::endl;
         }
     }
     
