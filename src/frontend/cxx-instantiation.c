@@ -744,7 +744,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 new_member->entity_specs.default_argument_info[i] = xcalloc(1, sizeof(*p));
                                 // Copy on write
                                 *new_member->entity_specs.default_argument_info[i] = *p;
-                                new_member->entity_specs.default_argument_info[i]->is_hidden = 1;
+                                if (CURRENT_CONFIGURATION->explicit_instantiation)
+                                {
+                                    new_member->entity_specs.default_argument_info[i]->is_hidden = 1;
+                                }
                             }
                         }
                     }
