@@ -40,10 +40,9 @@ namespace Analysis {
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
+        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
-
-        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         std::map<Symbol, Nodecl::NodeclBase> _asserted_funcs;  /*!< Map relating function symbols with 
                                                                     its related pragma analysis_check assert directive, if exists */

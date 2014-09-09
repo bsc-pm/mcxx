@@ -38,6 +38,7 @@ namespace Analysis {
     // ************************************ Constructors ************************************ //
 
     PCFGVisitor::PCFGVisitor(std::string name, NBase nodecl)
+            : _utils(NULL), _pcfg(NULL), _asserted_funcs()
     {
         _utils = new PCFGVisitUtils( );
         _pcfg = new ExtensibleGraph( name, nodecl, _utils );
