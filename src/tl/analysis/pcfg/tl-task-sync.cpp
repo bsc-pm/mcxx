@@ -242,7 +242,7 @@ namespace {
         return true;
     }
 
-    tribool may_have_dependence(NBase source, NBase target)
+    tribool may_have_dependence(const NBase& source, const NBase& target)
     {
         TL::DataReference source_data_ref(source);
         TL::DataReference target_data_ref(target);
@@ -621,7 +621,12 @@ namespace {
                 {
                     // Well, (*alive_tasks_it) IS in the set of static
                     // synchronized tasks so it won't synchronize here
-                    points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                    PointOfSyncList& node_points_of_sync = points_of_sync[alive_tasks_it->node];
+                    for(PointOfSyncList::iterator it = node_points_of_sync.begin(); it != node_points_of_sync.end(); ++it)
+                    {
+                        if((it->first == current) && (it->second == Sync_strict))
+                            node_points_of_sync.erase(it);
+                    }
                 }
             }
             else
@@ -761,7 +766,12 @@ namespace {
                     }
                     else
                     {
-                        points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                        PointOfSyncList& node_points_of_sync = points_of_sync[alive_tasks_it->node];
+                        for(PointOfSyncList::iterator it = node_points_of_sync.begin(); it != node_points_of_sync.end(); ++it)
+                        {
+                            if((it->first == current) && (it->second == Sync_strict))
+                                node_points_of_sync.erase(it);
+                        }
                     }
                 }
                 else
@@ -952,8 +962,9 @@ namespace {
                 it != points_of_sync.end();
                 it++)
         {
-            for (PointOfSyncSet::iterator jt = it->second.begin();
-                    jt != it->second.end();
+            // Note: We need to preserve reverse order for Range Analysis correctness
+            for (PointOfSyncList::reverse_iterator jt = it->second.rbegin();
+                    jt != it->second.rend();
                     jt++)
             {
 #ifdef TASK_SYNC_DEBUG

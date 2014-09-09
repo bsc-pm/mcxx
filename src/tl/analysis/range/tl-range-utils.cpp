@@ -30,6 +30,8 @@
 namespace TL {
 namespace Analysis {
 
+    #define RANGES_DEBUG
+    
     // *********************************************** //
     // ****************** CG Nodes ******************* //
     
@@ -419,7 +421,7 @@ namespace {
     {
         #ifdef RANGES_DEBUG
         std::cerr << "STRONGLY CONNECTED COMPONENTS" << std::endl;
-        for(std::vector<SCC*>::iterator it = scc_list.begin(); it != scc_list.end(); ++it)
+        for(std::vector<SCC*>::const_iterator it = scc_list.begin(); it != scc_list.end(); ++it)
         {
             SCC* scc = *it;
             std::vector<CGNode*> nodes = scc->get_nodes();
