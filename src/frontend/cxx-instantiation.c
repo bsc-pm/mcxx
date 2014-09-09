@@ -1719,12 +1719,15 @@ static void instantiate_bases(
             continue;
         }
 
-        scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
+        scope_entry_t* upd_base_class_sym = named_type_get_symbol(
+                advance_over_typedefs(upd_base_class_named_type));
 
         // If the entity (being an independent one) has not been completed, then instantiate it
         class_type_complete_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
-        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, 
+        class_type_add_base_class(
+                get_actual_class_type(instantiated_class_type),
+                upd_base_class_sym, 
                 is_virtual,
                 /* is_dependent */ 0,
                 /* is_expansion */ 0,

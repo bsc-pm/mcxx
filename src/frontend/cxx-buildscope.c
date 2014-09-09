@@ -5901,6 +5901,14 @@ static void check_nodecl_member_initializer_list(
         scope_entry_t* entry = entry_list_head(result_list);
         entry_list_free(result_list);
 
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            // FIXME - This is very infortunate and should be solved in a different way
+            entry = lookup_of_template_parameter(decl_context,
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
+        }
+
         if (entry->kind == SK_TYPEDEF)
         {
             if (is_named_type(advance_over_typedefs(entry->type_information)))
@@ -5923,6 +5931,13 @@ static void check_nodecl_member_initializer_list(
                     nodecl_locus_to_str(nodecl_name),
                     get_qualified_symbol_name(entry, entry->decl_context));
             continue;
+        }
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(entry->type_information);
+            if (is_named_class_type(t))
+                entry = named_type_get_symbol(t);
         }
 
         if (entry->kind == SK_CLASS
