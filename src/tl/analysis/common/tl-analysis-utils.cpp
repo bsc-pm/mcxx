@@ -225,35 +225,44 @@ namespace Utils {
             return false;
     }
     
+    static NBase nodecl_set_contains_enclosing_nodecl_rec(const NBase& n, const NodeclSet& set)
+    {
+        if (nodecl_set_contains_nodecl(n, set) && !n.get_type().no_ref().is_pointer())
+            return n;
+
+        if (n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::NodeclBase subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+            if (!n.get_type().no_ref().is_pointer())
+            {
+                return nodecl_set_contains_enclosing_nodecl_rec(subscripted, set);
+            }
+            else if(subscripted.is<Nodecl::ArraySubscript>())
+            {
+                subscripted = subscripted.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+                while(subscripted.is<Nodecl::ArraySubscript>())
+                {
+                    if(!subscripted.get_type().no_ref().is_pointer())
+                        return nodecl_set_contains_enclosing_nodecl_rec(subscripted, set);
+                    else
+                        subscripted = subscripted.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+                }
+            }
+        }
+        else if (n.is<Nodecl::ClassMemberAccess>())
+        {
+            return nodecl_set_contains_enclosing_nodecl_rec(n.as<Nodecl::ClassMemberAccess>().get_lhs(), set);
+        }
+
+        return NBase::null();
+    }
+
     NBase nodecl_set_contains_enclosing_nodecl(const NBase& n, const NodeclSet& set)
     {
-        if(n.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::ArraySubscript arr = n.as<Nodecl::ArraySubscript>();
-            if(nodecl_set_contains_nodecl(n, set))
-                return n;
-            else
-                return nodecl_set_contains_enclosing_nodecl(arr.get_subscripted(), set);
-        }
-        else if(n.is<Nodecl::ClassMemberAccess>())
-        {
-            Nodecl::ClassMemberAccess memb_access = n.as<Nodecl::ClassMemberAccess>();
-            if(nodecl_set_contains_nodecl(n, set))
-                return n;
-            else
-                return nodecl_set_contains_enclosing_nodecl(memb_access.get_lhs(), set);
-        }
-        else if(n.is<Nodecl::Conversion>())
-        {
-            return nodecl_set_contains_enclosing_nodecl(n.as<Nodecl::Conversion>().get_nest(), set);
-        }
-        else
-        {
-            if(nodecl_set_contains_nodecl(n, set))
-                return n;
-            else
-                return NBase::null();
-        }
+        const NBase& res = nodecl_set_contains_enclosing_nodecl_rec(n.no_conv(), set);
+        if(res.is_null() && nodecl_set_contains_nodecl(n.no_conv(), set))
+            return n;
+        else return res;
     }
     
     Nodecl::List nodecl_set_contains_enclosed_nodecl(const NBase& n, const NodeclSet& set)
@@ -261,8 +270,8 @@ namespace Utils {
         Nodecl::List result;
         
         // Symbols which are pointers are not considered to contain any access to the pointed object
-        if (!n.no_conv().is<Nodecl::Symbol>() || 
-            (!n.no_conv().get_symbol().get_type().is_pointer() && n.no_conv().get_symbol().get_type().is_array()))
+        if (!n.no_conv().is<Nodecl::Symbol>()
+                || !n.no_conv().get_symbol().get_type().no_ref().is_pointer())
         {
             NodeclSet fake_set;
             fake_set.insert(n);
@@ -281,23 +290,84 @@ namespace Utils {
         return result;
     }
     
+    Nodecl::NodeclBase unflatten_subscripts(const Nodecl::NodeclBase& n)
+    {
+        if(n.is<Nodecl::ArraySubscript>())
+        {
+            const Nodecl::NodeclBase& subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+            const Nodecl::List& subscripts = n.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+
+            Nodecl::NodeclBase new_subscript = unflatten_subscripts(subscripted);
+            int i = 1;
+            for(Nodecl::List::const_iterator it = subscripts.begin(); it != subscripts.end(); ++it)
+            {
+                Type t = subscripted.get_type().no_ref();
+                int j = i;
+                while (j>0)
+                {
+                    if(t.is_pointer())
+                        t = t.points_to();
+                    else if(t.is_array())
+                        t = t.array_element();
+                    else
+                        internal_error("Expected array type for dimension %d in nodecl '%s', but found '%s'.\n",
+                                       subscripts.size()-j, n.prettyprint().c_str(), t.print_declarator().c_str());
+                    j--;
+                }
+                new_subscript = Nodecl::ArraySubscript::make(new_subscript.shallow_copy(),
+                                                             Nodecl::List::make(it->shallow_copy()), t);
+                i++;
+            }
+            return new_subscript;
+        }
+        
+        return n;
+    }
+
     Nodecl::List nodecl_set_contains_pointed_nodecl(const NBase& n, const NodeclSet& set)
     {
         Nodecl::List result;
         // Only a symbol with pointer/array type may point to some object
-        if (n.no_conv().is<Nodecl::Symbol>() && 
-            (n.no_conv().get_symbol().get_type().is_pointer() || n.no_conv().get_symbol().get_type().is_array()))
+        if ((n.get_type().no_ref().is_pointer() || n.get_type().no_ref().is_array()))
         {
-            for(NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
+            for (NodeclSet::const_iterator it = set.begin(); it != set.end(); ++it)
             {
-                const NBase& it_base = get_nodecl_base(*it);
-                if(Nodecl::Utils::structurally_equal_nodecls(n, it_base))
+                Nodecl::NodeclBase sub = it->no_conv().shallow_copy();
+                if (sub.is<Nodecl::ArraySubscript>())
                 {
-                    result.append(it->shallow_copy());
+                    // Skip the less significant dimension because, if it has to be pointed,
+                    // then 'n' must be a "container"
+                    sub = sub.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+                    if (Nodecl::Utils::structurally_equal_nodecls(n, sub, /*skip conversions*/true))
+                    {
+                        result.append(sub.shallow_copy());
+                        continue;
+                    }
+
+                    // Flatten all consecutive dimensions:
+                    // in order to find any possible subscript access
+                    // we need to check all dimensions accesses, so, we will transform:
+                    // A[i][j]  ->  subscripted: A, subscripts: i, j into
+                    //              subscripted: A[i], subscript: j
+                    sub = unflatten_subscripts(sub);
+
+                    // Traverse each subscripted individually comparing it with the nodecl we are looking for
+                    while (true)
+                    {
+                        if (Nodecl::Utils::structurally_equal_nodecls(n, sub, /*skip conversions*/true))
+                        {
+                            result.append(sub.shallow_copy());
+                            break;
+                        }
+                        if(!sub.is<Nodecl::ArraySubscript>())
+                            break;
+                        sub = sub.as<Nodecl::ArraySubscript>().get_subscripted();
+                    }
                 }
+                // Nothing to do, only ArraySubscript may be pointed
+                else {}
             }
         }
-        
         return result;
     }
     
@@ -627,17 +697,23 @@ namespace Utils {
         int line_size = 0;
         for(NodeclSet::const_iterator it = s.begin(); it != s.end(); ++it)
         {
-            std::string it_str = it->prettyprint();
-            if( line_size + it_str.size( ) > 100 )
-            {
-                result += "$$";
-                line_size = it_str.size( );
+            if (!print_in_dot
+                    || !it->get_symbol().is_valid()
+                    || (it->get_symbol().is_valid()
+                            && !it->get_symbol().is_saved_expression()))
+            {   // Avoid printing in the DOT file those variables generated by the compiler
+                std::string it_str = it->prettyprint();
+                if( line_size + it_str.size( ) > 100 )
+                {
+                    result += "$$";
+                    line_size = it_str.size( );
+                }
+                else
+                    line_size += it_str.size( ) + 3;
+                result += it_str +  ", ";
+                if( line_size > 100 )
+                    result += "$$";
             }
-            else
-                line_size += it_str.size( ) + 3;
-            result += it_str +  ", ";
-            if( line_size > 100 )
-                result += "$$";
         }
 
         if( !result.empty( ) )
@@ -656,33 +732,39 @@ namespace Utils {
         int line_size = 0;
         for(NodeclMap::const_iterator it = m.begin(); it != m.end(); ++it)
         {
-            if( it->second.first.is_null( ) )
-            {
-                std::string it_str = it->first.prettyprint() + "= UNKNOWN; ";
-                if( line_size + it_str.size( ) > 100 )
+            if (!print_in_dot
+                    || !it->first.get_symbol().is_valid()
+                    || (it->first.get_symbol().is_valid()
+                            && !it->first.get_symbol().is_saved_expression()))
+            {   // Avoid printing in the DOT file those variables generated by the compiler
+                if( it->second.first.is_null( ) )
                 {
-                    result += "$$";
-                    line_size = it_str.size( );
+                    std::string it_str = it->first.prettyprint() + "= UNKNOWN; ";
+                    if( line_size + it_str.size( ) > 100 )
+                    {
+                        result += "$$";
+                        line_size = it_str.size( );
+                    }
+                    else
+                        line_size += it_str.size( );
+                    result += it_str;
+                    if( line_size > 100 )
+                        result += "$$";
                 }
                 else
-                    line_size += it_str.size( );
-                result += it_str;
-                if( line_size > 100 )
-                    result += "$$";
-            }
-            else
-            {
-                std::string it_str = it->first.prettyprint() + "=" + it->second.first.prettyprint() + "; ";
-                if( line_size + it_str.size( ) > 100 )
                 {
-                    result += "$$";
-                    line_size = it_str.size( );
+                    std::string it_str = it->first.prettyprint() + "=" + it->second.first.prettyprint() + "; ";
+                    if( line_size + it_str.size( ) > 100 )
+                    {
+                        result += "$$";
+                        line_size = it_str.size( );
+                    }
+                    else
+                        line_size += it_str.size( );
+                    result += it_str;
+                    if( line_size > 100 )
+                        result += "$$";
                 }
-                else
-                    line_size += it_str.size( );
-                result += it_str;
-                if( line_size > 100 )
-                    result += "$$";
             }
         }
 

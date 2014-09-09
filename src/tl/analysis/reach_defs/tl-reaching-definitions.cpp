@@ -176,7 +176,7 @@ namespace Analysis {
                                         "Task created by task creation node %d not found.\n", 
                                         current->get_id());
                         const NodeclSet& task_killed = created_task->get_killed_vars();
-                        const NodeclSet& shared_vars = created_task->get_all_shared_variables();
+                        const NodeclSet& shared_vars = created_task->get_all_shared_accesses();
                         for(NodeclSet::const_iterator it = task_killed.begin(); it != task_killed.end(); ++it)
                         {
                             if(shared_vars.find(*it) != shared_vars.end())

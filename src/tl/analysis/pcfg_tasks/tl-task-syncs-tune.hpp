@@ -41,7 +41,7 @@ namespace TaskAnalysis{
         
         void tune_task_synchronizations_rec(Node* current);
         NBase match_dependencies(Node* source, Node* target);
-        void disconnect_tasks_and_fix_concurrency_info(Node* source, Node* target);
+        void disconnect_tasks(Node* source, Node* target);
         
     public:
         // *** Constructor *** //

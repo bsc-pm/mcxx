@@ -137,23 +137,7 @@ namespace {
                     internal_error("Code unreachable", 0);
                 }
         }
-
     }
-
-    UNUSED_FUNCTION bool has_task_creation_edges(Node* n)
-    {
-        ObjectList<Edge*> exit_edges = n->get_exit_edges();
-
-        for (ObjectList<Edge*>::iterator edge_it = exit_edges.begin();
-                edge_it != exit_edges.end();
-                edge_it++)
-        {
-            if ((*edge_it)->is_task_edge())
-                return true;
-        }
-        return false;
-    }
-
 
     static ObjectList<Edge*> get_task_creation_edges(Node* n)
     {
@@ -171,7 +155,8 @@ namespace {
         return result;
     }
 
-    UNUSED_FUNCTION std::string print_set(AliveTaskSet& t)
+#ifdef TASK_SYNC_DEBUG
+    std::string print_set(AliveTaskSet& t)
     {
         std::stringstream ss;
         ss << "{ ";
@@ -189,6 +174,7 @@ namespace {
 
         return ss.str();
     }
+#endif
 
     bool is_strict_subobject_access(NBase& data_ref)
     {
@@ -203,14 +189,18 @@ namespace {
             {
                 NBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
                 if (subscripted.is<Nodecl::Symbol>())
-                {
-                    // a[x]
+                {   // a[x] where 'a' should be an array
                     if (!subscripted.get_symbol().get_type().is_array())
                         return false;
                 }
+                else if (subscripted.is<Nodecl::Conversion>() 
+                        && subscripted.as<Nodecl::Conversion>().get_nest().is<Nodecl::Symbol>())
+                {   // a[x] where 'a' should be a pointer
+                    if (!subscripted.as<Nodecl::Conversion>().get_nest().get_symbol().get_type().is_pointer())
+                        return false;
+                }
                 else if (subscripted.is<Nodecl::ClassMemberAccess>())
-                {
-                    // b.a[x]
+                {   // b.a[x]
                     NBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
@@ -224,14 +214,12 @@ namespace {
             {
                 NBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
-                {
-                    // a.b
+                {   // a.b
                     if (!lhs.get_symbol().get_type().is_class())
                         return false;
                 }
                 else if (lhs.is<Nodecl::ClassMemberAccess>())
-                {
-                    // a.b.c
+                {   // a.b.c
                     NBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
@@ -240,6 +228,10 @@ namespace {
                 }
 
                 current = lhs;
+            }
+            else if(current.is<Nodecl::Conversion>())
+            {
+                current = current.as<Nodecl::Conversion>().get_nest();
             }
             else
             {
@@ -250,47 +242,78 @@ namespace {
         return true;
     }
 
-    tribool may_have_dependence(NBase source, NBase target)
+    tribool may_have_dependence(const NBase& source, const NBase& target)
     {
         TL::DataReference source_data_ref(source);
         TL::DataReference target_data_ref(target);
-
-        // We return unknown
+        
+        // 1.- Some data reference is not valid => return unknown
         if (!source_data_ref.is_valid()
                 || !target_data_ref.is_valid())
             return tribool();
 
+        // 2.- The two data references are simple objects => 
+        //     - return true when the two symbols are the same
+        //     - return false otherwise
         TL::Symbol source_sym = source_data_ref.get_base_symbol();
         TL::Symbol target_sym = target_data_ref.get_base_symbol();
 
-        bool source_is_object = source.is<Nodecl::Symbol>()
+        bool source_is_symbol = source.is<Nodecl::Symbol>()
             && !source.get_symbol().get_type().is_any_reference();
-        bool target_is_object = target.is<Nodecl::Symbol>()
+        bool target_is_symbol = target.is<Nodecl::Symbol>()
             && !target.get_symbol().get_type().is_any_reference();
 
-        if (source_is_object && target_is_object)
+        if (source_is_symbol && target_is_symbol)
         {
-            // If both data references are simple objects, different names means
-            // different names
+            // If both data references are simple objects, different names means different symbols
             return (source_sym == target_sym) ? tribool::yes : tribool::no;
         }
 
+        // 3.- The two access are either sub-objects or shaping expressions (specifying the whole object or a sub-part of it)
+        //     - return true when the base symbol is the same in both accesses
+        //     - return false otherwise
+        bool source_is_object = source.is<Nodecl::Shaping>();
+        bool target_is_object = target.is<Nodecl::Shaping>();
         bool source_is_subobject = is_strict_subobject_access(source_data_ref);
         bool target_is_subobject = is_strict_subobject_access(target_data_ref);
 
         if ((source_is_object || source_is_subobject)
                 && (target_is_object || target_is_subobject))
         {
-            // If one is object and the other subobject (or both subobjects),
+            // If one is object and the other sub-object (or both sub-objects),
             // if the base symbol is different, they they cannot be the same dependence
-            //
-            // TODO - Sometimes the two subobjects may be the same and we
-            // TODO - may want to return tribool::yes
+            
             if (source_sym != target_sym)
+            {
                 return tribool::no;
+            }
+            else
+            {
+                if(!source_is_subobject || !target_is_subobject)
+                    return tribool::yes;
+                else
+                {   // When the two accesses are ArraySubscripts, we check the subscripts equality
+                    if(source.is<Nodecl::ArraySubscript>() && target.is<Nodecl::ArraySubscript>())
+                    {
+                        const Nodecl::List& src_subs = source.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                        const Nodecl::List& tgt_subs = target.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                        if(src_subs.size() == tgt_subs.size())
+                        {
+                            Nodecl::List::iterator its = src_subs.begin();
+                            Nodecl::List::iterator itt = tgt_subs.begin();
+                            for( ; its != src_subs.end(); ++its, ++itt)
+                            {
+                                if(!Nodecl::Utils::structurally_equal_nodecls(*its, *itt, /*skip_conversions*/ true))
+                                    return tribool::unknown;
+                            }
+                            return tribool::yes;
+                        }
+                    }
+                }
+            }
         }
-
-        // In all other cases we take a conservative stance
+        
+        // 4.- In all other cases we take a conservative stance
         return tribool::unknown;
     }
 
@@ -465,6 +488,7 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
+        // FIXME: These should be lists. Otherwise, when we have more than one clause of the same type, we will end up with the last one
         // FIXME: Extend support for concurrent dependencies
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
@@ -542,10 +566,12 @@ namespace {
 
         for (int n_source = 0; n_source < num_sources; n_source++)
         {
+            if (sources[n_source].is_null())
+                continue;
+            
             for (int n_target = 0; n_target < num_targets; n_target++)
             {
-                if (sources[n_source].is_null()
-                        || targets[n_target].is_null())
+                if (targets[n_target].is_null())
                     continue;
 
                 may_have_dep = may_have_dep || 
@@ -595,7 +621,12 @@ namespace {
                 {
                     // Well, (*alive_tasks_it) IS in the set of static
                     // synchronized tasks so it won't synchronize here
-                    points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                    PointOfSyncList& node_points_of_sync = points_of_sync[alive_tasks_it->node];
+                    for(PointOfSyncList::iterator it = node_points_of_sync.begin(); it != node_points_of_sync.end(); ++it)
+                    {
+                        if((it->first == current) && (it->second == Sync_strict))
+                            node_points_of_sync.erase(it);
+                    }
                 }
             }
             else
@@ -735,7 +766,12 @@ namespace {
                     }
                     else
                     {
-                        points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
+                        PointOfSyncList& node_points_of_sync = points_of_sync[alive_tasks_it->node];
+                        for(PointOfSyncList::iterator it = node_points_of_sync.begin(); it != node_points_of_sync.end(); ++it)
+                        {
+                            if((it->first == current) && (it->second == Sync_strict))
+                                node_points_of_sync.erase(it);
+                        }
                     }
                 }
                 else
@@ -926,8 +962,9 @@ namespace {
                 it != points_of_sync.end();
                 it++)
         {
-            for (PointOfSyncSet::iterator jt = it->second.begin();
-                    jt != it->second.end();
+            // Note: We need to preserve reverse order for Range Analysis correctness
+            for (PointOfSyncList::reverse_iterator jt = it->second.rbegin();
+                    jt != it->second.rend();
                     jt++)
             {
 #ifdef TASK_SYNC_DEBUG
@@ -1534,11 +1571,11 @@ task_synchronized:      break;
 
         if(VERBOSE)
         {
-            std::cerr << "Task " << task->get_id() << " synchronizations information" << std::endl;
-            std::cerr << "   Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
-            std::cerr << "   Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
-            std::cerr << "   Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
-            std::cerr << "   Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
+            std::cerr << "    Task " << task->get_id() << " synchronizations information" << std::endl;
+            std::cerr << "        * Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
+            std::cerr << "        * Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
+            std::cerr << "        * Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
+            std::cerr << "        * Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
         }
         
         // Set the information computed to the graph

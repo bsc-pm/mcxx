@@ -66,8 +66,8 @@ namespace TaskAnalysis {
     };
 
     typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
-    typedef std::set<PointOfSyncInfo> PointOfSyncSet;
-    typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
+    typedef ObjectList<PointOfSyncInfo> PointOfSyncList;
+    typedef std::map<Node*, PointOfSyncList> PointsOfSync;
 
     struct LIBTL_CLASS TaskSynchronizations
     {
