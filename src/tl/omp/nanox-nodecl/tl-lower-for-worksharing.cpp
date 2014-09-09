@@ -422,9 +422,6 @@ namespace TL { namespace Nanox {
 
         walk(statements);
 
-        // Get the new statements
-        statements = for_statement.get_statement();
-
         // Slicer descriptor
         TL::Symbol nanos_ws_desc_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_ws_desc_t");
         ERROR_CONDITION(nanos_ws_desc_t_sym.is_invalid(), "Invalid symbol", 0);
