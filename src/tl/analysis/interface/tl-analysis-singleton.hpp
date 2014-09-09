@@ -93,12 +93,12 @@ namespace Analysis {
 
         // ************* Getters and Setters ************* //
 
-        ExtensibleGraph* get_pcfg( std::string name );
-        void add_pcfg( std::string name, ExtensibleGraph* pcfg );
-        ObjectList<ExtensibleGraph*> get_pcfgs( );
+        ExtensibleGraph* get_pcfg(std::string name) const;
+        void add_pcfg(std::string name, ExtensibleGraph* pcfg);
+        ObjectList<ExtensibleGraph*> get_pcfgs() const;
 
-        TaskDependencyGraph* get_tdg( std::string name );
-        void set_tdg( std::string name, TaskDependencyGraph* tdg );
+        TaskDependencyGraph* get_tdg(std::string name) const;
+        void set_tdg(std::string name, TaskDependencyGraph* tdg);
 
         bool is_pcfg_computed() const;
         void set_pcfg_computed();

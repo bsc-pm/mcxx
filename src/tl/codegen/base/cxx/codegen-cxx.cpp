@@ -9412,36 +9412,39 @@ std::string CxxBase::template_arguments_to_str(TL::Symbol symbol)
 
 CxxBase::Ret CxxBase::unhandled_node(const Nodecl::NodeclBase & n)
 {
-    indent();
-    *(file) << start_inline_comment() << ">>> " << ast_print_node_type(n.get_kind()) << " >>>" << end_inline_comment() << " \n";
-
-    inc_indent();
-
+    *file << ast_print_node_type(n.get_kind()) << "(";
     TL::ObjectList<Nodecl::NodeclBase> children = n.children();
-
     int i = 0;
     for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
             it != children.end();
-            it++, i++)
+            it++)
     {
         if (!it->is_null())
         {
-            indent();
-            *(file) << start_inline_comment();
-            *(file) << "Children " << i;
-            *(file) << end_inline_comment() << "\n";
-
-            walk(*it);
+            if (i > 0)
+                *file << ", ";
+            if (it->is<Nodecl::List>())
+            {
+                Nodecl::List l = it->as<Nodecl::List>();
+                *file << "[";
+                for (Nodecl::List::iterator it_list = l.begin(); it_list != l.end(); it_list++)
+                {
+                    walk(*it_list);
+                    if (it_list + 1 != l.end())
+                    {
+                        *file << ", ";
+                    }
+                }
+                *file << "]";
+            }
+            else
+            {
+                walk(*it);
+            }
+            i++;
         }
     }
-
-    dec_indent();
-
-    indent();
-    *(file) << start_inline_comment();
-    *(file) << "<<< " << ast_print_node_type(n.get_kind()) << " <<<";
-    *(file) << end_inline_comment();
-    *(file) << "\n";
+    *file << ")";
 }
 
 const char* CxxBase::print_name_str(scope_entry_t* sym, decl_context_t decl_context, void *data)

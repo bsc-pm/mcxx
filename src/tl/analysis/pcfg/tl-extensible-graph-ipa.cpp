@@ -167,6 +167,12 @@ namespace Analysis {
         ExtensibleGraph::clear_visits(graph_entry);
     }
     
+    //! Replace node @old_node with node @new_node
+    void replace_node(Node* old_node, Node* new_node)
+    {   // TODO
+        WARNING_MESSAGE("Replacing a node in the PCFG is not yet implemented.\n", 0);
+    }
+    
     //! Method that inserts the PCFG corresponding to a function call
     void ExtensibleGraph::nest_pcfgs_rec(Node* current, ObjectList<ExtensibleGraph*>* pcfgs, unsigned int& min_id)
     {

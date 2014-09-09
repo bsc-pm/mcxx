@@ -9612,6 +9612,15 @@ static const char* get_type_name_string_internal(decl_context_t decl_context,
     return result;
 }
 
+char is_unqualified_type(type_t* t1)
+{
+    cv_qualifier_t cv1 = CV_NONE;
+
+    advance_over_typedefs_with_cv_qualif(t1, &cv1);
+
+    return (cv1 == CV_NONE);
+}
+
 char is_const_qualified_type(type_t* t1)
 {
     cv_qualifier_t cv1 = CV_NONE;

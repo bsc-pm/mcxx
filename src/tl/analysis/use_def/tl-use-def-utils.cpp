@@ -388,16 +388,21 @@ namespace Analysis {
             ObjectList<Symbol>::const_iterator itp = params.begin();
             for(int i = 0; i<n_iters; ++i)
             {
+                // Skip conversions and castings in the current argument
+                Nodecl::NodeclBase arg = ita->no_conv();
+                if(arg.is<Nodecl::Cast>())
+                    arg = arg.as<Nodecl::Cast>().get_rhs();
+
                 // Reference parameters
                 if(itp->get_type().is_any_reference())
                 {
-                    ref_params[*itp] = *ita;
+                    ref_params[*itp] = arg;
                 }
                 // Pointer parameters
                 if(itp->get_type().is_pointer() || 
                     (itp->get_type().is_any_reference() && itp->get_type().references_to().is_pointer()))
                 {
-                    ptr_params[*itp] = *ita;
+                    ptr_params[*itp] = arg;
                 }
                 
                 ita++; itp++;

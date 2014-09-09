@@ -1689,7 +1689,7 @@ static char solve_initialization_of_reference_type_ics(
             {
                 ok = solve_initialization_of_nonclass_nonreference_type(
                         orig,
-                        no_ref(dest),
+                        get_unqualified_type(no_ref(dest)),
                         decl_context,
                         IK_COPY_INITIALIZATION | (initialization_kind & IK_NO_MORE_USER_DEFINED_CONVERSIONS),
                         conversor,

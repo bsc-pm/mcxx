@@ -24,34 +24,21 @@
  Cambridge, MA 02139, USA.
  --------------------------------------------------------------------*/
 
-#ifndef TL_TUNE_TASK_SYNCS_HPP
-#define TL_TUNE_TASK_SYNCS_HPP
+#ifndef TL_TASK_SYNCS_UTILS_HPP
+#define TL_TASK_SYNCS_UTILS_HPP
 
-#include "tl-extensible-graph.hpp"
+#include "tl-node.hpp"
 
 namespace TL { 
 namespace Analysis {
 namespace TaskAnalysis{
-    
-    class LIBTL_CLASS TaskSyncTunning
-    {
-    private:
-        // *** Class members *** //
-        ExtensibleGraph* _pcfg;                     /*!< PCFG being tuned */
-        
-        void tune_task_synchronizations_rec(Node* current);
-        NBase match_dependencies(Node* source, Node* target);
-        void disconnect_tasks(Node* source, Node* target);
-        
-    public:
-        // *** Constructor *** //
-        TaskSyncTunning(ExtensibleGraph* pcfg);
-        
-        void tune_task_synchronizations();
-    };
+ 
+    bool data_reference_is_modified_between_tasks(
+            Node* source, 
+            Node* target, 
+            const Nodecl::NodeclBase& data_ref);
 
 }
 }
 }
-
-#endif  // TL_TUNE_TASK_SYNCS_HPP
+#endif      // TL_TASK_SYNCS_UTILS_HPP

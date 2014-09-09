@@ -120,6 +120,7 @@ namespace TL { namespace Nanox {
         dynamic_wd_info
             <<     "nanos_wd_dyn_props_t nanos_dyn_props;"
             <<     "nanos_dyn_props.tie_to = (nanos_thread_t)0;"
+            <<     "nanos_dyn_props.priority = 0;"
             ;
         if (!_lowering->final_clause_transformation_disabled()
                 && Nanos::Version::interface_is_at_least("master", 5024))

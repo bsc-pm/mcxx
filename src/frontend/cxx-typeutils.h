@@ -488,6 +488,7 @@ LIBMCXX_EXTERN char is_less_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 
+LIBMCXX_EXTERN char is_unqualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_const_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_volatile_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_restrict_qualified_type(type_t* t1);

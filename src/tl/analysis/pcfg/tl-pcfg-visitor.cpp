@@ -645,10 +645,58 @@ namespace Analysis {
         _utils->_assert_nodes.top()->add_assert_auto_sc_shared_var(n.get_scoped_variables().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
-
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::AutoStorage& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_auto_storage_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );        
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Dead& n )
     {
-        _utils->_assert_nodes.top()->set_assert_correctness_dead_var(n.get_correctness_variables().as<Nodecl::List>());
+        _utils->_assert_nodes.top()->add_assert_correctness_dead_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );        
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentFp& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_fp_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentIn& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_in_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_in_pointed_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentOut& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_out_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_out_pointed_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::IncoherentP& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_incoherent_p_var(n.get_correctness_vars().as<Nodecl::List>());
+        return ObjectList<Node*>( );
+    }
+    
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::Analysis::Correctness::Race& n )
+    {
+        _utils->_assert_nodes.top()->add_assert_correctness_race_var(n.get_correctness_vars().as<Nodecl::List>());
         return ObjectList<Node*>( );
     }
     
@@ -1505,6 +1553,12 @@ namespace Analysis {
         return ObjectList<Node*>( 1, if_else_graph_node );
     }
 
+    ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IndexDesignator& n )
+    {   
+        // Nothing to do with the index (n.get_index())
+        return walk(n.get_next());
+    }
+    
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::IntegerLiteral& n )
     {
         return visit_literal_node( n );
@@ -1905,9 +1959,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Aligned& n )
     {
-        Nodecl::List args = Nodecl::List::make( n.get_aligned_expressions( ), n );
-        PCFGClause current_clause( __aligned, args );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -1939,8 +1991,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Auto& n )
     {
-        PCFGClause current_clause( __auto, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
 
         // Set the task related to this clause to have auto-scoping enabled
         _utils->_environ_entry_exit.top( ).first->get_outer_node( )->set_auto_scoping_enabled( );
@@ -1987,8 +2038,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Overlap& n )
     {
-        PCFGClause current_clause( __overlap, n.get_overlap_expressions( ) );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2000,37 +2050,32 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Commutative& n )
     {
-        PCFGClause current_clause( __commutative, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Concurrent& n )
     {
-        PCFGClause current_clause( __concurrent, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyIn& n )
     {
-        PCFGClause current_clause( __copy_in, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyInout& n )
     {
-        PCFGClause current_clause( __copy_inout, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CopyOut& n )
     {
-        PCFGClause current_clause( __copy_out, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2068,57 +2113,49 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::CriticalName& n )
     {
-        PCFGClause current_clause( __name, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepIn& n )
     {
-        PCFGClause current_clause( __in, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInValue& n )
     {
-        PCFGClause current_clause( __in_value, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepInout& n )
     {
-        PCFGClause current_clause( __inout, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::DepOut& n )
     {
-        PCFGClause current_clause( __out, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Final& n )
     {
-        PCFGClause current_clause( __final, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Firstprivate& n )
     {
-        PCFGClause current_clause( __firstprivate, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::FirstLastprivate& n )
     {
-        PCFGClause current_clause( __firstlastprivate, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2236,29 +2273,25 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::If& n )
     {
-        PCFGClause current_clause( __if, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Lastprivate& n )
     {
-        PCFGClause current_clause( __lastprivate, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Linear& n )
     {
-        PCFGClause current_clause(__linear, n);
-        _utils->_pragma_nodes.top()._clauses.append(current_clause);
+        _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Mask& n )
     {
-        PCFGClause current_clause( __mask, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2284,15 +2317,13 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::NoMask& n )
     {
-        PCFGClause current_clause( __no_mask, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Nontemporal& n )
     {
-        PCFGClause current_clause( __nontemporal, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2357,15 +2388,13 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Priority& n )
     {
-        PCFGClause current_clause( __priority, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Private& n )
     {
-        PCFGClause current_clause( __private, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2377,23 +2406,13 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::ReductionItem& n )
     {
-        if( _utils->_is_simd )
-        {
-            PCFGClause current_clause( __simd_reduction, n );
-            _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        }
-        else
-        {
-            PCFGClause current_clause( __reduction, n );
-            _utils->_pragma_nodes.top( )._clauses.append( current_clause );
-        }
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Schedule& n )
     {
-        PCFGClause current_clause( __schedule, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2457,15 +2476,13 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Shared& n )
     {
-        PCFGClause current_clause( __shared, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SharedAndAlloca& n )
     {
-        PCFGClause current_clause( __shared_alloca, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
     
@@ -2590,9 +2607,7 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::SimdReduction& n )
     {
-        _utils->_is_simd = true;
         walk( n.get_reductions( ) );
-        _utils->_is_simd = false;
         return ObjectList<Node*>( );
     }
 
@@ -2628,15 +2643,13 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Suitable& n )
     {
-        PCFGClause current_clause( __suitable, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Target& n )
     {
-        PCFGClause current_clause( __target, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
@@ -2729,8 +2742,7 @@ namespace Analysis {
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::TaskLabel& n )
     {
-        PCFGClause current_clause( __task_label, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
     
@@ -2746,29 +2758,25 @@ namespace Analysis {
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Uniform& n )
     {
-        PCFGClause current_clause(__uniform, n);
-        _utils->_pragma_nodes.top()._clauses.append(current_clause);
+        _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Unroll& n )
     {
-        PCFGClause current_clause( __unroll, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
     
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::Untied& n )
     {
-        PCFGClause current_clause( __untied, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 
     ObjectList<Node*> PCFGVisitor::visit( const Nodecl::OpenMP::VectorLengthFor& n )
     {
-        PCFGClause current_clause( __length_for, n );
-        _utils->_pragma_nodes.top( )._clauses.append( current_clause );
+        _utils->_pragma_nodes.top( )._clauses.append(n);
         return ObjectList<Node*>( );
     }
 

@@ -359,8 +359,9 @@ namespace {
                                                                         const NBase& stmt, Node* loop)
     {
         // Check whether the variable is modified in other places inside the loop
-        bool res = check_undesired_modifications(iv, incr, incr_list, stmt, loop->get_graph_entry_node(), loop);
-        ExtensibleGraph::clear_visits_aux(loop);
+        Node* entry = loop->get_graph_entry_node();
+        bool res = check_undesired_modifications(iv, incr, incr_list, stmt, entry, loop);
+        ExtensibleGraph::clear_visits_aux(entry);
 
         // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
         res = !res && check_constant_memory_access(iv, loop);

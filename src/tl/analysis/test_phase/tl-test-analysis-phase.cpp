@@ -182,8 +182,10 @@ namespace Analysis {
                 std::cerr << "=========  Testing Cyclomatic Complexity analysis done  =========" << std::endl;
         }
         
-        if( CURRENT_CONFIGURATION->debug_options.print_pcfg || 
-            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+        if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
         {
             if( VERBOSE )
                 std::cerr << "=================  Printing PCFG to dot file  ==================" << std::endl;

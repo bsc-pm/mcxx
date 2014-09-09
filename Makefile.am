@@ -1254,6 +1254,8 @@ src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
 							$(ANALYSIS_LIBADD)
 
 src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.cpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp \
                                $(END)
@@ -1450,6 +1452,61 @@ src_tl_complexity_libtlcomplexity_la_SOURCES = \
 					src/tl/complexity/tl-complexity.hpp \
 					src/tl/complexity/tl-complexity.cpp \
 					$(END)
+endif
+
+##########################################################################
+# src/tl/hlt
+##########################################################################
+if BUILD_HLT
+
+lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
+
+HLT_ANALYSIS_CFLAGS= \
+			  -I $(srcdir)/src/tl/analysis/common \
+			  -I $(srcdir)/src/tl/analysis/liveness \
+			  -I $(srcdir)/src/tl/analysis/loops \
+			  -I $(srcdir)/src/tl/analysis/pcfg \
+			  -I $(srcdir)/src/tl/analysis/reach_defs \
+			  -I $(srcdir)/src/tl/analysis/interface \
+			  -I $(srcdir)/src/tl/analysis/test_phase \
+			  -I $(srcdir)/src/tl/analysis/use_def \
+			  -I $(srcdir)/src/tl/analysis/tdg \
+			  $(END)
+
+HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
+
+HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
+			  -I $(srcdir)/src/tl/omp/core \
+			  $(HLT_ANALYSIS_CFLAGS) \
+			  $(END)
+
+src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
+src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+
+src_tl_hlt_libtl_hlt_la_SOURCES = \
+	  src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-transform.hpp \
+      src/tl/hlt/hlt-transform.cpp \
+      src/tl/hlt/hlt-loop-normalize.hpp \
+      src/tl/hlt/hlt-loop-normalize.cpp \
+      src/tl/hlt/hlt-loop-unroll.hpp \
+      src/tl/hlt/hlt-loop-unroll.cpp \
+      $(END)
+
+phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
+
+src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
+src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
+
+src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
+      src/tl/hlt/hlt-pragma.cpp \
+      src/tl/hlt/hlt-pragma.hpp \
+      $(END)
+
 endif
 
 # ##########################################################################
@@ -1999,6 +2056,7 @@ phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg_tasks \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/interface\
                           $(END)
@@ -2006,6 +2064,7 @@ src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
 		          $(END)
@@ -2130,61 +2189,6 @@ src_tl_examples_03_visitor_libtl_example_visitor_la_SOURCES = \
 
 src_tl_examples_03_visitor_libtl_example_visitor_la_LIBADD = $(phases_libadd)
 src_tl_examples_03_visitor_libtl_example_visitor_la_LDFLAGS = $(phases_ldflags)
-
-endif
-
-##########################################################################
-# src/tl/hlt
-##########################################################################
-if BUILD_HLT
-
-lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
-
-HLT_ANALYSIS_CFLAGS= \
-			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/liveness \
-			  -I $(srcdir)/src/tl/analysis/loops \
-			  -I $(srcdir)/src/tl/analysis/pcfg \
-			  -I $(srcdir)/src/tl/analysis/reach_defs \
-			  -I $(srcdir)/src/tl/analysis/interface \
-			  -I $(srcdir)/src/tl/analysis/test_phase \
-			  -I $(srcdir)/src/tl/analysis/use_def \
-			  -I $(srcdir)/src/tl/analysis/tdg \
-			  $(END)
-
-HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
-
-HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
-			  -I $(srcdir)/src/tl/omp/core \
-			  $(HLT_ANALYSIS_CFLAGS) \
-			  $(END)
-
-src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
-src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
-
-src_tl_hlt_libtl_hlt_la_SOURCES = \
-	  src/tl/hlt/hlt-common.hpp \
-      src/tl/hlt/hlt-transform.hpp \
-      src/tl/hlt/hlt-transform.cpp \
-      src/tl/hlt/hlt-loop-normalize.hpp \
-      src/tl/hlt/hlt-loop-normalize.cpp \
-      src/tl/hlt/hlt-loop-unroll.hpp \
-      src/tl/hlt/hlt-loop-unroll.cpp \
-      $(END)
-
-phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
-
-src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
-src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
-
-src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
-      src/tl/hlt/hlt-pragma.cpp \
-      src/tl/hlt/hlt-pragma.hpp \
-      $(END)
 
 endif
 
