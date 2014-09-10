@@ -207,6 +207,8 @@
 "                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --fpp                    An alias for --pp=on\n"\
+"  --fpp=<name>             Preprocessor <name> will be used for\n" \
+"                           preprocessing Fortran source\n" \
 "  --width=<width>          Fortran column width used in the output\n" \
 "                           By default 132.\n" \
 "  --free                   Assume Fortran free-form input regardless\n" \
@@ -374,6 +376,7 @@ typedef enum
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
+    OPTION_FORTRAN_PREPROCESSOR,
     OPTION_FORTRAN_PRESCANNER,
     OPTION_FORTRAN_DOUBLEPRECISION_KIND,
     OPTION_FORTRAN_INTEGER_KIND,
@@ -445,7 +448,7 @@ struct command_line_long_options command_line_long_options[] =
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
-    {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"fpp", CLP_OPTIONAL_ARGUMENT, OPTION_FORTRAN_PREPROCESSOR},
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
     {"fixed-form-length", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_FIXED_FORM_LENGTH},
@@ -1481,6 +1484,20 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_FORTRAN_PRESCANNER:
                     {
                         CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_FORTRAN_PREPROCESSOR:
+                    {
+                        if (parameter_info.argument == NULL)
+                        {
+                            // Behave like --pp=on for compatibility
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        }
+                        else
+                        {
+                            CURRENT_CONFIGURATION->fortran_preprocessor_name = uniquestr(parameter_info.argument);
+                        }
                         break;
                     }
                 case OPTION_FORTRAN_DOUBLEPRECISION_KIND:
