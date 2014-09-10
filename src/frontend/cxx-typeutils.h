@@ -152,15 +152,18 @@ LIBMCXX_EXTERN type_t* get_new_template_alias_type(template_parameter_list_t* te
 LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
-        template_parameter_list_t* explicit_template_parameters);
+        template_parameter_list_t* explicit_template_arguments);
 LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t);
 
 LIBMCXX_EXTERN template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, const locus_t* locus);
-LIBMCXX_EXTERN scope_entry_list_t* unresolved_overloaded_type_compute_set_of_specializations(type_t* t,
-        decl_context_t decl_context, const locus_t* locus);
+LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify_unpacked(
+        scope_entry_list_t* overload_set,
+        template_parameter_list_t* explicit_template_arguments,
+        decl_context_t decl_context,
+        const locus_t* locus);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -488,6 +491,7 @@ LIBMCXX_EXTERN char is_less_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_cv_qualified_type(type_t* t1, type_t* t2);
 LIBMCXX_EXTERN char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2);
 
+LIBMCXX_EXTERN char is_unqualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_const_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_volatile_qualified_type(type_t* t1);
 LIBMCXX_EXTERN char is_restrict_qualified_type(type_t* t1);

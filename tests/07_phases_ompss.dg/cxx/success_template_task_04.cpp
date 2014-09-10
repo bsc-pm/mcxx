@@ -26,43 +26,62 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ompss
+</testinfo>
+*/
 
-#ifndef CXX_TYPEUNIF_DECLS_H
-#define CXX_TYPEUNIF_DECLS_H
+#include <unistd.h>
+#include <assert.h>
 
-#include "cxx-macros.h"
-
-#include "cxx-type-decls.h"
-#include "cxx-ast-decls.h"
-#include "cxx-buildscope-decls.h"
-
-MCXX_BEGIN_DECLS
-
-typedef
-struct deduced_parameter_tag
+#pragma omp task inout(v[0;N][0;M])
+template <typename T, int N, int M>
+void producer(T (&v)[N][M])
 {
-    type_t* type;
-    nodecl_t value;
-} deduced_parameter_t;
+    sleep(1);
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < M; ++j)
+            v[i][j] += j + i * N;
+}
 
-typedef 
-struct deduction_tag
+int main()
 {
-    enum template_parameter_kind kind;
-    int parameter_position;
-    int parameter_nesting;
-    const char* parameter_name;
-    
-    int num_deduced_parameters;
-    deduced_parameter_t** deduced_parameters;
-} deduction_t;
+    const int n = 10;
+    const int m = 20;
+    int v[n][m];
 
-typedef struct deduction_set_tag
-{
-    int num_deductions;
-    deduction_t** deduction_list;
-} deduction_set_t;
+    #pragma omp task out(v)
+    {
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < m; ++j)
+                v[i][j] = 0;
+    }
 
-MCXX_END_DECLS
+    #pragma omp task in(v)
+    {
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < m; ++j)
+                assert(v[i][j] == 0);
+    }
 
-#endif // CXX_TYPEUNIF_DECLS_H
+    producer(v);
+
+    #pragma omp task in(v)
+    {
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < m; ++j)
+                assert(v[i][j] == j + i * n);
+    }
+
+    producer(v);
+
+    #pragma omp task in(v)
+    {
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < m; ++j)
+                assert(v[i][j] == 2*(j + i * n));
+    }
+
+    #pragma omp taskwait
+}

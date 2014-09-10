@@ -26,38 +26,31 @@
 
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+test_CXXFLAGS="--instantiate"
+</testinfo>
+*/
+template <typename T>
+struct C
+{
+    struct D { };
+};
 
-#ifndef CXX_TYPEUNIF_H
-#define CXX_TYPEUNIF_H
+template <typename T>
+struct A
+{
+    typedef typename C<T>::D K;
 
-#include "libmcxx-common.h"
-#include "cxx-macros.h"
+    struct B : K
+    {
+        B() : K() { }
+    };
+};
 
-#include "cxx-ast-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-buildscope-decls.h"
-#include "cxx-scope-decls.h"
-#include "cxx-typeunif-decls.h"
 
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN void unificate_two_types(
-        type_t* t1,
-        type_t* t2,
-        deduction_set_t* unif_set,
-        decl_context_t decl_context, 
-        const locus_t* locus);
-        
-LIBMCXX_EXTERN void unificate_two_expressions(
-        deduction_set_t* unif_set, 
-        nodecl_t left_tree, 
-        nodecl_t right_tree);
-LIBMCXX_EXTERN char same_functional_expression(
-        nodecl_t left_tree,
-        nodecl_t right_tree);
-
-LIBMCXX_EXTERN long long int typeunif_used_memory(void);
-
-MCXX_END_DECLS
-
-#endif
+void g()
+{
+    A<int>::B a;
+}

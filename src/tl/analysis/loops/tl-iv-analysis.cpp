@@ -91,7 +91,7 @@ namespace {
                         || (lhs.is<Nodecl::ArraySubscript>()
                             && ExtensibleGraph::is_constant_in_context(loop, lhs.as<Nodecl::ArraySubscript>().get_subscripts()))))
             {
-                NBase new_rhs = Nodecl::Neg::make(rhs, rhs.get_type(), rhs.get_locus());
+                NBase new_rhs = Nodecl::Neg::make(rhs.shallow_copy(), rhs.get_type(), rhs.get_locus());
                 iv = st_.get_lhs();
                 incr = new_rhs;
                 is_iv = true;
@@ -359,8 +359,9 @@ namespace {
                                                                         const NBase& stmt, Node* loop)
     {
         // Check whether the variable is modified in other places inside the loop
-        bool res = check_undesired_modifications(iv, incr, incr_list, stmt, loop->get_graph_entry_node(), loop);
-        ExtensibleGraph::clear_visits_aux(loop);
+        Node* entry = loop->get_graph_entry_node();
+        bool res = check_undesired_modifications(iv, incr, incr_list, stmt, entry, loop);
+        ExtensibleGraph::clear_visits_aux(entry);
 
         // Check whether the variable is always the same memory location (avoid things like a[b[0]]++)
         res = !res && check_constant_memory_access(iv, loop);

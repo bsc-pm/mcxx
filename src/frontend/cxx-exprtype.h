@@ -122,7 +122,7 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         int num_arguments,
         decl_context_t decl_context,
         const locus_t* locus,
-        template_parameter_list_t *explicit_template_parameters
+        template_parameter_list_t *explicit_template_arguments
         );
 
 LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id,
@@ -210,7 +210,11 @@ scope_entry_t* expand_template_function_given_template_arguments(
         scope_entry_t* entry,
         decl_context_t decl_context,
         const locus_t* locus,
-        template_parameter_list_t* explicit_template_parameters);
+        template_parameter_list_t* explicit_template_arguments);
+
+LIBMCXX_EXTERN char same_functional_expression(
+        nodecl_t n1,
+        nodecl_t n2);
 
 MCXX_END_DECLS
 

@@ -158,6 +158,11 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
         decl_context_t template_parameters_context,
         const locus_t* locus);
 
+LIBMCXX_EXTERN type_t* update_type_with_pack_index(type_t* orig_type,
+        decl_context_t template_parameters_context,
+        const locus_t* locus,
+        int pack_index);
+
 LIBMCXX_EXTERN type_t* update_type_for_auto(type_t* orig_type,
         type_t* template_parameter);
 
@@ -277,6 +282,10 @@ LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(
         instantiation_symbol_map_t* instantiation_symbol_map,
         const locus_t* locus);
 
+LIBMCXX_EXTERN char compute_type_of_dependent_conversion_type_id(
+        nodecl_t nodecl_name,
+        decl_context_t decl_context);
+
 // Utils
 LIBMCXX_EXTERN char scope_is_enclosed_by(const scope_t *const scope, const scope_t *const potential_enclosing);
 LIBMCXX_EXTERN char class_is_in_lexical_scope(decl_context_t decl_context, 
@@ -312,6 +321,7 @@ LIBMCXX_EXTERN nodecl_t symbol_get_aligned_attribute(scope_entry_t* entry);
 LIBMCXX_EXTERN gcc_attribute_t* symbol_get_gcc_attribute(scope_entry_t* entry, const char* name);
 
 LIBMCXX_EXTERN scope_entry_t* class_symbol_get_canonical_symbol(scope_entry_t* class_symbol);
+
 
 MCXX_END_DECLS
 

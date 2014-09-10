@@ -1615,6 +1615,21 @@ namespace Vectorization
 
     void AVX2VectorLowering::visit(const Nodecl::VectorLoad& node)
     {
+        TL::ObjectList<Nodecl::NodeclBase> flags = 
+            node.get_flags().as<Nodecl::List>().to_object_list();
+
+        bool aligned = 
+            Nodecl::Utils::list_contains_nodecl_by_structure(
+                flags, Nodecl::AlignedFlag());
+
+        if (aligned)
+            visit_aligned_vector_load(node);
+        else
+            visit_unaligned_vector_load(node);
+    }
+
+    void AVX2VectorLowering::visit_aligned_vector_load(const Nodecl::VectorLoad& node)
+    {
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
 
@@ -1676,7 +1691,8 @@ namespace Vectorization
         node.replace(function_call);
     }
 
-    void AVX2VectorLowering::visit(const Nodecl::UnalignedVectorLoad& node)
+    void AVX2VectorLowering::visit_unaligned_vector_load(
+            const Nodecl::VectorLoad& node)
     {
         Nodecl::NodeclBase rhs = node.get_rhs();
         Nodecl::NodeclBase mask = node.get_mask();
@@ -1740,6 +1756,22 @@ namespace Vectorization
     }
 
     void AVX2VectorLowering::visit(const Nodecl::VectorStore& node)
+    {
+        TL::ObjectList<Nodecl::NodeclBase> flags = 
+            node.get_flags().as<Nodecl::List>().to_object_list();
+
+        bool aligned =
+            Nodecl::Utils::list_contains_nodecl_by_structure(
+                flags, Nodecl::AlignedFlag());
+
+        if (aligned)
+            visit_aligned_vector_store(node);
+        else
+            visit_unaligned_vector_store(node);
+    }
+
+    void AVX2VectorLowering::visit_aligned_vector_store(
+            const Nodecl::VectorStore& node)
     {
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();
@@ -1809,7 +1841,8 @@ namespace Vectorization
         node.replace(function_call);
     }
 
-    void AVX2VectorLowering::visit(const Nodecl::UnalignedVectorStore& node)
+    void AVX2VectorLowering::visit_unaligned_vector_store(
+            const Nodecl::VectorStore& node)
     {
         Nodecl::NodeclBase lhs = node.get_lhs();
         Nodecl::NodeclBase rhs = node.get_rhs();

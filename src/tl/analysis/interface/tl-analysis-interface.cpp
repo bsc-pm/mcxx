@@ -98,8 +98,11 @@ namespace Analysis {
             analysis.parallel_control_flow_graph( analysis_state, n );
         }
 
-        if( CURRENT_CONFIGURATION->debug_options.print_pcfg )
-            analysis.print_all_pcfg( analysis_state );
+        if (CURRENT_CONFIGURATION->debug_options.print_pcfg ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_w_analysis ||
+            CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
+            analysis.print_all_pcfg(analysis_state);
 
         // Fill nodecl to pcfg map
         ObjectList<ExtensibleGraph*> pcfgs = analysis_state.get_pcfgs();

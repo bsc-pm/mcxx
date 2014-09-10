@@ -278,7 +278,7 @@ namespace {
 
                 // Propagate usage info from inner to outer nodes
                 current->set_visited(false);
-                ExtensibleGraph::clear_visits_in_level(current->get_graph_entry_node(), current);
+                ExtensibleGraph::clear_visits_in_level_no_nest(current->get_graph_entry_node(), current);
                 set_graph_node_use_def(current);
             }
             else
@@ -309,14 +309,20 @@ namespace {
 
         ObjectList<Node*> children = task_creation->get_children();
         for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-        {
-            child_ue_vars = (*it)->get_ue_vars();
-            child_killed_vars = (*it)->get_killed_vars();
-            child_undef_vars = (*it)->get_undefined_behaviour_vars();
-
-            ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
-            killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
-            undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
+        {      
+            // FIXME Temporarily commented: We need all children information in order
+            //       to propagate correctly the UseDef information to the outer node
+            //       Nonetheless, propagating all children's info broke something in Lint phase
+//             if((*it)->is_omp_task_node())
+            {
+                child_ue_vars = (*it)->get_ue_vars();
+                child_killed_vars = (*it)->get_killed_vars();
+                child_undef_vars = (*it)->get_undefined_behaviour_vars();
+                
+                ue_vars.insert(child_ue_vars.begin(), child_ue_vars.end());
+                killed_vars.insert(child_killed_vars.begin(), child_killed_vars.end());
+                undef_vars.insert(child_undef_vars.begin(), child_undef_vars.end());
+            }
         }
 
         // Purge the sets:
@@ -991,21 +997,6 @@ namespace {
             _node->add_used_address(n);
     }
     
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorLoad& n)
-    {
-        visit_vector_load(n.get_rhs(), n.get_mask());
-    }
-    
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    void UsageVisitor::visit(const Nodecl::UnalignedVectorStreamStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-    
     void UsageVisitor::visit(const Nodecl::VectorAssignment& n)
     {
         visit_assignment(n.get_lhs(), n.get_rhs());
@@ -1117,11 +1108,6 @@ namespace {
     }
 
     void UsageVisitor::visit(const Nodecl::VectorStore& n)
-    {
-        visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
-    }
-
-    void UsageVisitor::visit(const Nodecl::VectorStreamStore& n)
     {
         visit_vector_store(n.get_lhs(), n.get_rhs(), n.get_mask());
     }

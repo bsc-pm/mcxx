@@ -77,6 +77,12 @@ namespace TL
                 void set_copy_deps_by_default(const std::string& str);
                 bool copy_deps_by_default() const;
 
+                std::string _untied_tasks_by_default_str;
+                bool _untied_tasks_by_default;
+                void set_untied_tasks_by_default(const std::string& str);
+                bool untied_tasks_by_default() const;
+
+
                 std::string _allow_shared_without_copies_str;
                 void set_allow_shared_without_copies(const std::string &allow_shared_without_copies_str);
 

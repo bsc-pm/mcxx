@@ -66,8 +66,8 @@ namespace TaskAnalysis {
     };
 
     typedef std::pair<Node*, SyncKind> PointOfSyncInfo;
-    typedef std::set<PointOfSyncInfo> PointOfSyncSet;
-    typedef std::map<Node*, PointOfSyncSet> PointsOfSync;
+    typedef ObjectList<PointOfSyncInfo> PointOfSyncList;
+    typedef std::map<Node*, PointOfSyncList> PointsOfSync;
 
     struct LIBTL_CLASS TaskSynchronizations
     {
@@ -99,7 +99,7 @@ namespace TaskAnalysis {
         // there is taskwait / barrier after the task scheduling point inside the loop
         // In that case, the first iteration _last_sync will be previous to the loop, 
         // but for the next iterations, the _last_sync will be the one inside the loop
-        ObjectList<Node*> _last_sync;
+        ObjectList<Node*> _last_sync_for_tasks;
         ObjectList<Node*> _next_sync;
         
         

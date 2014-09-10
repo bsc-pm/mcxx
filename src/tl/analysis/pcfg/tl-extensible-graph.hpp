@@ -136,6 +136,12 @@ namespace Analysis {
         // *************************************************************************************** //
         // ********************************* DOT printing methods ******************************** //
         
+        void create_and_connect_node(Node* source, Node* target, 
+                Node* real_source, Node* real_target, 
+                std::string& dot_graph, std::string& dot_analysis_info,
+                std::vector<std::vector<std::string> >& outer_edges, 
+                std::vector<std::vector<Node*> >& outer_nodes, std::string indent);
+        
         //! Prints nodes and relations between them in a string in a recursive way.
         /*!
          * \param actual_node Source node from which the printing is started.
@@ -312,22 +318,37 @@ namespace Analysis {
         */
         void concat_nodes(ObjectList<Node*> node_l);
 
-        //!
-        void replace_node(Node* old_node, Node* new_node);
-
-        //! This function clears the attribute #visited from nodes bellow @actual node.
-        //! It works properly if there isn't any unreachable node in the graph bellow @actual.
+        //! Set to false the attribute #_visited of those nodes whose dominator is node @node
         static void clear_visits(Node* node);
+
+        //! Set to false the attribute #_visited_aux of those nodes whose dominator is node @node
         static void clear_visits_aux(Node* node);
+
+        //! Set to false the attribute #_visited_extgraph of those nodes whose dominator is node @node
         static void clear_visits_extgraph(Node* node);
+
+        //! Set to false the attribute #_visited_extgraph_aux of those nodes whose dominator is node @node
         static void clear_visits_extgraph_aux(Node* node);
+
+        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are enclosed in the graph node @outer_node
         static void clear_visits_in_level(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are immediately enclosed in the graph node @outer_node => no other graph node is in between them and @outer_node
+        static void clear_visits_in_level_no_nest(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited_aux of those nodes fulfilling the conditions:
+        //! - their dominator is node @node
+        //! - they are enclosed in the graph node @outer_node
         static void clear_visits_aux_in_level(Node* node, Node* outer_node);
+
+        //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
         static void clear_visits_backwards(Node* node);
-        static void clear_visits_aux_backwards(Node* node);
-        static void clear_visits_backwards_in_level(Node* current, Node* outer_node);
-        
-        
+
+
         // *** DOT Graph *** //
 
         //! Build a DOT file that represents the CFG
@@ -373,13 +394,14 @@ namespace Analysis {
         
         // Task synchronization analysis
         // We need this information here because it is used in multiple analysis (liveness, auto-scoping)
-        ObjectList<Node*> get_task_concurrent_tasks(Node* task);
+        ObjectList<Node*> get_task_concurrent_tasks(Node* task) const;
         void add_concurrent_task_group(Node* task, ObjectList<Node*> concurrent_tasks);
-        ObjectList<Node*> get_task_last_synchronization(Node* task);
+        ObjectList<Node*> get_task_last_synchronization(Node* task) const;
         void add_last_synchronization(Node* task, ObjectList<Node*> last_sync);
-        ObjectList<Node*> get_task_next_synchronization(Node* task);
+        ObjectList<Node*> get_task_next_synchronization(Node* task) const;
         void add_next_synchronization(Node* task, ObjectList<Node*> next_sync);
-        
+        void remove_next_synchronization(Node* task, Node* next_sync);
+        void remove_concurrent_task(Node* task, Node* old_concurrent_task);
         
         // *** Consultants *** //
         static Node* is_for_loop_increment(Node* node);
@@ -397,7 +419,8 @@ namespace Analysis {
         static bool task_encloses_task(Node* container, Node* contained);
         static bool node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks);
         static Node* get_enclosing_control_structure(Node* node);
-        static Node* get_task_creation_node(Node* task);
+        static Node* get_task_creation_from_task(Node* task);
+        static Node* get_task_from_task_creation(Node* task_creation);
         bool is_first_statement_node(Node* node);
         
         // *** Analysis methods *** //

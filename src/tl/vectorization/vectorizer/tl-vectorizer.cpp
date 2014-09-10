@@ -183,9 +183,25 @@ namespace Vectorization
                     environment._vectorization_factor);
         }
 
-        SPMLVectorizerVisitorStatement spml_visitor_stmt(environment, 
-                /* cache enabled */ true);
+        SPMLVectorizerVisitorStatement spml_visitor_stmt(environment);
         spml_visitor_stmt.walk(statements);
+
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "\n");
+        }
+    }
+
+    void Vectorizer::opt_overlapped_accesses(Nodecl::NodeclBase& statements,
+            VectorizerEnvironment& environment)
+    {
+        VECTORIZATION_DEBUG()
+        {
+            fprintf(stderr, "VECTORIZER: ----- Optimizing Overlapped Accesses -----\n");
+        }
+
+        OverlappedAccessesOptimizer overlap_visitor(environment);
+        overlap_visitor.walk(statements);
 
         VECTORIZATION_DEBUG()
         {

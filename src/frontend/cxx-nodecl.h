@@ -107,8 +107,11 @@ nodecl_t nodecl_list_head(nodecl_t list);
 // Either list1 or list2 can be 'nodecl_null()'
 nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2);
 
-// States that this nodecl is a list
+// States that this nonnull nodecl is a list
 char nodecl_is_list(nodecl_t);
+
+// States that this nodecl is a list
+char nodecl_is_list_or_null(nodecl_t);
 
 // Unpack a list. Do not forget to free the returned pointer
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);

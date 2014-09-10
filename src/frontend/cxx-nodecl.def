@@ -26,7 +26,14 @@
 # There is a special rule 'nodecl' which is the root of the whole hierarchy and,
 # while not enforced, every rule should be referenced in another rule. The
 # structure must be nonambiguous (i.e. there must be a single way of
-# constructing a given hierarchy)
+# constructing a given hierarchy).
+#
+# There is a special rule 'any' intended only for the frontends that allows
+# to root any parse tree as a child of a nodecl node. Such uses are limited
+# in the frontend itself since the parse trees are freed after the frontend
+# is run. Do not let outlive such children after the FE has run. Currently
+# the only user of this rule is NODECL_CXX_DEP_NAME_CONVERSION due to some
+# oddities in the C++ syntax of conversion-function-id.
 #
 
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
@@ -133,7 +140,7 @@ string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 vector-flags: NODECL_ALIGNED_FLAG()
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
-    | NODECL_STREAM_FLAG()
+    | NODECL_NONTEMPORAL_FLAG()
     | expression
 
 expression : literal
@@ -208,12 +215,8 @@ expression : literal
            | NODECL_VECTOR_ALIGN_RIGHT([left_vector] expression, [right_vector] expression, [num_elements] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_ASSIGNMENT([lhs] expression, [rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt,[flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STORE([lhs] expression, [rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_STREAM_STORE([lhs] expression, [rhs] expression, [mask] expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_SCATTER([base] expression, [strides] expression, [source] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
-           | NODECL_UNALIGNED_VECTOR_LOAD([rhs] expression, [mask]expression-opt, [flags] vector-flags-seq-opt) type const-value-opt
            | NODECL_VECTOR_GATHER([base] expression, [strides] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_PROMOTION([rhs] expression, [mask]expression-opt) type const-value-opt
            | NODECL_VECTOR_LITERAL([scalar_values] expression-seq, [mask]expression-opt) type const-value-opt
@@ -351,7 +354,7 @@ cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependen
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) text symbol-opt template-parameters type-opt
-                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt) symbol-opt type-opt
+                   | NODECL_CXX_DEP_NAME_CONVERSION([context] context, [conversion_type] type-opt, [literal_conversion] any-opt) symbol-opt type-opt
 
 cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text symbol-opt type-opt
 
@@ -568,7 +571,7 @@ exec-environment : NODECL_OPEN_M_P*IF([condition]expression)
                  | NODECL_OPEN_M_P*UNIFORM([uniform_expressions] expression-seq)
                  | NODECL_OPEN_M_P*LINEAR([linear_expressions] expression-seq, [step] expression)
                  | NODECL_OPEN_M_P*SUITABLE([suitable_expressions] expression-seq)
-                 | NODECL_OPEN_M_P*CACHE([cached_expressions] expression-seq, [overlap_factor] expression)
+                 | NODECL_OPEN_M_P*OVERLAP([overlap_expressions] expression-seq, [overlap_factor] expression-opt)
                  | NODECL_OPEN_M_P*UNROLL([unroll_factor] expression)
                  | NODECL_OPEN_M_P*UNROLL_AND_JAM([unroll_factor] expression)
                  | NODECL_OPEN_M_P*NONTEMPORAL([nontemporal_expressions] expression-seq, [flags] vector-flags-seq-opt)
@@ -651,10 +654,9 @@ constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
                       | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
                       | NODECL_ANALYSIS*EMPTY_RANGE()
-                      | NODECL_ANALYSIS*MINUS_INFINITY()
-                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINUS_INFINITY() type
+                      | NODECL_ANALYSIS*PLUS_INFINITY() type
                       | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
                       | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
@@ -678,6 +680,15 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

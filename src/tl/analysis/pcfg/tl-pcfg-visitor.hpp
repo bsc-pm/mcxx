@@ -40,10 +40,9 @@ namespace Analysis {
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
+        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
-
-        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         std::map<Symbol, Nodecl::NodeclBase> _asserted_funcs;  /*!< Map relating function symbols with 
                                                                     its related pragma analysis_check assert directive, if exists */
@@ -246,6 +245,15 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
+        Ret visit( const Nodecl::Analysis::Correctness::AutoStorage& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Dead& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentFp& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentIn& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOut& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentP& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Race& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
         Ret visit( const Nodecl::Analysis::InductionVariable& n );
@@ -311,6 +319,7 @@ namespace Analysis {
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
         Ret visit( const Nodecl::IfElseStatement& n );
+        Ret visit( const Nodecl::IndexDesignator& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
         Ret visit( const Nodecl::LabeledStatement& n );
         Ret visit( const Nodecl::LogicalAnd& n );
@@ -339,7 +348,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::BarrierFull& n );
         Ret visit( const Nodecl::OpenMP::BarrierSignal& n );
         Ret visit( const Nodecl::OpenMP::BarrierWait& n );
-        Ret visit( const Nodecl::OpenMP::Cache& n );
+        Ret visit( const Nodecl::OpenMP::Overlap& n );
         Ret visit( const Nodecl::OpenMP::CombinedWorksharing& n );
         Ret visit( const Nodecl::OpenMP::Commutative& n );
         Ret visit( const Nodecl::OpenMP::Concurrent& n );
@@ -378,6 +387,7 @@ namespace Analysis {
         Ret visit( const Nodecl::OpenMP::Section& n );
         Ret visit( const Nodecl::OpenMP::Sections& n );
         Ret visit( const Nodecl::OpenMP::Shared& n );
+        Ret visit( const Nodecl::OpenMP::SharedAndAlloca& n );
         Ret visit( const Nodecl::OpenMP::Simd& n );
         Ret visit( const Nodecl::OpenMP::SimdFor& n );
         Ret visit( const Nodecl::OpenMP::SimdFunction& n );
@@ -426,9 +436,6 @@ namespace Analysis {
         Ret visit( const Nodecl::TryBlock& n );
         Ret visit( const Nodecl::Type& n );
         Ret visit( const Nodecl::Typeid& n );
-        Ret visit( const Nodecl::UnalignedVectorLoad& n );
-        Ret visit( const Nodecl::UnalignedVectorStore& n );
-        Ret visit( const Nodecl::UnalignedVectorStreamStore& n );
         Ret visit( const Nodecl::UnknownPragma& n );
         Ret visit( const Nodecl::VectorAdd& n );
         Ret visit( const Nodecl::VectorAlignRight& n );
@@ -481,7 +488,6 @@ namespace Analysis {
         Ret visit( const Nodecl::VectorSincos& n );
         Ret visit( const Nodecl::VectorSqrt& n );
         Ret visit( const Nodecl::VectorStore& n );
-        Ret visit( const Nodecl::VectorStreamStore& n );
         Ret visit( const Nodecl::VirtualFunctionCall& n );
         Ret visit( const Nodecl::DefaultArgument& n );
         Ret visit( const Nodecl::FortranActualArgument& n );

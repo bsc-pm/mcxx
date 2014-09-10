@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
- ( C) Copyright 2006-2013 Barcelona Supercomputing Center             *
+ (C) Copyright 2006-2013 Barcelona Supercomputing Center             *
  Centro Nacional de Supercomputacion
 
  This file is part of Mercurium C/C++ source-to-source compiler.
@@ -86,48 +86,45 @@ namespace Analysis {
 
     public:
         //! Class constructor
-        PCFGAnalysis_memento( );
-
-        //! Resets the state of the memento
-        void reset_state( );
+        PCFGAnalysis_memento();
 
         // ************* Getters and Setters ************* //
 
-        ExtensibleGraph* get_pcfg( std::string name );
-        void set_pcfg( std::string name, ExtensibleGraph* pcfg );
-        ObjectList<ExtensibleGraph*> get_pcfgs( );
+        ExtensibleGraph* get_pcfg(std::string name) const;
+        void add_pcfg(std::string name, ExtensibleGraph* pcfg);
+        ObjectList<ExtensibleGraph*> get_pcfgs() const;
 
-        TaskDependencyGraph* get_tdg( std::string name );
-        void set_tdg( std::string name, TaskDependencyGraph* tdg );
+        TaskDependencyGraph* get_tdg(std::string name) const;
+        void set_tdg(std::string name, TaskDependencyGraph* tdg);
 
         bool is_pcfg_computed() const;
         void set_pcfg_computed();
-//         bool is_constants_propagation_computed( ) const;
-//         void set_constants_propagation_computed( );
-        bool is_canonical_computed( ) const;
-        void set_canonical_computed( );
-        bool is_usage_computed( ) const;
-        void set_usage_computed( );
-        bool is_liveness_computed( ) const;
-        void set_liveness_computed( );
-        bool is_loops_computed( ) const;
-        void set_loops_computed( );
-        bool is_reaching_definitions_computed( ) const;
-        void set_reaching_definitions_computed( );
-        bool is_induction_variables_computed( ) const;
-        void set_induction_variables_computed( );
-        bool is_task_synchronizations_tuned( ) const;
-        void set_tune_task_synchronizations( );
-        bool is_range_analysis_computed( ) const;
-        void set_range_analysis_computed( );
+//         bool is_constants_propagation_computed() const;
+//         void set_constants_propagation_computed();
+        bool is_canonical_computed() const;
+        void set_canonical_computed();
+        bool is_usage_computed() const;
+        void set_usage_computed();
+        bool is_liveness_computed() const;
+        void set_liveness_computed();
+        bool is_loops_computed() const;
+        void set_loops_computed();
+        bool is_reaching_definitions_computed() const;
+        void set_reaching_definitions_computed();
+        bool is_induction_variables_computed() const;
+        void set_induction_variables_computed();
+        bool is_task_synchronizations_tuned() const;
+        void set_tune_task_synchronizations();
+        bool is_range_analysis_computed() const;
+        void set_range_analysis_computed();
         bool is_cyclomatic_complexity_computed() const;
         void set_cyclomatic_complexity_computed();
-        bool is_auto_scoping_computed( ) const;
-        void set_auto_scoping_computed( );
-        bool is_auto_deps_computed( ) const;
-        void set_auto_deps_computed( );
-        bool is_tdg_computed( ) const;
-        void set_tdg_computed( );
+        bool is_auto_scoping_computed() const;
+        void set_auto_scoping_computed();
+        bool is_auto_deps_computed() const;
+        void set_auto_deps_computed();
+        bool is_tdg_computed() const;
+        void set_tdg_computed();
 
         //! Returns the list of induction variables found in #n
         Utils::InductionVarList get_induction_variables(const NBase& n);
@@ -163,16 +160,16 @@ namespace Analysis {
         // *************** Private methods **************** //
 
         //!Private constructor. Prevents calling construction.
-        AnalysisSingleton( );
+        AnalysisSingleton();
 
         //!Prevents copy construction.
-        AnalysisSingleton( const AnalysisSingleton& analysis ){};
+        AnalysisSingleton(const AnalysisSingleton& analysis){};
 
         //!Prevents assignment.
-        void operator=( const AnalysisSingleton& analysis ){};
+        void operator=(const AnalysisSingleton& analysis){};
 
         //!Prevents destruction
-        ~AnalysisSingleton( ){};
+        ~AnalysisSingleton(){};
 
 
     public:
@@ -190,10 +187,10 @@ namespace Analysis {
          * The memento is modified containing the PCFGs and a flag is set indicating the PCFG analysis has been performed
          * \param memento in/out object where the analysis is stored
          * \param ast Tree containing the code to construct the PCFG(s)
-         * \return A list of pointer to the created PCFGs
          */
-        ObjectList<ExtensibleGraph*> parallel_control_flow_graph( PCFGAnalysis_memento& memento,
-                                                                  const NBase& ast);
+        void parallel_control_flow_graph(
+                PCFGAnalysis_memento& memento,
+                const NBase& ast);
 
         /*!This optimization performs Conditional Constant Propagation (CCP) over \pcfg
          * This optimization is an extension of the Constant Propagation and Constant Folding algorithm
@@ -202,42 +199,62 @@ namespace Analysis {
 //         void conditional_constant_propagation(PCFGAnalysis_memento& memento, const NBase& ast);
 
         //!This overloaded method applies Conditional Constant propagation as a phase over the \_dto
-//         void conditional_constant_propagation( );
+//         void conditional_constant_propagation();
 
-        ObjectList<ExtensibleGraph*> use_def(PCFGAnalysis_memento& memento, const NBase& ast);
+        void use_def(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> liveness(PCFGAnalysis_memento& memento, const NBase& ast);
+        void liveness(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> reaching_definitions(PCFGAnalysis_memento& memento, const NBase& ast);
+        void reaching_definitions(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
         /*!This analysis computes the induction variables in \ast
          * It searches in \memento the PCFGs corresponding to \ast and, in case they do not exist, the PCFGs are created
          * The Induction Variables computed are attached to the corresponding LOOP nodes
          */
-        ObjectList<ExtensibleGraph*> induction_variables(PCFGAnalysis_memento& memento, const NBase& ast);
+        void induction_variables(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> tune_task_synchronizations(PCFGAnalysis_memento& memento, const NBase& ast);
+        void tune_task_synchronizations(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> range_analysis(PCFGAnalysis_memento& memento, const NBase& ast);
+        void range_analysis(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<ExtensibleGraph*> cyclomatic_complexity(PCFGAnalysis_memento& memento, const NBase& ast);
+        void cyclomatic_complexity(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> auto_scoping(PCFGAnalysis_memento& memento, const NBase& ast);
+        void auto_scoping(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
 
-        ObjectList<TaskDependencyGraph*> task_dependency_graph(PCFGAnalysis_memento& memento, const NBase& ast);
+        ObjectList<TaskDependencyGraph*> task_dependency_graph(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
-        ObjectList<ExtensibleGraph*> all_analyses(PCFGAnalysis_memento& memento, const NBase& ast);
+        void all_analyses(
+                PCFGAnalysis_memento& memento, 
+                const NBase& ast);
         
 
         // ********************* Utils ******************** //
 
-        void print_pcfg( PCFGAnalysis_memento& memento, std::string pcfg_name );
+        void print_pcfg(PCFGAnalysis_memento& memento, std::string pcfg_name);
 
-        void print_all_pcfg( PCFGAnalysis_memento& memento );
+        void print_all_pcfg(PCFGAnalysis_memento& memento);
 
-        void print_tdg( PCFGAnalysis_memento& memento, std::string tdg_name );
+        void print_tdg(PCFGAnalysis_memento& memento, std::string tdg_name);
 
-        void tdg_to_json( PCFGAnalysis_memento& memento, std::string tdg_name );
+        void tdg_to_json(PCFGAnalysis_memento& memento, std::string tdg_name);
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

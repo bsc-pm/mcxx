@@ -121,40 +121,6 @@ namespace Nodecl
         return get_all_symbols(n).filter(non_local);
     }
 
-    static void get_all_nodecl_occurrences_rec(Nodecl::NodeclBase target_ocurrence,
-            Nodecl::NodeclBase container, TL::ObjectList<Nodecl::NodeclBase> &result)
-    {
-        if (target_ocurrence.is_null() || container.is_null())
-            return;
-
-        if (Nodecl::Utils::structurally_equal_nodecls(target_ocurrence, container))
-        {
-            result.append(container);
-        }
-
-        if (container.is<Nodecl::ObjectInit>())
-        {
-            get_all_nodecl_occurrences_rec(target_ocurrence, container, result);
-        }
-
-        TL::ObjectList<Nodecl::NodeclBase> children = container.children();
-
-        for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
-                it != children.end();
-                it++)
-        {
-            get_all_nodecl_occurrences_rec(target_ocurrence, *it, result);
-        }
-    }
-
-    TL::ObjectList<Nodecl::NodeclBase> Utils::get_all_nodecl_occurrences(Nodecl::NodeclBase target_ocurrence,
-            Nodecl::NodeclBase container)
-    {
-        TL::ObjectList<Nodecl::NodeclBase> result;
-        get_all_nodecl_occurrences_rec(target_ocurrence, container, result);
-        return result;
-    }
-
     static void get_all_symbols_occurrences_rec(Nodecl::NodeclBase n, TL::ObjectList<Nodecl::Symbol> &result)
     {
         if (n.is_null())
@@ -187,8 +153,6 @@ namespace Nodecl
         get_all_symbols_occurrences_rec(n, result);
         return result;
     }
-
-
 
     struct IsLocalOcurrence : TL::Predicate<Nodecl::Symbol>
     {
@@ -505,20 +469,74 @@ namespace Nodecl
         return n.get_type().is_lvalue_reference( );
     }
 
-    bool Utils::find_nodecl_by_structure(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    bool Utils::nodecl_contains_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle)
     {
-        StructuralFinderVisitor finder(needle);
+        SimpleStructuralNodeFinderVisitor finder(needle);
         finder.walk(haystack);
-        return finder.found;
+        return !finder._found_node.is_null();
     }
 
-    bool Utils::find_nodecl_by_pointer(const Nodecl::NodeclBase& haystack, const Nodecl::NodeclBase& needle)
+    bool Utils::nodecl_contains_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle)
     {
-        PointerFinderVisitor finder(needle);
+        SimplePointerNodeFinderVisitor finder(needle);
         finder.walk(haystack);
-        return finder.found;
+        return !finder._found_node.is_null();
     }
 
+    void Utils::nodecl_replace_nodecl_by_structure(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement)
+    {
+        CollectStructuralNodeFinderVisitor finder(needle);
+        finder.walk(haystack);
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                finder._found_nodes.begin();
+                it != finder._found_nodes.end();
+                it++)
+        {
+            Nodecl::NodeclBase target_node = *it;
+
+            //Conversions!
+            if (target_node.get_parent() != Nodecl::NodeclBase::null() &&
+                    !replacement.is<Nodecl::Symbol>() &&
+                    target_node.get_parent().is<Nodecl::Conversion>())
+            {
+                Nodecl::Conversion parent_conv =
+                    target_node.as<Nodecl::Conversion>();
+
+                if (parent_conv.get_type().no_ref() ==
+                        replacement.get_type())
+                {
+                    target_node = target_node.get_parent();
+                }
+            }
+
+            target_node.replace(replacement.shallow_copy());
+        }
+    }
+
+    void Utils::nodecl_replace_nodecl_by_pointer(
+            const Nodecl::NodeclBase& haystack,
+            const Nodecl::NodeclBase& needle,
+            const Nodecl::NodeclBase& replacement)
+    {
+        CollectPointerNodeFinderVisitor finder(needle);
+        finder.walk(haystack);
+
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it =
+                finder._found_nodes.begin();
+                it != finder._found_nodes.end();
+                it++)
+        {
+            it->replace(replacement.shallow_copy());
+        }
+    }
 
     bool Utils::dataref_contains_dataref( Nodecl::NodeclBase container, Nodecl::NodeclBase contained )
     {
@@ -832,10 +850,54 @@ namespace Nodecl
         }
     }
 
+    Nodecl::NodeclBase Utils::skip_contexts_and_lists(
+            Nodecl::NodeclBase n)
+    {
+        while ((!n.is_null()) &&
+            (n.is<Nodecl::Context>() ||
+             n.is<Nodecl::List>()))
+        {
+            if (n.is<Nodecl::List>())
+                n = n.as<Nodecl::List>().front();
+            else if (n.is<Nodecl::Context>())
+                n = n.as<Nodecl::Context>().
+                    get_in_context();
+        }
+
+        return n;
+    }
+
     bool Utils::is_in_list(Nodecl::NodeclBase n)
     {
         return (!n.get_parent().is_null()
                 && n.get_parent().is<Nodecl::List>());
+    }
+
+    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    {
+        if (!Utils::is_in_list(n))
+        {
+            n = Utils::get_enclosing_node_in_list(n);
+        }
+
+        if (!items.is<Nodecl::List>())
+        {
+            items = Nodecl::List::make(items);
+        }
+
+        Nodecl::List list_items = items.as<Nodecl::List>();
+
+        Nodecl::List list = n.get_parent().as<Nodecl::List>();
+        Nodecl::List::iterator last_it = list.last();
+
+        for (Nodecl::List::iterator it = list_items.begin();
+                it != list_items.end();
+                it++)
+        {
+            list.insert(last_it + 1, *it);
+            // We may have a new last node now
+            last_it = it->get_parent().as<Nodecl::List>().last();
+        }
     }
 
     void Utils::prepend_items_before(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
@@ -865,31 +927,36 @@ namespace Nodecl
         }
     }
 
-    void Utils::append_items_after(Nodecl::NodeclBase n, Nodecl::NodeclBase items)
+    void Nodecl::Utils::prepend_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items)
     {
-        if (!Utils::is_in_list(n))
-        {
-            n = Utils::get_enclosing_node_in_list(n);
-        }
+        Nodecl::CompoundStatement node = 
+            nodecl_get_first_nodecl_of_kind<Nodecl::CompoundStatement>(n).
+            as<Nodecl::CompoundStatement>();
 
-        if (!items.is<Nodecl::List>())
-        {
-            items = Nodecl::List::make(items);
-        }
+        ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
 
-        Nodecl::List list_items = items.as<Nodecl::List>();
+        Nodecl::List stmts_list =
+            node.get_statements().as<List>();
 
-        Nodecl::List list = n.get_parent().as<Nodecl::List>();
-        Nodecl::List::iterator last_it = list.last();
+        stmts_list.prepend(items);
+    }
 
-        for (Nodecl::List::iterator it = list_items.begin();
-                it != list_items.end();
-                it++)
-        {
-            list.insert(last_it + 1, *it);
-            // We may have a new last node now
-            last_it = it->get_parent().as<Nodecl::List>().last();
-        }
+    void Nodecl::Utils::append_items_in_outermost_compound_statement(
+            const Nodecl::NodeclBase& n,
+            const Nodecl::NodeclBase& items)
+    {
+        Nodecl::CompoundStatement node = 
+            nodecl_get_first_nodecl_of_kind<Nodecl::CompoundStatement>(n).
+            as<Nodecl::CompoundStatement>();
+
+        ERROR_CONDITION(node.is_null(), "CompoundStatement is null", 0);
+
+        Nodecl::List stmts_list =
+            node.get_statements().as<List>();
+
+        stmts_list.append(items);
     }
 
     void Utils::prepend_to_top_level_nodecl(Nodecl::NodeclBase n)
@@ -1404,19 +1471,39 @@ namespace Nodecl
         return result_array;
     }
 
-    bool Utils::list_contains_nodecl(const TL::ObjectList<Nodecl::NodeclBase>& container, const NodeclBase& containee)
+    bool Utils::list_contains_nodecl_by_structure(
+            const TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained)
     {
         for(TL::ObjectList<Nodecl::NodeclBase>::const_iterator it = container.begin();
                 it != container.end();
                 it ++)
         {
-            if (structurally_equal_nodecls(containee, *it, true))
+            if (structurally_equal_nodecls(contained, *it, true))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    TL::ObjectList<Nodecl::NodeclBase>::iterator
+        Utils::list_get_nodecl_by_structure(
+            TL::ObjectList<Nodecl::NodeclBase>& container,
+            const NodeclBase& contained)
+    {
+        for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = container.begin();
+                it != container.end();
+                it ++)
+        {
+            if (structurally_equal_nodecls(contained, *it, true))
+            {
+                return it;
+            }
+        }
+
+        return container.end();
     }
 
     TL::ObjectList<Nodecl::NodeclBase> Utils::get_strings_as_expressions(
@@ -1448,11 +1535,12 @@ namespace Nodecl
     // *************** Visitor looking for a nodecl contained in a scope *************** //
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::generic_finder(const Nodecl::NodeclBase& n)
+    void Utils::SimpleNodeFinderVisitor<Comparator>::generic_finder(
+            const Nodecl::NodeclBase& n)
     {
         if( _comparator( n, _needle ) )
         {
-            found = true;
+            _found_node = n;
         }
         else
         {
@@ -1465,7 +1553,7 @@ namespace Nodecl
                 if (!it->is_null())
                 {
                     walk(*it);
-                    if (found)
+                    if (!_found_node.is_null())
                         break;
                 }
             }
@@ -1473,24 +1561,71 @@ namespace Nodecl
     }
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::unhandled_node( const Nodecl::NodeclBase& n )
+    void Utils::SimpleNodeFinderVisitor<Comparator>::unhandled_node(
+            const Nodecl::NodeclBase& n)
     {
         generic_finder(n);
     }
 
     template <class Comparator>
-    void Utils::FinderVisitor<Comparator>::visit( const Nodecl::ObjectInit& n )
+    void Utils::SimpleNodeFinderVisitor<Comparator>::visit(
+            const Nodecl::ObjectInit& n)
     {
         generic_finder(n);
-        if( !found )
+        if(_found_node.is_null())
         {
             TL::Symbol sym = n.get_symbol( );
             Nodecl::NodeclBase val = sym.get_value( );
 
-            if( !val.is_null( ) )
+            if(!val.is_null( ))
                 walk(val);
         }
     }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::generic_finder(
+            const Nodecl::NodeclBase& n)
+    {
+        if( _comparator( n, _needle ) )
+        {
+            _found_nodes.append(n);
+        }
+        else
+        {
+            TL::ObjectList<Nodecl::NodeclBase> children = n.children();
+
+            for(TL::ObjectList<Nodecl::NodeclBase>::iterator it = children.begin();
+                    it != children.end();
+                    it++)
+            {
+                if (!it->is_null())
+                {
+                    walk(*it);
+                }
+            }
+        }
+    }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::unhandled_node(
+            const Nodecl::NodeclBase& n)
+    {
+        generic_finder(n);
+    }
+
+    template <class Comparator>
+    void Utils::CollectNodeFinderVisitor<Comparator>::visit(
+            const Nodecl::ObjectInit& n)
+    {
+        generic_finder(n);
+            
+        TL::Symbol sym = n.get_symbol( );
+        Nodecl::NodeclBase val = sym.get_value( );
+
+        if( !val.is_null( ) )
+            walk(val);
+    }
+
 
     // ************* END visitor looking for a nodecl contained in a scope ************* //
     // ********************************************************************************* //
@@ -1921,4 +2056,82 @@ namespace TL
 
     template void ForStatementHelper<UsualCopyPolicy>::analyze_loop_header();
     template void ForStatementHelper<NoNewNodePolicy>::analyze_loop_header();
+
+
+    LoopControlAdapter::LoopControlAdapter(
+        Nodecl::NodeclBase lc) : _lc(lc)
+    {
+    }   
+
+    Nodecl::NodeclBase LoopControlAdapter::get_cond()
+    {
+        if (_lc.is<Nodecl::LoopControl>())
+        {
+            return _lc.as<Nodecl::LoopControl>().get_cond();
+        }
+        else if (_lc.is<Nodecl::RangeLoopControl>())
+        {
+            Nodecl::RangeLoopControl rlc =
+                _lc.as<Nodecl::RangeLoopControl>();
+
+            ERROR_CONDITION(!rlc.get_step().is_constant(),
+                    "We need a constant step", 0);
+
+            Nodecl::NodeclBase cond_node;
+
+            if (const_value_is_positive(rlc.get_step().get_constant()))
+            {
+                return Nodecl::LowerOrEqualThan::make(
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_upper().shallow_copy(),
+                        TL::Type::get_bool_type());
+
+            }
+            else if (const_value_is_negative(rlc.get_step().get_constant()))
+            {
+                return Nodecl::GreaterOrEqualThan::make(
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_upper().shallow_copy(),
+                        TL::Type::get_bool_type());
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    } 
+
+    Nodecl::NodeclBase LoopControlAdapter::get_next()
+    {
+        if (_lc.is<Nodecl::LoopControl>())
+        {
+            return _lc.as<Nodecl::LoopControl>().get_next();
+        }
+        else if (_lc.is<Nodecl::RangeLoopControl>())
+        {
+            Nodecl::RangeLoopControl rlc =
+                _lc.as<Nodecl::RangeLoopControl>();
+
+            return Nodecl::Assignment::make(
+                    rlc.get_induction_variable().get_symbol()
+                    .make_nodecl(/* lvalue_ref */ true),
+                    Nodecl::Add::make(
+                        rlc.get_step().shallow_copy(),
+                        rlc.get_induction_variable().get_symbol()
+                        .make_nodecl(/* lvalue_ref */ true),
+                        rlc.get_induction_variable().get_symbol().get_type()),
+                    rlc.get_induction_variable().get_symbol()
+                    .get_type().no_ref().get_lvalue_reference_to());
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
 }

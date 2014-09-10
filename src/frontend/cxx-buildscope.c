@@ -1411,18 +1411,31 @@ void introduce_using_entities_in_class(
             nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_name);
             symbol_name = nodecl_get_text(nodecl_last_part);
         }
-        else if (!entry->entity_specs.is_member
-                || !class_type_is_base_instantiating(entry->entity_specs.class_type,
-                    get_user_defined_type(current_class), locus))
+        else if (!entry->entity_specs.is_member)
         {
             error_printf("%s: error: '%s' is not a member of a base class\n",
                     locus_to_str(locus),
                     get_qualified_symbol_name(entry, 
                         decl_context));
-            return;
         }
         else
         {
+            if (!is_dependent_type(get_user_defined_type(current_class))
+                && !class_type_is_base_instantiating(entry->entity_specs.class_type,
+                    get_user_defined_type(current_class), locus))
+            {
+                error_printf("%s: error: '%s' is not a member of a base class\n",
+                        locus_to_str(locus),
+                        get_qualified_symbol_name(entry, 
+                            decl_context));
+            }
+            else
+            {
+                // FIXME - We could check that there is at least one dependent base
+                // If there are no dependent bases, then we should check with each
+                // But let this fail at instantiation time, instead
+            }
+
             // Usual case
             // If this entity is being hidden by another member of this class, do not add it
             scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
@@ -5888,6 +5901,14 @@ static void check_nodecl_member_initializer_list(
         scope_entry_t* entry = entry_list_head(result_list);
         entry_list_free(result_list);
 
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            // FIXME - This is very infortunate and should be solved in a different way
+            entry = lookup_of_template_parameter(decl_context,
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
+        }
+
         if (entry->kind == SK_TYPEDEF)
         {
             if (is_named_type(advance_over_typedefs(entry->type_information)))
@@ -5910,6 +5931,13 @@ static void check_nodecl_member_initializer_list(
                     nodecl_locus_to_str(nodecl_name),
                     get_qualified_symbol_name(entry, entry->decl_context));
             continue;
+        }
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(entry->type_information);
+            if (is_named_class_type(t))
+                entry = named_type_get_symbol(t);
         }
 
         if (entry->kind == SK_CLASS
@@ -6476,7 +6504,7 @@ static char one_function_is_usable(
             candidates,
             NULL, &second_arg_type, second_arg_type != NULL ? 1 : 0,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
 
     candidate_t* candidate_set = NULL;
 
@@ -11486,13 +11514,16 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 }
                 break;
             }
-            // It should not appear here
-            // case AST_DESTRUCTOR_TEMPLATE_ID : 
+        case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
                 // An unqualified destructor name "~name"
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
+                if (ASTType(declarator_id) == AST_DESTRUCTOR_TEMPLATE_ID)
+                {
+                    destructor_id = declarator_id;
+                }
                 // Adjust to 'function () returning void'
                 declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0, REF_QUALIFIER_NONE));
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
@@ -12420,7 +12451,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     if (!is_template_function)
     {
-        if (is_template_id) //1.1
+        if (is_template_id) // 1.1
         {
             if (!found_candidate)
             {
@@ -13130,17 +13161,17 @@ static char find_function_declaration(AST declarator_id,
         //
         // We have to solve the template
 
-        template_parameter_list_t *explicit_template_parameters = NULL;
+        template_parameter_list_t *explicit_template_arguments = NULL;
         if (declarator_is_template_id)
         {
-            explicit_template_parameters =
+            explicit_template_arguments =
                 get_template_arguments_from_syntax(ASTSon1(considered_tree), decl_context);
         }
 
         // This function ignores non-templates
-        scope_entry_list_t* solved_templates = solve_template_function(
+        scope_entry_list_t* solved_templates = solve_template_function_in_declaration(
                 candidates,
-                explicit_template_parameters,
+                explicit_template_arguments,
                 function_type_being_declared,
                 ast_get_locus(declarator_id));
 
@@ -14111,6 +14142,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
             new_entry->locus);
+    set_is_dependent_type(new_entry->type_information, 1);
 
     template_type_set_related_symbol(new_entry->type_information, new_entry);
 
@@ -14424,16 +14456,15 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
                 ast_location(a));
         return;
     }
-
+    // namespace alias_ident = id_expression;
     AST alias_ident = ASTSon0(a);
     AST id_expression = ASTSon1(a);
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression, NULL);
-
     if (entry_list == NULL
             || entry_list_head(entry_list)->kind != SK_NAMESPACE)
     {
-        error_printf("%s: error: '%s' does not name any namespace\n", 
+        error_printf("%s: error: '%s' does not name any namespace\n",
                 ast_location(id_expression),
                 prettyprint_in_buffer(id_expression));
         return;
@@ -14442,15 +14473,39 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context, node
     scope_entry_t* entry = entry_list_head(entry_list);
     entry_list_free(entry_list);
 
+    char create_new_alias = 1;
     const char* alias_name = ASTText(alias_ident);
+    entry_list = query_in_scope_str(decl_context, alias_name, NULL);
+    scope_entry_t* alias_entry = NULL;
+    if (entry_list != NULL)
+    {
+        alias_entry = entry_list_head(entry_list);
+        if (alias_entry->kind != SK_NAMESPACE)
+        {
+            error_printf("%s: error: '%s' does not name any namespace\n",
+                    ast_location(alias_ident),
+                    alias_name);
+            return;
+        }
 
-    scope_entry_t* alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
+        if (alias_entry->related_decl_context.current_scope->related_entry == entry)
+        {
+            // we don't need to create a new alias, reuse the current one
+            create_new_alias = 0;
+        }
+    }
+    entry_list_free(entry_list);
 
-    alias_entry->locus = ast_get_locus(alias_ident);
-    alias_entry->kind = SK_NAMESPACE;
-    alias_entry->related_decl_context = entry->related_decl_context;
-    alias_entry->defined = 1;
-    alias_entry->entity_specs.is_user_declared = 1;
+    if (create_new_alias)
+    {
+        alias_entry = new_symbol(decl_context, decl_context.current_scope, alias_name);
+
+        alias_entry->locus = ast_get_locus(alias_ident);
+        alias_entry->kind = SK_NAMESPACE;
+        alias_entry->related_decl_context = entry->related_decl_context;
+        alias_entry->defined = 1;
+        alias_entry->entity_specs.is_user_declared = 1;
+    }
 
     *nodecl_output =
         nodecl_make_list_1(
@@ -16321,6 +16376,9 @@ static char is_virtual_destructor(type_t* class_type)
 
         scope_entry_t* destructor = class_type_get_destructor(base_class_type);
 
+        ERROR_CONDITION(destructor == NULL, "Invalid class '%s' lacking destructor",
+                get_qualified_symbol_name(base_class, base_class->decl_context));
+
         if (destructor->entity_specs.is_virtual)
             return 1;
     }
@@ -16380,7 +16438,7 @@ static void update_member_function_info(AST declarator_name,
                 break;
             }
             // Special members
-        case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here
+        case AST_DESTRUCTOR_TEMPLATE_ID : // FIXME - Template arguments are not checked
         case AST_DESTRUCTOR_ID :
             {
                 // This is the destructor

@@ -10,9 +10,9 @@ compiler_name = @GCC@
 compiler_options =
 linker_name = @GCC@
 {openmp} compiler_phase = libtlomp-base.so
-{openmp, openmp-lint} compiler_phase = libtlomp-lint.so
+{(openmp|ompss), openmp-lint, !analysis-check} compiler_phase = libtlomp-lint.so
 {complexity} compiler_phase = libtlcomplexity.so
-{openmp, openmp-lint} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
+{(openmp|ompss), openmp-lint} options = --variable=correctness_log_dir:@CORRECTNESS_LOG_DIR@
 {openmp, simd} compiler_phase = libtlomp-simd.so
 {openmp, simd} compiler_phase = libtlvector-lowering.so
 {openmp} pragma_prefix = nanos
@@ -40,6 +40,11 @@ linker_name = @GCC@
 {!ompss} options = --variable=copy_deps_by_default:0
 {ompss,!?copy-deps|copy-deps} options = --variable=copy_deps_by_default:1
 {ompss,?copy-deps,!copy-deps} options = --variable=copy_deps_by_default:0
+
+{!ompss} options = --variable=untied_tasks_by_default:0
+{ompss,(!?untied-tasks|untied-tasks),!?tied-tasks} options = --variable=untied_tasks_by_default:1
+{ompss,tied-tasks,!?untied-tasks} options = --variable=untied_tasks_by_default:0
+
 {openmp} compiler_phase = libtlnanox-lowering.so
 {openmp} compiler_phase = libtlnanox-smp.so
 {openmp} compiler_phase = libtlnanox-nanosmain.so

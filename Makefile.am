@@ -273,11 +273,9 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-typeenviron-decls.h \
   src/frontend/cxx-typeenviron.h \
   src/frontend/cxx-typeenviron.c \
-  src/frontend/cxx-typeunif.c \
-  src/frontend/cxx-typeunif.h \
-  src/frontend/cxx-typeunif-decls.h \
   src/frontend/cxx-typededuc.c \
   src/frontend/cxx-typededuc.h \
+  src/frontend/cxx-typededuc-decls.h \
   src/frontend/cxx-cexpr.c \
   src/frontend/cxx-cexpr.h \
   src/frontend/cxx-cexpr-fwd.h \
@@ -1121,8 +1119,8 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-analysis-utils.cpp \
 				src/tl/analysis/common/tl-induction-variables-data.hpp \
 				src/tl/analysis/common/tl-induction-variables-data.cpp \
-				src/tl/analysis/common/tl-range-analysis-utils.hpp \
-				src/tl/analysis/common/tl-range-analysis-utils.cpp \
+				src/tl/analysis/common/tl-ranges-common.hpp \
+				src/tl/analysis/common/tl-ranges-common.cpp \
 				src/tl/analysis/common/tl-tribool.hpp \
 				$(END)
 
@@ -1254,6 +1252,8 @@ src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_LIBADD = $(tl_libadd) \
 							$(ANALYSIS_LIBADD)
 
 src_tl_analysis_pcfg_tasks_libpcfg_tasks_la_SOURCES = \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.hpp \
+			       src/tl/analysis/pcfg_tasks/tl-task-syncs-utils.cpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.hpp \
                                src/tl/analysis/pcfg_tasks/tl-task-syncs-tune.cpp \
                                $(END)
@@ -1326,9 +1326,11 @@ src_tl_analysis_range_librange_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_range_librange_la_LIBADD = $(tl_libadd) $(ANALYSIS_LIBADD)
 
 src_tl_analysis_range_librange_la_SOURCES = \
-                               src/tl/analysis/range/tl-range-analysis.hpp \
-                               src/tl/analysis/range/tl-range-analysis.cpp \
-                               $(END)
+				src/tl/analysis/range/tl-range-utils.hpp \
+				src/tl/analysis/range/tl-range-utils.cpp \
+				src/tl/analysis/range/tl-range-analysis.hpp \
+				src/tl/analysis/range/tl-range-analysis.cpp \
+				$(END)
 
 ##########################################################################
 # src/tl/analysis/complexity
@@ -1422,29 +1424,7 @@ src_tl_analysis_test_phase_libtest_analysis_la_SOURCES = \
                               src/tl/analysis/test_phase/tl-test-analysis-phase.cpp \
                               $(END)
 
-##########################################################################
-# src/tl/analysis/checker
-##########################################################################
-
-phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
-
-src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
-src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
-						$(ANALYSIS_CFLAGS) \
-						-I$(srcdir)/src/tl/analysis/interface \
-						-I$(srcdir)/src/tl/analysis/tdg
-
-src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
-src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
-						$(ANALYSIS_LIBADD) \
-						src/tl/analysis/interface/libanalysis_interface.la \
-						src/tl/analysis/tdg/libtdg.la
-
-src_tl_analysis_libanalysis_check_la_SOURCES = \
-			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
-						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
-						$(END)
-endif
+endif		# BUILD_ANALYSIS
 
 ##########################################################################
 # src/tl/complexity
@@ -1470,6 +1450,61 @@ src_tl_complexity_libtlcomplexity_la_SOURCES = \
 					src/tl/complexity/tl-complexity.hpp \
 					src/tl/complexity/tl-complexity.cpp \
 					$(END)
+endif
+
+##########################################################################
+# src/tl/hlt
+##########################################################################
+if BUILD_HLT
+
+lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
+
+HLT_ANALYSIS_CFLAGS= \
+			  -I $(srcdir)/src/tl/analysis/common \
+			  -I $(srcdir)/src/tl/analysis/liveness \
+			  -I $(srcdir)/src/tl/analysis/loops \
+			  -I $(srcdir)/src/tl/analysis/pcfg \
+			  -I $(srcdir)/src/tl/analysis/reach_defs \
+			  -I $(srcdir)/src/tl/analysis/interface \
+			  -I $(srcdir)/src/tl/analysis/test_phase \
+			  -I $(srcdir)/src/tl/analysis/use_def \
+			  -I $(srcdir)/src/tl/analysis/tdg \
+			  $(END)
+
+HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
+
+HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
+			  -I $(srcdir)/src/tl/omp/core \
+			  $(HLT_ANALYSIS_CFLAGS) \
+			  $(END)
+
+src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
+src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+
+src_tl_hlt_libtl_hlt_la_SOURCES = \
+	  src/tl/hlt/hlt-common.hpp \
+      src/tl/hlt/hlt-transform.hpp \
+      src/tl/hlt/hlt-transform.cpp \
+      src/tl/hlt/hlt-loop-normalize.hpp \
+      src/tl/hlt/hlt-loop-normalize.cpp \
+      src/tl/hlt/hlt-loop-unroll.hpp \
+      src/tl/hlt/hlt-loop-unroll.cpp \
+      $(END)
+
+phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
+
+src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
+src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
+src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
+
+src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
+      src/tl/hlt/hlt-pragma.cpp \
+      src/tl/hlt/hlt-pragma.hpp \
+      $(END)
+
 endif
 
 # ##########################################################################
@@ -1530,6 +1565,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_CXXFLAGS = $(tl_cflags) \
                               -I $(top_srcdir)/src/tl/analysis/tdg \
                               -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/omp/core \
+                              -I $(top_srcdir)/src/tl/hlt \
                               $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_LDFLAGS = $(tl_ldflags)
@@ -1537,6 +1573,7 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_LIBADD = $(tl_libadd) \
                           $(top_builddir)/src/tl/vectorization/common/libtlvectorization-common.la \
                           $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
                           $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
+                          $(top_builddir)/src/tl/hlt/libtl-hlt.la \
                           $(END)
 
 src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
@@ -1546,9 +1583,9 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-gather-scatter-optimizer.cpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.hpp \
                            src/tl/vectorization/vectorizer/tl-function-versioning.cpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache-fwd.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.hpp \
-                           src/tl/vectorization/vectorizer/tl-vectorizer-cache.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap-fwd.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-overlap.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment-fwd.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
@@ -1630,8 +1667,8 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                          -I $(srcdir)/src/tl/vectorization/common \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                          -I $(srcdir)/src/tl/analysis/interface\
-                         -I $(top_srcdir)/src/tl/analysis/common \
-                         -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(srcdir)/src/tl/analysis/common \
+                         -I $(srcdir)/src/tl/analysis/pcfg \
                          -I $(srcdir)/src/tl/analysis/tdg \
                          $(END)
 
@@ -1670,7 +1707,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
-                          -I$(srcdir)/src/tl/omp/core \
+                          -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
@@ -1678,7 +1715,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/common \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
-                          -I$(srcdir)/src/tl/omp/core \
+                          -I $(srcdir)/src/tl/omp/core \
                           $(END)
 
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_LDFLAGS = $(tl_ldflags)
@@ -2017,6 +2054,7 @@ phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg_tasks \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/interface\
                           $(END)
@@ -2024,6 +2062,7 @@ src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cflags) \
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
+			  $(top_builddir)/src/tl/analysis/pcfg_tasks/libpcfg_tasks.la \
 			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
 			  $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
 		          $(END)
@@ -2033,6 +2072,35 @@ src_tl_omp_lint_libtlomp_lint_la_SOURCES = \
    src/tl/omp/lint/tl-omp-lint.hpp \
    src/tl/omp/lint/tl-omp-lint.cpp \
    $(END)
+endif
+
+
+##########################################################################
+# src/tl/analysis/checker
+##########################################################################
+
+if BUILD_ANALYSIS
+phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
+
+src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
+src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cflags) \
+						$(ANALYSIS_CFLAGS) \
+						-I$(srcdir)/src/tl/analysis/interface \
+						-I$(srcdir)/src/tl/analysis/tdg \
+						-I$(srcdir)/src/tl/omp/core \
+						-I$(srcdir)/src/tl/omp/lint
+
+src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
+src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
+						$(ANALYSIS_LIBADD) \
+						src/tl/analysis/interface/libanalysis_interface.la \
+						src/tl/analysis/tdg/libtdg.la \
+						src/tl/omp/lint/libtlomp-lint.la
+
+src_tl_analysis_libanalysis_check_la_SOURCES = \
+			                        src/tl/analysis/checker/tl-analysis-check-phase.hpp \
+						src/tl/analysis/checker/tl-analysis-check-phase.cpp \
+						$(END)
 endif
 
 ##########################################################################
@@ -2123,61 +2191,6 @@ src_tl_examples_03_visitor_libtl_example_visitor_la_LDFLAGS = $(phases_ldflags)
 endif
 
 ##########################################################################
-# src/tl/hlt
-##########################################################################
-if BUILD_HLT
-
-lib_LTLIBRARIES += src/tl/hlt/libtl-hlt.la
-
-HLT_ANALYSIS_CFLAGS= \
-			  -I $(srcdir)/src/tl/analysis/common \
-			  -I $(srcdir)/src/tl/analysis/liveness \
-			  -I $(srcdir)/src/tl/analysis/loops \
-			  -I $(srcdir)/src/tl/analysis/pcfg \
-			  -I $(srcdir)/src/tl/analysis/reach_defs \
-			  -I $(srcdir)/src/tl/analysis/interface \
-			  -I $(srcdir)/src/tl/analysis/test_phase \
-			  -I $(srcdir)/src/tl/analysis/use_def \
-			  -I $(srcdir)/src/tl/analysis/tdg \
-			  $(END)
-
-HLT_ANALYSIS_LIBADD = # src/tl/analysis/interface/libanalysis_interface.la
-
-HLT_COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT \
-			  -I $(srcdir)/src/tl/omp/core \
-			  $(HLT_ANALYSIS_CFLAGS) \
-			  $(END)
-
-src_tl_hlt_libtl_hlt_la_CFLAGS=$(tl_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_la_LIBADD=$(tl_libadd) $(HLT_ANALYSIS_LIBADD)
-src_tl_hlt_libtl_hlt_la_LDFLAGS=$(tl_ldflags)
-
-src_tl_hlt_libtl_hlt_la_SOURCES = \
-	  src/tl/hlt/hlt-common.hpp \
-      src/tl/hlt/hlt-transform.hpp \
-      src/tl/hlt/hlt-transform.cpp \
-      src/tl/hlt/hlt-loop-normalize.hpp \
-      src/tl/hlt/hlt-loop-normalize.cpp \
-      src/tl/hlt/hlt-loop-unroll.hpp \
-      src/tl/hlt/hlt-loop-unroll.cpp \
-      $(END)
-
-phases_LTLIBRARIES += src/tl/hlt/libtl-hlt-pragma.la
-
-src_tl_hlt_libtl_hlt_pragma_la_CFLAGS=$(phases_cflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_CXXFLAGS=$(phases_cxxflags) $(HLT_COMMON_CFLAGS)
-src_tl_hlt_libtl_hlt_pragma_la_LIBADD=$(phases_libadd) src/tl/hlt/libtl-hlt.la
-src_tl_hlt_libtl_hlt_pragma_la_LDFLAGS=$(phases_ldflags)
-
-src_tl_hlt_libtl_hlt_pragma_la_SOURCES = \
-      src/tl/hlt/hlt-pragma.cpp \
-      src/tl/hlt/hlt-pragma.hpp \
-      $(END)
-
-endif
-
-##########################################################################
 # src/tl/vectorization/vector-lowering/sse
 ##########################################################################
 
@@ -2242,6 +2255,7 @@ src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CFLAGS = $(
 
 src_tl_vectorization_vector_lowering_knc_libtlvector_lowering_knc_la_CXXFLAGS = $(tl_cflags) \
                               $(vector_lowering_cflags) \
+                              -I $(top_srcdir)/src/tl/optimizations \
                               -I $(top_srcdir)/src/tl/vectorization/common \
                               -I $(top_srcdir)/src/tl/analysis/interface \
                               -I $(top_srcdir)/src/tl/analysis/common \

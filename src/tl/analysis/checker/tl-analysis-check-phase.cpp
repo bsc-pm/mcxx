@@ -28,6 +28,7 @@
 #include "tl-analysis-singleton.hpp"
 #include "tl-analysis-utils.hpp"
 #include "tl-pcfg-visitor.hpp"
+#include "tl-omp-lint.hpp"
 
 #include <algorithm>
 
@@ -184,71 +185,43 @@ namespace {
                                                std::string locus_str, int node_id,
                                                std::string clause_name, std::string analysis_name )
     {
-        if( !assert_map.empty( ) )
+        if (!assert_map.empty())
         {
-            if( analysis_map.empty( ) )
+            Nodecl::List rd_visited;
+            for (NodeclMap::const_iterator it = assert_map.begin(); it != assert_map.end(); ++it)
             {
-                internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                "There are no Input Reaching Definitions associated to node %d\n",
-                                locus_str.c_str( ),
-                                Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                node_id );
-            }
-            else
-            {
-                Nodecl::List rd_visited;
-                for(NodeclMap::const_iterator it = assert_map.begin(); it != assert_map.end(); ++it)
+                NBase expr = it->first;
+                if (!Nodecl::Utils::nodecl_is_in_nodecl_list(expr, rd_visited))
                 {
-                    NBase expr = it->first;
-                    if( !Nodecl::Utils::nodecl_is_in_nodecl_list( expr, rd_visited ) )
+                    rd_visited.append(expr);
+
+                    // Get all values possible for the current expression
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> assert_rd;
+                    assert_rd = assert_map.equal_range(expr);
+
+                    std::pair<NodeclMap::iterator, NodeclMap::iterator> rd;
+                    rd = analysis_map.equal_range(expr);
+
+                    // Check whether the values are the same (or contain the RD UNKNOWN) or
+                    // check for UNDEFINED reaching definitions
+                    for (NodeclMap::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r)
                     {
-                        rd_visited.append( expr );
-
-                        // Get all values possible for the current expression
-                        std::pair<NodeclMap::iterator, NodeclMap::iterator> assert_rd;
-                        assert_rd = assert_map.equal_range( expr );
-                        int assert_rd_size = assert_map.count( expr );
-
-                        std::pair<NodeclMap::iterator, NodeclMap::iterator> rd;
-                        rd = analysis_map.equal_range( expr );
-                        int rd_size = analysis_map.count( expr );
-
-                        if( assert_rd_size == rd_size )
-                        {   // Check whether the values are the same
-                            for(NodeclMap::iterator it_r = assert_rd.first; it_r != assert_rd.second; ++it_r)
-                            {
-                                NBase value = it_r->second.first;
-                                bool found = false;
-                                for(NodeclMap::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s)
-                                {
-                                    if( Nodecl::Utils::structurally_equal_nodecls( value, it_s->second.first ) )
-                                        found = true;
-                                }
-                                if( !found )
-                                {
-                                    internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                                    "Variable '%s' do not have the value '%s' in the set of reaching definitions "\
-                                                    "computed during the analysis for node %d\n",
-                                                    locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                                    expr.prettyprint( ).c_str( ), value.prettyprint( ).c_str( ), node_id );
-                                }
-                            }
-                        }
-                        else
+                        NBase value = it_r->second.first;
+                        bool found = false;
+                        for (NodeclMap::iterator it_s = rd.first; it_s != rd.second && !found; ++it_s)
                         {
-                            int i = 0;
-                            std::string rd_str = "";
-                            for(NodeclMap::iterator it_r = rd.first; it_r != rd.second; ++it_r, ++i)
-                            {
-                                rd_str += it_r->second.first.prettyprint( );
-                                if( i < rd_size-1 )
-                                    rd_str += ", ";
-                            }
-
-                            internal_error( "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
-                                            "The values for variable '%s' computed during the analysis for node %d are '%s'\n",
+                            if (Nodecl::Utils::structurally_equal_nodecls(value, it_s->second.first) || 
+                                ((value.prettyprint()=="UNKNOWN" || value.prettyprint()=="::UNKNOWN") && it_s->second.first.prettyprint()=="UNKNOWN"))
+                                found = true;
+                        }
+                        if(!found)
+                        {   // Check whether the assert value for this expression is "UNDEFINED"
+                            ERROR_CONDITION(value.get_symbol().get_name() != "UNDEFINED", 
+                                            "%s: Assertion 'reaching_definition_in(%s)' does not fulfill.\n"\
+                                            "Variable '%s' do not have the value '%s' in the set of reaching definitions "\
+                                            "computed during the analysis for node %d\n",
                                             locus_str.c_str(), Utils::prettyprint_nodecl_map(assert_map, /*dot*/ false).c_str(),
-                                            expr.prettyprint( ).c_str( ), node_id, rd_str.c_str( ) );
+                                            expr.prettyprint().c_str(), value.prettyprint().c_str(), node_id)
                         }
                     }
                 }
@@ -256,6 +229,73 @@ namespace {
         }
     }
 
+    static Nodecl::List nodecl_list_difference(const Nodecl::List& assert_list, const Nodecl::List& analysis_list)
+    {
+        Nodecl::List res;
+        for(Nodecl::List::const_iterator it = assert_list.begin(); it != assert_list.end(); ++it)
+        {
+            if(!Nodecl::Utils::nodecl_is_in_nodecl_list(*it, analysis_list))
+                res.append(*it);
+        }
+        return res;
+    }
+    
+    void compare_assert_list_with_analysis_list(
+            const Nodecl::List& assert_list, const Nodecl::List& analysis_list,
+            std::string locus_str, int node_id,
+            std::string clause_name, std::string analysis_name)
+    {
+        if(assert_list.size() != analysis_list.size())
+        {
+            std::string assert_list_str = (assert_list.empty() ? "null" : assert_list.prettyprint());
+            internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                            "The number of %s variables associated to node %d is not the same as in the assert list\n",
+                            locus_str.c_str( ),
+                            clause_name.c_str( ), assert_list_str.c_str(),
+                            analysis_name.c_str( ), node_id );
+        }
+        else
+        {
+            if(!assert_list.empty())
+            {
+                if((assert_list.size() == 1) &&
+                (assert_list.begin()->is<Nodecl::Symbol>()) &&
+                (assert_list.begin()->get_symbol().get_name()==analysis_none_sym_name))
+                {
+                    if(!analysis_list.empty())
+                    {
+                        internal_error("%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                    "There are %s variables associated to node %d\n",
+                                    locus_str.c_str( ),
+                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                    analysis_name.c_str( ), node_id );
+                    }
+                }
+                else if(analysis_list.empty())
+                {
+                    internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                    "There are no %s variables associated to node %d\n",
+                                    locus_str.c_str( ),
+                                    clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                    analysis_name.c_str( ), node_id );
+                }
+                else
+                {
+                    Nodecl::List diff = nodecl_list_difference( assert_list, analysis_list );
+                    if( !diff.empty( ) )
+                    {
+                        internal_error( "%s: Assertion '%s(%s)' does not fulfill.\n"\
+                                        "Expressions '%s' are no %s variables associated to node %d\n",
+                                        locus_str.c_str( ),
+                                        clause_name.c_str( ), assert_list.prettyprint().c_str(),
+                                        diff.prettyprint().c_str(),
+                                        analysis_name.c_str( ), node_id );
+                    }
+                }
+            }
+        }
+    }
+    
     void check_assertions_rec( Node* current )
     {
         if( !current->is_visited( ) )
@@ -263,7 +303,7 @@ namespace {
             current->set_visited( true );
 
             // Treat current node
-            std::string locus_str;
+            std::string locus_str = "";
             if( current->is_graph_node( ) )
                 locus_str = current->get_graph_related_ast( ).get_locus_str( );
             else
@@ -418,7 +458,7 @@ namespace {
                 // Autoscope is particular because the computed auto-scope is not in the current node (the task creation node),
                 // but in his task child node, which is the actual task
                 ObjectList<Node*> children = current->get_children( );
-                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least 1 child, the created task, "\
+                ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least, 1 child, the created task, "\
                                  "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
                                  "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
                 Node* task = ( children[0]->is_omp_task_node( ) ? children[0] : children[1] );
@@ -429,7 +469,6 @@ namespace {
                 NodeclSet autosc_private = task->get_sc_private_vars();
                 NodeclSet autosc_shared = task->get_sc_shared_vars();
 
-                // TODO
                 compare_assert_set_with_analysis_set( assert_autosc_firstprivate, autosc_firstprivate,
                                                       locus_str, task->get_id( ), "auto_sc_firstprivate", "AutoScope Firstprivate" );
                 compare_assert_set_with_analysis_set( assert_autosc_private, autosc_private,
@@ -439,7 +478,53 @@ namespace {
 
             }
 
-
+            // Correctness
+            if(current->has_correctness_assertion())
+            {
+                ObjectList<Node*> children = current->get_children();
+                ERROR_CONDITION(children.size() > 2, "A task creation node should have, at least, 1 child, the created task, "\
+                                "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
+                                "Nonetheless task %d has %d children.", current->get_id(), children.size());
+                Node* task = (children[0]->is_omp_task_node() ? children[0] : children[1]);
+                
+                const Nodecl::List& assert_correctness_auto_storage = current->get_assert_correctness_auto_storage_vars();
+                const Nodecl::List& assert_correctness_dead = current->get_assert_correctness_dead_vars();
+                const Nodecl::List& assert_correctness_incoherent_fp = current->get_assert_correctness_incoherent_fp_vars();
+                const Nodecl::List& assert_correctness_incoherent_p = current->get_assert_correctness_incoherent_p_vars();
+                const Nodecl::List& assert_correctness_incoherent_in = current->get_assert_correctness_incoherent_in_vars();
+                const Nodecl::List& assert_correctness_incoherent_in_pointed = current->get_assert_correctness_incoherent_in_pointed_vars();
+                const Nodecl::List& assert_correctness_incoherent_out = current->get_assert_correctness_incoherent_out_vars();
+                const Nodecl::List& assert_correctness_incoherent_out_pointed = current->get_assert_correctness_incoherent_out_pointed_vars();
+                const Nodecl::List& assert_correctness_race = current->get_assert_correctness_race_vars();
+                const Nodecl::List& correctness_auto_storage = task->get_correctness_auto_storage_vars();
+                const Nodecl::List& correctness_dead = task->get_correctness_dead_vars();
+                const Nodecl::List& correctness_incoherent_fp = task->get_correctness_incoherent_fp_vars();
+                const Nodecl::List& correctness_incoherent_p = task->get_correctness_incoherent_p_vars();
+                const Nodecl::List& correctness_incoherent_in = task->get_correctness_incoherent_in_vars();
+                const Nodecl::List& correctness_incoherent_in_pointed = task->get_correctness_incoherent_in_pointed_vars();
+                const Nodecl::List& correctness_incoherent_out = task->get_correctness_incoherent_out_vars();
+                const Nodecl::List& correctness_incoherent_out_pointed = task->get_correctness_incoherent_out_pointed_vars();
+                const Nodecl::List& correctness_race = task->get_correctness_race_vars();
+                compare_assert_list_with_analysis_list(assert_correctness_auto_storage, correctness_auto_storage,
+                                                       locus_str, task->get_id(), "correctness_auto_storage", "Correctness Automatic Storage");
+                compare_assert_list_with_analysis_list(assert_correctness_dead, correctness_dead,
+                                                       locus_str, task->get_id(), "correctness_dead", "Correctness Dead");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_fp, correctness_incoherent_fp,
+                                                       locus_str, task->get_id(), "correctness_incoherent_firstprivate", "Correctness Incoherent Firstprivate Data-Sharing");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_p, correctness_incoherent_p,
+                                                       locus_str, task->get_id(), "correctness_incoherent_private", "Correctness Incoherent Private Data-Sharing");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in, correctness_incoherent_in,
+                                                       locus_str, task->get_id(), "correctness_incoherent_in", "Correctness Incoherent In Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_in_pointed, correctness_incoherent_in_pointed,
+                                                       locus_str, task->get_id(), "correctness_incoherent_in_pointed", "Correctness Incoherent In Pointed Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out, correctness_incoherent_out,
+                                                       locus_str, task->get_id(), "correctness_incoherent_out", "Correctness Incoherent Out Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_incoherent_out_pointed, correctness_incoherent_out_pointed,
+                                                       locus_str, task->get_id(), "correctness_incoherent_out_pointed", "Correctness Incoherent Out Pointed Dependency");
+                compare_assert_list_with_analysis_list(assert_correctness_race, correctness_race,
+                                                       locus_str, task->get_id(), "correctness_race", "Correctness Race Condition");
+            }
+            
             // Recursively visit inner nodes
             if( current->is_graph_node( ) )
             {
@@ -570,11 +655,83 @@ namespace {
                 Nodecl::Analysis::AutoScope::Shared::make(
                     Nodecl::List::make( auto_sc_s_vars_clause.get_arguments_as_expressions( ) ), loc ) );
         }
+        
+        // Correctness clauses
+        if(pragma_line.get_clause("correctness_auto_storage").is_defined())
+        {
+            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
+            environment.append(
+                Nodecl::Analysis::Correctness::AutoStorage::make(
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_dead").is_defined())
+        {
+            PragmaCustomClause correctness_dead_clause = pragma_line.get_clause("correctness_dead");
+            environment.append(
+                Nodecl::Analysis::Correctness::Dead::make(
+                    Nodecl::List::make(correctness_dead_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_auto_storage").is_defined())
+        {
+            PragmaCustomClause correctness_auto_storage_clause = pragma_line.get_clause("correctness_auto_storage");
+            environment.append(
+                Nodecl::Analysis::Correctness::AutoStorage::make(
+                    Nodecl::List::make(correctness_auto_storage_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_fp").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_fp_clause = pragma_line.get_clause("correctness_incoherent_fp");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentFp::make(
+                    Nodecl::List::make(correctness_incoherent_fp_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_p").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_p_clause = pragma_line.get_clause("correctness_incoherent_p");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentP::make(
+                    Nodecl::List::make(correctness_incoherent_p_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_in").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_in_clause = pragma_line.get_clause("correctness_incoherent_in");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentIn::make(
+                    Nodecl::List::make(correctness_incoherent_in_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_in_pointed").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_in_pointed_clause = pragma_line.get_clause("correctness_incoherent_in_pointed");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentInPointed::make(
+                    Nodecl::List::make(correctness_incoherent_in_pointed_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_out").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_out_clause = pragma_line.get_clause("correctness_incoherent_out");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentOut::make(
+                    Nodecl::List::make(correctness_incoherent_out_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_incoherent_out_pointed").is_defined())
+        {
+            PragmaCustomClause correctness_incoherent_out_pointed_clause = pragma_line.get_clause("correctness_incoherent_out_pointed");
+            environment.append(
+                Nodecl::Analysis::Correctness::IncoherentOutPointed::make(
+                    Nodecl::List::make(correctness_incoherent_out_pointed_clause.get_arguments_as_expressions( ) ), loc ));
+        }
+        if(pragma_line.get_clause("correctness_race").is_defined())
+        {
+            PragmaCustomClause correctness_race_clause = pragma_line.get_clause("correctness_race");
+            environment.append(
+                Nodecl::Analysis::Correctness::Race::make(
+                    Nodecl::List::make(correctness_race_clause.get_arguments_as_expressions( ) ), loc ));
+        }
     }
 }
 
     AnalysisCheckPhase::AnalysisCheckPhase( )
-        : PragmaCustomCompilerPhase("analysis_check")
+        : PragmaCustomCompilerPhase("analysis_check"), _correctness_log_path("")
     {
         set_phase_name( "Phase checking the correctness of different analysis" );
         set_phase_description( "This phase checks first the robustness of a PCFG and then "\
@@ -590,6 +747,11 @@ namespace {
         dispatcher( ).declaration.post["assert_decl"].connect( functor( &AnalysisCheckPhase::assert_decl_handler_post, *this ) );
         
         // Register parameters
+        register_parameter("correctness_log_dir",
+                           "Sets the path where correctness logs will be stored, in addition to showing them in the standard output",
+                           _correctness_log_path,
+                           "");
+
         register_parameter("ompss_mode",
                            "Enables OmpSs semantics instead of OpenMP semantics",
                            _ompss_mode_str,
@@ -641,41 +803,45 @@ namespace {
         none_symbol.get_internal_symbol()->type_information = ::get_void_type();
     }
     
-    void AnalysisCheckPhase::run( TL::DTO& dto )
+    void AnalysisCheckPhase::run(TL::DTO& dto)
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
-        PCFGAnalysis_memento memento;
-
         NBase ast = dto["nodecl"];
 
-        ObjectList<ExtensibleGraph*> pcfgs;
-
-        // Auto Scope analysis encloses all other analysis
-        // FIXME we should launch the analyses depending on the clauses in the assert directives
-        pcfgs = analysis.all_analyses( memento, ast );
-
-        // Check PCFG consistency
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        // 1.- Execute analyses
+        // 1.1.- Compute all data-flow analysis
+        // FIXME We should launch the analyses depending on the clauses in the assert directives
+        AnalysisSingleton& analysis = AnalysisSingleton::get_analysis(_ompss_mode_enabled);
+        PCFGAnalysis_memento memento;
+        analysis.all_analyses(memento, ast);
+        // 1.2.- Execute correctness phase, which can also be checked
+        // FIXME We should only execute this is there are assert clauses checking this information
+        TL::OpenMP::launch_correctness(memento, _correctness_log_path);
+        
+        // 2.- Perform checks
+        const ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
+        // 2.1.- Check PCFG consistency
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            if( VERBOSE )
-                printf( "Check PCFG '%s' consistency\n", ( *it )->get_name( ).c_str( ) );
-            check_pcfg_consistency( *it );
+            if (VERBOSE)
+                printf("Check PCFG '%s' consistency\n", (*it)->get_name().c_str());
+            check_pcfg_consistency(*it);
         }
-        // Check user assertions
-        for( ObjectList<ExtensibleGraph*>::iterator it = pcfgs.begin( ); it != pcfgs.end( ); ++it )
+        // 2.2.- Check user assertions
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
         {
-            analysis.print_pcfg( memento, (*it)->get_name( ) );
-
-            if( VERBOSE )
-                printf( "Check analysis assertions of PCFG '%s'\n", ( *it )->get_name( ).c_str( ) );
-            check_analysis_assertions( *it );
+            if (VERBOSE)
+            {
+                analysis.print_pcfg(memento, (*it)->get_name());
+                printf("Check analysis assertions of PCFG '%s'\n", (*it)->get_name().c_str());
+            }
+            check_analysis_assertions(*it);
         }
 
-        // Remove the nodes included in this
+        // 3.- Remove the nodes added in this phase
         AnalysisCheckVisitor v;
-        v.walk( ast );
+        v.walk(ast);
     }
 
     void AnalysisCheckPhase::check_pcfg_consistency( ExtensibleGraph* graph )

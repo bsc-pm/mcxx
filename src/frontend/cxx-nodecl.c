@@ -380,6 +380,11 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
+char nodecl_is_list_or_null(nodecl_t n)
+{
+    return nodecl_is_null(n) || nodecl_get_kind(n) == AST_NODE_LIST;
+}
+
 #if 0
 char nodecl_is_in_list(nodecl_t n)
 {

@@ -38,20 +38,20 @@ namespace TL {
 namespace Analysis {
 
     Node::Node()
-        : _id(INT_MAX), _entry_edges(), _exit_edges(), _has_assertion(false),
-        _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
+            : _id(INT_MAX), _entry_edges(), _exit_edges(), _has_assertion(false),
+              _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, __UnclassifiedNode);
     }
 
     Node::Node(unsigned int& id, Node_type ntype, Node* outer_node)
-        : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
-          _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
+              _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, ntype);
         set_data(_OUTER_NODE, outer_node);
 
-        if(ntype == __Graph)
+        if (ntype == __Graph)
         {
             set_data(_ENTRY_NODE, new Node(id, __Entry, NULL));
             unsigned int exit_id = INT_MAX - 1;
@@ -60,8 +60,8 @@ namespace Analysis {
     }
 
     Node::Node(unsigned int& id, Node_type type, Node* outer_node, NodeclList nodecls)
-        : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
-          _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
+              _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, type);
         set_data(_OUTER_NODE, outer_node);
@@ -69,8 +69,8 @@ namespace Analysis {
     }
 
     Node::Node(unsigned int& id, Node_type type, Node* outer_node, NBase nodecl)
-        : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
-          _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
+            : _id(++id), _entry_edges(), _exit_edges(), _has_assertion(false),
+              _visited(false), _visited_aux(false), _visited_extgraph(false), _visited_extgraph_aux(false)
     {
         set_data(_NODE_TYPE, type);
         set_data(_OUTER_NODE, outer_node);
@@ -83,19 +83,92 @@ namespace Analysis {
         return (_id == node._id);
     }
 
+    NodeclSet Node::get_all_shared_accesses()
+    {
+        // 1.- Collect the shared variables appearing in the data-sharing or dependency clauses
+        TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
+        NodeclSet shared_vars;
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED).as<Nodecl::OpenMP::Shared>().get_symbols().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_SHARED_AND_ALLOCA).as<Nodecl::OpenMP::SharedAndAlloca>().get_exprs().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_IN))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_IN).as<Nodecl::OpenMP::DepIn>().get_in_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_OUT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_OUT).as<Nodecl::OpenMP::DepOut>().get_out_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_DEP_INOUT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_DEP_INOUT).as<Nodecl::OpenMP::DepInout>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_CONCURRENT))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_CONCURRENT).as<Nodecl::OpenMP::Concurrent>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_COMMUTATIVE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_COMMUTATIVE).as<Nodecl::OpenMP::Commutative>().get_inout_deps().shallow_copy().as<Nodecl::List>();
+            shared_vars.insert(tmp.begin(), tmp.end());
+        }
+        
+        // 2.- Collect those objects which, although are not in the data-sharing or dependency, have dynamic storage duration
+        const NodeclSet& killed_vars = get_killed_vars();
+        const NodeclSet& undef_vars = get_undefined_behaviour_vars();
+        NodeclSet inner_vars = get_ue_vars();
+        inner_vars.insert(killed_vars.begin(), killed_vars.end());
+        inner_vars.insert(undef_vars.begin(), undef_vars.end());
+        const Nodecl::NodeclBase& ast = get_graph_related_ast();
+        ERROR_CONDITION(ast.is_null(),
+                        "Cannot retrieve the shared accesses of node %d, which does not relate to an AST",
+                        _id);
+        Scope task_sc(ast.retrieve_context());
+        for (NodeclSet::const_iterator it = inner_vars.begin(); it != inner_vars.end(); ++it)
+        {
+            // Discard all vars local to the task
+            Scope var_sc(Analysis::Utils::get_nodecl_base(*it).get_symbol().get_scope());
+            if (var_sc.scope_is_enclosed_by(task_sc))
+                continue;
+
+            // If the variables is an array ArraySubscript, check whether it is allocated dynamically
+            if (it->no_conv().is<Nodecl::ArraySubscript>())
+            {
+                const NBase& base = Utils::get_nodecl_base(it->no_conv());
+                if (base.get_type().no_ref().is_pointer())
+                {   // An array has been dynamically allocated => the object pointed by #base is shared
+                    shared_vars.insert(it->shallow_copy());
+                }
+            }
+        }
+        
+        return shared_vars;
+    }
+    
     void Node::erase_entry_edge(Node* source)
     {
         EdgeList::iterator it;
         for (it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
         {
-            if((*it)->get_source() == source)
+            if ((*it)->get_source() == source)
             {
                 _entry_edges.erase(it);
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if(it == _entry_edges.end())
+        if (it == _entry_edges.end())
         {
             internal_error("Trying to delete an non-existent edge between nodes '%d' and '%d'", source->_id, _id);
         }
@@ -104,22 +177,22 @@ namespace Analysis {
     void Node::erase_exit_edge(Node* target)
     {
         EdgeList::iterator it;
-        for(it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
-            if((*it)->get_target() == target)
+            if ((*it)->get_target() == target)
             {
                 _exit_edges.erase(it);
                 --it;   // Decrement to allow the correctness of the comparison outside the loop
                 break;
             }
         }
-        if(it == _exit_edges.end())
+        if (it == _exit_edges.end())
         {
             internal_error("Trying to delete an non-existent edge between nodes '%d' and '%d'", _id, target->_id);
         }
     }
 
-    int Node::get_id() const
+    unsigned int Node::get_id() const
     {
         return _id;
     }
@@ -152,10 +225,23 @@ namespace Analysis {
     bool Node::has_autoscope_assertion() const
     {
         return (has_key(_ASSERT_AUTOSC_FIRSTPRIVATE) || has_key(_ASSERT_AUTOSC_PRIVATE) || 
-                 has_key(_ASSERT_AUTOSC_SHARED));
+                has_key(_ASSERT_AUTOSC_SHARED));
     }
     
-    bool Node::is_visited() const
+    bool Node::has_correctness_assertion() const
+    {
+        return (has_key(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_RACE_VARS) ||
+                has_key(_ASSERT_CORRECTNESS_DEAD_VARS));
+    }
+    
+    bool Node::is_visited( ) const
     {
         return _visited;
     }
@@ -197,7 +283,7 @@ namespace Analysis {
     
     bool Node::is_empty_node()
     {
-        return (_id==-1 && is_unclassified_node());
+        return (_id==0 && is_unclassified_node());
     }
 
     EdgeList Node::get_entry_edges() const
@@ -213,7 +299,7 @@ namespace Analysis {
     EdgeTypeList Node::get_entry_edge_types()
     {
         EdgeTypeList result;
-        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for (EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_type());
         return result;
     }
@@ -221,7 +307,7 @@ namespace Analysis {
     NodeclList Node::get_entry_edge_labels()
     {
         NodeclList result;
-        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for (EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_label());
         return result;
     }
@@ -229,7 +315,7 @@ namespace Analysis {
     NodeList Node::get_parents()
     {
         NodeList result;
-        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for (EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
             result.append((*it)->get_source());
         return result;
     }
@@ -247,7 +333,7 @@ namespace Analysis {
     EdgeTypeList Node::get_exit_edge_types()
     {
         EdgeTypeList result;
-        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_type());
         return result;
     }
@@ -255,7 +341,7 @@ namespace Analysis {
     NodeclList Node::get_exit_edge_labels()
     {
         NodeclList result;
-        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_label());
         return result;
     }
@@ -263,9 +349,9 @@ namespace Analysis {
     Edge* Node::get_exit_edge(Node* target)
     {
         Edge* result = NULL;
-        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
-            if((*it)->get_target() == target)
+            if ((*it)->get_target() == target)
             {
                 result = *it;
                 break;
@@ -277,7 +363,7 @@ namespace Analysis {
     NodeList Node::get_children()
         {
         NodeList result;
-        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
             result.append((*it)->get_target());
         return result;
     }
@@ -548,10 +634,10 @@ namespace Analysis {
     bool Node::is_vector_node()
     {
         bool result = false;
-        if(is_graph_node())
+        if (is_graph_node())
         {
             Graph_type gt = get_graph_type();
-            if((gt == __VectorCondExpr) || (gt == __VectorFunctionCallGraph))
+            if ((gt == __VectorCondExpr) || (gt == __VectorFunctionCallGraph))
             {    
                 result = true;
             }
@@ -559,7 +645,7 @@ namespace Analysis {
         else
         {
             Node_type nt = get_type();
-            if((nt == __VectorFunctionCall) || (nt == __VectorGather) || (nt == __VectorLoad) || 
+            if ((nt == __VectorFunctionCall) || (nt == __VectorGather) || (nt == __VectorLoad) || 
                 (nt == __VectorNormal) || (nt == __VectorReduction) || (nt == __VectorScatter) || 
                 (nt == __VectorStore))
             {
@@ -577,11 +663,11 @@ namespace Analysis {
     bool Node::has_child(Node* n)
     {
         bool result = false;
-        int id = n->_id;
+        unsigned int id = n->_id;
 
-        for(EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
+        for (EdgeList::iterator it = _exit_edges.begin(); it != _exit_edges.end(); ++it)
         {
-            if((*it)->get_target()->_id == id)
+            if ((*it)->get_target()->_id == id)
             {
                 result = true;
                 break;
@@ -594,11 +680,11 @@ namespace Analysis {
     bool Node::has_parent(Node* n)
     {
         bool result = false;
-        int id = n->_id;
+        unsigned int id = n->_id;
 
-        for(EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
+        for (EdgeList::iterator it = _entry_edges.begin(); it != _entry_edges.end(); ++it)
         {
-            if((*it)->get_source()->_id == id)
+            if ((*it)->get_source()->_id == id)
             {
                 result = true;
                 break;
@@ -610,17 +696,17 @@ namespace Analysis {
 
     Symbol Node::get_function_node_symbol()
     {
-        if(!is_function_call_node())
+        if (!is_function_call_node())
             return Symbol();
 
         NBase stmt = get_statements()[0];
         Symbol s;
-        if(stmt.is<Nodecl::FunctionCall>())
+        if (stmt.is<Nodecl::FunctionCall>())
         {
             Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
             s = f.get_called().get_symbol();
         }
-        else if(stmt.is<Nodecl::VirtualFunctionCall>())
+        else if (stmt.is<Nodecl::VirtualFunctionCall>())
         {
             Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
             s = f.get_called().get_symbol();
@@ -641,7 +727,7 @@ namespace Analysis {
 
     Node_type Node::get_type()
     {
-        if(has_key(_NODE_TYPE))
+        if (has_key(_NODE_TYPE))
             return get_data<Node_type>(_NODE_TYPE);
         else
             return __UnclassifiedNode;
@@ -669,7 +755,7 @@ namespace Analysis {
     std::string Node::get_type_as_string()
     {
         std::string type = "";
-        if(has_key(_NODE_TYPE))
+        if (has_key(_NODE_TYPE))
         {
             Node_type ntype = get_data<Node_type>(_NODE_TYPE);
             type = node_type_to_str(ntype);
@@ -699,7 +785,7 @@ namespace Analysis {
     std::string Node::get_graph_type_as_string()
     {
         std::string graph_type = "";
-        if(has_key(_GRAPH_TYPE))
+        if (has_key(_GRAPH_TYPE))
         {
             Graph_type ntype = get_data<Graph_type>(_GRAPH_TYPE);
             graph_type = graph_node_type_to_str(ntype);
@@ -715,7 +801,7 @@ namespace Analysis {
     Node* Node::get_graph_entry_node()
     {
         Node* entry_node;
-        if(is_graph_node())
+        if (is_graph_node())
             entry_node = get_data<Node*>(_ENTRY_NODE);
         else
             internal_error("Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Entry node.",
@@ -725,12 +811,12 @@ namespace Analysis {
 
     void Node::set_graph_entry_node(Node* node)
     {
-        if(!node->is_entry_node())
+        if (!node->is_entry_node())
         {
             internal_error("Unexpected node type '%s' while setting the entry node to node '%d'. ENTRY expected.",
                             get_type_as_string().c_str(), _id);
         }
-        else if(is_graph_node())
+        else if (is_graph_node())
             set_data(_ENTRY_NODE, node);
         else
             internal_error("Unexpected node type '%s' while setting the entry node to node '%d'. GRAPH expected.",
@@ -740,7 +826,7 @@ namespace Analysis {
     Node* Node::get_graph_exit_node()
     {
         Node* exit_node;
-        if(is_graph_node())
+        if (is_graph_node())
             exit_node = get_data<Node*>(_EXIT_NODE);
         else
             internal_error("Asking for the Entry Node of a non GRAPH node. Nodes of type '%s' do not have Exit node.",
@@ -750,12 +836,12 @@ namespace Analysis {
 
     void Node::set_graph_exit_node(Node* node)
     {
-        if(!node->is_exit_node())
+        if (!node->is_exit_node())
         {
             internal_error("Unexpected node type '%s' while setting the exit node to node '%d'. EXIT expected.",
                             get_type_as_string().c_str(), _id);
         }
-        else if(is_graph_node())
+        else if (is_graph_node())
             set_data(_EXIT_NODE, node);
         else
             internal_error("Unexpected node type '%s' while setting the exit node to node '%d'. GRAPH expected.",
@@ -764,10 +850,10 @@ namespace Analysis {
 
     NBase Node::get_graph_related_ast()
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
             NBase res = NBase::null();
-            if(has_key(_NODE_LABEL))
+            if (has_key(_NODE_LABEL))
                 res = get_data<NBase>(_NODE_LABEL, NBase::null());
             return res;
         }
@@ -780,7 +866,7 @@ namespace Analysis {
 
     void Node::set_graph_label(NBase n)
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
             set_data(_NODE_LABEL, n);
         else
             internal_error("Unexpected node type '%s' while setting the label to node '%d'. GRAPH expected.",
@@ -789,7 +875,7 @@ namespace Analysis {
 
     Graph_type Node::get_graph_type()
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
             return get_data<Graph_type>(_GRAPH_TYPE);
         else
             internal_error("Unexpected node type '%s' while getting graph type to node '%d'. GRAPH expected.",
@@ -798,7 +884,7 @@ namespace Analysis {
 
     void Node::set_graph_type(Graph_type graph_type)
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
             set_data(_GRAPH_TYPE, graph_type);
         else
             internal_error("Unexpected node type '%s' while setting graph type to node '%d'. GRAPH expected.",
@@ -814,11 +900,11 @@ namespace Analysis {
 
     PCFGPragmaInfo Node::get_pragma_node_info()
     {
-        if(((get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (((get_data<Node_type>(_NODE_TYPE) == __Graph)
                && node_is_claused_graph_omp(get_data<Graph_type>(_GRAPH_TYPE)))
             || get_data<Node_type>(_NODE_TYPE) == __OmpFlush)
         {
-            if(has_key(_OMP_INFO))
+            if (has_key(_OMP_INFO))
                 return get_data<PCFGPragmaInfo>(_OMP_INFO);
             else
             {
@@ -833,9 +919,9 @@ namespace Analysis {
         }
     }
 
-    void Node::set_pragma_node_info(PCFGPragmaInfo pragma)
+    void Node::set_pragma_node_info(const PCFGPragmaInfo& pragma)
     {
-        if(((get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (((get_data<Node_type>(_NODE_TYPE) == __Graph)
                && node_is_claused_graph_omp(get_data<Graph_type>(_GRAPH_TYPE)))
             || get_data<Node_type>(_NODE_TYPE) == __OmpFlush)
         {
@@ -851,7 +937,7 @@ namespace Analysis {
     Node* Node::get_outer_node()
     {
         Node* outer_node = NULL;
-        if(has_key(_OUTER_NODE))
+        if (has_key(_OUTER_NODE))
             outer_node = get_data<Node*>(_OUTER_NODE);
         return outer_node;
     }
@@ -865,21 +951,21 @@ namespace Analysis {
     {
         // Get a nodecl included in the current node
         NBase n = NBase::null();
-        if(is_graph_node())
+        if (is_graph_node())
         {
             n = get_graph_related_ast();
         }
         else
         {
             NodeclList stmts = get_statements();
-            if(!stmts.empty())
+            if (!stmts.empty())
             {
                 n = stmts[0];
             }
         }
 
         // Retrieve the context related to the nodecl
-        if(!n.is_null())
+        if (!n.is_null())
         {
             return n.retrieve_context();
         }
@@ -898,14 +984,14 @@ namespace Analysis {
     NodeclList Node::get_statements()
     {
         NodeclList stmts;
-        if(has_key(_NODE_STMTS))
+        if (has_key(_NODE_STMTS))
             stmts = get_data<NodeclList >(_NODE_STMTS);
         return stmts;
     }
 
     void Node::set_statements(NodeclList stmts)
     {
-        if((is_normal_node() || is_function_call_node()
+        if ((is_normal_node() || is_function_call_node()
             || is_labeled_node() || is_goto_node()
             || is_break_node() || is_continue_node())
            && !stmts.empty())
@@ -922,7 +1008,7 @@ namespace Analysis {
     Symbol Node::get_label()
     {
         Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if(ntype == __Goto || ntype == __Labeled)
+        if (ntype == __Goto || ntype == __Labeled)
             return get_data<Symbol>(_NODE_LABEL);
         else
             internal_error("Unexpected node type '%s' while getting the label to node '%d'. GOTO or LABELED NODES expected.",
@@ -932,7 +1018,7 @@ namespace Analysis {
     void Node::set_label(Symbol s)
     {
         Node_type ntype = get_data<Node_type>(_NODE_TYPE);
-        if(ntype == __Goto || ntype == __Labeled)
+        if (ntype == __Goto || ntype == __Labeled)
             set_data(_NODE_LABEL, s);
         else
             internal_error("Unexpected node type '%s' while setting the label to node '%d'. GOTO or LABELED NODES expected.",
@@ -942,7 +1028,7 @@ namespace Analysis {
     ASM_node_info Node::get_asm_info()
     {
         Node* outer_node = get_outer_node();
-        if(get_type() == __AsmOp
+        if (get_type() == __AsmOp
             || (outer_node != NULL && outer_node->get_graph_type() == __AsmDef))
         {
             return get_data<ASM_node_info>(_ASM_INFO);
@@ -957,7 +1043,7 @@ namespace Analysis {
     void Node::set_asm_info(ASM_node_info inf)
     {
         Node* outer_node = get_outer_node();
-        if(get_type() == __AsmOp
+        if (get_type() == __AsmOp
             || (outer_node != NULL && outer_node->get_graph_type() == __AsmDef))
         {
             set_data(_ASM_INFO, inf);
@@ -1007,10 +1093,10 @@ namespace Analysis {
 
 //     ObjectList<LatticeCellValue> Node::get_lattice_val()
 //     {
-//         if(get_data<Node_type>(_NODE_TYPE) != GRAPH)
+//         if (get_data<Node_type>(_NODE_TYPE) != GRAPH)
 //         {
 //             ObjectList<LatticeCellValue> result;
-//             if(has_key(_LATTICE_VALS))
+//             if (has_key(_LATTICE_VALS))
 //             {
 //                 result = get_data<ObjectList<LatticeCellValue> >(_LATTICE_VALS);
 //             }
@@ -1025,10 +1111,10 @@ namespace Analysis {
 //
 //     void Node::set_lattice_val(LatticeCellValue lcv)
 //     {
-//         if(get_data<Node_type>(_NODE_TYPE) != GRAPH)
+//         if (get_data<Node_type>(_NODE_TYPE) != GRAPH)
 //         {
 //             ObjectList<LatticeCellValue> result;
-//             if(has_key(_LATTICE_VALS))
+//             if (has_key(_LATTICE_VALS))
 //             {
 //                 result = get_data<ObjectList<LatticeCellValue> >(_LATTICE_VALS);
 //             }
@@ -1055,7 +1141,7 @@ namespace Analysis {
     T Node::get_vars(std::string data_name)
     {
         T c;
-        if(has_key(data_name))
+        if (has_key(data_name))
             c = get_data<T>(data_name);
         return c;
     }
@@ -1064,12 +1150,12 @@ namespace Analysis {
     void Node::add_var_to_container(const NBase& var, std::string data_name)
     {
         T c = get_data<T>(data_name);
-        if(Utils::nodecl_set_contains_enclosing_nodecl(var, c).is_null())
+        if (Utils::nodecl_set_contains_enclosing_nodecl(var, c).is_null())
         {
             const Nodecl::List subparts = Utils::nodecl_set_contains_enclosed_nodecl(var, c);
-            if(!subparts.is_null())
+            if (!subparts.is_null())
             {
-                for(Nodecl::List::const_iterator it = subparts.begin(); it != subparts.end(); ++it)
+                for (Nodecl::List::const_iterator it = subparts.begin(); it != subparts.end(); ++it)
                     c.erase(*it);
             }
             
@@ -1081,8 +1167,27 @@ namespace Analysis {
     template <typename T>
     void Node::add_vars_to_container(const T& vars, std::string data_name)
     {
-        for(typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
+        for (typename T::const_iterator it = vars.begin(); it != vars.end(); ++it)
             add_var_to_container<T>(*it, data_name);
+    }
+    
+    void Node::add_var_to_list(const NBase& var, std::string data_name)
+    {
+        Nodecl::List list = get_data<Nodecl::List>(data_name);
+        for (Nodecl::List::iterator it = list.begin(); it != list.end(); ++it)
+        {
+            if (Nodecl::Utils::structurally_equal_nodecls(var, *it))
+                return;
+        }
+
+        list.append(var);
+        set_data(data_name, list);
+    }
+    
+    void Node::add_vars_to_list(const Nodecl::List& vars, std::string data_name)
+    {
+        for (Nodecl::List::const_iterator it = vars.begin(); it != vars.end(); ++it)
+            add_var_to_list(*it, data_name);
     }
     
     void Node::remove_var_from_set(const NBase& var, std::string data_name)
@@ -1100,22 +1205,22 @@ namespace Analysis {
     bool Node::uses_var(const NBase& n)
     {
         bool result = false;
-        if(has_key(_UPPER_EXPOSED)) 
+        if (has_key(_UPPER_EXPOSED)) 
         {
             NodeclSet ue_vars = get_data<NodeclSet>(_UPPER_EXPOSED);
-            if(ue_vars.find(n) != ue_vars.end())
+            if (ue_vars.find(n) != ue_vars.end())
                 result = true;
         }
-        if(!result && has_key(_KILLED))
+        if (!result && has_key(_KILLED))
         {
             NodeclSet killed_vars = get_data<NodeclSet>(_KILLED);
-            if(killed_vars.find(n) != killed_vars.end())
+            if (killed_vars.find(n) != killed_vars.end())
                 result = true;
         }
-        if(!result && has_key(_UNDEF))
+        if (!result && has_key(_UNDEF))
         {
             NodeclSet undef_vars = get_data<NodeclSet>(_UNDEF);
-            if(undef_vars.find(n) != undef_vars.end())
+            if (undef_vars.find(n) != undef_vars.end())
                 result = true;
         }
         return result;
@@ -1132,7 +1237,7 @@ namespace Analysis {
     }
 
     void Node::add_ue_var(const NodeclSet& new_ue_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(new_ue_vars, _UPPER_EXPOSED);
     }
 
@@ -1162,14 +1267,14 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_killed_vars()
-        {
+    {
         return get_vars<NodeclSet>(_KILLED);
     }
 
     void Node::add_killed_var(const NBase& new_killed_var)
-        {
+    {
         add_var_to_container<NodeclSet>(new_killed_var, _KILLED);
-        }
+    }
 
     void Node::add_killed_var(const NodeclSet& new_killed_vars)
     {
@@ -1194,7 +1299,7 @@ namespace Analysis {
     void Node::add_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_killed_vars, _PRIVATE_KILLED);
-        }
+    }
         
     void Node::set_private_killed_var(const NodeclSet& new_private_killed_vars)
     {
@@ -1202,12 +1307,12 @@ namespace Analysis {
     }
 
     NodeclSet Node::get_undefined_behaviour_vars()
-        {
+    {
         return get_vars<NodeclSet>(_UNDEF);
     }
 
     void Node::add_undefined_behaviour_var(const NBase& new_undef_var)
-            {
+    {
         add_var_to_container<NodeclSet>(new_undef_var, _UNDEF);
     }
 
@@ -1215,9 +1320,9 @@ namespace Analysis {
         const NBase& new_undef_var)
     {
         // Conservatively, delete the reference argument of UE and KILL sets
-        if(has_key(_UPPER_EXPOSED))
+        if (has_key(_UPPER_EXPOSED))
             remove_ue_var(new_undef_var);
-        if(has_key(_KILLED))
+        if (has_key(_KILLED))
             remove_killed_var(new_undef_var);
 
         // Add the global variable to the UNDEF list
@@ -1242,7 +1347,7 @@ namespace Analysis {
     void Node::add_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
         add_vars_to_container<NodeclSet>(new_private_undef_vars, _PRIVATE_UNDEF);
-        }
+    }
     
     void Node::set_private_undefined_behaviour_var(const NodeclSet& new_private_undef_vars)
     {
@@ -1329,12 +1434,12 @@ namespace Analysis {
     NodeclMap Node::set_generated_stmts(const NodeclMap& gen)
     {
         NodeclMap gen_stmts;
-        if(has_key(_GEN))
+        if (has_key(_GEN))
         {
             gen_stmts = get_data<NodeclMap>(_GEN);
-            for(NodeclMap::const_iterator it = gen.begin(); it != gen.end(); ++it)
+            for (NodeclMap::const_iterator it = gen.begin(); it != gen.end(); ++it)
             {
-                if(gen_stmts.find(it->first) != gen_stmts.end())
+                if (gen_stmts.find(it->first) != gen_stmts.end())
                     gen_stmts.erase(it->first);
             }
         }
@@ -1388,14 +1493,14 @@ namespace Analysis {
     Utils::InductionVarList Node::get_induction_variables()
     {
         Utils::InductionVarList ivs;
-        if(is_loop_node() || is_omp_loop_node() ||
+        if (is_loop_node() || is_omp_loop_node() ||
            (is_graph_node() && get_graph_related_ast().is<Nodecl::FunctionCode>()))
         {
             ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
         }
         else
         {
-            if(VERBOSE)
+            if (VERBOSE)
             {
                 WARNING_MESSAGE("Asking for induction_variables in a node '%d' of type '%s'. Loop expected",
                                 _id, get_type_as_string().c_str());
@@ -1406,7 +1511,7 @@ namespace Analysis {
 
     void Node::set_induction_variable(Utils::InductionVar* iv)
     {
-        if(is_loop_node() || is_omp_loop_node())
+        if (is_loop_node() || is_omp_loop_node())
         {
             Utils::InductionVarList ivs = get_vars<Utils::InductionVarList>(_INDUCTION_VARS);
             ivs.insert(iv);
@@ -1421,9 +1526,9 @@ namespace Analysis {
 
     Node* Node::get_condition_node()
     {
-        if(is_graph_node())
+        if (is_graph_node())
         {
-            if(is_loop_node() || is_switch_statement() || is_ifelse_statement())
+            if (is_loop_node() || is_switch_statement() || is_ifelse_statement())
                 return get_data<Node*>(_CONDITION_NODE);
             
             internal_error("Unexpected graph type '%s' while getting the condition node of loop node '%d'. LOOP|SWITCH|IFELSE expected",
@@ -1438,9 +1543,9 @@ namespace Analysis {
     
     void Node::set_condition_node(Node* cond)
     {
-        if(is_graph_node())
+        if (is_graph_node())
         {
-            if(is_loop_node() || is_switch_statement() || is_ifelse_statement())
+            if (is_loop_node() || is_switch_statement() || is_ifelse_statement())
             {
                 set_data(_CONDITION_NODE, cond);
             }
@@ -1465,103 +1570,41 @@ namespace Analysis {
     // ****************************************************************************** //
     // ******************* Getters and setters for range analysis ******************* //
     
-    Utils::ConstraintMap Node::get_constraints_map()
+    Utils::RangeValuesMap Node::get_ranges()
     {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-        return constraints_map;
+        Utils::RangeValuesMap ranges;
+        if (has_key(_RANGES))
+            ranges = get_data<Utils::RangeValuesMap>(_RANGES);
+        return ranges;
     }
     
-    Utils::ConstraintMap Node::get_propagated_constraints_map()
+    NBase Node::get_range(const NBase& var)
     {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_PROPAGATED_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_PROPAGATED_CONSTRAINTS);
-        return constraints_map;
+        NBase res;
+        Utils::RangeValuesMap ranges = get_ranges();
+        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        if (it != ranges.end())
+            res = it->second;
+        return res;
     }
     
-    Utils::ConstraintMap Node::get_all_constraints_map()
+    void Node::set_range(const NBase& var, const NBase& value)
     {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_PROPAGATED_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_PROPAGATED_CONSTRAINTS);
-        if(has_key(_CONSTRAINTS))
-        {
-            Utils::ConstraintMap tmp = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-            for(Utils::ConstraintMap::iterator it = tmp.begin(); it != tmp.end(); ++it)
-                constraints_map[it->first] = it->second;
-            
+        Utils::RangeValuesMap ranges = get_ranges();
+        Utils::RangeValuesMap::iterator it = ranges.find(var);
+        if (it != ranges.end())
+        {   // Check whether the value already in the set is the same we are trying to insert here
+            // - If it is different, something wrong happened. In this case, abort here
+            // - If it is the same, one may com from the list of constraints belonging to the node
+            //   and the other propagated from previous nodes. In this case we want the value only once
+            if (Nodecl::Utils::structurally_equal_nodecls(it->second, value, /*skip_conversion_nodes*/true))
+                return;
+            WARNING_MESSAGE("Two different ranges (%s and %s) for the same variable '%s' in the same node %d.\n", 
+                            it->second.prettyprint().c_str(), value.prettyprint().c_str(), 
+                            var.prettyprint().c_str(), _id);
         }
-        return constraints_map;
-    }
-    
-    Utils::Constraint Node::get_constraint(const NBase& var)
-    {
-        Utils::ConstraintMap constraints_map;
-        if(has_key(_CONSTRAINTS))
-            constraints_map = get_data<Utils::ConstraintMap>(_CONSTRAINTS);
-        Utils::Constraint var_constraint;
-        if(constraints_map.find(var) != constraints_map.end())
-            var_constraint = constraints_map[var];
-        return var_constraint;
-    }
-    
-    void Node::add_constraints_map(Utils::ConstraintMap new_constraints_map)
-    {
-        Utils::ConstraintMap constraints_map = get_constraints_map();
-        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
-            constraints_map[it->first] = it->second;
-        set_data(_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::set_constraints_map(Utils::ConstraintMap constraints_map)
-    {
-        set_data(_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::add_propagated_constraints_map(Utils::ConstraintMap new_constraints_map)
-    {
-        Utils::ConstraintMap constraints_map = get_propagated_constraints_map();
-        for(Utils::ConstraintMap::iterator it = new_constraints_map.begin(); it != new_constraints_map.end(); ++it)
-            constraints_map[it->first] = it->second;
-        set_data(_PROPAGATED_CONSTRAINTS, constraints_map);
-    }
-    
-    void Node::set_propagated_constraints_map(Utils::ConstraintMap constraints_map)
-    {
-        set_data(_PROPAGATED_CONSTRAINTS, constraints_map);
-    }
-    
-    Utils::RangeValuesMap Node::get_ranges_in()
-    {
-        Utils::RangeValuesMap ranges_in;
-        if(has_key(_RANGES_IN))
-            ranges_in = get_data<Utils::RangeValuesMap>(_RANGES_IN);
-        return ranges_in;
-    }
-    
-    void Node::set_range_in(const NBase& var, const ObjectList<Utils::RangeValue_tag>& values)
-    {
-        Utils::RangeValuesMap ranges_in = get_ranges_in();
-        ranges_in.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_IN, ranges_in);
-    }
-    
-    Utils::RangeValuesMap Node::get_ranges_out()
-    {
-        Utils::RangeValuesMap ranges_out;
-        if(has_key(_RANGES_OUT))
-            ranges_out = get_data<Utils::RangeValuesMap>(_RANGES_OUT);
-        return ranges_out;
-    }
-    
-    void Node::set_range_out(const NBase& var, 
-                              const ObjectList<Utils::RangeValue_tag>& values)
-    {
-        Utils::RangeValuesMap ranges_out = get_ranges_out();
-        ranges_out.insert(std::pair<NBase, ObjectList<Utils::RangeValue_tag> >(var, values));
-        set_data(_RANGES_OUT, ranges_out);
+        ranges.insert(std::pair<NBase, NBase>(var, value));
+        set_data(_RANGES, ranges);
     }
     
     // ***************** END getters and setters for range analysis ***************** //
@@ -1574,10 +1617,10 @@ namespace Analysis {
 
     NBase Node::get_task_context()
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
             Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if(graph_type == __OmpTask)
+            if (graph_type == __OmpTask)
                 return get_data<Nodecl::Context>(_TASK_CONTEXT);
             else
                 internal_error("Unexpected graph type '%s' while getting the context of the task node '%d'. " \
@@ -1592,10 +1635,10 @@ namespace Analysis {
 
     void Node::set_task_context(NBase c)
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
             Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if(graph_type == __OmpTask)
+            if (graph_type == __OmpTask)
                 return set_data(_TASK_CONTEXT, c);
             else
                 internal_error("Unexpected graph type '%s' while setting the context of the task node '%d'. " \
@@ -1610,10 +1653,10 @@ namespace Analysis {
 
     Symbol Node::get_task_function()
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
             Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if(graph_type == __OmpTask)
+            if (graph_type == __OmpTask)
                 return get_data<Symbol>(_TASK_FUNCTION);
             else
                 internal_error("Unexpected graph type '%s' while getting the symbol of the function embedded in the task '%s'. " \
@@ -1629,10 +1672,10 @@ namespace Analysis {
 
     void Node::set_task_function(Symbol func_sym)
     {
-        if(get_data<Node_type>(_NODE_TYPE) == __Graph)
+        if (get_data<Node_type>(_NODE_TYPE) == __Graph)
         {
             Graph_type graph_type = get_data<Graph_type>(_GRAPH_TYPE);
-            if(graph_type == __OmpTask)
+            if (graph_type == __OmpTask)
                 return set_data(_TASK_FUNCTION, func_sym);
             else
                 internal_error("Unexpected graph type '%s' while setting the symbol of the function embedded in the task '%s'. " \
@@ -1667,7 +1710,7 @@ namespace Analysis {
     NodeclSet Node::get_sc_shared_vars()
     {
         NodeclSet sc_shared_vars;
-        if(has_key(_SC_SHARED))
+        if (has_key(_SC_SHARED))
             sc_shared_vars = get_data<NodeclSet>(_SC_SHARED);
         return sc_shared_vars;
     }
@@ -1688,7 +1731,7 @@ namespace Analysis {
     NodeclSet Node::get_sc_private_vars()
     {
         NodeclSet sc_private_vars;
-        if(has_key(_SC_PRIVATE))
+        if (has_key(_SC_PRIVATE))
             sc_private_vars = get_data<NodeclSet>(_SC_PRIVATE);
         return sc_private_vars;
     }
@@ -1709,7 +1752,7 @@ namespace Analysis {
     NodeclSet Node::get_sc_firstprivate_vars()
     {
         NodeclSet sc_firstprivate_vars;
-        if(has_key(_SC_FIRSTPRIVATE))
+        if (has_key(_SC_FIRSTPRIVATE))
             sc_firstprivate_vars = get_data<NodeclSet>(_SC_FIRSTPRIVATE);
         return sc_firstprivate_vars;
     }
@@ -1730,7 +1773,7 @@ namespace Analysis {
     NodeclSet Node::get_sc_undef_vars()
     {
         NodeclSet undef_sc_vars;
-        if(has_key(_SC_UNDEF))
+        if (has_key(_SC_UNDEF))
             undef_sc_vars = get_data<NodeclSet>(_SC_UNDEF);
         return undef_sc_vars;
     }
@@ -1751,7 +1794,7 @@ namespace Analysis {
     NodeclSet Node::get_sc_race_vars()
     {
         NodeclSet race_vars;
-        if(has_key(_SC_RACE))
+        if (has_key(_SC_RACE))
             race_vars = get_data<NodeclSet>(_SC_RACE);
         return race_vars;
     }
@@ -1787,7 +1830,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_private_vars()
     {
         NodeclSet deps_private_vars;
-        if(has_key(_DEPS_PRIVATE))
+        if (has_key(_DEPS_PRIVATE))
             deps_private_vars = get_data<NodeclSet>(_DEPS_PRIVATE);
         return deps_private_vars;
     }
@@ -1803,7 +1846,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_firstprivate_vars()
     {
         NodeclSet deps_firstprivate_vars;
-        if(has_key(_DEPS_FIRSTPRIVATE))
+        if (has_key(_DEPS_FIRSTPRIVATE))
             deps_firstprivate_vars = get_data<NodeclSet>(_DEPS_FIRSTPRIVATE);
         return deps_firstprivate_vars;
     }
@@ -1818,7 +1861,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_shared_vars()
     {
         NodeclSet deps_shared_vars;
-        if(has_key(_DEPS_SHARED))
+        if (has_key(_DEPS_SHARED))
             deps_shared_vars = get_data<NodeclSet>(_DEPS_SHARED);
         return deps_shared_vars;
     }
@@ -1833,7 +1876,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_in_exprs()
     {
         NodeclSet in_deps;
-        if(has_key(_DEPS_IN))
+        if (has_key(_DEPS_IN))
             in_deps = get_data<NodeclSet>(_DEPS_IN);
         return in_deps;
     }
@@ -1848,7 +1891,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_out_exprs()
     {
         NodeclSet out_deps;
-        if(has_key(_DEPS_OUT))
+        if (has_key(_DEPS_OUT))
             out_deps = get_data<NodeclSet>(_DEPS_OUT);
         return out_deps;
     }
@@ -1863,7 +1906,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_inout_exprs()
     {
         NodeclSet inout_deps;
-        if(has_key(_DEPS_INOUT))
+        if (has_key(_DEPS_INOUT))
             inout_deps = get_data<NodeclSet>(_DEPS_INOUT);
         return inout_deps;
     }
@@ -1878,7 +1921,7 @@ namespace Analysis {
     NodeclSet Node::get_deps_undef_vars()
     {
         NodeclSet undef_deps;
-        if(has_key(_DEPS_UNDEF))
+        if (has_key(_DEPS_UNDEF))
             undef_deps = get_data<NodeclSet>(_DEPS_UNDEF);
         return undef_deps;
     }
@@ -1894,6 +1937,114 @@ namespace Analysis {
     // ****************************************************************************** //
 
 
+
+    // ****************************************************************************** //
+    // **************** Getters and setters for correctness analysis **************** //
+
+    Nodecl::List Node::get_correctness_auto_storage_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    void Node::add_correctness_auto_storage_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_fp_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_in_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_correctness_incoherent_in_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    Nodecl::List Node::get_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_out_pointed_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_correctness_incoherent_p_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_correctness_race_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_RACE_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_dead_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_DEAD_VARS);
+    }
+    
+    void Node::add_correctness_dead_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_correctness_unnecessarily_scoped_vars()
+    {
+        return get_vars<Nodecl::List>(_CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
+    }
+    
+    void Node::add_correctness_unnecessarily_scoped_var(const Nodecl::NodeclBase& n)
+    {
+        add_var_to_list(n, _CORRECTNESS_UNNECESSARILY_SCOPED_VARS);
+    }
+    
+    // **************** Getters and setters for correctness analysis **************** //
+    // ****************************************************************************** //
+
+
     
     // ****************************************************************************** //
     // **************** Getters and setters for vectorization analysis ************** //
@@ -1901,20 +2052,13 @@ namespace Analysis {
     ObjectList<Symbol> Node::get_reductions()
     {
         ObjectList<Symbol> result;
-        const ObjectList<PCFGClause> clauses = this->get_pragma_node_info().get_clauses();
-        for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+        const ObjectList<NBase> clauses = this->get_pragma_node_info().get_clauses();
+        for (ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
         {
-            if(it->get_clause() == __reduction)
+            if (it->get_kind() == NODECL_OPEN_M_P_REDUCTION_ITEM)
             {
-                Nodecl::List reductions = it->get_args();
-                for(Nodecl::List::iterator itr = reductions.begin(); itr != reductions.end(); ++itr)
-                {
-                    Symbol reduc(itr->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
-                    ERROR_CONDITION(!reduc.is_valid(), "Invalid symbol stored for Reduction argument '%s'", 
-                                     itr->prettyprint().c_str());
-                    result.insert(reduc);
-                }
-                break;
+                Symbol reduced_sym(it->as<Nodecl::OpenMP::ReductionItem>().get_reduced_symbol().get_symbol());
+                result.insert(reduced_sym);
             }
         }
         return result;
@@ -1922,12 +2066,12 @@ namespace Analysis {
     
     static void check_for_simd_node(Node*& n)
     {
-        if(n->is_loop_node())
+        if (n->is_loop_node())
         {
             n = n->get_outer_node();
-            if(!n->is_omp_simd_node())
+            if (!n->is_omp_simd_node())
             {
-                if(VERBOSE)
+                if (VERBOSE)
                 {
                     WARNING_MESSAGE("Asking for linear symbols in loop node %d, "\
                                     "which is not contained in an OpenMP loop. Returning empty list.\n", n->get_id());
@@ -1935,12 +2079,12 @@ namespace Analysis {
                 n = NULL;
             }
         }
-        else if(n->is_function_code_node())
+        else if (n->is_function_code_node())
         {
             n = n->get_outer_node();
-            if(!n->is_omp_simd_function_node())
+            if (!n->is_omp_simd_function_node())
             {
-                if(VERBOSE)
+                if (VERBOSE)
                 {
                     WARNING_MESSAGE("Asking for linear symbols in function code node %d, "\
                                     "which is not contained in an simd function code. Returning empty list.\n", n->get_id());
@@ -1948,9 +2092,9 @@ namespace Analysis {
                 n = NULL;
             }
         }
-        else if(!n->is_omp_simd_node())
+        else if (!n->is_omp_simd_node())
         {
-            if(VERBOSE)
+            if (VERBOSE)
             {
                 WARNING_MESSAGE("Asking for linear symbols in node %d, which is not an OpenMP loop, "\
                                 "neither a simd function code. Returning empty list.\n", n->get_id());
@@ -1964,28 +2108,27 @@ namespace Analysis {
         ObjectList<Utils::LinearVars> result;
         Node* n = this;
         check_for_simd_node(n);
-        if(n != NULL)
+        if (n != NULL)
         {
-            const ObjectList<PCFGClause>& clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase>& clauses = n->get_pragma_node_info().get_clauses();
+            for (ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_clause() == __linear)
+                if (it->get_kind() == NODECL_OPEN_M_P_LINEAR)
                 {
-                    Nodecl::List linear_exprs = it->get_args();
+                    Nodecl::OpenMP::Linear omp_linear = it->as<Nodecl::OpenMP::Linear>();
+                    const Nodecl::List& linear_exprs = 
+                        omp_linear.get_linear_expressions().as<Nodecl::List>();
+                    const NBase step = omp_linear.get_step();
                     ObjectList<Symbol> syms;
-                    NBase step;
-                    for(Nodecl::List::iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
+                    for (Nodecl::List::const_iterator itl = linear_exprs.begin(); itl != linear_exprs.end(); ++itl)
                     {
-                        if(!itl->is<Nodecl::IntegerLiteral>())
-                        {   // This is not the step of the linear clause
-                            Symbol lin(itl->get_symbol());
-                            ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Linear argument '%s'", 
-                                            itl->prettyprint().c_str());
-                            syms.insert(lin);
+                        if (itl->is<Nodecl::Symbol>())
+                        {
+                            syms.insert(itl->get_symbol());
                         }
                         else
                         {
-                            step = *itl;
+                            internal_error("Linear expression is not a symbol", 0);
                         }
                     }
                    
@@ -2001,15 +2144,15 @@ namespace Analysis {
         ObjectList<Symbol> result;
         Node* n = this;
         check_for_simd_node(n);
-        if(n != NULL)
+        if (n != NULL)
         {
-            const ObjectList<PCFGClause> clauses = n->get_pragma_node_info().get_clauses();
-            for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
+            const ObjectList<NBase> clauses = n->get_pragma_node_info().get_clauses();
+            for (ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it)
             {
-                if(it->get_clause() == __uniform)
+                if (it->get_kind() == NODECL_OPEN_M_P_UNIFORM)
                 {
-                    Nodecl::List uniform_exprs = it->get_args();
-                    for(Nodecl::List::iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
+                    const Nodecl::List& uniform_exprs = it->as<Nodecl::OpenMP::Uniform>().get_uniform_expressions().as<Nodecl::List>();
+                    for (Nodecl::List::const_iterator itl = uniform_exprs.begin(); itl != uniform_exprs.end(); ++itl)
                     {
                         Symbol lin(itl->get_symbol());
                         ERROR_CONDITION(!lin.is_valid(), "Invalid symbol stored for Uniform argument '%s'", 
@@ -2059,7 +2202,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_undefined_behaviour_var(const Nodecl::List& new_assert_undefined_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_undefined_vars.begin(), new_assert_undefined_vars.end()), 
                                          _ASSERT_UNDEFINED);
     }
@@ -2081,7 +2224,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_live_out_var(const Nodecl::List& new_assert_live_out_vars)
-            {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_live_out_vars.begin(), new_assert_live_out_vars.end()), 
                                          _ASSERT_LIVE_OUT);
     }
@@ -2092,7 +2235,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_dead_var(const Nodecl::List& new_assert_dead_vars)
-        {
+    {
         add_vars_to_container<NodeclSet>(NodeclSet(new_assert_dead_vars.begin(), new_assert_dead_vars.end()), 
                                          _ASSERT_DEAD);
     }    
@@ -2105,7 +2248,7 @@ namespace Analysis {
     void Node::add_assert_reaching_definitions_in(const Nodecl::List& new_assert_reach_defs_in)
     {   
         NodeclMap assert_reach_defs_in = get_assert_reaching_definitions_in();
-        for(Nodecl::List::const_iterator it = new_assert_reach_defs_in.begin(); 
+        for (Nodecl::List::const_iterator it = new_assert_reach_defs_in.begin(); 
              it != new_assert_reach_defs_in.end(); ++it)
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>();
@@ -2124,7 +2267,7 @@ namespace Analysis {
     void Node::add_assert_reaching_definitions_out(const Nodecl::List& new_assert_reach_defs_out)
     {   
         NodeclMap assert_reach_defs_out = get_assert_reaching_definitions_out();
-        for(Nodecl::List::const_iterator it = new_assert_reach_defs_out.begin(); 
+        for (Nodecl::List::const_iterator it = new_assert_reach_defs_out.begin(); 
              it != new_assert_reach_defs_out.end(); ++it)
         {
             Nodecl::Analysis::ReachDefExpr rd = it->as<Nodecl::Analysis::ReachDefExpr>();
@@ -2143,7 +2286,7 @@ namespace Analysis {
     void Node::add_assert_induction_variables(const Nodecl::List& new_assert_induction_vars)
     {
         Utils::InductionVarList assert_induction_vars = get_assert_induction_vars();
-        for(Nodecl::List::const_iterator it = new_assert_induction_vars.begin(); 
+        for (Nodecl::List::const_iterator it = new_assert_induction_vars.begin(); 
             it != new_assert_induction_vars.end(); ++it)
         {
             Nodecl::Analysis::InductionVarExpr iv = it->as<Nodecl::Analysis::InductionVarExpr>();
@@ -2173,7 +2316,7 @@ namespace Analysis {
     }
     
     void Node::add_assert_auto_sc_private_var(const Nodecl::List& new_assert_auto_sc_p)
-            {
+    {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_p.begin(), new_assert_auto_sc_p.end()), 
                               _ASSERT_AUTOSC_PRIVATE);
     }
@@ -2184,9 +2327,99 @@ namespace Analysis {
     }
     
     void Node::add_assert_auto_sc_shared_var(const Nodecl::List& new_assert_auto_sc_s)
-        {
+    {
         add_vars_to_container(NodeclSet(new_assert_auto_sc_s.begin(), new_assert_auto_sc_s.end()), 
                               _ASSERT_AUTOSC_SHARED);
+    }
+
+    Nodecl::List Node::get_assert_correctness_auto_storage_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    void Node::add_assert_correctness_auto_storage_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_AUTO_STORAGE_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_dead_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    void Node::add_assert_correctness_dead_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_DEAD_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_fp_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_fp_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_FP_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_in_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_in_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_in_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    void Node::add_assert_correctness_incoherent_in_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_IN_POINTED_VARS);
+    }
+
+    Nodecl::List Node::get_assert_correctness_incoherent_out_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_out_pointed_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_out_pointed_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_OUT_POINTED_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_incoherent_p_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    void Node::add_assert_correctness_incoherent_p_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_INCOHERENT_P_VARS);
+    }
+    
+    Nodecl::List Node::get_assert_correctness_race_vars()
+    {
+        return get_vars<Nodecl::List>(_ASSERT_CORRECTNESS_RACE_VARS);
+    }
+    
+    void Node::add_assert_correctness_race_var(const Nodecl::List& vars)
+    {
+        add_vars_to_list(vars, _ASSERT_CORRECTNESS_RACE_VARS);
     }
     
     // **************** END getters and setters for analysis checking *************** //
@@ -2200,16 +2433,16 @@ namespace Analysis {
     static std::string print_set(NodeclSet es_set)
     {
         std::string result;
-        for(NodeclSet::iterator it = es_set.begin(); it != es_set.end(); ++it)
+        for (NodeclSet::iterator it = es_set.begin(); it != es_set.end(); ++it)
             result += it->prettyprint() + ", ";
-        if(!es_set.empty())
+        if (!es_set.empty())
         result.erase(result.end() - 2, result.end());
         return result;
     }
 
     void Node::print_use_def_chains()
     {
-        if(VERBOSE)
+        if (VERBOSE)
         {
             NodeclSet ue_vars = get_data<NodeclSet>(_UPPER_EXPOSED);
             std::cerr << " - Upper Exposed: " << print_set(ue_vars) << std::endl;
@@ -2224,7 +2457,7 @@ namespace Analysis {
 
     void Node::print_liveness()
     {
-        if(VERBOSE)
+        if (VERBOSE)
         {
             NodeclSet live_in_vars = get_data<NodeclSet>(_LIVE_IN);
             std::cerr << " - Live in: " << print_set(live_in_vars) << std::endl;
@@ -2236,7 +2469,7 @@ namespace Analysis {
 
     void Node::print_auto_scoping()
     {
-        if(VERBOSE)
+        if (VERBOSE)
         {
             NodeclSet private_vars = get_sc_private_vars();
             NodeclSet firstprivate_vars = get_sc_firstprivate_vars();
@@ -2244,26 +2477,26 @@ namespace Analysis {
             NodeclSet shared_vars = get_sc_shared_vars();
             NodeclSet undef_vars = get_sc_undef_vars();
 
-            if(!private_vars.empty())
+            if (!private_vars.empty())
                 std::cerr << "   Variables autoscoped as private: "             << print_set(private_vars)      << std::endl;
 
-            if(!firstprivate_vars.empty())
+            if (!firstprivate_vars.empty())
                 std::cerr << "   Variables autoscoped as firstprivate: "        << print_set(firstprivate_vars) << std::endl;
 
-            if(!race_vars.empty())
+            if (!race_vars.empty())
                 std::cerr << "   Variables autoscoped as race: "                << print_set(race_vars)         << std::endl;
 
-            if(!shared_vars.empty())
+            if (!shared_vars.empty())
                 std::cerr << "   Variables autoscoped as shared: "              << print_set(shared_vars)            << std::endl;
 
-            if(!undef_vars.empty())
+            if (!undef_vars.empty())
                 std::cerr << " Variables that cannot be automatically scoped: " << print_set(undef_vars)        << std::endl;
         }
     }
 
     void Node::print_task_dependencies()
     {
-        if(VERBOSE)
+        if (VERBOSE)
         {
             std::string private_s      = " - Private: "      + print_set(get_deps_private_vars())      + "\n";
             std::string firstprivate_s = " - Firstprivate: " + print_set(get_deps_firstprivate_vars()) + "\n";

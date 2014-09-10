@@ -47,7 +47,7 @@ namespace Analysis {
         gather_reaching_definitions_initial_information(graph);
         ExtensibleGraph::clear_visits(graph);
 
-        // Common Liveness analysis
+        // Common Reaching Definitions analysis
         solve_reaching_definition_equations(graph);
         ExtensibleGraph::clear_visits(graph);
     }
@@ -68,61 +68,6 @@ namespace Analysis {
                     std::pair<NBase, NodeclPair>(
                             s, NodeclPair(Nodecl::Unknown::make(), Nodecl::Unknown::make())));
         }
-        
-        // Take care of the global variables
-        /*
-        const std::set<Symbol> global_vars = _graph->get_global_variables();
-        for(std::set<Symbol>::const_iterator it = global_vars.begin(); it != global_vars.end(); ++it)
-        {
-            // Compute the reaching definition: the initialization value if the symbol is constant or unknown otherwise
-            Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
-            if(it->get_type().is_const())
-            {
-                Nodecl::NodeclBase sym_val = it->get_value();
-                if(!sym_val.is_null())
-                    reach_def = sym_val; //.shallow_copy();
-            }
-            // Build the nodecl symbol
-            Nodecl::Symbol s = Nodecl::Symbol::make(*it);
-            s.set_type(it->get_type());
-            Utils::ExtendedSymbol es(s);
-            _unknown_reach_defs.insert(
-                    std::pair<Utils::ExtendedSymbol, NodeclPair>(
-                            es, NodeclPair(reach_def, Nodecl::NodeclBase::null())));
-        }
-        */
-        
-        // Initialize as unknown all variables
-        /*
-        ObjectList<Nodecl::NodeclBase> nodecls;
-        Node* pcfg = _graph->get_graph();
-        if(pcfg->is_graph_node())
-        {
-            nodecls.append(pcfg->get_graph_related_ast());
-        }
-        else if(pcfg->has_statements())
-        {
-            ObjectList<Nodecl::NodeclBase> stmts = pcfg->get_statements();
-            for(ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin(); it != stmts.end(); ++it)
-                nodecls.append(*it);
-        }
-        
-        for(ObjectList<Nodecl::NodeclBase>::iterator it = nodecls.begin(); it != nodecls.end(); ++it)
-        {
-            ObjectList<Nodecl::Symbol> all_syms = Nodecl::Utils::get_all_symbols_first_occurrence(*it);
-            for(ObjectList<Nodecl::Symbol>:: iterator itt = all_syms.begin(); itt != all_syms.end(); ++itt)
-            {
-                Utils::ExtendedSymbol es(*itt);
-                if(_unknown_reach_defs.find(es) == _unknown_reach_defs.end())
-                {
-                    Nodecl::NodeclBase reach_def = Nodecl::Unknown::make();
-                    _unknown_reach_defs.insert(
-                            std::pair<Utils::ExtendedSymbol, NodeclPair>(
-                                    es, NodeclPair(reach_def, Nodecl::NodeclBase::null())));
-                }
-            }
-        }
-        */
     }
     
     void ReachingDefinitions::gather_reaching_definitions_initial_information(Node* current)
@@ -185,13 +130,13 @@ namespace Analysis {
                 }
                 else if(!current->is_entry_node())
                 {
-                    NodeclMap old_rd_in = current->get_reaching_definitions_in();
-                    NodeclMap old_rd_out = current->get_reaching_definitions_out();
+                    const NodeclMap& old_rd_in = current->get_reaching_definitions_in();
+                    const NodeclMap& old_rd_out = current->get_reaching_definitions_out();
                     NodeclMap rd_out, rd_in, pred_rd_out;
 
                     // Computing Reach Defs In
-                    ObjectList<Node*> parents = current->get_parents();
-                    for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+                    const ObjectList<Node*>& parents = current->get_parents();
+                    for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
                     {
                         bool parent_is_entry = (*it)->is_entry_node();
                         if(parent_is_entry)
@@ -222,8 +167,26 @@ namespace Analysis {
                     }
 
                     // Computing Reach Defs Out
-                    NodeclMap gen = current->get_generated_stmts();
-                    NodeclSet killed = current->get_killed_vars();
+                    const NodeclMap& gen = current->get_generated_stmts();
+                    NodeclSet killed;
+                    if(current->is_omp_task_creation_node())
+                    {   // Variables from non-task children nodes do not count here
+                        Node* created_task = ExtensibleGraph::get_task_from_task_creation(current);
+                        ERROR_CONDITION(created_task==NULL, 
+                                        "Task created by task creation node %d not found.\n", 
+                                        current->get_id());
+                        const NodeclSet& task_killed = created_task->get_killed_vars();
+                        const NodeclSet& shared_vars = created_task->get_all_shared_accesses();
+                        for(NodeclSet::const_iterator it = task_killed.begin(); it != task_killed.end(); ++it)
+                        {
+                            if(shared_vars.find(*it) != shared_vars.end())
+                                killed.insert(*it);
+                        }
+                    }
+                    else
+                    {
+                        killed = current->get_killed_vars();
+                    }
                     NodeclMap diff = Utils::nodecl_map_minus_nodecl_set(rd_in, killed);
 
                     rd_out = Utils::nodecl_map_union(gen, diff);
@@ -250,22 +213,28 @@ namespace Analysis {
     {
         if(current->is_graph_node())
         {
-            // RDI(graph) = U RDO (Y), for all Y predecessors of X
+            // RDI(graph) = U RDI(inner entries)
             NodeclMap graph_rdi;
-            ObjectList<Node*> parents = current->get_parents();
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end();)
+            ObjectList<Node*> entries = current->get_graph_entry_node()->get_children();
+            for(ObjectList<Node*>::iterator it = entries.begin(); it != entries.end(); ++it)
             {
-                Node* c_it = *it;
-                while(c_it->is_entry_node())
+                if(!(*it)->is_labeled_node())
                 {
-                    if(c_it->get_outer_node()->get_id() != 0)
-                        c_it = c_it->get_outer_node()->get_parents()[0];
-                    else
-                        goto iterate;
+                    graph_rdi = Utils::nodecl_map_union(graph_rdi, (*it)->get_reaching_definitions_in());
                 }
-                graph_rdi = Utils::nodecl_map_union(graph_rdi, c_it->get_reaching_definitions_out());
-iterate:        ++it;
+                else
+                {   // Remove those definitions coming from any goto to this labeled node
+                    ObjectList<Node*> parents = (*it)->get_parents();
+                    for(ObjectList<Node*>::iterator itt = entries.begin(); itt != entries.end(); ++itt)
+                    {
+                        if(!(*itt)->is_goto_node())
+                        {
+                            graph_rdi = Utils::nodecl_map_union(graph_rdi, (*it)->get_reaching_definitions_in());
+                        }
+                    }
+                }
             }
+            
             current->set_reaching_definitions_in(graph_rdi);
 
             // RDO(graph) = U RDO(inner exits)

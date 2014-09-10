@@ -55,6 +55,8 @@ namespace Codegen
             Ret visit(const Nodecl::AddAssignment &);
             Ret visit(const Nodecl::Alignof &);
             Ret visit(const Nodecl::Analysis::PlusInfinity &);
+            Ret visit(const Nodecl::Analysis::Maximum &);
+            Ret visit(const Nodecl::Analysis::Minimum &);
             Ret visit(const Nodecl::Analysis::MinusInfinity &);
             Ret visit(const Nodecl::Analysis::EmptyRange& node);
             Ret visit(const Nodecl::Analysis::Phi &);
@@ -193,6 +195,7 @@ namespace Codegen
             Ret visit(const Nodecl::Unknown &);
             Ret visit(const Nodecl::VirtualFunctionCall &);
             Ret visit(const Nodecl::VectorAdd &);
+            Ret visit(const Nodecl::VectorAlignRight &);
             Ret visit(const Nodecl::VectorConversion &);
             Ret visit(const Nodecl::VectorMul &);
             Ret visit(const Nodecl::VectorDiv &);
@@ -218,6 +221,7 @@ namespace Codegen
             Ret visit(const Nodecl::VectorMaskAssignment &);
             Ret visit(const Nodecl::VectorLaneId &);
             Ret visit(const Nodecl::VectorLiteral &);
+            Ret visit(const Nodecl::VectorLoad &);
             Ret visit(const Nodecl::VectorPromotion &);
             Ret visit(const Nodecl::WhileStatement &);
 

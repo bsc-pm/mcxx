@@ -24,9 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_VECTORIZER_CACHE_FWD_HPP
-#define TL_VECTORIZER_CACHE_FWD_HPP
+#ifndef TL_VECTORIZER_OVERLAP_FWD_HPP
+#define TL_VECTORIZER_OVERLAP_FWD_HPP
 
-namespace TL { namespace Vectorization { class VectorizerCache; } }
+namespace TL { namespace Vectorization { class VectorizerOverlap; } }
 
-#endif // TL_VECTORIZER_CACHE_FWD_HPP
+#endif // TL_VECTORIZER_OVERLAP_FWD_HPP

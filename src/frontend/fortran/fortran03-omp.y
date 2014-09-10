@@ -83,6 +83,11 @@ omp_dr_combiner : name '=' expr
 {
     $$ = ASTMake2(AST_ASSIGNMENT, $1, $3, ast_get_locus($1), NULL);
 }
+| function_reference
+{
+    ast_set_text($1, "call");
+    $$ = $1;
+}
 ;
 
 omp_dr_initializer : name '=' expr
@@ -91,6 +96,7 @@ omp_dr_initializer : name '=' expr
 }
 | function_reference
 {
+    ast_set_text($1, "call");
     $$ = $1;
 }
 ;

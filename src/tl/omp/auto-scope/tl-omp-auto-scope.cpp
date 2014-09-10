@@ -114,9 +114,10 @@ namespace OpenMP {
             // Automatically set the scope of the variables involved in the task, if possible
             TL::Analysis::AnalysisSingleton& singleton = TL::Analysis::AnalysisSingleton::get_analysis(IsOmpssEnabled);
             TL::Analysis::PCFGAnalysis_memento memento;
-            TL::ObjectList<TL::Analysis::ExtensibleGraph*> pcfgs = singleton.auto_scoping(memento, ast);
+            singleton.auto_scoping(memento, ast);
             
             // Print the results if any and modify the environment for later lowering
+            TL::ObjectList<TL::Analysis::ExtensibleGraph*> pcfgs = memento.get_pcfgs();
             for(TL::ObjectList<TL::Analysis::ExtensibleGraph*>::iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
             {
                 TL::ObjectList<TL::Analysis::Node*> tasks = (*it)->get_tasks_list();
