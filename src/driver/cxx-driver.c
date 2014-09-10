@@ -1693,7 +1693,7 @@ int parse_arguments(int argc, const char* argv[],
         {
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
         }
-        else
+        else if (num_input_files == 0)
         {
             // Clear linker options as gcc may attempt to link
             CURRENT_CONFIGURATION->linker_options = NULL;
