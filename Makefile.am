@@ -1591,6 +1591,8 @@ src_tl_vectorization_vectorizer_libtlvectorizer_la_SOURCES = \
                            src/tl/vectorization/vectorizer/tl-vectorizer-environment.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer.cpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.hpp \
+                           src/tl/vectorization/vectorizer/tl-vectorizer-report.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.hpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-preprocessor.cpp \
                            src/tl/vectorization/vectorizer/tl-vectorizer-visitor-postprocessor.hpp \

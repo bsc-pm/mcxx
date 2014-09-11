@@ -41,6 +41,8 @@
 #include "tl-vectorizer-visitor-function.hpp"
 #include "tl-vectorizer-vector-reduction.hpp"
 
+#include "tl-vectorizer-report.hpp"
+
 namespace TL
 {
 namespace Vectorization
@@ -123,6 +125,9 @@ namespace Vectorization
 
             VectorizerVisitorLoop visitor_for(environment);
             visitor_for.walk(loop_statement.as<Nodecl::ForStatement>());
+
+            VectorizerReport report;
+            report.print_report(loop_statement);
         }
         else if (loop_statement.is<Nodecl::WhileStatement>())
         {
