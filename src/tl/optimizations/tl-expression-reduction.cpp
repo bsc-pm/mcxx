@@ -52,9 +52,13 @@ namespace Optimizations {
                     else
                     {
                         // R6i
-                        //Nodecl::NodeclBase tmp = lhs_lhs.shallow_copy();
-                        //lhs_lhs.replace(rhs.shallow_copy());
-                        //rhs.replace(tmp);
+                        // Diego: I commented this rule some time ago.
+                        //        This rule is needed but it will probably
+                        //        make something fail or maybe it was commented
+                        //        for debugging. Let's keep this comment for a while
+                        Nodecl::NodeclBase tmp = lhs_lhs.shallow_copy();
+                        lhs_lhs.replace(rhs.shallow_copy());
+                        rhs.replace(tmp);
                     }
                 }
                 else if(lhs.is<Nodecl::Minus>())
