@@ -307,7 +307,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_IMAG_PART([rhs]expression) type const-value-opt
                   | NODECL_OFFSETOF([offset_type]type, [designator]cxx-dependent-initializer-seq) type const-value-opt
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type const-value-opt
-                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type const-value-opt
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression) type const-value-opt
                   | NODECL_VECTOR_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type const-value-opt
                   | NODECL_VLA_WILDCARD() type
                   | NODECL_LAMBDA([explicit_captures]explicit-capture-seq-opt) type symbol
@@ -340,13 +340,15 @@ cxx-pack : NODECL_CXX_VALUE_PACK([pack]expression) type
 # will not be able to get rid of them until we instantiate template functions
 cxx-decl : NODECL_CXX_DECL([context] context-opt) symbol
          | NODECL_CXX_DEF([context] context-opt) symbol
-         | NODECL_CXX_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
-         | NODECL_CXX_EXTERN_EXPLICIT_INSTANTIATION([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DEF([declarator_name] cxx-dependent-name-opt, [context] context) symbol
+         | NODECL_CXX_EXPLICIT_INSTANTIATION_DECL([declarator_name] cxx-dependent-name-opt, [context] context) symbol
          | NODECL_CXX_USING_NAMESPACE([context] context) symbol
          | NODECL_CXX_USING_DECL([context] context) symbol
          # Used only in weird cases where parsing must be delayed in the frontend itself
          # not to be used after the FE
          | NODECL_CXX_PARSE_LATER()
+# experimental
+         | NODECL_CXX_IMPLICIT_INSTANTIATION() symbol
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq) symbol-opt type-opt

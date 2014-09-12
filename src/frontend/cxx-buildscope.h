@@ -167,6 +167,9 @@ LIBMCXX_EXTERN nodecl_t instantiate_statement(nodecl_t orig_tree,
         decl_context_t new_decl_context,
         instantiation_symbol_map_t* instantiation_symbol_map);
 
+LIBMCXX_EXTERN nodecl_t flush_instantiated_entities(void);
+LIBMCXX_EXTERN void push_instantiated_entity(scope_entry_t* entry);
+
 // Only to be called from cxx-instantiation.c
 nodecl_t instantiate_function_code(nodecl_t orig_tree,
         decl_context_t orig_decl_context,

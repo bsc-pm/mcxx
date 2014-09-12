@@ -568,20 +568,32 @@ char check_expression_non_executable(AST a, decl_context_t decl_context, nodecl_
 }
 
 void ensure_function_is_emitted(scope_entry_t* entry,
+        decl_context_t decl_context,
         const locus_t* locus)
 {
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
-        DEBUG_CODE()
+        if (decl_context.current_scope->kind == NAMESPACE_SCOPE
+                || (decl_context.current_scope->kind == CLASS_SCOPE
+                    && !is_dependent_type(decl_context.current_scope->related_entry->type_information))
+                || (decl_context.current_scope->kind == BLOCK_SCOPE
+                    /* && decl_context->current_scope->related_entry != NULL */
+                    && (!is_dependent_type(decl_context.current_scope->related_entry->type_information)
+                        && (!decl_context.current_scope->related_entry->entity_specs.is_member
+                            || !is_dependent_type(decl_context.current_scope->related_entry->entity_specs.class_type)))))
         {
-            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n",
-                    get_qualified_symbol_name(entry, entry->decl_context));
-        }
-
-        if (function_may_be_instantiated(entry))
-        {
-            instantiation_add_symbol_to_instantiate(entry, locus);
+            if (function_may_be_instantiated(entry))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: %s: Ensuring function '%s' will be emitted\n",
+                            locus_to_str(locus),
+                            get_qualified_symbol_name(entry, entry->decl_context));
+                }
+                instantiation_add_symbol_to_instantiate(entry, locus);
+                push_instantiated_entity(entry);
+            }
         }
     }
 }
@@ -11405,6 +11417,20 @@ static void check_nodecl_function_call_cxx(
 {
     const locus_t* locus = nodecl_get_locus(nodecl_called);
 
+    if (nodecl_get_kind(nodecl_called) == NODECL_PSEUDO_DESTRUCTOR_NAME)
+    {
+        nodecl_t called_entity = nodecl_get_child(nodecl_called, 0);
+
+        if (!is_class_type(no_ref(nodecl_get_type(called_entity))))
+        {
+            *nodecl_output = nodecl_make_cast(called_entity,
+                    get_void_type(),
+                    /* cast_kind */ "C",
+                    nodecl_get_locus(called_entity));
+            return;
+        }
+    }
+
     // Let's build the function form
     nodecl_t function_form = nodecl_null();
     {
@@ -13222,12 +13248,6 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
     // both can be typedefs and such, but they must mean the same. type-name2 is looked
     // up in the context of type-name1, lest type-name1 was a qualified name
 
-    if (nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED
-            && nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_NAME_NESTED)
-    {
-        return 0;
-    }
-
     nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_member);
     if (nodecl_get_kind(nodecl_last_part) != NODECL_CXX_DEP_NAME_SIMPLE)
     {
@@ -13243,120 +13263,108 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
     last_name = uniquestr(last_name + 1);
 
     // Now build ::[opt] nested-name-specifier-seq[opt] type-name1
+    scope_entry_t* first_entry = NULL;
     nodecl_t new_list = nodecl_null();
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_member, 0), &num_items);
-    if (num_items < 2)
+    if (num_items >= 2)
     {
-        xfree(list);
-        return 0;
-    }
-
-    // Build the same list without the last name
-    nodecl_t nodecl_new_nested_name = nodecl_null();
-    if ((num_items - 1) > 1)
-    {
-        int i;
-        for (i = 0; i < num_items - 1; i++)
+        // Build the same list without the last name
+        nodecl_t nodecl_new_nested_name = nodecl_null();
+        if ((num_items - 1) > 1)
         {
-            new_list = nodecl_append_to_list(new_list, nodecl_shallow_copy(list[i]));
-        }
+            int i;
+            for (i = 0; i < num_items - 1; i++)
+            {
+                new_list = nodecl_append_to_list(new_list, nodecl_shallow_copy(list[i]));
+            }
 
-        if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
-        {
-            nodecl_new_nested_name = nodecl_make_cxx_dep_global_name_nested(new_list, 
-                    nodecl_get_locus(nodecl_member));
+            if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+            {
+                nodecl_new_nested_name = nodecl_make_cxx_dep_global_name_nested(new_list, 
+                        nodecl_get_locus(nodecl_member));
+            }
+            else
+            {
+                nodecl_new_nested_name = nodecl_make_cxx_dep_name_nested(new_list, 
+                        nodecl_get_locus(nodecl_member));
+            }
         }
         else
         {
-            nodecl_new_nested_name = nodecl_make_cxx_dep_name_nested(new_list, 
-                    nodecl_get_locus(nodecl_member));
+            // For the case T::~T, we cannot build a nested name with a single
+            // element, so use the element itself
+            nodecl_new_nested_name = nodecl_shallow_copy(list[0]);
         }
-    }
-    else
-    {
-        // For the case T::~T, we cannot build a nested name with a single
-        // element, so use the element itself
-        nodecl_new_nested_name = nodecl_shallow_copy(list[0]);
-    }
 
-    scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, 
-            nodecl_new_nested_name, NULL, DF_DEPENDENT_TYPENAME);
+        scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, 
+                nodecl_new_nested_name, NULL, DF_DEPENDENT_TYPENAME);
 
-    if (entry_list == NULL)
-    {
-        return 0;
-    }
-
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
-
-        if (entry->kind == SK_TYPEDEF)
-        {
-            // Advance if typedef to the ultimate type
-            if (is_named_class_type(advance_over_typedefs(entry->type_information)))
-            {
-                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
-            }
-        }
-        // Note that dependent stuff is ignored here as we want a generic node
-        // for member access not a special one for pseudo destructors
-        if (entry->kind != SK_ENUM 
-                && entry->kind != SK_TYPEDEF)
-        {
-            entry_list_free(entry_list);
+        if (entry_list == NULL)
             return 0;
+
+        scope_entry_t* entry = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        // FIXME - This is very infortunate and should be solved in a different way
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            entry = lookup_of_template_parameter(
+                    decl_context,
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
         }
-    }
 
-    scope_entry_t* entry = entry_list_head(entry_list);
-    entry_list_free(entry_list);
+        if (entry->kind != SK_TYPEDEF
+                && entry->kind != SK_CLASS
+                && entry->kind != SK_ENUM)
+            return 0;
 
-    if (!is_scalar_type(entry->type_information))
-    {
-        return 0;
+        first_entry = entry;
     }
 
     // Now check that type-name2 names the same type we have found so far
-
-    entry_list = query_name_str(entry->decl_context, last_name, NULL);
+    scope_entry_list_t* entry_list = NULL;
+    if (first_entry != NULL)
+    {
+        entry_list = query_name_str(first_entry->decl_context, last_name, NULL);
+    }
+    else
+    {
+        entry_list = query_name_str(decl_context, last_name, NULL);
+    }
 
     if (entry_list == NULL)
-    {
         return 0;
-    }
-
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_entry = entry_advance_aliases(entry_list_iterator_current(it));
-        // Note that dependent stuff is ignored here as we want a generic node
-        // for member access not a special one for pseudo destructors
-        if (current_entry->kind != SK_ENUM 
-                && current_entry->kind != SK_TYPEDEF)
-        {
-            entry_list_free(entry_list);
-            return 0;
-        }
-    }
 
     scope_entry_t* second_entry = entry_list_head(entry_list);
     entry_list_free(entry_list);
 
-    if (!equivalent_types(
-                get_unqualified_type(no_ref(entry->type_information)),
-                get_unqualified_type(no_ref(second_entry->type_information))))
+    // FIXME - This is very infortunate and should be solved in a different way
+    if (second_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+    {
+        second_entry = lookup_of_template_parameter(
+                decl_context,
+                second_entry->entity_specs.template_parameter_nesting,
+                second_entry->entity_specs.template_parameter_position);
+    }
+
+    if (second_entry->kind != SK_TYPEDEF
+            && second_entry->kind != SK_CLASS
+            && second_entry->kind != SK_ENUM)
+        return 0;
+
+    if (first_entry != NULL
+            && !equivalent_types(
+                get_user_defined_type(first_entry),
+                get_user_defined_type(second_entry)))
     {
         return 0;
     }
 
-    if (!equivalent_types(get_unqualified_type(no_ref(entry->type_information)),
-                get_unqualified_type(accessed_type)))
+    if (!equivalent_types(
+                get_user_defined_type(second_entry),
+                get_unqualified_type(no_ref(accessed_type))))
     {
         return 0;
     }
@@ -13748,11 +13756,11 @@ static void check_nodecl_member_access(
     }
 
     if (IS_CXX_LANGUAGE
-            && is_scalar_type(no_ref(accessed_type))
+            && (is_scalar_type(no_ref(accessed_type)) || is_class_type(no_ref(accessed_type)))
             && is_pseudo_destructor_id(decl_context, no_ref(accessed_type), nodecl_member))
     {
-        *nodecl_output = nodecl_make_pseudo_destructor_name(nodecl_accessed_out, 
-                nodecl_member,
+        *nodecl_output = nodecl_make_pseudo_destructor_name(
+                nodecl_accessed_out,
                 get_pseudo_destructor_call_type(),
                 locus);
         return;
@@ -19998,7 +20006,6 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 
     if (is_class_type_or_array_thereof(entry->type_information))
     {
-        ensure_function_is_emitted(constructor, locus);
         entry->value = nodecl_make_value_initialization(constructor, locus);
 
         type_t* class_type = entry->type_information;
@@ -20008,7 +20015,8 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
         scope_entry_t* destructor = class_type_get_destructor(class_type);
         ERROR_CONDITION(destructor == NULL, "Invalid destructor", 0);
 
-        ensure_function_is_emitted(destructor, locus);
+        ensure_function_is_emitted(constructor, decl_context, locus);
+        ensure_function_is_emitted(destructor, decl_context, locus);
     }
 
     return 1;
@@ -20875,6 +20883,7 @@ static void define_inherited_constructor(
         num_parameters--;
 
     decl_context_t block_context = new_block_context(new_inherited_constructor->decl_context);
+    block_context.current_scope->related_entry = new_inherited_constructor;
 
     nodecl_t nodecl_arg_list = nodecl_null();
 
@@ -21250,7 +21259,7 @@ nodecl_t cxx_nodecl_make_function_call(
 
         if (called_symbol->kind == SK_FUNCTION)
         {
-            ensure_function_is_emitted(called_symbol, nodecl_get_locus(called));
+            ensure_function_is_emitted(called_symbol, decl_context, nodecl_get_locus(called));
 
             CXX_LANGUAGE()
             {

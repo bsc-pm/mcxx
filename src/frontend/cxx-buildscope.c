@@ -383,6 +383,7 @@ typedef struct linkage_stack_tag { const char* name; char is_braced; } linkage_s
 static linkage_stack_t _linkage_stack[MCXX_MAX_LINKAGE_NESTING] = { { NULL, 1 } };
 static int _top_linkage_stack = 0;
 
+// Extra declarations (VLA saved expressions mainly)
 static scope_entry_t* _extra_declaration[MCXX_MAX_EXTRA_DECLARATIONS] = { };
 static int _extra_declaration_idx = 0;
 
@@ -403,6 +404,53 @@ scope_entry_t* pop_extra_declaration_symbol(void)
     }
     return NULL;
 }
+// --
+static scope_entry_list_t* _instantiated_entries = NULL;
+
+void push_instantiated_entity(scope_entry_t* entry)
+{
+    // if (!CURRENT_CONFIGURATION->explicit_instantiation)
+    //     return;
+
+    ERROR_CONDITION(entry->kind != SK_CLASS
+            && entry->kind != SK_FUNCTION,
+            "Invalid symbol", 0);
+
+    _instantiated_entries = entry_list_add_once(
+            _instantiated_entries,
+            entry);
+}
+
+nodecl_t flush_instantiated_entities(void)
+{
+    // if (!CURRENT_CONFIGURATION->explicit_instantiation)
+    //     return nodecl_null();
+
+    nodecl_t nodecl_result = nodecl_null();
+
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(_instantiated_entries);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        nodecl_t nodecl_instantiated = nodecl_make_cxx_implicit_instantiation(
+                entry,
+                // FIXME - Locus
+                make_locus("", 0, 0));
+
+        nodecl_result = nodecl_append_to_list(
+                nodecl_result,
+                nodecl_instantiated);
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(_instantiated_entries);
+    _instantiated_entries = NULL;
+
+    return nodecl_result;
+}
+
 
 static const char* linkage_current_get_name(void)
 {
@@ -782,6 +830,9 @@ void build_scope_declaration_sequence(AST list,
         nodecl_t current_nodecl_output_list = nodecl_null();
         build_scope_declaration(ASTSon1(iter), decl_context, &current_nodecl_output_list, 
                 /* declared_symbols */ NULL, /* gather_decl_spec_list_t */ NULL);
+
+        current_nodecl_output_list = nodecl_concat_lists(flush_instantiated_entities(),
+                current_nodecl_output_list);
 
         *nodecl_output_list = nodecl_concat_lists(*nodecl_output_list, current_nodecl_output_list);
     }
@@ -1184,7 +1235,6 @@ static void build_scope_explicit_instantiation(AST a,
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, &gather_info, simple_type_info,
             &declarator_type, current_decl_context, nodecl_output);
-    // FIXME - We should instantiate here if no 'extern' is given
 
     nodecl_t declarator_name_opt = nodecl_null();
     scope_entry_t* entry = NULL;
@@ -1209,6 +1259,13 @@ static void build_scope_explicit_instantiation(AST a,
             error_printf("%s: invalid explicit instantiation of '%s %s'\n", ast_location(a),
                     prettyprint_in_buffer(decl_specifier_seq),
                     prettyprint_in_buffer(declarator));
+            return;
+        }
+
+        if (entry->kind == SK_FUNCTION
+                && CURRENT_CONFIGURATION->explicit_instantiation)
+        {
+            entry->entity_specs.is_instantiated = 1;
         }
     }
     else
@@ -1217,53 +1274,79 @@ static void build_scope_explicit_instantiation(AST a,
                 && named_type_get_symbol(declarator_type)->kind == SK_CLASS)
         {
             entry = named_type_get_symbol(declarator_type);
+
+            if (CURRENT_CONFIGURATION->explicit_instantiation)
+            {
+                instantiate_template_class_if_needed(entry, decl_context, ast_get_locus(a));
+                scope_entry_list_t* members = class_type_get_members(entry->type_information);
+
+                if (is_expl_inst_decl)
+                {
+                    scope_entry_list_iterator_t* it;
+                    for (it = entry_list_iterator_begin(members);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
+                    {
+                        scope_entry_t* current_member = entry_list_iterator_current(it);
+
+                        if (current_member->kind == SK_FUNCTION)
+                        {
+                            current_member->entity_specs.is_instantiable = 0;
+                        }
+                    }
+                }
+            }
         }
         else
         {
             error_printf("%s: error: declaration should declare a class\n", ast_location(a));
+            return;
         }
     }
 
-    if (entry != NULL)
+    if (CURRENT_CONFIGURATION->explicit_instantiation)
     {
-        // GCC crashes when the declarator is qualified and it's declared inside
-        // of this qualified context
-        // Example:
-        //
-        // namespace A
-        // {
-        //      template < typename T >
-        //      void f(T)
-        //      {
-        //      }
-        //
-        //      template void A::f<int>(int); // GCC crashes
-        //      template void ::A::f<int>(int); // GCC Crashes
-        //
-        // }
-        // template void ::A::f<int>(int); // GCC ok
-        //
-        // For this reason, we need the original context and declarator
-
-        nodecl_t nodecl_context =
-            nodecl_make_context(/* optional statement sequence */ nodecl_null(),
-                    decl_context, ast_get_locus(a));
-
-        *nodecl_output = (is_expl_inst_decl) ?
-            nodecl_make_list_1(
-                    nodecl_make_cxx_extern_explicit_instantiation(
-                        declarator_name_opt,
-                        nodecl_context,
-                        entry,
-                        ast_get_locus(a)))
-            :
-            nodecl_make_list_1(
-                    nodecl_make_cxx_explicit_instantiation(
-                        declarator_name_opt,
-                        nodecl_context,
-                        entry,
-                        ast_get_locus(a)));
+        nodecl_t nodecl_list_of_instantiated = flush_instantiated_entities();
+        nodecl_free(nodecl_list_of_instantiated);
     }
+
+    // GCC crashes when the declarator is qualified and it's declared inside
+    // of this qualified context
+    // Example:
+    //
+    // namespace A
+    // {
+    //      template < typename T >
+    //      void f(T)
+    //      {
+    //      }
+    //
+    //      template void A::f<int>(int); // GCC crashes
+    //      template void ::A::f<int>(int); // GCC Crashes
+    //
+    // }
+    // template void ::A::f<int>(int); // GCC ok
+    //
+    // For this reason, we need the original context and declarator
+
+    nodecl_t nodecl_context =
+        nodecl_make_context(/* optional statement sequence */ nodecl_null(),
+                decl_context, ast_get_locus(a));
+
+    *nodecl_output = (is_expl_inst_decl) ?
+        nodecl_make_list_1(
+                nodecl_make_cxx_explicit_instantiation_decl(
+                    declarator_name_opt,
+                    nodecl_context,
+                    entry,
+                    ast_get_locus(a)))
+        :
+        nodecl_make_list_1(
+                nodecl_make_cxx_explicit_instantiation_def(
+                    declarator_name_opt,
+                    nodecl_context,
+                    entry,
+                    ast_get_locus(a)));
 }
 
 static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -17762,14 +17845,14 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
         nodecl_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), make_locus("", 0, 0)),
+                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), destructor_data->locus),
                         /* called name */ nodecl_null(),
                         nodecl_make_list_1(sym_ref),
                         /* function_form */ nodecl_null(),
                         get_void_type(),
                         destructor_data->decl_context,
-                        make_locus("", 0, 0)),
-                    make_locus("", 0, 0));
+                        destructor_data->locus),
+                    destructor_data->locus);
 
         *(destructor_data->nodecl_output) = nodecl_append_to_list(
                 *(destructor_data->nodecl_output), 
@@ -20520,6 +20603,8 @@ static void instantiate_template_function_code(
     // Register every parameter in this context
     int num_new_parameter = 0;
     int num_parameter;
+ 
+    // Register function parameters
     for (num_parameter = 0; num_parameter < v->orig_function_instantiated->entity_specs.num_related_symbols; num_parameter++)
     {
         scope_entry_t* orig_parameter =
@@ -21339,8 +21424,8 @@ static void instantiate_stmt_init_visitor(nodecl_instantiate_stmt_visitor_t* v,
 
     NODECL_VISITOR(v)->visit_cxx_def = instantiate_stmt_visitor_fun(instantiate_cxx_def); // --
     NODECL_VISITOR(v)->visit_cxx_decl = instantiate_stmt_visitor_fun(instantiate_cxx_decl); // --
-    NODECL_VISITOR(v)->visit_cxx_explicit_instantiation = NULL;
-    NODECL_VISITOR(v)->visit_cxx_extern_explicit_instantiation = NULL;
+    NODECL_VISITOR(v)->visit_cxx_explicit_instantiation_def = NULL;
+    NODECL_VISITOR(v)->visit_cxx_explicit_instantiation_decl = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_namespace = NULL;
     NODECL_VISITOR(v)->visit_cxx_using_decl = NULL;
 

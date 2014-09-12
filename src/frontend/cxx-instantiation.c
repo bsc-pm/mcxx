@@ -1544,6 +1544,8 @@ static void instantiate_class_common(
                 print_declarator(being_instantiated));
     }
 
+    push_instantiated_entity(being_instantiated_sym);
+
     // if (being_instantiated_sym->entity_specs.is_member)
     // {
     //     scope_entry_t* enclosing_class = named_type_get_symbol(being_instantiated_sym->entity_specs.class_type);
@@ -2047,8 +2049,43 @@ void instantiation_init(void)
 static void instantiate_every_symbol(scope_entry_t* entry,
         const locus_t* locus);
 
+#if 0
 static char add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
         scope_entry_t* entry);
+#endif
+
+static void mark_class_and_bases_as_user_declared(scope_entry_t* sym)
+{
+    ERROR_CONDITION(sym->kind != SK_CLASS, "Invalid symbol %s", symbol_kind_name(sym));
+
+    if (sym->entity_specs.is_user_declared)
+        return;
+
+    sym->entity_specs.is_user_declared = 1;
+    if (sym->entity_specs.is_member)
+    {
+        mark_class_and_bases_as_user_declared(named_type_get_symbol(sym->entity_specs.class_type));
+    }
+
+    int num_bases = class_type_get_num_bases(sym->type_information);
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        char is_expansion = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
+
+        scope_entry_t* base = class_type_get_base_num(
+                sym->type_information, i,
+                &is_virtual,
+                &is_dependent,
+                &is_expansion,
+                &access_specifier);
+
+        mark_class_and_bases_as_user_declared(base);
+    }
+}
 
 void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
 {
@@ -2067,6 +2104,7 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                     tmp_symbols_to_instantiate[i]->symbol,
                     tmp_symbols_to_instantiate[i]->locus);
 
+#if 0
             char added = add_forward_declaration_to_top_level(nodecl_output,
                tmp_symbols_to_instantiate[i]->symbol);
 
@@ -2074,11 +2112,11 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                 added = add_forward_declaration_to_top_level(
                         &nodecl_instantiation_units,
                         tmp_symbols_to_instantiate[i]->symbol);
+#endif
 
             xfree(tmp_symbols_to_instantiate[i]);
         }
         xfree(tmp_symbols_to_instantiate);
-
     }
 
     if (!nodecl_is_null(nodecl_instantiation_units))
@@ -2089,8 +2127,185 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
         *nodecl_output = nodecl_concat_lists(*nodecl_output,
                 nodecl_instantiation_units);
     }
+
+    int N = 0;
+    nodecl_t* list = nodecl_unpack_list(*nodecl_output, &N);
+    dhash_ptr_t* sym_hash = dhash_ptr_new(5);
+
+    // First declare template functions
+    int i;
+    for (i = 0; i < N; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_CXX_EXPLICIT_INSTANTIATION_DECL)
+        {
+            scope_entry_t* sym = nodecl_get_symbol(list[i]);
+            if (dhash_ptr_query(sym_hash, (const char*)sym) != NULL)
+                continue;
+
+            fprintf(stderr, "Explicit instantiation declaration -> %s\n",
+                    get_qualified_symbol_name(sym, sym->decl_context));
+
+            if  (sym->kind == SK_FUNCTION)
+            {
+                dhash_ptr_insert(sym_hash, (const char*)sym, sym);
+            }
+            else if (sym->kind == SK_CLASS)
+            {
+                dhash_ptr_insert(sym_hash, (const char*)sym, sym);
+
+                scope_entry_list_t* members = class_type_get_members(sym->type_information);
+
+                scope_entry_list_iterator_t* it;
+                for (it = entry_list_iterator_begin(members);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
+                {
+                    scope_entry_t* current_member = entry_list_iterator_current(it);
+                    dhash_ptr_insert(sym_hash, (const char*)current_member, current_member);
+
+                    if (is_template_specialized_type(current_member->type_information))
+                    {
+                        type_t* template_type =
+                            template_specialized_type_get_related_template_type(current_member->type_information);
+                        int j;
+                        for (j = 0; j < template_type_get_num_specializations(template_type); j++)
+                        {
+                            scope_entry_t* specialization =
+                                named_type_get_symbol(
+                                        template_type_get_specialization_num(template_type, j));
+
+                            if (specialization->kind == SK_FUNCTION)
+                            {
+                                fprintf(stderr, "   sf-> %s\n",
+                                        print_decl_type_str(
+                                            specialization->type_information,
+                                            specialization->decl_context,
+                                            get_qualified_symbol_name(specialization,
+                                                specialization->decl_context)));
+                            }
+                            else
+                            {
+                                fprintf(stderr, "   sc-> %s\n",
+                                        get_qualified_symbol_name(specialization,
+                                            specialization->decl_context));
+                            }
+                            dhash_ptr_insert(sym_hash, (const char*)specialization, specialization);
+                        }
+                    }
+                    else if (current_member->kind == SK_FUNCTION)
+                    {
+                        fprintf(stderr, "   mf-> %s\n",
+                                print_decl_type_str(
+                                    current_member->type_information,
+                                    current_member->decl_context,
+                                    get_qualified_symbol_name(current_member,
+                                        current_member->decl_context)));
+                    }
+                    else
+                    {
+                        fprintf(stderr, "    m-> %s\n",
+                                get_qualified_symbol_name(current_member,
+                                    current_member->decl_context));
+                    }
+                }
+
+                entry_list_iterator_free(it);
+                entry_list_free(members);
+            }
+        }
+        else if (nodecl_get_kind(list[i]) == NODECL_CXX_IMPLICIT_INSTANTIATION
+                || nodecl_get_kind(list[i]) == NODECL_CXX_EXPLICIT_INSTANTIATION_DEF)
+        {
+            scope_entry_t* sym = nodecl_get_symbol(list[i]);
+            if (dhash_ptr_query(sym_hash, (const char*)sym) != NULL)
+                continue;
+
+            fprintf(stderr, "Explicit instantiation definition/Implicit definition -> %s\n",
+                    get_qualified_symbol_name(sym, sym->decl_context));
+
+            if  (sym->kind == SK_FUNCTION)
+            {
+                if (is_template_specialized_type(sym->type_information))
+                {
+                    decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
+                    templated_context.template_parameters = sym->decl_context.template_parameters;
+
+                    nodecl_t parent = nodecl_get_parent(list[i]);
+                    nodecl_t new_decl = nodecl_make_cxx_decl(
+                            nodecl_make_context(
+                                nodecl_null(),
+                                templated_context,
+                                sym->locus),
+                            sym,
+                            sym->locus);
+
+                    nodecl_replace(list[i], new_decl);
+
+                    // Reparent node
+                    nodecl_set_parent(list[i], parent);
+                    // Reparent children
+                    int k;
+                    for (k = 0; k < MCXX_MAX_AST_CHILDREN; k++)
+                    {
+                        if (!nodecl_is_null(nodecl_get_child(list[i], k)))
+                            nodecl_set_parent(nodecl_get_child(list[i], k), list[i]);
+                    };
+
+                    dhash_ptr_insert(sym_hash, (const char*)sym, sym);
+                }
+            }
+        }
+    }
+
+    // Now the template classes that must be emitted
+    for (i = 0; i < N; i++)
+    {
+        if (nodecl_get_kind(list[i]) == NODECL_CXX_IMPLICIT_INSTANTIATION
+                || nodecl_get_kind(list[i]) == NODECL_CXX_EXPLICIT_INSTANTIATION_DEF)
+        {
+            scope_entry_t* sym = nodecl_get_symbol(list[i]);
+            if (dhash_ptr_query(sym_hash, (const char*)sym) != NULL)
+                continue;
+
+            if  (sym->kind == SK_CLASS)
+            {
+                mark_class_and_bases_as_user_declared(sym);
+                decl_context_t templated_context = CURRENT_COMPILED_FILE->global_decl_context;
+                templated_context.template_parameters = sym->decl_context.template_parameters;
+
+                nodecl_t parent = nodecl_get_parent(list[i]);
+                nodecl_t new_def = nodecl_make_cxx_def(
+                        nodecl_make_context(
+                            nodecl_null(),
+                            templated_context,
+                            sym->locus),
+                        sym,
+                        sym->locus);
+
+                nodecl_replace(list[i], new_def);
+
+                // Reparent node
+                nodecl_set_parent(list[i], parent);
+                // Reparent children
+                int k;
+                for (k = 0; k < MCXX_MAX_AST_CHILDREN; k++)
+                {
+                    if (!nodecl_is_null(nodecl_get_child(list[i], k)))
+                        nodecl_set_parent(nodecl_get_child(list[i], k), list[i]);
+                };
+
+                dhash_ptr_insert(sym_hash, (const char*)sym, sym);
+            }
+
+        }
+    }
+
+    dhash_ptr_destroy(sym_hash);
+
+    xfree(list);
 }
 
+#if 0
 static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
 {
     if (nodecl_is_null(n))
@@ -2117,7 +2332,9 @@ static char symbol_in_tree(nodecl_t n, scope_entry_t* entry)
 
     return 0;
 }
+#endif
 
+#if 0
 static void prepend_def(AST it, scope_entry_t* entry)
 {
     nodecl_t current_list_item = _nodecl_wrap(it);
@@ -2138,7 +2355,9 @@ static void prepend_def(AST it, scope_entry_t* entry)
     nodecl_set_child(new_list_item, 0, prev_list_item);
     nodecl_set_child(current_list_item, 0, new_list_item);
 }
+#endif
 
+#if 0
 static void prepend_decl(AST it, scope_entry_t* entry)
 {
     {
@@ -2182,7 +2401,9 @@ static void prepend_decl(AST it, scope_entry_t* entry)
         }
     }
 }
+#endif
 
+#if 0
 static char class_contains_specialization(scope_entry_t* class_symbol,
         scope_entry_t* specialization)
 {
@@ -2215,7 +2436,9 @@ static char class_contains_specialization(scope_entry_t* class_symbol,
 
     return 0;
 }
+#endif
 
+#if 0
 static char add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
         scope_entry_t* entry)
 {
@@ -2258,6 +2481,7 @@ static char add_forward_declaration_to_top_level(nodecl_t* nodecl_output,
 
     return 0;
 }
+#endif
 
 static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)
 {
@@ -2378,7 +2602,12 @@ static char instantiate_nontemplate_member_function_of_template_class(scope_entr
 
     // Cannot be instantiated
     if (!emission_template->defined)
+    {
+        fprintf(stderr, "Cannot be instantiated: %s\n",
+                get_qualified_symbol_name(emission_template,
+                    emission_template->decl_context));
         return 0;
+    }
 
     DEBUG_CODE()
     {
@@ -2491,7 +2720,6 @@ static char instantiate_template_function_internal(scope_entry_t* entry, const l
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
-
     header_message_fun_t instantiation_header;
     instantiation_header.message_fun = instantiate_function_header_message_fun;
     {
@@ -2579,9 +2807,15 @@ static void instantiate_template_function_and_add_to_instantiation_units(scope_e
     char was_instantiated = instantiate_template_function_internal(entry, locus);
     if (was_instantiated)
     {
-        nodecl_instantiation_units = nodecl_append_to_list(
-                nodecl_instantiation_units,
+        nodecl_t instantiated_entities = flush_instantiated_entities();
+
+        instantiated_entities = nodecl_append_to_list(
+                instantiated_entities,
                 entry->entity_specs.function_code);
+
+        nodecl_instantiation_units = nodecl_concat_lists(
+                nodecl_instantiation_units,
+                instantiated_entities);
     }
 }
 

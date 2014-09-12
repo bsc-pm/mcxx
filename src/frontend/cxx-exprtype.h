@@ -138,6 +138,7 @@ LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t d
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char**, const locus_t* locus);
 
 LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
+        decl_context_t decl_context,
         const locus_t* locus);
 
 LIBMCXX_EXTERN char check_nontype_template_argument_type(type_t* t);
