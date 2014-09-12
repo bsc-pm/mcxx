@@ -13973,9 +13973,29 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                         &nodecl_expr,
                         /* is_auto_type */ 0);
                 entry->value = nodecl_expr;
+
+                entry->defined = 1;
             }
-            // This is always a definition actually
-            entry->defined = 1;
+            else if (is_explicit_specialization)
+            {
+                diagnostic_context_push_buffered();
+                scope_entry_t* constructor = NULL;
+                char valid = check_default_initialization(entry, entry->decl_context, ast_get_locus(a), &constructor);
+                diagnostic_context_pop_and_discard();
+
+                if (valid)
+                {
+                    if (is_class_type_or_array_thereof(entry->type_information))
+                    {
+                        entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
+                    }
+                    entry->defined = 1;
+                }
+            }
+            else
+            {
+                entry->defined = 1;
+            }
         }
 
         // Mark this as user declared from now
@@ -13983,7 +14003,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             // Only variables are actually defined, everything else is a declaration
-            (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+            (entry->kind == SK_VARIABLE
+             && entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         decl_context.template_parameters = entry->decl_context.template_parameters;
 
