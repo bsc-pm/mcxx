@@ -46,6 +46,9 @@ namespace Vectorization
             int _aligned_vstores;
             int _unaligned_vstores;
 
+            int _vgathers;
+            int _vscatters;
+
             int _vpromotions;
 
         public:
@@ -53,10 +56,15 @@ namespace Vectorization
 
             void reset_report();
             void print_report(const Nodecl::NodeclBase& n);
+            void visit(const Nodecl::ObjectInit& n);
 
             void visit(const Nodecl::VectorLoad& n);
-            void visit(const Nodecl::VectorPromotion& n);
             void visit(const Nodecl::VectorStore& n);
+
+            void visit(const Nodecl::VectorGather& n);
+            void visit(const Nodecl::VectorScatter& n);
+
+            void visit(const Nodecl::VectorPromotion& n);
     };
 }
 }

@@ -47,6 +47,9 @@ void VectorizerReport::reset_report()
     _aligned_vstores = 0;
     _unaligned_vstores = 0;
 
+    _vgathers = 0;
+    _vscatters = 0;
+
     _vpromotions = 0;
 }
 
@@ -61,9 +64,23 @@ void VectorizerReport::print_report(const Nodecl::NodeclBase& n)
     fprintf(stderr, "VREPORT: Total stores: %d\n", _vstores);
     fprintf(stderr, "VREPORT:     - Aligned: %d\n", _aligned_vstores);
     fprintf(stderr, "VREPORT:     - Unaligned: %d\n", _unaligned_vstores);
+    fprintf(stderr, "VREPORT: Gathers: %d\n", _vgathers);
+    fprintf(stderr, "VREPORT: Scatters: %d\n", _vscatters);
     fprintf(stderr, "VREPORT: Vector promotions: %d\n", _vpromotions);
 }
 
+void VectorizerReport::visit(const Nodecl::ObjectInit& n)
+{
+    TL::Symbol sym = n.get_symbol();
+    Nodecl::NodeclBase init = sym.get_value();
+
+    // Vectorizing initialization
+    if(!init.is_null())
+    {
+        walk(init);
+    }
+}
+ 
 void VectorizerReport::visit(const Nodecl::VectorLoad& n)
 {
     _vloads++;
@@ -82,6 +99,7 @@ void VectorizerReport::visit(const Nodecl::VectorLoad& n)
     walk(n.get_mask());
 
 }
+
 void VectorizerReport::visit(const Nodecl::VectorStore& n)
 {
     _vstores++;
@@ -100,6 +118,26 @@ void VectorizerReport::visit(const Nodecl::VectorStore& n)
     walk(n.get_rhs());
     walk(n.get_mask());
 }
+
+void VectorizerReport::visit(const Nodecl::VectorGather& n)
+{
+    _vgathers++;
+
+    walk(n.get_base());
+    walk(n.get_strides());
+    walk(n.get_mask());
+}
+
+void VectorizerReport::visit(const Nodecl::VectorScatter& n)
+{
+    _vscatters++;
+
+    walk(n.get_base());
+    walk(n.get_strides());
+    walk(n.get_source());
+    walk(n.get_mask());
+}
+
 
 void VectorizerReport::visit(const Nodecl::VectorPromotion& n)
 {
