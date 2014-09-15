@@ -17966,10 +17966,7 @@ static void build_scope_normalized_statement(AST a, decl_context_t decl_context,
 
         nodecl_t nodecl_output_list = nodecl_null();
 
-        nodecl_t current_nodecl_output = nodecl_null();
-        build_scope_statement(a, block_context, &current_nodecl_output);
-
-        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
+        build_scope_statement(a, block_context, &nodecl_output_list);
 
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
@@ -19596,6 +19593,21 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
                 build_scope_declaration(declaration, decl_context, nodecl_output,
                         info->declaration_pragma.declared_symbols,
                         info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+        case AST_EXPRESSION_STATEMENT:
+            {
+                // Special case: wrap expressions inside a context when they
+                // are the child of a pragma
+                decl_context_t block_context = new_block_context(decl_context);
+                build_scope_statement(pragma_stmt, block_context, &nodecl_statement);
+
+                nodecl_statement =
+                    nodecl_make_list_1(
+                            nodecl_make_context(
+                                nodecl_statement,
+                                block_context,
+                                nodecl_get_locus(nodecl_statement)));
                 break;
             }
         default:

@@ -987,6 +987,11 @@ namespace TL
             }
             else if (IS_FORTRAN_LANGUAGE)
             {
+                Nodecl::NodeclBase first = l[0];
+                ERROR_CONDITION(!first.is<Nodecl::Context>(), "Invalid node", 0);
+
+                l = first.as<Nodecl::Context>().get_in_context().as<Nodecl::List>();
+                
                 // In fortran we do not allow two consecutive sections
                 if (l.empty())
                 {
@@ -1612,10 +1617,7 @@ namespace TL
                 collapse_check_loop(construct);
             }
 
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
+            Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
 
             _openmp_info->push_current_data_sharing(data_sharing);
             ObjectList<Symbol> extra_symbols;
@@ -1634,10 +1636,7 @@ namespace TL
 
         void Core::parallel_do_handler_pre(TL::PragmaCustomStatement construct)
         {
-            Nodecl::NodeclBase stmt = construct.get_statements();
-
-            ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Invalid tree", 0);
-            stmt = stmt.as<Nodecl::List>().front();
+            Nodecl::NodeclBase stmt = get_statement_from_pragma(construct);
 
             if (_ompss_mode)
             {

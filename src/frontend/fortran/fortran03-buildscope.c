@@ -2741,6 +2741,21 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context, n
     }
 }
 
+static void fortran_build_scope_statement_inside_block_context(
+        AST statement,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    decl_context_t new_context = fortran_new_block_context(decl_context);
+    fortran_build_scope_statement(statement, new_context, nodecl_output);
+    *nodecl_output =
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    *nodecl_output,
+                    new_context,
+                    nodecl_get_locus(*nodecl_output)));
+}
+
 const char* get_name_of_generic_spec(AST generic_spec)
 {
     switch (ASTType(generic_spec))
@@ -4167,7 +4182,7 @@ static void build_scope_block_construct(AST a,
     nodecl_t nodecl_body = nodecl_null();
     fortran_build_scope_statement(block, new_context, &nodecl_body);
 
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_context(
                     nodecl_make_list_1(
@@ -4187,9 +4202,9 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context, nodec
     fortran_check_expression(expr, decl_context, &nodecl_expr);
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(statement, decl_context, &nodecl_statement);
 
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
                 nodecl_make_switch_statement(
                     nodecl_expr,
@@ -4243,7 +4258,7 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
     }
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(statement, decl_context, &nodecl_statement);
 
     if (!nodecl_is_list(nodecl_statement))
     {
@@ -4261,7 +4276,7 @@ static void build_scope_default_statement(AST a, decl_context_t decl_context, no
     AST statement = ASTSon0(a);
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(statement, decl_context, &nodecl_statement);
 
     if (!nodecl_is_list((nodecl_statement)))
     {
@@ -5574,7 +5589,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     }
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(block, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(block, decl_context, &nodecl_statement);
 
     if (error_signaled)
     {
@@ -5917,7 +5932,7 @@ static void build_scope_forall_construct(AST a,
             &nodecl_loop_control_list, &nodecl_mask);
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(forall_body_construct_seq, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(forall_body_construct_seq, decl_context, &nodecl_statement);
 
     *nodecl_output = 
         nodecl_make_list_1(
@@ -5941,7 +5956,7 @@ static void build_scope_forall_stmt(AST a,
             &nodecl_loop_control_list, &nodecl_mask);
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(forall_assignment_stmts, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(forall_assignment_stmts, decl_context, &nodecl_statement);
 
     *nodecl_output = 
         nodecl_make_list_1(
@@ -5993,12 +6008,12 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     fortran_check_expression(logical_expr, decl_context, &nodecl_logical_expr);
 
     nodecl_t nodecl_then = nodecl_null();
-    fortran_build_scope_statement(then_statement, decl_context, &nodecl_then);
+    fortran_build_scope_statement_inside_block_context(then_statement, decl_context, &nodecl_then);
 
     nodecl_t nodecl_else = nodecl_null();
     if (else_statement != NULL)
     {
-        fortran_build_scope_statement(else_statement, decl_context, &nodecl_else);
+        fortran_build_scope_statement_inside_block_context(else_statement, decl_context, &nodecl_else);
     }
 
     if (!nodecl_is_list(nodecl_then))
@@ -8789,7 +8804,7 @@ static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_cont
         AST statement = ASTSon1(it);
 
         nodecl_t nodecl_statement = nodecl_null();
-        fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+        fortran_build_scope_statement_inside_block_context(statement, decl_context, &nodecl_statement);
 
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_statement);
     }
@@ -8946,7 +8961,7 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     }
 
     nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(block, decl_context, &nodecl_statement);
+    fortran_build_scope_statement_inside_block_context(block, decl_context, &nodecl_statement);
 
     // Convert a labeled END DO into a labeled CONTINUE at the end of the block
     if (end_do_statement != NULL
@@ -8999,13 +9014,14 @@ void fortran_build_scope_statement_pragma(AST a,
         nodecl_t* nodecl_output, 
         void* info UNUSED_PARAMETER)
 {
-    fortran_build_scope_statement(a, decl_context, nodecl_output);
+    fortran_build_scope_statement_inside_block_context(a, decl_context, nodecl_output);
 }
 
 static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, fortran_build_scope_statement_pragma, NULL);
+    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line,
+            fortran_build_scope_statement_pragma, NULL);
 
     *nodecl_output = nodecl_make_list_1(*nodecl_output);
 }
@@ -9019,7 +9035,7 @@ static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, no
 
 static void build_scope_unknown_pragma(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    *nodecl_output = 
+    *nodecl_output =
         nodecl_make_list_1(
         nodecl_make_unknown_pragma(ASTText(a), ast_get_locus(a)));
 }

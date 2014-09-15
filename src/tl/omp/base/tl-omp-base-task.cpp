@@ -1353,10 +1353,16 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::FlushAtEntry::make(locus),
                     Nodecl::OpenMP::FlushAtExit::make(locus));
 
+            Nodecl::NodeclBase atomic_body =
+                Nodecl::List::make(
+                        Nodecl::Context::make(
+                            Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                            new_block_context(enclosing_stmt.retrieve_context().get_decl_context())));
+
             Nodecl::OpenMP::Atomic atomic =
                 Nodecl::OpenMP::Atomic::make(
                         atomic_exec_env,
-                        Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                        atomic_body,
                         locus);
 
             join_task_stmt = atomic;
@@ -2470,10 +2476,16 @@ namespace TL { namespace OpenMP {
                     Nodecl::OpenMP::FlushAtEntry::make(new_funct_body.get_locus()),
                     Nodecl::OpenMP::FlushAtExit::make(new_funct_body.get_locus()));
 
+            Nodecl::NodeclBase atomic_body =
+                Nodecl::List::make(
+                        Nodecl::Context::make(
+                            Nodecl::List::make(enclosing_stmt.shallow_copy()),
+                            new_block_context(enclosing_stmt.retrieve_context().get_decl_context())));
+
             Nodecl::OpenMP::Atomic atomic =
                 Nodecl::OpenMP::Atomic::make(
                         atomic_exec_env,
-                        Nodecl::List::make(enclosing_stmt),
+                        atomic_body,
                         new_funct_body.get_locus());
             enclosing_stmt = atomic;
         }

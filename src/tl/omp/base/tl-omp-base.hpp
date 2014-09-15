@@ -146,11 +146,8 @@ namespace TL
                         const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
-                static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
-                        TL::Scope sc);
+                void nest_context_in_pragma(TL::PragmaCustomStatement directive);
 
-                static Nodecl::NodeclBase wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context,
-                        TL::Scope sc);
             public:
                 template <typename T>
                 void make_data_sharing_list(

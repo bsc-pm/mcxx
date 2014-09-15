@@ -448,9 +448,7 @@ namespace TL { namespace OpenMP {
         directive.replace(
                 Nodecl::OpenMP::Critical::make(
                         execution_environment,
-                            wrap_in_list_with_block_context_if_needed(
-                                directive.get_statements().shallow_copy(),
-                                directive.retrieve_context()),
+                        directive.get_statements().shallow_copy(),
                         directive.get_locus())
                 );
     }
@@ -533,9 +531,7 @@ namespace TL { namespace OpenMP {
         pragma_line.diagnostic_unused_clauses();
         directive.replace(
                 Nodecl::OpenMP::Master::make(
-                        wrap_in_list_with_block_context_if_needed(
-                            directive.get_statements().shallow_copy(),
-                            directive.retrieve_context()),
+                    directive.get_statements().shallow_copy(),
                     directive.get_locus())
                 );
     }
@@ -659,35 +655,6 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::Taskyield::make(
                     directive.get_locus())
                 );
-    }
-    Nodecl::NodeclBase Base::wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context, Scope sc)
-    {
-        ERROR_CONDITION(!context.is<Nodecl::List>(), "This is not a list", 0);
-
-        Nodecl::List l = context.as<Nodecl::List>();
-
-        if (l.size() != 1 || !l[0].is<Nodecl::Context>())
-        {
-            decl_context_t block_context = new_block_context(sc.get_decl_context());
-            return  Nodecl::List::make(Nodecl::Context::make(l, block_context, context.get_locus()));
-        }
-
-        return context;
-    }
-
-    Nodecl::NodeclBase Base::wrap_in_block_context_if_needed(Nodecl::NodeclBase context, Scope sc)
-    {
-        ERROR_CONDITION(!context.is<Nodecl::List>(), "This is not a list", 0);
-
-        Nodecl::List l = context.as<Nodecl::List>();
-
-        if (l.size() != 1 || !l[0].is<Nodecl::Context>())
-        {
-            decl_context_t block_context = new_block_context(sc.get_decl_context());
-            return  Nodecl::Context::make(l, block_context, context.get_locus());
-        }
-
-        return context;
     }
 
     // Inline tasks
@@ -899,9 +866,7 @@ namespace TL { namespace OpenMP {
         pragma_line.diagnostic_unused_clauses();
 
         Nodecl::NodeclBase body_of_task =
-                    wrap_in_list_with_block_context_if_needed(
-                        directive.get_statements().shallow_copy(),
-                        directive.retrieve_context());
+            directive.get_statements().shallow_copy();
 
         Nodecl::NodeclBase async_code =
             Nodecl::OpenMP::Task::make(execution_environment,
@@ -1071,9 +1036,7 @@ namespace TL { namespace OpenMP {
         Nodecl::NodeclBase parallel_code = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
-                    wrap_in_list_with_block_context_if_needed(
-                            directive.get_statements().shallow_copy(),
-                            directive.retrieve_context()),
+                    directive.get_statements().shallow_copy(),
                     directive.get_locus());
 
         pragma_line.diagnostic_unused_clauses();
@@ -1132,8 +1095,7 @@ namespace TL { namespace OpenMP {
         code.append(
                 Nodecl::OpenMP::Single::make(
                     execution_environment,
-                    wrap_in_list_with_block_context_if_needed(
-                        directive.get_statements().shallow_copy(), directive.retrieve_context()),
+                    directive.get_statements().shallow_copy(),
                     directive.get_locus()));
 
         pragma_line.diagnostic_unused_clauses();
@@ -1192,9 +1154,7 @@ namespace TL { namespace OpenMP {
         code.append(
                 Nodecl::OpenMP::Workshare::make(
                     execution_environment,
-                        wrap_in_list_with_block_context_if_needed(
-                            directive.get_statements().shallow_copy(),
-                            directive.retrieve_context()),
+                    directive.get_statements().shallow_copy(),
                     directive.get_locus()));
 
         pragma_line.diagnostic_unused_clauses();
@@ -1522,6 +1482,8 @@ namespace TL { namespace OpenMP {
     {
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
 
         PragmaCustomLine pragma_line = directive.get_pragma_line();
         bool barrier_at_end = !pragma_line.get_clause("nowait").is_defined();
@@ -1534,11 +1496,27 @@ namespace TL { namespace OpenMP {
                 << directive.get_locus_str() << ": " << "------------\n"
             ;
         }
-        Nodecl::NodeclBase context = wrap_in_block_context_if_needed(statement, directive.retrieve_context());
-        Nodecl::NodeclBase code =
-            loop_handler_post(directive, context, barrier_at_end, /* is_combined_worksharing */ false);
+        Nodecl::NodeclBase code = loop_handler_post(directive, statement, barrier_at_end, /* is_combined_worksharing */ false);
         pragma_line.diagnostic_unused_clauses();
         directive.replace(code);
+    }
+
+    // Since parallel {for,do,sections} are split into two nodes: parallel and
+    // then {for,do,section}, we need to make sure the children of the new
+    // parallel contains a proper context as its child
+    void Base::nest_context_in_pragma(TL::PragmaCustomStatement directive)
+    {
+        Nodecl::NodeclBase stms = directive.get_statements();
+
+        decl_context_t new_context =
+            new_block_context(directive.retrieve_context().get_decl_context());
+        Nodecl::NodeclBase ctx = Nodecl::List::make(
+                Nodecl::Context::make(
+                    stms,
+                    new_context,
+                    stms.get_locus()));
+
+        directive.set_statements(ctx);
     }
 
     void Base::parallel_do_handler_pre(TL::PragmaCustomStatement directive)
@@ -1548,7 +1526,10 @@ namespace TL { namespace OpenMP {
             do_handler_pre(directive);
             return;
         }
+
+        nest_context_in_pragma(directive);
     }
+
     void Base::parallel_do_handler_post(TL::PragmaCustomStatement directive)
     {
         if (emit_omp_report())
@@ -1581,8 +1562,15 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
-        //statement = statement.as<Nodecl::List>().front();
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // This is the usual context of the statements of a pragma
+        statement = statement.as<Nodecl::Context>().get_in_context();
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
 
         Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
@@ -1625,9 +1613,6 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::BarrierAtEnd::make(
                     directive.get_locus()));
 
-        Nodecl::NodeclBase context = wrap_in_block_context_if_needed(statement, directive.retrieve_context());
-        Nodecl::NodeclBase code = loop_handler_post(directive, context, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
-
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
         if (if_clause.is_defined())
         {
@@ -1640,11 +1625,25 @@ namespace TL { namespace OpenMP {
             execution_environment.append(Nodecl::OpenMP::If::make(expr_list[0].shallow_copy()));
         }
 
+        // for-statement
+        Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
+                statement,
+                /* barrier_at_end */ false,
+                /* is_combined_worksharing */ true);
+
+        statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // Nest the for in the place where we expect the for-statement code
+        statement.as<Nodecl::Context>().set_in_context(for_statement_code);
+
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
                 num_threads,
-                wrap_in_list_with_block_context_if_needed(code, directive.retrieve_context()),
+                directive.get_statements().shallow_copy(),
                 directive.get_locus());
 
         pragma_line.diagnostic_unused_clauses();
@@ -2173,7 +2172,10 @@ namespace TL { namespace OpenMP {
             sections_handler_pre(directive);
             return;
         }
+
+        nest_context_in_pragma(directive);
     }
+
     void Base::parallel_sections_handler_post(TL::PragmaCustomStatement directive)
     {
         if (emit_omp_report())
@@ -2205,10 +2207,13 @@ namespace TL { namespace OpenMP {
 
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
-        Nodecl::NodeclBase sections_code = sections_handler_common(directive,
-                directive.get_statements(),
-                /* barrier_at_end */ false,
-                /* is_combined_worksharing */ true);
+        Nodecl::NodeclBase statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // This is the usual context of the statements of a pragma
+        statement = statement.as<Nodecl::Context>().get_in_context();
 
         Nodecl::NodeclBase num_threads;
         PragmaCustomClause clause = pragma_line.get_clause("num_threads");
@@ -2284,11 +2289,24 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        Nodecl::NodeclBase sections_code = sections_handler_common(directive,
+                statement,
+                /* barrier_at_end */ false,
+                /* is_combined_worksharing */ true);
+
+        statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // Nest the for in the place where we expect the for-statement code
+        statement.as<Nodecl::Context>().set_in_context(sections_code);
+
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                 execution_environment,
                 num_threads,
-                wrap_in_list_with_block_context_if_needed(sections_code, directive.retrieve_context()),
+                directive.get_statements().shallow_copy(),
                 directive.get_locus());
 
         pragma_line.diagnostic_unused_clauses();
@@ -2302,6 +2320,8 @@ namespace TL { namespace OpenMP {
             for_handler_pre(directive);
             return;
         }
+
+        nest_context_in_pragma(directive);
     }
     void Base::parallel_for_handler_post(TL::PragmaCustomStatement directive)
     {
@@ -2335,6 +2355,12 @@ namespace TL { namespace OpenMP {
         Nodecl::List execution_environment = this->make_execution_environment_for_combined_worksharings(ds, pragma_line);
 
         Nodecl::NodeclBase statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // This is the usual context of the statements of a pragma
+        statement = statement.as<Nodecl::Context>().get_in_context();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
         ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
@@ -2379,8 +2405,6 @@ namespace TL { namespace OpenMP {
                 Nodecl::OpenMP::BarrierAtEnd::make(
                     directive.get_locus()));
 
-        Nodecl::NodeclBase code = loop_handler_post(directive, statement, /* barrier_at_end */ false, /* is_combined_worksharing */ true);
-
         PragmaCustomClause if_clause = pragma_line.get_clause("if");
         {
             ObjectList<Nodecl::NodeclBase> expr_list = if_clause.get_arguments_as_expressions(directive);
@@ -2415,11 +2439,25 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        // for-statement
+        Nodecl::NodeclBase for_statement_code = loop_handler_post(directive,
+                statement,
+                /* barrier_at_end */ false,
+                /* is_combined_worksharing */ true);
+
+        statement = directive.get_statements();
+        // This first context was added by nest_context_in_pragma
+        ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
+        statement = statement.as<Nodecl::List>().front();
+        ERROR_CONDITION(!statement.is<Nodecl::Context>(), "Invalid tree", 0);
+        // Nest the for in the place where we expect the for-statement code
+        statement.as<Nodecl::Context>().set_in_context(for_statement_code);
+
         Nodecl::NodeclBase parallel_code
             = Nodecl::OpenMP::Parallel::make(
                     execution_environment,
                     num_threads,
-                    wrap_in_list_with_block_context_if_needed(code, directive.retrieve_context()),
+                    directive.get_statements().shallow_copy(),
                     directive.get_locus());
 
         pragma_line.diagnostic_unused_clauses();
