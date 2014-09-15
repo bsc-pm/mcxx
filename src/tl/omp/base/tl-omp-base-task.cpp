@@ -513,105 +513,11 @@ namespace TL { namespace OpenMP {
         }
 
         // Build the tree which contains the target information
-        TargetInfo& target_info = function_task_info.get_target_info();
-
-        TL::ObjectList<Nodecl::NodeclBase> devices;
-        TL::ObjectList<Nodecl::NodeclBase> target_items;
-
-        ObjectList<std::string> device_list = target_info.get_device_list();
-        for (TL::ObjectList<std::string>::iterator it = device_list.begin(); it != device_list.end(); ++it)
-        {
-            devices.append(Nodecl::Text::make(strtolower(it->c_str()), locus));
-        }
-
-        ObjectList<CopyItem> copy_in = target_info.get_copy_in();
-        _base->make_copy_list<Nodecl::OpenMP::CopyIn>(
-                copy_in,
-                OpenMP::COPY_DIR_IN,
+        _base->make_execution_environment_target_information(
+                function_task_info.get_target_info(),
                 locus,
-                target_items);
+                result_list);
 
-        ObjectList<CopyItem> copy_out = target_info.get_copy_out();
-        _base->make_copy_list<Nodecl::OpenMP::CopyOut>(
-                copy_out,
-                OpenMP::COPY_DIR_OUT,
-                locus,
-                target_items);
-
-        ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
-        _base->make_copy_list<Nodecl::OpenMP::CopyInout>(
-                copy_inout,
-                OpenMP::COPY_DIR_INOUT,
-                locus,
-                target_items);
-
-        ObjectList<Nodecl::NodeclBase> ndrange_exprs = target_info.get_shallow_copy_of_ndrange();
-        if (!ndrange_exprs.empty())
-        {
-            target_items.append(
-                    Nodecl::OpenMP::NDRange::make(
-                        Nodecl::List::make(ndrange_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
-                        locus));
-        }
-
-        ObjectList<Nodecl::NodeclBase> shmem_exprs = target_info.get_shallow_copy_of_shmem();
-        if (!shmem_exprs.empty())
-        {
-            target_items.append(
-                    Nodecl::OpenMP::ShMem::make(
-                        Nodecl::List::make(shmem_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
-                        locus));
-        }
-
-        ObjectList<Nodecl::NodeclBase> onto_exprs = target_info.get_shallow_copy_of_onto();
-        if (!onto_exprs.empty())
-        {
-            target_items.append(
-                    Nodecl::OpenMP::Onto::make(
-                        Nodecl::List::make(onto_exprs),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
-                        locus));
-        }
-
-        std::string file = target_info.get_file();
-        if (!file.empty())
-        {
-            target_items.append(
-                    Nodecl::OpenMP::File::make(
-                        Nodecl::Text::make(file),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
-                        locus));
-        }
-
-        std::string name = target_info.get_name();
-        if (!name.empty())
-        {
-            target_items.append(
-                    Nodecl::OpenMP::Name::make(
-                        Nodecl::Text::make(name),
-                        Nodecl::Symbol::make(target_info.get_target_symbol(), locus),
-                        locus));
-        }
-
-        ObjectList<FunctionTaskInfo::implementation_pair_t> implementation_table =
-            function_task_info.get_devices_with_implementation();
-        for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_table.begin();
-                it != implementation_table.end(); ++it)
-        {
-            target_items.append(
-                    Nodecl::OpenMP::Implements::make(
-                        Nodecl::Text::make(it->first),
-                        Nodecl::Symbol::make(it->second, locus),
-                        locus));
-        }
-
-        result_list.append(
-                Nodecl::OpenMP::Target::make(
-                    Nodecl::List::make(devices),
-                    Nodecl::List::make(target_items),
-                    locus));
 
         if (function_task_info.get_untied())
         {

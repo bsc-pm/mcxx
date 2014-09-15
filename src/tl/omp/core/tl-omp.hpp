@@ -263,6 +263,10 @@ namespace OpenMP
 
     class LIBTL_CLASS TargetInfo
     {
+        public:
+            // Map< device name, implementors >
+            typedef std::map<std::string, ObjectList<Symbol> > implementation_table_t;
+
         private:
             Symbol _target_symbol;
             ObjectList<CopyItem> _copy_in;
@@ -278,6 +282,9 @@ namespace OpenMP
             std::string _name;
 
             bool _copy_deps;
+
+            implementation_table_t _implementation_table;
+
         public:
             TargetInfo();
 
@@ -323,6 +330,10 @@ namespace OpenMP
 
             void set_name(std::string name);
             std::string get_name() const;
+
+            implementation_table_t get_implementation_table() const;
+            void add_implementation(std::string device, Symbol sym);
+
             void module_write(ModuleWriter& mw);
             void module_read(ModuleReader& mr);
     };
@@ -510,24 +521,18 @@ namespace OpenMP
 
         class LIBTL_CLASS FunctionTaskInfo
         {
-            public:
-                typedef std::multimap<std::string, Symbol> implementation_table_t;
-
             private:
                 Symbol _sym;
 
                 ObjectList<FunctionTaskDependency> _parameters;
-
-                implementation_table_t _implementation_table;
 
                 TargetInfo _target_info;
 
                 RealTimeInfo _real_time_info;
 
                 Nodecl::NodeclBase _if_clause_cond_expr;
-                Nodecl::NodeclBase _final_clause_cond_expr;
 
-                implementation_table_t get_implementation_table() const;
+                Nodecl::NodeclBase _final_clause_cond_expr;
 
                 bool _untied;
 
@@ -560,18 +565,6 @@ namespace OpenMP
                 void add_function_task_dependency(const FunctionTaskDependency& dep);
 
                 ObjectList<Symbol> get_involved_parameters() const;
-
-                void add_device(const std::string& device_name);
-
-                void add_device_with_implementation(
-                        const std::string& device_name,
-                        Symbol implementor_symbol);
-
-                ObjectList<std::string> get_all_devices();
-
-                typedef std::pair<std::string, Symbol> implementation_pair_t;
-
-                ObjectList<implementation_pair_t> get_devices_with_implementation() const;
 
                 TargetInfo& get_target_info();
                 void set_target_info(const TargetInfo& target_info);
