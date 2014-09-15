@@ -151,8 +151,10 @@ namespace Optimizations {
     {
         private:
             TL::ObjectList<Nodecl::NodeclBase> _unitary_rhss;
-            
+
+            void print_unitary_rhss();
             bool is_leaf_node(const Nodecl::NodeclBase& n);
+            void nullify_nodecl(const Nodecl::NodeclBase& n);
 
         public:
             UnitaryReductor();
