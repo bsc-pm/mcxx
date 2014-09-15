@@ -13983,9 +13983,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 char valid = check_default_initialization(entry, entry->decl_context, ast_get_locus(a), &constructor);
                 diagnostic_context_pop_and_discard();
 
-                if (valid)
+                if (valid && is_class_type_or_array_thereof(entry->type_information))
                 {
-                    if (is_class_type_or_array_thereof(entry->type_information))
                     {
                         entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
                     }
