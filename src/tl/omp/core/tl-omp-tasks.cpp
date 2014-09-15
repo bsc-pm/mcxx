@@ -213,14 +213,6 @@ namespace TL
             return new_target_info;
         }
 
-        bool TargetInfo::can_be_ommitted()
-        {
-            return _copy_in.empty()
-                && _copy_out.empty()
-                && _copy_inout.empty()
-                && _device_list.empty();
-        }
-
         void TargetInfo::append_to_copy_in(const ObjectList<CopyItem>& copy_items)
         {
             _copy_in.append(copy_items);

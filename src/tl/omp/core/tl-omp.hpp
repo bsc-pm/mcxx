@@ -289,8 +289,6 @@ namespace OpenMP
                     TL::Scope context_of_being_instantiated,
                     instantiation_symbol_map_t* instantiation_symbol_map);
 
-            bool can_be_ommitted();
-
             void append_to_copy_in(const ObjectList<CopyItem>& copy_items);
             void append_to_copy_out(const ObjectList<CopyItem>& copy_items);
             void append_to_copy_inout(const ObjectList<CopyItem>& copy_items);
