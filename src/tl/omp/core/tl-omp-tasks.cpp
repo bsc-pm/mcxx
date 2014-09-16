@@ -1240,9 +1240,9 @@ namespace TL
 
             if (!function_sym.is_function())
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to this declaration"
-                    << "since it does not declare a function, skipping" << std::endl;
+                warn_printf("%s: warning: '#pragma omp task' cannot be applied to this declaration "
+                        "since it does not declare a function, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
@@ -1253,17 +1253,17 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to functions"
-                    << "declarations with ellipsis, skipping" << std::endl;
+                warn_printf("%s: warning: '#pragma omp task' cannot be applied to functions "
+                        "declarations with ellipsis, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
             if (IS_FORTRAN_LANGUAGE
                     && !function_type.returns().is_void())
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: non-void tasks are not currently supported in Fortran, skipping" << std::endl;
+                warn_printf("%s: warning: non-void tasks are not currently supported in Fortran, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
