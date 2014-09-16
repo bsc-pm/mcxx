@@ -1073,15 +1073,15 @@ namespace Analysis {
         return get_data<AliveTaskSet>("live_tasks_out");
     }
 
-    StaticSyncTaskSet& Node::get_static_sync_in_tasks()
-    {
-        return get_data<StaticSyncTaskSet>("static_sync_tasks_in");
-    }
+    // StaticSyncTaskSet& Node::get_static_sync_in_tasks()
+    // {
+    //     return get_data<StaticSyncTaskSet>("static_sync_tasks_in");
+    // }
 
-    StaticSyncTaskSet& Node::get_static_sync_out_tasks()
-    {
-        return get_data<StaticSyncTaskSet>("static_sync_tasks_out");
-    }
+    // StaticSyncTaskSet& Node::get_static_sync_out_tasks()
+    // {
+    //     return get_data<StaticSyncTaskSet>("static_sync_tasks_out");
+    // }
     
     // **************** END getters and setters for PCFG analysis ******************* //
     // ****************************************************************************** //

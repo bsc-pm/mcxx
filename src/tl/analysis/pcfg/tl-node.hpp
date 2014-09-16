@@ -480,12 +480,6 @@ namespace Analysis {
             //! Returns the set of tasks that are alive at the exit of the node
             AliveTaskSet& get_live_out_tasks();
  
-            //! Returns the set of tasks that are alive at the entry of the node
-            StaticSyncTaskSet& get_static_sync_in_tasks();
-            
-            //! Returns the set of tasks that are alive at the exit of the node
-            StaticSyncTaskSet& get_static_sync_out_tasks();
-
             // **************** END getters and setters for PCFG analysis ******************* //
             // ****************************************************************************** //
             
