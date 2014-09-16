@@ -46,14 +46,12 @@ namespace Vectorization
         TL::Scope scope = for_stmt.retrieve_context();
         Nodecl::List result_list;
 
-        for(objlist_tlsymbol_t::const_iterator it = _group_registers.begin();
-                it != _group_registers.end()-1;
-                it++)
+        for (int i = 0; i < (_num_registers-1); i++)
         {
             // __overlap_X_1 = vload(&a[i]);
 
             Nodecl::NodeclBase vload_index =
-                _group_registers_indexes[0].shallow_copy();
+                _registers_indexes[i].shallow_copy();
 
             // Replace IV by LB in vload_index
             for (objlist_nodecl_t::const_iterator iv = ivs_list.begin();
@@ -73,14 +71,13 @@ namespace Vectorization
                 }
             }
 
-
             Nodecl::VectorAssignment vassignment =
                 Nodecl::VectorAssignment::make(
-                        it->make_nodecl(true),
+                        _registers[i].make_nodecl(true),
                         Nodecl::VectorLoad::make(
                             Nodecl::Reference::make(
                                 Nodecl::ArraySubscript::make(
-                                    _group_subscripted.shallow_copy(),
+                                    _subscripted.shallow_copy(),
                                     Nodecl::List::make(
                                         vload_index),
                                     _basic_type),
@@ -94,7 +91,7 @@ namespace Vectorization
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(vassignment);
 
-            result_list.prepend(exp_stmt);
+            result_list.append(exp_stmt);
         }
 
         return result_list;
@@ -104,18 +101,18 @@ namespace Vectorization
     {
         Nodecl::List result_list;
 
-        const int size = _group_registers.size();
+        const int size = _registers.size();
 
         // __overlap_X_1 = load(a[i + VF]) 
         Nodecl::VectorAssignment vassignment =
             Nodecl::VectorAssignment::make(
-                    _group_registers[size-1].make_nodecl(true),
+                    _registers[size-1].make_nodecl(true),
                     Nodecl::VectorLoad::make(
                         Nodecl::Reference::make(
                             Nodecl::ArraySubscript::make(
-                                _group_subscripted.shallow_copy(),
+                                _subscripted.shallow_copy(),
                                 Nodecl::List::make(
-                                    _group_registers_indexes[size-1].shallow_copy()),
+                                    _registers_indexes[size-1].shallow_copy()),
                                 _basic_type),
                             _basic_type.get_pointer_to()),
                         Utils::get_null_mask(),
@@ -127,7 +124,7 @@ namespace Vectorization
         Nodecl::ExpressionStatement exp_stmt =
             Nodecl::ExpressionStatement::make(vassignment);
 
-        result_list.prepend(exp_stmt);
+        result_list.append(exp_stmt);
 
         return result_list;
     }
@@ -136,7 +133,7 @@ namespace Vectorization
     {
         Nodecl::List result_list;
 
-        const int size = _group_registers.size();
+        const int size = _registers.size();
 
         for(int i=0; i < (size-1); i++)
         {
@@ -144,272 +141,268 @@ namespace Vectorization
             Nodecl::ExpressionStatement exp_stmt =
                 Nodecl::ExpressionStatement::make(
                         Nodecl::VectorAssignment::make(
-                            _group_registers[i].make_nodecl(true),
-                            _group_registers[i+1].make_nodecl(true),
+                            _registers[i].make_nodecl(true),
+                            _registers[i+1].make_nodecl(true),
                             Utils::get_null_mask(),
-                            _group_registers[i].get_type()));
+                            _registers[i].get_type()));
 
-            result_list.prepend(exp_stmt);
+            result_list.append(exp_stmt);
         }
 
         return result_list;
     }
 
-#if 0    
-    CacheInfo::CacheInfo(
-            const Nodecl::NodeclBase &lower_bound,
-            const Nodecl::NodeclBase& upper_bound,
-            const Nodecl::NodeclBase& stride,
-            const int overlap_factor)
-        : _lower_bound(lower_bound), _upper_bound(upper_bound),
-        _stride(stride), _overlap_factor(overlap_factor)
+    void OverlapGroup::compute_leftmost_rightmost_vloads(
+            const Vectorization::VectorizerEnvironment& environment)
     {
-    }
+        Nodecl::VectorLoad first_vload = 
+            _loads.begin()->as<Nodecl::VectorLoad>();
 
-    VectorizerCache::VectorizerCache(
-            const map_tl_sym_int_t& overlapd_symbols)
-    {
-        for(map_tl_sym_int_t::const_iterator it = overlapd_symbols.begin();
-                it != overlapd_symbols.end();
-                it++)
+        Nodecl::NodeclBase first_subscript =
+            Utils::get_vector_load_subscript(first_vload);
+
+        int min_offset = 0;
+        int max_offset = 0;
+
+        Nodecl::VectorLoad min_vload = first_vload;
+        Nodecl::VectorLoad max_vload = first_vload;
+
+        for(objlist_nodecl_t::const_iterator load_it =
+                _loads.begin();
+                load_it != _loads.end();
+                load_it++)
         {
-//            ERROR_CONDITION(!it->is<Nodecl::ArraySubscript>(),
-//                    "VECTORIZER: overlap clause does not contain an ArraySubscript", 0);
+            Nodecl::NodeclBase load_subscript =
+                Utils::get_vector_load_subscript(
+                        load_it->as<Nodecl::VectorLoad>());
 
-//            Nodecl::ArraySubscript arr_it = it->as<Nodecl::ArraySubscript>();
-//            Nodecl::NodeclBase list_front = arr_it.get_subscripts().as<Nodecl::List>().front();
+            Nodecl::Minus shifted_elements = Nodecl::Minus::make(
+                    load_subscript.shallow_copy(),
+                    first_subscript.shallow_copy(),
+                    load_subscript.get_type());
 
-//            ERROR_CONDITION(!list_front.is<Nodecl::Range>(),
-//                    "VECTORIZER: Range not found in overlap clause", 0);
+            TL::Optimizations::UnitaryReductor unitary_reductor;
+            unitary_reductor.reduce(shifted_elements);
 
-//            Nodecl::Range range_it = list_front.as<Nodecl::Range>();
-
-
-//            TL::Symbol key = arr_it.get_subscripted().as<Nodecl::Symbol>().get_symbol();
-
-//            Nodecl::NodeclBase lower_bound = range_it.get_lower();
-//            Nodecl::NodeclBase upper_bound = range_it.get_upper();
-//            Nodecl::NodeclBase stride = range_it.get_stride();
-
-            Nodecl::NodeclBase lower_bound = const_value_to_nodecl(
-                    const_value_get_zero(4, 1));
-            Nodecl::NodeclBase upper_bound = const_value_to_nodecl(
-                    const_value_get_zero(4, 1));
-            Nodecl::NodeclBase stride = const_value_to_nodecl(
-                    const_value_get_zero(4, 1));
-
-            _overlap_map.insert(overlap_pair_t(it->first,
-                        CacheInfo(lower_bound, upper_bound, stride, it->second)));
-        }
-    }
-
-    void VectorizerCache::declare_overlap_symbols(TL::Scope scope,
-            const VectorizerEnvironment& environment)
-    {
-        // Map of overlaps
-        for(overlap_map_t::iterator it = _overlap_map.begin();
-                it != _overlap_map.end();
-                it++)
-        {
-            // TODO # registers
-            // Add registers to each overlap
-            for (int i=0; i<2; i++)
+            if (shifted_elements.is_constant())
             {
-                std::stringstream new_sym_name;
-                new_sym_name << "__overlap_" << it->first.get_name() << "_" << i;
+                int offset = const_value_cast_to_4(
+                        shifted_elements.get_constant());
 
-                TL::Symbol new_sym = scope.new_symbol(new_sym_name.str());
-                new_sym.get_internal_symbol()->kind = SK_VARIABLE;
-                new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
-                new_sym.set_type(it->first.get_type().basic_type().
-                        get_vector_of_elements(environment._vectorization_factor));
-
-                std::cerr << it->first.get_name() << ": " << it->first.get_type().get_simple_declaration(scope, " ")
-                    << it->first.get_type().basic_type().get_simple_declaration(scope, " ")
-                    << it->first.get_type().basic_type().get_vector_of_elements(environment._vectorization_factor).get_simple_declaration(scope, " ")
-                    << std::endl;
-
-                it->second._register_list.push_back(new_sym);
-            }
-        }
-    }
-
-    Nodecl::List VectorizerCache::get_init_statements(VectorizerEnvironment& environment) const
-    {
-        Nodecl::List result_list;
-
-        for(overlap_map_t::const_iterator it = _overlap_map.begin();
-                it != _overlap_map.end();
-                it++)
-        {
-            const std::vector<TL::Symbol>& register_list = it->second._register_list;
-            const int size = register_list.size();
-
-            //TODO: different strategies
-            for(int i=0; i < size-1; i++)
-            {
-                // __overlap_X_1 = a[i];
-
-                TL::Source src;
-
-                src << as_expression(register_list[i].make_nodecl(/* type = */ true))
-                    << " = "
-                    << as_expression(it->first.make_nodecl(/* type = */true))
-                    << "["
-                    << as_expression(it->second._lower_bound.shallow_copy())
-                    << "]"
-                    ;
-
-                Nodecl::NodeclBase assignment =
-                    src.parse_expression(TL::Scope(CURRENT_COMPILED_FILE->global_decl_context));
-
-#if 0
-                Assignment::make(
-                        register_list[i].make_nodecl(/* type = */ true),
-                        ArraySubscript::make(
-                            it->first.make_nodecl(/* type = */true),
-                            Nodecl::List::make( //TODO: + VL*(i-1)
-                                it->second._lower_bound.shallow_copy()),
-                            it->first.get_type().basic_type()),
-                        register_list[i].get_type().basic_type());
-#endif
-                //TODO
-                //                    VectorizerVisitorExpression expr_vectorizer(environment, /* overlapd disabled */ false);
-                //                    expr_vectorizer.walk(assignment.as<Nodecl::Assignment>().get_rhs());
-
-                Nodecl::ExpressionStatement exp_stmt =
-                    Nodecl::ExpressionStatement::make(assignment);
-
-                result_list.prepend(exp_stmt);
-            }
-        }
-
-        return result_list;
-    }
-
-    Nodecl::List VectorizerCache::get_iteration_update_pre(VectorizerEnvironment& environment) const
-    {
-        Nodecl::List result_list;
-
-        for(overlap_map_t::const_iterator it = _overlap_map.begin();
-                it != _overlap_map.end();
-                it++)
-        {
-            const std::vector<TL::Symbol>& register_list = it->second._register_list;
-            const int size = register_list.size();
-
-            // __overlap_X_1 = load(a[i + VL]) // TODO: VL*;
-            Nodecl::Assignment assignment =
-                Nodecl::Assignment::make(
-                        register_list[size-1].make_nodecl(/* type = */ true),
-                        Nodecl::ArraySubscript::make(
-                            it->first.make_nodecl(/* type = */true),
-                            Nodecl::List::make(
-                                Nodecl::Add::make(
-                                    it->second._lower_bound.shallow_copy(),
-                                    const_value_to_nodecl(const_value_get_signed_int(environment._vectorization_factor)),
-                                    TL::Type::get_int_type())),
-                            it->first.get_type().basic_type()),
-                        register_list[size-1].get_type().basic_type());
-
-            //                VectorizerVisitorExpression stmt_vectorizer(environment, /* overlap disabled */ false);
-            //                stmt_vectorizer.walk(assignment.get_rhs());
-
-            Nodecl::ExpressionStatement exp_stmt =
-                Nodecl::ExpressionStatement::make(assignment);
-
-            result_list.prepend(exp_stmt);
-        }
-
-        return result_list;
-    }
-
-    Nodecl::List VectorizerCache::get_iteration_update_post(VectorizerEnvironment& environment) const
-    {
-        Nodecl::List result_list;
-
-        for(overlap_map_t::const_iterator it = _overlap_map.begin();
-                it != _overlap_map.end();
-                it++)
-        {
-            const std::vector<TL::Symbol>& register_list = it->second._register_list;
-            const int size = register_list.size();
-
-            //TODO: different strategies
-            int i;
-            for(i=0; i < (size-1); i++)
-            {
-                // __overlap_X_0 = __overlap_X_1;
-                Nodecl::ExpressionStatement exp_stmt =
-                    Nodecl::ExpressionStatement::make(
-                            Nodecl::Assignment::make(
-                                register_list[i].make_nodecl(/* type = */ true),
-                                register_list[i+1].make_nodecl(/* type = */ true),
-                                register_list[i].get_type().basic_type()));
-
-                result_list.prepend(exp_stmt);
-            }
-        }
-
-        return result_list;
-    }
-
-    bool VectorizerCache::is_overlapd_access(const Nodecl::ArraySubscript& n) const
-    {
-        Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(n.get_subscripted());
-
-        if(subscripted.is<Nodecl::Symbol>())
-        {
-            TL::Symbol sym = subscripted.as<Nodecl::Symbol>().get_symbol();
-            if (_overlap_map.find(sym) != _overlap_map.end())
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    Nodecl::NodeclBase VectorizerCache::get_load_access(const Nodecl::ArraySubscript& n) const
-    {
-        Nodecl::NodeclBase subscripted = Nodecl::Utils::advance_conversions(n.get_subscripted());
-
-        if(subscripted.is<Nodecl::Symbol>())
-        {
-            TL::Symbol sym = subscripted.as<Nodecl::Symbol>().get_symbol();
-
-            // Find overlap
-            overlap_map_t::const_iterator overlap_it = _overlap_map.find(sym);
-            if (overlap_it != _overlap_map.end())
-            {
-                const CacheInfo& overlap = overlap_it->second;
-
-                // Compare subscripts
-                Nodecl::NodeclBase subscript = n.get_subscripts().as<Nodecl::List>().front();
-
-                if (Nodecl::Utils::structurally_equal_nodecls(overlap._lower_bound, subscript,
-                            /* skip conversions */ true))
+                if (offset < min_offset)
                 {
-                    return overlap._register_list[0].make_nodecl(true);
+                    min_offset = offset;
+                    min_vload = load_it->as<Nodecl::VectorLoad>();
                 }
-                else
+
+                if (offset > max_offset)
                 {
-                    return Nodecl::VectorAlignRight::make(
-                            overlap._register_list[1].make_nodecl(true),
-                            overlap._register_list[0].make_nodecl(true),
-                            const_value_to_nodecl(const_value_get_one(4, 1)),
-                            Vectorization::Utils::get_null_mask(),
-                            overlap._register_list[0].get_type());
+                    max_offset = offset;
+                    max_vload = load_it->as<Nodecl::VectorLoad>();
                 }
             }
         }
+       
+        // min_vload = the leftmost aligned load
+        Nodecl::List flags = min_vload.get_flags().as<Nodecl::List>();
 
-        return n;
+        bool aligned = !(flags.find_first<Nodecl::AlignedFlag>().is_null());
+
+        if (!aligned)
+        {
+            Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
+            ERROR_CONDITION(alignment_node.is_null(),
+                    "Overlap: There is no alignment info for %s",
+                    min_vload.prettyprint().c_str());
+
+            int alignment = const_value_cast_to_4(alignment_node.get_constant());
+
+            int min_vload_type_size = min_vload.get_type().basic_type().get_size();
+            int negative_num_elements = alignment/min_vload_type_size;
+
+            std::cerr << "OVERLAP ALIGNMENT: " << alignment 
+                << " negative offset " << negative_num_elements << std::endl;
+
+
+            // New flags
+            Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
+            new_flags.append(Nodecl::AlignedFlag::make());
+            Nodecl::Utils::remove_from_enclosing_list(
+                    new_flags.find_first<Nodecl::AlignmentInfo>());
+
+            // New aligned array
+            Nodecl::ArraySubscript new_array = Utils::get_vector_load_scalar_access(
+                    min_vload).shallow_copy().as<Nodecl::ArraySubscript>();
+            Nodecl::NodeclBase subscript = new_array.get_subscripts().
+                as<Nodecl::List>().front().no_conv();
+
+            const_value_t* const_int = const_value_get_signed_int(
+                    negative_num_elements);
+            const_value_t* neg_int = const_value_neg(const_int);
+
+            Nodecl::Neg neg = Nodecl::Neg::make(
+                    const_value_to_nodecl(const_int),
+                    subscript.get_type(),
+                    subscript.get_locus());
+            neg.set_constant(neg_int);
+
+           
+            Nodecl::NodeclBase new_subscript;
+            if (subscript.is_constant())
+            {
+                new_subscript = const_value_to_nodecl(
+                        const_value_add(neg_int,
+                            subscript.get_constant()));
+            }
+            else
+            {
+                new_subscript = Nodecl::Add::make(
+                        neg,
+                        subscript.shallow_copy(),
+                        subscript.get_type(),
+                        subscript.get_locus());
+            }
+
+            subscript.replace(new_subscript);
+
+            Nodecl::VectorLoad aligned_vector_load =
+                Nodecl::VectorLoad::make(
+                        Nodecl::Reference::make(
+                            new_array.shallow_copy(),
+                            new_array.get_type().get_pointer_to(),
+                            new_array.get_locus()),
+                        min_vload.get_mask().shallow_copy(),
+                        new_flags,
+                        min_vload.get_type(),
+                        min_vload.get_locus());
+
+            min_vload = aligned_vector_load;
+            min_offset = min_offset - negative_num_elements;
+
+            Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
+            reduce_expression_visitor.walk(min_vload);
+        }
+
+        // max_vload = the rightmost aligned load
+        flags = max_vload.get_flags().as<Nodecl::List>();
+        aligned = !(flags.find_first<Nodecl::AlignedFlag>().is_null());
+
+        if (!aligned)
+        {
+            Nodecl::NodeclBase alignment_node = flags.find_first<Nodecl::AlignmentInfo>();
+            ERROR_CONDITION(alignment_node.is_null(),
+                    "Overlap: There is no alignment info for %s",
+                    max_vload.prettyprint().c_str());
+
+            int alignment = const_value_cast_to_4(alignment_node.get_constant());
+
+            int max_vload_type_size = max_vload.get_type().basic_type().get_size();
+            int positive_num_elements = environment._vectorization_factor -
+                alignment/max_vload_type_size;
+
+            std::cerr << "OVERLAP ALIGNMENT: " << alignment 
+                << " positive offset " << positive_num_elements << std::endl;
+
+            // New flags ***************************************
+            Nodecl::List new_flags = flags.shallow_copy().as<Nodecl::List>();
+            new_flags.append(Nodecl::AlignedFlag::make());
+            Nodecl::Utils::remove_from_enclosing_list(
+                    new_flags.find_first<Nodecl::AlignmentInfo>());
+
+            // New aligned array
+            Nodecl::ArraySubscript new_array = Utils::get_vector_load_scalar_access(
+                    max_vload).shallow_copy().as<Nodecl::ArraySubscript>();
+            Nodecl::NodeclBase subscript = new_array.get_subscripts().
+                as<Nodecl::List>().front().no_conv();
+
+            const_value_t* const_int = const_value_get_signed_int(
+                    positive_num_elements);
+           
+            Nodecl::NodeclBase new_subscript;
+            if (subscript.is_constant())
+            {
+                new_subscript = const_value_to_nodecl(
+                        const_value_add(const_int,
+                            subscript.get_constant()));
+            }
+            else
+            {
+                new_subscript = Nodecl::Add::make(
+                        const_value_to_nodecl(const_int),
+                        subscript.shallow_copy(),
+                        subscript.get_type(),
+                        subscript.get_locus());
+            }
+
+            subscript.replace(new_subscript);
+
+            Nodecl::VectorLoad aligned_vector_load =
+                Nodecl::VectorLoad::make(
+                        Nodecl::Reference::make(
+                            new_array.shallow_copy(),
+                            new_array.get_type().get_pointer_to(),
+                            new_array.get_locus()),
+                        max_vload.get_mask().shallow_copy(),
+                        new_flags,
+                        max_vload.get_type(),
+                        max_vload.get_locus());
+
+            max_vload = aligned_vector_load;
+            max_offset = max_offset - positive_num_elements;
+
+            Optimizations::ReduceExpressionVisitor reduce_expression_visitor;
+            reduce_expression_visitor.walk(max_vload);
+        }
+
+
+        _leftmost_vload = min_vload;
+        _rightmost_vload = max_vload;
+
+        std::cerr << "Min index is " << _leftmost_vload.prettyprint()
+            << " with " << min_offset << " offset" << std::endl;
+        std::cerr << "Max index is " << _rightmost_vload.prettyprint()
+            << " with " << max_offset << " offset" << std::endl;
     }
-*/
 
-#endif
+    void OverlapGroup::compute_num_registers(
+            const Vectorization::VectorizerEnvironment& environment)
+    {
+        Nodecl::NodeclBase leftmost_index =
+            Utils::get_vector_load_subscript(_leftmost_vload);
+        Nodecl::NodeclBase rightmost_index =
+            Utils::get_vector_load_subscript(_rightmost_vload);
 
+        Nodecl::Minus minus = Nodecl::Minus::make(
+                rightmost_index.no_conv().shallow_copy(),
+                leftmost_index.no_conv().shallow_copy(),
+                leftmost_index.get_type());
+
+        TL::Optimizations::UnitaryReductor unitary_reductor;
+        unitary_reductor.reduce(minus);
+
+        const_value_t* mod = const_value_mod(
+                minus.get_constant(),
+                const_value_get_signed_int(
+                    environment._vectorization_factor));
+        const_value_t* div = const_value_div(
+                minus.get_constant(),
+                const_value_get_signed_int(
+                    environment._vectorization_factor));
+
+        std::cerr << "Leftmost: " << leftmost_index.prettyprint()
+            << " MINUS Rightmost: " << rightmost_index.prettyprint()
+            << " = "
+            << minus.prettyprint()
+            << ". Mod = " << const_value_cast_to_4(mod)
+            << ". Div = " << const_value_cast_to_4(div)
+            << std::endl;
+
+        ERROR_CONDITION(!const_value_is_zero(mod),
+                "Leftmost and Rightmost is not multiple of VL", 0);
+
+        _num_registers = const_value_cast_to_4(div) + 1;
+    }
+ 
     OverlappedAccessesOptimizer::OverlappedAccessesOptimizer(
             VectorizerEnvironment& environment)
         : _environment(environment) 
@@ -438,8 +431,8 @@ namespace Vectorization
         // UNROLL
         if (min_unroll_factor > 0)
         {
-            if_epilog = main_loop.shallow_copy()
-                .as<Nodecl::ForStatement>();
+            if_epilog = VectorizationAnalysisInterface::_vectorizer_analysis->
+                shallow_copy(main_loop).as<Nodecl::ForStatement>();
 
             // Main Loop
             TL::HLT::LoopUnroll loop_unroller;
@@ -456,6 +449,8 @@ namespace Vectorization
             last_epilog = loop_unroller.get_epilog_loop()
                 .as<Nodecl::ForStatement>();
 
+            // Bug: register_copy is not recursive!
+            //      In addition, n and main_loop are the same.
             VectorizationAnalysisInterface::
                 _vectorizer_analysis->register_copy(
                         n, main_loop);
@@ -493,7 +488,7 @@ namespace Vectorization
                 it++)
         {
             TL::Symbol sym = it->first;
-            int min_group_length = it->second;
+            int min_group_size = it->second;
 
             // MAIN LOOP
             objlist_nodecl_t main_loop_vector_loads =
@@ -505,11 +500,11 @@ namespace Vectorization
                 objlist_ogroup_t overlap_groups = 
                     get_overlap_groups(
                             main_loop_vector_loads,
-                            min_group_length,
+                            min_group_size,
                             main_loop_blocks_pairs,
                             ivs_list);
 
-                objlist_nodecl_t if_epilog_vector_loads;
+                int num_group = 0;
                 for(objlist_ogroup_t::iterator ogroup =
                         overlap_groups.begin();
                         ogroup != overlap_groups.end();
@@ -517,10 +512,12 @@ namespace Vectorization
                 {
                     // MAIN LOOP
                     compute_group_properties(*ogroup, scope,
-                            /* epilog */ false);
+                            num_group, /* epilog */ false);
                     insert_group_update_stmts(*ogroup, main_loop,
                             ivs_list, /* group epilog */ false);
                     replace_overlapped_loads(*ogroup);
+
+                    num_group++;
                 }
             }
 
@@ -536,21 +533,24 @@ namespace Vectorization
                     objlist_ogroup_t if_epilog_overlap_groups = 
                         get_overlap_groups(
                                 if_epilog_vector_loads,
-                                min_group_length,
+                                min_group_size,
                                 if_epilog_blocks_pairs,
                                 ivs_list);
 
+                    int num_group = 0;
                     for(objlist_ogroup_t::iterator ogroup =
                             if_epilog_overlap_groups.begin();
                             ogroup != if_epilog_overlap_groups.end();
                             ogroup++)
                     {
                         compute_group_properties(*ogroup, scope,
-                                /* group epilog */ true);
+                                num_group, /* group epilog */ true);
                         insert_group_update_stmts(*ogroup,
                                 if_epilog, ivs_list,
                                 /* group epilog */ true);
                         replace_overlapped_loads(*ogroup);
+
+                        num_group++;
                     }
                 }
             }
@@ -611,7 +611,7 @@ namespace Vectorization
                 it++)
         {
             TL::Symbol sym = it->first;
-            unsigned int min_group_length = it->second;
+            unsigned int min_group_size = it->second;
 
             objlist_nodecl_t vector_loads =
                 get_adjacent_vector_loads_not_nested_in_for(
@@ -619,11 +619,11 @@ namespace Vectorization
 
             unsigned int vector_loads_size = vector_loads.size();
             if (vector_loads_size > 0 &&
-                    vector_loads_size <= min_group_length &&
+                    vector_loads_size <= min_group_size &&
                     (unroll_factor * vector_loads_size)
-                    < min_group_length)
+                    < min_group_size)
             {
-                unroll_factor = min_group_length /
+                unroll_factor = min_group_size /
                     vector_loads_size; 
             }
         }
@@ -717,25 +717,14 @@ namespace Vectorization
 
             if (!vload_is_nested_in_nested_for)
             {
-                Nodecl::NodeclBase vl_rhs= vload->as<Nodecl::VectorLoad>().
-                    get_rhs();
+                Nodecl::NodeclBase subscripted= 
+                    Utils::get_vector_load_subscripted(
+                            vload->as<Nodecl::VectorLoad>());
 
-                if (vl_rhs.is<Nodecl::Reference>())
-                    vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
-
-                if (vl_rhs.is<Nodecl::ArraySubscript>())
+                if (subscripted.is<Nodecl::Symbol>() &&
+                        (subscripted.get_symbol() == sym))
                 {
-                    Nodecl::ArraySubscript array =
-                        vl_rhs.as<Nodecl::ArraySubscript>();
-
-                    Nodecl::NodeclBase subscripted = 
-                        array.get_subscripted().no_conv();
-
-                    if (subscripted.is<Nodecl::Symbol>() &&
-                            (subscripted.get_symbol() == sym))
-                    {
-                        result.append(*vload);
-                    }
+                    result.append(*vload);
                 }
             }
         }
@@ -743,90 +732,42 @@ namespace Vectorization
         return result;
     }
 
-    Nodecl::NodeclBase OverlappedAccessesOptimizer::
-        get_vector_load_subscripted(
-            const Nodecl::VectorLoad& vl)
-    {
-        Nodecl::NodeclBase vl_rhs = vl.get_rhs();
-
-        if (vl_rhs.is<Nodecl::Reference>())
-            vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
-
-        if (vl_rhs.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::ArraySubscript array =
-                vl_rhs.as<Nodecl::ArraySubscript>();
-
-            return array.get_subscripted().no_conv();
-        }
-
-        internal_error("Invalid Vector Load\n", 0);
-    }
-
-    Nodecl::NodeclBase OverlappedAccessesOptimizer::
-        get_vector_load_subscript(
-            const Nodecl::VectorLoad& vl)
-    {
-        Nodecl::NodeclBase vl_rhs= vl.get_rhs();
-
-        if (vl_rhs.is<Nodecl::Reference>())
-            vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
-
-        if (vl_rhs.is<Nodecl::ArraySubscript>())
-        {
-            Nodecl::ArraySubscript array =
-                vl_rhs.as<Nodecl::ArraySubscript>();
-
-            return array.get_subscripts().as<Nodecl::List>().
-                front().no_conv();
-        }
-
-        internal_error("Invalid Vector Load\n", 0);
-    }
-
     bool OverlappedAccessesOptimizer::overlap(
             const Nodecl::VectorLoad& vector_load,
             objlist_nodecl_t group)
     {
+        int VF = vector_load.get_type().vector_num_elements();
+
         Nodecl::NodeclBase vl_subscripts =
-            get_vector_load_subscript(vector_load);
+            Utils::get_vector_load_subscript(vector_load);
 
         for(objlist_nodecl_t::iterator it =
                 group.begin();
                 it != group.end();
                 it++)
         {
-            Nodecl::NodeclBase it_group_subscripts =
-                get_vector_load_subscript(
+            Nodecl::NodeclBase it_subscripts =
+                Utils::get_vector_load_subscript(
                         it->as<Nodecl::VectorLoad>());
 
             Nodecl::Minus minus = Nodecl::Minus::make(
                     vl_subscripts.no_conv().shallow_copy(),
-                    it_group_subscripts.no_conv().shallow_copy(),
+                    it_subscripts.no_conv().shallow_copy(),
                     vl_subscripts.get_type());
-
 
             TL::Optimizations::UnitaryReductor unitary_reductor;
             unitary_reductor.reduce(minus);
 
             std::cerr << "Difference: " << vl_subscripts.prettyprint()
-                << " MINUS " << it_group_subscripts.prettyprint()
+                << " MINUS " << it_subscripts.prettyprint()
                 << " = "
                 << minus.prettyprint()
                 << std::endl;
 
-            // TODO: distance
-            // if result is constant and 1, for example, return true
-            if (minus.is_constant())
+            if (minus.is_constant() && 
+                    abs(const_value_cast_to_4(minus.get_constant())) < VF)
             {
-                int length = const_value_cast_to_signed_int(
-                        minus.get_constant());
-                    
-                if (length < 0) 
-                    length = -length;
-
-                if (length <= 1)
-                    return true;
+                return true;
             }
         }
 
@@ -835,26 +776,16 @@ namespace Vectorization
 
     objlist_ogroup_t OverlappedAccessesOptimizer::
         get_overlap_groups(const objlist_nodecl_t& vector_loads,
-                const unsigned int min_group_length,
+                const unsigned int min_group_size,
                 const objlist_blocks_pairs_t& blocks_pairs,
                 const objlist_nodecl_t& ivs_list)
     {
-        objlist_ogroup_t result;
-        OverlapGroup group;
-        objlist_nodecl_t::const_iterator target_load =
-            vector_loads.begin();
+        objlist_ogroup_t ogroups;
 
-        //TODO: >1 groups
-        std::cerr << "Overlap Group ("
-            << min_group_length << ")" 
-            << std::endl;
-        std::cerr << target_load->prettyprint() << std::endl;
-
-        group._group_loads.append(*target_load);
-
-        target_load++;
-
-        while(target_load != vector_loads.end())
+        for (objlist_nodecl_t::const_iterator target_load =
+                vector_loads.begin();
+                target_load != vector_loads.end();
+                target_load++)
         {
             Nodecl::VectorLoad target_load_copy =
                 target_load->shallow_copy().as<Nodecl::VectorLoad>();
@@ -902,53 +833,101 @@ namespace Vectorization
                 }
             }
 
-            if(overlap(target_load_copy,
-                        group._group_loads))
+            bool og_found = false;
+            for(objlist_ogroup_t::iterator it_ogroup =
+                    ogroups.begin();
+                    it_ogroup != ogroups.end();
+                    it_ogroup++)
             {
-                std::cerr << target_load_copy.prettyprint() << " overlap!"<< std::endl;
+                if(overlap(target_load_copy,
+                            it_ogroup->_loads))
+                {
+                    std::cerr << target_load_copy.prettyprint() << " overlap!"<< std::endl;
+                    target_load->replace(target_load_copy);
+                    it_ogroup->_loads.append(*target_load);
+
+                    og_found = true;
+                }
+            }
+
+            if (!og_found) // NEW GROUP
+            {
+                OverlapGroup ogroup;
+
+                std::cerr << "Building a new Overlap Group for "
+                    << target_load_copy.prettyprint()
+                    << std::endl;
+
                 target_load->replace(target_load_copy);
-                group._group_loads.append(*target_load);
+                ogroup._loads.append(*target_load);
+                ogroups.append(ogroup);
+            }
+        }
+
+        std::cerr << "Overlap Groups Summary:" << std::endl;
+        std::cerr << "    - Total groups: "
+            << ogroups.size() << std::endl;
+        std::cerr << "    - Groups after merging: "
+            << ogroups.size() << std::endl;
+
+        // TODO: Merge overlaped groups
+        
+
+        // TODO: Length
+        //if (group._loads.size() >= min_group_size)
+        //    result.append(group);
+        
+        for(objlist_ogroup_t::iterator it_ogroup =
+                ogroups.begin();
+                it_ogroup != ogroups.end();)
+        {
+            if (it_ogroup->_loads.size() < min_group_size)
+            {
+                ogroups.erase(it_ogroup);
             }
             else
             {
-                std::cerr << target_load_copy.prettyprint() << " DOESN'T overlap!"<< std::endl;
-                //Nodecl::Utils::print_ast(target_load_copy);
-                internal_error("not yet implemented", 0);
+                it_ogroup++;
             }
-                
-            target_load++;
         }
 
-        // TODO: Length
-        if (group._group_loads.size() >= min_group_length)
-            result.append(group);
+        std::cerr << "    - Groups after group size filtering: "
+            << ogroups.size() << std::endl;
 
-        return result;
+        return ogroups;
     }
-
 
     void OverlappedAccessesOptimizer::compute_group_properties(
             OverlapGroup& ogroup,
             TL::Scope& scope,
+            const int num_group,
             const bool is_group_epilog)
     {
-        ogroup._vector_type = ogroup._group_loads.front().get_type().no_ref();
-        ogroup._basic_type = ogroup._group_loads.front().get_type().no_ref().basic_type();
+        ogroup._vector_type = ogroup._loads.front().get_type().no_ref();
+        ogroup._basic_type = ogroup._loads.front().get_type().no_ref().basic_type();
         int vectorization_factor = ogroup._vector_type.vector_num_elements();
 
-        Nodecl::VectorLoad vload = 
-            ogroup._group_loads.front().as<Nodecl::VectorLoad>();
+        ogroup.compute_leftmost_rightmost_vloads(_environment);
 
-        //TODO
-        Nodecl::NodeclBase first_index =
-            get_vector_load_subscript(vload);
+        // Group subscript
+        ogroup._subscripted = Utils::get_vector_load_subscripted(
+                ogroup._loads.front().as<Nodecl::VectorLoad>()).
+                as<Nodecl::Symbol>();
+
+        Nodecl::NodeclBase leftmost_index = 
+            Utils::get_vector_load_subscript(ogroup._leftmost_vload);
+
+        ogroup.compute_num_registers(_environment);
 
         // TODO # registers
         // Declare group registers
-        for (int i=0; i<2; i++)
+        for (int i=0; i<ogroup._num_registers; i++)
         {
             std::stringstream new_sym_name;
-            new_sym_name << "__overlap_" << i;//it->first.get_name() << "_" << i;
+            new_sym_name << "__overlap_" 
+                << ogroup._subscripted.get_symbol().get_name() << "_"
+                << num_group << "_"
+                << i;
 
             if (is_group_epilog)
             {
@@ -958,14 +937,16 @@ namespace Vectorization
 
                 ERROR_CONDITION(!sym.is_valid(), "cache symbol is invalid.", 0);
 
-                ogroup._group_registers.push_back(sym);
-                ogroup._group_registers_indexes.push_back(
-                        (i == 0) ? first_index : 
+                ogroup._registers.push_back(sym);
+                ogroup._registers_indexes.push_back(
+                        (i == 0) ? leftmost_index : 
                         Nodecl::Add::make(
-                            first_index.shallow_copy(),
-                            const_value_to_nodecl(const_value_get_signed_int(
-                                    vectorization_factor)),
-                            first_index.get_type()));
+                            leftmost_index.shallow_copy(),
+                            const_value_to_nodecl(const_value_mul(
+                                    const_value_get_signed_int(i),
+                                    const_value_get_signed_int(
+                                        vectorization_factor))),
+                            leftmost_index.get_type()));
             }
             else
             {
@@ -975,20 +956,18 @@ namespace Vectorization
                 new_sym.get_internal_symbol()->entity_specs.is_user_declared = 1;
                 new_sym.set_type(ogroup._vector_type);
 
-                ogroup._group_registers.push_back(new_sym);
-                ogroup._group_registers_indexes.push_back(
-                        (i == 0) ? first_index : 
+                ogroup._registers.push_back(new_sym);
+                ogroup._registers_indexes.push_back(
+                        (i == 0) ? leftmost_index : 
                         Nodecl::Add::make(
-                            first_index.shallow_copy(),
-                            const_value_to_nodecl(const_value_get_signed_int(
-                                    vectorization_factor)),
-                            first_index.get_type()));
+                            leftmost_index.shallow_copy(),
+                            const_value_to_nodecl(const_value_mul(
+                                    const_value_get_signed_int(i),
+                                    const_value_get_signed_int(
+                                        vectorization_factor))),
+                            leftmost_index.get_type()));
             }
         }
-
-        // Group subscript
-        ogroup._group_subscripted = get_vector_load_subscripted(
-                vload).as<Nodecl::Symbol>();
     }
 
 
@@ -1022,56 +1001,62 @@ namespace Vectorization
     void OverlappedAccessesOptimizer::replace_overlapped_loads(
             const OverlapGroup& ogroup)
     {
-        //TODO: init_cache_index
-        Nodecl::NodeclBase init_cache_index =
-            get_vector_load_subscript(
-                    ogroup._group_loads.front().
-                    as<Nodecl::VectorLoad>());
-
         for(objlist_nodecl_t::const_iterator load_it =
-                ogroup._group_loads.begin();
-                load_it != ogroup._group_loads.end();
+                ogroup._loads.begin();
+                load_it != ogroup._loads.end();
                 load_it++)
         {
             Nodecl::NodeclBase load_subscript =
-                get_vector_load_subscript(
+                Utils::get_vector_load_subscript(
                         load_it->as<Nodecl::VectorLoad>());
 
             Nodecl::Minus shifted_elements = Nodecl::Minus::make(
                     load_subscript.shallow_copy(),
-                    ogroup._group_registers_indexes[0].no_conv().shallow_copy(),
-                    load_it->get_type());
+                    ogroup._registers_indexes[0].no_conv().shallow_copy(),
+                    load_subscript.get_type());
 
             TL::Optimizations::UnitaryReductor unitary_reductor;
             unitary_reductor.reduce(shifted_elements);
 
-            std::cerr << "Align elements: " << load_subscript.prettyprint()
-                << " MINUS " << ogroup._group_registers_indexes[0].prettyprint()
-                << " = "
-                << shifted_elements.prettyprint()
-                << std::endl;
-
-            objlist_tlsymbol_t::const_iterator register_it =
-                ogroup._group_registers.begin();
-
             if (shifted_elements.is_constant())
             {
-                if (const_value_is_zero(
-                            shifted_elements.get_constant()))
+                const_value_t* mod = const_value_mod(
+                            shifted_elements.get_constant(),
+                            const_value_get_signed_int(
+                                _environment._vectorization_factor));
+                const_value_t* div = const_value_div(
+                            shifted_elements.get_constant(),
+                            const_value_get_signed_int(
+                                _environment._vectorization_factor));
+
+                int first_register = const_value_cast_to_4(div);
+                int final_offset = const_value_cast_to_4(mod);
+
+                if (const_value_is_zero(mod))
                 {
                     load_it->replace(
-                            register_it->make_nodecl(true));
+                            ogroup._registers[first_register].
+                            make_nodecl(true));
                 }
                 else
                 {
                     load_it->replace(Nodecl::VectorAlignRight::make(
-                                register_it->make_nodecl(true),
-                                (register_it++)->make_nodecl(true),
-                                shifted_elements,
+                                ogroup._registers[first_register+1].make_nodecl(true),
+                                ogroup._registers[first_register].make_nodecl(true),
+                                const_value_to_nodecl(const_value_get_signed_int(final_offset)),
                                 load_it->as<Nodecl::VectorLoad>().
                                 get_mask().shallow_copy(),
-                                register_it->get_type()));
+                                ogroup._registers[first_register].get_type()));
                 }
+
+                std::cerr << "Align elements: " << load_subscript.prettyprint()
+                    << " MINUS " << ogroup._registers_indexes[0].prettyprint()
+                    << " = "
+                    << shifted_elements.prettyprint()
+                    << ". Registers: " << first_register 
+                    << ", " << first_register+1
+                    << ". Offset: " << final_offset
+                    << std::endl;
             }
             else
             {

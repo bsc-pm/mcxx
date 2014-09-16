@@ -696,6 +696,7 @@ namespace Vectorization
 
 
                         // Aligned
+                        int alignment_output;
                         if(VectorizationAnalysisInterface::_vectorizer_analysis->
                                 is_simd_aligned_access(
                                     _environment._analysis_simd_scope,
@@ -703,7 +704,9 @@ namespace Vectorization
                                     _environment._aligned_symbols_map,
                                     _environment._suitable_exprs_list,
                                     _environment._vectorization_factor,
-                                    _environment._vectorization_factor * assignment_type.get_size()))
+                                    _environment._vectorization_factor *
+                                    assignment_type.get_size(),
+                                    alignment_output))
                         {
                             store_flags.append(Nodecl::AlignedFlag::make());
 
@@ -711,6 +714,12 @@ namespace Vectorization
                             {
                                 fprintf(stderr, " (aligned)");
                             }
+                        }
+
+                        if (alignment_output != -1)
+                        {
+                            store_flags.append(Nodecl::AlignmentInfo::make(
+                                        const_value_get_signed_int(alignment_output)));
                         }
 
                         if (nontemporal_store)
@@ -1091,6 +1100,7 @@ namespace Vectorization
                 }
 
                 // Aligned
+                int alignment_output;
                 if(VectorizationAnalysisInterface::_vectorizer_analysis->
                         is_simd_aligned_access(
                             _environment._analysis_simd_scope,
@@ -1098,7 +1108,8 @@ namespace Vectorization
                             _environment._aligned_symbols_map,
                             _environment._suitable_exprs_list,
                             _environment._vectorization_factor,
-                            _environment._vector_length))
+                            _environment._vector_length,
+                            alignment_output))
                 {
                     load_flags.append(Nodecl::AlignedFlag::make());
 
@@ -1107,6 +1118,12 @@ namespace Vectorization
                         fprintf(stderr, " (aligned)");
                     }
 
+                }
+
+                if (alignment_output != -1)
+                {
+                    load_flags.append(Nodecl::AlignmentInfo::make(
+                                const_value_get_signed_int(alignment_output)));
                 }
                
                 VECTORIZATION_DEBUG()
@@ -1118,6 +1135,8 @@ namespace Vectorization
                     Nodecl::VectorLoad::make(
                             Nodecl::Reference::make(
                                 n.shallow_copy(),
+                                //VectorizationAnalysisInterface::
+                                //_vectorizer_analysis->shallow_copy(n),
                                 basic_type.get_pointer_to(),
                                 n.get_locus()),
                             mask,
@@ -1128,7 +1147,6 @@ namespace Vectorization
                 vector_load.set_constant(const_value);
 
                 n.replace(vector_load);
-
             }
             else // Vector Gather
             {

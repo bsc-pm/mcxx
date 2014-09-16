@@ -89,7 +89,8 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const map_tl_sym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment)
+            int unroll_factor, int alignment,
+            int& alignment_module)
     {
         if( !n.is<Nodecl::ArraySubscript>( ) )
         {
@@ -106,7 +107,8 @@ namespace Vectorization
         SuitableAlignmentVisitor sa_v( scope, suitable_expressions,
                 unroll_factor, type_size, alignment );
 
-        return sa_v.is_aligned_access( array_subscript, aligned_expressions );
+        return sa_v.is_aligned_access(
+                array_subscript, aligned_expressions, alignment_module);
     }
 
     bool is_suitable_expression_internal(

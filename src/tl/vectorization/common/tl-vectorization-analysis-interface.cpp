@@ -563,7 +563,8 @@ namespace Vectorization
             const Nodecl::NodeclBase& n,
             const map_tl_sym_int_t& aligned_expressions,
             const objlist_nodecl_t& suitable_expressions,
-            int unroll_factor, int alignment)
+            int unroll_factor, int alignment,
+            int& alignment_output)
     {
         //DO NOT TRANSLATE
         map_scope_analysis_info_t::iterator scope_it =
@@ -594,7 +595,7 @@ namespace Vectorization
         bool result = is_simd_aligned_access_internal(
                     scope, n, aligned_expressions,
                     suitable_expressions, unroll_factor,
-                    alignment);
+                    alignment, alignment_output);
 
         scope_it->second.simd_aligned_nodes.insert(
                 pair_node_bool_t(n, result));
@@ -702,7 +703,7 @@ namespace Vectorization
             // There is NO equal node in origin
             else
             {
-                internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
+                //internal_error("VectorizerAnalysis: Original node doesn't exist in the copy", 0);
             }
         }
     }

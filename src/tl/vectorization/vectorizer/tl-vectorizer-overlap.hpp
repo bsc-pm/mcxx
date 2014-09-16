@@ -88,18 +88,26 @@ namespace TL
         typedef TL::ObjectList<pair_nodecl_int_t> objlist_blocks_pairs_t;
         struct OverlapGroup
         {
-            Nodecl::Symbol _group_subscripted;
-            objlist_tlsymbol_t _group_registers;
-            objlist_nodecl_t _group_registers_indexes;
-            objlist_nodecl_t _group_loads;
+            Nodecl::Symbol _subscripted;
+            objlist_tlsymbol_t _registers;
+            objlist_nodecl_t _registers_indexes;
+            objlist_nodecl_t _loads;
+            Nodecl::VectorLoad _leftmost_vload;
+            Nodecl::VectorLoad _rightmost_vload;
             TL::Type _basic_type;
             TL::Type _vector_type;
+            int _num_registers;
 
             Nodecl::List get_init_statements(
                     const Nodecl::ForStatement& for_stmt,
                     const objlist_nodecl_t& ivs_list) const;
             Nodecl::List get_iteration_update_pre() const;
             Nodecl::List get_iteration_update_post() const;
+
+            void compute_leftmost_rightmost_vloads(
+                    const Vectorization::VectorizerEnvironment& environment);
+            void compute_num_registers(
+                    const Vectorization::VectorizerEnvironment& environment);
         };
 
         typedef TL::ObjectList<OverlapGroup> objlist_ogroup_t;
@@ -116,13 +124,14 @@ namespace TL
                         objlist_nodecl_t group);
                 objlist_ogroup_t get_overlap_groups(
                         const objlist_nodecl_t& adjacent_accesses,
-                        const unsigned int min_group_length,
+                        const unsigned int min_group_size,
                         const objlist_blocks_pairs_t& blocks_pairs,
                         const objlist_nodecl_t& ivs_list);
 
                 void compute_group_properties(
                         OverlapGroup& ogroup,
                         TL::Scope& scope,
+                        const int num_group,
                         const bool is_group_epilog);
                 void insert_group_update_stmts(
                         OverlapGroup& ogroup,
@@ -132,11 +141,6 @@ namespace TL
                 void replace_overlapped_loads(
                         const OverlapGroup& ogroup);
 
-                Nodecl::NodeclBase get_vector_load_subscripted(
-                        const Nodecl::VectorLoad& vl);
-                Nodecl::NodeclBase get_vector_load_subscript(
-                        const Nodecl::VectorLoad& vl);
-                
                 unsigned int get_loop_min_unroll_factor(Nodecl::ForStatement n,
                         const objlist_nodecl_t& ivs_list);
                 objlist_blocks_pairs_t apply_overlap_blocked_unrolling(

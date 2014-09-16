@@ -436,6 +436,56 @@ namespace Utils
 
         return result;
     }
+
+    Nodecl::NodeclBase get_vector_load_scalar_access(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs = vector_load.get_rhs();
+
+        if (vl_rhs.is<Nodecl::Reference>())
+        {
+            vl_rhs = vl_rhs.as<Nodecl::Reference>().get_rhs();
+
+            return vl_rhs;
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
+    }
+
+    Nodecl::NodeclBase get_vector_load_subscripted(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs =
+            get_vector_load_scalar_access(vector_load);
+
+        if (vl_rhs.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript array =
+                vl_rhs.as<Nodecl::ArraySubscript>();
+
+            return array.get_subscripted().no_conv();
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
+    }
+
+    Nodecl::NodeclBase get_vector_load_subscript(
+            const Nodecl::VectorLoad& vector_load)
+    {
+        Nodecl::NodeclBase vl_rhs= 
+            get_vector_load_scalar_access(vector_load);
+
+        if (vl_rhs.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript array =
+                vl_rhs.as<Nodecl::ArraySubscript>();
+
+            return array.get_subscripts().as<Nodecl::List>().
+                front().no_conv();
+        }
+
+        internal_error("Invalid Vector Load\n", 0);
+    }
 }
 }
 }

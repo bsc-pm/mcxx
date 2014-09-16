@@ -154,7 +154,8 @@ namespace Vectorization
                     const Nodecl::NodeclBase& n,
                     const map_tl_sym_int_t& aligned_expressions,
                     const objlist_nodecl_t& suitable_expressions,
-                    int unroll_factor, int alignment);
+                    int unroll_factor, int alignment,
+                    int& alignment_module);
             virtual bool is_suitable_expression(
                     const Nodecl::NodeclBase& scope, const Nodecl::NodeclBase& n,
                     const objlist_nodecl_t& suitable_expressions,

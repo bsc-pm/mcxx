@@ -59,10 +59,12 @@ namespace Vectorization
 
     bool SuitableAlignmentVisitor::is_aligned_access(
             const Nodecl::ArraySubscript& n,
-            const std::map<TL::Symbol, int> aligned_expressions)
+            const std::map<TL::Symbol, int> aligned_expressions,
+            int& alignment_module)
     {
         int i;
         int alignment;
+        alignment_module = -1;
 
         Nodecl::NodeclBase subscripted = n.get_subscripted( );
         TL::Type element_type = subscripted.get_type( );
@@ -200,8 +202,11 @@ namespace Vectorization
         // Add adjacent dimension
         alignment += it_alignment;
 
-        if( (alignment % _alignment) == 0 )
+        alignment_module = alignment % _alignment;
+        if( alignment_module == 0 )
+        {
             return true;
+        }
 
         return false;
     }
