@@ -1117,7 +1117,7 @@ namespace Optimizations {
         UnitaryDecomposer decomp;
         _unitary_rhss = decomp.walk(rhs);
 
-        print_unitary_rhss();
+        //print_unitary_rhss();
 
         walk(n.get_lhs());
 
@@ -1280,7 +1280,32 @@ namespace Optimizations {
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Minus& n)
     {
-        return walk(n.get_lhs()).append(walk(n.get_rhs()));
+        UnitaryDecomposer::Ret result = walk(n.get_lhs());
+        UnitaryDecomposer::Ret rhs_result = walk(n.get_rhs());
+
+        for(UnitaryDecomposer::Ret::iterator it = rhs_result.begin();
+                it != rhs_result.end();
+                it++)
+        {
+            result.append(Nodecl::Neg::make(*it, it->get_type()));
+        }
+
+        return result;
+    }
+
+    UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Neg& n)
+    {
+        UnitaryDecomposer::Ret result;
+        UnitaryDecomposer::Ret rhs_result = walk(n.get_rhs());
+
+        for(UnitaryDecomposer::Ret::iterator it = rhs_result.begin();
+                it != rhs_result.end();
+                it++)
+        {
+            result.append(Nodecl::Neg::make(*it, it->get_type()));
+        }
+
+        return result;
     }
 
     UnitaryDecomposer::Ret UnitaryDecomposer::visit(const Nodecl::Mul& n)
