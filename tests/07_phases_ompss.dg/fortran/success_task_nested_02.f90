@@ -1,3 +1,6 @@
+! <testinfo>
+! test_generator=config/mercurium-ompss
+! </testinfo>
 SUBROUTINE f
     IMPLICIT NONE
     INTEGER, ALLOCATABLE :: alloc_array(:)
