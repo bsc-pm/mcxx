@@ -138,6 +138,7 @@ literal : NODECL_INTEGER_LITERAL() type const-value
 string-literal: NODECL_STRING_LITERAL() type const-value text-opt
 
 vector-flags: NODECL_ALIGNED_FLAG()
+    | NODECL_ALIGNMENT_INFO() const-value
     | NODECL_EVICT_FLAG()
     | NODECL_RELAXED_FLAG()
     | NODECL_NONTEMPORAL_FLAG()
