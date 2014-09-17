@@ -58,12 +58,12 @@ namespace TL { namespace OpenMP {
                 const_cast<Nodecl::Symbol&>(n).set_type(rewrite_type(n.get_type()));
             }
 
-            // Do nothing for environments involving only name-lists
-            void visit(const Nodecl::OpenMP::Shared& n) { }
-            void visit(const Nodecl::OpenMP::Firstprivate& n) { }
-            void visit(const Nodecl::OpenMP::Private& n) { }
-            void visit(const Nodecl::OpenMP::Lastprivate& n) { }
-            void visit(const Nodecl::OpenMP::FirstLastprivate& n) { }
+            // Do not store environments involving only name-lists
+            void visit(const Nodecl::OpenMP::Shared& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
+            void visit(const Nodecl::OpenMP::Firstprivate& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
+            void visit(const Nodecl::OpenMP::Private& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
+            void visit(const Nodecl::OpenMP::Lastprivate& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
+            void visit(const Nodecl::OpenMP::FirstLastprivate& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
 
             void unhandled_node(const Nodecl::NodeclBase & n)
             {

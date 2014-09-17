@@ -507,6 +507,11 @@ static void build_scope_translation_unit_post(
         {
             instantiation_instantiate_pending_functions(nodecl_output);
         }
+
+        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        {
+            prepend_intel_vector_typedefs(nodecl_output);
+        }
     }
     C_LANGUAGE()
     {
@@ -670,6 +675,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     }
 
     gcc_sign_in_builtins(decl_context);
+
 
     C_LANGUAGE()
     {
@@ -13985,10 +13991,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
                 if (valid && is_class_type_or_array_thereof(entry->type_information))
                 {
-                    {
-                        entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
-                    }
-                    entry->defined = 1;
+                    entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
                 }
             }
             else
