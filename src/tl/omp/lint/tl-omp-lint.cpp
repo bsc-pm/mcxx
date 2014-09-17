@@ -485,10 +485,10 @@ namespace {
                 }
                 task_outer = task_outer->get_outer_node();
             }
-            // We have not found the context in the PCFG where the variable was declared
-            internal_error ("PCFG context of local variable %s has not been found.", 
-                            itv->prettyprint().c_str());
             
+            // The variable is not declared in the context of the current PCFG
+            return false;
+
 check_sync:
             // 2.- Check whether the context of the variable contains all synchronizations of the task
             for (TL::ObjectList<TL::Analysis::Node*>::const_iterator it = children.begin();
