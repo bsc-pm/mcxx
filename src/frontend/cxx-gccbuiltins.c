@@ -3482,13 +3482,19 @@ void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
     for (i = 0; fun_list[i] != NULL; i++)
     {
         scope_entry_t* sym = (fun_list[i])();
-        nodecl_vector_defs =
-            nodecl_append_to_list(
-                    nodecl_vector_defs,
-                    nodecl_make_cxx_def(
-                        nodecl_null(),
-                        sym,
-                        NULL));
+
+        type_t* struct_type = advance_over_typedefs(sym->type_information);
+
+        if (is_complete_type(struct_type))
+        {
+            nodecl_vector_defs =
+                nodecl_append_to_list(
+                        nodecl_vector_defs,
+                        nodecl_make_cxx_def(
+                            nodecl_null(),
+                            sym,
+                            NULL));
+        }
     }
 
     *nodecl_output = nodecl_concat_lists(
