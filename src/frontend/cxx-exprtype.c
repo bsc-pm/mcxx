@@ -31,7 +31,6 @@
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
-#include "cxx-typeunif.h"
 #include "cxx-typededuc.h"
 #include "cxx-koenig.h"
 #include "cxx-tltype.h"
@@ -198,7 +197,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         type_t** argument_types, int num_arguments, 
         decl_context_t decl_context,
         const locus_t* locus,
-        template_parameter_list_t* explicit_template_parameters)
+        template_parameter_list_t* explicit_template_arguments)
 {
     // We have to expand the template
     template_parameter_list_t* type_template_parameters 
@@ -212,11 +211,17 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
 
     template_parameter_list_t* argument_list = NULL;
 
-    if (deduce_arguments_from_call_to_specific_template_function(argument_types,
-                num_arguments, specialization_type, 
-                template_parameters, type_template_parameters,
-                decl_context, &argument_list, locus, 
-                explicit_template_parameters))
+    if (deduce_template_arguments_from_function_call(
+                argument_types,
+                num_arguments,
+                specialization_type,
+                template_parameters,
+                type_template_parameters,
+                explicit_template_arguments,
+                decl_context,
+                locus,
+                // out
+                &argument_list) == DEDUCTION_OK)
     {
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
@@ -225,6 +230,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         //
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
                 argument_list, decl_context, locus);
+        free_template_parameter_list(argument_list);
 
         if (named_specialization_type == NULL)
         {
@@ -263,14 +269,14 @@ scope_entry_t* expand_template_function_given_template_arguments(
         scope_entry_t* entry,
         decl_context_t decl_context,
         const locus_t* locus,
-        template_parameter_list_t* explicit_template_parameters)
+        template_parameter_list_t* explicit_template_arguments)
 {
     return expand_template_given_arguments(
             entry,
             NULL, 0,
             decl_context,
             locus,
-            explicit_template_parameters);
+            explicit_template_arguments);
 }
 
 
@@ -322,7 +328,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         int num_arguments,
         decl_context_t decl_context,
         const locus_t* locus,
-        template_parameter_list_t *explicit_template_parameters
+        template_parameter_list_t *explicit_template_arguments
         )
 {
     scope_entry_list_t* overload_set = NULL;
@@ -341,7 +347,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         {
             scope_entry_t* specialized_symbol = expand_template_given_arguments(entry,
                     argument_types, num_arguments, decl_context, locus,
-                    explicit_template_parameters);
+                    explicit_template_arguments);
 
             if (specialized_symbol != NULL)
             {
@@ -3067,7 +3073,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             nonmember_entry_list, builtins, argument_types, num_arguments,
             decl_context,
             locus,
-            /* explicit_template_parameters */ NULL);
+            /* explicit_template_arguments */ NULL);
     entry_list_free(nonmember_entry_list);
 
     scope_entry_list_iterator_t *it = NULL;
@@ -7708,7 +7714,7 @@ static void check_nodecl_array_subscript_expression_cxx(
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 locus,
-                /* explicit_template_parameters */ NULL);
+                /* explicit_template_arguments */ NULL);
         entry_list_free(operator_subscript_list);
 
         candidate_t* candidate_set = NULL;
@@ -11655,7 +11661,7 @@ static void check_nodecl_function_call_cxx(
                     /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
                     locus,
-                    /* explicit_template_parameters */ NULL);
+                    /* explicit_template_arguments */ NULL);
             entry_list_free(first_set_candidates);
 
             int num_surrogate_functions = 0;
@@ -14076,7 +14082,7 @@ static void check_postoperator_user_defined(
                 NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 nodecl_get_locus(postoperated_expr),
-                /* explicit_template_parameters */ NULL);
+                /* explicit_template_arguments */ NULL);
         entry_list_free(operator_entry_list);
     }
 
@@ -14092,7 +14098,7 @@ static void check_postoperator_user_defined(
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, argument_types, num_arguments,
             decl_context,
-            nodecl_get_locus(postoperated_expr), /* explicit_template_parameters */ NULL);
+            nodecl_get_locus(postoperated_expr), /* explicit_template_arguments */ NULL);
     entry_list_free(entry_list);
 
     scope_entry_list_t* old_overload_set = overload_set;
@@ -14209,7 +14215,7 @@ static void check_preoperator_user_defined(AST operator,
                 NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 nodecl_get_locus(preoperated_expr),
-                /* explicit_template_parameters */ NULL);
+                /* explicit_template_arguments */ NULL);
         entry_list_free(operator_entry_list);
     }
 
@@ -14223,7 +14229,7 @@ static void check_preoperator_user_defined(AST operator,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, argument_types, num_arguments,
             decl_context,
-            nodecl_get_locus(preoperated_expr), /* explicit_template_parameters */ NULL);
+            nodecl_get_locus(preoperated_expr), /* explicit_template_arguments */ NULL);
     entry_list_free(entry_list);
 
     scope_entry_list_t* old_overload_set = overload_set;
@@ -17630,6 +17636,7 @@ void check_nodecl_initialization(
                     && nodecl_get_kind(nodecl_get_child(nodecl_initializer, 0)) == NODECL_CXX_BRACED_INITIALIZER);
 
         template_parameter_list_t* deduced_template_arguments = NULL;
+
         if (deduce_arguments_of_auto_initialization(
                 initialized_entry->type_information,
                 nodecl_get_type(nodecl_initializer),
@@ -17655,6 +17662,7 @@ void check_nodecl_initialization(
                         deduced_template_arguments,
                         decl_context,
                         nodecl_get_locus(nodecl_initializer));
+                free_template_parameter_list(deduced_template_arguments);
 
                 initialized_entry->type_information = update_type_for_auto(initialized_entry->type_information, specialized_type);
             }
@@ -23615,3 +23623,64 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_delete_array = instantiate_expr_visitor_fun(instantiate_delete_array);
 }
 
+
+char same_functional_expression(
+        nodecl_t n1,
+        nodecl_t n2)
+{
+    if (nodecl_is_null(n1) != nodecl_is_null(n2))
+        return 0;
+
+    if (nodecl_is_null(n1))
+        return 1;
+
+    if ((nodecl_get_constant(n1) == NULL)
+            != (nodecl_get_constant(n2) == NULL))
+        return 0;
+
+    if (nodecl_get_constant(n1) != NULL)
+    {
+        return const_value_is_nonzero(
+                const_value_eq(
+                    nodecl_get_constant(n1),
+                    nodecl_get_constant(n2)));
+    }
+
+    if (nodecl_get_kind(n1) != nodecl_get_kind(n2))
+        return 0;
+
+    if (nodecl_get_symbol(n1) != NULL
+            && nodecl_get_symbol(n2) != NULL)
+    {
+        scope_entry_t* s1 = nodecl_get_symbol(n1);
+        scope_entry_t* s2 = nodecl_get_symbol(n2);
+
+        if (s1 != s2
+                && !((s1->kind == SK_TEMPLATE_NONTYPE_PARAMETER
+                        || s1->kind == SK_TEMPLATE_NONTYPE_PARAMETER_PACK)
+                    && s1->kind == s2->kind
+                    && s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting
+                    && s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position)
+                && !(s1->kind == SK_DEPENDENT_ENTITY
+                    && s2->kind == SK_DEPENDENT_ENTITY
+                    && equivalent_types(s1->type_information, s2->type_information)))
+        {
+            return 0;
+        }
+    }
+    else if (nodecl_get_symbol(n1) != nodecl_get_symbol(n2))
+    {
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (!same_functional_expression(
+                    nodecl_get_child(n1, i),
+                    nodecl_get_child(n2, i)))
+            return 0;
+    }
+
+    return 1;
+}

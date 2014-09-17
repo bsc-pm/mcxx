@@ -69,33 +69,33 @@ namespace {
             case tribool::unknown :
             case tribool::yes :
                 {
-                    SyncKind sync_kind = Sync_maybe;
+                    SyncKind sync_kind;
                     if (task_sync_rel == tribool::yes)
                         sync_kind = Sync_static;
+                    else if (task_sync_rel == tribool::unknown)
+                        sync_kind = Sync_maybe;
+                    else
+                        internal_error("Code unreachable", 0);
 
+#ifdef TASK_SYNC_DEBUG
                     if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
                     {
-                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
-#ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__
                             << " task (among others) maybe synchronizes in this task execution" << std::endl;
-#endif
                     }
                     else
                     {
-                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
-#ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__
                             << " task maybe synchronizes in this task execution" << std::endl;
-#endif
                     }
+#endif
+                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current_sync_point, sync_kind));
 
                     if (task_sync_rel == tribool::yes)
                     {
 #ifdef TASK_SYNC_DEBUG
                         std::cerr << __FILE__ << ":" << __LINE__ << " but we know it statically synchronizes" << std::endl;
 #endif
-                        current->get_static_sync_out_tasks().insert(*alive_tasks_it);
                     }
                     else
                     {
@@ -137,23 +137,7 @@ namespace {
                     internal_error("Code unreachable", 0);
                 }
         }
-
     }
-
-    UNUSED_FUNCTION bool has_task_creation_edges(Node* n)
-    {
-        ObjectList<Edge*> exit_edges = n->get_exit_edges();
-
-        for (ObjectList<Edge*>::iterator edge_it = exit_edges.begin();
-                edge_it != exit_edges.end();
-                edge_it++)
-        {
-            if ((*edge_it)->is_task_edge())
-                return true;
-        }
-        return false;
-    }
-
 
     static ObjectList<Edge*> get_task_creation_edges(Node* n)
     {
@@ -171,7 +155,8 @@ namespace {
         return result;
     }
 
-    UNUSED_FUNCTION std::string print_set(AliveTaskSet& t)
+#ifdef TASK_SYNC_DEBUG
+    std::string print_set(AliveTaskSet& t)
     {
         std::stringstream ss;
         ss << "{ ";
@@ -189,6 +174,7 @@ namespace {
 
         return ss.str();
     }
+#endif
 
     bool is_strict_subobject_access(NBase& data_ref)
     {
@@ -203,14 +189,18 @@ namespace {
             {
                 NBase subscripted = current.as<Nodecl::ArraySubscript>().get_subscripted();
                 if (subscripted.is<Nodecl::Symbol>())
-                {
-                    // a[x]
+                {   // a[x] where 'a' should be an array
                     if (!subscripted.get_symbol().get_type().is_array())
                         return false;
                 }
+                else if (subscripted.is<Nodecl::Conversion>() 
+                        && subscripted.as<Nodecl::Conversion>().get_nest().is<Nodecl::Symbol>())
+                {   // a[x] where 'a' should be a pointer
+                    if (!subscripted.as<Nodecl::Conversion>().get_nest().get_symbol().get_type().is_pointer())
+                        return false;
+                }
                 else if (subscripted.is<Nodecl::ClassMemberAccess>())
-                {
-                    // b.a[x]
+                {   // b.a[x]
                     NBase member = subscripted.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
@@ -224,14 +214,12 @@ namespace {
             {
                 NBase lhs = current.as<Nodecl::ClassMemberAccess>().get_lhs();
                 if (lhs.is<Nodecl::Symbol>())
-                {
-                    // a.b
+                {   // a.b
                     if (!lhs.get_symbol().get_type().is_class())
                         return false;
                 }
                 else if (lhs.is<Nodecl::ClassMemberAccess>())
-                {
-                    // a.b.c
+                {   // a.b.c
                     NBase member = lhs.as<Nodecl::ClassMemberAccess>().get_member();
                     if (!member.is<Nodecl::Symbol>())
                         return false;
@@ -240,6 +228,10 @@ namespace {
                 }
 
                 current = lhs;
+            }
+            else if(current.is<Nodecl::Conversion>())
+            {
+                current = current.as<Nodecl::Conversion>().get_nest();
             }
             else
             {
@@ -250,47 +242,78 @@ namespace {
         return true;
     }
 
-    tribool may_have_dependence(NBase source, NBase target)
+    tribool may_have_dependence(const NBase& source, const NBase& target)
     {
         TL::DataReference source_data_ref(source);
         TL::DataReference target_data_ref(target);
-
-        // We return unknown
+        
+        // 1.- Some data reference is not valid => return unknown
         if (!source_data_ref.is_valid()
                 || !target_data_ref.is_valid())
             return tribool();
 
+        // 2.- The two data references are simple objects => 
+        //     - return true when the two symbols are the same
+        //     - return false otherwise
         TL::Symbol source_sym = source_data_ref.get_base_symbol();
         TL::Symbol target_sym = target_data_ref.get_base_symbol();
 
-        bool source_is_object = source.is<Nodecl::Symbol>()
+        bool source_is_symbol = source.is<Nodecl::Symbol>()
             && !source.get_symbol().get_type().is_any_reference();
-        bool target_is_object = target.is<Nodecl::Symbol>()
+        bool target_is_symbol = target.is<Nodecl::Symbol>()
             && !target.get_symbol().get_type().is_any_reference();
 
-        if (source_is_object && target_is_object)
+        if (source_is_symbol && target_is_symbol)
         {
-            // If both data references are simple objects, different names means
-            // different names
+            // If both data references are simple objects, different names means different symbols
             return (source_sym == target_sym) ? tribool::yes : tribool::no;
         }
 
+        // 3.- The two access are either sub-objects or shaping expressions (specifying the whole object or a sub-part of it)
+        //     - return true when the base symbol is the same in both accesses
+        //     - return false otherwise
+        bool source_is_object = source.is<Nodecl::Shaping>();
+        bool target_is_object = target.is<Nodecl::Shaping>();
         bool source_is_subobject = is_strict_subobject_access(source_data_ref);
         bool target_is_subobject = is_strict_subobject_access(target_data_ref);
 
         if ((source_is_object || source_is_subobject)
                 && (target_is_object || target_is_subobject))
         {
-            // If one is object and the other subobject (or both subobjects),
+            // If one is object and the other sub-object (or both sub-objects),
             // if the base symbol is different, they they cannot be the same dependence
-            //
-            // TODO - Sometimes the two subobjects may be the same and we
-            // TODO - may want to return tribool::yes
+            
             if (source_sym != target_sym)
+            {
                 return tribool::no;
+            }
+            else
+            {
+                if(!source_is_subobject || !target_is_subobject)
+                    return tribool::yes;
+                else
+                {   // When the two accesses are ArraySubscripts, we check the subscripts equality
+                    if(source.is<Nodecl::ArraySubscript>() && target.is<Nodecl::ArraySubscript>())
+                    {
+                        const Nodecl::List& src_subs = source.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                        const Nodecl::List& tgt_subs = target.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+                        if(src_subs.size() == tgt_subs.size())
+                        {
+                            Nodecl::List::iterator its = src_subs.begin();
+                            Nodecl::List::iterator itt = tgt_subs.begin();
+                            for( ; its != src_subs.end(); ++its, ++itt)
+                            {
+                                if(!Nodecl::Utils::structurally_equal_nodecls(*its, *itt, /*skip_conversions*/ true))
+                                    return tribool::unknown;
+                            }
+                            return tribool::yes;
+                        }
+                    }
+                }
+            }
         }
-
-        // In all other cases we take a conservative stance
+        
+        // 4.- In all other cases we take a conservative stance
         return tribool::unknown;
     }
 
@@ -465,6 +488,7 @@ namespace {
             internal_error("Code unreachable", 0);
         }
 
+        // FIXME: These should be lists. Otherwise, when we have more than one clause of the same type, we will end up with the last one
         // FIXME: Extend support for concurrent dependencies
         Nodecl::NodeclBase source_dep_in;
         Nodecl::NodeclBase source_dep_out;
@@ -542,10 +566,12 @@ namespace {
 
         for (int n_source = 0; n_source < num_sources; n_source++)
         {
+            if (sources[n_source].is_null())
+                continue;
+            
             for (int n_target = 0; n_target < num_targets; n_target++)
             {
-                if (sources[n_source].is_null()
-                        || targets[n_target].is_null())
+                if (targets[n_target].is_null())
                     continue;
 
                 may_have_dep = may_have_dep || 
@@ -575,44 +601,7 @@ namespace {
         {
             if (alive_tasks_it->domain != current_domain_id)
                 continue;
-
-            // Check if this (*alive_task_it) has already some point of synchronization
-            if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
-            {
-                // Yes, it DOES, have some point of synchronization
-                // Check now if (*alive_tasks_it) is NOT in the set of static synchronized tasks
-                if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                {
-                    // It is NOT in the set of static synchronized task so
-                    // define a strict synchronization here
-                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                    std::cerr << __FILE__ << ":" << __LINE__
-                        << " Task synchronizes in this taskwait (among others) of domain " << current_domain_id << std::endl;
-#endif
-                }
-                else
-                {
-                    // Well, (*alive_tasks_it) IS in the set of static
-                    // synchronized tasks so it won't synchronize here
-                    points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
-                }
-            }
-            else
-            {
-                // (*alive_tasks_it) DOES NOT have any synchronization point
-                // Check now if (*alive_tasks_it) is NOT in the set of static synchronized tasks
-                //
-                // FIXME - Is this check ever false?
-                if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                {
-                    points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                    std::cerr << __FILE__ << ":" << __LINE__
-                        << " Task synchronizes in this taskwait of domain " << current_domain_id << std::endl;
-#endif
-                }
-            }
+            points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
         }
 
         // Remove all the tasks that do sync here
@@ -621,8 +610,10 @@ namespace {
                 alive_tasks_it != current->get_live_in_tasks().end();
                 alive_tasks_it++)
         {
-            if (alive_tasks_it->domain != current_domain_id)
-                still_alive.insert(*alive_tasks_it);
+            if (alive_tasks_it->domain == current_domain_id)
+                continue;
+
+            still_alive.insert(*alive_tasks_it);
         }
         current->get_live_out_tasks() = still_alive;
     }
@@ -655,49 +646,9 @@ namespace {
 
                 current->get_live_in_tasks().insert(alive_tasks_of_predecessor.begin(), alive_tasks_of_predecessor.end());
             }
-
-            // IN_{StaticSyncTaskSet}[current] = Intersection_{p:pred(current)} OUT_{StaticSyncTaskSet}[p]
-            bool first = true;
-            StaticSyncTaskSet intersection;
-            for (ObjectList<Edge*>::iterator predecessor_it = predecessors.begin();
-                    predecessor_it != predecessors.end();
-                    predecessor_it++)
-            {
-                if ((*predecessor_it)->is_task_edge())
-                    continue;
-
-                Node* predecessor = (*predecessor_it)->get_source();
-                if (first)
-                {
-                    intersection = predecessor->get_static_sync_out_tasks();
-#ifdef TASK_SYNC_DEBUG
-                    std::cerr << "FIRST ISECT -> " << print_set(intersection) << std::endl;
-#endif
-                    first = false;
-                }
-                else
-                {
-                    StaticSyncTaskSet tmp;
-#ifdef TASK_SYNC_DEBUG
-                    std::cerr << "CURRENT ISECT -> " << print_set(intersection) << std::endl;
-                    std::cerr << "OPERAND ISECT -> " << print_set(predecessor->get_static_sync_out_tasks()) << std::endl;
-#endif
-                    std::set_intersection(intersection.begin(),
-                            intersection.end(),
-                            predecessor->get_static_sync_out_tasks().begin(),
-                            predecessor->get_static_sync_out_tasks().end(),
-                            std::inserter(tmp, tmp.begin()));
-                    intersection = tmp;
-#ifdef TASK_SYNC_DEBUG
-                    std::cerr << "COMPUTED ISECT -> " << print_set(intersection) << std::endl;
-#endif
-                }
-            }
-            current->get_static_sync_in_tasks() = intersection;
-        }
+         }
 
         AliveTaskSet initial_alive_out = current->get_live_out_tasks();
-        StaticSyncTaskSet initial_static_sync = current->get_static_sync_out_tasks();
 
 #ifdef TASK_SYNC_DEBUG
         std::cerr << "["
@@ -707,9 +658,7 @@ namespace {
                     << "]"
                     << "Before" << std::endl
                     << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
-                    << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
-                    << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
-                    << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+                    << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl;
 #endif
 
         if (current->is_omp_task_node())
@@ -724,45 +673,20 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
-                if (points_of_sync.find(alive_tasks_it->node) != points_of_sync.end())
-                {
-                    if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                    {
-                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                        std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier (among others)" << std::endl;
-#endif
-                    }
-                    else
-                    {
-                        points_of_sync[alive_tasks_it->node].erase(std::make_pair(current, Sync_strict));
-                    }
-                }
-                else
-                {
-                    if (current->get_static_sync_in_tasks().find(*alive_tasks_it) == current->get_static_sync_in_tasks().end())
-                    {
-                        points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
-#ifdef TASK_SYNC_DEBUG
-                        std::cerr << __FILE__ << ":" << __LINE__ << " Task synchronizes in this barrier" << std::endl;
-#endif
-                    }
-                }
+                points_of_sync[alive_tasks_it->node].insert(std::make_pair(current, Sync_strict));
             }
             current->get_live_out_tasks().clear();
-            current->get_static_sync_out_tasks().clear();
         }
         else if (current->is_graph_node())
         {
             Node* graph_entry = current->get_graph_entry_node();
             graph_entry->get_live_in_tasks() = current->get_live_in_tasks();
-            graph_entry->get_static_sync_in_tasks() = current->get_static_sync_in_tasks();
+            // graph_entry->get_static_sync_in_tasks() = current->get_static_sync_in_tasks();
 
             compute_task_synchronizations_rec(graph_entry, changed, points_of_sync, current_domain_id, next_domain_id);
 
             Node* graph_exit = current->get_graph_exit_node();
             current->get_live_out_tasks() = graph_exit->get_live_out_tasks();
-            current->get_static_sync_out_tasks() = graph_exit->get_static_sync_out_tasks();
         }
         else if (current->is_omp_taskwait_node())
         {
@@ -774,10 +698,14 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
-                tribool task_sync_rel = tribool::no;
+                tribool task_sync_rel;
                 if (alive_tasks_it->domain == current_domain_id)
                 {
                     task_sync_rel = compute_taskwait_sync_relationship(alive_tasks_it->node, current);
+                }
+                else
+                {
+                    task_sync_rel = tribool::no;
                 }
                 set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, current);
             }
@@ -793,10 +721,14 @@ namespace {
                     alive_tasks_it != current->get_live_in_tasks().end();
                     alive_tasks_it++)
             {
-                tribool task_sync_rel = tribool::no;
+                tribool task_sync_rel;
                 if (alive_tasks_it->domain == current_domain_id)
                 {
                     task_sync_rel = compute_task_sync_relationship(alive_tasks_it->node, task);
+                }
+                else
+                {
+                    task_sync_rel = tribool::no;
                 }
                 set_sync_relationship(task_sync_rel, alive_tasks_it, points_of_sync, current, task);
             }
@@ -831,35 +763,19 @@ namespace {
                 }
             }
         }
-        else if (current->is_function_call_node())
+        else if (current->is_function_call_node()
+                && current->get_function_node_symbol().is_valid()
+                && function_waits_tasks(current->get_function_node_symbol()))
         {
-            TL:: Symbol symbol = current->get_function_node_symbol();
-
-            if (symbol.is_valid())
-            {
-                // TODO - We do not have enough information if we lack the function code
-                //
-                if (function_waits_tasks(symbol))
-                {
-                    shallow_synchronization_point(current, current_domain_id, points_of_sync);
-                }
-                else
-                {
-                    // All other nodes just propagate OUT(X) = IN(X)
-                    current->get_live_out_tasks() = current->get_live_in_tasks();
-                    current->get_static_sync_out_tasks() = current->get_static_sync_in_tasks();
-                }
-            }
+            shallow_synchronization_point(current, current_domain_id, points_of_sync);
         }
         else
         {
             // All other nodes just propagate OUT(X) = IN(X)
             current->get_live_out_tasks() = current->get_live_in_tasks();
-            current->get_static_sync_out_tasks() = current->get_static_sync_in_tasks();
         }
 
-        if (initial_alive_out != current->get_live_out_tasks()
-                || initial_static_sync != current->get_static_sync_out_tasks())
+        if (initial_alive_out != current->get_live_out_tasks())
         {
 #ifdef TASK_SYNC_DEBUG
             std::cerr << "[" << current->get_id() << "] OUT SET HAS CHANGED" << std::endl;
@@ -875,9 +791,7 @@ namespace {
             << "]"
             << "After" << std::endl
             << "  IN[alive] = " << print_set(current->get_live_in_tasks()) << std::endl
-            << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl
-            << "  IN[static_sync] = " << print_set(current->get_static_sync_in_tasks()) << std::endl
-            << "  OUT[static_sync] = " << print_set(current->get_static_sync_out_tasks()) << std::endl;
+            << "  OUT[alive] = " << print_set(current->get_live_out_tasks()) << std::endl;
 #endif
 
         ObjectList<Edge*> exit_edges = current->get_exit_edges();
@@ -888,8 +802,8 @@ namespace {
             compute_task_synchronizations_rec((*edge_it)->get_target(), changed, points_of_sync, current_domain_id, next_domain_id);
         }
     }
-    
-    static bool IsOmpssEnabled = false;
+
+    bool IsOmpssEnabled = false;
 }
 
     TaskSynchronizations::TaskSynchronizations(ExtensibleGraph* graph, bool is_ompss_enabled)
@@ -926,8 +840,9 @@ namespace {
                 it != points_of_sync.end();
                 it++)
         {
-            for (PointOfSyncSet::iterator jt = it->second.begin();
-                    jt != it->second.end();
+            // Note: We need to preserve reverse order for Range Analysis correctness
+            for (PointOfSyncList::reverse_iterator jt = it->second.rbegin();
+                    jt != it->second.rend();
                     jt++)
             {
 #ifdef TASK_SYNC_DEBUG
@@ -948,17 +863,11 @@ namespace {
                 it != exit->get_live_in_tasks().end();
                 it++)
         {
-            if (exit->get_static_sync_in_tasks().find(*it) == exit->get_static_sync_in_tasks().end())
-            {
-#ifdef TASK_SYNC_DEBUG
-                std::cerr << "CONNECTING VIRTUAL SYNC " << it->node->get_id() << " -> " << post_sync->get_id() << std::endl;
-#endif
-                Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
-                                                   NBase::null(), /*is task edge*/ true);
-                const char* s = sync_kind_to_str(Sync_post);
-                edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
-                                                            const_value_make_string(s, strlen(s))));
-            }
+            Edge* edge = _graph->connect_nodes(it->node, post_sync, __Always,
+                    NBase::null(), /*is task edge*/ true);
+            const char* s = sync_kind_to_str(Sync_post);
+            edge->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
+                        const_value_make_string(s, strlen(s))));
         }
     }
 
@@ -1534,11 +1443,11 @@ task_synchronized:      break;
 
         if(VERBOSE)
         {
-            std::cerr << "Task " << task->get_id() << " synchronizations information" << std::endl;
-            std::cerr << "   Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
-            std::cerr << "   Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
-            std::cerr << "   Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
-            std::cerr << "   Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
+            std::cerr << "    Task " << task->get_id() << " synchronizations information" << std::endl;
+            std::cerr << "        * Last synchronizations for sequential code: " << print_node_list(last_sync_for_seq_code) << std::endl;
+            std::cerr << "        * Last synchronizations for other tasks: " << print_node_list(_last_sync_for_tasks) << std::endl;
+            std::cerr << "        * Next synchronizations for any concurrent code: " << print_node_list(_next_sync) << std::endl;
+            std::cerr << "        * Concurrent tasks: " << print_node_list(concurrent_tasks) << std::endl;
         }
         
         // Set the information computed to the graph

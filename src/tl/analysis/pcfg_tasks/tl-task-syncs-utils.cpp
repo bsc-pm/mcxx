@@ -133,9 +133,9 @@ namespace TaskAnalysis{
         // Get the list of Firstprivate|Private variables of both source and target
         Nodecl::List source_vars_list;
         if (source_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
-            source_vars_list = source_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().as<Nodecl::List>();
+            source_vars_list = source_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().shallow_copy().as<Nodecl::List>();
         if (source_pragma_info.has_clause(NODECL_OPEN_M_P_PRIVATE))
-            source_vars_list.append(source_pragma_info.get_clause(NODECL_OPEN_M_P_PRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().as<Nodecl::List>());
+            source_vars_list.append(source_pragma_info.get_clause(NODECL_OPEN_M_P_PRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().shallow_copy().as<Nodecl::List>());
         
         // Check whether the data reference is is that list
         if (!source_vars_list.empty())

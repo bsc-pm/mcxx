@@ -57,7 +57,7 @@ LIBMCXX_EXTERN char solve_initialization_of_nonclass_type(
         const locus_t* locus);
 
 LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
-        template_parameter_list_t* explicit_template_parameters,
+        template_parameter_list_t* explicit_template_arguments,
         struct type_tag* target_type,
         decl_context_t decl_context,
         const locus_t* locus);

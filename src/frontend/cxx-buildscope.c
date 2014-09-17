@@ -507,6 +507,11 @@ static void build_scope_translation_unit_post(
         {
             instantiation_instantiate_pending_functions(nodecl_output);
         }
+
+        if (CURRENT_CONFIGURATION->enable_intel_vector_types)
+        {
+            prepend_intel_vector_typedefs(nodecl_output);
+        }
     }
     C_LANGUAGE()
     {
@@ -670,6 +675,7 @@ void c_initialize_builtin_symbols(decl_context_t decl_context)
     }
 
     gcc_sign_in_builtins(decl_context);
+
 
     C_LANGUAGE()
     {
@@ -5901,6 +5907,14 @@ static void check_nodecl_member_initializer_list(
         scope_entry_t* entry = entry_list_head(result_list);
         entry_list_free(result_list);
 
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            // FIXME - This is very infortunate and should be solved in a different way
+            entry = lookup_of_template_parameter(decl_context,
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
+        }
+
         if (entry->kind == SK_TYPEDEF)
         {
             if (is_named_type(advance_over_typedefs(entry->type_information)))
@@ -5923,6 +5937,13 @@ static void check_nodecl_member_initializer_list(
                     nodecl_locus_to_str(nodecl_name),
                     get_qualified_symbol_name(entry, entry->decl_context));
             continue;
+        }
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            type_t* t = advance_over_typedefs(entry->type_information);
+            if (is_named_class_type(t))
+                entry = named_type_get_symbol(t);
         }
 
         if (entry->kind == SK_CLASS
@@ -6489,7 +6510,7 @@ static char one_function_is_usable(
             candidates,
             NULL, &second_arg_type, second_arg_type != NULL ? 1 : 0,
             decl_context,
-            locus, /* explicit_template_parameters */ NULL);
+            locus, /* explicit_template_arguments */ NULL);
 
     candidate_t* candidate_set = NULL;
 
@@ -12436,7 +12457,7 @@ static char find_dependent_friend_function_declaration(AST declarator_id,
 
     if (!is_template_function)
     {
-        if (is_template_id) //1.1
+        if (is_template_id) // 1.1
         {
             if (!found_candidate)
             {
@@ -13146,17 +13167,17 @@ static char find_function_declaration(AST declarator_id,
         //
         // We have to solve the template
 
-        template_parameter_list_t *explicit_template_parameters = NULL;
+        template_parameter_list_t *explicit_template_arguments = NULL;
         if (declarator_is_template_id)
         {
-            explicit_template_parameters =
+            explicit_template_arguments =
                 get_template_arguments_from_syntax(ASTSon1(considered_tree), decl_context);
         }
 
         // This function ignores non-templates
-        scope_entry_list_t* solved_templates = solve_template_function(
+        scope_entry_list_t* solved_templates = solve_template_function_in_declaration(
                 candidates,
-                explicit_template_parameters,
+                explicit_template_arguments,
                 function_type_being_declared,
                 ast_get_locus(declarator_id));
 
@@ -13958,9 +13979,25 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                         &nodecl_expr,
                         /* is_auto_type */ 0);
                 entry->value = nodecl_expr;
+
+                entry->defined = 1;
             }
-            // This is always a definition actually
-            entry->defined = 1;
+            else if (is_explicit_specialization)
+            {
+                diagnostic_context_push_buffered();
+                scope_entry_t* constructor = NULL;
+                char valid = check_default_initialization(entry, entry->decl_context, ast_get_locus(a), &constructor);
+                diagnostic_context_pop_and_discard();
+
+                if (valid && is_class_type_or_array_thereof(entry->type_information))
+                {
+                    entry->value = nodecl_make_value_initialization(constructor, ast_get_locus(a));
+                }
+            }
+            else
+            {
+                entry->defined = 1;
+            }
         }
 
         // Mark this as user declared from now
@@ -13968,7 +14005,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
         nodecl_t (*make_cxx_decl_or_def)(nodecl_t, scope_entry_t*, const locus_t*) =
             // Only variables are actually defined, everything else is a declaration
-            (entry->kind == SK_VARIABLE) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
+            (entry->kind == SK_VARIABLE
+             && entry->defined) ? nodecl_make_cxx_def : nodecl_make_cxx_decl;
 
         decl_context.template_parameters = entry->decl_context.template_parameters;
 
@@ -14127,6 +14165,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
             new_entry->locus);
+    set_is_dependent_type(new_entry->type_information, 1);
 
     template_type_set_related_symbol(new_entry->type_information, new_entry);
 
@@ -16360,6 +16399,9 @@ static char is_virtual_destructor(type_t* class_type)
 
         scope_entry_t* destructor = class_type_get_destructor(base_class_type);
 
+        ERROR_CONDITION(destructor == NULL, "Invalid class '%s' lacking destructor",
+                get_qualified_symbol_name(base_class, base_class->decl_context));
+
         if (destructor->entity_specs.is_virtual)
             return 1;
     }
@@ -17926,10 +17968,7 @@ static void build_scope_normalized_statement(AST a, decl_context_t decl_context,
 
         nodecl_t nodecl_output_list = nodecl_null();
 
-        nodecl_t current_nodecl_output = nodecl_null();
-        build_scope_statement(a, block_context, &current_nodecl_output);
-
-        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
+        build_scope_statement(a, block_context, &nodecl_output_list);
 
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
@@ -19556,6 +19595,21 @@ static void build_scope_pragma_custom_construct_statement_or_decl_rec(AST pragma
                 build_scope_declaration(declaration, decl_context, nodecl_output,
                         info->declaration_pragma.declared_symbols,
                         info->declaration_pragma.gather_decl_spec_list);
+                break;
+            }
+        case AST_EXPRESSION_STATEMENT:
+            {
+                // Special case: wrap expressions inside a context when they
+                // are the child of a pragma
+                decl_context_t block_context = new_block_context(decl_context);
+                build_scope_statement(pragma_stmt, block_context, &nodecl_statement);
+
+                nodecl_statement =
+                    nodecl_make_list_1(
+                            nodecl_make_context(
+                                nodecl_statement,
+                                block_context,
+                                nodecl_get_locus(nodecl_statement)));
                 break;
             }
         default:

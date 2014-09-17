@@ -40,6 +40,7 @@ namespace Analysis {
     class LIBTL_CLASS AnalysisCheckPhase : public PragmaCustomCompilerPhase
     {
     private:
+        std::string _correctness_log_path;
 
     public:
         //! Constructor of this phase

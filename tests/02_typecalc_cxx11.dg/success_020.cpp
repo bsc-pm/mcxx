@@ -8,14 +8,14 @@ test_generator="config/mercurium-cxx11 gxx_fails"
 template <typename R1, typename R2>
 struct W1 { };
 
-template <template <typename, typename> class W>
+template <template <typename, typename> class W2>
 struct A { };
 
-template <template <typename, typename> class ...W>
+template <template <typename, typename> class ...W3>
 struct B { };
 
-template <template <typename, typename> class ...W>
-void f(A<W...> &a, B<W...> &b);
+template <template <typename, typename> class ...W3>
+void f(A<W3...> &a, B<W3...> &b);
 
 void g()
 {

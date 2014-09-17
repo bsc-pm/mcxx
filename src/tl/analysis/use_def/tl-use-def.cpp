@@ -34,7 +34,7 @@ Cambridge, MA 02139, USA.
 namespace TL {
 namespace Analysis {
 
-    ObjectList<ExtensibleGraph*> _pcfgs;
+    std::map<Symbol, ExtensibleGraph*> _pcfgs;
     SizeMap _pointer_to_size_map;
     
     // **************************************************************************************************** //
@@ -209,7 +209,16 @@ namespace {
         initialize_ipa_var_usage();
         
         _pointer_to_size_map = graph->get_pointer_n_elements_map();
-        _pcfgs = pcfgs;
+        
+        // Convert the list of PCFG into a map of <symbol, pcfg*>
+        for(ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            Symbol s((*it)->get_function_symbol());
+            if(s.is_valid())
+            {
+                _pcfgs[s] = *it;
+            }
+        }
     }
 
     void UseDef::initialize_ipa_var_usage()
@@ -218,8 +227,8 @@ namespace {
         Symbol func_sym = _graph->get_function_symbol();
         if(func_sym.is_valid())
         {   // The PCFG contains a FunctionCode
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
-            for(ObjectList<TL::Symbol>::iterator it = params.begin(); it != params.end(); ++it)
+            const ObjectList<TL::Symbol>& params = func_sym.get_function_parameters();
+            for(ObjectList<TL::Symbol>::const_iterator it = params.begin(); it != params.end(); ++it)
             {
                 Type param_type = it->get_type();
                 if(param_type.is_any_reference())
@@ -596,21 +605,6 @@ namespace {
         }
     };
     
-    static ExtensibleGraph* find_graph_in_list_from_function_symbol(Symbol func_sym)
-    {
-        ExtensibleGraph* result = NULL;
-        for(ObjectList<ExtensibleGraph*>::const_iterator it = _pcfgs.begin(); it != _pcfgs.end(); ++it)
-        {
-            Symbol s((*it)->get_function_symbol());
-            if(s.is_valid() && (s == func_sym))
-            {
-                result = *it;
-                break;
-            }
-        }
-        return result;
-    }
-    
     UsageVisitor::UsageVisitor(Node* n, ExtensibleGraph* pcfg, IpUsageMap* ipa_modifiable_vars)
         : _node(n), _define(false), _current_nodecl(NBase::null()),
           _ipa_modif_vars(ipa_modifiable_vars), _avoid_func_calls(false), _pcfg(pcfg)
@@ -734,11 +728,11 @@ namespace {
         Nodecl::List simplified_arguments = simplify_pointers(real_arguments);
         if(func_sym.is_valid())
         {   // The called function is not a pointer to function
-            ObjectList<TL::Symbol> params = func_sym.get_function_parameters();
-            ExtensibleGraph* called_pcfg = find_graph_in_list_from_function_symbol(func_sym);
-            if(called_pcfg != NULL)
+            const ObjectList<TL::Symbol>& params = func_sym.get_function_parameters();
+            if(_pcfgs.find(func_sym) != _pcfgs.end())
             {   // Due to the way we call the UseDef analysis, if the usage of the called function is not yet computed,
-                // this means that it is a recursive call                
+                // this means that it is a recursive call
+                ExtensibleGraph* called_pcfg = _pcfgs[func_sym];
                 if(called_pcfg->usage_is_computed())
                 {   // Called function code is reachable and UseDef Analysis of the function has been calculated
                     ipa_propagate_known_function_usage(called_pcfg, simplified_arguments);

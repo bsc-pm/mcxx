@@ -82,7 +82,7 @@ namespace Analysis {
     // ***************************** PCFG OmpSs pragma classes ****************************** //
     
     PCFGPragmaInfo::PCFGPragmaInfo()
-        : _clauses()
+            : _clauses()
     {}
 
     PCFGPragmaInfo::PCFGPragmaInfo(const PCFGPragmaInfo& p)
@@ -136,7 +136,7 @@ namespace Analysis {
           _continue_nodes(), _break_nodes(), _labeled_nodes(), _goto_nodes(),
           _switch_nodes(), _nested_loop_nodes(), _tryblock_nodes(),
           _pragma_nodes(), _context_nodecl(), _section_nodes(), _assert_nodes(),
-          _environ_entry_exit(), _is_vector(false), _nid(-1)
+          _environ_entry_exit(), _is_vector(false), _nid(0)
     {}
 
     std::string print_node_list(const ObjectList<Node*>& list)

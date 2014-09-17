@@ -360,6 +360,16 @@ void LoweringVisitor::visit(const Nodecl::OpenMP::Parallel& construct)
     TL::Type kmp_micro_type = Source("kmpc_micro").parse_c_type_id(construct);
 
     Source fork_call;
+
+    if (!num_threads.is_null())
+    {
+        fork_call
+            << "__kmpc_push_num_threads(&" << as_symbol(ident_symbol) << ", "
+            <<               "__kmpc_global_thread_num(&" << as_symbol(ident_symbol) << "),"
+            <<               as_expression(num_threads.shallow_copy()) << ");"
+        ;
+    }
+
     fork_call
         << "__kmpc_fork_call(&" << as_symbol(ident_symbol) << ", "
         <<                           all_symbols_passed.size() << ", (" << as_type(kmp_micro_type) << ")"

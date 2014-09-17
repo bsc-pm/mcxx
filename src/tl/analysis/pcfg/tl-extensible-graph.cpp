@@ -26,6 +26,7 @@
 
 #include <queue>
 
+#include "tl-datareference.hpp"
 #include "tl-extensible-graph.hpp"
 
 namespace TL {
@@ -647,7 +648,7 @@ namespace Analysis {
             if(current->is_graph_node())
                 clear_visits(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
                                                                         : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits(*it);
@@ -663,7 +664,7 @@ namespace Analysis {
             if(current->is_graph_node())
                 clear_visits_aux(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
                                                                         : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_aux(*it);
@@ -679,7 +680,7 @@ namespace Analysis {
             if(current->is_graph_node())
                 clear_visits_extgraph(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
                                                                         : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph(*it);
@@ -695,7 +696,7 @@ namespace Analysis {
             if(current->is_graph_node())
                 clear_visits_extgraph_aux(current->get_graph_entry_node());
 
-            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children() 
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
                                                                         : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_extgraph_aux(*it);
@@ -710,20 +711,16 @@ namespace Analysis {
         {
             current->set_visited(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
             {
                 Node* new_outer = (current->is_omp_task_node() ? current : outer_node);
                 clear_visits_in_level(current->get_graph_entry_node(), new_outer);
             }
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
-            {
                 clear_visits_in_level(*it, outer_node);
-            }
         }
     }
 
@@ -753,16 +750,14 @@ namespace Analysis {
         {
             current->set_visited_aux(false);
 
-            if(current->is_exit_node())
-                return;
-
             if(current->is_graph_node())
             {
                 Node* new_outer = (current->is_omp_task_node() ? current : outer_node);
                 clear_visits_aux_in_level(current->get_graph_entry_node(), new_outer);
             }
 
-            const ObjectList<Node*>& children = current->get_children();
+            const ObjectList<Node*>& children = current->is_exit_node() ? current->get_outer_node()->get_children()
+                                                                        : current->get_children();
             for(ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 clear_visits_aux_in_level(*it, outer_node);
         }
@@ -777,12 +772,9 @@ namespace Analysis {
             if(current->is_graph_node())
                 clear_visits_backwards_rec(current->get_graph_exit_node());
 
-            ObjectList<Node*> parents;
-            if(current->is_entry_node())
-                parents.insert(current->get_outer_node());
-            else
-                parents = current->get_parents();
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
+            const ObjectList<Node*>& parents = (current->is_entry_node() ? current->get_outer_node()->get_parents()
+                                                                         : current->get_parents());
+            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
                 clear_visits_backwards_rec(*it);
         }
     }
@@ -794,57 +786,11 @@ namespace Analysis {
             current->set_visited(false);
             const ObjectList<Node*>& parents = current->get_parents();
             for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-            {
                 clear_visits_backwards_rec(*it);
-            }
         }
         else
         {
             clear_visits_backwards_rec(current);
-        }
-    }
-
-    void ExtensibleGraph::clear_visits_aux_backwards(Node* current)
-    {
-        if(current->is_visited_aux())
-        {
-            current->set_visited_aux(false);
-            
-            if(current->is_graph_node())
-                clear_visits_aux_backwards(current->get_graph_exit_node());
-            
-            ObjectList<Node*> parents;
-            if(current->is_entry_node())
-                parents.insert(current->get_outer_node());
-            else
-                parents = current->get_parents();
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_aux_backwards(*it);
-        }
-    }
-    
-    void ExtensibleGraph::clear_visits_backwards_in_level(Node* current, Node* outer_node)
-    {
-        if(current->is_visited() && current->node_is_enclosed_by(outer_node))
-        {
-            current->set_visited(false);
-
-            if(current->is_graph_node())
-                clear_visits_backwards_in_level(current->get_graph_exit_node(), outer_node);
-
-            ObjectList<Node*> parents;
-            if(current->is_entry_node())
-            {
-                Node* outer = current->get_outer_node();
-                if(outer->is_visited())
-                    parents.append(outer);
-                else
-                    parents = outer->get_parents();
-            }
-            else
-                parents = current->get_parents();
-            for(ObjectList<Node*>::iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_in_level(*it, outer_node);
         }
     }
 
@@ -909,7 +855,7 @@ namespace Analysis {
                 ++it;
         }
     }
-    
+
     Node* ExtensibleGraph::get_graph() const
     {
         return _graph;
@@ -1225,14 +1171,14 @@ namespace Analysis {
         return graph;
     }
 
-    bool ExtensibleGraph::node_is_ancestor_of_node(Node* ancestor, Node* descendant)
+    static bool node_is_ancestor_of_node_rec(Node* ancestor, Node* descendant)
     {
         bool res = false;
 
         if(!ancestor->is_visited_extgraph())
         {
             ancestor->set_visited_extgraph(true);
-
+            
             if(ancestor == descendant)
             {
                 res = true;
@@ -1242,11 +1188,18 @@ namespace Analysis {
                 ObjectList<Node*> children = ancestor->get_children();
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && !res ; ++it)
                 {
-                    res = node_is_ancestor_of_node(*it, descendant);
+                    res = node_is_ancestor_of_node_rec(*it, descendant);
                 }
             }
         }
 
+        return res;
+    }
+
+    bool ExtensibleGraph::node_is_ancestor_of_node(Node* ancestor, Node* descendant)
+    {
+        bool res = node_is_ancestor_of_node_rec(ancestor, descendant);
+        ExtensibleGraph::clear_visits_extgraph(ancestor);
         return res;
     }
 

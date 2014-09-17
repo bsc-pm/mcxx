@@ -744,7 +744,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 new_member->entity_specs.default_argument_info[i] = xcalloc(1, sizeof(*p));
                                 // Copy on write
                                 *new_member->entity_specs.default_argument_info[i] = *p;
-                                new_member->entity_specs.default_argument_info[i]->is_hidden = 1;
+                                if (CURRENT_CONFIGURATION->explicit_instantiation)
+                                {
+                                    new_member->entity_specs.default_argument_info[i]->is_hidden = 1;
+                                }
                             }
                         }
                     }
@@ -1001,7 +1004,8 @@ static void instantiate_dependent_friend_function(
                         /* pack_index */ -1);
             }
 
-            scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, updated_explicit_temp_params, new_type, locus);
+            scope_entry_list_t* new_friend_list = solve_template_function_in_declaration(
+                    candidates_list, updated_explicit_temp_params, new_type, locus);
 
             if (new_friend_list != NULL)
             {
@@ -1122,7 +1126,8 @@ static void instantiate_dependent_friend_function(
                             /* pack_index */ -1);
                 }
 
-                scope_entry_list_t* new_friend_list = solve_template_function(candidates_list, expl_templ_param, new_type, locus);
+                scope_entry_list_t* new_friend_list = solve_template_function_in_declaration(
+                        candidates_list, expl_templ_param, new_type, locus);
 
                 if (new_friend_list != NULL)
                 {
@@ -1714,12 +1719,15 @@ static void instantiate_bases(
             continue;
         }
 
-        scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
+        scope_entry_t* upd_base_class_sym = named_type_get_symbol(
+                advance_over_typedefs(upd_base_class_named_type));
 
         // If the entity (being an independent one) has not been completed, then instantiate it
         class_type_complete_if_needed(upd_base_class_sym, context_of_being_instantiated, locus);
 
-        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, 
+        class_type_add_base_class(
+                get_actual_class_type(instantiated_class_type),
+                upd_base_class_sym, 
                 is_virtual,
                 /* is_dependent */ 0,
                 /* is_expansion */ 0,
@@ -1758,7 +1766,6 @@ static type_t* solve_template_for_instantiation(scope_entry_t* entry,
                 print_type_str(get_user_defined_type(entry), entry->decl_context),
                 locus_to_str(entry->locus));
     }
-
 
     if (!is_template_specialized_type(template_specialized_type)
             || !is_class_type(template_specialized_type)

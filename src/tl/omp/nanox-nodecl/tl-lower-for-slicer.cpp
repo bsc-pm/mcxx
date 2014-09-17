@@ -395,9 +395,6 @@ namespace TL { namespace Nanox {
 
         walk(statements);
 
-        // Get the new statements
-        statements = for_statement.get_statement();
-
         // Slicer descriptor
         TL::Symbol nanos_slicer_loop_info_t_sym = ReferenceScope(construct).get_scope().get_symbol_from_name("nanos_loop_info_t");
         ERROR_CONDITION(nanos_slicer_loop_info_t_sym.is_invalid(), "Invalid symbol", 0);

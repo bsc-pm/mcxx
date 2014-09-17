@@ -110,13 +110,14 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine);
+
+                Nodecl::List make_execution_environment(OpenMP::DataSharingEnvironment&, PragmaCustomLine, bool ignore_targer_info);
 
                 Nodecl::List make_execution_environment_for_combined_worksharings(OpenMP::DataSharingEnvironment &data_sharing_env, 
                         PragmaCustomLine pragma_line);
 
                 Nodecl::NodeclBase loop_handler_post(
-                        TL::PragmaCustomStatement directive, 
+                        TL::PragmaCustomStatement directive,
                         Nodecl::NodeclBase statement,
                         bool barrier_at_end,
                         bool is_combined_worksharing);
@@ -146,11 +147,8 @@ namespace TL
                         const Nodecl::NodeclBase& ref_scope,
                         Nodecl::List& environment);
 
-                static Nodecl::NodeclBase wrap_in_block_context_if_needed(Nodecl::NodeclBase context,
-                        TL::Scope sc);
+                void nest_context_in_pragma(TL::PragmaCustomStatement directive);
 
-                static Nodecl::NodeclBase wrap_in_list_with_block_context_if_needed(Nodecl::NodeclBase context,
-                        TL::Scope sc);
             public:
                 template <typename T>
                 void make_data_sharing_list(
@@ -172,6 +170,12 @@ namespace TL
                             CopyDirection kind,
                             const locus_t* locus,
                             ObjectList<Nodecl::NodeclBase>& result_list);
+
+                void make_execution_environment_target_information(
+                        TargetInfo &target_info,
+                        const locus_t* locus,
+                        // out
+                        TL::ObjectList<Nodecl::NodeclBase> &result_list);
 
                 bool emit_omp_report() const;
                 std::ofstream* get_omp_report_file() const

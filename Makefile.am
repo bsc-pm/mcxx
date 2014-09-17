@@ -273,11 +273,9 @@ src_frontend_libmcxx_la_SOURCES = \
   src/frontend/cxx-typeenviron-decls.h \
   src/frontend/cxx-typeenviron.h \
   src/frontend/cxx-typeenviron.c \
-  src/frontend/cxx-typeunif.c \
-  src/frontend/cxx-typeunif.h \
-  src/frontend/cxx-typeunif-decls.h \
   src/frontend/cxx-typededuc.c \
   src/frontend/cxx-typededuc.h \
+  src/frontend/cxx-typededuc-decls.h \
   src/frontend/cxx-cexpr.c \
   src/frontend/cxx-cexpr.h \
   src/frontend/cxx-cexpr-fwd.h \
@@ -1121,8 +1119,8 @@ src_tl_analysis_common_libanalysis_utils_la_SOURCES=\
 				src/tl/analysis/common/tl-analysis-utils.cpp \
 				src/tl/analysis/common/tl-induction-variables-data.hpp \
 				src/tl/analysis/common/tl-induction-variables-data.cpp \
-				src/tl/analysis/common/tl-range-analysis-utils.hpp \
-				src/tl/analysis/common/tl-range-analysis-utils.cpp \
+				src/tl/analysis/common/tl-ranges-common.hpp \
+				src/tl/analysis/common/tl-ranges-common.cpp \
 				src/tl/analysis/common/tl-tribool.hpp \
 				$(END)
 
@@ -1328,9 +1326,11 @@ src_tl_analysis_range_librange_la_LDFLAGS = $(tl_ldflags)
 src_tl_analysis_range_librange_la_LIBADD = $(tl_libadd) $(ANALYSIS_LIBADD)
 
 src_tl_analysis_range_librange_la_SOURCES = \
-                               src/tl/analysis/range/tl-range-analysis.hpp \
-                               src/tl/analysis/range/tl-range-analysis.cpp \
-                               $(END)
+				src/tl/analysis/range/tl-range-utils.hpp \
+				src/tl/analysis/range/tl-range-utils.cpp \
+				src/tl/analysis/range/tl-range-analysis.hpp \
+				src/tl/analysis/range/tl-range-analysis.cpp \
+				$(END)
 
 ##########################################################################
 # src/tl/analysis/complexity
@@ -1669,8 +1669,8 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cflags) \
                          -I $(srcdir)/src/tl/vectorization/common \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                          -I $(srcdir)/src/tl/analysis/interface\
-                         -I $(top_srcdir)/src/tl/analysis/common \
-                         -I $(top_srcdir)/src/tl/analysis/pcfg \
+                         -I $(srcdir)/src/tl/analysis/common \
+                         -I $(srcdir)/src/tl/analysis/pcfg \
                          -I $(srcdir)/src/tl/analysis/tdg \
                          $(END)
 
