@@ -3339,15 +3339,32 @@ static scope_entry_t* solve_gcc_atomic_builtins_overload_name_generic(
     { \
         return __m##n##_struct_type; \
     } \
+    static scope_entry_t* __m##n##_typedef = NULL; \
+    scope_entry_t* get_m##n##_typedef(void) \
+    { \
+        return __m##n##_typedef; \
+    } \
+    \
     static type_t* __m##n##d_struct_type = NULL; \
     type_t* get_m##n##d_struct_type(void) \
     { \
         return __m##n##d_struct_type; \
     } \
+    static scope_entry_t* __m##n##d_typedef = NULL; \
+    scope_entry_t* get_m##n##d_typedef(void) \
+    { \
+        return __m##n##d_typedef; \
+    } \
+    \
     static type_t* __m##n##i_struct_type = NULL; \
     type_t* get_m##n##i_struct_type(void) \
     { \
         return __m##n##i_struct_type; \
+    } \
+    static scope_entry_t* __m##n##i_typedef = NULL; \
+    scope_entry_t* get_m##n##i_typedef(void) \
+    { \
+        return __m##n##i_typedef; \
     }
 
 GET_MXX_STRUCT_TYPE(128)
@@ -3359,20 +3376,21 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
     struct {
        const char* name;
        type_t** field;
+       scope_entry_t** typedef_name;
        enum type_tag_t type_tag;
     } vector_names[] = {
-        { "struct __m128",  &__m128_struct_type,   TT_STRUCT },
-        { "struct __m128d", &__m128d_struct_type,  TT_STRUCT },
-        { "union __m128i",  &__m128i_struct_type,  TT_UNION },
+        { "struct __m128",  &__m128_struct_type,  &__m128_typedef,  TT_STRUCT },
+        { "struct __m128d", &__m128d_struct_type, &__m128d_typedef, TT_STRUCT },
+        { "union __m128i",  &__m128i_struct_type, &__m128i_typedef, TT_UNION  },
 
-        { "union __m256",   &__m256_struct_type,   TT_UNION },
-        { "struct __m256d", &__m256d_struct_type,  TT_STRUCT },
-        { "union __m256i",  &__m256i_struct_type,  TT_UNION },
+        { "union __m256",   &__m256_struct_type,  &__m256_typedef,  TT_UNION  },
+        { "struct __m256d", &__m256d_struct_type, &__m256d_typedef, TT_STRUCT },
+        { "union __m256i",  &__m256i_struct_type, &__m256i_typedef, TT_UNION  },
 
-        { "union __m512",   &__m512_struct_type,  TT_UNION },
-        { "union __m512d",  &__m512d_struct_type, TT_UNION },
-        { "union __m512i",  &__m512i_struct_type, TT_UNION },
-        { NULL, NULL, TT_INVALID }
+        { "union __m512",   &__m512_struct_type,  &__m512_typedef,  TT_UNION  },
+        { "union __m512d",  &__m512d_struct_type, &__m512d_typedef, TT_UNION  },
+        { "union __m512i",  &__m512i_struct_type, &__m512i_typedef, TT_UNION  },
+        { NULL, NULL, NULL, TT_INVALID }
     };
 
     if (CURRENT_CONFIGURATION->enable_intel_vector_types)
@@ -3381,30 +3399,49 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         for (i = 0; vector_names[i].name != NULL; i++)
         {
             const char* name = vector_names[i].name;
+            const char* typedef_name = name;
+            // Skip "struct "
+            if (vector_names[i].type_tag == TT_STRUCT)
+            {
+                typedef_name += strlen("struct ");
+            }
+            else if (vector_names[i].type_tag == TT_UNION)
+            {
+                typedef_name += strlen("union ");
+            }
+            else
+            {
+                internal_error("Invalid type tag", 0);
+            }
             CXX_LANGUAGE()
             {
-                // Skip "struct "
-                if (vector_names[i].type_tag == TT_STRUCT)
-                {
-                    name += strlen("struct ");
-                }
-                else if (vector_names[i].type_tag == TT_UNION)
-                {
-                    name += strlen("union ");
-                }
-                else
-                {
-                    internal_error("Invalid type tag", 0);
-                }
-                name = uniquestr(name);
+                name = typedef_name;
+            }
+            name = uniquestr(name);
+            typedef_name = uniquestr(typedef_name);
+
+            // class-name
+            {
+                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
+                sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+                sym->kind = SK_CLASS;
+                sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
+
+                *(vector_names[i].field) = get_user_defined_type(sym);
             }
 
-            scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(name));
-            sym->locus = make_locus("(builtin-simd-type)", 0, 0);
-            sym->kind = SK_CLASS;
-            sym->type_information = get_new_class_type(decl_context, vector_names[i].type_tag);
+            // typedef-name
+            CXX_LANGUAGE()
+            {
+                scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, uniquestr(typedef_name));
+                sym->locus = make_locus("(builtin-simd-type)", 0, 0);
+                sym->kind = SK_TYPEDEF;
+                sym->type_information = *(vector_names[i].field);
+                sym->defined = 1;
+                sym->entity_specs.is_user_declared = 1;
 
-            *(vector_names[i].field) = get_user_defined_type(sym);
+                *(vector_names[i].typedef_name) = sym;
+            }
         }
     }
     else
@@ -3413,10 +3450,50 @@ static void sign_in_sse_builtins(decl_context_t decl_context)
         for (i = 0; vector_names[i].name != NULL; i++)
         {
             *(vector_names[i].field) = NULL;
+            *(vector_names[i].typedef_name) = NULL;
         }
     }
 
 #include "cxx-gccbuiltins-sse.h"
+}
+
+void prepend_intel_vector_typedefs(nodecl_t* nodecl_output)
+{
+    ERROR_CONDITION(!IS_CXX_LANGUAGE, "This function is only for C++", 0);
+
+    scope_entry_t* (*fun_list[])(void) = {
+        get_m128_typedef,
+        get_m128d_typedef,
+        get_m128i_typedef,
+
+        get_m256_typedef,
+        get_m256d_typedef,
+        get_m256i_typedef,
+
+        get_m512_typedef,
+        get_m512d_typedef,
+        get_m512i_typedef,
+        NULL
+    };
+
+    nodecl_t nodecl_vector_defs = nodecl_null();
+
+    int i;
+    for (i = 0; fun_list[i] != NULL; i++)
+    {
+        scope_entry_t* sym = (fun_list[i])();
+        nodecl_vector_defs =
+            nodecl_append_to_list(
+                    nodecl_vector_defs,
+                    nodecl_make_cxx_def(
+                        nodecl_null(),
+                        sym,
+                        NULL));
+    }
+
+    *nodecl_output = nodecl_concat_lists(
+            nodecl_vector_defs,
+            *nodecl_output);
 }
 
 char is_intel_vector_struct_type(type_t* t, int *size)
