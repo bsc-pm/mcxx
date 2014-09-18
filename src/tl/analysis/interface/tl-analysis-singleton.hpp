@@ -96,6 +96,7 @@ namespace Analysis {
 
         TaskDependencyGraph* get_tdg(std::string name) const;
         void set_tdg(std::string name, TaskDependencyGraph* tdg);
+        ObjectList<TaskDependencyGraph*> get_tdgs() const;
 
         bool is_pcfg_computed() const;
         void set_pcfg_computed();
