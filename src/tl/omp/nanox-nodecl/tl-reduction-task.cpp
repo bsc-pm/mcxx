@@ -607,7 +607,7 @@ namespace TL { namespace Nanox {
                     TL::Source auxiliar_final;
                     reductions_stuff_final
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
-                        << "nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
+                        << "err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
                         << "if (is_registered)"
                         << "{"
                         <<      "nanos_TPRS_t* " << cache_storage << ";"
