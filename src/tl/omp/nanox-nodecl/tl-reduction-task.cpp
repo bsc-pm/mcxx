@@ -604,7 +604,7 @@ namespace TL { namespace Nanox {
                         <<      "&" << cache_storage << ");"  // storage
                         ;
 
-                    TL::Source auxiliar_final;
+                    TL::Source auxiliar_final, auxiliar_final2;
                     reductions_stuff_final
                         << as_type(reduction_type.get_pointer_to()) << " " << storage_name << ";"
                         << "err = nanos_reduction_check_target((void *) &" << (*it)->get_field_name() << ", &is_registered);"
@@ -623,7 +623,7 @@ namespace TL { namespace Nanox {
                         << "}"
                         << "else"
                         << "{"
-                        <<      storage_name << " = &" << (*it)->get_field_name() << ";"
+                        <<     auxiliar_final2
                         << "}"
                         ;
 
@@ -640,6 +640,11 @@ namespace TL { namespace Nanox {
                                 TL::Type::get_void_type().get_pointer_to(),
                                 construct.retrieve_context());
 
+
+                        auxiliar_final2
+                            << storage_name << " = " << func.get_name() << "(&" << (*it)->get_field_name() << ");"
+                            ;
+
                         reductions_stuff
                             << storage_name << " = " << func.get_name() <<"(" << cache_storage << "->storage);"
                             ;
@@ -650,6 +655,10 @@ namespace TL { namespace Nanox {
                     }
                     else
                     {
+                        auxiliar_final2
+                            << storage_name << " = &" << (*it)->get_field_name() << ";"
+                            ;
+
                         auxiliar_final
                             << storage_name << " = "
                             <<   "(" << as_type(reduction_type.get_pointer_to()) << ")" << cache_storage << "->storage;"
