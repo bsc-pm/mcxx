@@ -10894,6 +10894,14 @@ static void set_function_parameter_clause(type_t** function_type,
                     &param_decl_gather_info, &simple_type_info,
                     param_decl_context, nodecl_output);
 
+            // Note that this can only happen in C++ since in C we inject an implicit int
+            if (simple_type_info == NULL)
+            {
+                error_printf("%s: error: missing type-specifier in parameter declaration\n",
+                        ast_location(parameter_decl_spec_seq));
+                simple_type_info = get_error_type();
+            }
+
             if (is_error_type(simple_type_info))
             {
                 *function_type = get_error_type();
