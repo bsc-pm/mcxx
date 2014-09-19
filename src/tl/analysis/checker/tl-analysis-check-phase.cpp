@@ -319,6 +319,8 @@ namespace {
                 NodeclSet assert_ue = current->get_assert_ue_vars();
                 NodeclSet assert_killed = current->get_assert_killed_vars();
                 NodeclSet assert_undef = current->get_assert_undefined_behaviour_vars();
+                if (current->is_omp_task_creation_node())
+                    current = ExtensibleGraph::get_task_from_task_creation(current);
                 NodeclSet ue = current->get_ue_vars();
                 NodeclSet killed = current->get_killed_vars();
                 NodeclSet undef = current->get_undefined_behaviour_vars();
@@ -334,6 +336,8 @@ namespace {
                 NodeclSet assert_live_in = current->get_assert_live_in_vars();
                 NodeclSet assert_live_out = current->get_assert_live_out_vars();
                 NodeclSet assert_dead = current->get_assert_dead_vars();
+                if (current->is_omp_task_creation_node())
+                    current = ExtensibleGraph::get_task_from_task_creation(current);
                 NodeclSet live_in = current->get_live_in_vars();
                 NodeclSet live_out = current->get_live_out_vars();
 
@@ -342,7 +346,6 @@ namespace {
                 // Dead variables checking behaves a bit different, since we don't have a 'dead' set associated to each node
                 if( !assert_dead.empty( ) )
                 {
-                    NodeclSet diff = Utils::nodecl_set_difference(assert_dead, live_in);
                     for(NodeclSet::iterator it = assert_dead.begin(); it != assert_dead.end(); ++it)
                     {
                         if(Utils::nodecl_set_contains_nodecl(*it, live_in))
@@ -361,6 +364,8 @@ namespace {
             {
                 NodeclMap assert_reach_defs_in = current->get_assert_reaching_definitions_in();
                 NodeclMap assert_reach_defs_out = current->get_assert_reaching_definitions_out();
+                if (current->is_omp_task_creation_node())
+                    current = ExtensibleGraph::get_task_from_task_creation(current);
                 NodeclMap reach_defs_in = current->get_reaching_definitions_in();
                 NodeclMap reach_defs_out = current->get_reaching_definitions_out();
 
@@ -461,10 +466,10 @@ namespace {
                 ERROR_CONDITION( children.size( ) > 2, "A task creation node should have, at least, 1 child, the created task, "\
                                  "and at most, 2 children, the created task and the following node in the sequential execution flow. "\
                                  "Nonetheless task %d has %d children.", current->get_id( ), children.size( ) );
-                Node* task = ( children[0]->is_omp_task_node( ) ? children[0] : children[1] );
                 NodeclSet assert_autosc_firstprivate = current->get_assert_auto_sc_firstprivate_vars();
                 NodeclSet assert_autosc_private = current->get_assert_auto_sc_private_vars();
                 NodeclSet assert_autosc_shared = current->get_assert_auto_sc_shared_vars();
+                Node* task = ExtensibleGraph::get_task_from_task_creation(current);
                 NodeclSet autosc_firstprivate = task->get_sc_firstprivate_vars();
                 NodeclSet autosc_private = task->get_sc_private_vars();
                 NodeclSet autosc_shared = task->get_sc_shared_vars();
