@@ -29,6 +29,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-analysis
+test_compile_fail=yes
 test_nolink=yes
 </testinfo>
 */

@@ -95,6 +95,14 @@ namespace Analysis {
         _tdgs[name] = tdg;
     }
 
+    ObjectList<TaskDependencyGraph*> PCFGAnalysis_memento::get_tdgs() const
+    {
+        ObjectList<TaskDependencyGraph*> result;
+        for (Name_to_tdg_map::const_iterator it = _tdgs.begin(); it != _tdgs.end(); ++it)
+            result.insert(it->second);
+        return result;
+    }
+
     bool PCFGAnalysis_memento::is_pcfg_computed() const
     {
         return _pcfg;
@@ -413,6 +421,9 @@ namespace Analysis {
     {
         if (!memento.is_pcfg_computed())
         {
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_pcfg_computed();
 
             ObjectList<NBase> unique_asts;
@@ -457,6 +468,9 @@ namespace Analysis {
                     memento.add_pcfg(pcfg_name, pcfg);
                 }
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: PCFG computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -519,11 +533,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        parallel_control_flow_graph(memento, ast);
-
         if (!memento.is_usage_computed())
         {
+            // Required previous analysis
+            parallel_control_flow_graph(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_usage_computed();
 
             std::set<Symbol> visited_funcs;
@@ -537,6 +554,9 @@ namespace Analysis {
                     use_def_rec((*it)->get_function_symbol(), visited_funcs, pcfgs);
                 }
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: USE_DEF computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -544,11 +564,15 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        use_def(memento, ast);
-
         if (!memento.is_liveness_computed())
         {
+            // Required previous analysis
+            use_def(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
+
             memento.set_liveness_computed();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -559,6 +583,9 @@ namespace Analysis {
                 Liveness l(*it);
                 l.compute_liveness();
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: LIVENESS computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -566,11 +593,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        liveness(memento, ast);
-
         if (!memento.is_reaching_definitions_computed())
         {
+            // Required previous analysis
+            liveness(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_reaching_definitions_computed();
 
             const ObjectList<ExtensibleGraph*>& pcfgs = memento.get_pcfgs();
@@ -581,6 +611,9 @@ namespace Analysis {
                 ReachingDefinitions rd(*it);
                 rd.compute_reaching_definitions();
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: REACHING_DEFINITIONS computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -588,11 +621,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        reaching_definitions(memento, ast);
-
         if (!memento.is_induction_variables_computed())
         {
+            // Required previous analysis
+            reaching_definitions(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_induction_variables_computed();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -612,6 +648,9 @@ namespace Analysis {
 
                 if (VERBOSE)
                     Utils::print_induction_vars(ivs);
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+                fprintf(stderr, "ANALYSIS: INDUCTION_VARIABLES computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
             }
         }
     }
@@ -620,11 +659,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        reaching_definitions(memento, ast);
-
         if (!memento.is_task_synchronizations_tuned())
         {
+            // Required previous analysis
+            reaching_definitions(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_tune_task_synchronizations();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -636,6 +678,9 @@ namespace Analysis {
                 TaskAnalysis::TaskSyncTunning tst(*it);
                 tst.tune_task_synchronizations();
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: TUNE_TASK_SYNCS computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -643,11 +688,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        parallel_control_flow_graph(memento, ast);
-        
         if (!memento.is_range_analysis_computed())
         {
+            // Required previous analysis
+            parallel_control_flow_graph(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_range_analysis_computed();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -660,6 +708,9 @@ namespace Analysis {
                 RangeAnalysis ra(*it);
                 ra.compute_range_analysis();
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: RANGE_ANALYSIS computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -667,11 +718,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento, 
             const NBase& ast)
     {
-        // Required previous analysis
-        parallel_control_flow_graph(memento, ast);
-        
         if (!memento.is_cyclomatic_complexity_computed())
         {
+            // Required previous analysis
+            parallel_control_flow_graph(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_cyclomatic_complexity_computed();
             
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -686,6 +740,9 @@ namespace Analysis {
                 if (VERBOSE)
                     printf(" = %d\n", res);
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: CYCLOMATIC_COMPLEXITY computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
     
@@ -693,11 +750,14 @@ namespace Analysis {
             PCFGAnalysis_memento& memento,
             const NBase& ast)
     {
-        // Required previous analysis
-        tune_task_synchronizations(memento, ast);
-
         if (!memento.is_auto_scoping_computed())
         {
+            // Required previous analysis
+            tune_task_synchronizations(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_auto_scoping_computed();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -709,6 +769,9 @@ namespace Analysis {
                 AutoScoping as(*it);
                 as.compute_auto_scoping();
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: AUTO_SCOPING computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
         }
     }
 
@@ -717,14 +780,16 @@ namespace Analysis {
             const NBase& ast)
     {
         ObjectList<TaskDependencyGraph*> tdgs;
-        
-        // Required previous analyses
-        induction_variables(memento, ast);
-        range_analysis(memento, ast);
-        tune_task_synchronizations(memento, ast);
-        
         if (!memento.is_tdg_computed())
         {
+            // Required previous analyses
+            induction_variables(memento, ast);
+            range_analysis(memento, ast);
+            tune_task_synchronizations(memento, ast);
+
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            double init = time_nsec();
+#endif
             memento.set_tdg_computed();
 
             ObjectList<ExtensibleGraph*> pcfgs = memento.get_pcfgs();
@@ -737,6 +802,13 @@ namespace Analysis {
                 tdgs.insert(tdg);
                 memento.set_tdg((*it)->get_name(), tdg);
             }
+#ifdef ANALYSIS_PERFORMANCE_MEASURE
+            fprintf(stderr, "ANALYSIS: TDG computation time: %lf\n", (time_nsec() - init)*1E-9);
+#endif
+        }
+        else
+        {
+            tdgs = memento.get_tdgs();
         }
 
         return tdgs;

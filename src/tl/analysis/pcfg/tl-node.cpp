@@ -83,10 +83,39 @@ namespace Analysis {
         return (_id == node._id);
     }
 
+    NodeclSet Node::get_private_vars()
+    {
+        NodeclSet private_vars;
+        const TL::Analysis::PCFGPragmaInfo& task_pragma_info = get_pragma_node_info();
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_PRIVATE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_PRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().shallow_copy().as<Nodecl::List>();
+            private_vars.insert(tmp.begin(), tmp.end());
+        }
+        return private_vars;
+    }
+
+    NodeclSet Node::get_all_private_vars()
+    {
+        NodeclSet private_vars;
+        const TL::Analysis::PCFGPragmaInfo& task_pragma_info = get_pragma_node_info();
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_FIRSTPRIVATE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_FIRSTPRIVATE).as<Nodecl::OpenMP::Firstprivate>().get_symbols().shallow_copy().as<Nodecl::List>();
+            private_vars.insert(tmp.begin(), tmp.end());
+        }
+        if (task_pragma_info.has_clause(NODECL_OPEN_M_P_PRIVATE))
+        {
+            Nodecl::List tmp = task_pragma_info.get_clause(NODECL_OPEN_M_P_PRIVATE).as<Nodecl::OpenMP::Private>().get_symbols().shallow_copy().as<Nodecl::List>();
+            private_vars.insert(tmp.begin(), tmp.end());
+        }
+        return private_vars;
+    }
+
     NodeclSet Node::get_all_shared_accesses()
     {
         // 1.- Collect the shared variables appearing in the data-sharing or dependency clauses
-        TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
+        const TL::Analysis::PCFGPragmaInfo& task_pragma_info = get_pragma_node_info();
         NodeclSet shared_vars;
         if (task_pragma_info.has_clause(NODECL_OPEN_M_P_SHARED))
         {
@@ -155,7 +184,7 @@ namespace Analysis {
         
         return shared_vars;
     }
-    
+
     void Node::erase_entry_edge(Node* source)
     {
         EdgeList::iterator it;
@@ -947,35 +976,6 @@ namespace Analysis {
         set_data(_OUTER_NODE, node);
     }
 
-    Scope Node::get_node_scope()
-    {
-        // Get a nodecl included in the current node
-        NBase n = NBase::null();
-        if (is_graph_node())
-        {
-            n = get_graph_related_ast();
-        }
-        else
-        {
-            NodeclList stmts = get_statements();
-            if (!stmts.empty())
-            {
-                n = stmts[0];
-            }
-        }
-
-        // Retrieve the context related to the nodecl
-        if (!n.is_null())
-        {
-            return n.retrieve_context();
-        }
-        else
-        {
-            internal_error("Node '%d' with no nodecl related. Retrieving an invalid scope", _id);
-            return Scope();
-        }
-    }
-
     bool Node::has_statements()
     {
         return has_key(_NODE_STMTS);
@@ -1401,9 +1401,9 @@ namespace Analysis {
         return get_vars<NodeclSet>(_LIVE_OUT);
     }
 
-    void Node::add_live_out(const NBase& new_live_out_var)
+    void Node::add_live_out(const NodeclSet& new_live_out_set)
     {
-        add_var_to_container<NodeclSet>(new_live_out_var, _LIVE_OUT);
+        add_vars_to_container<NodeclSet>(new_live_out_set, _LIVE_OUT);
     }
     
     void Node::set_live_out(const NBase& new_live_out_var)
