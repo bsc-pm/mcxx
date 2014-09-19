@@ -136,15 +136,65 @@ namespace TL { namespace OpenMP {
             DataReference expr(*it);
             if (!expr.is_valid())
             {
-                std::cerr << expr.get_error_log();
-                std::cerr << expr.get_locus_str()
-                    << ": error: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
+                warn_printf("%s",
+                        expr.get_error_log().c_str());
+
+                warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                        expr.get_locus_str().c_str(),
+                        expr.prettyprint().c_str());
+
                 continue;
             }
 
             DependencyItem dep_item(*it, dep_attr);
 
             Symbol sym = expr.get_base_symbol();
+
+            if (!in_ompss_mode)
+            {
+                /* In OpenMP mode */
+
+                // Dependences over non-static data members are invalid in OpenMP (OpenMP 4.0 [117:17-18])
+                if (// usual case: a.x, (*this).y, ...
+                    expr.is<Nodecl::ClassMemberAccess>()
+                        // this case only happens when we are inside a template class and we are accessing to a
+                        // non-static data member without specifying explicitly the implicit object ('this'):
+                        //
+                        //  template < typename T>
+                        //  struct C
+                        //  {
+                        //      void foo()
+                        //      {
+                        //          #pragma omp task inout(p)
+                        //              p = 0;
+                        //      }
+                        //      int *p;
+                        //  };
+                        //
+                        // Note: If the class is not dependent Mercurium adds the implicit object, transforming
+                        // the current expression (i.e. a symbol) into a class member access
+                        || (sym.is_variable() && sym.is_member() && !sym.is_static()))
+                {
+                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                            expr.get_locus_str().c_str(),
+                            expr.prettyprint().c_str());
+
+                    info_printf("%s: info: dependences over non-static data members are not allowed in OpenMP\n",
+                            expr.get_locus_str().c_str());
+
+                    continue;
+                }
+                // We cannot define a dependence over 'this' in OpenMP
+                else if (sym.get_name() == "this")
+                {
+                    warn_printf("%s: warning: invalid dependency expression '%s', skipping\n",
+                            expr.get_locus_str().c_str(),
+                            expr.prettyprint().c_str());
+
+                    continue;
+                }
+            }
+
 
             if((default_data_attr & DS_AUTO) == DS_AUTO)
             {

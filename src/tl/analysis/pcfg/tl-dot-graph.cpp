@@ -149,9 +149,9 @@ namespace {
         std::string ranges = "";
         if(_ranges)
         {
-            Utils::ConstraintMap constraints_map = current->get_constraints_map();
-            for(Utils::ConstraintMap::iterator it = constraints_map.begin(); it != constraints_map.end(); ++it)
-                ranges += it->second.get_symbol().get_name() + " = " + it->second.get_constraint().prettyprint() + "\\n";
+            Utils::RangeValuesMap ranges_map = current->get_ranges();
+            for(Utils::RangeValuesMap::iterator it = ranges_map.begin(); it != ranges_map.end(); ++it)
+                ranges += it->first.prettyprint() + " = " + it->second.prettyprint() + "\\n";
             
             int l_size = ranges.size();
             if((l_size > 3) && (ranges.substr(l_size - 2, l_size - 1) == "\\n"))
@@ -160,7 +160,8 @@ namespace {
         return ranges;
     }
     
-    UNUSED_FUNCTION std::string print_node_ranges_propagated_str(Node* current)
+#if 0
+    std::string print_node_ranges_propagated_str(Node* current)
     {
         std::string propagated_ranges = "";
         if(_ranges)
@@ -175,6 +176,7 @@ namespace {
         }
         return propagated_ranges;
     }
+#endif
     
     std::string print_node_data_sharing(Node* current)
     {
@@ -267,7 +269,7 @@ namespace {
             dot_pcfg << graph_analysis_info;
         dot_pcfg << "}\n";
 
-        ExtensibleGraph::clear_visits(_graph);
+        ExtensibleGraph::clear_visits_extgraph(_graph);
         dot_pcfg.close();
         if(!dot_pcfg.good())
             internal_error ("Unable to close the file '%s' where PCFG has been stored.", dot_file_name.c_str());
@@ -307,6 +309,7 @@ namespace {
             while(source_outer != target_outer && source_outer != NULL)
             {
                 if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
+                    CURRENT_CONFIGURATION->debug_options.print_pcfg_full ||
                     !source_outer->is_context_node())
                     nest--;
                 source_outer = source_outer->get_outer_node();
@@ -322,16 +325,18 @@ namespace {
                                               std::vector<std::vector<std::string> >& outer_edges, 
                                               std::vector<std::vector<Node*> >& outer_nodes, std::string indent)
     {
-        if(!current->is_visited())
+        if(!current->is_visited_extgraph())
         {
-            current->set_visited(true);
+            current->set_visited_extgraph(true);
             
             // Generate the node
-            if(!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+            if (!CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context && 
+                !CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
             {
                 if(current->is_context_node())
                 {
                     Node* entry = current->get_graph_entry_node();
+                    entry->set_visited_extgraph(true);
                     Node* child = entry->get_children()[0];
                     get_nodes_dot_data(child, dot_graph, dot_analysis_info, outer_edges, outer_nodes, indent);
                     goto connect_node;
@@ -388,7 +393,8 @@ connect_node:
                 for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
                 {
                     Node* real_target = *it;
-                    if(CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context)
+                    if (CURRENT_CONFIGURATION->debug_options.print_pcfg_w_context || 
+                        CURRENT_CONFIGURATION->debug_options.print_pcfg_full)
                     {
                         if(real_target->is_graph_node())
                             real_target = real_target->get_graph_entry_node();
@@ -402,11 +408,18 @@ connect_node:
                         ObjectList<Node*> real_target_list;
                         if(real_target->is_context_node())
                         {
+                            real_target->set_visited_extgraph(true);
                             // In case of Swith Statements, the entry node of the inner context may have more than one child
                             // That is why we need a list here, instead of a single node
-                            real_target_list = real_target->get_graph_entry_node()->get_children();
+                            Node* real_target_entry = real_target->get_graph_entry_node();
+                            real_target_entry->set_visited_extgraph(true);
+                            real_target_list = real_target_entry->get_children();
                             while(real_target_list.size()==1 && real_target_list[0]->is_context_node())
-                                real_target_list = real_target_list[0]->get_graph_entry_node()->get_children();
+                            {
+                                real_target_entry = real_target_list[0]->get_graph_entry_node();
+                                real_target_entry->set_visited_extgraph(true);
+                                real_target_list = real_target_entry->get_children();
+                            }
                         }
                         else
                             real_target_list.append(real_target);
@@ -418,14 +431,22 @@ connect_node:
                             // Skip context nodes (from inner to outer)
                             if(real_target->is_exit_node() && real_target->get_outer_node()->is_context_node())
                             {
+                                real_target->set_visited_extgraph(true);
                                 real_target = real_target->get_outer_node()->get_children()[0];
                                 while((real_target->is_exit_node() && real_target->get_outer_node()->is_context_node()) || 
                                     real_target->is_context_node())
                                 {
+                                    real_target->set_visited_extgraph(true);
                                     if(real_target->is_exit_node())
+                                    {
                                         real_target = real_target->get_outer_node()->get_children()[0];
+                                    }
                                     else // real_target is context node
+                                    {
+                                        Node* real_target_entry = real_target->get_graph_entry_node();
+                                        real_target_entry->set_visited_extgraph(true);
                                         real_target = real_target->get_graph_entry_node()->get_children()[0];
+                                    }
                                 }
                             }
                             if(real_target->is_graph_node())
@@ -536,15 +557,11 @@ connect_node:
             case __Entry:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] ENTRY\", shape=box, fillcolor=lightgray, style=filled];\n";
-                if(_ranges)
-                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __Exit:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] EXIT\", shape=box, fillcolor=lightgray, style=filled];\n";
-                if(_ranges)
-                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __UnclassifiedNode:
@@ -555,6 +572,8 @@ connect_node:
             case __OmpBarrier:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] BARRIER\", shape=diamond];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpFlush:
@@ -565,6 +584,8 @@ connect_node:
             case __OmpTaskwait:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASKWAIT\", shape=ellipse];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __OmpWaitonDeps:
@@ -580,6 +601,8 @@ connect_node:
             case __OmpTaskCreation:
             {
                 dot_graph += indent + ss.str() + "[label=\"[" + ss.str() + "] TASK_CREATION\", shape=ellipse];\n";
+                if(_ranges)
+                    print_node_analysis_info(current, graph_analysis_info, /*cluster name*/ "");
                 break;
             }
             case __Break:
@@ -646,7 +669,7 @@ connect_node:
         if(current->is_graph_node() && current->is_omp_node())
         {
             PCFGPragmaInfo pragma_info = current->get_pragma_node_info();
-            ObjectList<PCFGClause> clauses = pragma_info.get_clauses();
+            ObjectList<NBase> clauses = pragma_info.get_clauses();
             int n_clauses = clauses.size();
             if(n_clauses > 0)
             {
@@ -656,9 +679,9 @@ connect_node:
                 std::string current_entry_id = entry_node_id.str();
                 int i = 0;
                 std::string clauses_str = "";
-                for(ObjectList<PCFGClause>::const_iterator it = clauses.begin(); it != clauses.end(); ++it, ++i)
+                for(ObjectList<NBase>::const_iterator it = clauses.begin(); it != clauses.end(); ++it, ++i)
                 {
-                    clauses_str += it->get_nodecl().prettyprint();
+                    clauses_str += it->prettyprint();
                     if(i < n_clauses-1)
                         clauses_str += "\\n ";
                 }
@@ -682,7 +705,7 @@ connect_node:
         std::string liveness_str = print_node_liveness(current);
         std::string reach_defs_str = print_node_reaching_defs(current);
         std::string ranges_str = print_node_ranges(current);
-        std::string ranges_propagated_str/* = print_node_ranges_propagated_str(current)*/;
+//         std::string ranges_propagated_str = print_node_ranges_propagated_str(current);
         std::string induction_vars_str = print_node_induction_variables(current);
         std::string color;
         std::string common_attrs = "style=dashed";
@@ -746,6 +769,7 @@ connect_node:
                 dot_analysis_info += ";\n";
             }
         }
+#if 0
         if(!ranges_propagated_str.empty())
         {
             std::string id = "-000000" + node_id.str();
@@ -761,6 +785,7 @@ connect_node:
                 dot_analysis_info += ";\n";
             }
         }
+#endif
         if(!induction_vars_str.empty())
         {
             std::string id = "-0000000" + node_id.str();

@@ -1741,7 +1741,7 @@ void LoweringVisitor::fill_copies_region(
                 << "ol_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
                 << "ol_copy_data[" << i << "].flags.input = " << input << ";"
                 << "ol_copy_data[" << i << "].flags.output = " << output << ";"
-                << "ol_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                << "ol_copy_data[" << i << "].dimension_count = (short)" << num_dimensions << ";"
                 << "ol_copy_data[" << i << "].dimensions = &(ol_copy_dimensions[" << current_dimension_descriptor << "]);"
                 << "ol_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
@@ -1752,7 +1752,7 @@ void LoweringVisitor::fill_copies_region(
                 << "imm_copy_data[" << i << "].address = (void*)" << as_expression(address_of_object) << ";"
                 << "imm_copy_data[" << i << "].flags.input = " << input << ";"
                 << "imm_copy_data[" << i << "].flags.output = " << output << ";"
-                << "imm_copy_data[" << i << "].dimension_count = " << num_dimensions << ";"
+                << "imm_copy_data[" << i << "].dimension_count = (short)" << num_dimensions << ";"
                 << "imm_copy_data[" << i << "].dimensions = &(imm_copy_dimensions[" << current_dimension_descriptor << "]);"
                 << "imm_copy_data[" << i << "].offset = " << copy_offset << ";"
                 ;
@@ -2622,7 +2622,7 @@ void LoweringVisitor::handle_dependency_item(
             << "{"
             << "(void *) " << as_expression(base_address) << ", "
             << dependency_flags << ", "
-            << num_dimension_items << ", "
+            << "(short) " << num_dimension_items << ", "
             << "dimensions_" << current_dep_num << ","
             << dependency_offset
             << "}";

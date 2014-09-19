@@ -458,7 +458,9 @@ final_get_linear:
                 return (*it)->get_increment();
         }
         
-        return NBase::null();
+        internal_error( "You are asking for the increment of '%s' "\
+                        "which is neither induction variable nor linear\n",
+                        n.prettyprint( ).c_str( ) );
     }
 }
 }

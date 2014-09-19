@@ -50,9 +50,6 @@ OLDPPWD=$PWD
 if [[ "$USER_FLAGS" == *\ -c\ * ]]
 then
 	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
-elif [[ "$USER_FLAGS" == *\ -v\ * ]]
-then
-	${ORIGINAL_MCC_COMPILER} $USER_FLAGS
 elif [ $# -eq 0 ]
 then
    ${ORIGINAL_MCC_COMPILER} $USER_FLAGS

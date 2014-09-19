@@ -655,10 +655,9 @@ constraint_expression : NODECL_ANALYSIS*PHI([expressions] expression-seq) type
                       | NODECL_ANALYSIS*RANGE_UNION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_INTERSECTION([lhs] expression, [rhs] expression) type
                       | NODECL_ANALYSIS*RANGE_SUB([lhs] expression, [rhs] expression) type
-                      | NODECL_ANALYSIS*RANGE([lower] expression, [upper] expression-opt) type
                       | NODECL_ANALYSIS*EMPTY_RANGE()
-                      | NODECL_ANALYSIS*MINUS_INFINITY()
-                      | NODECL_ANALYSIS*PLUS_INFINITY()
+                      | NODECL_ANALYSIS*MINUS_INFINITY() type
+                      | NODECL_ANALYSIS*PLUS_INFINITY() type
                       | NODECL_ANALYSIS*MINIMUM([expressions] expression-seq) type
                       | NODECL_ANALYSIS*MAXIMUM([expressions] expression-seq) type
 
@@ -682,7 +681,15 @@ analysis-exec-environment : NODECL_ANALYSIS*UPPER_EXPOSED([upper_exposed_exprs] 
                           | NODECL_ANALYSIS*AUTO_SCOPE*FIRSTPRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*PRIVATE([scoped_variables] expression-seq)
                           | NODECL_ANALYSIS*AUTO_SCOPE*SHARED([scoped_variables] expression-seq)
-                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_variables] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*AUTO_STORAGE([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*DEAD([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_FP([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_P([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_IN_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*INCOHERENT_OUT_POINTED([correctness_vars] expression-seq)
+                          | NODECL_ANALYSIS*CORRECTNESS*RACE([correctness_vars] expression-seq)
 
 assert-construct : NODECL_ANALYSIS*ASSERT([statements] statement-seq, [environment] analysis-exec-environment-seq-opt)
 

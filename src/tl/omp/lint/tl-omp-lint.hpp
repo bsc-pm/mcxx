@@ -36,7 +36,9 @@ namespace OpenMP {
     
     // We need this method to be visible so it can be used on demand
     // (Necessary for correctness analysis checker phase)
-    void execute_correctness_checks(TL::Analysis::ExtensibleGraph* graph);
+    void launch_correctness(
+            const TL::Analysis::PCFGAnalysis_memento& memento,
+            std::string log_file_path);
     
     class WritesVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
@@ -88,10 +90,13 @@ namespace OpenMP {
     private:
         std::string _disable_phase;
         std::string _correctness_log_path;
-        
+        std::string _lint_deprecated_flag;
         std::string _ompss_mode_str;
+
         bool _ompss_mode_enabled;
+
         void set_ompss_mode( const std::string& ompss_mode_str);
+        void set_lint_deprecated_flag(const std::string& lint_deprecated_flag_str);
         
     public:
         Lint();

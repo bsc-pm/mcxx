@@ -26,6 +26,7 @@
 
 #include "cxx-cexpr.h"
 #include "tl-task-syncs-tune.hpp"
+#include "tl-task-syncs-utils.hpp"
 
 namespace TL {
 namespace Analysis {
@@ -35,14 +36,39 @@ namespace {
 
     enum SyncModification
     {
-        Keep = 0,
-        MaybeToStatic = 1,
-        Remove = 2
+        None            = 0,
+        Keep            = 1u << 0,
+        MaybeToStatic   = 1u << 1,
+        Remove          = 1u << 2
     };
 
-    void compute_condition_for_unmatched_values(const NBase& n, const NBase& m,
-                                                 NBase& condition)
+    inline SyncModification operator|(SyncModification a, SyncModification b)
     {
+        return static_cast<SyncModification>(static_cast<int>(a) | static_cast<int>(b));
+    }
+
+    bool variable_is_invariant_between_nodes(Node* source, Node* target, const Nodecl::NodeclBase var)
+    {
+        bool res = true;
+
+        // Get the creation nodes of both tasks
+        Node* src_creation_node = ExtensibleGraph::get_task_creation_from_task(source);
+        Node* tgt_creation_node = ExtensibleGraph::get_task_creation_from_task(target);
+        ERROR_CONDITION(src_creation_node==NULL, "Creation node of task %d could not be found.\n", source->get_id());
+        ERROR_CONDITION(tgt_creation_node==NULL, "Creation node of task %d could not be found.\n", target->get_id());
+
+        // TODO
+
+        return res;
+    }
+
+    SyncModification compute_condition_for_unmatched_values(
+            Node* n_node, Node* m_node,
+            const NBase& n, const NBase& m,
+            NBase& condition)
+    {
+        SyncModification modification_type = Keep;
+
         // Get the condition for the two values
         NBase cond_part;
         Type t = n.get_type();
@@ -78,40 +104,49 @@ namespace {
             else
             {   // n=[v1], m=[v2]
                 cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+                // Although unknown, they might have the same value
+                if (Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/true) &&
+                    variable_is_invariant_between_nodes(n_node, m_node, n))
+                {
+                    modification_type = Remove;
+                    cond_part = Nodecl::NodeclBase::null();
+                }
+                else
+                {
+                    cond_part = Nodecl::Equal::make(n.shallow_copy(), m.shallow_copy(), n.get_type());
+                }
             }
         }
         
         // Rebuild the condition composing the old condition and the new computed part
         if(condition.is_null())
             condition = cond_part;
-        else
+        else if (!cond_part.is_null())
             condition = Nodecl::LogicalAnd::make(condition.shallow_copy(), cond_part, condition.get_type());
-    }
-
-    SyncModification match_constant_values(const NBase& n, const NBase& m,
-                                            NBase& condition)
-    {
-        SyncModification modification_type = Keep;
-
-        if(Nodecl::Utils::structurally_equal_nodecls(n, m))
-        {   // n == m | The two indexes are equal!
-            if(condition.is_null())
-                // If we already have some condition, there is some previous subscript that has not been resolved
-                modification_type = MaybeToStatic;
-        }
-        else
-        {   // n != m | The accessed indexes are different => we can remove the dependency
-            modification_type = Remove;
-            condition = NBase::null();
-
-        }
 
         return modification_type;
     }
 
+    SyncModification match_constant_values (
+            const NBase& n,
+            const NBase& m,
+            NBase& condition)
+    {
+        if(const_value_is_zero(const_value_sub(n.get_constant(), m.get_constant())))
+        {   // n == m | The two indexes are equal!
+            return  MaybeToStatic;
+        }
+        else
+        {   // n != m | The accessed indexes are different => we can remove the dependency
+            return Remove;
+        }
+    }
+
     // Restriction: #n must be a constant nodecl and # m a non-constant nodecl
-    SyncModification match_const_and_var_values(const NBase& n, const NBase& m,
-                                                Node* m_node, NBase& condition)
+    SyncModification match_const_and_var_values(
+            Node* n_node, Node* m_node,
+            const NBase& n, const NBase& m,
+            NBase& condition)
     {
         SyncModification modification_type = Keep;
 
@@ -128,24 +163,26 @@ namespace {
             {
                 if(m_reach_def.is<Nodecl::Symbol>())
                 {
-                    modification_type = match_const_and_var_values(n, m_reach_def, m_node, condition);
+                    modification_type = match_const_and_var_values(n_node, m_node, n, m_reach_def, condition);
                 }
                 else
                 {   // We do not know whether the indexes are equal => compute the condition
-                    compute_condition_for_unmatched_values(n, m, condition);
+                    modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
                 }
             }
         }
         else
         {   // We do not know whether the indexes are equal => compute the condition
-            compute_condition_for_unmatched_values(n, m, condition);
+            modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
         }
 
         return modification_type;
     }
 
-    SyncModification match_variable_values(const NBase& n, const NBase& m,
-                                            Node* n_node, Node* m_node, NBase& condition)
+    SyncModification match_variable_values(
+            Node* n_node, Node* m_node,
+            const NBase& n, const NBase& m,
+            NBase& condition)
     {
         SyncModification modification_type = Keep;
 
@@ -168,99 +205,118 @@ namespace {
                 }
                 else
                 {   // m is not constant | Try to compute equality from the reaching definition of m
-                    modification_type = match_const_and_var_values(n_reach_def, m_reach_def, m_node, condition);
+                    modification_type = match_const_and_var_values(n_node, m_node, n_reach_def, m_reach_def, condition);
                 }
             }
             else
             {
                 if(m_reach_def.is_constant())
                 {   // n is not constant | Try to compute equality from the reaching definition of n
-                    modification_type = match_const_and_var_values(m_reach_def, n_reach_def, m_node, condition);
+                    modification_type = match_const_and_var_values(m_node, n_node, m_reach_def, n_reach_def, condition);
                 }
                 else
                 {
                     if(n_reach_def.is<Nodecl::Symbol>() && m_reach_def.is<Nodecl::Symbol>())
                     {   // n, m reaching definitions are symbols | Try to compute the equality from its reaching definitions
-                        modification_type = match_variable_values(n_reach_def, m_reach_def, n_node, m_node, condition);
+                        modification_type = match_variable_values(n_node, m_node, n_reach_def, m_reach_def, condition);
                     }
                     else
                     {
-                        compute_condition_for_unmatched_values(n, m, condition);
+                        modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
                     }
                 }
             }
         }
         else
         {   // We do not know whether the indexes are equal => compute the condition
-            compute_condition_for_unmatched_values(n, m, condition);
+            modification_type = compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
         }
 
         return modification_type;
     }
 
-    SyncModification match_array_subscripts(Node* source, Node* target,
-                                             const Nodecl::ArraySubscript& a, const Nodecl::ArraySubscript& b,
+    SyncModification match_array_subscripts (Node* n_node, Node* m_node,
+                                             const Nodecl::List& n_subs, const Nodecl::List& m_subs,
                                              NBase& condition)
     {
         SyncModification modification_type = Keep;
-        Nodecl::List source_subscripts = a.get_subscripts().as<Nodecl::List>();
-        Nodecl::List target_subscripts = b.get_subscripts().as<Nodecl::List>();
-        Nodecl::List::iterator its = source_subscripts.begin();
-        Nodecl::List::iterator itt = target_subscripts.begin();
-        for(; (its != source_subscripts.end()) && (modification_type != Remove); ++its, ++itt)
+        Nodecl::List::iterator itn = n_subs.begin();
+        Nodecl::List::iterator itm = m_subs.begin();
+        bool cannot_match = false;
+        for(; (itn != n_subs.end()) && (modification_type != Remove); ++itn, ++itm)
         {
-            if(its->is_constant())
-            {   // source[c1]
-                if(itt->is_constant())
-                {   // target[c2]
-                    modification_type = match_constant_values(*its, *itt, condition);
+            const Nodecl::NodeclBase& n = *itn;
+            const Nodecl::NodeclBase& m = *itm;
+            if(cannot_match)
+            {
+                modification_type = modification_type | compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
+            }
+            else if(n.is_constant())
+            {   // n_node[c1]
+                if(m.is_constant())
+                {   // m_node[c2]
+                    modification_type = modification_type | match_constant_values(n, m, condition);
                 }
                 else
-                {   // target[v2]
-                    modification_type = match_const_and_var_values(*its, *itt, target, condition);
+                {   // m_node[v2]
+                    modification_type = modification_type | match_const_and_var_values(n_node, m_node, n, m, condition);
                 }
             }
             else
-            {   // source[v1]
-                if(itt->is_constant())
-                {   // target[c2]
-                    modification_type = match_const_and_var_values(*itt, *its, source, condition);
+            {   // n_node[v1]
+                if(m.is_constant())
+                {   // m_node[c2]
+                    modification_type = modification_type | match_const_and_var_values(m_node, n_node, m, n, condition);
                 }
                 else
-                {   // targt_v2
-                    // TODO Can we do something here?
-                    compute_condition_for_unmatched_values(*itt, *its, condition);
+                {   // m_node[v2]
+                    if(Nodecl::Utils::structurally_equal_nodecls(n, m, /*skip_conversions*/ true))
+                    {   // Case 1: the two variables are the same
+                        if(data_reference_is_modified_between_tasks(n_node, m_node, n))
+                        {   // The variable has changed => we are sure there is no dependency
+                            modification_type = modification_type | Remove;
+                            goto match_array_subscripts_end;
+                        }
+                    }
+                    else
+                    {   // Case 2: We cannot match the variables => compute the condition
+                        modification_type = modification_type | compute_condition_for_unmatched_values(n_node, m_node, n, m, condition);
+                        cannot_match = true;
+                    }
                 }
             }
         }
+        
+        // The variable hasn't changed => we are sure there is a dependency
+        if(!cannot_match)
+            modification_type = MaybeToStatic;
 
+match_array_subscripts_end:
         return modification_type;
     }
 
-    SyncModification match_dependence(Node* source, Node* target,
-                                       const NBase& src_dep, const NBase& tgt_dep,
-                                       NBase& condition)
+    SyncModification match_dependence(
+            Node* n_node, Node* m_node,
+            const NBase& n, const NBase& m,
+            NBase& condition)
     {
-        SyncModification modification_type = Keep;
-
-        // Skip Conversion nodes
-        if(src_dep.is<Nodecl::Conversion>())
-            match_dependence(source, target, src_dep.as<Nodecl::Conversion>().get_nest(), tgt_dep, condition);
-        if(tgt_dep.is<Nodecl::Conversion>())
-            match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Conversion>().get_nest(), condition);
+        Nodecl::NodeclBase n_ = n.no_conv();
+        Nodecl::NodeclBase m_ = m.no_conv();
 
         // Skip shaping nodes
-        if(src_dep.is<Nodecl::Shaping>())
-            match_dependence(source, target, src_dep.as<Nodecl::Shaping>().get_postfix(), tgt_dep, condition);
-        if(tgt_dep.is<Nodecl::Shaping>())
-            match_dependence(source, target, src_dep, tgt_dep.as<Nodecl::Shaping>().get_postfix(), condition);
+        if(n_.is<Nodecl::Shaping>())
+            return match_dependence(n_node, m_node, n_.as<Nodecl::Shaping>().get_postfix(), m_, condition);
+        if(m_.is<Nodecl::Shaping>())
+            return match_dependence(n_node, m_node, n_, m_.as<Nodecl::Shaping>().get_postfix(), condition);
 
+        SyncModification modification_type = Keep;
+        
         // Compare the two dependencies
-        if(src_dep.is<Nodecl::Symbol>())
+        if(n_.is<Nodecl::Symbol>())
         {
-            if(tgt_dep.is<Nodecl::Symbol>())
+            if(m_.is<Nodecl::Symbol>())
             {
-                if(Nodecl::Utils::structurally_equal_nodecls(src_dep, tgt_dep))
+                if(Nodecl::Utils::structurally_equal_nodecls(n_, m_))
                     modification_type = MaybeToStatic;
                 else
                     modification_type = Remove;
@@ -268,17 +324,18 @@ namespace {
             else
                 modification_type = Remove;
         }
-        else if(src_dep.is<Nodecl::Dereference>())
-        {   // TODO Alias analysis needed for further information here
-        }
-        else if(src_dep.is<Nodecl::ClassMemberAccess>())
+        else if(n_.is<Nodecl::Dereference>())
         {
-            if(tgt_dep.is<Nodecl::ClassMemberAccess>())
+            // TODO Alias analysis needed for further information here
+        }
+        else if(n_.is<Nodecl::ClassMemberAccess>())
+        {
+            if(m_.is<Nodecl::ClassMemberAccess>())
             {
-                Nodecl::ClassMemberAccess src_dep_ = src_dep.as<Nodecl::ClassMemberAccess>();
-                Nodecl::ClassMemberAccess tgt_dep_ = tgt_dep.as<Nodecl::ClassMemberAccess>();
+                Nodecl::ClassMemberAccess src_dep_ = n_.as<Nodecl::ClassMemberAccess>();
+                Nodecl::ClassMemberAccess tgt_dep_ = m_.as<Nodecl::ClassMemberAccess>();
                 if(Nodecl::Utils::structurally_equal_nodecls(src_dep_.get_lhs(), tgt_dep_.get_lhs()))
-                    modification_type = match_dependence(source, target,
+                    modification_type = match_dependence (n_node, m_node,
                                                           src_dep_.get_member(), src_dep_.get_member(),
                                                           condition);
                 else
@@ -287,12 +344,15 @@ namespace {
             else
                 modification_type = Remove;
         }
-        else if(src_dep.is<Nodecl::ArraySubscript>())
+        else if(n_.is<Nodecl::ArraySubscript>())
         {
-            if(tgt_dep.is<Nodecl::ArraySubscript>())
+            if(m_.is<Nodecl::ArraySubscript>())
             {
-                modification_type = match_array_subscripts(source, target, src_dep.as<Nodecl::ArraySubscript>(),
-                                                            tgt_dep.as<Nodecl::ArraySubscript>(), condition);
+                modification_type = match_array_subscripts(
+                        n_node, m_node,
+                        n_.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>(),
+                        m_.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>(),
+                        condition);
             }
             else
                 modification_type = Remove;
@@ -322,6 +382,10 @@ namespace {
             // Treat the current node
             if(current->is_graph_node())
             {
+                // Treat the inner nodes recursively
+                tune_task_synchronizations_rec(current->get_graph_entry_node());
+                
+                // If the current node is a task, then try to simplify its synchronizations
                 if(current->is_omp_task_node())
                 {
                     // Tune the synchronizations with its children, if possible
@@ -338,9 +402,6 @@ namespace {
                         }
                     }
                 }
-
-                // Treat the inner nodes recursively
-                tune_task_synchronizations_rec(current->get_graph_entry_node());
             }
 
             // Treat the children recursively
@@ -351,7 +412,7 @@ namespace {
             }
         }
     }
-
+    
     /*!This method returns the condition that has to be associated to an edge of type 'maybe' that connects two tasks which:
      * \param source_environ is the environment of the source task
      * \param target_environ is the environment of the target task
@@ -364,13 +425,21 @@ namespace {
     NBase TaskSyncTunning::match_dependencies(Node* source, Node* target)
     {
         NBase condition;
-
+        
         typedef std::pair<ObjectList<NBase>, ObjectList<NBase> > nodecl_object_list_pair;
 
+        // 1.- Collect the variables in the dependency clauses
         Nodecl::List source_environ = source->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
         Nodecl::List target_environ = target->get_graph_related_ast().as<Nodecl::OpenMP::Task>().get_environment().as<Nodecl::List>();
-
-        // For the source task we are interested only in out or inout dependencies
+        // 1.1.- Get in dependencies on one side and out and inout dependencies on the other side
+        //       - out|inout will be matched with in|out|inout in the target
+        //       - in will be matched with out|inout dependencies
+        ObjectList<NBase> source_in_deps = source_environ.find_all<Nodecl::OpenMP::DepIn>()
+                .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
+                .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
+                .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
+                .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
+                ;
         ObjectList<NBase> source_out_deps = source_environ.find_all<Nodecl::OpenMP::DepOut>()
                 .map(functor(&Nodecl::OpenMP::DepOut::get_out_deps))                // ObjectList<NBase>
                 .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
@@ -383,9 +452,8 @@ namespace {
                 .map(functor(&Nodecl::List::to_object_list))                        // ObjectList<ObjectList<NBase> >
                 .reduction(functor(append_two_lists<NBase>))                        // ObjectList<NBase>
                 ;
-        ObjectList<NBase> source_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
-
-        // For the target task we need to check all kind of dependencies
+        ObjectList<NBase> source_all_out_deps = append_two_lists(nodecl_object_list_pair(source_out_deps, source_inout_deps));
+        // 1.2.- Get all in, out and inout dependencies
         ObjectList<NBase> target_in_deps = target_environ.find_all<Nodecl::OpenMP::DepIn>()
                 .map(functor(&Nodecl::OpenMP::DepIn::get_in_deps))                  // ObjectList<NBase>
                 .map(functor(&NBase::as<Nodecl::List>))                             // ObjectList<Nodecl::List>
@@ -406,50 +474,72 @@ namespace {
                 ;
         ObjectList<NBase> target_deps =
                 append_two_lists(nodecl_object_list_pair(target_inout_deps,
-                                                           append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
+                                                          append_two_lists(nodecl_object_list_pair(target_in_deps, target_out_deps))));
+        ObjectList<NBase> target_all_out_deps = append_two_lists(nodecl_object_list_pair(target_out_deps, target_inout_deps));
 
-        for(ObjectList<NBase>::iterator its = source_deps.begin(); its != source_deps.end(); ++its)
+        // 2.- Check each pair of dependencies to build the condition and obtain the modification we have to perform in the dependency edge
+        SyncModification modification_type = None;
+        // 2.1.- Match source(out, inout) with target(in, out, inout)
+        for(ObjectList<NBase>::iterator its = source_all_out_deps.begin(); its != source_all_out_deps.end(); ++its)
             for(ObjectList<NBase>::iterator itt = target_deps.begin(); itt != target_deps.end(); ++itt)
+                modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
+        // 2.1.- Match source(in) with target(out, inout)
+        for(ObjectList<NBase>::iterator its = source_in_deps.begin(); its != source_in_deps.end(); ++its)
+            for(ObjectList<NBase>::iterator itt = target_all_out_deps.begin(); itt != target_all_out_deps.end(); ++itt)
+                modification_type = modification_type | match_dependence(source, target, *its, *itt, condition);
+
+        // 3.- Perform the modifications according to the previous results
+        //     The order of these condition is important because for each pair of variables in the dependency clauses
+        //     we compute a modification that is joined to the previous ones. So these conditions go from 
+        //     the most restrictive to the most relaxed
+        if(modification_type & Keep)
+        {   // 3.1.- Case 1: we need to keep the dependency as it is because we were not able to simplify it
+            //       Nothing to be done here
+        }
+        else if(modification_type & MaybeToStatic)
+        {   // 3.2.- Case 2: we are sure the dependency occurs so we transform it from 'maybe' to 'static'
+            if(VERBOSE)
+                DEBUG_MESSAGE("Dependency between %d and %d changes from maybe to static", source->get_id(), target->get_id());
+            // Transform the type of the edge from "maybe" to "static"
+            Edge* e = ExtensibleGraph::get_edge_between_nodes(source, target);
+            const char* s = "static";
+            e->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
+                                                     const_value_make_string(s, strlen(s))));
+            // Remove the target task from the source's list of concurrent tasks
+            _pcfg->remove_concurrent_task(source, target);
+            // Remove any other "strict" synchronization, since now it is synchronized here for sure
+            ObjectList<Edge*> sexits = source->get_exit_edges();
+            for(ObjectList<Edge*>::iterator it = sexits.begin(); it != sexits.end(); ++it)
             {
-                SyncModification modification_type = match_dependence(source, target, *its, *itt, condition);
-                switch(modification_type)
+                Node* tmp_target = (*it)->get_target();
+                if((tmp_target != target) &&
+                    ((*it)->get_label_as_string() == "strict"))
                 {
-                    default:
-                    case Keep:          break;
-                    case MaybeToStatic: {
-                        if(VERBOSE)
-                            DEBUG_MESSAGE("Dependency between %d and %d changes from maybe to static", source->get_id(), target->get_id());
-                        // Transform the type of the edge from "maybe" to "static"
-                        Edge* e = ExtensibleGraph::get_edge_between_nodes(source, target);
-                        const char* s = "static";
-                        e->set_label(Nodecl::StringLiteral::make(Type(get_literal_string_type(strlen(s)+1, get_char_type())),
-                                                                 const_value_make_string(s, strlen(s))));
-                        // Remove any other "strict" synchronization, since now it is synchronized here for sure
-                        ObjectList<Edge*> sexits = source->get_exit_edges();
-                        for(ObjectList<Edge*>::iterator it = sexits.begin(); it != sexits.end(); ++it)
-                        {
-                            if(((*it)->get_target() != target) &&
-                                ((*it)->get_label_as_string() == "strict"))
-                            {
-                                if(VERBOSE)
-                                    DEBUG_MESSAGE("Removing unnecessary strict edge between %d and %d", source->get_id(), target->get_id());
-                                _pcfg->disconnect_nodes(source, (*it)->get_target());
-                            }
-                        }
-                        break;
-                    }
-                    case Remove:        {
-                        if(VERBOSE)
-                            DEBUG_MESSAGE("Dependency between %d and %d is being removed", source->get_id(), target->get_id());
-                        _pcfg->disconnect_nodes(source, target);
-                        break;
-                    }
+                    if(VERBOSE)
+                        DEBUG_MESSAGE("Removing unnecessary strict edge between %d and %d", source->get_id(), tmp_target->get_id());
+                    disconnect_tasks(source, tmp_target);
                 }
             }
+        }
+        else if(modification_type & Remove)
+        {   // 3.3.- Case 3: We can remove the dependency edge
+            if(VERBOSE)
+                DEBUG_MESSAGE("Dependency between %d and %d is being removed", source->get_id(), target->get_id());
+            disconnect_tasks(source, target);
+        }
 
         return condition;
     }
 
+    void TaskSyncTunning::disconnect_tasks(Node* source, Node* target)
+    {
+        // Disconnect the two tasks
+        _pcfg->disconnect_nodes(source, target);
+        
+        // Remove the target from the list of "next_synchronizations" of the source
+        _pcfg->remove_next_synchronization(source, target);
+    }
+    
 }
 }
 }

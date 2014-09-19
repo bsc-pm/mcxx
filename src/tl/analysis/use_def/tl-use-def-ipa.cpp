@@ -27,6 +27,7 @@ Cambridge, MA 02139, USA.
 #include <iostream>
 #include <fstream>
 
+#include "cxx-diagnostic.h"
 #include "tl-use-def.hpp"
 
 namespace TL {
@@ -44,6 +45,8 @@ namespace Analysis {
             const sym_to_nodecl_map& ptr_param_to_arg_map, 
             Utils::UsageKind usage_kind)
     {
+        Symbol s;
+
         for(NodeclSet::iterator it = called_func_usage.begin(); it != called_func_usage.end(); ++it)
         {
             NBase n = it->no_conv();
@@ -52,17 +55,35 @@ namespace Analysis {
                n.as<Nodecl::Dereference>().get_rhs().is<Nodecl::Symbol>() && 
                (ptr_param_to_arg_map.find(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end()))
             {   // The value pointed by a pointer parameter has some usage
-                Symbol s(n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol()); // parameter
-                NBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
-                sym_to_nodecl_map rename_map; rename_map[s] = replacement;
-                RenameVisitor rv(rename_map);
-                NBase new_n = n.shallow_copy();
-                rv.walk(new_n);
-                if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
-                    _node->add_killed_var(new_n);
-                else
-                    _node->add_undefined_behaviour_var(new_n);
+                s = n.as<Nodecl::Dereference>().get_rhs().as<Nodecl::Symbol>().get_symbol(); // parameter
+                goto propagate_usage;
             }
+            // Current usage variable is an array subscript of a parameter symbol
+            else if(n.is<Nodecl::ArraySubscript>())
+            {
+                const Nodecl::NodeclBase& subscripted = n.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+                if (subscripted.is<Nodecl::Symbol>()
+                    && ptr_param_to_arg_map.find(subscripted.as<Nodecl::Symbol>().get_symbol()) != ptr_param_to_arg_map.end())
+                {
+                    s = subscripted.as<Nodecl::Symbol>().get_symbol();                      // parameter
+                    goto propagate_usage;
+                }
+            }
+
+            continue;
+
+propagate_usage:
+            NBase replacement = ptr_param_to_arg_map.find(s)->second.shallow_copy();
+            sym_to_nodecl_map rename_map; rename_map[s] = replacement;
+            RenameVisitor rv(rename_map);
+            NBase new_n = n.shallow_copy();
+            rv.walk(new_n);
+            if(usage_kind._usage_type & Utils::UsageKind::USED)
+                _node->add_ue_var(new_n);
+            else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
+                _node->add_killed_var(new_n);
+            else
+                _node->add_undefined_behaviour_var(new_n);
         }
     }
     
@@ -89,7 +110,9 @@ namespace Analysis {
                 RenameVisitor rv(rename_map);
                 NBase new_n = n.shallow_copy();
                 rv.walk(new_n);
-                if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
+                if(usage_kind._usage_type & Utils::UsageKind::USED)
+                    _node->add_ue_var(new_n);
+                else if(usage_kind._usage_type & Utils::UsageKind::DEFINED)
                     _node->add_killed_var(new_n);
                 else
                     _node->add_undefined_behaviour_var(new_n);
@@ -141,16 +164,20 @@ namespace Analysis {
         //     Recursively call to UsageVisitor to calculate the usage of each argument
         for(Nodecl::List::const_iterator it = args.begin(); it != args.end(); ++it)
         {
-            NBase n = *it;
-            NBase n_base = Utils::get_nodecl_base(n);
+            // 1.1.- Skip conversions and casts
+            NBase n = it->no_conv();
+            if (n.is<Nodecl::Cast>())
+                n = n.as<Nodecl::Cast>().get_rhs();
             
-            if(n_base.is_null() || !n_base.get_symbol().is_function())
+            // 1.2- Compute the usage in the expression of the current argument
+            NBase n_base = Utils::get_nodecl_base(n);
+            if (n_base.is_null() || !n_base.get_symbol().is_function())
             {   // Traverse any argument that is not a pointer to function
                 compute_statement_usage(n);
             }
             
-            // If the argument is a reference, add it to the set of used addresses
-            if(n.no_conv().is<Nodecl::Reference>())
+            // 1.3.- If the argument is a reference or it has pointer type, add it to the set of used addresses
+            if (n.is<Nodecl::Reference>() || n.get_type().is_pointer())
                 _node->add_used_address(n);
         }
         
@@ -162,11 +189,14 @@ namespace Analysis {
         get_modifiable_parameters_to_arguments_map(called_params, args,
                                                    ptr_param_to_arg_map, ref_param_to_arg_map);
         // 2.2.- Get the usage computed for the called function
+        NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
         NodeclSet called_killed_vars = pcfg_node->get_killed_vars();
         NodeclSet called_undef_vars = pcfg_node->get_undefined_behaviour_vars();
         // 2.3.- Propagate pointer parameters usage to the current node
         if(!ptr_param_to_arg_map.empty())
-        {                        
+        {
+            propagate_called_func_pointed_values_usage_to_func_call(
+                    called_ue_vars, ptr_param_to_arg_map, Utils::UsageKind::USED);
             propagate_called_func_pointed_values_usage_to_func_call(
                     called_killed_vars, ptr_param_to_arg_map, Utils::UsageKind::DEFINED);
             propagate_called_func_pointed_values_usage_to_func_call(
@@ -176,6 +206,8 @@ namespace Analysis {
         //       Do not take into account pointed values here, we already did it in step
         if(!ref_param_to_arg_map.empty())
         {
+            propagate_called_func_ref_params_usage_to_func_call(
+                    called_ue_vars, ref_param_to_arg_map, Utils::UsageKind::USED);
             propagate_called_func_ref_params_usage_to_func_call(
                     called_killed_vars, ref_param_to_arg_map, Utils::UsageKind::DEFINED);
             propagate_called_func_ref_params_usage_to_func_call(
@@ -187,7 +219,6 @@ namespace Analysis {
         GlobalVarsSet ipa_global_vars = called_pcfg->get_global_variables();
         _pcfg->set_global_vars(ipa_global_vars);
         // 3.2 Propagate the usage of the global variables
-        NodeclSet called_ue_vars = pcfg_node->get_ue_vars();
         sym_to_nodecl_map param_to_arg_map = get_parameters_to_arguments_map(called_params, args);
         propagate_global_variables_usage(called_ue_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::USED);
         propagate_global_variables_usage(called_killed_vars, ipa_global_vars, param_to_arg_map, Utils::UsageKind::DEFINED);
@@ -437,12 +468,21 @@ namespace Analysis {
                 std::string func_name = func_sym.get_name();
                 if(_warned_unreach_funcs.find(func_name)==_warned_unreach_funcs.end())
                 {   // Each function is warned only once
+                    if(_warned_unreach_funcs.empty())
+                    {   // Long message for the first time only
+                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and " 
+                                     "reference parameters is limited. \nIf you know the side effects of this function, "\
+                                     "add it to the file '%s' and recompile your code. \n"
+                                     "(If you recompile the compiler, add it in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).\n",
+                                     __FILE__, __LINE__, func_name.c_str(), cLibFuncsPath.c_str());
+                    }
+                    else
+                    {
+                        info_printf ("%s:%d: info: Function's '%s' code not reached. Usage analysis of global variables and "\
+                                     "reference parameters is limited.\n",
+                                     __FILE__, __LINE__, func_name.c_str());
+                    }
                     _warned_unreach_funcs.insert(func_name);
-                    WARNING_MESSAGE("Function's '%s' code not reached. \nUsage analysis of global variables and "\
-                                    "reference parameters will be limited. \nIf you know the side effects of this function, "\
-                                    "add it to the file and recompile your code. \n(If you recompile the compiler, "\
-                                    "you want to add the function in $MCC_HOME/src/tl/analysis/use_def/cLibraryFunctionList instead).",
-                                    func_sym.get_name().c_str(), cLibFuncsPath.c_str());
                 }
             }
             cLibFuncs.close();
@@ -729,7 +769,8 @@ namespace Analysis {
                                 _node->add_ue_var(*it);
                             }
                             
-                            if(arg.get_type().is_pointer())
+                            if (!mem_accesses.empty() && // Avoid including expressions such as "(void*)NULL" to the Use-Def lists
+                                arg.get_type().is_pointer())
                             {   // The pointed value has an undefined behavior
                                 _node->add_undefined_behaviour_var(Nodecl::Dereference::make(arg.shallow_copy(), arg.get_type().points_to()));
                             }

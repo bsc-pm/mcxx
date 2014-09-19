@@ -32,7 +32,7 @@
 namespace TL { 
 namespace Analysis {
 namespace TaskAnalysis{
-
+    
     class LIBTL_CLASS TaskSyncTunning
     {
     private:
@@ -41,6 +41,7 @@ namespace TaskAnalysis{
         
         void tune_task_synchronizations_rec(Node* current);
         NBase match_dependencies(Node* source, Node* target);
+        void disconnect_tasks(Node* source, Node* target);
         
     public:
         // *** Constructor *** //

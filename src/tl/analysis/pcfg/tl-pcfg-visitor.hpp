@@ -40,10 +40,9 @@ namespace Analysis {
     class LIBTL_CLASS PCFGVisitor : public Nodecl::NodeclVisitor<TL::ObjectList<Node*> >
     {
     private:
+        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         ExtensibleGraph* _pcfg;     /*!< Actual PCFG being built during the visit */
-
-        PCFGVisitUtils* _utils;     /*!< Class storing temporary values for the construction of the graph */
 
         std::map<Symbol, Nodecl::NodeclBase> _asserted_funcs;  /*!< Map relating function symbols with 
                                                                     its related pragma analysis_check assert directive, if exists */
@@ -246,7 +245,15 @@ namespace Analysis {
         Ret visit( const Nodecl::Analysis::AutoScope::Firstprivate& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Private& n );
         Ret visit( const Nodecl::Analysis::AutoScope::Shared& n );
+        Ret visit( const Nodecl::Analysis::Correctness::AutoStorage& n );
         Ret visit( const Nodecl::Analysis::Correctness::Dead& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentFp& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentIn& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentInPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOut& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentOutPointed& n );
+        Ret visit( const Nodecl::Analysis::Correctness::IncoherentP& n );
+        Ret visit( const Nodecl::Analysis::Correctness::Race& n );
         Ret visit( const Nodecl::Analysis::Dead& n );
         Ret visit( const Nodecl::Analysis::Defined& n );
         Ret visit( const Nodecl::Analysis::InductionVariable& n );
@@ -312,6 +319,7 @@ namespace Analysis {
         Ret visit( const Nodecl::GreaterOrEqualThan& n );
         Ret visit( const Nodecl::GreaterThan& n );
         Ret visit( const Nodecl::IfElseStatement& n );
+        Ret visit( const Nodecl::IndexDesignator& n );
         Ret visit( const Nodecl::IntegerLiteral& n );
         Ret visit( const Nodecl::LabeledStatement& n );
         Ret visit( const Nodecl::LogicalAnd& n );

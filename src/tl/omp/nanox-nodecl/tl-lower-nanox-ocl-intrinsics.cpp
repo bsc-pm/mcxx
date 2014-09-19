@@ -30,6 +30,8 @@
 
 #include "tl-lowering-visitor.hpp"
 #include "tl-nanox-ptr.hpp"
+
+
 namespace TL { namespace Nanox {
 
     static Symbol create_new_function_opencl_allocate(
@@ -110,6 +112,170 @@ namespace TL { namespace Nanox {
         return new_function_sym;
     }
 
+    static void handle_ompss_opencl_allocate_intrinsic(
+            Nodecl::FunctionCall function_call,
+            std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol> &declared_ocl_allocate_functions,
+            Nodecl::NodeclBase expr_stmt)
+    {
+        Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
+        ERROR_CONDITION(arguments.size() != 1, "More than one argument in 'ompss_opencl_allocate' call\n", 0);
+
+        Nodecl::NodeclBase actual_argument = arguments[0];
+        ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree\n", 0);
+
+        Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
+        if (arg.is<Nodecl::Dereference>())
+            arg = arg.as<Nodecl::Dereference>().get_rhs();
+
+        ERROR_CONDITION(!arg.is<Nodecl::ArraySubscript>(), "Unreachable code\n", 0);
+
+        Nodecl::NodeclBase subscripted = arg.as<Nodecl::ArraySubscript>().get_subscripted();
+        ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Unreachable code\n", 0);
+
+        TL::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>().get_symbol();
+
+        ERROR_CONDITION(
+                !(subscripted_symbol.get_type().is_fortran_array()
+                    && subscripted_symbol.is_allocatable())
+                &&
+                !(subscripted_symbol.get_type().is_pointer()
+                    && subscripted_symbol.get_type().points_to().is_fortran_array()),
+                "The argument of 'ompss_opencl_allocate' intrinsic must be "
+                "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
+
+        TL::Type array_type;
+        int num_dimensions;
+        bool is_allocatable;
+        if (subscripted_symbol.is_allocatable())
+        {
+            array_type = subscripted_symbol.get_type();
+            num_dimensions = subscripted_symbol.get_type().get_num_dimensions();
+            is_allocatable = true;
+        }
+        else
+        {
+            array_type = subscripted_symbol.get_type().points_to();
+            num_dimensions = array_type.get_num_dimensions();
+            is_allocatable = false;
+        }
+
+        TL::Type element_type = array_type;
+        while (element_type.is_array())
+        {
+            element_type = element_type.array_element();
+        }
+
+        ERROR_CONDITION(!array_type.is_array(), "This type should be an array type", 0);
+
+        std::pair<TL::Type, std::pair<int, bool> > key =
+            std::make_pair(element_type, std::make_pair(num_dimensions, is_allocatable));
+
+        std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol>::iterator it_new_fun =
+            declared_ocl_allocate_functions.find(key);
+
+        // Reuse the auxiliar function if it already exists
+        Symbol new_function_sym;
+        if (it_new_fun != declared_ocl_allocate_functions.end())
+        {
+            new_function_sym = it_new_fun->second;
+        }
+        else
+        {
+            new_function_sym = create_new_function_opencl_allocate(
+                    expr_stmt, subscripted_symbol, element_type, num_dimensions, is_allocatable);
+
+            declared_ocl_allocate_functions[key] = new_function_sym;
+        }
+
+        // Replace the current intrinsic call by a call to the new function
+        TL::Source actual_arg_array;
+        if (is_allocatable)
+        {
+            actual_arg_array << as_expression(subscripted);
+        }
+        else
+        {
+            actual_arg_array << as_expression(Nodecl::Dereference::make(
+                        subscripted, subscripted.get_type().no_ref().points_to()));
+        }
+
+        TL::Source actual_arg_bounds;
+        Nodecl::List subscripts = arg.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+        for (Nodecl::List::reverse_iterator it = subscripts.rbegin();
+                it != subscripts.rend();
+                it++)
+        {
+            Nodecl::NodeclBase subscript = *it, lower, upper;
+
+            if (it != subscripts.rbegin())
+                actual_arg_bounds << ", ";
+
+            if (subscript.is<Nodecl::Range>())
+            {
+                lower = subscript.as<Nodecl::Range>().get_lower();
+                upper = subscript.as<Nodecl::Range>().get_upper();
+            }
+            else
+            {
+                lower = nodecl_make_integer_literal(
+                        fortran_get_default_integer_type(),
+                        const_value_get_signed_int(1), make_locus("", 0, 0));
+                upper = subscript;
+            }
+            actual_arg_bounds << as_expression(lower) << "," << as_expression(upper);
+        }
+
+        TL::Source new_function_call;
+        new_function_call
+            << "CALL " << as_symbol(new_function_sym) << "("
+            <<  actual_arg_array  << ", "
+            <<  actual_arg_bounds << ")\n"
+            ;
+
+        expr_stmt.replace(new_function_call.parse_statement(expr_stmt));
+
+    }
+
+    static void handle_ompss_opencl_deallocate_intrinsic(
+            Nodecl::FunctionCall function_call,
+            Nodecl::NodeclBase expr_stmt)
+    {
+        Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
+        ERROR_CONDITION(arguments.size() != 1, "More than one argument in ompss_opencl_deallocate call", 0);
+
+        Nodecl::NodeclBase actual_argument = arguments[0];
+        ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree", 0);
+
+        Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
+        if (arg.is<Nodecl::Dereference>())
+            arg = arg.as<Nodecl::Dereference>().get_rhs();
+
+        ERROR_CONDITION(!arg.is<Nodecl::Symbol>(),
+                "The argument of 'ompss_opencl_deallocate' intrinsic should be a symbol", 0);
+
+        TL::Symbol array_sym = arg.as<Nodecl::Symbol>().get_symbol();
+
+        ERROR_CONDITION(
+                !(array_sym.get_type().is_fortran_array()
+                    && array_sym.is_allocatable())
+                &&
+                !(array_sym.get_type().is_pointer()
+                    && array_sym.get_type().points_to().is_fortran_array()),
+                "The argument of 'ompss_opencl_deallocate' intrinsic must be "
+                "an allocatable array or a pointer to an array\n", 0);
+
+        // Replace the current intrinsic call by a call to the Nanos++ API
+        TL::Symbol ptr_of_arr_sym = get_function_ptr_of(array_sym, expr_stmt.retrieve_context());
+
+        TL::Source new_function_call;
+        new_function_call
+            << "CALL NANOS_OPENCL_DEALLOCATE_FORTRAN("
+            <<      ptr_of_arr_sym.get_name() << "(" << array_sym.get_name() << "))\n"
+            ;
+
+        expr_stmt.replace(new_function_call.parse_statement(expr_stmt));
+    }
+
     void LoweringVisitor::visit(const Nodecl::ExpressionStatement& expr_stmt)
     {
         Nodecl::NodeclBase nest = expr_stmt.get_nest();
@@ -120,162 +286,78 @@ namespace TL { namespace Nanox {
             if (function_call.get_called().is<Nodecl::Symbol>())
             {
                 TL::Symbol sym = function_call.get_called().as<Nodecl::Symbol>().get_symbol();
-
-                // We are only interested in intrinsic symbols
-                if (sym.get_name() == "ompss_opencl_allocate")
+                // We are only interested in two intrinsic symbols
+                if (sym.is_intrinsic())
                 {
-                    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
-                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in 'ompss_opencl_allocate' call\n", 0);
-
-                    Nodecl::NodeclBase actual_argument = arguments[0];
-                    ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree\n", 0);
-
-                    Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
-                    if (arg.is<Nodecl::Dereference>())
-                        arg = arg.as<Nodecl::Dereference>().get_rhs();
-
-                    ERROR_CONDITION(!arg.is<Nodecl::ArraySubscript>(), "Unreachable code\n", 0);
-
-                    Nodecl::NodeclBase subscripted = arg.as<Nodecl::ArraySubscript>().get_subscripted();
-                    ERROR_CONDITION(!subscripted.is<Nodecl::Symbol>(), "Unreachable code\n", 0);
-
-                    TL::Symbol subscripted_symbol = subscripted.as<Nodecl::Symbol>().get_symbol();
-
-                    ERROR_CONDITION(
-                            !(subscripted_symbol.get_type().is_fortran_array()
-                                && subscripted_symbol.is_allocatable())
-                            &&
-                            !(subscripted_symbol.get_type().is_pointer()
-                                && subscripted_symbol.get_type().points_to().is_fortran_array()),
-                            "The argument of 'ompss_opencl_allocate' intrinsic must be "
-                            "an allocatable array or a pointer to an array with all its bounds specified\n", 0);
-
-                    TL::Type array_type;
-                    int num_dimensions;
-                    bool is_allocatable;
-                    if (subscripted_symbol.is_allocatable())
+                    if(sym.get_name() == "ompss_opencl_allocate")
                     {
-                        array_type = subscripted_symbol.get_type();
-                        num_dimensions = subscripted_symbol.get_type().get_num_dimensions();
-                        is_allocatable = true;
+                        // We replace the intrinsic call by a call to a new function which:
+                        //  - allocates a new temporary array with descriptor
+                        //  - copies the array descriptor to the address of the array
+                        //  - calls to the Nanos++ API to allocate the buffer in the shared memory
+                        //  - deallocates the temporary array with descriptor
+                        //
+                        // Example:
+                        //
+                        //    ...
+                        //    INTEGER, ALLOCATABLE :: V(:)
+                        //    OMPSS_OPENCL_ALLOCATE(V(10))
+                        //    ...
+                        //
+                        // Is transformed into:
+                        //
+                        //    SUBROUTINE NANOX_OPENCL_ALLOCATE_INTERNAL(ARR, LB1, UB1)
+                        //        INTEGER, ALLOCATABLE :: ARR(:)
+                        //        INTEGER :: LB1, UB1, ERR
+                        //        INTEGER, ALLOCATABLE :: TMP(:)
+                        //
+                        //        ALLOCATE(TMP(LB1:UB1))
+                        //
+                        //        ERR = NANOS_MEMCPY(
+                        //                MERCURIUM_GET_ADDRESS_OF(ARR),
+                        //                MERCURIUM_GET_ADDRESS_OF(TMP),
+                        //                48)
+                        //
+                        //        CALL NANOS_OPENCL_ALLOCATE_FORTRAN(
+                        //            SIZEOF(TMP),
+                        //            MERCURIUM_GET_ADDRESS_OF(ARR))
+                        //
+                        //        DEALLOCATE(TMP)
+                        //    END SUBROUTINE NANOX_OPENCL_ALLOCATE_INTERNAL
+                        //
+                        //    ...
+                        //    INTEGER, ALLOCATABLE :: V(:)
+                        //    CALL NANOX_OPENCL_ALLOCATE_INTERNAL(V, 1, 10)
+                        //    ...
+                        //
+                        // For more information: https://pm.bsc.es/projects/mcxx/ticket/1994
+                        handle_ompss_opencl_allocate_intrinsic(
+                                function_call,
+                                _declared_ocl_allocate_functions,
+                                expr_stmt);
                     }
-                    else
+                    else if (sym.get_name() == "ompss_opencl_deallocate")
                     {
-                        array_type = subscripted_symbol.get_type().points_to();
-                        num_dimensions = array_type.get_num_dimensions();
-                        is_allocatable = false;
+                        // The transformation applied to this intrinsic is more
+                        // simple than the other one, we only need to replace
+                        // the call to the intrinsic by a call to the Nanos++
+                        // API:
+                        //
+                        //    ...
+                        //    INTEGER, ALLOCATABLE :: V(:)
+                        //    ...
+                        //    OMPSS_OPENCL_DEALLOCATE(V)
+                        //    ...
+                        //
+                        // Is transformed into:
+                        //
+                        //    ...
+                        //    INTEGER, ALLOCATABLE :: V(:)
+                        //    ...
+                        //    CALL NANOS_OPENCL_ALLOCATE_FORTRAN(MERCURIUM_GET_ADDRESS_OF(V))
+                        //    ...
+                        handle_ompss_opencl_deallocate_intrinsic(function_call, expr_stmt);
                     }
-
-                    TL::Type element_type = array_type;
-                    while (element_type.is_array())
-                    {
-                        element_type = element_type.array_element();
-                    }
-
-                    ERROR_CONDITION(!array_type.is_array(), "This type should be an array type", 0);
-
-                    std::pair<TL::Type, std::pair<int, bool> > key =
-                        std::make_pair(element_type, std::make_pair(num_dimensions, is_allocatable));
-
-                    std::map<std::pair<TL::Type, std::pair<int, bool> > , Symbol>::iterator it_new_fun =
-                        _declared_ocl_allocate_functions.find(key);
-
-                    Symbol new_function_sym;
-                    if (it_new_fun != _declared_ocl_allocate_functions.end())
-                    {
-                        new_function_sym = it_new_fun->second;
-                    }
-                    else
-                    {
-                        new_function_sym = create_new_function_opencl_allocate(
-                                expr_stmt, subscripted_symbol, element_type, num_dimensions, is_allocatable);
-
-                        _declared_ocl_allocate_functions[key] = new_function_sym;
-                    }
-
-                    // Replacing the current intrinsic call by a call to the new function
-                    TL::Source actual_arg_array;
-                    if (is_allocatable)
-                    {
-                        actual_arg_array << as_expression(subscripted);
-                    }
-                    else
-                    {
-                        actual_arg_array << as_expression(Nodecl::Dereference::make(
-                                    subscripted, subscripted.get_type().no_ref().points_to()));
-                    }
-
-
-                    TL::Source actual_arg_bounds;
-                    Nodecl::List subscripts = arg.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
-                    for (Nodecl::List::reverse_iterator it = subscripts.rbegin();
-                            it != subscripts.rend();
-                            it++)
-                    {
-                        Nodecl::NodeclBase subscript = *it, lower, upper;
-
-                        if (it != subscripts.rbegin())
-                            actual_arg_bounds << ", ";
-
-                        if (subscript.is<Nodecl::Range>())
-                        {
-                            lower = subscript.as<Nodecl::Range>().get_lower();
-                            upper = subscript.as<Nodecl::Range>().get_upper();
-                        }
-                        else
-                        {
-                            lower = nodecl_make_integer_literal(
-                                    fortran_get_default_integer_type(),
-                                    const_value_get_signed_int(1), make_locus("", 0, 0));
-                            upper = subscript;
-                        }
-                        actual_arg_bounds << as_expression(lower) << "," << as_expression(upper);
-                    }
-
-                    TL::Source new_function_call;
-                    new_function_call
-                        << "CALL " << as_symbol(new_function_sym) << "("
-                        <<  actual_arg_array  << ", "
-                        <<  actual_arg_bounds << ")\n"
-                        ;
-
-                    expr_stmt.replace(new_function_call.parse_statement(expr_stmt));
-                }
-                else if (sym.get_name() == "ompss_opencl_deallocate")
-                {
-                    Nodecl::List arguments = function_call.get_arguments().as<Nodecl::List>();
-                    ERROR_CONDITION(arguments.size() != 1, "More than one argument in ompss_opencl_deallocate call", 0);
-
-                    Nodecl::NodeclBase actual_argument = arguments[0];
-                    ERROR_CONDITION(!actual_argument.is<Nodecl::FortranActualArgument>(), "Unexpected tree", 0);
-
-                    Nodecl::NodeclBase arg = actual_argument.as<Nodecl::FortranActualArgument>().get_argument();
-                    if (arg.is<Nodecl::Dereference>())
-                        arg = arg.as<Nodecl::Dereference>().get_rhs();
-
-                    ERROR_CONDITION(!arg.is<Nodecl::Symbol>(),
-                            "The argument of 'ompss_opencl_deallocate' intrinsic should be a symbol", 0);
-
-                    TL::Symbol array_sym = arg.as<Nodecl::Symbol>().get_symbol();
-
-                    ERROR_CONDITION(
-                            !(array_sym.get_type().is_fortran_array()
-                                && array_sym.is_allocatable())
-                            &&
-                            !(array_sym.get_type().is_pointer()
-                                && array_sym.get_type().points_to().is_fortran_array()),
-                            "The argument of 'ompss_opencl_deallocate' intrinsic must be "
-                            "an allocatable array or a pointer to an array\n", 0);
-
-                    TL::Symbol ptr_of_arr_sym = get_function_ptr_of(array_sym, expr_stmt.retrieve_context());
-
-                    TL::Source new_function_call;
-                    new_function_call
-                        << "CALL NANOS_OPENCL_DEALLOCATE_FORTRAN("
-                        <<      ptr_of_arr_sym.get_name() << "(" << array_sym.get_name() << "))\n"
-                        ;
-
-                    expr_stmt.replace(new_function_call.parse_statement(expr_stmt));
                 }
             }
         }

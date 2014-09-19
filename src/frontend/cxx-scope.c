@@ -114,11 +114,7 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
 
     template_parameter_list_t* result = counted_xcalloc(1, sizeof(*result), &_bytes_used_scopes);
     result->num_parameters = tpl->num_parameters;
-    if (tpl->parameters != NULL)
-    {
-        result->parameters = counted_xcalloc(tpl->num_parameters, sizeof(*result->parameters), &_bytes_used_scopes);
-        memcpy(result->parameters, tpl->parameters, tpl->num_parameters * sizeof(*result->parameters));
-    }
+    result->parameters = tpl->parameters;
 
     result->arguments = counted_xcalloc(tpl->num_parameters, sizeof(*result->arguments), &_bytes_used_scopes);
     int i;
@@ -128,6 +124,7 @@ template_parameter_list_t* duplicate_template_argument_list(template_parameter_l
         {
             result->arguments[i] = xmalloc(sizeof(*result->arguments[i]));
             *result->arguments[i] = *tpl->arguments[i];
+            result->arguments[i]->value = nodecl_shallow_copy(tpl->arguments[i]->value);
         }
     }
 
@@ -142,10 +139,14 @@ void free_template_parameter_list(template_parameter_list_t* tpl)
     if (tpl == NULL)
         return;
 
-    xfree(tpl->parameters);
+    // xfree(tpl->parameters);
     int i;
     for (i = 0; i < tpl->num_parameters; i++)
     {
+        if (tpl->arguments[i] != NULL)
+        {
+            nodecl_free(tpl->arguments[i]->value);
+        }
         xfree(tpl->arguments[i]);
     }
     xfree(tpl->arguments);
@@ -173,6 +174,7 @@ static void copy_template_parameter_list(template_parameter_list_t* dest, templa
         {
             dest->arguments[i] = xmalloc(sizeof(*dest->arguments[i]));
             *dest->arguments[i] = *src->arguments[i];
+            dest->arguments[i]->value = nodecl_shallow_copy(src->arguments[i]->value);
         }
     }
     dest->is_explicit_specialization = src->is_explicit_specialization;
@@ -1891,7 +1893,9 @@ static scope_entry_list_t* unqualified_query_in_namespace(
                     SK_CLASS,
                     SK_TYPEDEF,
                     SK_TEMPLATE_TYPE_PARAMETER,
+                    SK_TEMPLATE_TYPE_PARAMETER_PACK,
                     SK_TEMPLATE_TEMPLATE_PARAMETER,
+                    SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                     SK_TEMPLATE,
                     SK_GCC_BUILTIN_TYPE
                 };
@@ -1908,7 +1912,9 @@ static scope_entry_list_t* unqualified_query_in_namespace(
                     SK_ENUM,
                     SK_TYPEDEF,
                     SK_TEMPLATE_TYPE_PARAMETER,
+                    SK_TEMPLATE_TYPE_PARAMETER_PACK,
                     SK_TEMPLATE_TEMPLATE_PARAMETER,
+                    SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                     SK_TEMPLATE,
                     SK_GCC_BUILTIN_TYPE
                 };
@@ -1985,7 +1991,9 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
                 SK_CLASS,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
                 SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                 SK_TEMPLATE,
                 SK_GCC_BUILTIN_TYPE
             };
@@ -2002,7 +2010,9 @@ static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* names
                 SK_ENUM,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
                 SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                 SK_TEMPLATE,
                 SK_GCC_BUILTIN_TYPE
             };
@@ -2175,7 +2185,9 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
                 SK_CLASS,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
                 SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                 SK_TEMPLATE,
                 SK_GCC_BUILTIN_TYPE
             };
@@ -2191,7 +2203,9 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
                 SK_ENUM,
                 SK_TYPEDEF,
                 SK_TEMPLATE_TYPE_PARAMETER,
+                SK_TEMPLATE_TYPE_PARAMETER_PACK,
                 SK_TEMPLATE_TEMPLATE_PARAMETER,
+                SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
                 SK_TEMPLATE,
                 SK_GCC_BUILTIN_TYPE
             };
@@ -3393,7 +3407,8 @@ static type_t* update_type_aux_(type_t* orig_type,
                 template_type_get_related_symbol(template_type);
             ERROR_CONDITION(template_related_symbol == NULL, "Invalid related template type", 0);
 
-            if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                    || template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
             {
                 // This specialized template type comes after a template template parameter,
                 // so we have to update it using the template arguments
@@ -3407,6 +3422,17 @@ static type_t* update_type_aux_(type_t* orig_type,
 
                 // Now update the template_type with the new one
                 template_type = argument->type_information;
+
+                if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK
+                        && pack_index >= 0)
+                {
+                    template_type = sequence_of_types_get_type_num(argument->type_information, pack_index);
+                    // FIXME - This is very nonregular respect the usual template case
+                    if (is_named_type(template_type))
+                    {
+                        template_type = named_type_get_symbol(template_type)->type_information;
+                    }
+                }
             }
             else
             {
@@ -3501,13 +3527,14 @@ static type_t* update_type_aux_(type_t* orig_type,
                                     new_value->kind = updated_parameter_values[i_arg]->kind;
                                     // FIXME - What about this case? template <typename ...T, T...N>
                                     new_value->type = updated_parameter_values[i_arg]->type;
-                                    new_value->value = list[k];
+                                    new_value->value = nodecl_shallow_copy(list[k]);
 
                                     P_LIST_ADD(expanded_template_parameters->arguments,
                                             expanded_template_parameters->num_parameters,
                                             new_value);
                                 }
                                 xfree(list);
+                                nodecl_free(updated_parameter_values[i_arg]->value);
                             }
                             else
                             {
@@ -3554,6 +3581,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                         updated_template_arguments,
                         decl_context,
                         locus);
+            free_template_parameter_list(updated_template_arguments);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: END OF Reasking for specialization\n");
@@ -4160,17 +4188,28 @@ static type_t* update_type_aux_(type_t* orig_type,
     else if (is_sequence_of_types(orig_type))
     {
         int num_types = sequence_of_types_get_num_types(orig_type);
-        type_t* types[num_types + 1];
-        int i;
-        for (i = 0; i < num_types; i++)
+        if (pack_index == -1)
         {
-            types[i] = update_type_aux_(sequence_of_types_get_type_num(orig_type, i), decl_context, locus,
-                    instantiation_symbol_map, pack_index);
-            if (types[i] == NULL)
-                return NULL;
-        }
+            type_t* types[num_types + 1];
+            int i;
+            for (i = 0; i < num_types; i++)
+            {
+                types[i] = update_type_aux_(sequence_of_types_get_type_num(orig_type, i), decl_context, locus,
+                        instantiation_symbol_map, pack_index);
+                if (types[i] == NULL)
+                    return NULL;
+            }
 
-        return get_sequence_of_types_flattened(num_types, types);
+            return get_sequence_of_types_flattened(num_types, types);
+        }
+        else
+        {
+            if (pack_index >= num_types)
+                return NULL;
+
+            return update_type_aux_(sequence_of_types_get_type_num(orig_type, pack_index),
+                    decl_context, locus, instantiation_symbol_map, /* pack_index */ -1);
+        }
     }
     else if (is_gxx_underlying_type(orig_type))
     {
@@ -4225,6 +4264,35 @@ type_t* update_type(type_t* orig_type,
     type_t* result = update_type_aux_(orig_type, decl_context, locus,
             /* instantiation_symbol_map */ NULL,
             /* pack_index */ -1);
+
+    DEBUG_CODE()
+    {
+        if (result != NULL)
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
+        }
+        else
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '(null)'\n", print_declarator(orig_type));
+        }
+    }
+
+    return result;
+}
+
+type_t* update_type_with_pack_index(type_t* orig_type,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        int pack_index)
+{
+    DEBUG_CODE()
+    {
+            fprintf(stderr, "SCOPE: Updating type '%s'\n", print_declarator(orig_type));
+    }
+
+    type_t* result = update_type_aux_(orig_type, decl_context, locus,
+            /* instantiation_symbol_map */ NULL,
+            pack_index);
 
     DEBUG_CODE()
     {
@@ -4807,6 +4875,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         return result;
     }
 
+
     // Note: we are creating a new template parameter list but it is a sibling
     // of the primary template so we must ensure they have the same nesting in the
     // hierarchy of template parameters
@@ -4820,13 +4889,13 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         last_is_variadic = template_parameter_kind_is_pack(last->kind);
     }
 
-    if ((result->num_parameters > primary_template_parameters->num_parameters)
+    if ((primary_template_parameters->num_parameters < result->num_parameters)
             && !last_is_variadic)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Too many template arguments %d > %d\n", 
-                    result->num_parameters, 
+            fprintf(stderr, "SCOPE: Too many template arguments %d > %d\n",
+                    result->num_parameters,
                     primary_template_parameters->num_parameters);
         }
 
@@ -4836,6 +4905,22 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         free_template_parameter_list(result);
         return NULL;
     }
+
+    // Make room for all the arguments
+    if (result->num_parameters < primary_template_parameters->num_parameters)
+    {
+        result->arguments = xrealloc(result->arguments,
+                primary_template_parameters->num_parameters * sizeof(*result->arguments));
+        int k;
+        for (k = result->num_parameters; k < primary_template_parameters->num_parameters; k++)
+        {
+            result->arguments[k] = NULL;
+        }
+    }
+
+    int original_num_arguments = result->num_parameters;
+    result->parameters = primary_template_parameters->parameters;
+    result->num_parameters = primary_template_parameters->num_parameters;
 
     decl_context_t new_template_context = template_name_context;
     new_template_context.template_parameters = result;
@@ -4851,7 +4936,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     char last_argument_was_pack = 0;
     for (i = 0; i < non_variadic_parameters; i++)
     {
-        if (i >= result->num_parameters)
+        if (i >= original_num_arguments)
         {
             if (primary_template_parameters->arguments[i] == NULL)
             {
@@ -4881,19 +4966,17 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                        template <typename ...T>
                        struct B
                        {
-                       A<T...> a; // Only one template parameter, but it could be extended by the template argument pack
+                         A<T...> a; // Only one template parameter, but it could be extended by the template argument pack
                        };
                      */
+// #warning FIXME - This should not happen
+                    internal_error("Code unreachable", 0);
                     break;
                 }
             }
             else
             {
                 // Note that this adds the parameter and the argument, they will be updated later (if needed)
-                int num_parameters = result->num_parameters;
-                P_LIST_ADD(result->parameters,
-                        num_parameters,
-                        primary_template_parameters->parameters[i]);
                 template_parameter_value_t* v = update_template_parameter_value_of_template_class(
                         primary_template_parameters->arguments[i],
                         new_template_context,
@@ -4910,7 +4993,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     free_template_parameter_list(result);
                     return NULL;
                 }
-                P_LIST_ADD(result->arguments, result->num_parameters, v);
+                result->arguments[i] = v;
             }
         }
         else
@@ -5029,7 +5112,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     if (last_is_variadic)
     {
         // Now review template arguments of the final pack parameter
-        if (result->num_parameters > non_variadic_parameters)
+        if (original_num_arguments > non_variadic_parameters)
         {
             enum template_parameter_kind pack_base_kind = template_parameter_kind_get_base_kind(last->kind);
 
@@ -5049,7 +5132,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                         locus);
             }
 
-            for (; i < result->num_parameters; i++)
+            for (; i < original_num_arguments; i++)
             {
                 if (pack_base_kind != result->arguments[i]->kind)
                 {
@@ -5181,23 +5264,15 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 {
                     // Note that result->arguments[i]->value may be NULL but
                     // this is fine as it won't enlarge the list
-                    char is_value_dependent = nodecl_expr_is_value_dependent(folded_value->value)
-                        || nodecl_expr_is_value_dependent(result->arguments[i]->value);
-
                     folded_value->value = nodecl_append_to_list(folded_value->value, result->arguments[i]->value);
-                    if (!nodecl_is_null(folded_value->value))
-                    {
-                        nodecl_expr_set_is_value_dependent(folded_value->value, is_value_dependent);
-                    }
                 }
             }
 
             result->parameters[last_argument_index]
                 = primary_template_parameters->parameters[last_argument_index];
             result->arguments[last_argument_index] = folded_value;
-            result->num_parameters = last_argument_index + 1;
         }
-        else if (result->num_parameters == non_variadic_parameters)
+        else if (original_num_arguments == non_variadic_parameters)
         {
             // Empty argument for this variadic parameter
             // Create an empty one
@@ -5206,9 +5281,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
             new_value->type = get_sequence_of_types(0, NULL);
             new_value->value = nodecl_null(); // Empty list
 
-            int num_args = result->num_parameters;
-            P_LIST_ADD(result->arguments, num_args, new_value);
-            P_LIST_ADD(result->parameters, result->num_parameters, last);
+            result->arguments[i] = new_value;
         }
         else
         {
@@ -5219,6 +5292,12 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Finished completing template arguments\n");
+    }
+
+    if (original_num_arguments > primary_template_parameters->num_parameters)
+    {
+        // Adjust the size of this buffer
+        result->arguments = xrealloc(result->arguments, result->num_parameters * sizeof(*result->arguments));
     }
 
     return result;
@@ -5681,7 +5760,8 @@ const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
         scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
-        if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                || template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
             // This is dependent
             (*is_dependent) = 1;
@@ -6203,7 +6283,9 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
                     default: break;
                 }
                 fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
-                        template_parameters->parameters[i]->entry->symbol_name,
+                        template_parameters->parameters[i]->entry != NULL
+                        ?  template_parameters->parameters[i]->entry->symbol_name
+                        : "<<unknown symbol>>",
                         kind_name);
             }
             else
@@ -6544,6 +6626,7 @@ scope_entry_list_t* query_nodecl_template_id(
     {
         // Filter template-names
         enum cxx_symbol_kind template_name_filter[] = {
+            SK_TEMPLATE_TEMPLATE_PARAMETER_PACK,
             SK_TEMPLATE_TEMPLATE_PARAMETER,
             SK_TEMPLATE,
             SK_USING,
@@ -6613,6 +6696,7 @@ scope_entry_list_t* query_nodecl_template_id(
                     completed_template_parameters,
                     decl_context,
                     nodecl_get_locus(nodecl_name));
+            free_template_parameter_list(completed_template_parameters);
 
             if (specialized_type != NULL)
             {
@@ -6649,6 +6733,7 @@ scope_entry_list_t* query_nodecl_template_id(
                     completed_template_parameters,
                     decl_context,
                     nodecl_get_locus(nodecl_name));
+            free_template_parameter_list(completed_template_parameters);
 
             if (specialized_type != NULL)
             {
@@ -6762,6 +6847,7 @@ scope_entry_list_t* query_nodecl_template_id(
                 completed_template_parameters,
                 decl_context,
                 nodecl_get_locus(nodecl_name));
+        free_template_parameter_list(completed_template_parameters);
 
         if (!equivalent_types(specialized_type, destructor_symbol->entity_specs.class_type))
         {
@@ -7169,7 +7255,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_internal(
             allow_namespaces = 0;
         }
         else if (current_symbol->kind == SK_TEMPLATE
-                || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                || current_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER_PACK)
         {
             error_printf("%s: error: template-name '%s' used without template arguments\n", 
                     nodecl_locus_to_str(current_name),

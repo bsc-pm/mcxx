@@ -3558,7 +3558,9 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
     // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     Nodecl::NodeclBase parent = node.get_parent();
     if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
+    {
         *(file) << "[";
+    }
     
     walk(lb_expr);
     *(file) << ":";
@@ -3566,14 +3568,18 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Range& node)
 
     // Print the bracket when the range is not within an ArraySubscript (Analysis purposes)
     if(!parent.is<Nodecl::List>() || !parent.get_parent().is<Nodecl::ArraySubscript>())
-        *(file) << "]";
-    
-    // Do not emit stride 1 because it looks weird in C
-    if (!step_expr.is_constant()
-            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
     {
-        *(file) << ":";
-        walk(step_expr);
+        *(file) << "]";
+    }
+    else
+    {
+        // Do not emit stride 1 because it looks weird in C
+        if (!step_expr.is_constant()
+            || (const_value_cast_to_signed_int(step_expr.get_constant()) != 1))
+        {
+            *(file) << ":";
+            walk(step_expr);
+        }
     }
 }
 
@@ -3662,6 +3668,34 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::PlusInfinity& node)
     *(file) << "+∞";
 }
 
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Maximum& node)
+{
+    *(file) << "max(";
+    Nodecl::List expressions = node.get_expressions().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = expressions.begin(); it != expressions.end(); )
+    {
+        walk(*it);
+        ++it;
+        if(it != expressions.end())
+            *(file) << ", ";
+    }
+    *(file) << ")";
+}
+
+CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Minimum& node)
+{
+    *(file) << "min(";
+    Nodecl::List expressions = node.get_expressions().as<Nodecl::List>();
+    for(Nodecl::List::iterator it = expressions.begin(); it != expressions.end(); )
+    {
+        walk(*it);
+        ++it;
+        if(it != expressions.end())
+            *(file) << ", ";
+    }
+    *(file) << ")";    
+}
+
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
 {
     *(file) << "Φ(";
@@ -3678,9 +3712,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::Phi& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeIntersection& node)
 {
-    walk(node.get_lhs());
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    bool lhs_need_parenthesis = lhs.is<Nodecl::Analysis::RangeUnion>();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+    bool rhs_need_parenthesis = rhs.is<Nodecl::Analysis::RangeUnion>();
+    
+    if(lhs_need_parenthesis)
+        *(file) << "(";
+    walk(lhs);
+    if(lhs_need_parenthesis)
+        *(file) << ")";
     *(file) << " ∩ ";
-    walk(node.get_rhs());
+    if(rhs_need_parenthesis)
+        *(file) << "(";
+    walk(rhs);
+    if(rhs_need_parenthesis)
+        *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeSub& node)
@@ -3692,9 +3739,22 @@ CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeSub& node)
 
 CxxBase::Ret CxxBase::visit(const Nodecl::Analysis::RangeUnion& node)
 {
-    walk(node.get_lhs());
+    Nodecl::NodeclBase lhs = node.get_lhs();
+    bool lhs_need_parenthesis = lhs.is<Nodecl::Analysis::RangeIntersection>();
+    Nodecl::NodeclBase rhs = node.get_rhs();
+    bool rhs_need_parenthesis = rhs.is<Nodecl::Analysis::RangeIntersection>();
+    
+    if(lhs_need_parenthesis)
+        *(file) << "(";
+    walk(lhs);
+    if(lhs_need_parenthesis)
+        *(file) << ")";
     *(file) << " ∪ ";
-    walk(node.get_rhs());
+    if(rhs_need_parenthesis)
+        *(file) << "(";
+    walk(rhs);
+    if(rhs_need_parenthesis)
+        *(file) << ")";
 }
 
 CxxBase::Ret CxxBase::visit(const Nodecl::StringLiteral& node)
@@ -6933,7 +6993,8 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         decl_specifiers += "static ";
     }
 
-    else if (symbol.is_extern() || !is_definition)
+    else if (symbol.is_extern() ||
+            (!symbol.is_member() && !is_definition))
     {
         decl_specifiers += "extern ";
     }

@@ -294,23 +294,31 @@ namespace TL
                 }
                 else
                 {
-                    FunctionTaskInfo& function_task_info = _function_task_set->get_function_task(target_ctx.implements);
-                    ObjectList<FunctionTaskInfo::implementation_pair_t> devices_with_impl = 
-                        function_task_info.get_devices_with_implementation();
+                    // The symbol mentioned in the 'implements' clause is a function task
+                    FunctionTaskInfo& function_task_info =
+                        _function_task_set->get_function_task(target_ctx.implements);
+
+                    TargetInfo &target_info = function_task_info.get_target_info();
+                    TargetInfo::implementation_table_t implementation_table = target_info.get_implementation_table();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
                         const char* current_device_lowercase = strtolower(it->c_str());
-                        if (!devices_with_impl.contains(std::make_pair(current_device_lowercase, function_sym)))
+                        TargetInfo::implementation_table_t::iterator it2 = implementation_table.find(current_device_lowercase);
+                        // If the current device hasn't an entry in the map
+                        if (it2 == implementation_table.end()
+                                // Or it has but the current symbol is not in the list
+                                ||  !it2->second.contains(function_sym))
                         {
                             info_printf("%s: note: adding function '%s' as the implementation of '%s' for device '%s'\n",
                                     ctr.get_locus_str().c_str(),
                                     function_sym.get_qualified_name().c_str(),
                                     target_ctx.implements.get_qualified_name().c_str(),
                                     current_device_lowercase);
-                            function_task_info.add_device_with_implementation(current_device_lowercase, function_sym);
+
+                            target_info.add_implementation(current_device_lowercase, function_sym);
                         }
                     }
                 }
@@ -490,7 +498,10 @@ namespace TL
                 return;
 
             TargetInfo target_info;
-            target_info.set_target_symbol(construct.get_symbol());
+
+            TL::Symbol enclosing_function = Nodecl::Utils::get_enclosing_function(construct);
+            ERROR_CONDITION(!enclosing_function.is_valid(), "This symbol is not valid", 0);
+            target_info.set_target_symbol(enclosing_function);
             TargetContext& target_ctx = _target_context.top();
 
             add_copy_items(construct, data_sharing,

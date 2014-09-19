@@ -81,42 +81,8 @@ namespace Analysis {
     // ************************************************************************************** //
     // ***************************** PCFG OmpSs pragma classes ****************************** //
     
-    PCFGClause::PCFGClause(ClauseType ct, const NBase& c)
-        : _clause_type(ct), _clause(c)
-    {}
-
-    PCFGClause::PCFGClause(const PCFGClause& clause)
-    {
-        _clause_type = clause._clause_type;
-        _clause = clause._clause;
-    }
-    
-    ClauseType PCFGClause::get_type() const
-    {
-        return _clause_type;
-    }
-    
-    //! Returns a string with the graph type of the node.
-    std::string PCFGClause::get_type_as_string() const
-    {
-        switch(_clause_type)
-        {
-            #undef CLAUSE
-            #define CLAUSE(X) case __##X : return #X;
-            CLAUSE_LIST
-            #undef CLAUSE
-            default: WARNING_MESSAGE("Unexpected clause type '%d'", _clause_type);
-        }
-        return "";
-    }
-    
-    NBase PCFGClause::get_nodecl() const
-    {
-        return _clause;
-    }
-    
     PCFGPragmaInfo::PCFGPragmaInfo()
-        : _clauses()
+            : _clauses()
     {}
 
     PCFGPragmaInfo::PCFGPragmaInfo(const PCFGPragmaInfo& p)
@@ -124,35 +90,35 @@ namespace Analysis {
         _clauses = p._clauses;
     }
     
-    PCFGPragmaInfo::PCFGPragmaInfo(const PCFGClause& clause)
-        : _clauses(ObjectList<PCFGClause>(1, clause))
+    PCFGPragmaInfo::PCFGPragmaInfo(const NBase& clause)
+        : _clauses(ObjectList<NBase>(1, clause))
     {}
 
-    bool PCFGPragmaInfo::has_clause(ClauseType clause) const
+    bool PCFGPragmaInfo::has_clause(node_t kind) const
     {
-        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
+        for (ObjectList<NBase>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
         {
-            if (it->_clause_type == clause)
+            if (it->get_kind() == kind)
                 return true;
         }
         return false;
     }
 
-    PCFGClause PCFGPragmaInfo::get_clause(ClauseType clause) const
+    NBase PCFGPragmaInfo::get_clause(node_t kind) const
     {
-        for (ObjectList<PCFGClause>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
-            if (it->_clause_type == clause)
+        for (ObjectList<NBase>::const_iterator it = _clauses.begin(); it != _clauses.end(); ++it)
+            if (it->get_kind() == kind)
                 return *it;
         
-        internal_error("No clause %d found in pragma info.\n", clause);
+        internal_error("No clause with kind %d found in pragma info.\n", kind);
     }
     
-    void PCFGPragmaInfo::add_clause(const PCFGClause& clause)
+    void PCFGPragmaInfo::add_clause(const NBase& clause)
     {
         _clauses.append(clause);
     }
 
-    ObjectList<PCFGClause> PCFGPragmaInfo::get_clauses() const
+    ObjectList<NBase> PCFGPragmaInfo::get_clauses() const
     {
         return _clauses;
     }
@@ -170,7 +136,7 @@ namespace Analysis {
           _continue_nodes(), _break_nodes(), _labeled_nodes(), _goto_nodes(),
           _switch_nodes(), _nested_loop_nodes(), _tryblock_nodes(),
           _pragma_nodes(), _context_nodecl(), _section_nodes(), _assert_nodes(),
-          _environ_entry_exit(), _is_vector(false), _is_simd(false), _nid(-1)
+          _environ_entry_exit(), _is_vector(false), _nid(0)
     {}
 
     std::string print_node_list(const ObjectList<Node*>& list)

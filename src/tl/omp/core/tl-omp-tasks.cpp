@@ -62,7 +62,8 @@ namespace TL
             _copy_out(),
             _copy_inout(),
             _device_list(),
-            _copy_deps()
+            _copy_deps(),
+            _implementation_table()
         {
         }
 
@@ -72,7 +73,8 @@ namespace TL
             _target_symbol(target_symbol),
             _device_list(target_info._device_list),
             _file(target_info._file),
-            _name(target_info._name)
+            _name(target_info._name),
+            _implementation_table(target_info._implementation_table)
         {
             for (TL::ObjectList<CopyItem>::const_iterator it = target_info._copy_in.begin();
                     it != target_info._copy_in.end();
@@ -142,6 +144,7 @@ namespace TL
 
             new_target_info._target_symbol = _target_symbol; //FIXME: should be the same?
             new_target_info._device_list = _device_list;
+            new_target_info._implementation_table = _implementation_table; //FIXME: should be the same?
             new_target_info._file = _file;
             new_target_info._name = _name;
             new_target_info._copy_deps = _copy_deps;
@@ -211,14 +214,6 @@ namespace TL
             }
 
             return new_target_info;
-        }
-
-        bool TargetInfo::can_be_ommitted()
-        {
-            return _copy_in.empty()
-                && _copy_out.empty()
-                && _copy_inout.empty()
-                && _device_list.empty();
         }
 
         void TargetInfo::append_to_copy_in(const ObjectList<CopyItem>& copy_items)
@@ -372,6 +367,28 @@ namespace TL
             return _target_symbol;
         }
 
+        TargetInfo::implementation_table_t TargetInfo::get_implementation_table() const
+        {
+            return _implementation_table;
+        }
+
+        void TargetInfo::add_implementation(std::string device_name, Symbol sym)
+        {
+            TargetInfo::implementation_table_t::iterator it = _implementation_table.find(device_name);
+            if (it != _implementation_table.end())
+            {
+                // If the device already exists, we append the symbol to the list
+                it->second.append(sym);
+            }
+            else
+            {
+                // Otherwise, we need to create a new entry in the map
+                ObjectList<Symbol> list;
+                list.append(sym);
+                _implementation_table.insert(make_pair(device_name, list));
+            }
+        }
+
         void TargetInfo::module_write(ModuleWriter& mw)
         {
             mw.write(_copy_in);
@@ -379,6 +396,7 @@ namespace TL
             mw.write(_copy_inout);
             mw.write(_device_list);
             mw.write(_copy_deps);
+            mw.write(_implementation_table);
         }
 
         void TargetInfo::module_read(ModuleReader& mr)
@@ -388,13 +406,13 @@ namespace TL
             mr.read(_copy_inout);
             mr.read(_device_list);
             mr.read(_copy_deps);
+            mr.read(_implementation_table);
         }
 
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info)
             : _sym(sym),
-            _parameters(parameter_info),
-            _implementation_table()
+            _parameters(parameter_info)
         {
         }
 
@@ -405,18 +423,6 @@ namespace TL
             _sym(function_sym),
             _untied(task_info._untied)
         {
-            // Copy the implementations table
-            ERROR_CONDITION(_implementation_table.size() > 1,
-                    "More than one implementation of a nonvoid task '%s' is not currently supported",
-                    task_info._sym.get_name().c_str());
-
-           for (implementation_table_t::const_iterator it = task_info._implementation_table.begin();
-                   it != task_info._implementation_table.end();
-                   ++it)
-           {
-               _implementation_table.insert(make_pair(it->first, function_sym));
-           }
-
            // Copy the target information
            set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
 
@@ -560,11 +566,6 @@ namespace TL
             return _parsing_scope;
         }
 
-        FunctionTaskInfo::implementation_table_t FunctionTaskInfo::get_implementation_table() const
-        {
-           return _implementation_table;
-        }
-
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
@@ -590,49 +591,6 @@ namespace TL
         void FunctionTaskInfo::add_function_task_dependency(const FunctionTaskDependency& dependence)
         {
             _parameters.append(dependence);
-        }
-
-        void FunctionTaskInfo::add_device(const std::string& device_name)
-        {
-            _implementation_table.insert(make_pair(device_name,Symbol(NULL)));
-        }
-
-        void FunctionTaskInfo::add_device_with_implementation(
-                const std::string& device_name,
-                Symbol implementor_symbol)
-        {
-            _implementation_table.insert(make_pair(device_name, implementor_symbol));
-        }
-
-        ObjectList<std::string> FunctionTaskInfo::get_all_devices()
-        {
-            ObjectList<std::string> result;
-            for (implementation_table_t::iterator it = _implementation_table.begin();
-                    it != _implementation_table.end();
-                    it++)
-            {
-                result.append(it->first);
-            }
-
-            return result;
-        }
-
-        ObjectList<FunctionTaskInfo::implementation_pair_t> FunctionTaskInfo::get_devices_with_implementation() const
-        {
-            ObjectList<implementation_pair_t> result;
-
-            for (implementation_table_t::const_iterator it = _implementation_table.begin();
-                    it != _implementation_table.end();
-                    it++)
-            {
-                if (it->second.is_valid())
-                {
-                    implementation_pair_t pair(*it);
-                    result.append(pair);
-                }
-            }
-
-            return result;
         }
 
         TargetInfo& FunctionTaskInfo::get_target_info()
@@ -733,7 +691,6 @@ namespace TL
         {
             mw.write(_sym);
             mw.write(_parameters);
-            mw.write(_implementation_table);
             mw.write(_target_info);
             mw.write(_real_time_info);
             mw.write(_if_clause_cond_expr);
@@ -748,7 +705,6 @@ namespace TL
         {
             mr.read(_sym);
             mr.read(_parameters);
-            mr.read(_implementation_table);
             mr.read(_target_info);
             mr.read(_real_time_info);
             mr.read(_if_clause_cond_expr);
@@ -859,9 +815,10 @@ namespace TL
                     if (!expr.is_valid())
                     {
                         std::string dep_str = get_dependency_direction_name(_direction);
-
-                        std::cerr << nodecl.get_locus_str() << ": warning: ignoring invalid dependence " 
-                            << dep_str << "(" << expr.prettyprint() << ")" << std::endl;
+                        warn_printf("%s: warning: invalid dependency expression '%s(%s)', skipping\n",
+                                nodecl.get_locus_str().c_str(),
+                                dep_str.c_str(),
+                                expr.prettyprint().c_str());
                     }
 
                     return FunctionTaskDependency(expr, _direction);
@@ -1283,9 +1240,9 @@ namespace TL
 
             if (!function_sym.is_function())
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to this declaration"
-                    << "since it does not declare a function, skipping" << std::endl;
+                warn_printf("%s: warning: '#pragma omp task' cannot be applied to this declaration "
+                        "since it does not declare a function, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
@@ -1296,17 +1253,17 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: '#pragma omp task' cannot be applied to functions"
-                    << "declarations with ellipsis, skipping" << std::endl;
+                warn_printf("%s: warning: '#pragma omp task' cannot be applied to functions "
+                        "declarations with ellipsis, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
             if (IS_FORTRAN_LANGUAGE
                     && !function_type.returns().is_void())
             {
-                std::cerr << construct.get_locus_str()
-                    << ": warning: non-void tasks are not currently supported in Fortran, skipping" << std::endl;
+                warn_printf("%s: warning: non-void tasks are not currently supported in Fortran, skipping",
+                        construct.get_locus_str().c_str());
                 return;
             }
 
@@ -1363,7 +1320,6 @@ namespace TL
 
             // Now gather target information
             TargetInfo target_info;
-
             {
                 target_info.set_target_symbol(function_sym);
                 TargetContext& target_context = _target_context.top();
@@ -1453,8 +1409,14 @@ namespace TL
                 task_info.set_priority_clause_expression(expr_list[0]);
             }
 
+            PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
             PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
-            task_info.set_untied(untied_clause.is_defined());
+
+            bool is_untied_task = untied_clause.is_defined()
+                // The tasks are untied by default and the current task has not defined the 'tied' clause
+                || (_untied_tasks_by_default && !tied_clause.is_defined());
+
+            task_info.set_untied(is_untied_task);
 
             PragmaCustomClause label_clause = pragma_line.get_clause("label");
             if (label_clause.is_defined())

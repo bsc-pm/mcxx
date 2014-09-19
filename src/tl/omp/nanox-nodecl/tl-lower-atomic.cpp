@@ -614,6 +614,8 @@ namespace TL { namespace Nanox {
 
         // Get the new statements
         statements = construct.get_statements().as<Nodecl::List>();
+        ERROR_CONDITION(!statements.as<Nodecl::List>()[0].is<Nodecl::Context>(), "Invalid node", 0);
+        statements = statements.as<Nodecl::List>()[0].as<Nodecl::Context>().get_in_context().as<Nodecl::List>();
 
         Nodecl::List replacements;
 

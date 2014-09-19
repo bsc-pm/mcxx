@@ -37,19 +37,61 @@ namespace Analysis {
 namespace Utils {
     
     // ******************************************************************************************* //
-    // ********************************** Intervals arithmetic *********************************** //
+    // *********************************** Ranges arithmetic ************************************* //
     
-    NBase range_sub(const NBase& r1, const NBase& r2);
-    NBase range_intersection(const NBase& r, const NBase& r2);
+    struct CycleDirection
+    {
+        // Macros defining the analysis to be computed
+        enum CycleDirection_tag
+        {
+            NONE        = 1u << 1,
+            POSITIVE    = 1u << 2,
+            NEGATIVE    = 1u << 3,
+        } _cycle_direction;
+        
+        CycleDirection(CycleDirection_tag a)
+            : _cycle_direction(a)
+        {}
+        
+        CycleDirection(int a)
+            : _cycle_direction(CycleDirection_tag(a))
+        {}
+        
+        CycleDirection operator|(CycleDirection a)
+        {
+            return CycleDirection(int(this->_cycle_direction) | int(a._cycle_direction));
+        }
+        
+        std::string get_direction_as_str()
+        {
+            std::string result;
+            if(_cycle_direction & POSITIVE)
+                result = "Positive";
+            else if(_cycle_direction & NEGATIVE)
+                result = "Negative";
+            else
+                result = "None";
+            return result;
+        }
+    };
+    
+    DEPRECATED NBase range_add(const NBase& r1, const NBase& r2);
+    DEPRECATED NBase range_sub(const NBase& r1, const NBase& r2);
+    NBase range_addition(const NBase& r1, const NBase& r2);
+    NBase range_subtraction(const NBase& r1, const NBase& r2);
+    NBase range_intersection(const NBase& r, const NBase& r2, CycleDirection dir);
     NBase range_union(const NBase& r1, const NBase& r2);
-
-    // ******************************** END Intervals arithmetic ********************************* //
+    Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_subtract(const Nodecl::Range& r, const NBase& v);
+    
+    // ********************************* END Ranges arithmetic *********************************** //
     // ******************************************************************************************* //
     
     
     
     // ******************************************************************************************* //
     // ******************************* Range Analysis Constraints ******************************** //
+   
     
     /*! The possible constraints are:
      *  - Y = [lb, ub]
@@ -58,8 +100,8 @@ namespace Utils {
      *  - Y = X ∩ [lb, ub]
      */
     struct Constraint {
-        TL::Symbol _constr_sym;               /*!< symbol associated to a given variable at this point of the program */
-        NBase _constraint;       /*!< actual constraint applying to the variable */
+        TL::Symbol _constr_sym;     /*!< symbol associated to a given variable at this point of the program */
+        NBase _constraint;          /*!< actual constraint applying to the variable */
         
         // *** Constructors *** //
         Constraint();
@@ -74,35 +116,11 @@ namespace Utils {
         bool operator==(const Constraint& c) const;
     };
     
-    typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> ConstraintMap;
+    typedef std::map<NBase, Constraint, Nodecl::Utils::Nodecl_structural_less> VarToConstraintMap;
+    typedef std::map<NBase, NBase, Nodecl::Utils::Nodecl_structural_less> RangeValuesMap;
     
     // ***************************** END Range Analysis Constraints ****************************** //
     // ******************************************************************************************* //
-    
-    
-    
-    // ******************************************************************************************* //
-    // ************************* Range analysis methods and definitions ************************** //
-    
-    /*! A Range Expression has the following form:
-     * RE := r | X | n x X | E + E
-     *       |   |     |       |_ range addition
-     *       |   |     |_________ scalar multiplication
-     *       |   |_______________ range variable
-     *       |___________________ range constant
-     */
-    union RangeValue_tag {
-        NBase* n;           // This represents a constant range
-        InductionVar* iv;   // This represents a variable range
-    };
-    
-    typedef std::pair<NBase, ObjectList<RangeValue_tag> > RangeValuesMapEntry;
-    typedef std::map<NBase, ObjectList<RangeValue_tag> > RangeValuesMap;
-    
-    // *********************** END Range analysis methods and definitions ************************ //
-    // ******************************************************************************************* //
-
-    std::string prettyprint_range_values_map(RangeValuesMap s, bool print_in_dot );
     
 }
 }
