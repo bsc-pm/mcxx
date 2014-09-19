@@ -8290,6 +8290,12 @@ char is_named_class_type(type_t* possible_class)
             && possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS);
 }
 
+char is_class_type_or_array_thereof(type_t* t)
+{
+    return is_class_type(t)
+        || (is_array_type(t) && is_class_type(array_type_get_element_type(t)));
+}
+
 static char class_type_is_base_(type_t* possible_base,
         type_t* possible_derived,
         char allow_incomplete_independent)

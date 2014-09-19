@@ -5940,7 +5940,7 @@ static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, temp
     return NESTING_CHECK_OK;
 }
 
-static void check_nodecl_member_initializer_list(
+void check_nodecl_member_initializer_list(
         nodecl_t nodecl_cxx_member_init_list,
         scope_entry_t* function_entry,
         decl_context_t decl_context,
@@ -6369,190 +6369,6 @@ static void build_scope_ctor_initializer(
             nodecl_output);
 }
 
-#if 0
-static void apply_function_to_data_layout_members(
-        scope_entry_t* entry,
-        void (*fun)(scope_entry_t*, void*),
-        void *data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
-
-    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(entry->type_information);
-    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(entry->type_information);
-    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
-
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_entry = entry_list_iterator_current(it);
-        fun(current_entry, data);
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_entry = entry_list_iterator_current(it);
-        fun(current_entry, data);
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_entry = entry_list_iterator_current(it);
-        fun(current_entry, data);
-    }
-    entry_list_iterator_free(it);
-
-    entry_list_free(virtual_base_classes);
-    entry_list_free(direct_base_classes);
-    entry_list_free(nonstatic_data_members);
-}
-#endif
-
-#if 0
-struct check_constructor_helper
-{
-    const char* filename;
-    const locus_t* locus;
-    char has_const;
-};
-#endif
-
-#if 0
-static void ensure_default_constructor_is_emitted(scope_entry_t* entry, void* data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
-    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
-
-    scope_entry_t* constructor = NULL;
-    check_default_initialization(entry, entry->decl_context, p->locus, &constructor);
-}
-#endif
-
-#if 0
-static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE , "Invalid symbol", 0);
-    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
-
-    scope_entry_t* constructor = NULL;
-    check_copy_constructor(entry, entry->decl_context, p->has_const,
-            p->locus, &constructor);
-}
-#endif
-
-#if 0
-static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
-    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
-
-    scope_entry_t* constructor = NULL;
-    check_copy_assignment_operator(entry, entry->decl_context, p->has_const,
-            p->locus, &constructor);
-}
-#endif
-
-#if 0
-static void ensure_move_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
-    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
-
-    scope_entry_t* constructor = NULL;
-    check_move_assignment_operator(entry, entry->decl_context, p->has_const,
-            p->locus, &constructor);
-}
-#endif
-
-#if 0
-static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
-{
-    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
-
-    if (!is_class_type(entry->type_information))
-        return;
-
-    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
-
-    scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
-    ensure_function_is_emitted(destructor, p->locus);
-    ERROR_CONDITION(destructor == NULL, "Bad class %s lacking destructor", 
-            print_type_str(get_user_defined_type(entry), entry->decl_context));
-}
-#endif
-
-// These functions emit special members that may have to be defined by the compiler itself
-// they ensure that every other function that might have to be called will be emitted too
-// (this implies calling other implicitly defined members)
-//
-// Currently they do not generate nodecl (we are unsure what we would do with it) but maybe
-// they will have to in the future
-
-#if 0
-static void emit_implicit_default_constructor(scope_entry_t* entry, const locus_t* locus)
-{
-    struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
-    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
-            ensure_default_constructor_is_emitted, &l);
-}
-#endif
-
-#if 0
-static void emit_implicit_copy_constructor(scope_entry_t* entry,
-        const locus_t* locus)
-{
-    char has_const = is_const_qualified_type(
-            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
-
-    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
-    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
-            ensure_copy_constructor_is_emitted, &l);
-}
-#endif
-
-#if 0
-static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
-        const locus_t* locus)
-{
-    char has_const = is_const_qualified_type(
-            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
-
-    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
-    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
-            ensure_copy_assignment_operator_is_emitted, &l);
-}
-#endif
-
-#if 0
-static void emit_implicit_move_assignment_operator(scope_entry_t* entry,
-        const locus_t* locus)
-{
-    char has_const = is_const_qualified_type(
-            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
-
-    struct check_constructor_helper l = { .locus = locus, .has_const = has_const };
-    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
-            ensure_move_assignment_operator_is_emitted, &l);
-}
-#endif
-
-#if 0
-static void emit_implicit_destructor(scope_entry_t* entry,
-        const locus_t* locus)
-{
-    struct check_constructor_helper l = { .locus = locus, .has_const = 0 };
-    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
-            ensure_destructor_is_emitted, &l);
-}
-#endif
-
 static char name_is_accessible_from_context(scope_entry_t* entry UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
@@ -6672,12 +6488,6 @@ static char one_function_is_nontrivial(scope_entry_list_t* constructors)
     entry_list_iterator_free(it);
 
     return found;
-}
-
-static char is_class_type_or_array_thereof(type_t* t)
-{
-    return is_class_type(t)
-        || (is_array_type(t) && is_class_type(array_type_get_element_type(t)));
 }
 
 static void default_constructor_determine_if_trivial(
@@ -7921,6 +7731,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_default_constructor->entity_specs.is_inline = 1;
         implicit_default_constructor->entity_specs.is_constructor = 1;
         implicit_default_constructor->entity_specs.is_default_constructor = 1;
+        implicit_default_constructor->entity_specs.is_defaulted = 1;
 
         implicit_default_constructor->type_information = default_constructor_type;
 
@@ -8275,6 +8086,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_copy_constructor->entity_specs.is_copy_constructor = 1;
         implicit_copy_constructor->entity_specs.is_conversor_constructor = 1;
         implicit_copy_constructor->entity_specs.is_inline = 1;
+        implicit_copy_constructor->entity_specs.is_defaulted = 1;
 
         implicit_copy_constructor->type_information = copy_constructor_type;
 
@@ -8497,6 +8309,7 @@ static void finish_class_type_cxx(type_t* class_type,
             implicit_move_constructor->entity_specs.is_move_constructor = 1;
             implicit_move_constructor->entity_specs.is_conversor_constructor = 1;
             implicit_move_constructor->entity_specs.is_inline = 1;
+            implicit_move_constructor->entity_specs.is_defaulted = 1;
 
             implicit_move_constructor->type_information = move_constructor_type;
 
@@ -8606,6 +8419,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_copy_assignment_function->entity_specs.access = AS_PUBLIC;
         implicit_copy_assignment_function->entity_specs.class_type = type_info;
         implicit_copy_assignment_function->entity_specs.is_inline = 1;
+        implicit_copy_assignment_function->entity_specs.is_defaulted = 1;
 
         implicit_copy_assignment_function->type_information = copy_assignment_type;
 
@@ -8909,6 +8723,7 @@ static void finish_class_type_cxx(type_t* class_type,
             implicit_move_assignment_function->entity_specs.access = AS_PUBLIC;
             implicit_move_assignment_function->entity_specs.class_type = type_info;
             implicit_move_assignment_function->entity_specs.is_inline = 1;
+            implicit_move_assignment_function->entity_specs.is_defaulted = 1;
 
             implicit_move_assignment_function->type_information = move_assignment_type;
 
@@ -8982,6 +8797,7 @@ static void finish_class_type_cxx(type_t* class_type,
         implicit_destructor->entity_specs.class_type = type_info;
         implicit_destructor->entity_specs.is_inline = 1;
         implicit_destructor->defined = 1;
+        implicit_destructor->entity_specs.is_defaulted = 1;
 
         implicit_destructor->entity_specs.num_parameters = 0;
         class_type_add_member(class_type, implicit_destructor, /* is_definition */ 1);
@@ -20818,6 +20634,14 @@ static void instantiate_template_function_code(
                 new_decl_context,
                 v->new_function_instantiated->locus,
                 &new_nodecl_initializers);
+    }
+
+    if (v->new_function_instantiated->entity_specs.is_destructor)
+    {
+        call_destructor_for_data_layout_members(
+                v->new_function_instantiated,
+                v->new_decl_context,
+                v->new_function_instantiated->locus);
     }
 
     v->nodecl_result =

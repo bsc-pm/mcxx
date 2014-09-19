@@ -411,6 +411,9 @@ LIBMCXX_EXTERN char is_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_unnamed_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_named_class_type(type_t* possible_class);
 
+// Convenience
+LIBMCXX_EXTERN char is_class_type_or_array_thereof(type_t* t);
+
 LIBMCXX_EXTERN char is_literal_type(type_t* possible_union);
 
 LIBMCXX_EXTERN char is_trivial_type(type_t* possible_union);

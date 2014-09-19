@@ -179,7 +179,7 @@ LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_t
 // Given a base NODECL_SYMBOL it integrates it in an accessor that can be a NODECL_SYMBOL or a NODECL_CLASS_MEMBER_ACCESS
 LIBMCXX_EXTERN nodecl_t cxx_integrate_field_accesses(nodecl_t base, nodecl_t accessor);
 
-// Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c)
+// Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c and cxx-buildscope.c)
 void check_function_arguments(AST arguments, decl_context_t decl_context, nodecl_t* nodecl_output);
 void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument_list,
         decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -187,6 +187,11 @@ void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument
 void get_packs_in_expression(nodecl_t nodecl,
         scope_entry_t*** packs_to_expand,
         int *num_packs_to_expand);
+
+void call_destructor_for_data_layout_members(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus);
 
 // Used in overload
 char builtin_needs_contextual_conversion(scope_entry_t* candidate,

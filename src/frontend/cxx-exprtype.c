@@ -579,6 +579,7 @@ void ensure_function_is_emitted(scope_entry_t* entry,
                     && !is_dependent_type(decl_context.current_scope->related_entry->type_information))
                 || (decl_context.current_scope->kind == BLOCK_SCOPE
                     /* && decl_context->current_scope->related_entry != NULL */
+                    && decl_context.current_scope->related_entry != NULL
                     && (!is_dependent_type(decl_context.current_scope->related_entry->type_information)
                         && (!decl_context.current_scope->related_entry->entity_specs.is_member
                             || !is_dependent_type(decl_context.current_scope->related_entry->entity_specs.class_type)))))
@@ -19609,6 +19610,11 @@ char check_list_of_initializer_clauses(
     internal_error("Code unreachable", 0);
 }
 
+static void define_defaulted_special_member(
+        scope_entry_t* special_member,
+        decl_context_t decl_context,
+        const locus_t* locus);
+
 char check_default_initialization_of_type(
         type_t* t,
         decl_context_t decl_context,
@@ -19630,9 +19636,7 @@ char check_default_initialization_of_type(
     }
 
     if (is_array_type(t))
-    {
         t = array_type_get_element_type(t);
-    }
 
     if (is_class_type(t))
     {
@@ -19666,6 +19670,13 @@ char check_default_initialization_of_type(
             if (function_has_been_deleted(decl_context, chosen_constructor, locus))
             {
                 return 0;
+            }
+
+            if (chosen_constructor->entity_specs.is_defaulted)
+            {
+                define_defaulted_special_member(chosen_constructor,
+                        decl_context,
+                        locus);
             }
 
             if (constructor != NULL)
@@ -19984,12 +19995,6 @@ char check_move_assignment_operator(scope_entry_t* entry,
         }
     }
     return 1;
-}
-
-static char is_class_type_or_array_thereof(type_t* t)
-{
-    return is_class_type(t)
-        || (is_array_type(t) && is_class_type(array_type_get_element_type(t)));
 }
 
 char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, decl_context_t decl_context,
@@ -20873,6 +20878,433 @@ static const_value_t* evaluate_constexpr_function_call(
     return value;
 }
 
+static void define_defaulted_default_constructor(scope_entry_t* entry,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        const locus_t* locus)
+{
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+        return;
+
+    nodecl_t default_member_initializer = nodecl_null();
+    check_nodecl_member_initializer_list(
+            nodecl_null(),
+            entry,
+            decl_context,
+            locus,
+            &default_member_initializer);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body with member initializers
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                default_member_initializer,
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+static void apply_function_to_data_layout_members(
+        scope_entry_t* entry,
+        void (*fun)(scope_entry_t*, decl_context_t, const locus_t*, void *data),
+        decl_context_t decl_context,
+        const locus_t* locus,
+        void *data)
+{
+    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
+
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(entry->type_information);
+    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(entry->type_information);
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(virtual_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        fun(current_entry, decl_context, locus, data);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        fun(current_entry, decl_context, locus, data);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        if (current_entry->entity_specs.is_anonymous_union)
+            continue;
+        fun(current_entry, decl_context, locus, data);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(virtual_base_classes);
+    entry_list_free(direct_base_classes);
+    entry_list_free(nonstatic_data_members);
+}
+
+static void call_destructor_for_data_layout_member(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        void *data UNUSED_PARAMETER)
+{
+    if (!is_class_type_or_array_thereof(entry->type_information))
+        return;
+
+    type_t* class_type = entry->type_information;
+    if (is_array_type(class_type))
+        class_type = array_type_get_element_type(class_type);
+
+    scope_entry_t* destructor = class_type_get_destructor(class_type);
+    ERROR_CONDITION(destructor == NULL, "Invalid class", 0);
+
+    nodecl_t arg = nodecl_make_symbol(entry, locus);
+    nodecl_set_type(arg, get_lvalue_reference_type(entry->type_information));
+
+    nodecl_t nodecl_call_to_destructor =
+        cxx_nodecl_make_function_call(
+                nodecl_make_symbol(destructor, locus),
+                /* called name */ nodecl_null(),
+                nodecl_make_list_1(arg),
+                /* function_form */ nodecl_null(),
+                get_void_type(),
+                decl_context,
+                locus);
+    nodecl_free(nodecl_call_to_destructor);
+}
+
+static void define_defaulted_destructor(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_destructor_for_data_layout_member,
+            decl_context,
+            locus,
+            NULL);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+void call_destructor_for_data_layout_members(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_destructor_for_data_layout_member,
+            decl_context,
+            locus,
+            NULL);
+}
+
+typedef
+struct special_member_info_tag
+{
+    scope_entry_list_t* (*function_set)(type_t*);
+    const char* (*function_name)(type_t*, decl_context_t);
+} special_member_info_t;
+
+static const char* constructor_name(type_t* class_type,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
+
+    const char* constructor_name = NULL;
+    uniquestr_sprintf(&constructor_name, "%s::%s",
+            print_type_str(class_type, decl_context),
+            named_type_get_symbol(class_type)->symbol_name);
+
+    return constructor_name;
+}
+
+static const char* copy_move_assignment_operator(type_t* class_type,
+        decl_context_t decl_context)
+{
+    ERROR_CONDITION(!is_named_class_type(class_type), "Invalid class", 0);
+
+    const char* constructor_name = NULL;
+    uniquestr_sprintf(&constructor_name, "%s::operator=",
+            print_type_str(class_type, decl_context));
+
+    return constructor_name;
+}
+
+static void call_specific_overloadable_special_member_for_data_layout_member(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        void *p)
+{
+    special_member_info_t *special_member_info =  (special_member_info_t*)p;
+
+    if (!is_class_type_or_array_thereof(entry->type_information))
+        return;
+
+    type_t* class_type = entry->type_information;
+    if (is_array_type(class_type))
+        class_type = array_type_get_element_type(class_type);
+
+    scope_entry_list_t* copy_constructors = (special_member_info->function_set)(class_type);
+
+    type_t* arg_type = lvalue_ref(class_type);
+
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(copy_constructors,
+            NULL, &arg_type, /* num_arguments */ 1,
+            decl_context,
+            locus, /* explicit_template_arguments */ NULL);
+    entry_list_free(copy_constructors);
+
+    candidate_t* candidate_set = NULL;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        candidate_set = candidate_set_add(candidate_set,
+                entry_list_iterator_current(it),
+                1, &arg_type);
+    }
+    entry_list_iterator_free(it);
+
+    // Now we have all the constructors, perform an overload resolution on them
+    scope_entry_t* overload_resolution = solve_overload(
+            candidate_set, decl_context, locus);
+
+    if (overload_resolution != NULL)
+    {
+        candidate_set_free(&candidate_set);
+
+        nodecl_t arg = nodecl_make_symbol(entry, locus);
+        nodecl_set_type(arg, arg_type);
+
+        nodecl_t nodecl_call_to_destructor =
+            cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(overload_resolution, locus),
+                    /* called name */ nodecl_null(),
+                    nodecl_make_list_1(arg),
+                    /* function_form */ nodecl_null(),
+                    get_void_type(),
+                    decl_context,
+                    locus);
+        nodecl_free(nodecl_call_to_destructor);
+    }
+    else
+    {
+        const char* constructor_name =
+            (special_member_info->function_name)(class_type, decl_context);
+
+        error_message_overload_failed(candidate_set,
+                constructor_name,
+                decl_context,
+                1, &arg_type,
+                /* implicit_argument */ NULL,
+                locus);
+        candidate_set_free(&candidate_set);
+    }
+}
+
+static void define_defaulted_copy_constructor(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+        return;
+
+    special_member_info_t special_member = {
+        class_type_get_copy_constructors,
+        constructor_name,
+    };
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_specific_overloadable_special_member_for_data_layout_member,
+            decl_context,
+            locus,
+            &special_member);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+static void define_defaulted_copy_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+        return;
+
+    special_member_info_t special_member = {
+        class_type_get_copy_assignment_operators,
+        copy_move_assignment_operator,
+    };
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_specific_overloadable_special_member_for_data_layout_member,
+            decl_context,
+            locus,
+            &special_member);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+static void define_defaulted_move_constructor(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+        return;
+
+    special_member_info_t special_member = {
+        class_type_get_move_constructors,
+        constructor_name,
+    };
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_specific_overloadable_special_member_for_data_layout_member,
+            decl_context,
+            locus,
+            &special_member);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+static void define_defaulted_move_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    if (!nodecl_is_null(entry->entity_specs.function_code))
+        return;
+
+    special_member_info_t special_member = {
+        class_type_get_move_assignment_operators,
+        copy_move_assignment_operator,
+    };
+    apply_function_to_data_layout_members(
+            named_type_get_symbol(entry->entity_specs.class_type),
+            call_specific_overloadable_special_member_for_data_layout_member,
+            decl_context,
+            locus,
+            &special_member);
+
+    decl_context_t new_decl_context = new_block_context(entry->decl_context);
+
+    // Empty body
+    nodecl_t nodecl_function_code =
+        nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_null(),
+                    new_decl_context,
+                    locus),
+                nodecl_null(),
+                entry,
+                locus);
+    entry->entity_specs.function_code = nodecl_function_code;
+}
+
+static void define_defaulted_special_member(
+        scope_entry_t* special_member,
+        decl_context_t decl_context,
+        const locus_t* locus)
+{
+    ERROR_CONDITION(!special_member->entity_specs.is_defaulted,
+            "This special member is not defaulted", 0);
+    ERROR_CONDITION(special_member->entity_specs.is_deleted,
+            "Attempt to define a deleted special member", 0);
+
+    if (special_member->entity_specs.is_default_constructor)
+    {
+        define_defaulted_default_constructor(special_member, decl_context, locus);
+    }
+    else if (special_member->entity_specs.is_destructor)
+    {
+        define_defaulted_destructor(special_member, decl_context, locus);
+    }
+    else if (special_member->entity_specs.is_copy_constructor)
+    {
+        define_defaulted_copy_constructor(special_member, decl_context, locus);
+    }
+    else if (special_member->entity_specs.is_move_constructor)
+    {
+        define_defaulted_move_constructor(special_member, decl_context, locus);
+    }
+    else if (special_member->entity_specs.is_copy_assignment_operator)
+    {
+        define_defaulted_copy_assignment_operator(special_member, decl_context, locus);
+    }
+    else if (special_member->entity_specs.is_move_assignment_operator)
+    {
+        define_defaulted_move_assignment_operator(special_member, decl_context, locus);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
+
+
 static void define_inherited_constructor(
         scope_entry_t* new_inherited_constructor,
         scope_entry_t* inherited_constructor,
@@ -21068,16 +21500,28 @@ nodecl_t cxx_nodecl_make_function_call(
     ERROR_CONDITION(!is_function_type(function_type), "%s is not a function type!", 
             function_type == NULL ? "<<NULL>>" : print_declarator(function_type));
 
-    // If this is an inheriting constructor being odr-used, define it now
     if (called_symbol != NULL
-            && called_symbol->entity_specs.is_constructor
-            && called_symbol->entity_specs.alias_to != NULL
             && !check_expr_flags.is_non_executable)
     {
-        define_inherited_constructor(
-                called_symbol,
-                called_symbol->entity_specs.alias_to,
-                locus);
+        if (called_symbol->entity_specs.is_constructor
+                && called_symbol->entity_specs.alias_to != NULL)
+        {
+            // If this is an inheriting constructor being odr-used, define it now
+            define_inherited_constructor(
+                    called_symbol,
+                    called_symbol->entity_specs.alias_to,
+                    locus);
+        }
+        else if ((called_symbol->entity_specs.is_default_constructor
+                    || called_symbol->entity_specs.is_copy_constructor
+                    || called_symbol->entity_specs.is_copy_constructor
+                    || called_symbol->entity_specs.is_copy_constructor
+                    || called_symbol->entity_specs.is_destructor)
+                && called_symbol->entity_specs.is_defaulted)
+        {
+            // defaulted special member being odr-used
+            define_defaulted_special_member(called_symbol, decl_context, locus);
+        }
     }
 
     char is_promoting_ellipsis = 0;

@@ -205,6 +205,12 @@ char check_constexpr_function_code(scope_entry_t* entry,
         char emit_error);
 scope_entry_t* add_label_if_not_found(const char* label_text, decl_context_t decl_context, const locus_t* locus);
 
+void check_nodecl_member_initializer_list(
+        nodecl_t nodecl_cxx_member_init_list,
+        scope_entry_t* function_entry,
+        decl_context_t decl_context,
+        const locus_t* locus,
+        nodecl_t* nodecl_output);
 
 MCXX_END_DECLS
 

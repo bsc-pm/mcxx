@@ -2142,8 +2142,11 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
             if (dhash_ptr_query(sym_hash, (const char*)sym) != NULL)
                 continue;
 
-            fprintf(stderr, "Explicit instantiation declaration -> %s\n",
-                    get_qualified_symbol_name(sym, sym->decl_context));
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INSTANTIATION: Explicit instantiation declaration -> %s\n",
+                        get_qualified_symbol_name(sym, sym->decl_context));
+            }
 
             if  (sym->kind == SK_FUNCTION)
             {
@@ -2174,38 +2177,47 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
                                 named_type_get_symbol(
                                         template_type_get_specialization_num(template_type, j));
 
-                            if (specialization->kind == SK_FUNCTION)
+                            DEBUG_CODE()
                             {
-                                fprintf(stderr, "   sf-> %s\n",
-                                        print_decl_type_str(
-                                            specialization->type_information,
-                                            specialization->decl_context,
+                                if (specialization->kind == SK_FUNCTION)
+                                {
+                                    fprintf(stderr, "INSTANTIATION:   sf-> %s\n",
+                                            print_decl_type_str(
+                                                specialization->type_information,
+                                                specialization->decl_context,
+                                                get_qualified_symbol_name(specialization,
+                                                    specialization->decl_context)));
+                                }
+                                else
+                                {
+                                    fprintf(stderr, " INSTANTIATION:  sc-> %s\n",
                                             get_qualified_symbol_name(specialization,
-                                                specialization->decl_context)));
-                            }
-                            else
-                            {
-                                fprintf(stderr, "   sc-> %s\n",
-                                        get_qualified_symbol_name(specialization,
-                                            specialization->decl_context));
+                                                specialization->decl_context));
+                                }
                             }
                             dhash_ptr_insert(sym_hash, (const char*)specialization, specialization);
                         }
                     }
                     else if (current_member->kind == SK_FUNCTION)
                     {
-                        fprintf(stderr, "   mf-> %s\n",
-                                print_decl_type_str(
-                                    current_member->type_information,
-                                    current_member->decl_context,
-                                    get_qualified_symbol_name(current_member,
-                                        current_member->decl_context)));
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "INSTANTIATION:   mf-> %s\n",
+                                    print_decl_type_str(
+                                        current_member->type_information,
+                                        current_member->decl_context,
+                                        get_qualified_symbol_name(current_member,
+                                            current_member->decl_context)));
+                        }
                     }
                     else
                     {
-                        fprintf(stderr, "    m-> %s\n",
-                                get_qualified_symbol_name(current_member,
-                                    current_member->decl_context));
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "INSTANTIATION:    m-> %s\n",
+                                    get_qualified_symbol_name(current_member,
+                                        current_member->decl_context));
+                        }
                     }
                 }
 
@@ -2220,8 +2232,11 @@ void instantiation_instantiate_pending_functions(nodecl_t* nodecl_output)
             if (dhash_ptr_query(sym_hash, (const char*)sym) != NULL)
                 continue;
 
-            fprintf(stderr, "Explicit instantiation definition/Implicit definition -> %s\n",
-                    get_qualified_symbol_name(sym, sym->decl_context));
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INSTANTIATION: Explicit instantiation definition/Implicit definition -> %s\n",
+                        get_qualified_symbol_name(sym, sym->decl_context));
+            }
 
             if  (sym->kind == SK_FUNCTION)
             {
