@@ -2044,7 +2044,7 @@ template_parameter_list_t* compute_template_parameter_values_of_primary(template
 
 static int template_argument_list_identical_comp(const void*, const void*);
 
-type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
+type_t* get_new_template_alias_type(template_parameter_list_t* template_parameter_list, type_t* aliased_type,
         const char* template_name, decl_context_t decl_context, const locus_t* locus)
 {
     type_t* type_info = get_simple_type();
@@ -2056,6 +2056,7 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     primary_symbol->symbol_name = template_name;
     primary_symbol->kind = SK_TEMPLATE_ALIAS;
 
+    type_t* primary_type = new_empty_type_without_info();
     primary_symbol->type_information = primary_type;
     primary_symbol->decl_context = decl_context;
 
@@ -2063,21 +2064,31 @@ type_t* get_new_template_alias_type(template_parameter_list_t* template_paramete
     primary_symbol->entity_specs.is_user_declared = 1;
     primary_symbol->entity_specs.is_instantiable = 1;
 
+    *primary_type = *aliased_type;
+    primary_type->info = new_common_type_info();
+    *primary_type->info = *aliased_type->info;
+
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
     primary_type->template_arguments = compute_template_parameter_values_of_primary(template_parameter_list);
     primary_type->related_template_type = type_info;
 
-    if (template_parameter_list->num_parameters != 0)
-    {
-        set_is_dependent_type(primary_type, 1);
-    }
-    else
-    {
-        // If it is zero this means it is a special uninstantiated
-        // (non-template) class member
-        set_is_dependent_type(primary_type, 0);
-    }
+    // Note that we do not set whether primary_type is dependent because we
+    // will used the attribute from aliased_type. For nondependent aliased types
+    // like
+    //
+    //    template <typename T>
+    //    using Foo = int;
+    //
+    // this has the side effect that
+    //
+    // template <typename T>
+    // void f()
+    // {
+    //   A<T> a;
+    //   a = (int*)0; // will fail at "declaration of the template"-time
+    //                // rather than instantiation. This should be OK
+    // }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
