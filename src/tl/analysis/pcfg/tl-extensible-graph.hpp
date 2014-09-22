@@ -298,10 +298,6 @@ namespace Analysis {
         //! during the construction of the graph but do not represent any statement of the code, and also
         //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
         void dress_up_graph();
-        
-        //! Return nodes may cause unconnected parts of the code to be connected
-        //! This method removes this dead connections
-        void remove_unnecessary_connections();
 
         //! This method concatenates a list of nodes into only one
         /*!
@@ -346,7 +342,7 @@ namespace Analysis {
         static void clear_visits_aux_in_level(Node* node, Node* outer_node);
 
         //! Set to false the attribute #_visited of those nodes whose post-dominator is node @node
-        static void clear_visits_backwards(Node* node);
+        static void clear_visits_backwards(Node* node, Node* graph);
 
 
         // *** DOT Graph *** //
