@@ -51,10 +51,15 @@ namespace Analysis {
 
         // Compute initial info (liveness only regarding the current node => UE vars)
         initialize_live_sets(graph);
+        Node* post_sync = _graph->get_post_sync();
+        if (post_sync != NULL)
+            initialize_live_sets(post_sync);
         // Note: 'n', which is the most outer node of the graph, must be cleaned up separatedly
         //       because clear_visits_backwards skips entering the first node it is called with
         //       in case it is a graph node
         ExtensibleGraph::clear_visits_backwards(exit, graph);
+        if (post_sync != NULL)
+            ExtensibleGraph::clear_visits_backwards(post_sync, graph);
         graph->set_visited(false);
 
         // Common Liveness analysis
@@ -63,7 +68,11 @@ namespace Analysis {
         {
             changed = false;
             solve_live_equations_rec(graph, changed);
+            if (post_sync != NULL)
+                solve_live_equations_rec(post_sync, changed);
             ExtensibleGraph::clear_visits_backwards(exit, graph);
+            if (post_sync != NULL)
+                ExtensibleGraph::clear_visits_backwards(post_sync, graph);
             graph->set_visited(false);
         }
     }
@@ -153,6 +162,13 @@ namespace Analysis {
                         parents.size());
         Node* exit_flush = parents[0];
         NodeclSet succ_live_in = compute_successors_live_in(exit_flush);
+        // 1.2.- If the task has a post_sync successor, then all shared variables must be alive at the exit of the task
+        const ObjectList<Node*>& children = task->get_children();
+        if (ExtensibleGraph::task_synchronizes_in_post_sync(task))
+        {
+            const NodeclSet& shared_accesses = task->get_all_shared_accesses();
+            succ_live_in.insert(shared_accesses.begin(), shared_accesses.end());
+        }
 
         // 2.- Add to the list of successors, the flow successors of the Task Creation node of the current task
         Node* task_creation = ExtensibleGraph::get_task_creation_from_task(task);

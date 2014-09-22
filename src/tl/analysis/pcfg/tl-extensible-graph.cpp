@@ -35,7 +35,7 @@ namespace Analysis {
     ExtensibleGraph::ExtensibleGraph(std::string name, const NBase& nodecl, PCFGVisitUtils* utils)
         : _name(name), _graph(NULL), _utils(utils),
           _nodecl(nodecl), _sc(nodecl.retrieve_context()),
-          _global_vars(), _function_sym(NULL), _pointer_to_size_map(), nodes_m(),
+          _global_vars(), _function_sym(NULL), _post_sync(NULL), _pointer_to_size_map(), nodes_m(),
           _task_nodes_l(), _func_calls(),
           _concurrent_tasks(), _last_sync(), _next_sync(),
           _cluster_to_entry_map()
@@ -821,6 +821,16 @@ namespace Analysis {
         return _function_sym;
     }
 
+    Node* ExtensibleGraph::get_post_sync() const
+    {
+        return _post_sync;
+    }
+
+    void ExtensibleGraph::set_post_sync(Node* post_sync)
+    {
+        _post_sync = post_sync;
+    }
+
     void ExtensibleGraph::set_pointer_n_elems(const NBase& s, const NBase& size)
     {
         if(_pointer_to_size_map.find(s)==_pointer_to_size_map.end())
@@ -1370,6 +1380,26 @@ namespace Analysis {
         return task;
     }
     
+    bool ExtensibleGraph::task_synchronizes_in_post_sync(Node* task)
+    {
+        std::set<Node*> visited;
+        ObjectList<Node*> children = task->get_children();
+        while (!children.empty())
+        {
+            Node* n = children.back();
+            children.pop_back();
+
+            if(visited.find(n) != visited.end())
+                continue;
+            visited.insert(n);
+
+            if (n->is_omp_virtual_tasksync())
+                return true;
+
+            children.append(n->get_children());
+        }
+    }
+
     bool ExtensibleGraph::is_first_statement_node(Node* node)
     {
         // Get first node in code with statements
