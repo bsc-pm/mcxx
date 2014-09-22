@@ -758,15 +758,14 @@ namespace Analysis {
                 // If the parents of the outer node have still one child that must be clean up
                 // within the scope of the cleaning, then do not keep cleaning this path
                 // because we will still visit the outer from that child
-                bool all_visited = true;
+                bool all_cleaned = true;
                 const ObjectList<Node*>& children = n->get_outer_node()->get_children();
                 for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
                 {
-                    if (!(*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
-                        all_visited = false;
+                    if ((*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                        all_cleaned = false;
                 }
-
-                if (all_visited)
+                if (all_cleaned)
                     n = n->get_outer_node();
                 n->set_visited(false);  // Be sure we do not miss any node
                                         // in case we clean up from the middle of the graph
