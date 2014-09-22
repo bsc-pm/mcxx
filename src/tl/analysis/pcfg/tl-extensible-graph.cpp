@@ -594,8 +594,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited(false);  // Be sure we do not miss any node
-                                        // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited())
+                    n->set_visited(false);  // Be sure we do not miss any node
+                                            // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -615,8 +616,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_aux(false);  // Be sure we do not miss any node
-                                            // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_aux())
+                    n->set_visited_aux(false);  // Be sure we do not miss any node
+                                                // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -636,8 +638,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_extgraph(false);    // Be sure we do not miss any node
-                                                    // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_extgraph())
+                    n->set_visited_extgraph(false);     // Be sure we do not miss any node
+                                                        // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -657,8 +660,9 @@ namespace Analysis {
             if (n->is_exit_node())
             {
                 n = n->get_outer_node();
-                n->set_visited_extgraph_aux(false);    // Be sure we do not miss any node
-                                                    // in case we clean up from the middle of the graph
+                if (!n->get_graph_entry_node()->is_visited_extgraph_aux())
+                    n->set_visited_extgraph_aux(false);     // Be sure we do not miss any node
+                                                            // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& children = n->get_children();
             for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
@@ -1398,6 +1402,7 @@ namespace Analysis {
 
             children.append(n->get_children());
         }
+        return false;
     }
 
     bool ExtensibleGraph::is_first_statement_node(Node* node)
