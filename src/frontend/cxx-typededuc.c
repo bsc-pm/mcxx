@@ -2894,7 +2894,8 @@ static deduction_result_t deduce_template_arguments_function_call_single_argumen
      */
     if (is_rvalue_reference_type(parameter)
             && is_named_type(no_ref(parameter))
-            && named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER
+            && (named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || named_type_get_symbol(no_ref(parameter))->kind == SK_TEMPLATE_TYPE_PARAMETER_PACK)
             && is_unqualified_type(no_ref(parameter))
             && is_lvalue_reference_type(orig_argument))
     {
