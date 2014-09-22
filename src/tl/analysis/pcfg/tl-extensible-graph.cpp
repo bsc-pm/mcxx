@@ -285,63 +285,6 @@ namespace Analysis {
         clear_unnecessary_nodes();
         concat_sequential_nodes();
     }
-    
-    void ExtensibleGraph::remove_unnecessary_connections_rec(Node* n)
-    {
-        if(!n->is_visited_extgraph())
-        {
-            n->set_visited_extgraph(true);
-            
-            ObjectList<Node*> children = n->get_children();
-            if(n->is_graph_node())
-            {   // Only graph nodes may be unnecessarily connected 
-                
-                // First try recursively in the inner nodes
-                remove_unnecessary_connections_rec(n->get_graph_entry_node());
-                
-                // Second check whether the current graph node has to be unconnected
-                Node* exit = n->get_graph_exit_node();
-                if(exit->get_entry_edges().empty())
-                {   // If the exit of the graph node has no parent, 
-                    // then the graph node should not have any children
-                    std::queue<Node*> nodes_to_disconnect;
-                    nodes_to_disconnect.push(n);
-                    while(!nodes_to_disconnect.empty())
-                    {
-                        Node* n_ = nodes_to_disconnect.front();
-                        nodes_to_disconnect.pop();
-                        
-                        ObjectList<Node*> tmp = n_->get_children();
-                        for(ObjectList<Node*>::iterator it = tmp.begin(); it != tmp.end(); ++it)
-                        {
-                            disconnect_nodes(n_, *it);
-                            if((*it)->get_entry_edges().empty() && !(*it)->is_graph_node())
-                            {   // We have removed the only parent that this node had => keep removing unconnected node
-                                // But do not disconnect graph nodes, because they may have unexpected inner connections
-                                // We do not delete the nodes because they may be structurally necessary (i.e.: the exit node of a graph node)
-                                if((*it)->is_exit_node())
-                                    nodes_to_disconnect.push((*it)->get_outer_node());
-                                else
-                                    nodes_to_disconnect.push(*it);
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Get again the children, because we may have deleted some of them
-            children = n->get_children();
-            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                remove_unnecessary_connections_rec(*it);
-        }
-    }
-    
-    void ExtensibleGraph::remove_unnecessary_connections()
-    {
-        Node* entry = _graph->get_graph_entry_node();
-        remove_unnecessary_connections_rec(entry);
-        clear_visits_extgraph(entry);
-    }
 
     void ExtensibleGraph::concat_sequential_nodes()
     {
@@ -802,39 +745,50 @@ namespace Analysis {
         }
     }
 
-    static void clear_visits_backwards_rec(Node* n)
+    static void clear_visits_backwards_rec(Node* n, Node* sc)
     {
-        if(n->is_visited())
+        if (n->is_visited())
         {
             n->set_visited(false);
-
-            if(n->is_graph_node())
-                clear_visits_backwards_rec(n->get_graph_exit_node());
+            if (n->is_graph_node())
+                clear_visits_backwards_rec(n->get_graph_exit_node(), sc);
 
             if (n->is_entry_node())
             {
-                n = n->get_outer_node();
+                // If the parents of the outer node have still one child that must be clean up
+                // within the scope of the cleaning, then do not keep cleaning this path
+                // because we will still visit the outer from that child
+                bool all_visited = true;
+                const ObjectList<Node*>& children = n->get_outer_node()->get_children();
+                for (ObjectList<Node*>::const_iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    if (!(*it)->is_visited() && ExtensibleGraph::node_contains_node(sc, *it))
+                        all_visited = false;
+                }
+
+                if (all_visited)
+                    n = n->get_outer_node();
                 n->set_visited(false);  // Be sure we do not miss any node
                                         // in case we clean up from the middle of the graph
             }
             const ObjectList<Node*>& parents = n->get_parents();
-            for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it);
+            for (ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
+                clear_visits_backwards_rec(*it, sc);
         }
     }
 
-    void ExtensibleGraph::clear_visits_backwards(Node* n)
+    void ExtensibleGraph::clear_visits_backwards(Node* n, Node* sc)
     {
         if(n->is_graph_node())
         {
             n->set_visited(false);
             const ObjectList<Node*>& parents = n->get_parents();
             for(ObjectList<Node*>::const_iterator it = parents.begin(); it != parents.end(); ++it)
-                clear_visits_backwards_rec(*it);
+                clear_visits_backwards_rec(*it, n);
         }
         else
         {
-            clear_visits_backwards_rec(n);
+            clear_visits_backwards_rec(n, sc);
         }
     }
 

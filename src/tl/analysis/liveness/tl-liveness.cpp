@@ -54,7 +54,7 @@ namespace Analysis {
         // Note: 'n', which is the most outer node of the graph, must be cleaned up separatedly
         //       because clear_visits_backwards skips entering the first node it is called with
         //       in case it is a graph node
-        ExtensibleGraph::clear_visits_backwards(exit);
+        ExtensibleGraph::clear_visits_backwards(exit, graph);
         graph->set_visited(false);
 
         // Common Liveness analysis
@@ -63,7 +63,7 @@ namespace Analysis {
         {
             changed = false;
             solve_live_equations_rec(graph, changed);
-            ExtensibleGraph::clear_visits_backwards(exit);
+            ExtensibleGraph::clear_visits_backwards(exit, graph);
             graph->set_visited(false);
         }
     }
